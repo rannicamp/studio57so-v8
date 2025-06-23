@@ -1,0 +1,69 @@
+Manual de Estilo e Design
+
+Este manual descreve os padrões de design, cores, fontes e componentes utilizados na sua aplicação, garantindo consistência e uma experiência de usuário de alta qualidade.
+
+1. Paleta de Cores
+As cores foram escolhidas utilizando as opções padrão do Tailwind CSS para simplificar o desenvolvimento e a manutenção.
+
+Cores Principais:
+Azul Principal: blue-500 (um azul padrão do Tailwind, equivalente ao #3b82f6)
+Azul Escuro: blue-700 (um tom mais escuro de azul do Tailwind, equivalente ao #2563eb)
+Cores de Feedback e Status:
+Sucesso: green-500
+Perigo/Alerta: red-500
+Cores de Tarefas: green-300, purple-400, yellow-300 (e outros tons conforme necessidade para diferenciar tarefas)
+Cores Neutras e de Texto:
+Fundo Geral: gray-50 (um cinza super claro)
+Fundo de Seção: white
+Texto Principal: gray-900 (um cinza escuro para o texto)
+Bordas: gray-300
+2. Tipografia
+A fonte principal do sistema será "Roboto", com "Montserrat" como alternativa caso "Roboto" não seja preferível ou disponível.
+
+Fonte Principal: Roboto (Será utilizada para todo o sistema. Caso não seja carregada, a alternativa é Montserrat, e em último caso, uma fonte sans-serif padrão do sistema).
+Para usar esta fonte, é necessário importá-la (ex: via Google Fonts) e configurá-la no tailwind.config.js na seção fontFamily.sans.
+Hierarquia de Texto:
+Títulos de Página: text-3xl font-bold (Exemplo: para títulos principais das páginas)
+Títulos de Seção: text-2xl font-semibold (Exemplo: para títulos dentro das seções)
+Corpo de Texto: text-base (Padrão para a maioria do texto)
+Rótulos de Formulário: text-sm font-medium (Exemplo: para descrições de campos)
+Texto de Botão: text-base font-medium (Exemplo: para o texto visível dentro dos botões)
+3. Layout e Componentes Reutilizáveis
+Os componentes de layout são fixos e responsivos para garantir uma navegação consistente.
+
+Cabeçalho Superior (Header): Componente reutilizável, fixo no topo (fixed top-0 w-full), com altura de 65px. Projetado para conter logo, título da aplicação e informações do usuário (nome e foto). Utilizará fundo bg-white e sombra shadow-md.
+Menu Lateral (Sidebar): Componente reutilizável, fixo à esquerda (fixed left-0), com 260px de largura e altura total da tela (h-full). Contém a navegação principal do sistema.
+Deve ser colapsável (com lógica JavaScript para alternar classes de largura).
+Utiliza ícones da biblioteca Font Awesome (necessário importar a biblioteca).
+Fundo bg-white e sombra shadow-lg.
+Área de Conteúdo Principal: É o espaço restante da tela, posicionada à direita do menu lateral (ml-[260px]) e abaixo do cabeçalho (mt-[65px]). Terá um padding interno (p-6) e fundo bg-gray-50.
+As seções de conteúdo internas devem ter fundo bg-white, bordas arredondadas (rounded-lg), sombra (shadow) e padding interno (p-4).
+4. Guia de Componentes
+Padrões visuais para os elementos interativos do sistema.
+
+Botões:
+Primário: bg-blue-500, text-white, px-4 py-2, rounded-md, com efeito hover:bg-blue-600.
+Secundário: bg-gray-200, text-gray-800, px-4 py-2, rounded-md, com efeito hover:bg-gray-300.
+De Exclusão: bg-red-500, text-white, px-4 py-2, rounded-md, com efeito hover:bg-red-600.
+Formulários (Inputs, Selects): Aparência e comportamento padronizados.
+Normal: border border-gray-300, rounded-md, p-2.
+Selecionado (Focus): focus:outline-none, focus:ring-2, focus:ring-blue-500.
+Apenas Leitura: bg-gray-100, cursor-not-allowed.
+Tabelas: Estrutura clara e legível.
+Estrutura geral: w-full, border-collapse.
+Cabeçalho: bg-gray-100, text-gray-700, font-semibold, p-3, text-left.
+Linhas: border-b border-gray-200, p-3, com efeito hover:bg-gray-50.
+Modal (Janela Pop-up): Janela de foco para ações importantes.
+Fundo escurecido: fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center.
+Janela de foco: bg-white, p-6, rounded-lg, shadow-lg, max-w-md, w-full.
+5. Gráfico de Gantt
+Componente visual para gestão de projetos com particularidades no cálculo de datas.
+
+Estrutura do Cabeçalho: O cabeçalho da linha do tempo exibe os meses e os dias, usando flexbox.
+Destaque de Fim de Semana: Sábados e domingos no cabeçalho do gráfico devem ser destacados com a cor de fundo bg-red-100 para facilitar a visualização e o planejamento.
+Barras de Tarefa: A posição e a largura da barra representam o início e o fim da tarefa.
+A barra de progresso interna (bg-blue-400) indica a porcentagem de conclusão.
+Cálculo de Duração (Dias Úteis): O campo "Duração" deve operar com base em dias úteis. Ao calcular a data final a partir de uma data de início e uma duração, o sistema deve ignorar os fins de semana (sábados e domingos).
+Exemplo: Uma tarefa que começa em uma sexta-feira com duração de "2" dias deve ter sua data final calculada para a segunda-feira seguinte, não para o domingo.
+Esta funcionalidade exige lógica de programação separada do design visual.
+Marcador de "Hoje": Uma linha vertical bg-red-500 (w-0.5 h-full) atravessa o gráfico, indicando claramente a data atual de forma dinâmica.
