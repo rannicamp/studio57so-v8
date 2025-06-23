@@ -2,8 +2,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '../../utils/supabase/client'; // Caminho corrigido
-import RdoForm from '../../components/RdoForm'; // Caminho corrigido
+// CAMINHO CORRIGIDO de ../../ para ../../../
+import { createClient } from '../../../utils/supabase/client'; 
+// CAMINHO CORRIGIDO de ../../ para ../../../
+import RdoForm from '../../../components/RdoForm'; 
 
 export default function RdoPage() {
   const supabase = createClient();

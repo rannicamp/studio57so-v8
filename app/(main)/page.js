@@ -1,48 +1,34 @@
 import Link from 'next/link';
-import { createClient } from '../utils/supabase/server'; 
-import LogoutButton from '../components/LogoutButton';
+// CAMINHO CORRIGIDO DE ../ PARA ../../
+import { createClient } from '../../utils/supabase/server'; 
+import LogoutButton from '../../components/LogoutButton';
 
 export default async function HomePage() {
-  // ... (o início do código continua o mesmo)
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const { data: lembretes } = await supabase.from('lembretes').select('*');
 
+  // Este componente não precisa mais mostrar o usuário, pois o Header já faz isso.
+  // Mantendo o layout limpo e focado no conteúdo.
   return (
-    <main style={{ fontFamily: 'sans-serif', textAlign: 'center', marginTop: '50px' }}>
-      {/* ... (código do LogoutButton, título e lembretes continua o mesmo) ... */}
-      <div style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '14px' }}>
-        {user ? (
-          <>
-            <span>{user.email}</span>
-            <LogoutButton />
-          </>
-        ) : (
-          <Link href="/login">Fazer Login</Link>
-        )}
-      </div>
-
-      <h1>Minisistema com Supabase</h1>
+    <main className="text-center space-y-6">
+      <h1 className="text-3xl font-bold text-gray-900">Dashboard Principal</h1>
       
-      <div style={{ border: '1px solid #ccc', padding: '10px', display: 'inline-block', minWidth: '200px', marginBottom: '20px' }}>
-        <h2>Lembretes:</h2>
+      <div className="bg-white p-6 rounded-lg shadow-md max-w-sm mx-auto">
+        <h2 className="text-xl font-semibold mb-3 text-gray-800">Lembretes</h2>
         {lembretes && lembretes.length > 0 ? (
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {lembretes.map((lembrete) => (<li key={lembrete.id}>{lembrete.titulo}</li>))}
+          <ul className="list-disc list-inside text-left">
+            {lembretes.map((lembrete) => (<li key={lembrete.id} className="text-gray-700">{lembrete.titulo}</li>))}
           </ul>
-        ) : (<p>Nenhum lembrete encontrado.</p>)}
+        ) : (<p className="text-gray-500">Nenhum lembrete encontrado.</p>)}
       </div>
 
-      <div>
-        <Link href="/empresas/cadastro" style={{ color: 'white', backgroundColor: '#28a745', padding: '10px 20px', borderRadius: '5px', textDecoration: 'none' }}>
+      <div className="space-x-4">
+        <Link href="/(main)/empresas/cadastro" className="inline-block bg-green-500 text-white px-6 py-2 rounded-md shadow-sm hover:bg-green-600">
           Cadastrar Nova Empresa
         </Link>
-      </div>
-
-      {/* NOVO LINK ADICIONADO AQUI */}
-      <div style={{ marginTop: '10px' }}>
-        <Link href="/upload" style={{ color: 'white', backgroundColor: '#17a2b8', padding: '10px 20px', borderRadius: '5px', textDecoration: 'none' }}>
-          Upload de Arquivo de Marca
+        <Link href="/(main)/upload" className="inline-block bg-cyan-500 text-white px-6 py-2 rounded-md shadow-sm hover:bg-cyan-600">
+          Upload de Marca
         </Link>
       </div>
     </main>

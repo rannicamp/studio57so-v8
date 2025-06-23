@@ -1,22 +1,21 @@
-import './globals.css';
+// O caminho para o globals.css foi corrigido de './' para '../'
+import '../globals.css'; 
+import Sidebar from '../../components/sidebar';
+import Header from '../../components/Header';
 
-export const metadata = {
-  title: 'Studio 57',
-  description: 'Sistema de Gestão de Obras',
-};
-
-export default function RootLayout({ children }) {
+// Este é o layout para a parte principal da aplicação (área logada).
+export default function MainAppLayout({ children }) {
   return (
-    <html lang="pt-BR">
-      <head>
-        {/* Adicionando as fontes do Google Fonts - AGORA COM O PESO 300 PARA KHAND */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Khand:wght@300;400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
-      </head>
-      <body className="bg-gray-50">
-        {children}
-      </body>
-    </html>
+    <div className="flex">
+      <Sidebar />
+
+      <div className="flex-1">
+        <Header />
+
+        <main className="ml-[260px] mt-[65px] p-6">
+          {children}
+        </main>
+      </div>
+    </div>
   );
 }
