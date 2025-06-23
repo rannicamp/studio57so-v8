@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '../../utils/supabase/client';
-import AtividadeModal from '../../components/AtividadeModal';
-import ActivityList from '../../components/ActivityList';
+import { createClient } from '../../../utils/supabase/client';
+import AtividadeModal from '../../../components/AtividadeModal';
+import ActivityList from '../../../components/ActivityList';
 // import GanttChart from '../../components/GanttChart'; // Removido o import do GanttChart
 
 export default function AtividadesPage() {

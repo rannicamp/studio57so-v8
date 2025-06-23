@@ -40,8 +40,9 @@ export async function middleware(request) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Se não há usuário logado e ele não está tentando acessar a página de login
-  if (!user && request.nextUrl.pathname !== '/login') {
+  // CORREÇÃO: Adicionado a verificação para a página de registro
+  // Se não há usuário E a página não é /login E a página não é /register
+  if (!user && request.nextUrl.pathname !== '/login' && request.nextUrl.pathname !== '/register') {
     // Redireciona para a página de login
     return NextResponse.redirect(new URL('/login', request.url))
   }

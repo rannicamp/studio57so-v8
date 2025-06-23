@@ -210,7 +210,6 @@ CREATE TABLE public.usuarios (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   funcionario_id bigint UNIQUE,
   email text NOT NULL UNIQUE,
-  password_hash text NOT NULL,
   is_active boolean DEFAULT true,
   is_admin boolean DEFAULT false,
   updated_at timestamp with time zone DEFAULT now(),

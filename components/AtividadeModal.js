@@ -3,35 +3,25 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '../utils/supabase/client';
 
-// Função auxiliar para adicionar dias úteis a uma data, AGORA CORRIGIDA
+// Função auxiliar para adicionar dias úteis a uma data
 function addBusinessDays(startDate, days) {
   if (!startDate || isNaN(days) || days <= 0) {
     return startDate || '';
   }
-
-  let currentDate = new Date(startDate.replace(/-/g, '/')); // Corrige problema de fuso horário
-  
-  // A duração inclui o dia de início, então adicionamos 'duração - 1' dias úteis.
-  // Usamos Math.ceil para tratar os casos de meio dia (ex: 4.5 dias)
+  let currentDate = new Date(startDate.replace(/-/g, '/'));
   let daysToAdd = Math.ceil(parseFloat(days)) - 1;
-  
-  // Se a duração for menor que 1 (ex: 0.5), a tarefa termina no mesmo dia.
   if (daysToAdd < 0) {
     return startDate;
   }
-  
   while (daysToAdd > 0) {
     currentDate.setDate(currentDate.getDate() + 1);
     const dayOfWeek = currentDate.getDay();
-    // Pula Sábado (6) e Domingo (0)
     if (dayOfWeek !== 0 && dayOfWeek !== 6) {
       daysToAdd--;
     }
   }
-  // Formata a data para YYYY-MM-DD
   return currentDate.toISOString().split('T')[0];
 }
-
 
 export default function AtividadeModal({ isOpen, onClose, selectedEmpreendimento, existingActivities, onActivityAdded }) {
   const supabase = createClient();
@@ -52,10 +42,28 @@ export default function AtividadeModal({ isOpen, onClose, selectedEmpreendimento
     duracao_dias: 0,
     dependencies: null,
   });
-  
-  const [message, setMessage] = useState('');
 
-  // O cálculo agora usará a nova função corrigida
+  const [message, setMessage] = useState('');
+  const [currentUserId, setCurrentUserId] = useState(null); // NOVO ESTADO PARA GUARDAR O ID DO USUÁRIO
+
+  // EFEITO PARA BUSCAR O USUÁRIO LOGADO QUANDO O MODAL ABRE
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      } else {
+        console.error("Nenhum usuário logado encontrado.");
+        setMessage("Erro: Usuário não autenticado.");
+      }
+    };
+
+    if (isOpen) {
+      fetchUser();
+    }
+  }, [isOpen, supabase]);
+
+
   const dataFimPrevista = useMemo(() => {
     return addBusinessDays(formData.data_inicio_prevista, formData.duracao_dias);
   }, [formData.data_inicio_prevista, formData.duracao_dias]);
@@ -67,6 +75,13 @@ export default function AtividadeModal({ isOpen, onClose, selectedEmpreendimento
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // VERIFICA SE O ID DO USUÁRIO FOI CARREGADO
+    if (!currentUserId) {
+        setMessage("Erro: Não foi possível identificar o usuário. Tente novamente.");
+        return;
+    }
+
     setMessage('Salvando...');
 
     const dadosParaSalvar = {
@@ -78,7 +93,7 @@ export default function AtividadeModal({ isOpen, onClose, selectedEmpreendimento
       data_fim_prevista: dataFimPrevista,
       empreendimento_id: selectedEmpreendimento.id,
       empresa_id: selectedEmpreendimento.empresa_proprietaria_id,
-      criado_por_usuario_id: 1, // VALOR FIXO TEMPORÁRIO!
+      criado_por_usuario_id: currentUserId, // << CORREÇÃO APLICADA AQUI
       status: 'Não iniciado',
     };
 
@@ -86,6 +101,7 @@ export default function AtividadeModal({ isOpen, onClose, selectedEmpreendimento
 
     if (error) {
       setMessage(`Erro: ${error.message}`);
+      console.error("Erro ao inserir atividade:", error);
     } else {
       setMessage('Atividade salva com sucesso!');
       onActivityAdded();
@@ -116,7 +132,7 @@ export default function AtividadeModal({ isOpen, onClose, selectedEmpreendimento
             </div>
             <div>
               <label htmlFor="data_inicio_prevista" className="block text-sm font-medium text-gray-700">Data de Início Prevista</label>
-              <input type="date" name="data_inicio_prevista" id="data_inicio_prevista" value={formData.data_inicio_prevista} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md"/>
+              <input type="date" name="data_inicio_prevista" id="data_inicio_prevista" value={formData.data_inicio_prevista || ''} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md"/>
             </div>
             <div>
               <label htmlFor="duracao_dias" className="block text-sm font-medium text-gray-700">Duração (dias úteis)</label>
