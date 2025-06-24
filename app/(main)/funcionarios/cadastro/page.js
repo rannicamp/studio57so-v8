@@ -1,5 +1,5 @@
-import { createClient } from '../../../../utils/supabase/server'; // Caminho corrigido
-import FuncionarioForm from '../../../../components/FuncionarioForm'; // Caminho corrigido
+import { createClient } from '../../../../utils/supabase/server';
+import FuncionarioForm from '../../../../components/FuncionarioForm';
 import Link from 'next/link';
 
 export default async function CadastroFuncionarioPage() {
@@ -19,10 +19,12 @@ export default async function CadastroFuncionarioPage() {
 
   return (
     <div>
-        <Link href="/" className="text-blue-500 hover:underline mb-4 inline-block">
-            &larr; Voltar para o Dashboard
+        {/* Este link volta para a PÁGINA DE LISTA */}
+        <Link href="/funcionarios" className="text-blue-500 hover:underline mb-4 inline-block">
+            &larr; Voltar para a Lista de Funcionários
         </Link>
-        {/* Renderiza o formulário, passando as listas de empresas E empreendimentos */}
+        
+        {/* Renderiza o formulário de cadastro */}
         <FuncionarioForm companies={companies} empreendimentos={empreendimentos} />
     </div>
   );
