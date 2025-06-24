@@ -24,11 +24,11 @@ CREATE TABLE public.activities (
   created_at timestamp with time zone DEFAULT now(),
   progresso integer DEFAULT 0,
   CONSTRAINT activities_pkey PRIMARY KEY (id),
+  CONSTRAINT activities_criado_por_usuario_id_fkey FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id),
   CONSTRAINT activities_diario_obra_id_fkey FOREIGN KEY (diario_obra_id) REFERENCES public.diarios_obra(id),
   CONSTRAINT activities_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id),
   CONSTRAINT activities_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id),
-  CONSTRAINT activities_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id),
-  CONSTRAINT activities_criado_por_usuario_id_fkey FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id)
+  CONSTRAINT activities_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id)
 );
 CREATE TABLE public.cadastro_empresa (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -230,8 +230,9 @@ CREATE TABLE public.usuarios (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT usuarios_pkey PRIMARY KEY (id),
-  CONSTRAINT usuarios_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id),
-  CONSTRAINT usuarios_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+  CONSTRAINT usuarios_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
+  CONSTRAINT usuarios_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id)
+);
 );
 
 A funcionalidade de gerar URLs assinadas (signed URLs) é a maneira correta de lidar com arquivos protegidos no Supabase, garantindo que apenas usuários autenticados possam acessá-los.
