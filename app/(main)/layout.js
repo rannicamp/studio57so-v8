@@ -1,21 +1,31 @@
-// O caminho para o globals.css foi corrigido de './' para '../'
+"use client";
+
+import { useState } from 'react';
 import '../globals.css'; 
 import Sidebar from '../../components/sidebar';
 import Header from '../../components/Header';
 
-// Este é o layout para a parte principal da aplicação (área logada).
 export default function MainAppLayout({ children }) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const toggleSidebar = () => {
+    setIsCollapsed(!isCollapsed);
+  };
+
   return (
-    <div className="flex">
-      <Sidebar />
+    <div>
+      {/* A Sidebar continua recebendo o estado de recolhida */}
+      <Sidebar isCollapsed={isCollapsed} />
+      
+      {/* O Header agora também recebe o estado para saber onde se posicionar
+        e a função para o botão funcionar.
+      */}
+      <Header isCollapsed={isCollapsed} toggleSidebar={toggleSidebar} />
 
-      <div className="flex-1">
-        <Header />
-
-        <main className="ml-[260px] mt-[65px] p-6">
-          {children}
-        </main>
-      </div>
+      {/* O conteúdo principal continua ajustando sua margem */}
+      <main className={`p-6 mt-[65px] transition-all duration-300 ${isCollapsed ? 'ml-[80px]' : 'ml-[260px]'}`}>
+        {children}
+      </main>
     </div>
   );
 }

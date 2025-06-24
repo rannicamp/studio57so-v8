@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '../../utils/supabase/client';
+// O caminho foi corrigido aqui, adicionando um nível a mais ('../')
+import { createClient } from '../../../utils/supabase/client';
 
 export default function UploadPage() {
   const supabase = createClient();
