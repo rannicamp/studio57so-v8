@@ -1,5 +1,5 @@
-import { createClient } from '../../../utils/supabase/server';
-import EmpreendimentoForm from '../../../components/EmpreendimentoForm'; // Importa nosso formulário
+import { createClient } from '../../../../utils/supabase/server'; // Caminho corrigido
+import EmpreendimentoForm from '../../../../components/EmpreendimentoForm'; // Caminho corrigido
 import Link from 'next/link';
 
 // Esta página é um "Server Component", por isso pode ser async

@@ -1,5 +1,5 @@
-import { createClient } from '../../../utils/supabase/server';
-import FuncionarioForm from '../../../components/FuncionarioForm'; // Importa nosso novo formulário
+import { createClient } from '../../../../utils/supabase/server'; // Caminho corrigido
+import FuncionarioForm from '../../../../components/FuncionarioForm'; // Caminho corrigido
 import Link from 'next/link';
 
 export default async function CadastroFuncionarioPage() {

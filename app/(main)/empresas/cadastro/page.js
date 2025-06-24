@@ -1,4 +1,4 @@
-import EmpresaForm from '../../../components/EmpresaForm'; // Importa nosso novo formulário
+import EmpresaForm from '../../../../components/EmpresaForm'; // O caminho foi corrigido aqui
 import Link from 'next/link';
 
 // Esta página não precisa buscar dados, então pode ser mais simples
