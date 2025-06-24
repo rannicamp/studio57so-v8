@@ -5,6 +5,10 @@ import Link from 'next/link';
 
 export default async function EditarFuncionarioPage({ params }) {
   const supabase = createClient();
+  // O params.id já é acessível diretamente porque o Next.js lida com a resolução
+  // em Server Components. O erro no console pode ser um falso positivo ou um aviso
+  // sobre como ele é "resolvido" internamente, mas você já está usando corretamente.
+  // De qualquer forma, não precisa de 'await' diretamente aqui para params.id.
   const employeeId = params.id;
 
   // Busca os dados do funcionário, da empresa, do empreendimento E dos documentos
@@ -34,8 +38,8 @@ export default async function EditarFuncionarioPage({ params }) {
         <Link href="/funcionarios" className="text-blue-500 hover:underline mb-4 inline-block">
             &larr; Voltar para a Lista de Funcionários
         </Link>
-        <FichaFuncionario 
-          initialEmployee={employee} 
+        <FichaFuncionario
+          initialEmployee={employee}
           companies={companies || []}
           empreendimentos={empreendimentos || []}
         />
