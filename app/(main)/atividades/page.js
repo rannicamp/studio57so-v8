@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import AtividadeModal from '../../../components/AtividadeModal';
 import ActivityList from '../../../components/ActivityList';
-// import GanttChart from '../../components/GanttChart'; // Removido o import do GanttChart
+import GanttChart from '../../../components/GanttChart'; // Import do nosso novo Gantt
 
 export default function AtividadesPage() {
   const supabase = createClient();
@@ -14,7 +14,7 @@ export default function AtividadesPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isListCollapsed, setIsListCollapsed] = useState(false);
-  // const [isGanttCollapsed, setIsGanttCollapsed] = useState(false); // Removido o estado do Gantt
+  const [isGanttCollapsed, setIsGanttCollapsed] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'data_inicio_prevista', direction: 'ascending' });
 
 
@@ -110,8 +110,7 @@ export default function AtividadesPage() {
                 {!isListCollapsed && <ActivityList activities={activities} requestSort={sortActivities} sortConfig={sortConfig} />}
             </div>
             
-            {/* O bloco do Gráfico de Gantt foi removido */}
-            {/*
+            {/* Bloco do Gráfico de Gantt reativado */}
             <div className="bg-white rounded-lg shadow">
                 <button onClick={() => setIsGanttCollapsed(!isGanttCollapsed)} className="font-bold text-xl p-4 w-full text-left flex justify-between items-center">
                     <span>Gráfico de Gantt</span>
@@ -119,7 +118,6 @@ export default function AtividadesPage() {
                 </button>
                 {!isGanttCollapsed && <GanttChart activities={activities} />}
             </div>
-            */}
         </>
       )}
 
