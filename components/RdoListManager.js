@@ -4,23 +4,21 @@ import { useState, useMemo } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 
-export default function RdoListManager({ initialRdos, empreendimentosList, responsaveisList }) {
+// O componente agora recebe a propriedade 'isAdmin'
+export default function RdoListManager({ initialRdos, empreendimentosList, responsaveisList, isAdmin }) {
   const supabase = createClient();
   const router = useRouter(); 
   const [rdos, setRdos] = useState(initialRdos);
   const [message, setMessage] = useState('');
   
-  // Estado para controlar se os filtros estão visíveis ou recolhidos
   const [isFiltersVisible, setIsFiltersVisible] = useState(true);
   
-  // Estados para os filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmpreendimento, setSelectedEmpreendimento] = useState('');
   const [selectedResponsavel, setSelectedResponsavel] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // Lógica para filtrar por período (semana/mês)
   const setPeriod = (period) => {
     const end = new Date();
     const start = new Date();
@@ -68,7 +66,6 @@ export default function RdoListManager({ initialRdos, empreendimentosList, respo
 
   return (
     <div className="space-y-6">
-      {/* Botão para controlar a visibilidade dos filtros */}
       <button 
         onClick={() => setIsFiltersVisible(!isFiltersVisible)}
         className="text-lg font-semibold text-gray-800 flex items-center gap-2"
@@ -79,7 +76,6 @@ export default function RdoListManager({ initialRdos, empreendimentosList, respo
         </span>
       </button>
 
-      {/* Área de Filtros - agora controlada pelo estado */}
       {isFiltersVisible && (
         <div className="p-4 bg-gray-50 border rounded-lg space-y-4 animate-fade-in">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -139,7 +135,12 @@ export default function RdoListManager({ initialRdos, empreendimentosList, respo
                   <td className="px-6 py-4">{rdo.empreendimentos?.nome || 'N/A'}</td>
                   <td className="px-6 py-4">{rdo.responsavel_rdo || 'N/A'}</td>
                   <td className="px-6 py-4">{rdo.condicoes_trabalho === 'Praticável' ? 'Sim' : 'Não'}</td>
-                  <td className="px-6 py-4 text-right"><button onClick={(e) => handleDeleteRdo(e, rdo.id)} className="text-red-600 hover:text-red-900 z-10 relative">Excluir</button></td>
+                  <td className="px-6 py-4 text-right">
+                    {/* O botão de excluir só aparece se o usuário for admin */}
+                    {isAdmin && (
+                      <button onClick={(e) => handleDeleteRdo(e, rdo.id)} className="text-red-600 hover:text-red-900 z-10 relative">Excluir</button>
+                    )}
+                  </td>
                 </tr>
               ))
             )}
