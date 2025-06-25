@@ -1,22 +1,22 @@
 "use client";
 
 import { useState } from 'react';
-import { createClient } from '../utils/supabase/client'; // Caminho relativo pois está dentro de 'components'
+import { createClient } from '../utils/supabase/client';
 
-export default function UserManagementForm({ initialUsers, allEmployees }) {
+export default function UserManagementForm({ initialUsers, allEmployees, allRoles }) {
   const supabase = createClient();
   const [users, setUsers] = useState(initialUsers);
   const [message, setMessage] = useState('');
-  const [editingUserId, setEditingUserId] = useState(null); // ID do usuário que está sendo editado
-  const [formData, setFormData] = useState({}); // Dados do formulário para o usuário em edição
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [formData, setFormData] = useState({});
 
   const handleEditClick = (user) => {
     setEditingUserId(user.id);
     setFormData({
       ...user,
-      funcionario_id: user.funcionario_id || '', // Garante que seja string vazia se for null
+      funcionario_id: user.funcionario_id || '',
+      funcao_id: user.funcao?.id || '', // Carrega o ID da função atual
       is_active: user.is_active,
-      is_admin: user.is_admin,
     });
     setMessage('');
   };
@@ -38,16 +38,16 @@ export default function UserManagementForm({ initialUsers, allEmployees }) {
   const handleSaveUser = async () => {
     setMessage('Salvando...');
     
-    const { id, nome, sobrenome, email, funcionario_id, is_active, is_admin } = formData;
+    const { id, nome, sobrenome, email, funcionario_id, is_active, funcao_id } = formData;
 
-    // Campos que podem ser atualizados na tabela 'usuarios'
+    // Campos que serão atualizados na tabela 'usuarios'
     const updateData = {
-      nome: nome,
-      sobrenome: sobrenome,
-      email: email, 
+      nome,
+      sobrenome,
+      email, 
       funcionario_id: funcionario_id || null, 
-      is_active: is_active,
-      is_admin: is_admin,
+      is_active,
+      funcao_id: funcao_id || null, // Salva o ID da função em vez de 'is_admin'
     };
 
     const { error } = await supabase
@@ -62,13 +62,13 @@ export default function UserManagementForm({ initialUsers, allEmployees }) {
       setMessage('Usuário salvo com sucesso!');
       setEditingUserId(null); // Sai do modo de edição
 
-      // Atualiza o estado local dos usuários para refletir a mudança
+      // Atualiza o estado local para refletir a mudança na tela imediatamente
       setUsers(prevUsers => prevUsers.map(user =>
         user.id === id ? { 
           ...user, 
           ...updateData,
-          // Atualiza o objeto funcionario aninhado se houver alteração
-          funcionario: allEmployees.find(emp => emp.id === funcionario_id) || null
+          funcionario: allEmployees.find(emp => emp.id == funcionario_id) || null,
+          funcao: allRoles.find(role => role.id == funcao_id) || null,
         } : user
       ));
     }
@@ -91,8 +91,8 @@ export default function UserManagementForm({ initialUsers, allEmployees }) {
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Funcionário Associado</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Função</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ativo</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin</th>
               <th scope="col" className="relative px-6 py-3"><span className="sr-only">Ações</span></th>
             </tr>
           </thead>
@@ -100,7 +100,7 @@ export default function UserManagementForm({ initialUsers, allEmployees }) {
             {users.map((user) => (
               <tr key={user.id}>
                 {editingUserId === user.id ? (
-                  // Modo de Edição
+                  // --- MODO DE EDIÇÃO ---
                   <>
                     <td className="px-6 py-4 whitespace-nowrap"><input type="text" name="nome" value={formData.nome || ''} onChange={handleChange} className="p-2 border rounded-md w-full text-sm"/></td>
                     <td className="px-6 py-4 whitespace-nowrap"><input type="email" name="email" value={formData.email || ''} onChange={handleChange} className="p-2 border rounded-md w-full text-sm"/></td>
@@ -108,15 +108,20 @@ export default function UserManagementForm({ initialUsers, allEmployees }) {
                       <select name="funcionario_id" value={formData.funcionario_id || ''} onChange={handleChange} className="p-2 border rounded-md w-full text-sm">
                         <option value="">Nenhum</option>
                         {allEmployees.map(emp => (
-                          <option key={emp.id} value={emp.id}>{emp.full_name} ({emp.cpf})</option>
+                          <option key={emp.id} value={emp.id}>{emp.full_name}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <select name="funcao_id" value={formData.funcao_id || ''} onChange={handleChange} className="p-2 border rounded-md w-full text-sm">
+                        <option value="">Nenhuma</option>
+                        {allRoles.map(role => (
+                          <option key={role.id} value={role.id}>{role.nome_funcao}</option>
                         ))}
                       </select>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <input type="checkbox" name="is_active" checked={formData.is_active || false} onChange={handleChange} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"/>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <input type="checkbox" name="is_admin" checked={formData.is_admin || false} onChange={handleChange} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"/>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button onClick={handleSaveUser} className="text-green-600 hover:text-green-900 mr-4">Salvar</button>
@@ -124,21 +129,13 @@ export default function UserManagementForm({ initialUsers, allEmployees }) {
                     </td>
                   </>
                 ) : (
-                  // Modo de Visualização
+                  // --- MODO DE VISUALIZAÇÃO ---
                   <>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {user.nome} {user.sobrenome}
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.nome} {user.sobrenome}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.funcionario ? `${user.funcionario.full_name} (${user.funcionario.cpf})` : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                      {user.is_active ? 'Sim' : 'Não'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                      {user.is_admin ? 'Sim' : 'Não'}
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.funcionario?.full_name || 'N/A'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.funcao?.nome_funcao || 'N/A'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">{user.is_active ? 'Sim' : 'Não'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button onClick={() => handleEditClick(user)} className="text-blue-600 hover:text-blue-900">Editar</button>
                     </td>

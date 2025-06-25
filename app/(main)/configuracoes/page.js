@@ -18,11 +18,18 @@ const SettingsCard = ({ href, icon, title, description }) => (
 export default async function ConfiguracoesPage() {
     const supabase = createClient();
 
-    // Protege a página para que apenas admins possam acessá-la
+    // Protege a página para que apenas proprietários possam acessá-la
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-        const { data: userData } = await supabase.from('usuarios').select('funcoes(nome_funcao)').eq('id', user.id).single();
-        if (userData?.funcoes?.nome_funcao !== 'Proprietário') {
+        // Verifica a função do usuário no banco de dados
+        const { data: userData } = await supabase
+            .from('usuarios')
+            .select('funcao:funcoes ( nome_funcao )')
+            .eq('id', user.id)
+            .single();
+
+        // Redireciona se a função não for 'Proprietário'
+        if (userData?.funcao?.nome_funcao !== 'Proprietário') {
             redirect('/');
         }
     } else {
@@ -49,7 +56,6 @@ export default async function ConfiguracoesPage() {
           title="Gerenciar Permissões"
           description="Defina o que cada função pode ver, criar, editar ou excluir."
         />
-        {/* Adicione mais cards de configuração aqui no futuro */}
       </div>
     </div>
   );
