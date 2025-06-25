@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
 import LogoutButton from './LogoutButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBars } from '@fortawesome/free-solid-svg-icons';
+import { faChevronLeft, faChevronRight, faHome } from '@fortawesome/free-solid-svg-icons';
+import { useRouter } from 'next/navigation';
 
-// O Header agora recebe tanto 'isCollapsed' quanto 'toggleSidebar'
-export default function Header({ isCollapsed, toggleSidebar }) {
+// O Header agora só precisa saber se o menu está recolhido para se ajustar
+export default function Header({ isCollapsed }) {
   const supabase = createClient();
+  const router = useRouter(); // Hook do Next.js para navegação
   const [userName, setUserName] = useState('');
 
   useEffect(() => {
@@ -20,7 +22,6 @@ export default function Header({ isCollapsed, toggleSidebar }) {
           .select('nome, sobrenome')
           .eq('id', user.id)
           .single();
-
         const name = [profile?.nome, profile?.sobrenome].filter(Boolean).join(' ');
         setUserName(name || user.email);
       }
@@ -28,7 +29,7 @@ export default function Header({ isCollapsed, toggleSidebar }) {
     fetchUser();
   }, [supabase]);
 
-  // Define a posição da esquerda do cabeçalho com base no estado da sidebar
+  // Ajusta a posição do cabeçalho com base no estado do menu
   const headerLeftPosition = isCollapsed ? 'left-[80px]' : 'left-[260px]';
 
   return (
@@ -40,10 +41,18 @@ export default function Header({ isCollapsed, toggleSidebar }) {
         ${headerLeftPosition}
       `}
     >
-      {/* Este botão agora ficará visível! */}
-      <button onClick={toggleSidebar} className="text-gray-600 hover:text-blue-500 focus:outline-none">
-        <FontAwesomeIcon icon={faBars} size="lg" />
-      </button>
+      {/* NOVOS CONTROLES DE NAVEGAÇÃO */}
+      <div className="flex items-center gap-4">
+        <button onClick={() => router.back()} className="text-gray-600 hover:text-blue-500" title="Voltar">
+          <FontAwesomeIcon icon={faChevronLeft} size="lg" />
+        </button>
+        <button onClick={() => router.push('/')} className="text-gray-600 hover:text-blue-500" title="Página Inicial">
+          <FontAwesomeIcon icon={faHome} size="lg" />
+        </button>
+        <button onClick={() => router.forward()} className="text-gray-600 hover:text-blue-500" title="Avançar">
+          <FontAwesomeIcon icon={faChevronRight} size="lg" />
+        </button>
+      </div>
 
       <div>
         {userName ? (
