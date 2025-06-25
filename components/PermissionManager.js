@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { createClient } from '../utils/supabase/client';
 
 export default function PermissionManager({ initialFuncoes }) {
@@ -8,7 +8,6 @@ export default function PermissionManager({ initialFuncoes }) {
   const [funcoes, setFuncoes] = useState(initialFuncoes);
   const [message, setMessage] = useState('');
 
-  // Define os recursos (áreas) do seu sistema
   const recursos = [
     { key: 'empresas', name: 'Empresas' },
     { key: 'empreendimentos', name: 'Empreendimentos' },
@@ -19,11 +18,9 @@ export default function PermissionManager({ initialFuncoes }) {
     { key: 'permissoes', name: 'Permissões' },
   ];
 
-  // Função chamada quando uma permissão (checkbox) é alterada
   const handlePermissionChange = async (funcaoId, recursoKey, tipoPermissao, valor) => {
     setMessage('Salvando...');
 
-    // Atualiza o estado na tela imediatamente para o usuário ver a mudança
     const updatedFuncoes = funcoes.map(funcao => {
       if (funcao.id === funcaoId) {
         let permissaoEncontrada = false;
@@ -44,7 +41,6 @@ export default function PermissionManager({ initialFuncoes }) {
     });
     setFuncoes(updatedFuncoes);
 
-    // Envia a alteração para o banco de dados (cria ou atualiza)
     const { error } = await supabase
       .from('permissoes')
       .upsert({
@@ -110,7 +106,6 @@ export default function PermissionManager({ initialFuncoes }) {
                           className="h-4 w-4 rounded"
                           checked={getPermissao(funcao, recurso.key, tipo)}
                           onChange={(e) => handlePermissionChange(funcao.id, recurso.key, tipo, e.target.checked)}
-                          // Desabilita a edição para a função 'Proprietário' para evitar que ele se bloqueie
                           disabled={funcao.nome_funcao === 'Proprietário'}
                         />
                       </td>
@@ -123,11 +118,9 @@ export default function PermissionManager({ initialFuncoes }) {
         </table>
       </div>
        <p className="text-xs text-gray-500 mt-2">
-        Nota: As permissões para a função 'Proprietário' não podem ser alteradas. Esta função sempre terá acesso total.
+        {/* CORREÇÃO AQUI */}
+        Nota: As permissões para a função &apos;Proprietário&apos; não podem ser alteradas. Esta função sempre terá acesso total.
       </p>
     </div>
   );
 }
-
-// O Fragment é necessário para agrupar elementos sem adicionar um nó extra no DOM
-import { Fragment } from 'react';

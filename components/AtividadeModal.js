@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 
 function addBusinessDays(startDate, days) {
@@ -26,16 +26,17 @@ export default function AtividadeModal({ isOpen, onClose, selectedEmpreendimento
   const supabase = createClient();
   const [etapas, setEtapas] = useState([]);
 
-  const initialState = {
+  // CORREÇÃO: Usando useCallback para memorizar o estado inicial e evitar o aviso do linter
+  const getInitialState = useCallback(() => ({
     nome: '',
     etapa_id: '',
     data_inicio_prevista: '',
     duracao_dias: 0,
     dependencies: null,
     status: 'Não Iniciado',
-  };
+  }), []);
 
-  const [formData, setFormData] = useState(initialState);
+  const [formData, setFormData] = useState(getInitialState());
   const [message, setMessage] = useState('');
   const [currentUserId, setCurrentUserId] = useState(null);
   const isEditing = Boolean(activityToEdit);
@@ -75,10 +76,10 @@ export default function AtividadeModal({ isOpen, onClose, selectedEmpreendimento
           status: activityToEdit.status || 'Não Iniciado',
         });
       } else {
-        setFormData(initialState);
+        setFormData(getInitialState());
       }
     }
-  }, [isOpen, supabase, isEditing, activityToEdit]);
+  }, [isOpen, supabase, isEditing, activityToEdit, getInitialState]);
 
 
   const dataFimPrevista = useMemo(() => {
