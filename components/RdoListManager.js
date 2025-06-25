@@ -1,104 +1,145 @@
 "use client";
 
-import { useState } from 'react';
-import { createClient } from '@/utils/supabase/client'; // Usando o alias
-import Link from 'next/link'; // Para links de edição/visualização
-import { format } from 'date-fns'; // Para formatar datas
-import { ptBR } from 'date-fns/locale'; // Para formatação em português
+import { useState, useMemo } from 'react';
+import { createClient } from '../utils/supabase/client';
+import { useRouter } from 'next/navigation';
 
-export default function RdoListManager({ initialRdos }) {
+export default function RdoListManager({ initialRdos, empreendimentosList, responsaveisList }) {
   const supabase = createClient();
+  const router = useRouter(); 
   const [rdos, setRdos] = useState(initialRdos);
   const [message, setMessage] = useState('');
-  const [filterText, setFilterText] = useState('');
+  
+  // Estado para controlar se os filtros estão visíveis ou recolhidos
+  const [isFiltersVisible, setIsFiltersVisible] = useState(true);
+  
+  // Estados para os filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedEmpreendimento, setSelectedEmpreendimento] = useState('');
+  const [selectedResponsavel, setSelectedResponsavel] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
-  const filteredRdos = rdos.filter(rdo => 
-    rdo.data_rdo.includes(filterText) ||
-    rdo.empreendimento?.nome.toLowerCase().includes(filterText.toLowerCase()) ||
-    rdo.empreendimento?.empresa?.nome_fantasia.toLowerCase().includes(filterText.toLowerCase()) ||
-    rdo.funcionario?.full_name.toLowerCase().includes(filterText.toLowerCase())
-  );
-
-  const handleDeleteRdo = async (rdoId) => {
-    if (!confirm('Tem certeza que deseja excluir este Diário de Obra?')) {
-      return;
+  // Lógica para filtrar por período (semana/mês)
+  const setPeriod = (period) => {
+    const end = new Date();
+    const start = new Date();
+    if (period === 'week') {
+      start.setDate(end.getDate() - 7);
+    } else if (period === 'month') {
+      start.setMonth(end.getMonth() - 1);
     }
-    setMessage('Excluindo RDO...');
-    const { error } = await supabase
-      .from('rdo')
-      .delete()
-      .eq('id', rdoId);
+    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(end.toISOString().split('T')[0]);
+  };
 
-    if (error) {
-      setMessage(`Erro ao excluir RDO: ${error.message}`);
-      console.error('Erro ao excluir RDO:', error);
-    } else {
+  const filteredRdos = useMemo(() => {
+    return rdos.filter(rdo => {
+      const rdoDate = new Date(rdo.data_relatorio + 'T00:00:00');
+      
+      const matchEmpreendimento = !selectedEmpreendimento || rdo.empreendimento_id?.toString() === selectedEmpreendimento;
+      const matchResponsavel = !selectedResponsavel || rdo.responsavel_rdo === selectedResponsavel;
+      
+      const matchStartDate = !startDate || rdoDate >= new Date(startDate + 'T00:00:00');
+      const matchEndDate = !endDate || rdoDate <= new Date(endDate + 'T00:00:00');
+      
+      const matchSearchTerm = !searchTerm || JSON.stringify(rdo).toLowerCase().includes(searchTerm.toLowerCase());
+
+      return matchEmpreendimento && matchResponsavel && matchStartDate && matchEndDate && matchSearchTerm;
+    });
+  }, [rdos, searchTerm, selectedEmpreendimento, selectedResponsavel, startDate, endDate]);
+
+  const handleDeleteRdo = async (e, rdoId) => {
+    e.stopPropagation();
+    if (!confirm('Tem certeza que deseja excluir este Diário de Obra?')) return;
+    
+    setMessage('Excluindo RDO...');
+    const { error } = await supabase.from('diarios_obra').delete().eq('id', rdoId);
+    if (error) setMessage(`Erro ao excluir RDO: ${error.message}`);
+    else {
       setMessage('Diário de Obra excluído com sucesso!');
       setRdos(prevRdos => prevRdos.filter(rdo => rdo.id !== rdoId));
     }
   };
 
+  const handleRowClick = (rdoId) => {
+    router.push(`/rdo/${rdoId}`);
+  };
+
   return (
     <div className="space-y-6">
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Filtrar por data, empreendimento, empresa ou funcionário..."
-          value={filterText}
-          onChange={(e) => setFilterText(e.target.value)}
-          className="p-2 border border-gray-300 rounded-md w-full max-w-md shadow-sm"
-        />
-      </div>
+      {/* Botão para controlar a visibilidade dos filtros */}
+      <button 
+        onClick={() => setIsFiltersVisible(!isFiltersVisible)}
+        className="text-lg font-semibold text-gray-800 flex items-center gap-2"
+      >
+        Filtros
+        <span className="transform transition-transform duration-200">
+          {isFiltersVisible ? '▲' : '▼'}
+        </span>
+      </button>
 
-      {message && (
-        <div className={`p-3 rounded-md text-sm ${message.includes('Erro') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-          {message}
+      {/* Área de Filtros - agora controlada pelo estado */}
+      {isFiltersVisible && (
+        <div className="p-4 bg-gray-50 border rounded-lg space-y-4 animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <select onChange={(e) => setSelectedEmpreendimento(e.target.value)} value={selectedEmpreendimento} className="p-2 border rounded-md">
+              <option value="">Todos Empreendimentos</option>
+              {empreendimentosList.map(emp => <option key={emp.id} value={emp.id}>{emp.nome}</option>)}
+            </select>
+            <select onChange={(e) => setSelectedResponsavel(e.target.value)} value={selectedResponsavel} className="p-2 border rounded-md">
+              <option value="">Todos Responsáveis</option>
+              {responsaveisList.map(resp => <option key={resp} value={resp}>{resp}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div className="flex gap-2">
+              <button onClick={() => setPeriod('week')} className="p-2 bg-gray-200 rounded-md text-sm w-full">Esta Semana</button>
+              <button onClick={() => setPeriod('month')} className="p-2 bg-gray-200 rounded-md text-sm w-full">Este Mês</button>
+            </div>
+            <div>
+              <label className="text-xs">Data Início</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="p-2 border rounded-md w-full" />
+            </div>
+            <div>
+              <label className="text-xs">Data Fim</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="p-2 border rounded-md w-full" />
+            </div>
+            <input
+              type="text"
+              placeholder="Buscar em todo o conteúdo do RDO..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="p-2 border rounded-md w-full lg:col-span-4"
+            />
+          </div>
         </div>
       )}
+
+      {message && <div className={`p-3 rounded-md text-sm ${message.includes('Erro') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{message}</div>}
 
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data RDO</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empreendimento</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Funcionário</th>
-              <th scope="col" className="relative px-6 py-3"><span className="sr-only">Ações</span></th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase">Data</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase">Empreendimento</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase">Responsável</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase">Praticável</th>
+              <th className="relative px-6 py-3"><span className="sr-only">Ações</span></th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredRdos.length === 0 ? (
-              <tr>
-                <td colSpan="5" className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                  Nenhum Diário de Obra encontrado.
-                </td>
-              </tr>
+              <tr><td colSpan="5" className="px-6 py-4 text-center">Nenhum Diário de Obra encontrado.</td></tr>
             ) : (
               filteredRdos.map((rdo) => (
-                <tr key={rdo.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {format(new Date(rdo.data_rdo), 'dd/MM/yyyy', { locale: ptBR })}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {rdo.empreendimento?.nome || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {rdo.empreendimento?.empresa?.nome_fantasia || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {rdo.funcionario?.full_name || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {/* Você pode adicionar links para visualizar/editar o RDO aqui */}
-                    {/* Exemplo: <Link href={`/rdo/editar/${rdo.id}`} className="text-blue-600 hover:text-blue-900 mr-4">Editar</Link> */}
-                    <button 
-                      onClick={() => handleDeleteRdo(rdo.id)} 
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Excluir
-                    </button>
-                  </td>
+                <tr key={rdo.id} onClick={() => handleRowClick(rdo.id)} className="cursor-pointer hover:bg-gray-50">
+                  <td className="px-6 py-4">{new Date(rdo.data_relatorio + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                  <td className="px-6 py-4">{rdo.empreendimentos?.nome || 'N/A'}</td>
+                  <td className="px-6 py-4">{rdo.responsavel_rdo || 'N/A'}</td>
+                  <td className="px-6 py-4">{rdo.condicoes_trabalho === 'Praticável' ? 'Sim' : 'Não'}</td>
+                  <td className="px-6 py-4 text-right"><button onClick={(e) => handleDeleteRdo(e, rdo.id)} className="text-red-600 hover:text-red-900 z-10 relative">Excluir</button></td>
                 </tr>
               ))
             )}

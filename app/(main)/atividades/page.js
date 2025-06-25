@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import AtividadeModal from '../../../components/AtividadeModal';
 import ActivityList from '../../../components/ActivityList';
-import GanttChart from '../../../components/GanttChart'; // Import do nosso novo Gantt
+import GanttChart from '../../../components/GanttChart';
 
 export default function AtividadesPage() {
   const supabase = createClient();
@@ -13,10 +13,10 @@ export default function AtividadesPage() {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingActivity, setEditingActivity] = useState(null);
   const [isListCollapsed, setIsListCollapsed] = useState(false);
   const [isGanttCollapsed, setIsGanttCollapsed] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'data_inicio_prevista', direction: 'ascending' });
-
 
   const fetchInitialData = useCallback(async () => {
     try {
@@ -58,25 +58,68 @@ export default function AtividadesPage() {
     }
   };
 
-    const sortActivities = useCallback((key) => {
-        let direction = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
+  const sortActivities = useCallback((key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+        direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+
+    const sorted = [...activities].sort((a, b) => {
+        if (a[key] === null || a[key] === undefined) return direction === 'ascending' ? 1 : -1;
+        if (b[key] === null || b[key] === undefined) return direction === 'ascending' ? -1 : 1;
+
+        if (typeof a[key] === 'string' && typeof b[key] === 'string') {
+            return direction === 'ascending' ? a[key].localeCompare(b[key]) : b[key].localeCompare(a[key]);
         }
-        setSortConfig({ key, direction });
+        return direction === 'ascending' ? a[key] - b[key] : b[key] - a[key];
+    });
+    setActivities(sorted);
+  }, [activities, sortConfig]);
 
-        const sorted = [...activities].sort((a, b) => {
-            if (a[key] === null || a[key] === undefined) return direction === 'ascending' ? 1 : -1;
-            if (b[key] === null || b[key] === undefined) return direction === 'ascending' ? -1 : 1;
+  const handleEditClick = (activity) => {
+    setEditingActivity(activity);
+    setIsModalOpen(true);
+  };
 
-            if (typeof a[key] === 'string' && typeof b[key] === 'string') {
-                return direction === 'ascending' ? a[key].localeCompare(b[key]) : b[key].localeCompare(a[key]);
-            }
-            return direction === 'ascending' ? a[key] - b[key] : b[key] - a[key];
-        });
-        setActivities(sorted);
-    }, [activities, sortConfig]);
+  const handleDeleteClick = async (activityId) => {
+    if (window.confirm('Tem certeza que deseja deletar esta atividade?')) {
+      const { error } = await supabase.from('activities').delete().eq('id', activityId);
+      if (error) {
+        alert(`Erro ao deletar: ${error.message}`);
+      } else {
+        alert('Atividade deletada com sucesso!');
+        fetchActivities(selectedEmpreendimento.id);
+      }
+    }
+  };
 
+  // NOVO: Função para alterar o status diretamente na lista
+  const handleStatusChange = async (activityId, newStatus) => {
+    // 1. Atualiza a lista na tela imediatamente para o usuário ver a mudança
+    setActivities(currentActivities =>
+      currentActivities.map(act =>
+        act.id === activityId ? { ...act, status: newStatus } : act
+      )
+    );
+    // 2. Envia a atualização para o banco de dados
+    const { error } = await supabase
+      .from('activities')
+      .update({ status: newStatus })
+      .eq('id', activityId);
+      
+    if (error) {
+      alert(`Erro ao atualizar o status: ${error.message}`);
+      // Se der erro, busca os dados novamente para reverter a mudança na tela
+      fetchActivities(selectedEmpreendimento.id);
+    }
+  };
+
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingActivity(null);
+  }
 
   if (loading) {
     return <p className="text-center mt-10">Carregando dados...</p>;
@@ -107,10 +150,18 @@ export default function AtividadesPage() {
                     <span>Lista de Atividades</span>
                     <span>{isListCollapsed ? '►' : '▼'}</span>
                 </button>
-                {!isListCollapsed && <ActivityList activities={activities} requestSort={sortActivities} sortConfig={sortConfig} />}
+                {!isListCollapsed && 
+                    <ActivityList 
+                        activities={activities} 
+                        requestSort={sortActivities} 
+                        sortConfig={sortConfig} 
+                        onEditClick={handleEditClick} 
+                        onDeleteClick={handleDeleteClick}
+                        onStatusChange={handleStatusChange} // Passando a nova função
+                    />
+                }
             </div>
             
-            {/* Bloco do Gráfico de Gantt reativado */}
             <div className="bg-white rounded-lg shadow">
                 <button onClick={() => setIsGanttCollapsed(!isGanttCollapsed)} className="font-bold text-xl p-4 w-full text-left flex justify-between items-center">
                     <span>Gráfico de Gantt</span>
@@ -124,10 +175,11 @@ export default function AtividadesPage() {
       {isModalOpen && (
         <AtividadeModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={handleCloseModal}
           selectedEmpreendimento={selectedEmpreendimento}
           existingActivities={activities}
           onActivityAdded={() => fetchActivities(selectedEmpreendimento.id)}
+          activityToEdit={editingActivity}
         />
       )}
     </div>
