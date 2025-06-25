@@ -2,40 +2,59 @@
 
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  faTachometerAlt, 
-  faBuilding, 
-  faProjectDiagram, 
-  faUsers, 
-  faTasks, 
+import {
+  faTachometerAlt,
+  faBuilding,
+  faProjectDiagram,
+  faUsers,
+  faTasks,
   faClipboardList,
-  faCog, 
+  faCog,
   faUserCog,
-  faChevronDown, 
-  faChevronUp    
+  faChevronDown,
+  faChevronUp
 } from '@fortawesome/free-solid-svg-icons';
 import { useState } from 'react';
 
 export default function Sidebar({ isCollapsed, isAdmin }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isRdoOpen, setIsRdoOpen] = useState(false); // Estado para o dropdown de RDO
 
-  const navItems = [
+  const mainNavItems = [ // Itens de navegação principais
     { href: '/', label: 'Dashboard', icon: faTachometerAlt, type: 'link' },
     { href: '/empresas/cadastro', label: 'Cadastro de Empresa', icon: faBuilding, type: 'link' },
     { href: '/empreendimentos/cadastro', label: 'Cadastro de Empreendimento', icon: faProjectDiagram, type: 'link' },
     { href: '/funcionarios', label: 'Funcionários', icon: faUsers, type: 'link' },
     { href: '/atividades', label: 'Painel de Atividades', icon: faTasks, type: 'link' },
-    { href: '/rdo', label: 'Diário de Obra (RDO)', icon: faClipboardList, type: 'link' },
+    { // Item de menu "Diário de Obra (RDO)" com dropdown
+      label: 'Diário de Obra (RDO)',
+      icon: faClipboardList,
+      type: 'dropdown',
+      isOpen: isRdoOpen, // Usa o estado isRdoOpen
+      toggle: () => {
+        setIsRdoOpen(!isRdoOpen);
+        console.log('RDO dropdown toggled. New state:', !isRdoOpen); // Log para depuração
+      },
+      subItems: [
+        { href: '/rdo', label: 'Cadastrar RDO', icon: faClipboardList },
+        { href: '/rdo/gerenciar', label: 'Gerenciar RDOs', icon: faClipboardList },
+      ]
+    },
   ];
+
+  const bottomNavItems = []; // Itens que ficarão no rodapé
 
   // Adiciona o item de configurações apenas se o usuário for admin
   if (isAdmin) {
-    navItems.push({ 
-      label: 'Configurações', 
-      icon: faCog, 
+    bottomNavItems.push({
+      label: 'Configurações',
+      icon: faCog,
       type: 'dropdown',
       isOpen: isSettingsOpen,
-      toggle: () => setIsSettingsOpen(!isSettingsOpen),
+      toggle: () => {
+        setIsSettingsOpen(!isSettingsOpen);
+        console.log('Settings dropdown toggled. New state:', !isSettingsOpen); // Log para depuração
+      },
       subItems: [
         { href: '/configuracoes/usuarios', label: 'Gestão de Usuários', icon: faUserCog },
       ]
@@ -49,57 +68,102 @@ export default function Sidebar({ isCollapsed, isAdmin }) {
     <aside className={`bg-white shadow-lg h-full fixed left-0 top-0 z-40 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
       <div className="flex items-center justify-center h-[65px] border-b border-gray-200 flex-shrink-0">
         <Link href="/">
-          <img 
-            src={isCollapsed ? logoIconUrl : logoUrl} 
-            alt="Logo Studio 57" 
-            className={`transition-all duration-300 ${isCollapsed ? 'h-8 w-auto' : 'h-12 w-auto'}`} 
+          <img
+            src={isCollapsed ? logoIconUrl : logoUrl}
+            alt="Logo Studio 57"
+            className={`transition-all duration-300 ${isCollapsed ? 'h-8 w-auto' : 'h-12 w-auto'}`}
           />
         </Link>
       </div>
-      <nav className="mt-4 flex-grow"> {/* flex-grow para ocupar o espaço restante */}
+      <nav className="mt-4 flex-grow overflow-y-auto">
         <ul>
-          {navItems.filter(item => item.label !== 'Configurações').map((item) => ( // Filtra Configurações aqui
+          {mainNavItems.map((item) => (
             <li key={item.label}>
-              <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center px-0' : 'px-6'}`}>
-                <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
-                {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
-              </Link>
+              {item.type === 'link' ? (
+                <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center px-0' : 'px-6'}`}>
+                  <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
+                  {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
+                </Link>
+              ) : (
+                <>
+                  <button
+                    onClick={item.toggle} // Chamada à função toggle
+                    className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 w-full text-left ${isCollapsed ? 'justify-center px-0' : 'px-6'}`}
+                  >
+                    <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
+                    {!isCollapsed && (
+                      <span className="ml-4 text-sm font-medium flex-grow">{item.label}</span>
+                    )}
+                    {!isCollapsed && (
+                      <FontAwesomeIcon
+                        icon={item.isOpen ? faChevronUp : faChevronDown}
+                        className="text-xs ml-auto"
+                      />
+                    )}
+                  </button>
+                  {item.isOpen && !isCollapsed && ( // Condição para renderizar subitens
+                    <ul className="ml-8 border-l border-gray-300">
+                      {item.subItems.map((subItem) => (
+                        <li key={subItem.href}>
+                          <Link href={subItem.href} className="flex items-center py-2 pl-4 text-gray-600 hover:bg-gray-100 transition-colors duration-200 text-sm">
+                            <FontAwesomeIcon icon={subItem.icon} className="mr-3 w-5" />
+                            {subItem.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
             </li>
           ))}
         </ul>
       </nav>
 
-      {/* Seção de Configurações no final do sidebar */}
-      {isAdmin && (
-        <nav className="mb-4 flex-shrink-0"> {/* flex-shrink-0 para não encolher */}
+      {/* Seção de Itens do Rodapé (Configurações) */}
+      {bottomNavItems.length > 0 && (
+        <nav className="mt-auto mb-4 flex-shrink-0">
           <ul>
-            <li>
-              <button 
-                onClick={() => setIsSettingsOpen(!isSettingsOpen)} 
-                className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 w-full text-left ${isCollapsed ? 'justify-center px-0' : 'px-6'}`}
-              >
-                <FontAwesomeIcon icon={faCog} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
-                {!isCollapsed && (
-                  <span className="ml-4 text-sm font-medium flex-grow">Configurações</span>
+            {bottomNavItems.map((item) => (
+              <li key={item.label}>
+                {item.type === 'link' ? (
+                  <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center px-0' : 'px-6'}`}>
+                    <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
+                    {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
+                  </Link>
+                ) : (
+                  <>
+                    <button
+                      onClick={item.toggle}
+                      className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 w-full text-left ${isCollapsed ? 'justify-center px-0' : 'px-6'}`}
+                    >
+                      <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
+                      {!isCollapsed && (
+                        <span className="ml-4 text-sm font-medium flex-grow">{item.label}</span>
+                      )}
+                      {!isCollapsed && (
+                        <FontAwesomeIcon
+                          icon={item.isOpen ? faChevronUp : faChevronDown}
+                          className="text-xs ml-auto"
+                        />
+                      )}
+                    </button>
+                    {item.isOpen && !isCollapsed && (
+                      <ul className="ml-8 border-l border-gray-300">
+                        {item.subItems.map((subItem) => (
+                          <li key={subItem.href}>
+                            <Link href={subItem.href} className="flex items-center py-2 pl-4 text-gray-600 hover:bg-gray-100 transition-colors duration-200 text-sm">
+                              <FontAwesomeIcon icon={subItem.icon} className="mr-3 w-5" />
+                              {subItem.label}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
                 )}
-                {!isCollapsed && (
-                  <FontAwesomeIcon 
-                    icon={isSettingsOpen ? faChevronUp : faChevronDown} 
-                    className="text-xs ml-auto" 
-                  />
-                )}
-              </button>
-              {isSettingsOpen && !isCollapsed && (
-                <ul className="ml-8 border-l border-gray-300">
-                  <li>
-                    <Link href="/configuracoes/usuarios" className="flex items-center py-2 pl-4 text-gray-600 hover:bg-gray-100 transition-colors duration-200 text-sm">
-                      <FontAwesomeIcon icon={faUserCog} className="mr-3 w-5" />
-                      Gestão de Usuários
-                    </Link>
-                  </li>
-                </ul>
-              )}
-            </li>
+              </li>
+            ))}
           </ul>
         </nav>
       )}
