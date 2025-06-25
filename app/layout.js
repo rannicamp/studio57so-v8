@@ -1,4 +1,4 @@
-import './globals.css';
+import './globals.css'; // O caminho correto é './globals.css'
 
 export const metadata = {
   title: 'Studio 57',
