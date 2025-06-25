@@ -7,12 +7,14 @@ export default async function RdoEditPage({ params }) {
   const supabase = createClient();
   const { id } = params;
 
-  // Busca o RDO específico pelo ID, junto com os dados do empreendimento
+  // Busca o RDO específico pelo ID, junto com todos os seus dados relacionados
   const { data: rdo, error } = await supabase
     .from('diarios_obra')
     .select(`
       *,
-      empreendimentos(*)
+      empreendimentos(*),
+      ocorrencias(*),
+      rdo_fotos_uploads(*)
     `)
     .eq('id', id)
     .single();
@@ -28,8 +30,8 @@ export default async function RdoEditPage({ params }) {
           &larr; Voltar para o Gerenciador de RDOs
       </Link>
       
-      {/* O formulário agora é renderizado com os dados do RDO selecionado */}
-      <RdoForm selectedEmpreendimento={rdo.empreendimentos} />
+      {/* O formulário agora é renderizado com todos os dados do RDO selecionado */}
+      <RdoForm initialRdoData={rdo} />
     </div>
   );
 }
