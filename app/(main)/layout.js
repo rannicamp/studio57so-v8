@@ -1,45 +1,35 @@
 "use client";
 
 import { useState } from 'react';
-import '../globals.css';
+// Note que a importação do 'globals.css' foi removida daqui, pois já está no arquivo principal.
 import Sidebar from '../../components/sidebar';
 import Header from '../../components/Header';
-import { AuthProvider, useAuth } from '../../contexts/AuthContext';
+import { AuthProvider } from '../../contexts/AuthContext';
+import { LayoutProvider } from '../../contexts/LayoutContext';
 
-// Componente interno que usa o contexto de autenticação
 function MainLayoutContent({ children }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { isProprietario, loading } = useAuth(); // Pega a permissão e o status de carregamento do contexto
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
   };
 
-  // Mostra "Carregando..." enquanto as informações de permissão são verificadas
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <p>Carregando permissões...</p>
-      </div>
-    );
-  }
-
   return (
-    <div>
-      <Sidebar 
-        isCollapsed={isCollapsed} 
-        toggleSidebar={toggleSidebar} 
-        isAdmin={isProprietario} // Passa a permissão correta para a barra lateral
-      />
-      <Header isCollapsed={isCollapsed} />
-      <main className={`p-6 mt-[65px] transition-all duration-300 ${isCollapsed ? 'ml-[80px]' : 'ml-[260px]'}`}>
-        {children}
-      </main>
-    </div>
+    <LayoutProvider>
+      <div>
+        <Sidebar
+          isCollapsed={isCollapsed}
+          toggleSidebar={toggleSidebar}
+        />
+        <Header isCollapsed={isCollapsed} />
+        <main className={`p-6 mt-[65px] transition-all duration-300 ${isCollapsed ? 'ml-[80px]' : 'ml-[260px]'}`}>
+          {children}
+        </main>
+      </div>
+    </LayoutProvider>
   );
 }
 
-// Layout principal que envolve tudo com o provedor de autenticação
 export default function MainAppLayout({ children }) {
   return (
     <AuthProvider>

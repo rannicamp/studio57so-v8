@@ -20,6 +20,7 @@ import { useState } from 'react';
 export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
   const mainNavItems = [
     { href: '/', label: 'Dashboard', icon: faTachometerAlt },
+    { href: '/tarefas-gerais', label: 'Gerenciador de Atividades', icon: faTasks },
     { href: '/empresas', label: 'Empresas', icon: faBuilding },
     { href: '/empreendimentos/cadastro', label: 'Cadastro de Empreendimento', icon: faProjectDiagram },
     { href: '/funcionarios', label: 'Funcionários', icon: faUsers },

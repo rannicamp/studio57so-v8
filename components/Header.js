@@ -4,44 +4,45 @@ import { useState, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
 import LogoutButton from './LogoutButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft, faChevronRight, faHome } from '@fortawesome/free-solid-svg-icons';
+import { faChevronLeft, faChevronRight, faHome, faUserCircle } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
+import { useLayout } from '../contexts/LayoutContext';
+import { useAuth } from '../contexts/AuthContext';
 
-// O Header agora só precisa saber se o menu está recolhido para se ajustar
 export default function Header({ isCollapsed }) {
   const supabase = createClient();
-  const router = useRouter(); // Hook do Next.js para navegação
+  const router = useRouter();
+  const { pageTitle } = useLayout();
+  const { user, userData } = useAuth();
   const [userName, setUserName] = useState('');
+  const [userPhoto, setUserPhoto] = useState(null);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('usuarios')
-          .select('nome, sobrenome')
-          .eq('id', user.id)
-          .single();
-        const name = [profile?.nome, profile?.sobrenome].filter(Boolean).join(' ');
-        setUserName(name || user.email);
-      }
-    };
-    fetchUser();
-  }, [supabase]);
+    if (userData) {
+      // Pega apenas o primeiro nome
+      const firstName = userData.nome?.split(' ')[0];
+      setUserName(firstName || user?.email);
 
-  // Ajusta a posição do cabeçalho com base no estado do menu
+      // Pega a URL da foto do funcionário associado
+      setUserPhoto(userData.funcionario?.foto_url || null);
+    } else if (user) {
+      setUserName(user.email);
+    }
+  }, [user, userData]);
+
+
   const headerLeftPosition = isCollapsed ? 'left-[80px]' : 'left-[260px]';
 
   return (
-    <header 
+    <header
       className={`
-        bg-white shadow-md h-[65px] fixed top-0 right-0 z-30 
-        flex items-center justify-between px-6 
-        transition-all duration-300 
+        bg-white shadow-md h-[65px] fixed top-0 right-0 z-30
+        flex items-center justify-between px-6
+        transition-all duration-300
         ${headerLeftPosition}
       `}
     >
-      {/* NOVOS CONTROLES DE NAVEGAÇÃO */}
+      {/* LADO ESQUERDO: Botões de Navegação */}
       <div className="flex items-center gap-4">
         <button onClick={() => router.back()} className="text-gray-600 hover:text-blue-500" title="Voltar">
           <FontAwesomeIcon icon={faChevronLeft} size="lg" />
@@ -54,13 +55,26 @@ export default function Header({ isCollapsed }) {
         </button>
       </div>
 
-      <div>
-        {userName ? (
-          <div className="flex items-center">
-            <span className="text-sm font-medium text-gray-700">{userName}</span>
-            <LogoutButton />
+      {/* LADO DIREITO: Título da Página e Informações do Usuário */}
+      <div className="flex items-center gap-6">
+        <h1 className="text-xl font-semibold text-gray-800 hidden md:block">{pageTitle}</h1>
+        
+        {userName && (
+          <div className="flex items-center gap-3">
+            {/* Foto do Usuário */}
+            {userPhoto ? (
+              <img src={userPhoto} alt="Foto do perfil" className="w-9 h-9 rounded-full object-cover" />
+            ) : (
+              <FontAwesomeIcon icon={faUserCircle} className="w-9 h-9 text-gray-400" />
+            )}
+            
+            {/* Nome e Botão de Sair */}
+            <div className="flex items-center">
+              <span className="text-sm font-medium text-gray-700">{userName}</span>
+              <LogoutButton />
+            </div>
           </div>
-        ) : null}
+        )}
       </div>
     </header>
   );
