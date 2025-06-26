@@ -13,15 +13,35 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
   const router = useRouter();
   const { canViewSalaries } = useAuth();
 
-  // Verifica se estamos no modo de edição
   const isEditing = Boolean(initialData);
 
   const getInitialState = () => ({
-    empresa_id: '', empreendimento_atual_id: '', full_name: '', cpf: '', rg: '',
-    birth_date: '', phone: '', email: '', estado_civil: '', cep: '', address_street: '',
-    address_number: '', address_complement: '', neighborhood: '', city: '', state: '',
-    contract_role: '', admission_date: '', base_salary: '', total_salary: '',
-    daily_value: '', payment_method: '', pix_key: '', bank_details: '', observations: '', foto_url: null,
+    empresa_id: null,
+    empreendimento_atual_id: null,
+    full_name: '',
+    cpf: '',
+    rg: '',
+    birth_date: '',
+    phone: '',
+    email: '',
+    estado_civil: '',
+    cep: '',
+    address_street: '',
+    address_number: '',
+    address_complement: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    contract_role: '',
+    admission_date: '',
+    base_salary: '',
+    total_salary: '',
+    daily_value: '',
+    payment_method: '',
+    pix_key: '',
+    bank_details: '',
+    observations: '',
+    foto_url: null,
   });
 
   const [formData, setFormData] = useState(initialData || getInitialState());
@@ -39,13 +59,18 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prevState => ({ ...prevState, [name]: value === '' ? null : value }));
+    // CORREÇÃO: Converte string vazia para null para campos numéricos
+    const finalValue =
+      (name === 'empresa_id' || name === 'empreendimento_atual_id') && value === ''
+        ? null
+        : value;
+    setFormData(prevState => ({ ...prevState, [name]: finalValue }));
   };
 
   const handleMaskedChange = (name, value) => {
     setFormData(prevState => ({ ...prevState, [name]: value }));
   };
-  
+
   const handleCepBlur = async (cep) => {
     const cepLimpo = cep.replace(/\D/g, '');
     if (cepLimpo.length !== 8) return;
@@ -108,8 +133,8 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     }
 
     const { id, created_at, ...dbData } = { ...formData, foto_url: finalFotoUrl };
-    delete dbData.newPhotoFile; // Remove o campo temporário
-    
+    delete dbData.newPhotoFile;
+
     let error;
     if (isEditing) {
         const { error: updateError } = await supabase.from('funcionarios').update(dbData).eq('id', id);
@@ -135,7 +160,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
       <h1 className="text-3xl font-bold mb-6 text-gray-900">
         {isEditing ? `Editando Funcionário: ${initialData.full_name}` : 'Cadastro de Novo Funcionário'}
       </h1>
-      
+
       {message && <p className={`text-center font-medium mb-4 p-2 rounded-md ${message.includes('Erro') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{message}</p>}
 
       <form onSubmit={handleSubmit} className="space-y-8">
@@ -147,7 +172,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
             {isUploading && <FontAwesomeIcon icon={faSpinner} spin className="text-blue-500" />}
           </div>
         </fieldset>
-        
+
         <fieldset className="border-t border-gray-900/10 pt-8">
             <h2 className="text-xl font-semibold text-gray-800">Dados da Empresa</h2>
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -201,7 +226,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
                 </div>
             </div>
         </fieldset>
-        
+
         <fieldset className="border-t border-gray-900/10 pt-8">
             <h2 className="text-xl font-semibold text-gray-800">Endereço</h2>
              <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-6">
@@ -217,7 +242,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
                 <div className="md:col-span-2"><label className="block text-sm font-medium">Estado (UF)</label><input name="state" value={formData.state || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div>
             </div>
         </fieldset>
-        
+
         <fieldset className="border-t border-gray-900/10 pt-8">
           <h2 className="text-xl font-semibold text-gray-800">Dados Contratuais</h2>
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -247,7 +272,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
                 <textarea name="observations" id="observations" value={formData.observations || ''} onChange={handleChange} rows="4" className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"></textarea>
             </div>
         </fieldset>
-        
+
         <div className="mt-6 flex items-center justify-end gap-x-6">
             <button type="button" onClick={() => router.push('/funcionarios')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
             <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600 font-semibold">{isEditing ? 'Salvar Alterações' : 'Salvar Funcionário'}</button>
