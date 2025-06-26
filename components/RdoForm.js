@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 
-export default function RdoForm({ initialRdoData }) {
+export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const supabase = createClient();
   const [currentUser, setCurrentUser] = useState(null);
   const [message, setMessage] = useState('');
@@ -24,67 +24,119 @@ export default function RdoForm({ initialRdoData }) {
 
   const weatherOptions = ["Ensolarado", "Nublado", "Chuvoso", "Parcialmente Nublado", "Ventania", "Tempestade"];
   const occurrenceTypes = ["Informativa", "Alerta", "Grave", "Acidente de Trabalho", "Condição Insegura"];
-
-  useEffect(() => {
-    if (!initialRdoData) {
+  
+  const setupFormWithData = useCallback(async (rdoData) => {
+    if (!rdoData) {
       setLoadingForm(false);
       return;
     }
-    
-    const loadAndSetupForm = async () => {
-      setLoadingForm(true);
-      try {
-        setRdoFormData({
-          id: initialRdoData.id,
-          data_relatorio: initialRdoData.data_relatorio,
-          rdo_numero: initialRdoData.rdo_numero,
-          condicoes_climaticas: initialRdoData.condicoes_climaticas,
-          condicoes_trabalho: initialRdoData.condicoes_trabalho,
-        });
-        setAllOccurrences(initialRdoData.ocorrencias || []);
+    setLoadingForm(true);
 
-        const { data: { user } } = await supabase.auth.getUser();
-        setCurrentUser(user);
+    try {
+      setRdoFormData({
+        id: rdoData.id,
+        data_relatorio: rdoData.data_relatorio,
+        rdo_numero: rdoData.rdo_numero,
+        condicoes_climaticas: rdoData.condicoes_climaticas,
+        condicoes_trabalho: rdoData.condicoes_trabalho,
+        empreendimento_id: rdoData.empreendimento_id
+      });
+      setAllOccurrences(rdoData.ocorrencias || []);
 
-        const empreendimentoId = initialRdoData.empreendimento_id || initialRdoData.empreendimentos?.id;
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+      
+      const empreendimentoId = rdoData.empreendimento_id;
 
-        const { data: activitiesData } = await supabase.from('activities').select('id, nome, status').eq('empreendimento_id', empreendimentoId);
-        const { data: employeesData } = await supabase.from('funcionarios').select('id, full_name, status').eq('empreendimento_atual_id', empreendimentoId);
-        const activeEmployees = (employeesData || []).filter(emp => emp.status === 'Ativo');
+      const { data: activitiesData } = await supabase.from('activities').select('id, nome, status').eq('empreendimento_id', empreendimentoId);
+      const { data: employeesData } = await supabase.from('funcionarios').select('id, full_name, status').eq('empreendimento_atual_id', empreendimentoId);
+      const activeEmployees = (employeesData || []).filter(emp => emp.status === 'Ativo');
 
-        const savedMaoDeObra = initialRdoData.mao_de_obra || [];
-        setEmployeePresences(activeEmployees.map(emp => {
-          const savedStatus = savedMaoDeObra.find(s => s.id === emp.id);
-          return { id: emp.id, name: emp.full_name, present: savedStatus?.present ?? true, observacao: savedStatus?.observacao || '' };
-        }));
-        
-        const savedStatusAtividades = initialRdoData.status_atividades || [];
-        const todayFormatted = new Date().toISOString().split('T')[0];
-        const isTodayRdo = initialRdoData.data_relatorio === todayFormatted;
-        setActivityStatuses((activitiesData || []).map(dbAct => {
-          const rdoActivity = savedStatusAtividades.find(sa => sa.id === dbAct.id);
-          const status = isTodayRdo ? dbAct.status : (rdoActivity?.status || dbAct.status);
-          const observacao = rdoActivity?.observacao || '';
-          return { id: dbAct.id, nome: dbAct.nome, status, observacao };
-        }));
-        
-        const photoPromises = (initialRdoData.rdo_fotos_uploads || []).map(async (photo) => {
-          const { data } = await supabase.storage.from('rdo-fotos').createSignedUrl(photo.caminho_arquivo, 3600);
-          return { ...photo, signedUrl: data?.signedUrl };
-        });
-        setAllPhotosMetadata(await Promise.all(photoPromises));
-        
-        setIsRdoLocked(initialRdoData.data_relatorio !== todayFormatted);
-      } catch (error) {
-        console.error("Erro ao carregar dados do RDO:", error);
-        setMessage("Erro ao carregar os detalhes do RDO.");
-      } finally {
-        setLoadingForm(false);
-      }
+      const savedMaoDeObra = rdoData.mao_de_obra || [];
+      setEmployeePresences(activeEmployees.map(emp => {
+        const savedStatus = savedMaoDeObra.find(s => s.id === emp.id);
+        return { id: emp.id, name: emp.full_name, present: savedStatus?.present ?? true, observacao: savedStatus?.observacao || '' };
+      }));
+      
+      const savedStatusAtividades = rdoData.status_atividades || [];
+      const todayFormatted = new Date().toISOString().split('T')[0];
+      const isTodayRdo = rdoData.data_relatorio === todayFormatted;
+      setActivityStatuses((activitiesData || []).map(dbAct => {
+        const rdoActivity = savedStatusAtividades.find(sa => sa.id === dbAct.id);
+        const status = isTodayRdo ? dbAct.status : (rdoActivity?.status || dbAct.status);
+        const observacao = rdoActivity?.observacao || '';
+        return { id: dbAct.id, nome: dbAct.nome, status, observacao };
+      }));
+      
+      const photoPromises = (rdoData.rdo_fotos_uploads || []).map(async (photo) => {
+        const { data } = await supabase.storage.from('rdo-fotos').createSignedUrl(photo.caminho_arquivo, 3600);
+        return { ...photo, signedUrl: data?.signedUrl };
+      });
+      setAllPhotosMetadata(await Promise.all(photoPromises));
+      
+      setIsRdoLocked(rdoData.data_relatorio !== todayFormatted);
+    } catch (error) {
+      console.error("Erro ao carregar dados do RDO:", error);
+      setMessage("Erro ao carregar os detalhes do RDO.");
+    } finally {
+      setLoadingForm(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    const initializeForm = async () => {
+        if (initialRdoData) {
+            await setupFormWithData(initialRdoData);
+        } else if (selectedEmpreendimento) {
+            setLoadingForm(true);
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Tenta buscar o RDO de hoje para o empreendimento selecionado
+            let { data: rdo, error } = await supabase
+                .from('diarios_obra')
+                .select('*, empreendimentos(*), ocorrencias(*), rdo_fotos_uploads(*)')
+                .eq('empreendimento_id', selectedEmpreendimento.id)
+                .eq('data_relatorio', today)
+                .maybeSingle();
+
+            // Se não encontrar, cria um novo RDO para hoje
+            if (!rdo && !error) {
+                const { data: { user } } = await supabase.auth.getUser();
+                const { data: newRdo, error: insertError } = await supabase
+                    .from('diarios_obra')
+                    .insert({
+                        empreendimento_id: selectedEmpreendimento.id,
+                        data_relatorio: today,
+                        rdo_numero: `RDO-${selectedEmpreendimento.id}-${today}`,
+                        responsavel_rdo: user?.email,
+                        condicoes_climaticas: 'Ensolarado',
+                        condicoes_trabalho: 'Praticável',
+                        status_atividades: [],
+                        mao_de_obra: []
+                    })
+                    .select('*, empreendimentos(*), ocorrencias(*), rdo_fotos_uploads(*)')
+                    .single();
+                
+                if (insertError) {
+                    setMessage(`Erro ao criar novo RDO: ${insertError.message}`);
+                    setLoadingForm(false);
+                    return;
+                }
+                rdo = newRdo;
+            }
+            
+            if(rdo) {
+                await setupFormWithData(rdo);
+            } else {
+                 setLoadingForm(false);
+            }
+        } else {
+            setLoadingForm(false);
+        }
     };
+    initializeForm();
+  }, [initialRdoData, selectedEmpreendimento, supabase, setupFormWithData]);
 
-    loadAndSetupForm();
-  }, [initialRdoData, supabase]);
 
   const handleRdoFormChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -125,7 +177,7 @@ export default function RdoForm({ initialRdoData }) {
     const { data, error } = await supabase.from('ocorrencias').insert({
         ...currentNewOccurrence,
         diario_obra_id: rdoFormData.id,
-        empreendimento_id: initialRdoData.empreendimento_id,
+        empreendimento_id: rdoFormData.empreendimento_id,
         data_ocorrencia: new Date().toLocaleDateString('pt-BR'),
         hora_ocorrencia: new Date().toLocaleTimeString('pt-BR'),
     }).select().single();
@@ -179,7 +231,9 @@ export default function RdoForm({ initialRdoData }) {
       setMessage('Foto adicionada!');
       setCurrentPhotoFile(null);
       setCurrentPhotoDescription('');
-      document.getElementById('photo-file-input').value = ""; 
+      if(document.getElementById('photo-file-input')) {
+        document.getElementById('photo-file-input').value = "";
+      }
     }
     setIsUploading(false);
   };
@@ -198,7 +252,7 @@ export default function RdoForm({ initialRdoData }) {
 
   return (
     <div className="bg-white p-6 rounded-lg shadow">
-      <h2 className="text-2xl font-bold text-gray-900 mb-4">Detalhes do RDO para {initialRdoData.empreendimentos?.nome}</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-4">Detalhes do RDO</h2>
       
       {isRdoLocked && (
         <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
@@ -233,7 +287,7 @@ export default function RdoForm({ initialRdoData }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700">Condição</label>
-              <select name="condicoes_climaticas" value={rdoFormData.condicoes_climaticas} onChange={handleRdoFormChange} disabled={isRdoLocked} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+              <select name="condicoes_climaticas" value={rdoFormData.condicoes_climaticas || ''} onChange={handleRdoFormChange} disabled={isRdoLocked} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
                 {weatherOptions.map(option => (<option key={option} value={option}>{option}</option>))}
               </select>
             </div>
@@ -254,7 +308,7 @@ export default function RdoForm({ initialRdoData }) {
                 <select value={activity.status || 'Não Iniciado'} onChange={(e) => handleActivityStatusChange(activity.id, e.target.value, activity.observacao)} disabled={isRdoLocked} className="p-1 border rounded-md text-sm w-full md:w-1/5">
                   <option>Não Iniciado</option><option>Em Andamento</option><option>Concluído</option><option>Pausado</option><option>Aguardando Material</option><option>Cancelado</option>
                 </select>
-                <input type="text" placeholder="Observação..." value={activity.observacao} onChange={(e) => handleActivityStatusChange(activity.id, activity.status, e.target.value)} disabled={isRdoLocked} className="block w-full md:w-2/5 p-2 border rounded-md text-sm"/>
+                <input type="text" placeholder="Observação..." value={activity.observacao || ''} onChange={(e) => handleActivityStatusChange(activity.id, activity.status, e.target.value)} disabled={isRdoLocked} className="block w-full md:w-2/5 p-2 border rounded-md text-sm"/>
               </li>
             ))}
           </ul>
@@ -273,7 +327,7 @@ export default function RdoForm({ initialRdoData }) {
                         </button>
                         <span>{employee.present ? 'Presente' : 'Faltou'}</span>
                     </div>
-                    <input type="text" placeholder="Observação..." value={employee.observacao} onChange={(e) => handleEmployeeChange(employee.id, 'observacao', e.target.value)} disabled={isRdoLocked} className="block w-full md:w-2/5 p-2 border rounded-md text-sm"/>
+                    <input type="text" placeholder="Observação..." value={employee.observacao || ''} onChange={(e) => handleEmployeeChange(employee.id, 'observacao', e.target.value)} disabled={isRdoLocked} className="block w-full md:w-2/5 p-2 border rounded-md text-sm"/>
                 </li>
                 ))}
             </ul>
@@ -292,7 +346,7 @@ export default function RdoForm({ initialRdoData }) {
           <ul className="divide-y border rounded-md">
             {allOccurrences.map((occ) => (
               <li key={occ.id} className="p-3 flex justify-between items-center text-sm">
-                <div><span className="font-semibold">{occ.tipo}:</span> {occ.descricao} <span className="text-xs text-gray-500">({occ.data_ocorrencia} {occ.hora_ocorrencia})</span></div>
+                <div><span className="font-semibold">{occ.tipo}:</span> {occ.descricao} <span className="text-xs text-gray-500">({new Date(occ.created_at).toLocaleString('pt-BR')})</span></div>
                 <button type="button" onClick={() => handleRemoveOccurrence(occ.id)} disabled={isRdoLocked} className="text-red-500 hover:text-red-700 disabled:opacity-50">&times;</button>
               </li>
             ))}
