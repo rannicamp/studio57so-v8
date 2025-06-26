@@ -104,11 +104,21 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
     setIsUploading(true);
     setMessage('Enviando foto...');
 
-    const fileName = `${Date.now()}-${file.name}`;
+    // Cria um nome de arquivo único para evitar conflitos
+    const fileExtension = file.name.split('.').pop();
+    const newFileName = `public/${employee.id}-${Date.now()}.${fileExtension}`;
     
+    // Deleta a foto antiga se ela existir, para não acumular lixo
+    if (formData.foto_url) {
+        const oldFilePath = formData.foto_url.split('/funcionarios-documentos/')[1];
+        if (oldFilePath) {
+            await supabase.storage.from('funcionarios-documentos').remove([oldFilePath]);
+        }
+    }
+
     const { data, error } = await supabase.storage
-        .from('funcionarios-documentos') 
-        .upload(fileName, file);
+        .from('funcionarios-documentos')
+        .upload(newFileName, file);
     
     if (error) {
         setMessage('Erro no upload: ' + error.message);
@@ -116,23 +126,25 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
         return;
     }
 
+    // Pega a URL pública da nova imagem
     const { data: { publicUrl } } = supabase.storage
         .from('funcionarios-documentos')
         .getPublicUrl(data.path);
 
+    // Atualiza os dados do formulário e a prévia da imagem
     setFormData(prev => ({ ...prev, foto_url: publicUrl }));
     setPhotoPreview(publicUrl);
+    
+    setMessage('Foto carregada. Clique em "Salvar Alterações" para confirmar.');
     setIsUploading(false);
-    setMessage('Foto enviada com sucesso!');
   };
 
   const handleSaveChanges = async () => {
     setMessage('Salvando...');
     
-    // CORREÇÃO AQUI: Removemos os campos que não podem ser atualizados
     const { 
-        id, // O campo 'id' que estava causando o erro
-        created_at, // Um campo que o sistema gerencia sozinho
+        id,
+        created_at,
         cadastro_empresa, 
         empreendimentos, 
         documentos_funcionarios, 
@@ -141,8 +153,8 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
 
     const { data, error } = await supabase
       .from('funcionarios')
-      .update(updateData) // Agora enviamos apenas os dados permitidos
-      .eq('id', employee.id) // Usamos o ID original apenas para encontrar o registro certo
+      .update(updateData)
+      .eq('id', employee.id)
       .select(`
         *,
         cadastro_empresa (*),
@@ -156,8 +168,8 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
       console.error(error);
     } else {
       setMessage('Funcionário atualizado com sucesso!');
-      setEmployee(data); 
-      setIsEditing(false);
+      setEmployee(data); // Atualiza os dados exibidos no modo de visualização
+      setIsEditing(false); // Sai do modo de edição
     }
   };
 
@@ -169,19 +181,21 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
         </h2>
         <div>
             {isEditing && (
-                <button onClick={() => setIsEditing(false)} className="text-sm text-gray-600 hover:text-gray-900 mr-4">
+                <button onClick={() => setIsEditing(false)} className="text-sm text-gray-600 hover:text-gray-900 mr-4 font-semibold">
                     Cancelar
                 </button>
             )}
             <button
                 onClick={() => isEditing ? handleSaveChanges() : setIsEditing(true)}
-                className={`${isEditing ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-500 hover:bg-blue-600'} text-white px-4 py-2 rounded-md`}
+                className={`${isEditing ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-500 hover:bg-blue-600'} text-white px-4 py-2 rounded-md font-semibold`}
             >
                 {isEditing ? 'Salvar Alterações' : 'Editar Ficha'}
             </button>
         </div>
       </div>
       
+      {message && <p className="text-center font-medium mt-4">{message}</p>}
+
       {isEditing ? (
         // --- MODO DE EDIÇÃO ---
         <div className="space-y-10">
@@ -193,8 +207,8 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
                     ) : (
                         <FontAwesomeIcon icon={faUserCircle} className="w-24 h-24 text-gray-300" />
                     )}
-                    <input type="file" onChange={handlePhotoChange} disabled={isUploading} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
-                    {isUploading && <FontAwesomeIcon icon={faSpinner} spin />}
+                    <input type="file" id="photo-upload" onChange={handlePhotoChange} disabled={isUploading} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100"/>
+                    {isUploading && <FontAwesomeIcon icon={faSpinner} spin className="text-blue-500" />}
                 </div>
             </fieldset>
 
@@ -267,6 +281,13 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
       ) : (
       // --- MODO DE VISUALIZAÇÃO ---
         <div className="space-y-8">
+            <div className="flex items-center gap-4">
+                {employee.foto_url ? (
+                    <img src={employee.foto_url} alt="Foto do Funcionário" className="w-24 h-24 rounded-full object-cover" />
+                ) : (
+                    <FontAwesomeIcon icon={faUserCircle} className="w-24 h-24 text-gray-300" />
+                )}
+            </div>
             <dl className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-8">
                 <InfoField label="Nome Completo" value={employee.full_name} />
                 <InfoField label="CPF" value={employee.cpf} />
@@ -288,8 +309,6 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
             </dl>
         </div>
       )}
-      
-      {message && <p className="text-center font-medium mt-4">{message}</p>}
     </div>
   );
 }
