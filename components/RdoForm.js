@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
+import { useAuth } from '../contexts/AuthContext'; // IMPORTAR O HOOK
 
 export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const supabase = createClient();
+  const { hasPermission } = useAuth(); // USAR O HOOK DE AUTENTICAÇÃO
   const [currentUser, setCurrentUser] = useState(null);
   const [message, setMessage] = useState('');
   const [loadingForm, setLoadingForm] = useState(true);
@@ -91,7 +93,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
             setLoadingForm(true);
             const today = new Date().toISOString().split('T')[0];
             
-            // Tenta buscar o RDO de hoje para o empreendimento selecionado
             let { data: rdo, error } = await supabase
                 .from('diarios_obra')
                 .select('*, empreendimentos(*), ocorrencias(*), rdo_fotos_uploads(*)')
@@ -99,7 +100,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
                 .eq('data_relatorio', today)
                 .maybeSingle();
 
-            // Se não encontrar, cria um novo RDO para hoje
             if (!rdo && !error) {
                 const { data: { user } } = await supabase.auth.getUser();
                 const { data: newRdo, error: insertError } = await supabase
@@ -336,18 +336,22 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         {/* Ocorrências do Dia */}
         <div className="border-b border-gray-200 pb-4">
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Ocorrências do Dia</h3>
-          <div className="flex flex-col md:flex-row gap-4 mb-3">
-            <select name="tipo" value={currentNewOccurrence.tipo} onChange={handleNewOccurrenceChange} disabled={isRdoLocked} className="flex-1 block w-full p-2 border rounded-md text-sm">
-                {occurrenceTypes.map(type => (<option key={type} value={type}>{type}</option>))}
-            </select>
-            <textarea name="descricao" value={currentNewOccurrence.descricao} onChange={handleNewOccurrenceChange} rows="1" placeholder="Descreva a ocorrência..." disabled={isRdoLocked} className="flex-grow w-full md:w-1/2 block p-2 border rounded-md text-sm"></textarea>
-            <button type="button" onClick={handleAddOccurrence} disabled={isRdoLocked || !currentNewOccurrence.descricao.trim()} className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 disabled:bg-gray-400">Adicionar</button>
-          </div>
+          {hasPermission('rdo', 'pode_criar') && (
+            <div className="flex flex-col md:flex-row gap-4 mb-3">
+              <select name="tipo" value={currentNewOccurrence.tipo} onChange={handleNewOccurrenceChange} disabled={isRdoLocked} className="flex-1 block w-full p-2 border rounded-md text-sm">
+                  {occurrenceTypes.map(type => (<option key={type} value={type}>{type}</option>))}
+              </select>
+              <textarea name="descricao" value={currentNewOccurrence.descricao} onChange={handleNewOccurrenceChange} rows="1" placeholder="Descreva a ocorrência..." disabled={isRdoLocked} className="flex-grow w-full md:w-1/2 block p-2 border rounded-md text-sm"></textarea>
+              <button type="button" onClick={handleAddOccurrence} disabled={isRdoLocked || !currentNewOccurrence.descricao.trim()} className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 disabled:bg-gray-400">Adicionar</button>
+            </div>
+          )}
           <ul className="divide-y border rounded-md">
             {allOccurrences.map((occ) => (
               <li key={occ.id} className="p-3 flex justify-between items-center text-sm">
                 <div><span className="font-semibold">{occ.tipo}:</span> {occ.descricao} <span className="text-xs text-gray-500">({new Date(occ.created_at).toLocaleString('pt-BR')})</span></div>
-                <button type="button" onClick={() => handleRemoveOccurrence(occ.id)} disabled={isRdoLocked} className="text-red-500 hover:text-red-700 disabled:opacity-50">&times;</button>
+                {hasPermission('rdo', 'pode_excluir') && (
+                  <button type="button" onClick={() => handleRemoveOccurrence(occ.id)} disabled={isRdoLocked} className="text-red-500 hover:text-red-700 disabled:opacity-50">&times;</button>
+                )}
               </li>
             ))}
           </ul>
@@ -356,17 +360,19 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         {/* Fotos do Dia */}
         <div>
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Fotos do Dia</h3>
-          <div className="flex flex-col md:flex-row gap-4 mb-3 items-end">
-            <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700">Arquivo</label>
-                <input type="file" id="photo-file-input" accept="image/*" onChange={handlePhotoFileSelect} disabled={isRdoLocked || isUploading} className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100 disabled:opacity-50"/>
+          {hasPermission('rdo', 'pode_criar') && (
+            <div className="flex flex-col md:flex-row gap-4 mb-3 items-end">
+              <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700">Arquivo</label>
+                  <input type="file" id="photo-file-input" accept="image/*" onChange={handlePhotoFileSelect} disabled={isRdoLocked || isUploading} className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100 disabled:opacity-50"/>
+              </div>
+              <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700">Descrição</label>
+                  <input type="text" value={currentPhotoDescription} onChange={(e) => setCurrentPhotoDescription(e.target.value)} placeholder="Descrição da foto..." disabled={isRdoLocked || isUploading} className="mt-1 block w-full p-2 border rounded-md text-sm"/>
+              </div>
+              <button type="button" onClick={handleAddPhoto} disabled={isRdoLocked || !currentPhotoFile || isUploading} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400">{isUploading ? 'Enviando...' : 'Adicionar Foto'}</button>
             </div>
-            <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700">Descrição</label>
-                <input type="text" value={currentPhotoDescription} onChange={(e) => setCurrentPhotoDescription(e.target.value)} placeholder="Descrição da foto..." disabled={isRdoLocked || isUploading} className="mt-1 block w-full p-2 border rounded-md text-sm"/>
-            </div>
-            <button type="button" onClick={handleAddPhoto} disabled={isRdoLocked || !currentPhotoFile || isUploading} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400">{isUploading ? 'Enviando...' : 'Adicionar Foto'}</button>
-          </div>
+          )}
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {allPhotosMetadata.map((photo) => (
               <div key={photo.id} className="relative group border rounded-lg overflow-hidden shadow-sm">
@@ -378,7 +384,9 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
                 <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-xs p-1 truncate" title={photo.descricao}>
                   {photo.descricao || "Sem descrição"}
                 </div>
-                <button type="button" onClick={() => handleRemovePhoto(photo.id, photo.caminho_arquivo)} disabled={isRdoLocked || isUploading} className="absolute top-1 right-1 bg-red-600 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 disabled:opacity-50">&times;</button>
+                {hasPermission('rdo', 'pode_excluir') && (
+                  <button type="button" onClick={() => handleRemovePhoto(photo.id, photo.caminho_arquivo)} disabled={isRdoLocked || isUploading} className="absolute top-1 right-1 bg-red-600 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 disabled:opacity-50">&times;</button>
+                )}
               </div>
             ))}
           </div>

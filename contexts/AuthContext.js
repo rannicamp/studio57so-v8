@@ -12,25 +12,25 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [isProprietario, setIsProprietario] = useState(false);
   const [canViewSalaries, setCanViewSalaries] = useState(false);
+  const [permissions, setPermissions] = useState({}); // NOVO ESTADO
 
-  // Função para buscar os dados do usuário e sua função
   const fetchProfileAndPermissions = useCallback(async (currentUser) => {
     if (!currentUser) {
       setUserData(null);
       setIsProprietario(false);
       setCanViewSalaries(false);
+      setPermissions({}); // LIMPA PERMISSÕES
       setLoading(false);
       return;
     }
 
     setLoading(true);
 
-    // Busca o perfil do usuário e a sua função (funcoes) associada
     const { data: profileData, error } = await supabase
       .from('usuarios')
       .select(`
         *,
-        funcao:funcoes ( nome_funcao )
+        funcao:funcoes ( id, nome_funcao )
       `)
       .eq('id', currentUser.id)
       .single();
@@ -40,27 +40,59 @@ export function AuthProvider({ children }) {
       setUserData(null);
       setIsProprietario(false);
       setCanViewSalaries(false);
+      setPermissions({});
     } else {
       setUserData(profileData);
-      const userRole = profileData?.funcao?.nome_funcao;
+      const userRole = profileData?.funcao;
       
-      // Define as permissões com base na função do usuário
-      const isUserProprietario = userRole === 'Proprietário';
+      const isUserProprietario = userRole?.nome_funcao === 'Proprietário';
       setIsProprietario(isUserProprietario);
-      setCanViewSalaries(isUserProprietario || userRole === 'Administrativo');
+      setCanViewSalaries(isUserProprietario || userRole?.nome_funcao === 'Administrativo');
+
+      // NOVA LÓGICA: BUSCAR PERMISSÕES
+      if (isUserProprietario) {
+          // Proprietário tem todas as permissões
+          const allResources = ['empresas', 'empreendimentos', 'funcionarios', 'atividades', 'rdo', 'usuarios', 'permissoes'];
+          const allPermissions = allResources.reduce((acc, resource) => {
+              acc[resource] = { pode_criar: true, pode_excluir: true, pode_editar: true, pode_ver: true };
+              return acc;
+          }, {});
+          setPermissions(allPermissions);
+      } else if (userRole?.id) {
+          const { data: perms, error: permsError } = await supabase
+              .from('permissoes')
+              .select('*')
+              .eq('funcao_id', userRole.id);
+
+          if (permsError) {
+              console.error("Erro ao buscar permissões:", permsError);
+              setPermissions({});
+          } else {
+              const userPermissions = perms.reduce((acc, p) => {
+                  acc[p.recurso] = {
+                      pode_criar: p.pode_criar,
+                      pode_excluir: p.pode_excluir,
+                      pode_editar: p.pode_editar,
+                      pode_ver: p.pode_ver,
+                  };
+                  return acc;
+              }, {});
+              setPermissions(userPermissions);
+          }
+      } else {
+          setPermissions({}); // Nenhuma função, nenhuma permissão
+      }
     }
 
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => {
-    // Busca a sessão inicial ao carregar
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       fetchProfileAndPermissions(session?.user);
     });
 
-    // Escuta por mudanças na autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       fetchProfileAndPermissions(session?.user);
@@ -71,12 +103,20 @@ export function AuthProvider({ children }) {
     };
   }, [supabase, fetchProfileAndPermissions]);
 
+  // NOVA FUNÇÃO: Helper para verificar permissões
+  const hasPermission = (resource, action) => {
+    if (isProprietario) return true;
+    return permissions[resource]?.[action] || false;
+  };
+
   const value = {
     user,
     userData,
     loading,
     isProprietario,
     canViewSalaries,
+    permissions, // Expondo as permissões
+    hasPermission, // Expondo a nova função
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
