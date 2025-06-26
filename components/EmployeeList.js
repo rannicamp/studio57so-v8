@@ -1,10 +1,29 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronDown, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
+import { faChevronDown, faSort, faSortUp, faSortDown, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+
+// Documentos obrigatórios (deve ser o mesmo listado no FuncionarioForm)
+const requiredDocuments = ['Identidade com Foto', 'CTPS', 'Comprovante de Residência', 'ASO'];
+
+// Função para verificar pendências de um funcionário
+const hasPendingIssues = (employee) => {
+  const requiredFields = ['full_name', 'cpf', 'empresa_id', 'contract_role', 'admission_date'];
+  
+  // Verifica campos obrigatórios
+  const missingFields = requiredFields.some(field => !employee[field]);
+  if (missingFields) return true;
+
+  // Verifica documentos obrigatórios
+  const uploadedDocNames = (employee.documentos_funcionarios || []).map(doc => doc.nome_documento);
+  const missingDocuments = requiredDocuments.some(docType => !uploadedDocNames.includes(docType));
+  if (missingDocuments) return true;
+
+  return false;
+};
 
 // --- Componente da Tabela (com cabeçalhos classificáveis) ---
 const EmployeeTable = ({ employees, onDismissClick, requestSort, sortConfig }) => {
@@ -26,22 +45,32 @@ const EmployeeTable = ({ employees, onDismissClick, requestSort, sortConfig }) =
 
   return (
     <div className="min-w-full">
-      <div className="grid grid-cols-12 gap-4 bg-gray-50 p-3 text-left text-xs">
-        <SortableHeader sortKey="full_name" className="col-span-3">Nome</SortableHeader>
-        <SortableHeader sortKey="contract_role" className="col-span-2">Cargo</SortableHeader>
-        <SortableHeader sortKey="cadastro_empresa" className="col-span-2">Empresa</SortableHeader>
-        <SortableHeader sortKey="empreendimentos" className="col-span-2">Empreendimento</SortableHeader>
-        <SortableHeader sortKey="phone" className="col-span-1">Telefone</SortableHeader>
-        <div className="col-span-2 text-center font-semibold text-gray-600 uppercase tracking-wider">Ações</div>
+      <div className="grid grid-cols-17 gap-4 bg-gray-50 p-3 text-left text-xs"> {/* Alterado para 17 colunas */}
+        <div className="col-span-1 text-center font-semibold text-gray-600 uppercase tracking-wider">!</div> {/* Coluna de alerta */}
+        <SortableHeader sortKey="full_name" className="col-span-4">Nome</SortableHeader> {/* Ajustado para 4 colunas */}
+        <SortableHeader sortKey="contract_role" className="col-span-3">Cargo</SortableHeader> {/* Ajustado para 3 colunas */}
+        <SortableHeader sortKey="cadastro_empresa" className="col-span-3">Empresa</SortableHeader> {/* Ajustado para 3 colunas */}
+        <SortableHeader sortKey="empreendimentos" className="col-span-2">Empreendimento</SortableHeader> {/* Ajustado para 2 colunas */}
+        <SortableHeader sortKey="phone" className="col-span-2">Telefone</SortableHeader> {/* Ajustado para 2 colunas */}
+        <div className="col-span-2 text-center font-semibold text-gray-600 uppercase tracking-wider">Ações</div> {/* Mantido em 2 colunas */}
       </div>
       <div className="bg-white divide-y divide-gray-200">
         {employees.map((employee) => (
-          <div key={employee.id} className="grid grid-cols-12 gap-4 p-3 items-center text-sm">
-            <div className="col-span-3 font-medium text-gray-900">{employee.full_name}</div>
-            <div className="col-span-2 text-gray-700">{employee.contract_role}</div>
-            <div className="col-span-2 text-gray-700">{employee.cadastro_empresa?.razao_social || 'N/A'}</div>
-            <div className="col-span-2 text-gray-700">{employee.empreendimentos?.nome || 'N/A'}</div>
-            <div className="col-span-1 text-gray-700">{employee.phone || 'N/A'}</div>
+          <div key={employee.id} className="grid grid-cols-17 gap-4 p-3 items-center text-sm"> {/* Alterado para 17 colunas */}
+            <div className="col-span-1 text-center"> {/* Coluna do ícone de alerta */}
+              {hasPendingIssues(employee) && (
+                <FontAwesomeIcon 
+                  icon={faExclamationTriangle} 
+                  className="text-yellow-500" 
+                  title="Funcionário com pendências (dados ou documentos faltando)" 
+                />
+              )}
+            </div>
+            <div className="col-span-4 font-medium text-gray-900 truncate" title={employee.full_name}>{employee.full_name}</div> {/* Ajustado para 4 colunas */}
+            <div className="col-span-3 text-gray-700 truncate" title={employee.contract_role}>{employee.contract_role}</div> {/* Ajustado para 3 colunas */}
+            <div className="col-span-3 text-gray-700 truncate" title={employee.cadastro_empresa?.razao_social || 'N/A'}>{employee.cadastro_empresa?.razao_social || 'N/A'}</div> {/* Ajustado para 3 colunas */}
+            <div className="col-span-2 text-gray-700 truncate" title={employee.empreendimentos?.nome || 'N/A'}>{employee.empreendimentos?.nome || 'N/A'}</div> {/* Ajustado para 2 colunas */}
+            <div className="col-span-2 text-gray-700 truncate" title={employee.phone || 'N/A'}>{employee.phone || 'N/A'}</div> {/* Ajustado para 2 colunas */}
             <div className="col-span-2 text-center space-x-2">
               <Link href={`/funcionarios/editar/${employee.id}`} className="text-blue-600 hover:text-blue-800 text-xs font-medium">Editar</Link>
               {employee.status !== 'Demitido' && (
@@ -157,14 +186,101 @@ export default function EmployeeList({ initialEmployees }) {
     setStartDate(''); setEndDate(''); setSelectedEmpreendimentos([]);
   };
 
-  const handleDismissClick = (employee) => { setSelectedEmployee(employee); setShowModal(true); };
-  const confirmDismissal = async () => { /* ...lógica de demissão... */ };
+  const handleDismissClick = async (employee) => {
+    if (!confirm(`Tem certeza que deseja demitir ${employee.full_name}?`)) return;
+    setMessage('Demitindo funcionário...');
+    const { error } = await supabase.from('funcionarios').update({ status: 'Demitido', demission_date: new Date().toISOString().split('T')[0] }).eq('id', employee.id);
+    if (error) {
+      setMessage(`Erro ao demitir: ${error.message}`);
+    } else {
+      setMessage('Funcionário demitido com sucesso!');
+      // Atualiza a lista para refletir a mudança
+      const { data: updatedEmployees, error: fetchError } = await supabase
+        .from('funcionarios')
+        .select(`
+          *,
+          cadastro_empresa ( razao_social ),
+          empreendimentos ( id, nome ),
+          documentos_funcionarios ( id, nome_documento, caminho_arquivo )
+        `)
+        .order('full_name');
+      if (fetchError) {
+        console.error('Erro ao recarregar funcionários após demissão:', fetchError);
+      } else {
+        setEmployees(updatedEmployees || []);
+      }
+    }
+    setTimeout(() => setMessage(''), 3000);
+  };
 
   return (
     <div>
       <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-4">
-        {/* ... Filtros aqui ... */}
+        <input
+          type="text"
+          placeholder="Buscar por nome..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="p-2 border rounded-md shadow-sm flex-grow"
+        />
+
+        {/* Filtro por Cargo */}
+        <div className="relative" ref={roleFilterRef}>
+          <button onClick={() => setOpenDropdown(openDropdown === 'role' ? null : 'role')} className="p-2 border rounded-md shadow-sm flex items-center gap-2">
+            Cargo ({selectedRoles.length}) <FontAwesomeIcon icon={faChevronDown} className={`${openDropdown === 'role' ? 'rotate-180' : ''} transition-transform`} />
+          </button>
+          {openDropdown === 'role' && (
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
+              {allRoles.map(role => (
+                <label key={role} className="flex items-center p-2 hover:bg-gray-100 cursor-pointer">
+                  <input type="checkbox" checked={selectedRoles.includes(role)} onChange={() => handleRoleSelect(role)} className="mr-2"/>
+                  {role}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Filtro por Empreendimento */}
+        <div className="relative" ref={empreendimentoFilterRef}>
+          <button onClick={() => setOpenDropdown(openDropdown === 'empreendimento' ? null : 'empreendimento')} className="p-2 border rounded-md shadow-sm flex items-center gap-2">
+            Empreendimento ({selectedEmpreendimentos.length}) <FontAwesomeIcon icon={faChevronDown} className={`${openDropdown === 'empreendimento' ? 'rotate-180' : ''} transition-transform`} />
+          </button>
+          {openDropdown === 'empreendimento' && (
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
+              {allEmpreendimentos.map(emp => (
+                <label key={emp.id} className="flex items-center p-2 hover:bg-gray-100 cursor-pointer">
+                  <input type="checkbox" checked={selectedEmpreendimentos.includes(emp.id)} onChange={() => handleEmpreendimentoSelect(emp.id)} className="mr-2"/>
+                  {emp.nome}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Filtro por Data */}
+        <div className="relative" ref={dateFilterRef}>
+          <button onClick={() => setOpenDropdown(openDropdown === 'date' ? null : 'date')} className="p-2 border rounded-md shadow-sm flex items-center gap-2">
+            Data ({dateFilterType === 'admission_date' ? 'Admissão' : 'Demissão'}) <FontAwesomeIcon icon={faChevronDown} className={`${openDropdown === 'date' ? 'rotate-180' : ''} transition-transform`} />
+          </button>
+          {openDropdown === 'date' && (
+            <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg p-3 space-y-2 z-10">
+              <select value={dateFilterType} onChange={(e) => setDateFilterType(e.target.value)} className="w-full p-2 border rounded-md">
+                <option value="admission_date">Data de Admissão</option>
+                <option value="demission_date">Data de Demissão</option>
+              </select>
+              <label className="block text-sm font-medium">Início:</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full p-2 border rounded-md" />
+              <label className="block text-sm font-medium">Fim:</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full p-2 border rounded-md" />
+            </div>
+          )}
+        </div>
+
+        <button onClick={clearFilters} className="p-2 border rounded-md shadow-sm bg-gray-200 hover:bg-gray-300">Limpar Filtros</button>
       </div>
+
+      {message && <div className={`p-3 rounded-md text-sm ${message.includes('Erro') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{message}</div>}
 
       <div className="border-b border-gray-200">
         <button onClick={() => setIsActivesVisible(!isActivesVisible)} className="w-full flex justify-between items-center p-4 bg-white hover:bg-gray-50">

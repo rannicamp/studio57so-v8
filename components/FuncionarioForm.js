@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { IMaskInput } from 'react-imask';
 import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserCircle, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faUserCircle, faSpinner, faFileAlt, faTimesCircle, faEye, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons'; // Adicionado faExclamationTriangle
 
 export default function FuncionarioForm({ companies, empreendimentos, initialData }) {
   const supabase = createClient();
@@ -49,17 +49,46 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
   const [photoPreview, setPhotoPreview] = useState(initialData?.foto_url || null);
   const [message, setMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadedDocuments, setUploadedDocuments] = useState([]); // Novo estado para documentos
+  const [newDocumentFiles, setNewDocumentFiles] = useState({}); // { 'identidade': File, 'ctps': File }
 
+  // Documentos obrigatórios (para validação)
+  const requiredDocuments = ['Identidade com Foto', 'CTPS', 'Comprovante de Residência', 'ASO'];
+  
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
       setPhotoPreview(initialData.foto_url || null);
+      // Carregar documentos existentes para o funcionário
+      const fetchDocuments = async () => {
+        const { data, error } = await supabase
+          .from('documentos_funcionarios')
+          .select('*')
+          .eq('funcionario_id', initialData.id);
+        if (error) {
+          console.error("Erro ao buscar documentos:", error);
+          setMessage("Erro ao carregar documentos existentes.");
+        } else {
+          // Gerar URLs assinadas para visualização
+          const docsWithSignedUrls = await Promise.all(data.map(async (doc) => {
+            const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+              .from('funcionarios-documentos')
+              .createSignedUrl(doc.caminho_arquivo, 3600); // URL válida por 1 hora
+            return {
+              ...doc,
+              signedUrl: signedUrlError ? null : signedUrlData.signedUrl
+            };
+          }));
+          setUploadedDocuments(docsWithSignedUrls);
+        }
+      };
+      fetchDocuments();
     }
-  }, [initialData]);
+  }, [initialData, supabase]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // CORREÇÃO: Converte string vazia para null para campos numéricos
+    // CORREÇÃO: Converte string vazia para null para campos numéricos/relacionais
     const finalValue =
       (name === 'empresa_id' || name === 'empreendimento_atual_id') && value === ''
         ? null
@@ -98,62 +127,181 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setMessage(isEditing ? 'Atualizando...' : 'Cadastrando...');
+  const handleDocumentChange = (docType, event) => {
+    const file = event.target.files[0];
+    setNewDocumentFiles(prev => ({ ...prev, [docType]: file }));
+  };
 
-    let finalFotoUrl = formData.foto_url;
+  const uploadFile = async (file, path, bucketName, oldFilePath = null) => {
+    if (!file) return { data: null, error: null };
 
-    if (newPhotoFile) {
-        setIsUploading(true);
-        setMessage('Enviando foto...');
-        const file = newPhotoFile;
-        const fileExtension = file.name.split('.').pop();
-        const newFileName = `public/${(formData.cpf || 'new').replace(/\D/g, '')}-${Date.now()}.${fileExtension}`;
-
-        if (isEditing && formData.foto_url) {
-            const oldFilePath = formData.foto_url.split('/funcionarios-documentos/')[1];
-            if (oldFilePath) {
-                await supabase.storage.from('funcionarios-documentos').remove([oldFilePath]);
-            }
-        }
-
-        const { data: uploadResult, error: uploadError } = await supabase.storage
-            .from('funcionarios-documentos')
-            .upload(newFileName, file);
-
-        setIsUploading(false);
-        if (uploadError) {
-            setMessage(`Erro no upload da foto: ${uploadError.message}`);
-            return;
-        }
-
-        const { data: { publicUrl } } = supabase.storage.from('funcionarios-documentos').getPublicUrl(uploadResult.path);
-        finalFotoUrl = publicUrl;
+    if (oldFilePath) {
+      const { error: deleteError } = await supabase.storage.from(bucketName).remove([oldFilePath]);
+      if (deleteError) console.warn(`Erro ao deletar arquivo antigo em ${bucketName}:`, deleteError.message);
     }
 
-    const { id, created_at, ...dbData } = { ...formData, foto_url: finalFotoUrl };
-    delete dbData.newPhotoFile;
-
-    let error;
-    if (isEditing) {
-        const { error: updateError } = await supabase.from('funcionarios').update(dbData).eq('id', id);
-        error = updateError;
-    } else {
-        const { error: insertError } = await supabase.from('funcionarios').insert([dbData]);
-        error = insertError;
-    }
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .upload(path, file);
 
     if (error) {
-        setMessage(`Erro: ${error.message}`);
+      return { data: null, error };
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from(bucketName).getPublicUrl(data.path);
+    return { data: { path: data.path, publicUrl }, error: null };
+  };
+
+  // Alterado para retornar as pendências, não bloquear a submissão
+  const getPendingIssues = useCallback(() => {
+    const issues = [];
+    const requiredFields = {
+      full_name: 'Nome Completo',
+      cpf: 'CPF',
+      empresa_id: 'Empresa Contratante',
+      contract_role: 'Cargo',
+      admission_date: 'Data de Admissão',
+    };
+    
+    for (const field in requiredFields) {
+      if (!formData[field]) {
+        issues.push(`Campo '${requiredFields[field]}'`);
+      }
+    }
+
+    requiredDocuments.forEach(docType => {
+      const hasUploaded = uploadedDocuments.some(doc => doc.nome_documento === docType) || newDocumentFiles[docType];
+      if (!hasUploaded) {
+        issues.push(`Documento '${docType}'`);
+      }
+    });
+    return issues;
+  }, [formData, uploadedDocuments, newDocumentFiles, requiredDocuments]);
+
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setMessage('');
+
+    const pendingIssues = getPendingIssues();
+    if (pendingIssues.length > 0) {
+      setMessage(`Atenção: As seguintes pendências foram identificadas e o funcionário será salvo com elas:\n${pendingIssues.join(', ')}.`);
+    }
+
+    setIsUploading(true);
+    setMessage(prev => (prev === '' ? (isEditing ? 'Atualizando...' : 'Cadastrando...') : prev)); // Mantém msg de alerta se já houver
+
+    let finalFotoUrl = formData.foto_url;
+    let employeeId = formData.id; // Para caso de edição, já temos o ID
+
+    // 1. Upload da foto de perfil (se houver uma nova)
+    if (newPhotoFile) {
+        const fileExtension = newPhotoFile.name.split('.').pop();
+        const photoFileName = `perfil/${(formData.cpf || 'new').replace(/\D/g, '')}-${Date.now()}.${fileExtension}`;
+        const oldPhotoPath = isEditing && formData.foto_url ? formData.foto_url.split('/funcionarios-documentos/')[1] : null;
+
+        const { data: photoUploadData, error: photoUploadError } = await uploadFile(newPhotoFile, photoFileName, 'funcionarios-documentos', oldPhotoPath);
+        
+        if (photoUploadError) {
+            setMessage(`Erro no upload da foto: ${photoUploadError.message}`);
+            setIsUploading(false);
+            return;
+        }
+        finalFotoUrl = photoUploadData.publicUrl;
+    }
+
+    // 2. Salvar/Atualizar dados do funcionário na tabela 'funcionarios'
+    const { id, created_at, ...dbData } = { ...formData, foto_url: finalFotoUrl };
+    delete dbData.newPhotoFile; // Limpa o estado temporário
+
+    let employeeSaveError;
+    let savedEmployeeData;
+
+    if (isEditing) {
+        const { data, error: updateError } = await supabase.from('funcionarios').update(dbData).eq('id', id).select().single();
+        employeeSaveError = updateError;
+        savedEmployeeData = data;
     } else {
+        const { data, error: insertError } = await supabase.from('funcionarios').insert([dbData]).select().single();
+        employeeSaveError = insertError;
+        savedEmployeeData = data;
+    }
+
+    if (employeeSaveError) {
+        setMessage(`Erro ao salvar funcionário: ${employeeSaveError.message}`);
+        setIsUploading(false);
+        return;
+    }
+    employeeId = savedEmployeeData.id; // Se for novo cadastro, pega o ID gerado
+
+    // 3. Upload e salvamento dos outros documentos (se houver novos arquivos)
+    for (const docType in newDocumentFiles) {
+      const file = newDocumentFiles[docType];
+      if (file) {
+        const fileExtension = file.name.split('.').pop();
+        const docFileName = `${employeeId}/${docType.replace(/\s/g, '_')}-${Date.now()}.${fileExtension}`;
+        
+        // Verificar se já existe um documento do mesmo tipo para este funcionário
+        const existingDoc = uploadedDocuments.find(d => d.nome_documento === docType);
+        const oldDocPath = existingDoc ? existingDoc.caminho_arquivo : null;
+
+        const { data: docUploadData, error: docUploadError } = await uploadFile(file, docFileName, 'funcionarios-documentos', oldDocPath);
+
+        if (docUploadError) {
+          setMessage(`Erro ao enviar ${docType}: ${docUploadError.message}`);
+          setIsUploading(false);
+          return;
+        }
+
+        const docRecord = {
+          funcionario_id: employeeId,
+          nome_documento: docType,
+          caminho_arquivo: docUploadData.path,
+          criado_por_usuario_id: null, // Será preenchido pelo RLS ou trigger, se configurado
+        };
+
+        if (existingDoc) {
+          await supabase.from('documentos_funcionarios').update(docRecord).eq('id', existingDoc.id);
+        } else {
+          await supabase.from('documentos_funcionarios').insert([docRecord]);
+        }
+      }
+    }
+
+    // A mensagem final agora leva em conta as pendências
+    if (pendingIssues.length === 0) {
         setMessage(`Funcionário ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
-        setTimeout(() => {
-            router.push('/funcionarios');
-            router.refresh();
-        }, 1500);
+    } else {
+        setMessage(`Funcionário ${isEditing ? 'atualizado' : 'cadastrado'} com pendências! Verifique a lista.`);
+    }
+    
+    setIsUploading(false);
+    setTimeout(() => {
+        router.push('/funcionarios');
+        router.refresh();
+    }, 1500);
+  };
+
+  const handleDeleteDocument = async (docId, caminhoArquivo) => {
+    if (!window.confirm('Tem certeza que deseja remover este documento?')) return;
+    setMessage('Removendo documento...');
+    try {
+      const { error: storageError } = await supabase.storage.from('funcionarios-documentos').remove([caminhoArquivo]);
+      if (storageError) throw storageError;
+
+      const { error: dbError } = await supabase.from('documentos_funcionarios').delete().eq('id', docId);
+      if (dbError) throw dbError;
+
+      setUploadedDocuments(prev => prev.filter(doc => doc.id !== docId));
+      setMessage('Documento removido com sucesso!');
+    } catch (error) {
+      setMessage(`Erro ao remover documento: ${error.message}`);
+      console.error("Erro ao remover documento:", error);
+    } finally {
+      setTimeout(() => setMessage(''), 3000);
     }
   };
+
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -161,7 +309,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
         {isEditing ? `Editando Funcionário: ${initialData.full_name}` : 'Cadastro de Novo Funcionário'}
       </h1>
 
-      {message && <p className={`text-center font-medium mb-4 p-2 rounded-md ${message.includes('Erro') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{message}</p>}
+      {message && <p className={`text-center font-medium mb-4 p-2 rounded-md ${message.includes('Erro') ? 'bg-red-100 text-red-700' : (message.includes('Atenção') ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700')}`}>{message}</p>}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <fieldset className="border-t border-gray-900/10 pt-8">
@@ -266,6 +414,45 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
         </fieldset>
 
         <fieldset className="border-t border-gray-900/10 pt-8">
+            <h2 className="text-xl font-semibold text-gray-800">Documentos do Funcionário</h2>
+            <div className="mt-6 space-y-4">
+                {requiredDocuments.map((docType) => (
+                    <div key={docType} className="flex flex-col md:flex-row md:items-center gap-2">
+                        <label className="block text-sm font-medium md:w-1/3">{docType} *</label>
+                        <div className="flex-1 flex items-center gap-2">
+                            <input
+                                type="file"
+                                accept=".pdf,image/*"
+                                onChange={(e) => handleDocumentChange(docType, e)}
+                                disabled={isUploading}
+                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100 disabled:opacity-50"
+                            />
+                            {isUploading && <FontAwesomeIcon icon={faSpinner} spin className="text-blue-500" />}
+                            {uploadedDocuments.some(doc => doc.nome_documento === docType) && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-green-600 font-semibold">Anexado!</span>
+                                    {uploadedDocuments.find(doc => doc.nome_documento === docType)?.signedUrl && (
+                                        <a href={uploadedDocuments.find(doc => doc.nome_documento === docType).signedUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700" title="Ver Documento">
+                                            <FontAwesomeIcon icon={faEye} />
+                                        </a>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDeleteDocument(uploadedDocuments.find(doc => doc.nome_documento === docType).id, uploadedDocuments.find(doc => doc.nome_documento === docType).caminho_arquivo)}
+                                        className="text-red-500 hover:text-red-700"
+                                        title="Remover Documento"
+                                    >
+                                        <FontAwesomeIcon icon={faTimesCircle} />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </fieldset>
+
+        <fieldset className="border-t border-gray-900/10 pt-8">
             <h2 className="text-xl font-semibold text-gray-800">Outras Informações</h2>
             <div className="mt-6">
                 <label htmlFor="observations" className="block text-sm font-medium text-gray-700">Observações</label>
@@ -275,7 +462,9 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
 
         <div className="mt-6 flex items-center justify-end gap-x-6">
             <button type="button" onClick={() => router.push('/funcionarios')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
-            <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600 font-semibold">{isEditing ? 'Salvar Alterações' : 'Salvar Funcionário'}</button>
+            <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600 font-semibold" disabled={isUploading}>
+              {isUploading ? 'Salvando...' : (isEditing ? 'Salvar Alterações' : 'Salvar Funcionário')}
+            </button>
         </div>
       </form>
     </div>

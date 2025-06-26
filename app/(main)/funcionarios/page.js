@@ -10,7 +10,8 @@ export default async function GerenciamentoFuncionariosPage() {
     .select(`
       *,
       cadastro_empresa ( razao_social ),
-      empreendimentos ( id, nome )
+      empreendimentos ( id, nome ),
+      documentos_funcionarios ( id, nome_documento, caminho_arquivo ) // Inclui os documentos
     `)
     .order('full_name');
 
