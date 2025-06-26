@@ -1,5 +1,5 @@
-import { createClient } from '../../../../utils/supabase/server'; // Caminho corrigido
-import EmpreendimentoForm from '../../../../components/EmpreendimentoForm'; // Caminho corrigido
+import { createClient } from '../../../../utils/supabase/server';
+import EmpreendimentoForm from '../../../../components/EmpreendimentoForm';
 import Link from 'next/link';
 
 // Esta página é um "Server Component", por isso pode ser async
@@ -17,8 +17,10 @@ export default async function CadastroEmpreendimentoPage() {
         <Link href="/" className="text-blue-500 hover:underline mb-4 inline-block">
             &larr; Voltar para o Dashboard
         </Link>
-        {/* Renderiza o formulário, passando a lista de empresas para ele */}
-        <EmpreendimentoForm companies={companies} />
+        {/* Esta página está correta: ela busca a lista de empresas 
+          e passa para o componente <EmpreendimentoForm /> 
+        */}
+        <EmpreendimentoForm companies={companies || []} />
     </div>
   );
 }
