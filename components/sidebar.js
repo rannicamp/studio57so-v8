@@ -10,11 +10,10 @@ import {
   faTasks,
   faClipboardList,
   faCog,
-  faUserCog,
   faChevronLeft,
   faChevronRight,
-  faShieldAlt,
-  faClock // Ícone adicionado
+  faClock,
+  faAddressBook // ÍCONE NOVO ADICIONADO
 } from '@fortawesome/free-solid-svg-icons';
 import { useState } from 'react';
 
@@ -22,12 +21,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
   const mainNavItems = [
     { href: '/', label: 'Dashboard', icon: faTachometerAlt },
     { href: '/tarefas-gerais', label: 'Gerenciador de Atividades', icon: faTasks },
+    // NOVO ITEM DE MENU ADICIONADO ABAIXO
+    { href: '/contatos', label: 'Contatos', icon: faAddressBook },
     { href: '/empresas', label: 'Empresas', icon: faBuilding },
     { href: '/empreendimentos/cadastro', label: 'Cadastro de Empreendimento', icon: faProjectDiagram },
     { href: '/funcionarios', label: 'Funcionários', icon: faUsers },
     { href: '/atividades', label: 'Painel de Atividades', icon: faTasks },
     { href: '/rdo/gerenciador', label: 'Diário de Obra (RDO)', icon: faClipboardList },
-    // NOVO ITEM ADICIONADO AQUI
     { href: '/ponto', label: 'Controle de Ponto', icon: faClock },
   ];
 

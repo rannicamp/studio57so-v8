@@ -1,0 +1,322 @@
+"use client";
+
+import { useState, useEffect, useCallback } from 'react';
+import { createClient } from '../utils/supabase/client';
+import { useRouter } from 'next/navigation';
+import { IMaskInput } from 'react-imask';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner, faTrashAlt, faPlusCircle, faBuilding, faUser } from '@fortawesome/free-solid-svg-icons';
+
+// Sub-componente para a linha de telefone/email
+const DynamicInputRow = ({ item, index, onUpdate, onRemove, countries }) => {
+    const isPhone = 'telefone' in item;
+    const [value, setValue] = useState(item.telefone || item.email || '');
+    const [type, setType] = useState(item.tipo || '');
+    const [countryCode, setCountryCode] = useState(item.country_code || '+55');
+
+    const handleUpdate = (field, newValue) => {
+        onUpdate(index, field, newValue);
+    };
+
+    return (
+        <div className="flex items-center gap-2">
+            {isPhone && (
+                <select 
+                    value={countryCode} 
+                    onChange={(e) => {
+                        const newCode = e.target.value;
+                        setCountryCode(newCode);
+                        handleUpdate('country_code', newCode);
+                    }}
+                    className="p-2 border rounded-md bg-gray-50 text-sm"
+                >
+                    {countries.length > 0 ? (
+                        countries.map(c => (
+                            <option key={c.code} value={c.dial_code}>{c.code} ({c.dial_code})</option>
+                        ))
+                    ) : (
+                        <option value="+55">BR (+55)</option>
+                    )}
+                </select>
+            )}
+            <input
+                type={isPhone ? 'tel' : 'email'}
+                placeholder={isPhone ? 'Número' : 'Endereço de email'}
+                value={value}
+                onChange={(e) => {
+                    const newValue = e.target.value;
+                    setValue(newValue);
+                    handleUpdate(isPhone ? 'telefone' : 'email', newValue);
+                }}
+                className="flex-grow p-2 border rounded-md"
+            />
+            <input
+                type="text"
+                placeholder={isPhone ? 'Tipo (Ex: Celular)' : 'Tipo (Ex: Pessoal)'}
+                value={type}
+                onChange={(e) => {
+                    const newType = e.target.value;
+                    setType(newType);
+                    handleUpdate('tipo', newType);
+                }}
+                className="w-1/3 p-2 border rounded-md"
+            />
+            <button type="button" onClick={() => onRemove(index)}>
+                <FontAwesomeIcon icon={faTrashAlt} className="text-red-500 hover:text-red-700" />
+            </button>
+        </div>
+    );
+};
+
+
+export default function ContatoForm({ initialData }) {
+  const supabase = createClient();
+  const router = useRouter();
+  const isEditing = Boolean(initialData?.id);
+  const [formType, setFormType] = useState('pf');
+  const [countries, setCountries] = useState([]);
+
+  const getInitialState = useCallback(() => ({
+    nome: '', tipo_contato: null, status: 'Ativo', razao_social: '', nome_fantasia: '', cnpj: '', inscricao_estadual: '', inscricao_municipal: '', responsavel_legal: '', cpf: '', rg: '', nacionalidade: '', birth_date: null, estado_civil: '', cargo: '', contract_role: '', admission_date: null, demission_date: null, cep: '', address_street: '', address_number: '', address_complement: '', neighborhood: '', city: '', state: '', base_salary: '', total_salary: '', daily_value: '', payment_method: '', pix_key: '', bank_details: '', observations: '', numero_ponto: null, foto_url: null,
+    telefones: [{ tempId: 'phone_0', country_code: '+55', telefone: '', tipo: 'Celular' }],
+    emails: [{ tempId: 'email_0', email: '', tipo: 'Pessoal' }],
+  }), []);
+
+  const [formData, setFormData] = useState(getInitialState());
+  const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isApiLoading, setIsApiLoading] = useState(false);
+  const [uniqueKeyCounter, setUniqueKeyCounter] = useState(1);
+  
+  // Efeito para buscar a lista de países da API
+  useEffect(() => {
+    const fetchCountries = async () => {
+        try {
+            const response = await fetch('https://restcountries.com/v3.1/all?fields=name,idd,cca2');
+            if (!response.ok) throw new Error('Falha ao buscar países');
+            const data = await response.json();
+            const formattedCountries = data
+                .filter(c => c.idd.root) // Filtra países que têm código de discagem
+                .map(c => ({
+                    name: c.name.common,
+                    dial_code: c.idd.root + (c.idd.suffixes?.[0] || ''),
+                    code: c.cca2
+                }))
+                .sort((a, b) => a.name.localeCompare(b.name));
+            
+            const br = formattedCountries.find(c => c.code === 'BR');
+            const us = formattedCountries.find(c => c.code === 'US');
+            const others = formattedCountries.filter(c => c.code !== 'BR' && c.code !== 'US');
+            
+            setCountries([br, us, ...others].filter(Boolean));
+        } catch (error) {
+            console.error("Erro ao buscar códigos de país:", error);
+            // Fallback para uma lista mínima em caso de falha na API
+            setCountries([ { name: 'Brazil', dial_code: '+55', code: 'BR' }, { name: 'United States', dial_code: '+1', code: 'US' } ]);
+        }
+    };
+    fetchCountries();
+  }, []);
+
+  useEffect(() => {
+    const loadInitialData = async () => {
+      if (initialData?.id) {
+        setIsLoading(true);
+        if (initialData.cnpj) setFormType('pj');
+        const { data: telefones } = await supabase.from('telefones').select('*').eq('contato_id', initialData.id);
+        const { data: emails } = await supabase.from('emails').select('*').eq('contato_id', initialData.id);
+        setFormData({ ...getInitialState(), ...initialData, telefones: telefones?.length > 0 ? telefones.map((t, i) => ({...t, tempId: `phone_${i}`})) : getInitialState().telefones, emails: emails?.length > 0 ? emails.map((e, i) => ({...e, tempId: `email_${i}`})) : getInitialState().emails });
+        setIsLoading(false);
+      }
+    };
+    loadInitialData();
+  }, [initialData, supabase, getInitialState]);
+  
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
+  };
+
+  const handleMaskedChange = (name, value) => {
+    setFormData(prevState => ({ ...prevState, [name]: value }));
+  };
+
+  const handleDynamicListUpdate = (listName, index, field, value) => {
+    const updatedList = formData[listName].map((item, i) => i === index ? { ...item, [field]: value } : item);
+    setFormData(prev => ({ ...prev, [listName]: updatedList }));
+  };
+
+  const addDynamicListItem = (listName) => {
+    const newKey = uniqueKeyCounter;
+    setUniqueKeyCounter(prev => prev + 1);
+    const newItem = listName === 'telefones' ? { tempId: `phone_${newKey}`, country_code: '+55', telefone: '', tipo: 'Celular' } : { tempId: `email_${newKey}`, email: '', tipo: 'Pessoal' };
+    setFormData(prev => ({ ...prev, [listName]: [...prev[listName], newItem] }));
+  };
+
+  const removeDynamicListItem = (listName, index) => {
+    if (formData[listName].length > 1) {
+      setFormData(prev => ({ ...prev, [listName]: prev[listName].filter((_, i) => i !== index) }));
+    }
+  };
+  
+  const handleCepBlur = async (cep) => {
+    const cepLimpo = cep?.replace(/\D/g, '');
+    if (cepLimpo?.length !== 8) return;
+    setIsApiLoading(true); setMessage('Buscando CEP...');
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      if (!response.ok) throw new Error('CEP não encontrado');
+      const data = await response.json();
+      if (data.erro) throw new Error('CEP inválido.');
+      setFormData(prev => ({ ...prev, address_street: data.logradouro, neighborhood: data.bairro, city: data.localidade, state: data.uf, cep: cepLimpo }));
+      setMessage('Endereço preenchido!');
+    } catch (error) { setMessage(error.message); } finally { setIsApiLoading(false); setTimeout(() => setMessage(''), 3000); }
+  };
+
+  const handleCnpjBlur = async (cnpj) => {
+    const cnpjLimpo = cnpj?.replace(/\D/g, '');
+    if (cnpjLimpo?.length !== 14) return;
+    setIsApiLoading(true); setMessage('Buscando CNPJ...');
+    try {
+      const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjLimpo}`);
+      if (!response.ok) throw new Error('CNPJ não encontrado ou inválido.');
+      const data = await response.json();
+      const telefoneApi = data.ddd_telefone_1 ? [{ tempId: 'phone_0', country_code: '+55', telefone: data.ddd_telefone_1, tipo: 'Comercial' }] : formData.telefones;
+      setFormData(prev => ({ ...prev, razao_social: data.razao_social, nome_fantasia: data.nome_fantasia, cep: data.cep, address_street: data.logradouro, address_number: data.numero, address_complement: data.complemento, neighborhood: data.bairro, city: data.municipio, state: data.uf, telefones: prev.telefones[0]?.telefone ? prev.telefones : telefoneApi }));
+      setMessage('Dados da empresa preenchidos!');
+    } catch (error) { setMessage(error.message); } finally { setIsApiLoading(false); setTimeout(() => setMessage(''), 3000); }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true); setMessage(isEditing ? 'Atualizando contato...' : 'Criando contato...');
+    
+    // Concatena o código do país ao número de telefone antes de salvar
+    const telefonesParaSalvar = formData.telefones.map(tel => ({
+        ...tel,
+        telefone: `${tel.country_code} ${tel.telefone}`
+    }));
+
+    const { emails, ...contatoData } = { ...formData, telefones: telefonesParaSalvar };
+    let savedContact;
+    if (isEditing) {
+      const { data, error } = await supabase.from('contatos').update(contatoData).eq('id', initialData.id).select().single();
+      if (error) { setMessage(`Erro ao atualizar contato: ${error.message}`); setIsLoading(false); return; }
+      savedContact = data;
+    } else {
+      const { data, error } = await supabase.from('contatos').insert(contatoData).select().single();
+      if (error) { setMessage(`Erro ao criar contato: ${error.message}`); setIsLoading(false); return; }
+      savedContact = data;
+    }
+    const upsertList = async (list, tableName, fieldName) => {
+        const itemsToUpsert = list.filter(item => item[fieldName]).map(({ tempId, ...dbItem }) => ({ ...dbItem, contato_id: savedContact.id }));
+        if (itemsToUpsert.length > 0) {
+            const newIds = itemsToUpsert.map(item => item.id).filter(Boolean);
+            if (isEditing) { await supabase.from(tableName).delete().eq('contato_id', savedContact.id).not('id', 'in', `(${newIds.join(',')})`); }
+            const { error } = await supabase.from(tableName).upsert(itemsToUpsert);
+            if (error) throw new Error(`Erro ao salvar ${tableName}: ${error.message}`);
+        }
+    };
+    try {
+      await upsertList(telefonesParaSalvar, 'telefones', 'telefone');
+      await upsertList(emails, 'emails', 'email');
+      setMessage(`Contato ${isEditing ? 'atualizado' : 'criado'} com sucesso!`);
+      router.push('/contatos');
+      router.refresh();
+    } catch (error) { setMessage(error.message); } finally { setIsLoading(false); }
+  };
+
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-8">
+      {(message || isApiLoading) && ( <div className={`p-3 rounded-md text-center sticky top-2 z-10 ${message.includes('Erro') ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}> {isApiLoading ? <FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> : null} {message} </div> )}
+      
+      <div className="flex justify-center p-1 bg-gray-200 rounded-lg">
+        <button type="button" onClick={() => setFormType('pf')} className={`w-1/2 p-2 rounded-md font-semibold flex items-center justify-center gap-2 ${formType === 'pf' ? 'bg-white shadow' : 'text-gray-600'}`}> <FontAwesomeIcon icon={faUser} /> Pessoa Física </button>
+        <button type="button" onClick={() => setFormType('pj')} className={`w-1/2 p-2 rounded-md font-semibold flex items-center justify-center gap-2 ${formType === 'pj' ? 'bg-white shadow' : 'text-gray-600'}`}> <FontAwesomeIcon icon={faBuilding} /> Pessoa Jurídica </button>
+      </div>
+
+      <fieldset>
+        <legend className="text-xl font-semibold text-gray-800 border-b pb-2">Informações de Contato</legend>
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-x-10">
+           <div>
+             <label className="block text-sm font-medium mb-2">Telefones</label>
+             <div className="space-y-3">
+               {formData.telefones.map((item, index) => <DynamicInputRow key={item.id || item.tempId} item={item} index={index} onUpdate={handleDynamicListUpdate} onRemove={(idx) => removeDynamicListItem('telefones', idx)} countries={countries} />)}
+               <button type="button" onClick={() => addDynamicListItem('telefones')} className="text-blue-500 hover:text-blue-700 flex items-center gap-2 text-sm"> <FontAwesomeIcon icon={faPlusCircle} /> Adicionar </button>
+             </div>
+           </div>
+           <div>
+             <label className="block text-sm font-medium mb-2">Emails</label>
+             <div className="space-y-3">
+               {formData.emails.map((item, index) => <DynamicInputRow key={item.id || item.tempId} item={item} index={index} onUpdate={handleDynamicListUpdate} onRemove={(idx) => removeDynamicListItem('emails', idx)} countries={countries} />)}
+               <button type="button" onClick={() => addDynamicListItem('emails')} className="text-blue-500 hover:text-blue-700 flex items-center gap-2 text-sm"> <FontAwesomeIcon icon={faPlusCircle} /> Adicionar </button>
+             </div>
+           </div>
+        </div>
+      </fieldset>
+      
+      {/* O resto do JSX do formulário permanece igual... */}
+      <fieldset>
+        <legend className="text-xl font-semibold text-gray-800 border-b pb-2">Informações Principais</legend>
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-2"> <label className="block text-sm font-medium">Nome Completo / Contato Principal *</label> <input name="nome" value={formData.nome || ''} onChange={handleChange} required className="w-full p-2 border rounded-md" /> </div>
+          <div> <label className="block text-sm font-medium">Tipo de Contato *</label> <select name="tipo_contato" value={formData.tipo_contato || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"> <option value="">Selecione...</option> <option value="Contato">Contato</option> <option value="Cliente">Cliente</option> <option value="Fornecedor">Fornecedor</option> <option value="Lead">Lead</option> </select> </div>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend className="text-xl font-semibold text-gray-800 border-b pb-2">Dados Pessoais</legend>
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div><label className="block text-sm font-medium">CPF</label><IMaskInput mask="000.000.000-00" name="cpf" onAccept={(v) => handleMaskedChange('cpf', v)} value={formData.cpf || ''} className="w-full p-2 border rounded-md"/></div>
+          <div><label className="block text-sm font-medium">RG</label><input name="rg" value={formData.rg || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+          <div><label className="block text-sm font-medium">Data de Nascimento</label><input type="date" name="birth_date" value={formData.birth_date || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+          <div><label className="block text-sm font-medium">Estado Civil</label><input name="estado_civil" value={formData.estado_civil || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+          <div><label className="block text-sm font-medium">Nacionalidade</label><input name="nacionalidade" value={formData.nacionalidade || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+          <div><label className="block text-sm font-medium">Profissão/Cargo</label><input name="cargo" value={formData.cargo || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+        </div>
+      </fieldset>
+      {formType === 'pj' && (
+          <fieldset>
+            <legend className="text-xl font-semibold text-gray-800 border-b pb-2">Dados da Empresa</legend>
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div> <label className="block text-sm font-medium">CNPJ (digite para preencher)</label> <IMaskInput mask="00.000.000/0000-00" name="cnpj" onAccept={(v) => handleMaskedChange('cnpj', v)} onBlur={(e) => handleCnpjBlur(e.target.value)} value={formData.cnpj || ''} className="w-full p-2 border rounded-md"/> </div>
+                <div> <label className="block text-sm font-medium">Razão Social</label> <input name="razao_social" value={formData.razao_social || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /> </div>
+                <div> <label className="block text-sm font-medium">Nome Fantasia</label> <input name="nome_fantasia" value={formData.nome_fantasia || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /> </div>
+                <div> <label className="block text-sm font-medium">Responsável Legal</label> <input name="responsavel_legal" value={formData.responsavel_legal || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /> </div>
+            </div>
+          </fieldset>
+      )}
+      <fieldset>
+          <legend className="text-xl font-semibold text-gray-800 border-b pb-2">Endereço</legend>
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-6">
+            <div className="md:col-span-2"> <label className="block text-sm font-medium">CEP (digite para preencher)</label> <IMaskInput mask="00000-000" name="cep" onAccept={(v) => handleMaskedChange('cep', v)} onBlur={(e) => handleCepBlur(e.target.value)} value={formData.cep || ''} className="w-full p-2 border rounded-md"/> </div>
+            <div className="md:col-span-4"><label className="block text-sm font-medium">Rua</label><input name="address_street" value={formData.address_street || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+            <div className="md:col-span-1"><label className="block text-sm font-medium">Número</label><input name="address_number" value={formData.address_number || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+            <div className="md:col-span-2"><label className="block text-sm font-medium">Complemento</label><input name="address_complement" value={formData.address_complement || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+            <div className="md:col-span-3"><label className="block text-sm font-medium">Bairro</label><input name="neighborhood" value={formData.neighborhood || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+            <div className="md:col-span-4"><label className="block text-sm font-medium">Cidade</label><input name="city" value={formData.city || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+            <div className="md:col-span-2"><label className="block text-sm font-medium">Estado (UF)</label><input name="state" value={formData.state || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+          </div>
+      </fieldset>
+      <fieldset>
+          <legend className="text-xl font-semibold text-gray-800 border-b pb-2">Dados Bancários e PIX</legend>
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div><label className="block text-sm font-medium">Método Preferencial</label><input name="payment_method" value={formData.payment_method || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+              <div><label className="block text-sm font-medium">Chave PIX</label><input name="pix_key" value={formData.pix_key || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+              <div className="md:col-span-3"><label className="block text-sm font-medium">Outros Dados Bancários</label><textarea name="bank_details" value={formData.bank_details || ''} onChange={handleChange} rows="2" className="w-full p-2 border rounded-md" /></div>
+          </div>
+      </fieldset>
+      <fieldset>
+          <legend className="text-xl font-semibold text-gray-800 border-b pb-2">Observações</legend>
+           <div className="mt-6">
+              <label className="block text-sm font-medium">Descrição de produtos/serviços ou observações gerais</label>
+              <textarea name="observations" value={formData.observations || ''} onChange={handleChange} rows="4" className="w-full p-2 border rounded-md" />
+            </div>
+      </fieldset>
+      <div className="mt-8 flex justify-end gap-4">
+        <button type="button" onClick={() => router.push('/contatos')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"> Cancelar </button>
+        <button type="submit" disabled={isLoading || isApiLoading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2"> {(isLoading || isApiLoading) && <FontAwesomeIcon icon={faSpinner} spin />} {isEditing ? 'Salvar Alterações' : 'Salvar Contato'} </button>
+      </div>
+    </form>
+  );
+}
