@@ -13,7 +13,8 @@ import {
   faUserCog,
   faChevronLeft,
   faChevronRight,
-  faShieldAlt
+  faShieldAlt,
+  faClock // Ícone adicionado
 } from '@fortawesome/free-solid-svg-icons';
 import { useState } from 'react';
 
@@ -26,9 +27,10 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
     { href: '/funcionarios', label: 'Funcionários', icon: faUsers },
     { href: '/atividades', label: 'Painel de Atividades', icon: faTasks },
     { href: '/rdo/gerenciador', label: 'Diário de Obra (RDO)', icon: faClipboardList },
+    // NOVO ITEM ADICIONADO AQUI
+    { href: '/ponto', label: 'Controle de Ponto', icon: faClock },
   ];
 
-  // O item de Configurações agora é um link direto, se for admin
   const bottomNavItems = isAdmin ? [
     { href: '/configuracoes', label: 'Configurações', icon: faCog },
   ] : [];

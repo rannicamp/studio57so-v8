@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { IMaskInput } from 'react-imask';
 import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserCircle, faSpinner, faFileAlt, faTimesCircle, faEye, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons'; // Adicionado faExclamationTriangle
+import { faUserCircle, faSpinner, faFileAlt, faTimesCircle, faEye, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 
 export default function FuncionarioForm({ companies, empreendimentos, initialData }) {
   const supabase = createClient();
@@ -42,6 +42,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     bank_details: '',
     observations: '',
     foto_url: null,
+    numero_ponto: null, // Campo adicionado
   });
 
   const [formData, setFormData] = useState(initialData || getInitialState());
@@ -49,17 +50,15 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
   const [photoPreview, setPhotoPreview] = useState(initialData?.foto_url || null);
   const [message, setMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadedDocuments, setUploadedDocuments] = useState([]); // Novo estado para documentos
-  const [newDocumentFiles, setNewDocumentFiles] = useState({}); // { 'identidade': File, 'ctps': File }
+  const [uploadedDocuments, setUploadedDocuments] = useState([]);
+  const [newDocumentFiles, setNewDocumentFiles] = useState({});
 
-  // Documentos obrigatórios (para validação)
   const requiredDocuments = ['Identidade com Foto', 'CTPS', 'Comprovante de Residência', 'ASO'];
   
   useEffect(() => {
     if (initialData) {
       setFormData(initialData);
       setPhotoPreview(initialData.foto_url || null);
-      // Carregar documentos existentes para o funcionário
       const fetchDocuments = async () => {
         const { data, error } = await supabase
           .from('documentos_funcionarios')
@@ -69,11 +68,10 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
           console.error("Erro ao buscar documentos:", error);
           setMessage("Erro ao carregar documentos existentes.");
         } else {
-          // Gerar URLs assinadas para visualização
           const docsWithSignedUrls = await Promise.all(data.map(async (doc) => {
             const { data: signedUrlData, error: signedUrlError } = await supabase.storage
               .from('funcionarios-documentos')
-              .createSignedUrl(doc.caminho_arquivo, 3600); // URL válida por 1 hora
+              .createSignedUrl(doc.caminho_arquivo, 3600);
             return {
               ...doc,
               signedUrl: signedUrlError ? null : signedUrlData.signedUrl
@@ -88,9 +86,8 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // CORREÇÃO: Converte string vazia para null para campos numéricos/relacionais
     const finalValue =
-      (name === 'empresa_id' || name === 'empreendimento_atual_id') && value === ''
+      (name === 'empresa_id' || name === 'empreendimento_atual_id' || name === 'numero_ponto') && value === ''
         ? null
         : value;
     setFormData(prevState => ({ ...prevState, [name]: finalValue }));
@@ -152,7 +149,6 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     return { data: { path: data.path, publicUrl }, error: null };
   };
 
-  // Alterado para retornar as pendências, não bloquear a submissão
   const getPendingIssues = useCallback(() => {
     const issues = [];
     const requiredFields = {
@@ -189,12 +185,11 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     }
 
     setIsUploading(true);
-    setMessage(prev => (prev === '' ? (isEditing ? 'Atualizando...' : 'Cadastrando...') : prev)); // Mantém msg de alerta se já houver
+    setMessage(prev => (prev === '' ? (isEditing ? 'Atualizando...' : 'Cadastrando...') : prev));
 
     let finalFotoUrl = formData.foto_url;
-    let employeeId = formData.id; // Para caso de edição, já temos o ID
+    let employeeId = formData.id;
 
-    // 1. Upload da foto de perfil (se houver uma nova)
     if (newPhotoFile) {
         const fileExtension = newPhotoFile.name.split('.').pop();
         const photoFileName = `perfil/${(formData.cpf || 'new').replace(/\D/g, '')}-${Date.now()}.${fileExtension}`;
@@ -210,9 +205,8 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
         finalFotoUrl = photoUploadData.publicUrl;
     }
 
-    // 2. Salvar/Atualizar dados do funcionário na tabela 'funcionarios'
     const { id, created_at, ...dbData } = { ...formData, foto_url: finalFotoUrl };
-    delete dbData.newPhotoFile; // Limpa o estado temporário
+    delete dbData.newPhotoFile;
 
     let employeeSaveError;
     let savedEmployeeData;
@@ -232,16 +226,14 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
         setIsUploading(false);
         return;
     }
-    employeeId = savedEmployeeData.id; // Se for novo cadastro, pega o ID gerado
+    employeeId = savedEmployeeData.id;
 
-    // 3. Upload e salvamento dos outros documentos (se houver novos arquivos)
     for (const docType in newDocumentFiles) {
       const file = newDocumentFiles[docType];
       if (file) {
         const fileExtension = file.name.split('.').pop();
         const docFileName = `${employeeId}/${docType.replace(/\s/g, '_')}-${Date.now()}.${fileExtension}`;
         
-        // Verificar se já existe um documento do mesmo tipo para este funcionário
         const existingDoc = uploadedDocuments.find(d => d.nome_documento === docType);
         const oldDocPath = existingDoc ? existingDoc.caminho_arquivo : null;
 
@@ -257,7 +249,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
           funcionario_id: employeeId,
           nome_documento: docType,
           caminho_arquivo: docUploadData.path,
-          criado_por_usuario_id: null, // Será preenchido pelo RLS ou trigger, se configurado
+          criado_por_usuario_id: null,
         };
 
         if (existingDoc) {
@@ -268,7 +260,6 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
       }
     }
 
-    // A mensagem final agora leva em conta as pendências
     if (pendingIssues.length === 0) {
         setMessage(`Funcionário ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
     } else {
@@ -301,7 +292,6 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
       setTimeout(() => setMessage(''), 3000);
     }
   };
-
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -396,6 +386,11 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2"><label className="block text-sm font-medium">Cargo *</label><input name="contract_role" required onChange={handleChange} value={formData.contract_role || ''} className="mt-1 w-full p-2 border rounded-md" /></div>
             <div><label className="block text-sm font-medium">Data de Admissão *</label><input type="date" name="admission_date" required onChange={handleChange} value={formData.admission_date || ''} className="mt-1 w-full p-2 border rounded-md" /></div>
+            {/* NOVO CAMPO ADICIONADO AQUI */}
+            <div>
+              <label htmlFor="numero_ponto" className="block text-sm font-medium">Número Ponto</label>
+              <input type="number" name="numero_ponto" id="numero_ponto" value={formData.numero_ponto || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
+            </div>
             {canViewSalaries && (<>
                 <div><label className="block text-sm font-medium">Salário Base</label><IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', padFractionalZeros: true, radix: ',' } }} name="base_salary" value={formData.base_salary || ''} onAccept={(v) => handleMaskedChange('base_salary', v)} className="mt-1 w-full p-2 border rounded-md"/></div>
                 <div><label className="block text-sm font-medium">Salário Total</label><IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', padFractionalZeros: true, radix: ',' } }} name="total_salary" value={formData.total_salary || ''} onAccept={(v) => handleMaskedChange('total_salary', v)} className="mt-1 w-full p-2 border rounded-md"/></div>
