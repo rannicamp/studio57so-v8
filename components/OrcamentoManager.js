@@ -1,142 +1,126 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '../utils/supabase/client';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner } from '@fortawesome/free-solid-svg-icons';
-import OrcamentoDetalhes from './OrcamentoDetalhes'; // Importando o novo componente
+import { useState, useEffect } from 'react';
+import { createClient } from '@/utils/supabase/client';
 
-export default function OrcamentoManager({ empreendimentos }) {
-    const supabase = createClient();
-    const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState('');
-    const [orcamentos, setOrcamentos] = useState([]);
-    const [selectedOrcamento, setSelectedOrcamento] = useState(null); // Novo estado para controlar o orçamento selecionado
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState('');
+const OrcamentoManager = () => {
+  // Estados para controlar os dados, carregamento e erros
+  const [empreendimentos, setEmpreendimentos] = useState([]);
+  const [orcamentos, setOrcamentos] = useState([]);
+  const [selectedEmpreendimento, setSelectedEmpreendimento] = useState('');
+  const [loadingEmpreendimentos, setLoadingEmpreendimentos] = useState(true);
+  const [loadingOrcamentos, setLoadingOrcamentos] = useState(false);
+  const [error, setError] = useState('');
 
-    const fetchOrcamentos = useCallback(async (empreendimentoId) => {
-        if (!empreendimentoId) {
-            setOrcamentos([]);
-            return;
-        }
-        setLoading(true);
-        setMessage('');
-        try {
-            const { data, error } = await supabase
-                .from('orcamentos')
-                .select('*')
-                .eq('empreendimento_id', empreendimentoId)
-                .order('versao', { ascending: false });
+  const supabase = createClient();
 
-            if (error) throw error;
-            setOrcamentos(data || []);
-        } catch (error) {
-            setMessage(`Erro ao buscar orçamentos: ${error.message}`);
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
-    }, [supabase]);
+  // Efeito para buscar a lista de empreendimentos quando o componente carregar
+  useEffect(() => {
+    const fetchEmpreendimentos = async () => {
+      setLoadingEmpreendimentos(true);
+      const { data, error } = await supabase
+        .from('empreendimentos')
+        .select('id, nome')
+        .order('nome', { ascending: true });
 
-    const handleEmpreendimentoChange = (e) => {
-        const newId = e.target.value;
-        setSelectedEmpreendimentoId(newId);
-        setSelectedOrcamento(null); // Limpa o orçamento selecionado ao trocar de empreendimento
-        fetchOrcamentos(newId);
+      if (error) {
+        console.error('Erro ao buscar empreendimentos:', error);
+        setError('Não foi possível carregar a lista de empreendimentos.');
+      } else {
+        setEmpreendimentos(data);
+      }
+      setLoadingEmpreendimentos(false);
     };
 
-    const handleCreateNewOrcamento = async () => {
-        if (!selectedEmpreendimentoId) {
-            setMessage('Por favor, selecione um empreendimento primeiro.');
-            return;
-        }
-        setLoading(true);
-        const { data, error } = await supabase
-            .from('orcamentos')
-            .insert({
-                empreendimento_id: selectedEmpreendimentoId,
-                nome_orcamento: `Orçamento Padrão - Versão 1`,
-                versao: 1
-            })
-            .select()
-            .single(); // Espera um único objeto
+    fetchEmpreendimentos();
+  }, []);
 
-        if (error) {
-            setMessage(`Erro ao criar orçamento: ${error.message}`);
-        } else {
-            setMessage('Novo orçamento criado com sucesso!');
-            setOrcamentos(prev => [...prev, data]);
-            setSelectedOrcamento(data); // Seleciona o orçamento recém-criado
-        }
-        setLoading(false);
-    };
-
-    // Se um orçamento estiver selecionado, mostra a tela de detalhes
-    if (selectedOrcamento) {
-        return <OrcamentoDetalhes orcamento={selectedOrcamento} onBack={() => setSelectedOrcamento(null)} />;
+  // Efeito para buscar os orçamentos sempre que um empreendimento for selecionado
+  useEffect(() => {
+    if (!selectedEmpreendimento) {
+      setOrcamentos([]);
+      return;
     }
 
-    // Tela principal para selecionar empreendimento e orçamento
-    return (
-        <div className="space-y-4">
-            <div className="flex items-end gap-4">
-                <div className="flex-grow">
-                    <label htmlFor="empreendimento-select" className="block text-sm font-medium text-gray-700">
-                        Selecione um Empreendimento
-                    </label>
-                    <select
-                        id="empreendimento-select"
-                        value={selectedEmpreendimentoId}
-                        onChange={handleEmpreendimentoChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                        disabled={loading}
-                    >
-                        <option value="">-- Selecione --</option>
-                        {empreendimentos.map(emp => (
-                            <option key={emp.id} value={emp.id}>{emp.nome}</option>
-                        ))}
-                    </select>
-                </div>
-            </div>
+    const fetchOrcamentos = async () => {
+      setLoadingOrcamentos(true);
+      const { data, error } = await supabase
+        .from('orcamentos')
+        .select('*')
+        .eq('empreendimento_id', selectedEmpreendimento)
+        .order('created_at', { ascending: false });
 
-            {loading && (
-                <div className="text-center py-4">
-                    <FontAwesomeIcon icon={faSpinner} spin className="text-gray-500" />
-                    <p className="text-sm">Buscando orçamentos...</p>
-                </div>
-            )}
+      if (error) {
+        console.error('Erro ao buscar orçamentos:', error);
+        setError('Não foi possível carregar os orçamentos para este empreendimento.');
+      } else {
+        setOrcamentos(data);
+      }
+      setLoadingOrcamentos(false);
+    };
 
-            {message && <p className="text-center font-medium text-sm p-2 bg-green-50 text-green-700 rounded-md">{message}</p>}
+    fetchOrcamentos();
+  }, [selectedEmpreendimento]);
 
-            {selectedEmpreendimentoId && !loading && (
-                <div className="mt-6 border-t pt-6">
-                    {orcamentos.length > 0 ? (
-                        <div>
-                            <h3 className="text-lg font-semibold">Orçamentos para este Empreendimento:</h3>
-                            <ul className="mt-2 divide-y">
-                                {orcamentos.map(orc => (
-                                    <li key={orc.id} className="py-3">
-                                        <button onClick={() => setSelectedOrcamento(orc)} className="text-blue-600 hover:underline font-medium">
-                                            {orc.nome_orcamento} (Versão {orc.versao})
-                                        </button>
-                                        <p className="text-sm text-gray-500">Criado em: {new Date(orc.created_at).toLocaleDateString('pt-BR')}</p>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    ) : (
-                        <div className="text-center py-10 bg-gray-50 rounded-lg">
-                            <p className="text-gray-500">Nenhum orçamento encontrado para este empreendimento.</p>
-                            <button
-                                onClick={handleCreateNewOrcamento}
-                                className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600"
-                            >
-                                + Criar Primeiro Orçamento
-                            </button>
-                        </div>
-                    )}
+  // Se ainda estiver carregando a lista principal, exibe uma mensagem
+  if (loadingEmpreendimentos) {
+    return <p className="text-center text-gray-500">Carregando empreendimentos...</p>;
+  }
+
+  // Se deu algum erro na busca principal, exibe o erro
+  if (error && !empreendimentos.length) {
+    return <p className="text-center text-red-500">{error}</p>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <label htmlFor="empreendimento-select" className="block text-sm font-medium text-gray-700 mb-1">
+          Selecione o Empreendimento
+        </label>
+        <select
+          id="empreendimento-select"
+          value={selectedEmpreendimento}
+          onChange={(e) => setSelectedEmpreendimento(e.target.value)}
+          className="block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="">-- Todos os Empreendimentos --</option>
+          {/* O map agora é seguro, pois `empreendimentos` começa como um array vazio */}
+          {empreendimentos.map(emp => (
+            <option key={emp.id} value={emp.id}>{emp.nome}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="border-t pt-6">
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Orçamentos</h2>
+        {loadingOrcamentos ? (
+          <p className="text-center text-gray-500">Carregando orçamentos...</p>
+        ) : orcamentos.length > 0 ? (
+          <ul className="space-y-3">
+            {orcamentos.map(orc => (
+              <li key={orc.id} className="bg-gray-50 p-4 rounded-lg shadow-sm flex justify-between items-center">
+                <div>
+                  <p className="font-bold text-gray-900">{orc.nome_orcamento}</p>
+                  <p className="text-sm text-gray-600">Versão: {orc.versao}</p>
+                  <p className="text-sm text-gray-600">Status: {orc.status}</p>
                 </div>
-            )}
-        </div>
-    );
-}
+                <div className="text-right">
+                    <p className="font-semibold text-lg text-blue-600">
+                        R$ {Number(orc.custo_total_previsto).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-center text-gray-500">
+            {selectedEmpreendimento ? "Nenhum orçamento encontrado para este empreendimento." : "Selecione um empreendimento para ver os orçamentos."}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default OrcamentoManager;
