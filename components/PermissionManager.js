@@ -118,7 +118,6 @@ export default function PermissionManager({ initialFuncoes }) {
         </table>
       </div>
        <p className="text-xs text-gray-500 mt-2">
-        {/* CORREÇÃO AQUI */}
         Nota: As permissões para a função &apos;Proprietário&apos; não podem ser alteradas. Esta função sempre terá acesso total.
       </p>
     </div>

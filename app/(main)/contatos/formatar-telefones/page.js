@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../../../utils/supabase/client';
 import { useLayout } from '../../../../contexts/LayoutContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -17,12 +17,7 @@ export default function FormatarTelefonesPage() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [message, setMessage] = useState('');
 
-    useEffect(() => {
-        setPageTitle('Ferramenta de Padronização de Telefones');
-        fetchPhoneData();
-    }, [setPageTitle]);
-
-    const fetchPhoneData = async () => {
+    const fetchPhoneData = useCallback(async () => {
         setLoading(true);
         setMessage('');
 
@@ -53,7 +48,12 @@ export default function FormatarTelefonesPage() {
         setStats({ total: data.length, needsFormatting: phonesNeedingFix.length });
         setPhonesToFix(phonesNeedingFix);
         setLoading(false);
-    };
+    }, [supabase]);
+
+    useEffect(() => {
+        setPageTitle('Ferramenta de Padronização de Telefones');
+        fetchPhoneData();
+    }, [setPageTitle, fetchPhoneData]);
 
     const handleFormatAll = async () => {
         if (!window.confirm(`Você tem certeza que deseja padronizar ${stats.needsFormatting} números de telefone? Esta ação não pode ser desfeita.`)) {

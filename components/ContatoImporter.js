@@ -171,10 +171,10 @@ export default function ContatoImporter({ isOpen, onClose, onImportComplete }) {
         <div className="text-sm">
             <p>Siga os passos para uma importação correta:</p>
             <ol className="list-decimal list-inside ml-4 mt-2 space-y-1">
-                <li>Clique em "Baixar Modelo" para obter a planilha no formato correto.</li>
+                <li>Clique em &quot;Baixar Modelo&quot; para obter a planilha no formato correto.</li>
                 <li>Preencha a planilha. As colunas podem estar em qualquer ordem, desde que os nomes no cabeçalho estejam corretos.</li>
                 <li>Para múltiplos telefones/emails, separe-os com ponto e vírgula (;) na mesma célula.</li>
-                <li>Selecione o arquivo preenchido e clique em "Importar".</li>
+                <li>Selecione o arquivo preenchido e clique em &quot;Importar&quot;.</li>
             </ol>
         </div>
         <button onClick={handleDownloadTemplate} className="w-full bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 flex items-center justify-center gap-2">
