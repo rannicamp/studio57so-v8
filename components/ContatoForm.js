@@ -6,29 +6,22 @@ import { useRouter } from 'next/navigation';
 import { IMaskInput } from 'react-imask';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTrashAlt, faPlusCircle, faBuilding, faUser } from '@fortawesome/free-solid-svg-icons';
+import { formatPhoneNumber } from '../utils/formatters';
 
 // Sub-componente para a linha de telefone/email
-const DynamicInputRow = ({ item, index, onUpdate, onRemove, countries }) => {
-    const isPhone = 'telefone' in item;
-    const [value, setValue] = useState(item.telefone || item.email || '');
-    const [type, setType] = useState(item.tipo || '');
-    const [countryCode, setCountryCode] = useState(item.country_code || '+55');
+const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }) => {
 
     const handleUpdate = (field, newValue) => {
         onUpdate(index, field, newValue);
     };
 
-    return (
-        <div className="flex items-center gap-2">
-            {isPhone && (
+    if (isPhone) {
+        return (
+            <div className="flex items-center gap-2">
                 <select 
-                    value={countryCode} 
-                    onChange={(e) => {
-                        const newCode = e.target.value;
-                        setCountryCode(newCode);
-                        handleUpdate('country_code', newCode);
-                    }}
-                    className="p-2 border rounded-md bg-gray-50 text-sm"
+                    value={item.country_code || '+55'} 
+                    onChange={(e) => handleUpdate('country_code', e.target.value)}
+                    className="p-2 border rounded-md bg-gray-50 text-sm max-w-[100px]"
                 >
                     {countries.length > 0 ? (
                         countries.map(c => (
@@ -38,27 +31,42 @@ const DynamicInputRow = ({ item, index, onUpdate, onRemove, countries }) => {
                         <option value="+55">BR (+55)</option>
                     )}
                 </select>
-            )}
+                <IMaskInput
+                    mask={[{ mask: '(00) 0000-0000' }, { mask: '(00) 00000-0000' }]}
+                    placeholder="(DDD) Telefone"
+                    value={item.telefone || ''}
+                    onAccept={(value) => handleUpdate('telefone', value)}
+                    className="flex-grow p-2 border rounded-md"
+                />
+                <input
+                    type="text"
+                    placeholder="Tipo (Ex: Celular)"
+                    value={item.tipo || ''}
+                    onChange={(e) => handleUpdate('tipo', e.target.value)}
+                    className="w-1/3 p-2 border rounded-md"
+                />
+                <button type="button" onClick={() => onRemove(index)}>
+                    <FontAwesomeIcon icon={faTrashAlt} className="text-red-500 hover:text-red-700" />
+                </button>
+            </div>
+        )
+    }
+
+    // Input para Email
+    return (
+        <div className="flex items-center gap-2">
             <input
-                type={isPhone ? 'tel' : 'email'}
-                placeholder={isPhone ? 'Número' : 'Endereço de email'}
-                value={value}
-                onChange={(e) => {
-                    const newValue = e.target.value;
-                    setValue(newValue);
-                    handleUpdate(isPhone ? 'telefone' : 'email', newValue);
-                }}
+                type="email"
+                placeholder="endereco@email.com"
+                value={item.email || ''}
+                onChange={(e) => handleUpdate('email', e.target.value)}
                 className="flex-grow p-2 border rounded-md"
             />
             <input
                 type="text"
-                placeholder={isPhone ? 'Tipo (Ex: Celular)' : 'Tipo (Ex: Pessoal)'}
-                value={type}
-                onChange={(e) => {
-                    const newType = e.target.value;
-                    setType(newType);
-                    handleUpdate('tipo', newType);
-                }}
+                placeholder="Tipo (Ex: Pessoal)"
+                value={item.tipo || ''}
+                onChange={(e) => handleUpdate('tipo', e.target.value)}
                 className="w-1/3 p-2 border rounded-md"
             />
             <button type="button" onClick={() => onRemove(index)}>
@@ -88,7 +96,6 @@ export default function ContatoForm({ initialData }) {
   const [isApiLoading, setIsApiLoading] = useState(false);
   const [uniqueKeyCounter, setUniqueKeyCounter] = useState(1);
   
-  // Efeito para buscar a lista de países da API
   useEffect(() => {
     const fetchCountries = async () => {
         try {
@@ -96,10 +103,10 @@ export default function ContatoForm({ initialData }) {
             if (!response.ok) throw new Error('Falha ao buscar países');
             const data = await response.json();
             const formattedCountries = data
-                .filter(c => c.idd.root) // Filtra países que têm código de discagem
+                .filter(c => c.idd.root)
                 .map(c => ({
                     name: c.name.common,
-                    dial_code: c.idd.root + (c.idd.suffixes?.[0] || ''),
+                    dial_code: `${c.idd.root}${c.idd.suffixes?.[0] || ''}`,
                     code: c.cca2
                 }))
                 .sort((a, b) => a.name.localeCompare(b.name));
@@ -111,7 +118,6 @@ export default function ContatoForm({ initialData }) {
             setCountries([br, us, ...others].filter(Boolean));
         } catch (error) {
             console.error("Erro ao buscar códigos de país:", error);
-            // Fallback para uma lista mínima em caso de falha na API
             setCountries([ { name: 'Brazil', dial_code: '+55', code: 'BR' }, { name: 'United States', dial_code: '+1', code: 'US' } ]);
         }
     };
@@ -123,9 +129,28 @@ export default function ContatoForm({ initialData }) {
       if (initialData?.id) {
         setIsLoading(true);
         if (initialData.cnpj) setFormType('pj');
+        
         const { data: telefones } = await supabase.from('telefones').select('*').eq('contato_id', initialData.id);
         const { data: emails } = await supabase.from('emails').select('*').eq('contato_id', initialData.id);
-        setFormData({ ...getInitialState(), ...initialData, telefones: telefones?.length > 0 ? telefones.map((t, i) => ({...t, tempId: `phone_${i}`})) : getInitialState().telefones, emails: emails?.length > 0 ? emails.map((e, i) => ({...e, tempId: `email_${i}`})) : getInitialState().emails });
+        
+        const formattedTelefones = (telefones || []).map(t => {
+            const digits = (t.telefone || '').replace(/\D/g, '');
+            let country_code = '+55'; // Padrão
+            let number = digits;
+
+            // Tenta identificar o código do país
+            if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
+                country_code = '+55';
+                number = digits.substring(2);
+            } else if (digits.startsWith('1') && (digits.length === 11)) {
+                country_code = '+1';
+                number = digits.substring(1);
+            }
+
+            return {...t, country_code, telefone: number };
+        });
+
+        setFormData({ ...getInitialState(), ...initialData, telefones: formattedTelefones?.length > 0 ? formattedTelefones : getInitialState().telefones, emails: emails?.length > 0 ? emails : getInitialState().emails });
         setIsLoading(false);
       }
     };
@@ -149,13 +174,16 @@ export default function ContatoForm({ initialData }) {
   const addDynamicListItem = (listName) => {
     const newKey = uniqueKeyCounter;
     setUniqueKeyCounter(prev => prev + 1);
-    const newItem = listName === 'telefones' ? { tempId: `phone_${newKey}`, country_code: '+55', telefone: '', tipo: 'Celular' } : { tempId: `email_${newKey}`, email: '', tipo: 'Pessoal' };
+    const newItem = listName === 'telefones' ? { tempId: `phone_${newKey}`, country_code: '+55', telefone: '', tipo: '' } : { tempId: `email_${newKey}`, email: '', tipo: '' };
     setFormData(prev => ({ ...prev, [listName]: [...prev[listName], newItem] }));
   };
 
   const removeDynamicListItem = (listName, index) => {
     if (formData[listName].length > 1) {
       setFormData(prev => ({ ...prev, [listName]: prev[listName].filter((_, i) => i !== index) }));
+    } else {
+        const updatedList = formData[listName].map((item, i) => i === index ? { ...item, telefone: '', email: '', tipo: '' } : item);
+        setFormData(prev => ({ ...prev, [listName]: updatedList }));
     }
   };
   
@@ -191,13 +219,15 @@ export default function ContatoForm({ initialData }) {
     e.preventDefault();
     setIsLoading(true); setMessage(isEditing ? 'Atualizando contato...' : 'Criando contato...');
     
-    // Concatena o código do país ao número de telefone antes de salvar
-    const telefonesParaSalvar = formData.telefones.map(tel => ({
-        ...tel,
-        telefone: `${tel.country_code} ${tel.telefone}`
-    }));
+    // Limpa os telefones, junta com o código do país, e salva apenas os dígitos.
+    const telefonesParaSalvar = formData.telefones
+        .map(tel => ({ ...tel, telefone: `${(tel.country_code || '').replace(/\D/g, '')}${(tel.telefone || '').replace(/\D/g, '')}` }))
+        .filter(tel => tel.telefone); 
 
-    const { emails, ...contatoData } = { ...formData, telefones: telefonesParaSalvar };
+    const emailsParaSalvar = formData.emails.filter(em => em.email && em.email.trim() !== '');
+        
+    const { telefones, emails, ...contatoData } = formData;
+    
     let savedContact;
     if (isEditing) {
       const { data, error } = await supabase.from('contatos').update(contatoData).eq('id', initialData.id).select().single();
@@ -208,18 +238,21 @@ export default function ContatoForm({ initialData }) {
       if (error) { setMessage(`Erro ao criar contato: ${error.message}`); setIsLoading(false); return; }
       savedContact = data;
     }
+    
     const upsertList = async (list, tableName, fieldName) => {
-        const itemsToUpsert = list.filter(item => item[fieldName]).map(({ tempId, ...dbItem }) => ({ ...dbItem, contato_id: savedContact.id }));
+        const itemsToUpsert = list.map(({ id, tempId, ...dbItem }) => ({ ...dbItem, contato_id: savedContact.id }));
+        if (isEditing) { 
+          await supabase.from(tableName).delete().eq('contato_id', savedContact.id);
+        }
         if (itemsToUpsert.length > 0) {
-            const newIds = itemsToUpsert.map(item => item.id).filter(Boolean);
-            if (isEditing) { await supabase.from(tableName).delete().eq('contato_id', savedContact.id).not('id', 'in', `(${newIds.join(',')})`); }
             const { error } = await supabase.from(tableName).upsert(itemsToUpsert);
             if (error) throw new Error(`Erro ao salvar ${tableName}: ${error.message}`);
         }
     };
+
     try {
       await upsertList(telefonesParaSalvar, 'telefones', 'telefone');
-      await upsertList(emails, 'emails', 'email');
+      await upsertList(emailsParaSalvar, 'emails', 'email');
       setMessage(`Contato ${isEditing ? 'atualizado' : 'criado'} com sucesso!`);
       router.push('/contatos');
       router.refresh();
@@ -242,14 +275,14 @@ export default function ContatoForm({ initialData }) {
            <div>
              <label className="block text-sm font-medium mb-2">Telefones</label>
              <div className="space-y-3">
-               {formData.telefones.map((item, index) => <DynamicInputRow key={item.id || item.tempId} item={item} index={index} onUpdate={handleDynamicListUpdate} onRemove={(idx) => removeDynamicListItem('telefones', idx)} countries={countries} />)}
+               {formData.telefones.map((item, index) => <DynamicInputRow key={item.id || item.tempId} item={item} index={index} onUpdate={(...args) => handleDynamicListUpdate('telefones', ...args)} onRemove={(idx) => removeDynamicListItem('telefones', idx)} isPhone={true} countries={countries}/>)}
                <button type="button" onClick={() => addDynamicListItem('telefones')} className="text-blue-500 hover:text-blue-700 flex items-center gap-2 text-sm"> <FontAwesomeIcon icon={faPlusCircle} /> Adicionar </button>
              </div>
            </div>
            <div>
              <label className="block text-sm font-medium mb-2">Emails</label>
              <div className="space-y-3">
-               {formData.emails.map((item, index) => <DynamicInputRow key={item.id || item.tempId} item={item} index={index} onUpdate={handleDynamicListUpdate} onRemove={(idx) => removeDynamicListItem('emails', idx)} countries={countries} />)}
+               {formData.emails.map((item, index) => <DynamicInputRow key={item.id || item.tempId} item={item} index={index} onUpdate={(...args) => handleDynamicListUpdate('emails', ...args)} onRemove={(idx) => removeDynamicListItem('emails', idx)} isPhone={false} countries={countries}/>)}
                <button type="button" onClick={() => addDynamicListItem('emails')} className="text-blue-500 hover:text-blue-700 flex items-center gap-2 text-sm"> <FontAwesomeIcon icon={faPlusCircle} /> Adicionar </button>
              </div>
            </div>

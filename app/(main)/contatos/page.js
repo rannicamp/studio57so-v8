@@ -7,7 +7,7 @@ import ContatoList from '../../../components/ContatoList';
 import ContatoImporter from '../../../components/ContatoImporter';
 import { useLayout } from '../../../contexts/LayoutContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileImport, faCopy, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faFileImport, faCopy, faSpinner, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
 
 export default function GerenciamentoContatosPage() {
   const { setPageTitle } = useLayout();
@@ -19,7 +19,6 @@ export default function GerenciamentoContatosPage() {
   const getContatos = useCallback(async () => {
     setLoading(true);
     
-    // **A CORREÇÃO ESTÁ AQUI**: Removemos a função ".revalidate()" que não existe e causou o erro.
     const { data, error } = await supabase
       .from('contatos')
       .select('*, telefones ( id, telefone ), emails ( id, email )')
@@ -52,7 +51,7 @@ export default function GerenciamentoContatosPage() {
       <ContatoImporter 
         isOpen={isImporterOpen}
         onClose={() => setIsImporterOpen(false)}
-        onImportComplete={getContatos} // A função de recarregar a lista após a importação
+        onImportComplete={getContatos}
       />
        <div className="flex justify-end items-center gap-4">
         
@@ -69,6 +68,12 @@ export default function GerenciamentoContatosPage() {
             Mesclar
         </Link>
         
+        {/* NOVO BOTÃO ADICIONADO AQUI */}
+        <Link href="/contatos/formatar-telefones" className="bg-purple-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-purple-600 flex items-center gap-2">
+            <FontAwesomeIcon icon={faWandMagicSparkles} />
+            Padronizar
+        </Link>
+        
         <Link href="/contatos/cadastro" className="bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600">
           + Novo Contato
         </Link>
@@ -78,7 +83,7 @@ export default function GerenciamentoContatosPage() {
       <div className="bg-white rounded-lg shadow p-6">
         <ContatoList 
             initialContatos={contatos} 
-            onActionComplete={getContatos} // A função de recarregar a lista após exclusão
+            onActionComplete={getContatos}
         />
       </div>
     </div>

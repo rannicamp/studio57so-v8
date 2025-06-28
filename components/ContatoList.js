@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faColumns, faTrashAlt, faEdit } from '@fortawesome/free-solid-svg-icons';
+import { formatPhoneNumber } from '../utils/formatters';
 
 const allColumns = [
   { key: 'nome', label: 'Nome' },
@@ -30,7 +31,7 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
     empresa: true,
     documento: true,
     email: true,
-    telefone: false,
+    telefone: true, // Telefone agora visível por padrão
     cargo: false,
     status: false,
   });
@@ -61,7 +62,8 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
       const searchMatch = !searchTerm || 
         c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (c.razao_social && c.razao_social.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (c.cnpj && c.cnpj.includes(searchTerm));
+        (c.cnpj && c.cnpj.includes(searchTerm)) ||
+        (c.telefones.some(t => t.telefone.includes(searchTerm)));
         
       return typeMatch && searchMatch;
     });
@@ -80,7 +82,7 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
       case 'email':
         return contato.emails?.[0]?.email || 'N/A';
       case 'telefone':
-        return contato.telefones?.[0]?.telefone || 'N/A';
+        return formatPhoneNumber(contato.telefones?.[0]?.telefone) || 'N/A';
       default:
         return contato[key] || 'N/A';
     }
@@ -116,7 +118,6 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
         } else {
             setSelectedContatos([]);
             alert('Contatos excluídos com sucesso!');
-            router.refresh(); // Força a atualização dos dados da página
             if (onActionComplete) {
                 onActionComplete();
             }
@@ -130,7 +131,7 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
         <div className="flex flex-col md:flex-row gap-4">
           <input
             type="text"
-            placeholder="Buscar por nome, razão social, CNPJ..."
+            placeholder="Buscar por nome, empresa, telefone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="p-2 border rounded-md w-full md:flex-grow shadow-sm"
