@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import OrcamentoManager from '@/components/OrcamentoManager';
-import MaterialImporter from '@/components/materiais/MaterialImporter'; // Importe o novo componente
+import MaterialImporter from '@/components/materiais/MaterialImporter';
 
 export default function OrcamentoPage() {
   const [isImporterOpen, setIsImporterOpen] = useState(false);
@@ -30,9 +30,9 @@ export default function OrcamentoPage() {
       </div>
 
       {/* O Modal de importação que será exibido quando o botão for clicado */}
-      <MaterialImporter 
-        isOpen={isImporterOpen} 
-        onClose={() => setIsImporterOpen(false)} 
+      <MaterialImporter
+        isOpen={isImporterOpen}
+        onClose={() => setIsImporterOpen(false)}
       />
     </div>
   );

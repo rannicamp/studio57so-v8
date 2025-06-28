@@ -2,19 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import OrcamentoDetalhes from './OrcamentoDetalhes';
 
 const OrcamentoManager = () => {
-  // Estados para controlar os dados, carregamento e erros
   const [empreendimentos, setEmpreendimentos] = useState([]);
   const [orcamentos, setOrcamentos] = useState([]);
   const [selectedEmpreendimento, setSelectedEmpreendimento] = useState('');
   const [loadingEmpreendimentos, setLoadingEmpreendimentos] = useState(true);
   const [loadingOrcamentos, setLoadingOrcamentos] = useState(false);
   const [error, setError] = useState('');
+  const [selectedOrcamento, setSelectedOrcamento] = useState(null);
 
   const supabase = createClient();
 
-  // Efeito para buscar a lista de empreendimentos quando o componente carregar
   useEffect(() => {
     const fetchEmpreendimentos = async () => {
       setLoadingEmpreendimentos(true);
@@ -27,15 +27,14 @@ const OrcamentoManager = () => {
         console.error('Erro ao buscar empreendimentos:', error);
         setError('Não foi possível carregar a lista de empreendimentos.');
       } else {
-        setEmpreendimentos(data);
+        setEmpreendimentos(data || []);
       }
       setLoadingEmpreendimentos(false);
     };
 
     fetchEmpreendimentos();
-  }, []);
+  }, [supabase]);
 
-  // Efeito para buscar os orçamentos sempre que um empreendimento for selecionado
   useEffect(() => {
     if (!selectedEmpreendimento) {
       setOrcamentos([]);
@@ -44,6 +43,7 @@ const OrcamentoManager = () => {
 
     const fetchOrcamentos = async () => {
       setLoadingOrcamentos(true);
+      setSelectedOrcamento(null); 
       const { data, error } = await supabase
         .from('orcamentos')
         .select('*')
@@ -54,22 +54,28 @@ const OrcamentoManager = () => {
         console.error('Erro ao buscar orçamentos:', error);
         setError('Não foi possível carregar os orçamentos para este empreendimento.');
       } else {
-        setOrcamentos(data);
+        setOrcamentos(data || []);
       }
       setLoadingOrcamentos(false);
     };
 
     fetchOrcamentos();
-  }, [selectedEmpreendimento]);
+  }, [selectedEmpreendimento, supabase]);
 
-  // Se ainda estiver carregando a lista principal, exibe uma mensagem
+  const handleBackToList = () => {
+    setSelectedOrcamento(null);
+  };
+
   if (loadingEmpreendimentos) {
     return <p className="text-center text-gray-500">Carregando empreendimentos...</p>;
   }
-
-  // Se deu algum erro na busca principal, exibe o erro
+  
   if (error && !empreendimentos.length) {
     return <p className="text-center text-red-500">{error}</p>;
+  }
+
+  if (selectedOrcamento) {
+    return <OrcamentoDetalhes orcamento={selectedOrcamento} onBack={handleBackToList} />;
   }
 
   return (
@@ -84,8 +90,7 @@ const OrcamentoManager = () => {
           onChange={(e) => setSelectedEmpreendimento(e.target.value)}
           className="block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
         >
-          <option value="">-- Todos os Empreendimentos --</option>
-          {/* O map agora é seguro, pois `empreendimentos` começa como um array vazio */}
+          <option value="">-- Selecione um Empreendimento --</option>
           {empreendimentos.map(emp => (
             <option key={emp.id} value={emp.id}>{emp.nome}</option>
           ))}
@@ -99,16 +104,20 @@ const OrcamentoManager = () => {
         ) : orcamentos.length > 0 ? (
           <ul className="space-y-3">
             {orcamentos.map(orc => (
-              <li key={orc.id} className="bg-gray-50 p-4 rounded-lg shadow-sm flex justify-between items-center">
+              <li 
+                key={orc.id} 
+                onClick={() => setSelectedOrcamento(orc)}
+                className="bg-gray-50 p-4 rounded-lg shadow-sm flex justify-between items-center cursor-pointer transition hover:bg-gray-100 hover:shadow-md"
+              >
                 <div>
                   <p className="font-bold text-gray-900">{orc.nome_orcamento}</p>
                   <p className="text-sm text-gray-600">Versão: {orc.versao}</p>
                   <p className="text-sm text-gray-600">Status: {orc.status}</p>
                 </div>
                 <div className="text-right">
-                    <p className="font-semibold text-lg text-blue-600">
-                        R$ {Number(orc.custo_total_previsto).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
+                  <p className="font-semibold text-lg text-blue-600">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(orc.custo_total_previsto || 0)}
+                  </p>
                 </div>
               </li>
             ))}
