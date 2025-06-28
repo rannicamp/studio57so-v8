@@ -37,8 +37,17 @@ export default function FormatarTelefonesPage() {
         }
 
         const phonesNeedingFix = data.filter(p => {
-            const digitsOnly = (p.telefone || '').replace(/\D/g, '');
-            return p.telefone !== digitsOnly;
+            if (!p.telefone) return false;
+            // Remove qualquer caracter que não seja número
+            const digitsOnly = p.telefone.replace(/\D/g, '');
+            
+            // CONDIÇÕES PARA PADRONIZAÇÃO:
+            // 1. O número contém caracteres que não são dígitos (ex: "(33) 9988...").
+            const needsCleaning = p.telefone !== digitsOnly;
+            // 2. O número SÓ TEM DÍGITOS, mas tem 10 ou 11 caracteres (DDD + Número, sem o código do país 55).
+            const needsCountryCode = (digitsOnly.length === 10 || digitsOnly.length === 11);
+
+            return needsCleaning || needsCountryCode;
         });
 
         setStats({ total: data.length, needsFormatting: phonesNeedingFix.length });
@@ -54,21 +63,45 @@ export default function FormatarTelefonesPage() {
         setIsProcessing(true);
         setMessage('Padronizando telefones... Isso pode levar alguns segundos.');
 
-        const updates = phonesToFix.map(phone => ({
-            id: phone.id,
-            telefone: (phone.telefone || '').replace(/\D/g, '')
-        }));
+        const updatePromises = phonesToFix.map(phone => {
+            let finalNumber = (phone.telefone || '').replace(/\D/g, '');
+            
+            // Adiciona o '55' se o número tiver 10 ou 11 dígitos.
+            if (finalNumber.length === 10 || finalNumber.length === 11) {
+                finalNumber = `55${finalNumber}`;
+            }
 
-        const { error } = await supabase.from('telefones').upsert(updates);
+            return supabase
+                .from('telefones')
+                .update({ telefone: finalNumber })
+                .eq('id', phone.id);
+        });
 
-        if (error) {
-            setMessage(`Ocorreu um erro: ${error.message}`);
-        } else {
+        try {
+            const results = await Promise.all(updatePromises);
+            const firstError = results.find(res => res.error);
+            if (firstError) {
+                throw firstError.error;
+            }
+
             setMessage(`${stats.needsFormatting} telefones foram padronizados com sucesso!`);
-            fetchPhoneData();
+            await fetchPhoneData(); // Recarrega os dados após a operação
+        } catch (error) {
+            setMessage(`Ocorreu um erro: ${error.message}`);
+            console.error(error);
+        } finally {
+            setIsProcessing(false);
         }
-
-        setIsProcessing(false);
+    };
+    
+    // Função para mostrar como o número ficará após a padronização
+    const getPreviewFormattedNumber = (phoneStr) => {
+        if (!phoneStr) return '';
+        let finalNumber = phoneStr.replace(/\D/g, '');
+        if (finalNumber.length === 10 || finalNumber.length === 11) {
+            finalNumber = `55${finalNumber}`;
+        }
+        return formatPhoneNumber(finalNumber);
     };
 
     if (loading) {
@@ -84,12 +117,12 @@ export default function FormatarTelefonesPage() {
         <div className="bg-white p-6 rounded-lg shadow space-y-6">
             <h1 className="text-2xl font-bold text-gray-800">Padronizar Números de Telefone</h1>
             <p className="text-sm text-gray-600">
-                Esta ferramenta irá analisar todos os telefones cadastrados e converter aqueles com formatos antigos para o novo padrão de armazenamento, salvando apenas os números.
+                Esta ferramenta irá limpar os números (removendo traços, parênteses) e adicionar o código de país (+55) a números brasileiros que não o possuam.
             </p>
 
             {message && (
-                <div className={`p-4 rounded-md text-center font-semibold ${message.includes('Erro') ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                    <FontAwesomeIcon icon={message.includes('Erro') ? faExclamationCircle : faCheckCircle} className="mr-2" />
+                <div className={`p-4 rounded-md text-center font-semibold ${message.includes('Erro') || message.includes('erro') ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                    <FontAwesomeIcon icon={message.includes('Erro') || message.includes('erro') ? faExclamationCircle : faCheckCircle} className="mr-2" />
                     {message}
                 </div>
             )}
@@ -99,13 +132,13 @@ export default function FormatarTelefonesPage() {
                     <p className="text-sm text-gray-500">Total de Telefones Cadastrados</p>
                     <p className="text-3xl font-bold">{stats.total}</p>
                 </div>
-                <div className={`p-4 rounded-lg ${stats.needsFormatting > 0 ? 'bg-yellow-100' : 'bg-green-100'}`}>
-                    <p className="text-sm text-gray-500">Telefones que Precisam de Padronização</p>
+                <div className={`p-4 rounded-lg ${stats.needsFormatting > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                    <p className="text-sm font-medium">Telefones que Precisam de Padronização</p>
                     <p className="text-3xl font-bold">{stats.needsFormatting}</p>
                 </div>
             </div>
 
-            {stats.needsFormatting > 0 && (
+            {stats.needsFormatting > 0 ? (
                 <div>
                     <h2 className="text-xl font-semibold mb-3">Amostra dos Telefones a Serem Corrigidos:</h2>
                     <div className="max-h-64 overflow-y-auto border rounded-lg">
@@ -114,7 +147,7 @@ export default function FormatarTelefonesPage() {
                                 <tr>
                                     <th className="px-4 py-2 text-left text-xs font-medium uppercase">Contato</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium uppercase">Formato Atual</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium uppercase">Novo Formato (Exibição)</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium uppercase">Como vai ficar</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -122,7 +155,7 @@ export default function FormatarTelefonesPage() {
                                     <tr key={phone.id}>
                                         <td className="px-4 py-2 whitespace-nowrap">{phone.contato?.nome || 'Contato não encontrado'}</td>
                                         <td className="px-4 py-2 whitespace-nowrap font-mono text-red-600">{phone.telefone}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap font-mono text-green-600">{formatPhoneNumber(phone.telefone)}</td>
+                                        <td className="px-4 py-2 whitespace-nowrap font-mono text-green-600">{getPreviewFormattedNumber(phone.telefone)}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -139,6 +172,12 @@ export default function FormatarTelefonesPage() {
                         </button>
                     </div>
                 </div>
+            ) : (
+               <div className="text-center p-6 bg-green-50 border border-green-200 rounded-lg">
+                    <FontAwesomeIcon icon={faCheckCircle} className="text-green-500 text-3xl mb-2" />
+                    <h3 className="font-semibold text-green-800">Tudo certo por aqui!</h3>
+                    <p className="text-sm text-green-700">Todos os seus números de telefone já estão no formato padrão.</p>
+               </div>
             )}
         </div>
     );

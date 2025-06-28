@@ -7,7 +7,66 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faColumns, faTrashAlt, faEdit } from '@fortawesome/free-solid-svg-icons';
 import { formatPhoneNumber } from '../utils/formatters';
 
+// Componente para o Círculo de Progresso
+const ProgressCircle = ({ score }) => {
+    const percentage = Math.min(Math.max(score, 0), 100);
+    const circumference = 2 * Math.PI * 18; // 2 * pi * raio
+    const offset = circumference - (percentage / 100) * circumference;
+
+    let colorClass = 'text-red-500';
+    if (percentage >= 80) {
+        colorClass = 'text-green-500';
+    } else if (percentage >= 40) {
+        colorClass = 'text-yellow-500';
+    }
+
+    return (
+        <div className="relative flex items-center justify-center w-12 h-12">
+            <svg className="w-full h-full" viewBox="0 0 40 40">
+                <circle
+                    className="text-gray-200"
+                    strokeWidth="4"
+                    stroke="currentColor"
+                    fill="transparent"
+                    r="18"
+                    cx="20"
+                    cy="20"
+                />
+                <circle
+                    className={`${colorClass} transition-all duration-500`}
+                    strokeWidth="4"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={offset}
+                    strokeLinecap="round"
+                    stroke="currentColor"
+                    fill="transparent"
+                    r="18"
+                    cx="20"
+                    cy="20"
+                    transform="rotate(-90 20 20)"
+                />
+            </svg>
+            <span className={`absolute text-xs font-bold ${colorClass}`}>
+                {Math.round(percentage)}%
+            </span>
+        </div>
+    );
+};
+
+// Função para calcular a pontuação de preenchimento
+const calculateScore = (contato) => {
+    if (!contato.nome) return 0;
+    let score = 0;
+    if (contato.telefones && contato.telefones.length > 0) score += 35;
+    if (contato.emails && contato.emails.length > 0) score += 25;
+    if (contato.cpf || contato.cnpj) score += 20;
+    if (contato.cep) score += 15;
+    if (contato.estado_civil) score += 5;
+    return score;
+};
+
 const allColumns = [
+  { key: 'qualidade', label: 'Qualidade' }, // Nova coluna
   { key: 'nome', label: 'Nome' },
   { key: 'tipo_contato', label: 'Tipo' },
   { key: 'empresa', label: 'Empresa/Fantasia' },
@@ -26,12 +85,13 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
   const [filterType, setFilterType] = useState('');
   const [selectedContatos, setSelectedContatos] = useState([]);
   const [visibleColumns, setVisibleColumns] = useState({
+    qualidade: true, // Visível por padrão
     nome: true,
     tipo_contato: true,
     empresa: true,
-    documento: true,
+    documento: false,
     email: true,
-    telefone: true, // Telefone agora visível por padrão
+    telefone: true,
     cargo: false,
     status: false,
   });
@@ -64,7 +124,7 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
         (c.razao_social && c.razao_social.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (c.cnpj && c.cnpj.includes(searchTerm)) ||
         (c.telefones.some(t => t.telefone.includes(searchTerm)));
-        
+
       return typeMatch && searchMatch;
     });
   }, [contatos, searchTerm, filterType]);
@@ -75,6 +135,8 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
 
   const getColumnValue = (contato, key) => {
     switch (key) {
+      case 'qualidade':
+        return <ProgressCircle score={calculateScore(contato)} />;
       case 'empresa':
         return contato.nome_fantasia || contato.razao_social || 'N/A';
       case 'documento':
@@ -148,7 +210,7 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
             <option value="Lead">Lead</option>
           </select>
         </div>
-        
+
         <div className="flex items-center gap-4">
             {selectedContatos.length > 0 && (
                  <button 

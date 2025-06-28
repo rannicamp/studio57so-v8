@@ -11,15 +11,23 @@ export function formatPhoneNumber(phoneStr) {
   // Remove tudo que não for número para garantir a limpeza do dado
   const digitsOnly = phoneStr.replace(/\D/g, '');
 
-  // Padrão Brasil com nono dígito: ex: 5533998410016 -> +55 (33) 99841-0016
+  // Padrão Brasil com nono dígito e DDI: ex: 5533998410016 -> +55 (33) 99841-0016
   if (digitsOnly.startsWith('55') && digitsOnly.length === 13) {
     const ddd = digitsOnly.substring(2, 4);
     const part1 = digitsOnly.substring(4, 9);
     const part2 = digitsOnly.substring(9);
     return `+55 (${ddd}) ${part1}-${part2}`;
   }
+
+  // NOVO: Padrão Brasil telefone fixo/celular antigo com DDI: ex: 553332715757 -> +55 (33) 3271-5757
+  if (digitsOnly.startsWith('55') && digitsOnly.length === 12) {
+    const ddd = digitsOnly.substring(2, 4);
+    const part1 = digitsOnly.substring(4, 8);
+    const part2 = digitsOnly.substring(8);
+    return `+55 (${ddd}) ${part1}-${part2}`;
+  }
   
-  // Padrão Brasil sem DDI com nono dígito: ex: 33998410016 -> (33) 99841-0016
+  // Padrão Brasil celular com nono dígito, sem DDI: ex: 31984714296 -> (31) 98471-4296
   if (digitsOnly.length === 11) {
     const ddd = digitsOnly.substring(0, 2);
     const part1 = digitsOnly.substring(2, 7);
@@ -27,7 +35,7 @@ export function formatPhoneNumber(phoneStr) {
     return `(${ddd}) ${part1}-${part2}`;
   }
   
-  // Padrão Brasil telefone fixo: ex: 3332715757 -> (33) 3271-5757
+  // Padrão Brasil telefone fixo, sem DDI: ex: 3332715757 -> (33) 3271-5757
   if (digitsOnly.length === 10) {
     const ddd = digitsOnly.substring(0, 2);
     const part1 = digitsOnly.substring(2, 6);

@@ -8,6 +8,26 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTrashAlt, faPlusCircle, faBuilding, faUser } from '@fortawesome/free-solid-svg-icons';
 import { formatPhoneNumber } from '../utils/formatters';
 
+// Lista fixa de países para garantir a consistência
+const countryList = [
+    { name: 'Brazil', dial_code: '+55', code: 'BR' },
+    { name: 'United States', dial_code: '+1', code: 'US' },
+    { name: 'Argentina', dial_code: '+54', code: 'AR' },
+    { name: 'Australia', dial_code: '+61', code: 'AU' },
+    { name: 'Canada', dial_code: '+1', code: 'CA' },
+    { name: 'China', dial_code: '+86', code: 'CN' },
+    { name: 'France', dial_code: '+33', code: 'FR' },
+    { name: 'Germany', dial_code: '+49', code: 'DE' },
+    { name: 'Italy', dial_code: '+39', code: 'IT' },
+    { name: 'Japan', dial_code: '+81', code: 'JP' },
+    { name: 'Mexico', dial_code: '+52', code: 'MX' },
+    { name: 'Portugal', dial_code: '+351', code: 'PT' },
+    { name: 'Spain', dial_code: '+34', code: 'ES' },
+    { name: 'United Kingdom', dial_code: '+44', code: 'GB' },
+    // Adicione mais países aqui se necessário
+];
+
+
 // Sub-componente para a linha de telefone/email
 const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }) => {
 
@@ -21,15 +41,11 @@ const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }
                 <select 
                     value={item.country_code || '+55'} 
                     onChange={(e) => handleUpdate('country_code', e.target.value)}
-                    className="p-2 border rounded-md bg-gray-50 text-sm max-w-[100px]"
+                    className="p-2 border rounded-md bg-gray-50 text-sm max-w-[150px]"
                 >
-                    {countries.length > 0 ? (
-                        countries.map(c => (
-                            <option key={c.code} value={c.dial_code}>{c.code} ({c.dial_code})</option>
-                        ))
-                    ) : (
-                        <option value="+55">BR (+55)</option>
-                    )}
+                    {countries.map(c => (
+                        <option key={c.code} value={c.dial_code}>{c.name} ({c.dial_code})</option>
+                    ))}
                 </select>
                 <IMaskInput
                     mask={[{ mask: '(00) 0000-0000' }, { mask: '(00) 00000-0000' }]}
@@ -82,7 +98,8 @@ export default function ContatoForm({ initialData }) {
   const router = useRouter();
   const isEditing = Boolean(initialData?.id);
   const [formType, setFormType] = useState('pf');
-  const [countries, setCountries] = useState([]);
+  // O estado agora é inicializado diretamente com a nossa lista fixa.
+  const [countries, setCountries] = useState(countryList);
 
   const getInitialState = useCallback(() => ({
     nome: '', tipo_contato: null, status: 'Ativo', razao_social: '', nome_fantasia: '', cnpj: '', inscricao_estadual: '', inscricao_municipal: '', responsavel_legal: '', cpf: '', rg: '', nacionalidade: '', birth_date: null, estado_civil: '', cargo: '', contract_role: '', admission_date: null, demission_date: null, cep: '', address_street: '', address_number: '', address_complement: '', neighborhood: '', city: '', state: '', base_salary: '', total_salary: '', daily_value: '', payment_method: '', pix_key: '', bank_details: '', observations: '', numero_ponto: null, foto_url: null,
@@ -96,33 +113,7 @@ export default function ContatoForm({ initialData }) {
   const [isApiLoading, setIsApiLoading] = useState(false);
   const [uniqueKeyCounter, setUniqueKeyCounter] = useState(1);
   
-  useEffect(() => {
-    const fetchCountries = async () => {
-        try {
-            const response = await fetch('https://restcountries.com/v3.1/all?fields=name,idd,cca2');
-            if (!response.ok) throw new Error('Falha ao buscar países');
-            const data = await response.json();
-            const formattedCountries = data
-                .filter(c => c.idd.root)
-                .map(c => ({
-                    name: c.name.common,
-                    dial_code: `${c.idd.root}${c.idd.suffixes?.[0] || ''}`,
-                    code: c.cca2
-                }))
-                .sort((a, b) => a.name.localeCompare(b.name));
-            
-            const br = formattedCountries.find(c => c.code === 'BR');
-            const us = formattedCountries.find(c => c.code === 'US');
-            const others = formattedCountries.filter(c => c.code !== 'BR' && c.code !== 'US');
-            
-            setCountries([br, us, ...others].filter(Boolean));
-        } catch (error) {
-            console.error("Erro ao buscar códigos de país:", error);
-            setCountries([ { name: 'Brazil', dial_code: '+55', code: 'BR' }, { name: 'United States', dial_code: '+1', code: 'US' } ]);
-        }
-    };
-    fetchCountries();
-  }, []);
+  // O useEffect que chamava a API foi REMOVIDO.
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -134,20 +125,17 @@ export default function ContatoForm({ initialData }) {
         const { data: emails } = await supabase.from('emails').select('*').eq('contato_id', initialData.id);
         
         const formattedTelefones = (telefones || []).map(t => {
-            const digits = (t.telefone || '').replace(/\D/g, '');
-            let country_code = '+55'; // Padrão
-            let number = digits;
-
-            // Tenta identificar o código do país
-            if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
-                country_code = '+55';
-                number = digits.substring(2);
-            } else if (digits.startsWith('1') && (digits.length === 11)) {
-                country_code = '+1';
-                number = digits.substring(1);
+            const fullNumber = (t.telefone || '').replace(/\D/g, '');
+            let country_code = t.country_code || '+55';
+            
+            // Tenta remover o código do país do número para exibir apenas o número local
+            const countryDigits = country_code.replace(/\D/g, '');
+            let localNumber = fullNumber;
+            if (fullNumber.startsWith(countryDigits)) {
+                localNumber = fullNumber.substring(countryDigits.length);
             }
 
-            return {...t, country_code, telefone: number };
+            return {...t, country_code, telefone: localNumber };
         });
 
         setFormData({ ...getInitialState(), ...initialData, telefones: formattedTelefones?.length > 0 ? formattedTelefones : getInitialState().telefones, emails: emails?.length > 0 ? emails : getInitialState().emails });
@@ -219,14 +207,17 @@ export default function ContatoForm({ initialData }) {
     e.preventDefault();
     setIsLoading(true); setMessage(isEditing ? 'Atualizando contato...' : 'Criando contato...');
     
-    // Limpa os telefones, junta com o código do país, e salva apenas os dígitos.
     const telefonesParaSalvar = formData.telefones
-        .map(tel => ({ ...tel, telefone: `${(tel.country_code || '').replace(/\D/g, '')}${(tel.telefone || '').replace(/\D/g, '')}` }))
-        .filter(tel => tel.telefone); 
+        .map(tel => ({
+            ...tel,
+            telefone: (tel.country_code || '').replace(/\D/g, '') + (tel.telefone || '').replace(/\D/g, ''),
+            country_code: tel.country_code || '+55'
+        }))
+        .filter(tel => tel.telefone);
 
     const emailsParaSalvar = formData.emails.filter(em => em.email && em.email.trim() !== '');
         
-    const { telefones, emails, ...contatoData } = formData;
+    const { id, telefones, emails, ...contatoData } = formData;
     
     let savedContact;
     if (isEditing) {
@@ -239,26 +230,34 @@ export default function ContatoForm({ initialData }) {
       savedContact = data;
     }
     
-    const upsertList = async (list, tableName, fieldName) => {
-        const itemsToUpsert = list.map(({ id, tempId, ...dbItem }) => ({ ...dbItem, contato_id: savedContact.id }));
+    const saveRelatedData = async (list, tableName) => {
+        const itemsToSave = list.map(({ id, tempId, ...dbItem }) => ({ ...dbItem, contato_id: savedContact.id }));
+        
         if (isEditing) { 
           await supabase.from(tableName).delete().eq('contato_id', savedContact.id);
         }
-        if (itemsToUpsert.length > 0) {
-            const { error } = await supabase.from(tableName).upsert(itemsToUpsert);
-            if (error) throw new Error(`Erro ao salvar ${tableName}: ${error.message}`);
+
+        if (itemsToSave.length > 0) {
+            const { error } = await supabase.from(tableName).insert(itemsToSave);
+            if (error) {
+                throw new Error(`Erro ao salvar ${tableName}: ${error.message}`);
+            }
         }
     };
 
     try {
-      await upsertList(telefonesParaSalvar, 'telefones', 'telefone');
-      await upsertList(emailsParaSalvar, 'emails', 'email');
+      await saveRelatedData(telefonesParaSalvar, 'telefones');
+      await saveRelatedData(emailsParaSalvar, 'emails');
       setMessage(`Contato ${isEditing ? 'atualizado' : 'criado'} com sucesso!`);
-      router.push('/contatos');
-      router.refresh();
-    } catch (error) { setMessage(error.message); } finally { setIsLoading(false); }
+      setTimeout(() => {
+        router.push('/contatos');
+        router.refresh();
+      }, 1500);
+    } catch (error) { 
+        setMessage(error.message);
+        setIsLoading(false);
+    } 
   };
-
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
