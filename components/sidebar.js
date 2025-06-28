@@ -13,7 +13,8 @@ import {
   faChevronLeft,
   faChevronRight,
   faClock,
-  faAddressBook // ÍCONE NOVO ADICIONADO
+  faAddressBook,
+  faDollarSign // Ícone novo para o orçamento
 } from '@fortawesome/free-solid-svg-icons';
 import { useState } from 'react';
 
@@ -21,8 +22,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
   const mainNavItems = [
     { href: '/', label: 'Dashboard', icon: faTachometerAlt },
     { href: '/tarefas-gerais', label: 'Gerenciador de Atividades', icon: faTasks },
-    // NOVO ITEM DE MENU ADICIONADO ABAIXO
     { href: '/contatos', label: 'Contatos', icon: faAddressBook },
+    // NOVO ITEM DE MENU ADICIONADO ABAIXO
+    { href: '/orcamento', label: 'Planilha Orçamentária', icon: faDollarSign },
     { href: '/empresas', label: 'Empresas', icon: faBuilding },
     { href: '/empreendimentos/cadastro', label: 'Cadastro de Empreendimento', icon: faProjectDiagram },
     { href: '/funcionarios', label: 'Funcionários', icon: faUsers },
@@ -49,7 +51,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
           />
         </Link>
       </div>
-      
+
       <nav className="mt-4 flex-grow overflow-y-auto">
         <ul>
           {mainNavItems.map((item) => (
