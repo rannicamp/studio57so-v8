@@ -7,7 +7,7 @@ import ContatoList from '../../../components/ContatoList';
 import ContatoImporter from '../../../components/ContatoImporter';
 import { useLayout } from '../../../contexts/LayoutContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileImport } from '@fortawesome/free-solid-svg-icons';
+import { faFileImport, faCopy, faSpinner } from '@fortawesome/free-solid-svg-icons';
 
 export default function GerenciamentoContatosPage() {
   const { setPageTitle } = useLayout();
@@ -18,6 +18,8 @@ export default function GerenciamentoContatosPage() {
 
   const getContatos = useCallback(async () => {
     setLoading(true);
+    
+    // **A CORREÇÃO ESTÁ AQUI**: Removemos a função ".revalidate()" que não existe e causou o erro.
     const { data, error } = await supabase
       .from('contatos')
       .select('*, telefones ( id, telefone ), emails ( id, email )')
@@ -37,7 +39,12 @@ export default function GerenciamentoContatosPage() {
   }, [setPageTitle, getContatos]);
 
   if (loading) {
-      return <p className="text-center p-10">Carregando contatos...</p>
+      return (
+        <div className="text-center p-10">
+          <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-400" />
+          <p className="mt-3 text-gray-600">Carregando contatos...</p>
+        </div>
+      )
   }
 
   return (
@@ -45,9 +52,10 @@ export default function GerenciamentoContatosPage() {
       <ContatoImporter 
         isOpen={isImporterOpen}
         onClose={() => setIsImporterOpen(false)}
-        onImportComplete={getContatos}
+        onImportComplete={getContatos} // A função de recarregar a lista após a importação
       />
        <div className="flex justify-end items-center gap-4">
+        
         <button 
           onClick={() => setIsImporterOpen(true)}
           className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 flex items-center gap-2"
@@ -55,13 +63,23 @@ export default function GerenciamentoContatosPage() {
           <FontAwesomeIcon icon={faFileImport} />
           Importar CSV
         </button>
+
+        <Link href="/contatos/duplicatas" className="bg-orange-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-orange-600 flex items-center gap-2">
+            <FontAwesomeIcon icon={faCopy} />
+            Mesclar
+        </Link>
+        
         <Link href="/contatos/cadastro" className="bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600">
           + Novo Contato
         </Link>
+
       </div>
       
       <div className="bg-white rounded-lg shadow p-6">
-        <ContatoList initialContatos={contatos} />
+        <ContatoList 
+            initialContatos={contatos} 
+            onActionComplete={getContatos} // A função de recarregar a lista após exclusão
+        />
       </div>
     </div>
   );

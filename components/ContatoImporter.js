@@ -5,8 +5,7 @@ import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUpload, faFileCsv, faDownload } from '@fortawesome/free-solid-svg-icons';
 
-// O cabeçalho oficial do modelo.
-const CSV_HEADER = "nome;tipo_contato;status;razao_social;nome_fantasia;cnpj;inscricao_estadual;inscricao_municipal;responsavel_legal;cpf;rg;nacionalidade;birth_date;estado_civil;cargo;contract_role;admission_date;demission_date;telefones;emails;cep;address_street;address_number;address_complement;neighborhood;city;state;base_salary;total_salary;daily_value;payment_method;pix_key;bank_details;observations;numero_ponto;foto_url";
+const CSV_MODEL_HEADER = "nome;tipo_contato;status;razao_social;nome_fantasia;cnpj;inscricao_estadual;inscricao_municipal;responsavel_legal;cpf;rg;nacionalidade;birth_date;estado_civil;cargo;contract_role;admission_date;demission_date;telefones;emails;cep;address_street;address_number;address_complement;neighborhood;city;state;base_salary;total_salary;daily_value;payment_method;pix_key;bank_details;observations;numero_ponto;foto_url";
 
 export default function ContatoImporter({ isOpen, onClose, onImportComplete }) {
   const supabase = createClient();
@@ -28,44 +27,61 @@ export default function ContatoImporter({ isOpen, onClose, onImportComplete }) {
   };
   
   const handleDownloadTemplate = () => {
-    const blob = new Blob(["\uFEFF" + CSV_HEADER], { type: 'text/csv;charset=utf-8;' }); // Adiciona o BOM para compatibilidade com Excel
+    const blob = new Blob(["\uFEFF" + CSV_MODEL_HEADER], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
     link.setAttribute("download", "modelo_importacao_contatos.csv");
-    link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
   
-  // CORREÇÃO APLICADA AQUI
-  const cleanHeader = (headerString) => {
-    // Remove o caractere BOM (se existir) e espaços extras
-    return headerString.replace(/^\uFEFF/, '').trim();
-  };
-
-  const parseCSV = (text) => {
-    const lines = text.split(/\r\n|\n/).filter(line => line.trim());
-    if (lines.length < 2) return { header: null, rows: [] };
-    
-    const header = cleanHeader(lines[0]); // Limpa o cabeçalho lido
-    const headerKeys = header.split(';').map(h => h.trim());
-    
-    const rows = lines.slice(1).map(line => {
-      const values = line.split(';');
-      const obj = {};
-      headerKeys.forEach((key, i) => {
-        obj[key] = values[i] ? values[i].trim() : null;
-      });
-      return obj;
-    });
-    return { header: header, rows };
-  };
-  
   const capitalizeFirstLetter = (string) => {
     if (!string) return string;
     return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
+  };
+
+  const intelligentCSVParser = (text) => {
+    const rawLines = text.split(/\r\n|\n/);
+    if (rawLines.length < 1) return { header: [], rows: [] };
+
+    const header = rawLines[0].replace(/^\uFEFF/, '').trim();
+    const headerKeys = header.split(';').map(h => h.trim().toLowerCase());
+    const columnCount = headerKeys.length;
+
+    const dataRows = [];
+    let currentLineBuffer = "";
+
+    for (let i = 1; i < rawLines.length; i++) {
+        const line = rawLines[i].trim();
+        if (!line) continue;
+
+        currentLineBuffer += (currentLineBuffer ? " " + line : line);
+        const fields = currentLineBuffer.split(';');
+
+        if (fields.length >= columnCount) {
+            const completeRowFields = fields.slice(0, columnCount);
+            currentLineBuffer = fields.slice(columnCount).join(';');
+            
+            const rowObject = {};
+            headerKeys.forEach((key, index) => {
+                rowObject[key] = completeRowFields[index]?.trim() || null;
+            });
+            dataRows.push(rowObject);
+        }
+    }
+    
+    if (currentLineBuffer.trim()) {
+        const fields = currentLineBuffer.split(';');
+        const rowObject = {};
+        headerKeys.forEach((key, index) => {
+            rowObject[key] = fields[index]?.trim() || null;
+        });
+        dataRows.push(rowObject);
+    }
+    
+    return { header: headerKeys, rows: dataRows };
   };
 
   const processAndImport = async () => {
@@ -74,30 +90,36 @@ export default function ContatoImporter({ isOpen, onClose, onImportComplete }) {
       return;
     }
     setIsProcessing(true);
-    setMessage('Validando arquivo...');
+    setMessage('Analisando arquivo...');
     setErrorDetails([]);
 
     const reader = new FileReader();
     reader.onload = async (e) => {
         const text = e.target.result;
-        const { header, rows } = parseCSV(text);
+        const { header, rows } = intelligentCSVParser(text);
         
-        const expectedHeader = CSV_HEADER;
-
-        if (header !== expectedHeader) {
-            setMessage('Erro: O cabeçalho do arquivo não corresponde ao modelo. Por favor, baixe um novo modelo e tente novamente.');
+        if (!header.includes('nome') || !header.includes('tipo_contato')) {
+            setMessage('Erro: O cabeçalho do seu arquivo precisa conter as colunas "nome" e "tipo_contato".');
             setIsProcessing(false);
             return;
         }
         
-        setMessage(`Arquivo válido. Importando ${rows.length} contatos...`);
+        setMessage(`Arquivo válido. Importando contatos...`);
         const errors = [];
+        let importedCount = 0;
 
         for (let i = 0; i < rows.length; i++) {
             const rowData = rows[i];
             
+            // **A MELHORIA ESTÁ AQUI**
+            // Verifica se a linha é efetivamente vazia (só tem valores nulos ou em branco)
+            const isRowEssentiallyEmpty = Object.values(rowData).every(value => !value);
+            if (isRowEssentiallyEmpty) {
+                continue; // Pula a linha fantasma sem gerar erro
+            }
+
             if (!rowData.nome || !rowData.tipo_contato) {
-                errors.push(`Linha ${i + 2}: Nome e Tipo de Contato são obrigatórios.`);
+                errors.push(`Linha ${i + 2}: As colunas "nome" e "tipo_contato" não podem estar em branco.`);
                 continue;
             }
 
@@ -113,6 +135,8 @@ export default function ContatoImporter({ isOpen, onClose, onImportComplete }) {
             if (contactError) {
                 errors.push(`Linha ${i + 2}: Erro ao salvar contato - ${contactError.details || contactError.message}`);
                 continue;
+            } else {
+                importedCount++;
             }
 
             if (telefones) {
@@ -126,10 +150,10 @@ export default function ContatoImporter({ isOpen, onClose, onImportComplete }) {
         }
 
         if (errors.length > 0) {
-            setMessage(`Importação concluída com ${errors.length} erros.`);
+            setMessage(`${importedCount} contatos importados com sucesso, mas ${errors.length} linhas continham erros.`);
             setErrorDetails(errors);
         } else {
-            setMessage('Todos os contatos foram importados com sucesso!');
+            setMessage(`${importedCount} contatos foram importados com sucesso!`);
             onImportComplete();
             setTimeout(() => onClose(), 2000);
         }
@@ -148,7 +172,8 @@ export default function ContatoImporter({ isOpen, onClose, onImportComplete }) {
             <p>Siga os passos para uma importação correta:</p>
             <ol className="list-decimal list-inside ml-4 mt-2 space-y-1">
                 <li>Clique em "Baixar Modelo" para obter a planilha no formato correto.</li>
-                <li>Preencha a planilha. Para múltiplos telefones/emails, separe-os com ponto e vírgula (;) na mesma célula.</li>
+                <li>Preencha a planilha. As colunas podem estar em qualquer ordem, desde que os nomes no cabeçalho estejam corretos.</li>
+                <li>Para múltiplos telefones/emails, separe-os com ponto e vírgula (;) na mesma célula.</li>
                 <li>Selecione o arquivo preenchido e clique em "Importar".</li>
             </ol>
         </div>
