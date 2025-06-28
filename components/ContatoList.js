@@ -116,7 +116,7 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
         } else {
             setSelectedContatos([]);
             alert('Contatos excluídos com sucesso!');
-            // **A MELHORIA ESTÁ AQUI**: Avisa a página principal para recarregar a lista.
+            router.refresh(); // Força a atualização dos dados da página
             if (onActionComplete) {
                 onActionComplete();
             }

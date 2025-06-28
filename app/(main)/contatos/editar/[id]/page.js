@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { createClient } from '../../../../utils/supabase/client';
-import ContatoForm from '../../../../components/ContatoForm';
-import { useLayout } from '../../../../contexts/LayoutContext';
+import { createClient } from '../../../../../utils/supabase/client';
+import ContatoForm from '../../../../../components/ContatoForm';
+import { useLayout } from '../../../../../contexts/LayoutContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
