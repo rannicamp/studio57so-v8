@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
 export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
-    if (!isOpen) return null;
-
+    // CORREÇÃO: Todos os "useState" e outras chamadas de hooks foram movidos
+    // para o topo do componente, antes de qualquer lógica condicional.
     const supabase = createClient();
     const [newItem, setNewItem] = useState({
         descricao_item: '',
@@ -24,6 +24,12 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
     const [isSearching, setIsSearching] = useState({ material: false, fornecedor: false });
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState('');
+
+    // CORREÇÃO: Esta verificação agora acontece depois dos hooks,
+    // o que segue as regras do React e corrige o erro de build.
+    if (!isOpen) {
+        return null;
+    }
 
     const handleInputChange = async (e) => {
         const { name, value } = e.target;
