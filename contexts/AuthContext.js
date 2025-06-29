@@ -26,31 +26,41 @@ export function AuthProvider({ children }) {
 
     setLoading(true);
 
-    // ALTERAÇÃO AQUI: Agora busca também os dados do funcionário, incluindo a foto
+    // **A CORREÇÃO ESTÁ AQUI**:
+    // 1. Buscamos primeiro os dados do usuário e sua função.
     const { data: profileData, error } = await supabase
       .from('usuarios')
       .select(`
         *,
-        funcao:funcoes ( id, nome_funcao ),
-        funcionario:funcionarios ( foto_url )
+        funcoes ( id, nome_funcao )
       `)
       .eq('id', currentUser.id)
       .single();
 
     if (error) {
       console.error("Erro ao buscar perfil do usuário:", error);
-      setUserData(null);
-      setIsProprietario(false);
-      setCanViewSalaries(false);
-      setPermissions({});
-    } else {
+    } else if (profileData) {
+      // 2. Se o usuário tem um funcionário associado, buscamos a foto dele separadamente.
+      if (profileData.funcionario_id) {
+        const { data: funcionarioData } = await supabase
+          .from('funcionarios')
+          .select('foto_url')
+          .eq('id', profileData.funcionario_id)
+          .single();
+        
+        // 3. Anexamos os dados do funcionário (com a foto) ao perfil do usuário.
+        profileData.funcionario = funcionarioData || null;
+      }
+      
+      // 4. Agora, `userData` terá a estrutura correta com a foto.
       setUserData(profileData);
-      const userRole = profileData?.funcao;
-
+      
+      const userRole = profileData?.funcoes;
       const isUserProprietario = userRole?.nome_funcao === 'Proprietário';
       setIsProprietario(isUserProprietario);
       setCanViewSalaries(isUserProprietario || userRole?.nome_funcao === 'Administrativo');
 
+      // (Lógica de permissões continua a mesma)
       if (isUserProprietario) {
           const allResources = ['empresas', 'empreendimentos', 'funcionarios', 'atividades', 'rdo', 'usuarios', 'permissoes'];
           const allPermissions = allResources.reduce((acc, resource) => {
@@ -59,29 +69,23 @@ export function AuthProvider({ children }) {
           }, {});
           setPermissions(allPermissions);
       } else if (userRole?.id) {
-          const { data: perms, error: permsError } = await supabase
+          const { data: perms } = await supabase
               .from('permissoes')
               .select('*')
               .eq('funcao_id', userRole.id);
-
-          if (permsError) {
-              console.error("Erro ao buscar permissões:", permsError);
-              setPermissions({});
-          } else {
-              const userPermissions = perms.reduce((acc, p) => {
-                  acc[p.recurso] = {
-                      pode_criar: p.pode_criar,
-                      pode_excluir: p.pode_excluir,
-                      pode_editar: p.pode_editar,
-                      pode_ver: p.pode_ver,
-                  };
-                  return acc;
-              }, {});
-              setPermissions(userPermissions);
-          }
+          const userPermissions = (perms || []).reduce((acc, p) => {
+              acc[p.recurso] = { pode_criar: p.pode_criar, pode_excluir: p.pode_excluir, pode_editar: p.pode_editar, pode_ver: p.pode_ver };
+              return acc;
+          }, {});
+          setPermissions(userPermissions);
       } else {
           setPermissions({});
       }
+    } else {
+        setUserData(null);
+        setIsProprietario(false);
+        setCanViewSalaries(false);
+        setPermissions({});
     }
 
     setLoading(false);

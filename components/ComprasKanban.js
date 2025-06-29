@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import PedidoCard from './PedidoCard';
 
@@ -17,27 +17,75 @@ const statusColumns = [
 export default function ComprasKanban({ pedidos, setPedidos }) {
     const supabase = createClient();
     const [dragOverColumn, setDragOverColumn] = useState(null);
+    const scrollContainerRef = useRef(null);
+    
+    const [isDragging, setIsDragging] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [scrollLeft, setScrollLeft] = useState(0);
+    
+    const handleMouseDown = (e) => {
+        // **A CORREÇÃO ESTÁ AQUI**:
+        // Agora a verificação procura pela classe específica 'kanban-card'.
+        // Isso impede que o clique arraste a tela apenas quando se clica em um card,
+        // liberando o arraste para todo o resto da área.
+        if (e.target.closest('.kanban-card') || e.target.closest('button')) {
+            return;
+        }
+        setIsDragging(true);
+        const container = scrollContainerRef.current;
+        setStartX(e.pageX - container.offsetLeft);
+        setScrollLeft(container.scrollLeft);
+        container.style.cursor = 'grabbing';
+    };
 
-    const groupedPedidos = useMemo(() => {
+    const handleMouseLeaveOrUp = () => {
+        if (!isDragging) return;
+        setIsDragging(false);
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.style.cursor = 'grab';
+        }
+    };
+
+    const handleMouseMove = (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        const container = scrollContainerRef.current;
+        const x = e.pageX - container.offsetLeft;
+        const walk = (x - startX); 
+        container.scrollLeft = scrollLeft - walk;
+    };
+
+
+    const groupedData = useMemo(() => {
         const groups = {};
-        statusColumns.forEach(col => groups[col.id] = []);
+        statusColumns.forEach(col => {
+            groups[col.id] = { pedidos: [], total: 0 };
+        });
+
         pedidos.forEach(p => {
             if (groups[p.status]) {
-                groups[p.status].push(p);
+                groups[p.status].pedidos.push(p);
+                const pedidoTotal = p.itens?.reduce((sum, item) => sum + (item.custo_total_real || 0), 0) || 0;
+                groups[p.status].total += pedidoTotal;
             }
         });
         return groups;
     }, [pedidos]);
+
+    const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
     const handleStatusChange = async (pedidoId, newStatus) => {
         const originalPedidos = [...pedidos];
         const updatedPedidos = pedidos.map(p => p.id === pedidoId ? { ...p, status: newStatus } : p);
         setPedidos(updatedPedidos);
 
-        const { error } = await supabase
-            .from('pedidos_compra')
-            .update({ status: newStatus })
-            .eq('id', pedidoId);
+        const { data: { user } } = await supabase.auth.getUser();
+
+        const { error } = await supabase.rpc('atualizar_status_pedido', {
+            p_pedido_id: pedidoId,
+            p_novo_status: newStatus,
+            p_usuario_id: user.id
+        });
 
         if (error) {
             alert('Erro ao atualizar status: ' + error.message);
@@ -45,28 +93,30 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
         }
     };
 
-    // --- Funções para o Drag and Drop ---
-
-    // Permite que a coluna seja uma área válida para soltar
     const handleDragOver = (e, columnId) => {
         e.preventDefault();
         setDragOverColumn(columnId);
     };
 
-    // Lida com o evento de soltar o card na coluna
     const handleDrop = (e, newStatus) => {
         e.preventDefault();
         const pedidoId = parseInt(e.dataTransfer.getData('pedidoId'), 10);
-        setDragOverColumn(null); // Limpa o efeito visual
+        setDragOverColumn(null);
         
-        // Verifica se o ID do pedido é válido e se o status mudou
         if (pedidoId && pedidos.find(p => p.id === pedidoId)?.status !== newStatus) {
             handleStatusChange(pedidoId, newStatus);
         }
     };
 
     return (
-        <div className="flex gap-4 overflow-x-auto p-2">
+        <div 
+            ref={scrollContainerRef}
+            className="flex gap-4 overflow-x-auto p-2 cursor-grab"
+            onMouseDown={handleMouseDown}
+            onMouseLeave={handleMouseLeaveOrUp}
+            onMouseUp={handleMouseLeaveOrUp}
+            onMouseMove={handleMouseMove}
+        >
             {statusColumns.map(column => (
                 <div 
                     key={column.id} 
@@ -75,13 +125,17 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
                     onDragLeave={() => setDragOverColumn(null)}
                     className={`
                         w-80 flex-shrink-0 bg-gray-100 rounded-lg shadow-sm
-                        transition-colors duration-300
+                        transition-colors duration-300 flex flex-col
                         ${dragOverColumn === column.id ? 'bg-blue-100' : ''}
                     `}
                 >
-                    <h3 className="p-3 text-sm font-semibold text-gray-700 border-b">{column.title} ({groupedPedidos[column.id]?.length || 0})</h3>
-                    <div className="p-2 space-y-3 min-h-[100px]">
-                        {groupedPedidos[column.id] && groupedPedidos[column.id].map(pedido => (
+                    <div className="p-3 text-sm font-semibold text-gray-700 border-b">
+                        <h3>{column.title} ({groupedData[column.id]?.pedidos.length || 0})</h3>
+                        <p className="font-bold text-green-700">{formatCurrency(groupedData[column.id]?.total)}</p>
+                    </div>
+
+                    <div className="p-2 space-y-3 min-h-[100px] overflow-y-auto flex-1">
+                        {groupedData[column.id] && groupedData[column.id].pedidos.map(pedido => (
                             <PedidoCard
                                 key={pedido.id}
                                 pedido={pedido}

@@ -2,15 +2,20 @@
 
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faCalendarAlt, faTag, faEllipsisV } from '@fortawesome/free-solid-svg-icons';
-import { useState } from 'react';
+import { faUser, faCalendarAlt, faTag, faEllipsisV, faDollarSign } from '@fortawesome/free-solid-svg-icons';
+import { useState, useMemo } from 'react';
 
 export default function PedidoCard({ pedido, onStatusChange, allStatusColumns }) {
     const router = useRouter();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+    const totalPedido = useMemo(() => {
+        return pedido.itens?.reduce((acc, item) => acc + (item.custo_total_real || 0), 0) || 0;
+    }, [pedido.itens]);
+
+    const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
     const handleCardClick = (e) => {
-        // Impede que o clique no menu de status navegue para a página de detalhes
         if (e.target.closest('.status-menu-button')) return;
         router.push(`/pedidos/${pedido.id}`);
     };
@@ -20,9 +25,7 @@ export default function PedidoCard({ pedido, onStatusChange, allStatusColumns })
         setIsMenuOpen(false);
     };
     
-    // Função que é ativada quando o usuário começa a arrastar o card
     const handleDragStart = (e) => {
-        // Armazena o ID do pedido que está sendo arrastado
         e.dataTransfer.setData('pedidoId', pedido.id);
     };
 
@@ -30,12 +33,12 @@ export default function PedidoCard({ pedido, onStatusChange, allStatusColumns })
     const dataFormatada = new Date(pedido.data_solicitacao).toLocaleDateString('pt-BR');
 
     return (
-        // Adicionando as propriedades para o drag-and-drop
+        // **A CORREÇÃO ESTÁ AQUI**: Adicionamos a classe 'kanban-card'
         <div 
             draggable="true"
             onDragStart={handleDragStart}
             onClick={handleCardClick}
-            className="bg-white rounded-md shadow p-3 border-l-4 border-blue-500 hover:shadow-lg transition-shadow duration-200 cursor-grab active:cursor-grabbing"
+            className="bg-white rounded-md shadow p-3 border-l-4 border-blue-500 hover:shadow-lg transition-shadow duration-200 cursor-pointer kanban-card"
         >
             <div>
                 <div className="flex justify-between items-start">
@@ -49,12 +52,17 @@ export default function PedidoCard({ pedido, onStatusChange, allStatusColumns })
                     <FontAwesomeIcon icon={faCalendarAlt} className="w-3" />
                     <span>{dataFormatada}</span>
                 </p>
-                 <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center gap-2 w-fit">
-                    <FontAwesomeIcon icon={faTag} className="w-3" />
-                    {totalItens} {totalItens === 1 ? 'item' : 'itens'}
-                </span>
+                <div className="flex justify-between items-center mt-3">
+                    <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center gap-2 w-fit">
+                        <FontAwesomeIcon icon={faTag} className="w-3" />
+                        {totalItens} {totalItens === 1 ? 'item' : 'itens'}
+                    </span>
+                    <span className="text-sm font-bold text-green-700 flex items-center gap-1">
+                        <FontAwesomeIcon icon={faDollarSign} className="w-3" />
+                        {formatCurrency(totalPedido)}
+                    </span>
+                </div>
             </div>
-            {/* O menu de status por botão continua funcionando como alternativa */}
             <div className="relative mt-2 pt-2 border-t status-menu-button">
                  <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-xs font-semibold text-gray-600 hover:text-gray-900 w-full text-left flex justify-between items-center">
                     <span>Status: {pedido.status}</span>

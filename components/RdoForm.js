@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
-import { useAuth } from '../contexts/AuthContext'; // IMPORTAR O HOOK
+import { useAuth } from '../contexts/AuthContext';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTruck, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 
 export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const supabase = createClient();
-  const { hasPermission } = useAuth(); // USAR O HOOK DE AUTENTICAÇÃO
-  const [currentUser, setCurrentUser] = useState(null);
+  const { hasPermission, user } = useAuth();
   const [message, setMessage] = useState('');
   const [loadingForm, setLoadingForm] = useState(true);
   const [isUploading, setIsUploading] = useState(false); 
@@ -22,6 +23,7 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const [currentPhotoFile, setCurrentPhotoFile] = useState(null);
   const [currentPhotoDescription, setCurrentPhotoDescription] = useState('');
 
+  const [pedidosPrevistos, setPedidosPrevistos] = useState([]);
   const [isRdoLocked, setIsRdoLocked] = useState(false);
 
   const weatherOptions = ["Ensolarado", "Nublado", "Chuvoso", "Parcialmente Nublado", "Ventania", "Tempestade"];
@@ -44,13 +46,27 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         empreendimento_id: rdoData.empreendimento_id
       });
       setAllOccurrences(rdoData.ocorrencias || []);
-
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
       
       const empreendimentoId = rdoData.empreendimento_id;
 
-      const { data: activitiesData } = await supabase.from('activities').select('id, nome, status').eq('empreendimento_id', empreendimentoId);
+      const { data: pedidosData } = await supabase
+        .from('pedidos_compra')
+        .select('id, justificativa, status, itens:pedidos_compra_itens(descricao_item)')
+        .eq('empreendimento_id', empreendimentoId)
+        .eq('data_entrega_prevista', rdoData.data_relatorio);
+      setPedidosPrevistos(pedidosData || []);
+
+      // **A CORREÇÃO ESTÁ AQUI**:
+      // 1. Buscamos o 'tipo_atividade' para poder filtrar.
+      // 2. Filtramos para remover as atividades do tipo 'Entrega de Pedido' da lista.
+      const { data: activitiesData } = await supabase
+        .from('activities')
+        .select('id, nome, status, tipo_atividade') // 1. Buscando o tipo
+        .eq('empreendimento_id', empreendimentoId);
+
+      // 2. Filtrando as atividades que não são de entrega
+      const filteredActivities = (activitiesData || []).filter(act => act.tipo_atividade !== 'Entrega de Pedido');
+
       const { data: employeesData } = await supabase.from('funcionarios').select('id, full_name, status').eq('empreendimento_atual_id', empreendimentoId);
       const activeEmployees = (employeesData || []).filter(emp => emp.status === 'Ativo');
 
@@ -63,7 +79,9 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
       const savedStatusAtividades = rdoData.status_atividades || [];
       const todayFormatted = new Date().toISOString().split('T')[0];
       const isTodayRdo = rdoData.data_relatorio === todayFormatted;
-      setActivityStatuses((activitiesData || []).map(dbAct => {
+
+      // Usamos a lista já filtrada (filteredActivities)
+      setActivityStatuses(filteredActivities.map(dbAct => {
         const rdoActivity = savedStatusAtividades.find(sa => sa.id === dbAct.id);
         const status = isTodayRdo ? dbAct.status : (rdoActivity?.status || dbAct.status);
         const observacao = rdoActivity?.observacao || '';
@@ -101,14 +119,14 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
                 .maybeSingle();
 
             if (!rdo && !error) {
-                const { data: { user } } = await supabase.auth.getUser();
+                const { data: { user: authUser } } = await supabase.auth.getUser();
                 const { data: newRdo, error: insertError } = await supabase
                     .from('diarios_obra')
                     .insert({
                         empreendimento_id: selectedEmpreendimento.id,
                         data_relatorio: today,
                         rdo_numero: `RDO-${selectedEmpreendimento.id}-${today}`,
-                        responsavel_rdo: user?.email,
+                        responsavel_rdo: authUser?.email,
                         condicoes_climaticas: 'Ensolarado',
                         condicoes_trabalho: 'Praticável',
                         status_atividades: [],
@@ -136,6 +154,32 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
     };
     initializeForm();
   }, [initialRdoData, selectedEmpreendimento, supabase, setupFormWithData]);
+
+    const handleMarcarEntregue = async (pedidoId) => {
+        if (isRdoLocked) {
+            alert("Este RDO está bloqueado e não pode ser alterado.");
+            return;
+        }
+
+        if (!user) {
+            alert("Usuário não autenticado. Não é possível realizar esta ação.");
+            return;
+        }
+
+        const { error } = await supabase.rpc('marcar_pedido_entregue', {
+            p_pedido_id: pedidoId,
+            p_usuario_id: user.id
+        });
+
+        if (error) {
+            setMessage(`Erro ao marcar como entregue: ${error.message}`);
+        } else {
+            setMessage(`Pedido #${pedidoId} marcado como entregue com sucesso!`);
+            setPedidosPrevistos(prev => prev.map(p => 
+                p.id === pedidoId ? { ...p, status: 'Entregue' } : p
+            ));
+        }
+    };
 
 
   const handleRdoFormChange = (e) => {
@@ -262,7 +306,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
       )}
 
       <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-        {/* Informações Gerais */}
         <div className="border-b border-gray-200 pb-4">
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Informações Gerais</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -276,12 +319,11 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Responsável</label>
-              <p className="mt-1 p-2 bg-gray-100 rounded-md text-sm">{currentUser?.email || '...'}</p>
+              <p className="mt-1 p-2 bg-gray-100 rounded-md text-sm">{user?.email || '...'}</p>
             </div>
           </div>
         </div>
 
-        {/* Condições Climáticas */}
         <div className="border-b border-gray-200 pb-4">
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Condições Climáticas</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
@@ -297,8 +339,44 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
             </div>
           </div>
         </div>
+        
+        <div className="border-b border-gray-200 pb-4">
+          <h3 className="text-xl font-semibold text-gray-800 mb-3">Entregas de Pedidos Previstas</h3>
+          {pedidosPrevistos.length > 0 ? (
+            <ul className="divide-y border rounded-md">
+                {pedidosPrevistos.map(pedido => (
+                    <li key={pedido.id} className="p-3 text-sm flex items-center justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                            <FontAwesomeIcon icon={faTruck} className="text-blue-500 mt-1" />
+                            <div>
+                                <p className="font-semibold">Pedido de Compra #{pedido.id}</p>
+                                <p className="text-xs text-gray-600">
+                                    {pedido.itens.map(item => item.descricao_item).join(', ')}
+                                </p>
+                            </div>
+                        </div>
+                        {pedido.status === 'Entregue' ? (
+                            <span className="flex items-center gap-2 text-green-600 font-bold text-xs">
+                                <FontAwesomeIcon icon={faCheckCircle} />
+                                Entregue
+                            </span>
+                        ) : (
+                            <button 
+                                onClick={() => handleMarcarEntregue(pedido.id)}
+                                disabled={isRdoLocked}
+                                className="bg-green-500 text-white px-3 py-1 rounded-md text-xs font-medium hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            >
+                                Marcar como Entregue
+                            </button>
+                        )}
+                    </li>
+                ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-500">Nenhuma entrega de material prevista para hoje.</p>
+          )}
+        </div>
 
-        {/* Status das Atividades */}
         <div className="border-b border-gray-200 pb-4">
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Status das Atividades</h3>
           <ul className="divide-y divide-gray-200">
@@ -311,10 +389,12 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
                 <input type="text" placeholder="Observação..." value={activity.observacao || ''} onChange={(e) => handleActivityStatusChange(activity.id, activity.status, e.target.value)} disabled={isRdoLocked} className="block w-full md:w-2/5 p-2 border rounded-md text-sm"/>
               </li>
             ))}
+             {activityStatuses.length === 0 && (
+                <p className="text-sm text-gray-500 py-2">Nenhuma atividade de obra para hoje.</p>
+             )}
           </ul>
         </div>
 
-        {/* Mão de Obra */}
         <div className="border-b border-gray-200 pb-4">
             <h3 className="text-xl font-semibold text-gray-800 mb-3">Mão de Obra</h3>
             <ul className="divide-y divide-gray-200">
@@ -333,7 +413,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
             </ul>
         </div>
         
-        {/* Ocorrências do Dia */}
         <div className="border-b border-gray-200 pb-4">
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Ocorrências do Dia</h3>
           {hasPermission('rdo', 'pode_criar') && (
@@ -357,7 +436,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
           </ul>
         </div>
 
-        {/* Fotos do Dia */}
         <div>
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Fotos do Dia</h3>
           {hasPermission('rdo', 'pode_criar') && (

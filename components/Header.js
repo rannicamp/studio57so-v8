@@ -19,12 +19,11 @@ export default function Header({ isCollapsed }) {
 
   useEffect(() => {
     if (userData) {
-      // Pega apenas o primeiro nome
       const firstName = userData.nome?.split(' ')[0];
       setUserName(firstName || user?.email);
 
-      // Pega a URL da foto do funcionário associado
-      setUserPhoto(userData.funcionario?.foto_url || null);
+      // **A CORREÇÃO ESTÁ AQUI**: Agora buscamos a foto dentro do objeto 'funcionarios' (no plural)
+      setUserPhoto(userData.funcionarios?.foto_url || null);
     } else if (user) {
       setUserName(user.email);
     }
@@ -42,7 +41,6 @@ export default function Header({ isCollapsed }) {
         ${headerLeftPosition}
       `}
     >
-      {/* LADO ESQUERDO: Botões de Navegação */}
       <div className="flex items-center gap-4">
         <button onClick={() => router.back()} className="text-gray-600 hover:text-blue-500" title="Voltar">
           <FontAwesomeIcon icon={faChevronLeft} size="lg" />
@@ -55,20 +53,17 @@ export default function Header({ isCollapsed }) {
         </button>
       </div>
 
-      {/* LADO DIREITO: Título da Página e Informações do Usuário */}
       <div className="flex items-center gap-6">
         <h1 className="text-xl font-semibold text-gray-800 hidden md:block">{pageTitle}</h1>
         
         {userName && (
           <div className="flex items-center gap-3">
-            {/* Foto do Usuário */}
             {userPhoto ? (
               <img src={userPhoto} alt="Foto do perfil" className="w-9 h-9 rounded-full object-cover" />
             ) : (
               <FontAwesomeIcon icon={faUserCircle} className="w-9 h-9 text-gray-400" />
             )}
             
-            {/* Nome e Botão de Sair */}
             <div className="flex items-center">
               <span className="text-sm font-medium text-gray-700">{userName}</span>
               <LogoutButton />
