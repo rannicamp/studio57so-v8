@@ -23,8 +23,6 @@ export function AuthProvider({ children }) {
 
     setLoading(true);
 
-    // CORREÇÃO: A consulta agora busca todos os dados do usuário, incluindo o novo 'avatar_url'.
-    // Removemos a busca pela foto do funcionário, pois a foto do perfil agora é a principal.
     const { data: profileData, error } = await supabase
       .from('usuarios')
       .select(`
@@ -44,7 +42,6 @@ export function AuthProvider({ children }) {
       setIsProprietario(isUserProprietario);
       setCanViewSalaries(isUserProprietario || userRole?.nome_funcao === 'Administrativo');
       
-      // Lógica de permissões continua a mesma
       if (isUserProprietario) {
           const allResources = ['empresas', 'empreendimentos', 'funcionarios', 'atividades', 'rdo', 'usuarios', 'permissoes'];
           const allPermissions = allResources.reduce((acc, resource) => {
@@ -78,7 +75,12 @@ export function AuthProvider({ children }) {
     };
   }, [supabase, fetchProfileAndPermissions]);
 
-  const value = { user, userData, loading, isProprietario, canViewSalaries, permissions };
+  const hasPermission = (recurso, permissao) => {
+    if (isProprietario) return true;
+    return permissions[recurso]?.[permissao] || false;
+  };
+
+  const value = { user, userData, loading, isProprietario, canViewSalaries, permissions, hasPermission };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
