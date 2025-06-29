@@ -3,28 +3,17 @@
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faTachometerAlt,
-  faBuilding,
-  faProjectDiagram,
-  faUsers,
-  faTasks,
-  faClipboardList,
-  faCog,
-  faChevronLeft,
-  faChevronRight,
-  faClock,
-  faAddressBook,
-  faDollarSign,
-  faShoppingCart // Ícone novo para Pedidos de Compra
+  faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
+  faClipboardList, faCog, faChevronLeft, faChevronRight, faClock,
+  faAddressBook, faDollarSign, faShoppingCart, faUserCog // Ícone novo para Perfil
 } from '@fortawesome/free-solid-svg-icons';
-import { useState } from 'react';
 
 export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
   const mainNavItems = [
     { href: '/', label: 'Dashboard', icon: faTachometerAlt },
+    { href: '/perfil', label: 'Meu Perfil', icon: faUserCog }, // NOVO LINK AQUI
     { href: '/tarefas-gerais', label: 'Gerenciador de Atividades', icon: faTasks },
     { href: '/contatos', label: 'Contatos', icon: faAddressBook },
-    // NOVO ITEM DE MENU PARA PEDIDOS DE COMPRA
     { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart },
     { href: '/orcamento', label: 'Planilha Orçamentária', icon: faDollarSign },
     { href: '/empresas', label: 'Empresas', icon: faBuilding },
@@ -53,7 +42,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
           />
         </Link>
       </div>
-
       <nav className="mt-4 flex-grow overflow-y-auto">
         <ul>
           {mainNavItems.map((item) => (
@@ -66,7 +54,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
           ))}
         </ul>
       </nav>
-
       <nav className="mt-auto mb-2 flex-shrink-0">
         <ul>
           {bottomNavItems.map((item) => (
@@ -79,7 +66,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
           ))}
         </ul>
       </nav>
-
       <div className="border-t border-gray-200 p-2">
         <button onClick={toggleSidebar} className="w-full h-12 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
           <FontAwesomeIcon icon={isCollapsed ? faChevronRight : faChevronLeft} size="lg" />

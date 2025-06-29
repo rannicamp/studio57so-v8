@@ -1,24 +1,77 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronDown, faSort, faSortUp, faSortDown, faExclamationTriangle, faUsers, faUserCheck, faUserSlash } from '@fortawesome/free-solid-svg-icons';
-import KpiCard from './KpiCard'; // Importando o novo componente
+import { faChevronDown, faSort, faSortUp, faSortDown, faUsers, faUserCheck, faUserSlash, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import KpiCard from './KpiCard';
 
-// Documentos obrigatórios
+// Componente para o Círculo de Progresso
+const ProgressCircle = ({ score }) => {
+    const percentage = Math.min(Math.max(score, 0), 100);
+    const circumference = 2 * Math.PI * 18;
+    const offset = circumference - (percentage / 100) * circumference;
+
+    let colorClass = 'text-red-500';
+    if (percentage >= 80) {
+        colorClass = 'text-green-500';
+    } else if (percentage >= 50) {
+        colorClass = 'text-yellow-500';
+    }
+
+    return (
+        <div className="relative flex items-center justify-center w-12 h-12" title={`Qualidade do cadastro: ${Math.round(percentage)}%`}>
+            <svg className="w-full h-full" viewBox="0 0 40 40">
+                <circle className="text-gray-200" strokeWidth="4" stroke="currentColor" fill="transparent" r="18" cx="20" cy="20" />
+                <circle
+                    className={`${colorClass} transition-all duration-500`}
+                    strokeWidth="4"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={offset}
+                    strokeLinecap="round"
+                    stroke="currentColor"
+                    fill="transparent"
+                    r="18"
+                    cx="20"
+                    cy="20"
+                    transform="rotate(-90 20 20)"
+                />
+            </svg>
+            <span className={`absolute text-xs font-bold ${colorClass}`}>
+                {Math.round(percentage)}%
+            </span>
+        </div>
+    );
+};
+
 const requiredDocuments = ['Identidade com Foto', 'CTPS', 'Comprovante de Residência', 'ASO'];
 
-// Função para verificar pendências de um funcionário
-const hasPendingIssues = (employee) => {
-  const requiredFields = ['full_name', 'cpf', 'empresa_id', 'contract_role', 'admission_date'];
-  const missingFields = requiredFields.some(field => !employee[field]);
-  if (missingFields) return true;
-  const uploadedDocNames = (employee.documentos_funcionarios || []).map(doc => doc.nome_documento);
-  const missingDocuments = requiredDocuments.some(docType => !uploadedDocNames.includes(docType));
-  if (missingDocuments) return true;
-  return false;
+const calculateScore = (employee) => {
+    if (!employee) return 0;
+    
+    let score = 0;
+    const weights = {
+        fields: { full_name: 10, cpf: 10, empresa_id: 5, contract_role: 5, admission_date: 5, phone: 5, email: 5 },
+        documents: 15,
+    };
+    
+    for (const field in weights.fields) {
+        if (employee[field]) {
+            score += weights.fields[field];
+        }
+    }
+    
+    const uploadedDocNames = (employee.documentos_funcionarios || []).map(doc => doc.nome_documento);
+    requiredDocuments.forEach(docType => {
+        if (uploadedDocNames.includes(docType)) {
+            score += weights.documents;
+        }
+    });
+
+    const totalPossibleScore = Object.values(weights.fields).reduce((a, b) => a + b, 0) + (requiredDocuments.length * weights.documents);
+    
+    return (score / totalPossibleScore) * 100;
 };
 
 // --- Componente da Tabela ---
@@ -30,7 +83,7 @@ const EmployeeTable = ({ employees, onDismissClick, requestSort, sortConfig }) =
   };
 
   const SortableHeader = ({ sortKey, children, className }) => (
-    <th className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${className}`}>
+    <th className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${className || ''}`}>
       <button onClick={() => requestSort(sortKey)} className="flex items-center">
         <span>{children}</span>
         {getSortIcon(sortKey)}
@@ -43,7 +96,7 @@ const EmployeeTable = ({ employees, onDismissClick, requestSort, sortConfig }) =
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">!</th>
+            <SortableHeader sortKey="qualidade">Qualidade</SortableHeader>
             <SortableHeader sortKey="full_name">Nome</SortableHeader>
             <SortableHeader sortKey="contract_role">Cargo</SortableHeader>
             <SortableHeader sortKey="cadastro_empresa">Empresa</SortableHeader>
@@ -55,14 +108,8 @@ const EmployeeTable = ({ employees, onDismissClick, requestSort, sortConfig }) =
         <tbody className="bg-white divide-y divide-gray-200">
           {employees.map((employee) => (
             <tr key={employee.id}>
-              <td className="px-6 py-4 whitespace-nowrap text-center">
-                {hasPendingIssues(employee) && (
-                  <FontAwesomeIcon
-                    icon={faExclamationTriangle}
-                    className="text-yellow-500"
-                    title="Funcionário com pendências (dados ou documentos faltando)"
-                  />
-                )}
+              <td className="px-6 py-4 whitespace-nowrap">
+                <ProgressCircle score={calculateScore(employee)} />
               </td>
               <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900" title={employee.full_name}>{employee.full_name}</td>
               <td className="px-6 py-4 whitespace-nowrap" title={employee.contract_role}>{employee.contract_role}</td>
@@ -112,11 +159,14 @@ export default function EmployeeList({ initialEmployees }) {
   }, [initialEmployees]);
 
   const kpiData = useMemo(() => {
-    const total = initialEmployees.length;
-    const ativos = initialEmployees.filter(e => e.status === 'Ativo').length;
-    const pendencias = initialEmployees.filter(e => hasPendingIssues(e)).length;
-    const demitidos = initialEmployees.filter(e => e.status === 'Demitido').length;
-    return { total, ativos, pendencias, demitidos };
+      const ativos = initialEmployees.filter(e => e.status === 'Ativo');
+      const pendencias = ativos.filter(e => calculateScore(e) < 100).length;
+      return {
+          total: initialEmployees.length,
+          ativos: ativos.length,
+          pendencias: pendencias,
+          demitidos: initialEmployees.filter(e => e.status === 'Demitido').length
+      };
   }, [initialEmployees]);
   
   const handleRoleSelect = (role) => setSelectedRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]);
@@ -148,13 +198,24 @@ export default function EmployeeList({ initialEmployees }) {
     let sortableItems = [...filteredEmployees];
     if (sortConfig.key) {
       sortableItems.sort((a, b) => {
-        const getSortableValue = (item, key) => {
-          if (key === 'cadastro_empresa') return item.cadastro_empresa?.razao_social || '';
-          if (key === 'empreendimentos') return item.empreendimentos?.nome || '';
-          return item[key] || '';
-        };
-        const valA = getSortableValue(a, sortConfig.key);
-        const valB = getSortableValue(b, sortConfig.key);
+        let valA, valB;
+        if (sortConfig.key === 'qualidade') {
+            valA = calculateScore(a);
+            valB = calculateScore(b);
+        } else {
+            const getSortableValue = (item, key) => {
+              if (key === 'cadastro_empresa') return item.cadastro_empresa?.razao_social || '';
+              if (key === 'empreendimentos') return item.empreendimentos?.nome || '';
+              return item[key] || '';
+            };
+            valA = getSortableValue(a, sortConfig.key);
+            valB = getSortableValue(b, sortConfig.key);
+        }
+
+        if (typeof valA === 'number' && typeof valB === 'number') {
+             return sortConfig.direction === 'ascending' ? valA - valB : valB - valA;
+        }
+
         if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
         if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
         return 0;
@@ -208,18 +269,21 @@ export default function EmployeeList({ initialEmployees }) {
     }
     setTimeout(() => setMessage(''), 3000);
   };
+  
+  // Função para simplificar a classe do ícone de dropdown
+  const getIconClass = (dropdownName) => {
+      return `transition-transform ${openDropdown === dropdownName ? 'rotate-180' : ''}`;
+  }
 
   return (
     <div>
-      {/* Seção de KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <KpiCard title="Total de Funcionários" value={kpiData.total} icon={faUsers} color="blue" />
         <KpiCard title="Funcionários Ativos" value={kpiData.ativos} icon={faUserCheck} color="green" />
-        <KpiCard title="Com Pendências" value={kpiData.pendencias} icon={faExclamationTriangle} color="yellow" />
+        <KpiCard title="Ativos com Pendências" value={kpiData.pendencias} icon={faExclamationTriangle} color="yellow" />
         <KpiCard title="Demitidos" value={kpiData.demitidos} icon={faUserSlash} color="red" />
       </div>
 
-      {/* Seção de Filtros */}
       <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-4">
         <input
           type="text"
@@ -230,7 +294,7 @@ export default function EmployeeList({ initialEmployees }) {
         />
         <div className="relative" ref={roleFilterRef}>
           <button onClick={() => setOpenDropdown(openDropdown === 'role' ? null : 'role')} className="p-2 border rounded-md shadow-sm flex items-center gap-2">
-            Cargo ({selectedRoles.length}) <FontAwesomeIcon icon={faChevronDown} className={`${openDropdown === 'role' ? 'rotate-180' : ''} transition-transform`} />
+            Cargo ({selectedRoles.length}) <FontAwesomeIcon icon={faChevronDown} className={getIconClass('role')} />
           </button>
           {openDropdown === 'role' && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
@@ -245,7 +309,7 @@ export default function EmployeeList({ initialEmployees }) {
         </div>
         <div className="relative" ref={empreendimentoFilterRef}>
           <button onClick={() => setOpenDropdown(openDropdown === 'empreendimento' ? null : 'empreendimento')} className="p-2 border rounded-md shadow-sm flex items-center gap-2">
-            Empreendimento ({selectedEmpreendimentos.length}) <FontAwesomeIcon icon={faChevronDown} className={`${openDropdown === 'empreendimento' ? 'rotate-180' : ''} transition-transform`} />
+            Empreendimento ({selectedEmpreendimentos.length}) <FontAwesomeIcon icon={faChevronDown} className={getIconClass('empreendimento')} />
           </button>
           {openDropdown === 'empreendimento' && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
@@ -260,7 +324,7 @@ export default function EmployeeList({ initialEmployees }) {
         </div>
         <div className="relative" ref={dateFilterRef}>
           <button onClick={() => setOpenDropdown(openDropdown === 'date' ? null : 'date')} className="p-2 border rounded-md shadow-sm flex items-center gap-2">
-            Data ({dateFilterType === 'admission_date' ? 'Admissão' : 'Demissão'}) <FontAwesomeIcon icon={faChevronDown} className={`${openDropdown === 'date' ? 'rotate-180' : ''} transition-transform`} />
+            Data ({dateFilterType === 'admission_date' ? 'Admissão' : 'Demissão'}) <FontAwesomeIcon icon={faChevronDown} className={getIconClass('date')} />
           </button>
           {openDropdown === 'date' && (
             <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg p-3 space-y-2 z-10">
@@ -280,7 +344,6 @@ export default function EmployeeList({ initialEmployees }) {
 
       {message && <div className={`p-3 rounded-md text-sm ${message.includes('Erro') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{message}</div>}
 
-      {/* Seção da Tabela de Ativos */}
       <div className="border-b border-gray-200">
         <button onClick={() => setIsActivesVisible(!isActivesVisible)} className="w-full flex justify-between items-center p-4 bg-white hover:bg-gray-50">
           <span className="font-bold text-lg text-gray-800">Funcionários Ativos ({activeEmployees.length})</span>
@@ -293,7 +356,6 @@ export default function EmployeeList({ initialEmployees }) {
         )}
       </div>
 
-      {/* Seção da Tabela de Demitidos */}
       <div>
         <button onClick={() => setIsDismissedVisible(!isDismissedVisible)} className="w-full flex justify-between items-center p-4 bg-white hover:bg-gray-50">
           <span className="font-bold text-lg text-gray-800">Funcionários Demitidos ({dismissedEmployees.length})</span>

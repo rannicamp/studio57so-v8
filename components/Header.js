@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createClient } from '../utils/supabase/client';
 import LogoutButton from './LogoutButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft, faChevronRight, faHome, faUserCircle } from '@fortawesome/free-solid-svg-icons';
@@ -10,7 +9,6 @@ import { useLayout } from '../contexts/LayoutContext';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Header({ isCollapsed }) {
-  const supabase = createClient();
   const router = useRouter();
   const { pageTitle } = useLayout();
   const { user, userData } = useAuth();
@@ -21,41 +19,24 @@ export default function Header({ isCollapsed }) {
     if (userData) {
       const firstName = userData.nome?.split(' ')[0];
       setUserName(firstName || user?.email);
-
-      // **A CORREÇÃO ESTÁ AQUI**: Agora buscamos a foto dentro do objeto 'funcionarios' (no plural)
-      setUserPhoto(userData.funcionarios?.foto_url || null);
+      // CORREÇÃO: Agora busca a foto do campo 'avatar_url' do usuário.
+      setUserPhoto(userData.avatar_url || null);
     } else if (user) {
       setUserName(user.email);
     }
   }, [user, userData]);
 
-
   const headerLeftPosition = isCollapsed ? 'left-[80px]' : 'left-[260px]';
 
   return (
-    <header
-      className={`
-        bg-white shadow-md h-[65px] fixed top-0 right-0 z-30
-        flex items-center justify-between px-6
-        transition-all duration-300
-        ${headerLeftPosition}
-      `}
-    >
+    <header className={`bg-white shadow-md h-[65px] fixed top-0 right-0 z-30 flex items-center justify-between px-6 transition-all duration-300 ${headerLeftPosition}`}>
       <div className="flex items-center gap-4">
-        <button onClick={() => router.back()} className="text-gray-600 hover:text-blue-500" title="Voltar">
-          <FontAwesomeIcon icon={faChevronLeft} size="lg" />
-        </button>
-        <button onClick={() => router.push('/')} className="text-gray-600 hover:text-blue-500" title="Página Inicial">
-          <FontAwesomeIcon icon={faHome} size="lg" />
-        </button>
-        <button onClick={() => router.forward()} className="text-gray-600 hover:text-blue-500" title="Avançar">
-          <FontAwesomeIcon icon={faChevronRight} size="lg" />
-        </button>
+        <button onClick={() => router.back()} className="text-gray-600 hover:text-blue-500" title="Voltar"><FontAwesomeIcon icon={faChevronLeft} size="lg" /></button>
+        <button onClick={() => router.push('/')} className="text-gray-600 hover:text-blue-500" title="Página Inicial"><FontAwesomeIcon icon={faHome} size="lg" /></button>
+        <button onClick={() => router.forward()} className="text-gray-600 hover:text-blue-500" title="Avançar"><FontAwesomeIcon icon={faChevronRight} size="lg" /></button>
       </div>
-
       <div className="flex items-center gap-6">
         <h1 className="text-xl font-semibold text-gray-800 hidden md:block">{pageTitle}</h1>
-        
         {userName && (
           <div className="flex items-center gap-3">
             {userPhoto ? (
@@ -63,7 +44,6 @@ export default function Header({ isCollapsed }) {
             ) : (
               <FontAwesomeIcon icon={faUserCircle} className="w-9 h-9 text-gray-400" />
             )}
-            
             <div className="flex items-center">
               <span className="text-sm font-medium text-gray-700">{userName}</span>
               <LogoutButton />

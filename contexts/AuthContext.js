@@ -17,17 +17,14 @@ export function AuthProvider({ children }) {
   const fetchProfileAndPermissions = useCallback(async (currentUser) => {
     if (!currentUser) {
       setUserData(null);
-      setIsProprietario(false);
-      setCanViewSalaries(false);
-      setPermissions({});
       setLoading(false);
       return;
     }
 
     setLoading(true);
 
-    // **A CORREÇÃO ESTÁ AQUI**:
-    // 1. Buscamos primeiro os dados do usuário e sua função.
+    // CORREÇÃO: A consulta agora busca todos os dados do usuário, incluindo o novo 'avatar_url'.
+    // Removemos a busca pela foto do funcionário, pois a foto do perfil agora é a principal.
     const { data: profileData, error } = await supabase
       .from('usuarios')
       .select(`
@@ -40,27 +37,14 @@ export function AuthProvider({ children }) {
     if (error) {
       console.error("Erro ao buscar perfil do usuário:", error);
     } else if (profileData) {
-      // 2. Se o usuário tem um funcionário associado, buscamos a foto dele separadamente.
-      if (profileData.funcionario_id) {
-        const { data: funcionarioData } = await supabase
-          .from('funcionarios')
-          .select('foto_url')
-          .eq('id', profileData.funcionario_id)
-          .single();
-        
-        // 3. Anexamos os dados do funcionário (com a foto) ao perfil do usuário.
-        profileData.funcionario = funcionarioData || null;
-      }
-      
-      // 4. Agora, `userData` terá a estrutura correta com a foto.
       setUserData(profileData);
       
       const userRole = profileData?.funcoes;
       const isUserProprietario = userRole?.nome_funcao === 'Proprietário';
       setIsProprietario(isUserProprietario);
       setCanViewSalaries(isUserProprietario || userRole?.nome_funcao === 'Administrativo');
-
-      // (Lógica de permissões continua a mesma)
+      
+      // Lógica de permissões continua a mesma
       if (isUserProprietario) {
           const allResources = ['empresas', 'empreendimentos', 'funcionarios', 'atividades', 'rdo', 'usuarios', 'permissoes'];
           const allPermissions = allResources.reduce((acc, resource) => {
@@ -69,10 +53,7 @@ export function AuthProvider({ children }) {
           }, {});
           setPermissions(allPermissions);
       } else if (userRole?.id) {
-          const { data: perms } = await supabase
-              .from('permissoes')
-              .select('*')
-              .eq('funcao_id', userRole.id);
+          const { data: perms } = await supabase.from('permissoes').select('*').eq('funcao_id', userRole.id);
           const userPermissions = (perms || []).reduce((acc, p) => {
               acc[p.recurso] = { pode_criar: p.pode_criar, pode_excluir: p.pode_excluir, pode_editar: p.pode_editar, pode_ver: p.pode_ver };
               return acc;
@@ -81,46 +62,23 @@ export function AuthProvider({ children }) {
       } else {
           setPermissions({});
       }
-    } else {
-        setUserData(null);
-        setIsProprietario(false);
-        setCanViewSalaries(false);
-        setPermissions({});
     }
-
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      fetchProfileAndPermissions(session?.user);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      fetchProfileAndPermissions(session?.user);
+    const sub = supabase.auth.onAuthStateChange((_event, session) => {
+      const currentUser = session?.user;
+      setUser(currentUser ?? null);
+      fetchProfileAndPermissions(currentUser);
     });
 
     return () => {
-      subscription?.unsubscribe();
+      sub.data.subscription.unsubscribe();
     };
   }, [supabase, fetchProfileAndPermissions]);
 
-  const hasPermission = (resource, action) => {
-    if (isProprietario) return true;
-    return permissions[resource]?.[action] || false;
-  };
-
-  const value = {
-    user,
-    userData,
-    loading,
-    isProprietario,
-    canViewSalaries,
-    permissions,
-    hasPermission,
-  };
+  const value = { user, userData, loading, isProprietario, canViewSalaries, permissions };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
