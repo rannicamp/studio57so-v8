@@ -14,7 +14,8 @@ import {
   faChevronRight,
   faClock,
   faAddressBook,
-  faDollarSign // Ícone novo para o orçamento
+  faDollarSign,
+  faShoppingCart // Ícone novo para Pedidos de Compra
 } from '@fortawesome/free-solid-svg-icons';
 import { useState } from 'react';
 
@@ -23,7 +24,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
     { href: '/', label: 'Dashboard', icon: faTachometerAlt },
     { href: '/tarefas-gerais', label: 'Gerenciador de Atividades', icon: faTasks },
     { href: '/contatos', label: 'Contatos', icon: faAddressBook },
-    // NOVO ITEM DE MENU ADICIONADO ABAIXO
+    // NOVO ITEM DE MENU PARA PEDIDOS DE COMPRA
+    { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart },
     { href: '/orcamento', label: 'Planilha Orçamentária', icon: faDollarSign },
     { href: '/empresas', label: 'Empresas', icon: faBuilding },
     { href: '/empreendimentos/cadastro', label: 'Cadastro de Empreendimento', icon: faProjectDiagram },
