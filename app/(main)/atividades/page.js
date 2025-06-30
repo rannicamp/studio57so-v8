@@ -1,186 +1,193 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import AtividadeModal from '../../../components/AtividadeModal';
 import ActivityList from '../../../components/ActivityList';
 import GanttChart from '../../../components/GanttChart';
+import KanbanBoard from '../../../components/KanbanBoard';
+import ActivityCalendar from '../../../components/ActivityCalendar';
+import KpiCard from '../../../components/KpiCard';
+import { useLayout } from '../../../contexts/LayoutContext';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory } from '@fortawesome/free-solid-svg-icons';
 
 export default function AtividadesPage() {
   const supabase = createClient();
+  const { setPageTitle } = useLayout();
+  
   const [empreendimentos, setEmpreendimentos] = useState([]);
-  const [selectedEmpreendimento, setSelectedEmpreendimento] = useState(null);
+  const [selectedContext, setSelectedContext] = useState('geral');
   const [activities, setActivities] = useState([]);
+  const [funcionarios, setFuncionarios] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  const [activeTab, setActiveTab] = useState('kanban');
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState(null);
-  const [isListCollapsed, setIsListCollapsed] = useState(false);
-  const [isGanttCollapsed, setIsGanttCollapsed] = useState(false);
+  
   const [sortConfig, setSortConfig] = useState({ key: 'data_inicio_prevista', direction: 'ascending' });
 
+  const kpiData = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const thisMonth = today.getMonth();
+    const thisYear = today.getFullYear();
+
+    return {
+        atrasadas: activities.filter(act => act.data_fim_prevista && new Date(act.data_fim_prevista) < today && act.status !== 'Concluído').length,
+        concluidasNoMes: activities.filter(act => {
+            if (act.status !== 'Concluído' || !act.data_fim_real) return false;
+            const dataFim = new Date(act.data_fim_real);
+            return dataFim.getMonth() === thisMonth && dataFim.getFullYear() === thisYear;
+        }).length,
+        ativas: activities.filter(act => ['Em Andamento', 'Pausado', 'Aguardando Material'].includes(act.status)).length,
+        semResponsavel: activities.filter(act => !act.funcionario_id && act.status !== 'Concluído' && act.status !== 'Cancelado').length,
+        reprogramadas: activities.filter(act => act.data_fim_original).length,
+    };
+  }, [activities]);
+
   const fetchInitialData = useCallback(async () => {
+    setLoading(true);
     try {
-      const { data: empreendimentosData, error } = await supabase.from('empreendimentos').select('id, nome, empresa_proprietaria_id').order('nome');
-      if (error) {
-        console.error("Erro ao buscar empreendimentos:", error);
-      }
+      const { data: empreendimentosData } = await supabase.from('empreendimentos').select('id, nome, empresa_proprietaria_id').order('nome');
       setEmpreendimentos(empreendimentosData || []);
+
+      const { data: funcData } = await supabase.from('funcionarios').select('id, full_name').order('full_name');
+      setFuncionarios(funcData || []);
+
+    } catch (error) {
+      console.error("Erro ao carregar dados iniciais:", error);
     } finally {
       setLoading(false);
     }
   }, [supabase]);
 
   useEffect(() => {
+    setPageTitle('Painel de Atividades');
     fetchInitialData();
-  }, [fetchInitialData]);
+  }, [setPageTitle, fetchInitialData]);
 
-  const fetchActivities = useCallback(async (empreendimentoId) => {
-    if (!empreendimentoId) {
-      setActivities([]);
-      return;
-    }
-    const { data, error } = await supabase.from('activities').select('*').eq('empreendimento_id', empreendimentoId).order('data_inicio_prevista');
-    if (error) {
-        console.error("Erro ao buscar atividades:", error);
-    }
-    setActivities(data || []);
-  }, [supabase]);
-  
-  const handleEmpreendimentoChange = (e) => {
-    const empreendimentoId = e.target.value;
-    if (empreendimentoId) {
-        const selected = empreendimentos.find(emp => emp.id.toString() === empreendimentoId);
-        setSelectedEmpreendimento(selected);
-        fetchActivities(empreendimentoId);
+  const fetchActivities = useCallback(async (context) => {
+    let query = supabase.from('activities').select('*, responsavel:funcionario_id(full_name)');
+    
+    if (context === 'geral') {
+        query = query.is('empreendimento_id', null);
     } else {
-        setSelectedEmpreendimento(null);
-        setActivities([]);
+        query = query.eq('empreendimento_id', context);
     }
-  };
+    
+    query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' });
+    
+    const { data, error } = await query;
+    if (error) console.error("Erro ao buscar atividades:", error);
+    setActivities(data || []);
+  }, [supabase, sortConfig]);
 
-  const sortActivities = useCallback((key) => {
-    let direction = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-        direction = 'descending';
-    }
-    setSortConfig({ key, direction });
+  useEffect(() => {
+    fetchActivities(selectedContext);
+  }, [selectedContext, fetchActivities]);
 
-    const sorted = [...activities].sort((a, b) => {
-        if (a[key] === null || a[key] === undefined) return direction === 'ascending' ? 1 : -1;
-        if (b[key] === null || b[key] === undefined) return direction === 'ascending' ? -1 : 1;
-
-        if (typeof a[key] === 'string' && typeof b[key] === 'string') {
-            return direction === 'ascending' ? a[key].localeCompare(b[key]) : b[key].localeCompare(a[key]);
-        }
-        return direction === 'ascending' ? a[key] - b[key] : b[key] - a[key];
-    });
-    setActivities(sorted);
-  }, [activities, sortConfig]);
-
-  const handleEditClick = (activity) => {
-    setEditingActivity(activity);
-    setIsModalOpen(true);
-  };
-
+  const handleContextChange = (e) => setSelectedContext(e.target.value);
+  const handleEditClick = (activity) => { setEditingActivity(activity); setIsModalOpen(true); };
   const handleDeleteClick = async (activityId) => {
     if (window.confirm('Tem certeza que deseja deletar esta atividade?')) {
       const { error } = await supabase.from('activities').delete().eq('id', activityId);
-      if (error) {
-        alert(`Erro ao deletar: ${error.message}`);
-      } else {
+      if (error) alert(`Erro ao deletar: ${error.message}`);
+      else {
         alert('Atividade deletada com sucesso!');
-        fetchActivities(selectedEmpreendimento.id);
+        fetchActivities(selectedContext);
       }
     }
   };
 
-  // NOVO: Função para alterar o status diretamente na lista
   const handleStatusChange = async (activityId, newStatus) => {
-    // 1. Atualiza a lista na tela imediatamente para o usuário ver a mudança
-    setActivities(currentActivities =>
-      currentActivities.map(act =>
-        act.id === activityId ? { ...act, status: newStatus } : act
-      )
-    );
-    // 2. Envia a atualização para o banco de dados
-    const { error } = await supabase
-      .from('activities')
-      .update({ status: newStatus })
-      .eq('id', activityId);
-      
-    if (error) {
-      alert(`Erro ao atualizar o status: ${error.message}`);
-      // Se der erro, busca os dados novamente para reverter a mudança na tela
-      fetchActivities(selectedEmpreendimento.id);
+    const activity = activities.find(a => a.id === activityId);
+    if (!activity) return;
+
+    const updateData = { status: newStatus };
+
+    // **LÓGICA CORRIGIDA E APRIMORADA**
+    // Se está mudando para "Em Andamento" e não tem data de início real, define como hoje.
+    if (newStatus === 'Em Andamento' && !activity.data_inicio_real) {
+        updateData.data_inicio_real = new Date().toISOString().split('T')[0];
     }
+    // Se está mudando para "Concluído", define a data de fim real como hoje.
+    if (newStatus === 'Concluído') {
+        updateData.data_fim_real = new Date().toISOString().split('T')[0];
+    }
+    
+    const { error } = await supabase.from('activities').update(updateData).eq('id', activityId);
+    
+    if (error) {
+        alert(`Erro ao atualizar o status: ${error.message}`);
+    }
+    // Sempre busca os dados novamente para garantir que a UI esteja 100% sincronizada.
+    fetchActivities(selectedContext);
   };
 
+  const requestSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
+    setSortConfig({ key, direction });
+  };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingActivity(null);
-  }
+  const selectedEmpreendimentoObj = useMemo(() => {
+    if(selectedContext === 'geral') return null;
+    return empreendimentos.find(e => e.id.toString() === selectedContext);
+  }, [selectedContext, empreendimentos]);
 
-  if (loading) {
-    return <p className="text-center mt-10">Carregando dados...</p>;
-  }
+  const TabButton = ({ tabName, label }) => (
+      <button onClick={() => setActiveTab(tabName)} className={`${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm`}>{label}</button>
+  );
 
   return (
     <div className="space-y-6">
       <div className="bg-white p-4 rounded-lg shadow">
-        <h1 className="text-3xl font-bold text-gray-900">Painel de Atividades</h1>
-        <div className="mt-4 flex items-end gap-4">
-          <div className="flex-1">
-            <label htmlFor="empreendimento-select" className="block text-sm font-medium text-gray-700">Selecione um Empreendimento</label>
-            <select id="empreendimento-select" onChange={handleEmpreendimentoChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-              <option value="">-- Escolha um empreendimento --</option>
-              {empreendimentos.map((emp) => (<option key={emp.id} value={emp.id}>{emp.nome}</option>))}
-            </select>
-          </div>
-          <button onClick={() => setIsModalOpen(true)} disabled={!selectedEmpreendimento} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed">
-            + Adicionar Atividade
-          </button>
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="flex-1 w-full">
+                <label htmlFor="context-select" className="block text-sm font-medium text-gray-700">Visualizar Atividades de:</label>
+                <select id="context-select" onChange={handleContextChange} value={selectedContext} className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                    <option value="geral">Tarefas Gerais (sem empreendimento)</option>
+                    {empreendimentos.map((emp) => (<option key={emp.id} value={emp.id}>{emp.nome}</option>))}
+                </select>
+            </div>
+            <button onClick={() => handleEditClick(null)} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 w-full md:w-auto mt-2 md:mt-0">+ Nova Atividade</button>
         </div>
       </div>
+      
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <KpiCard title="Atrasadas" value={kpiData.atrasadas} icon={faExclamationTriangle} color="red" />
+          <KpiCard title="Ativas" value={kpiData.ativas} icon={faTasks} color="blue" />
+          <KpiCard title="Concluídas no Mês" value={kpiData.concluidasNoMes} icon={faCheckCircle} color="green" />
+          <KpiCard title="Sem Responsável" value={kpiData.semResponsavel} icon={faUserClock} color="yellow" />
+          <KpiCard title="Reprogramadas" value={kpiData.reprogramadas} icon={faHistory} color="purple" />
+      </div>
 
-      {selectedEmpreendimento && (
-        <>
-            <div className="bg-white rounded-lg shadow">
-                <button onClick={() => setIsListCollapsed(!isListCollapsed)} className="font-bold text-xl p-4 w-full text-left flex justify-between items-center">
-                    <span>Lista de Atividades</span>
-                    <span>{isListCollapsed ? '►' : '▼'}</span>
-                </button>
-                {!isListCollapsed && 
-                    <ActivityList 
-                        activities={activities} 
-                        requestSort={sortActivities} 
-                        sortConfig={sortConfig} 
-                        onEditClick={handleEditClick} 
-                        onDeleteClick={handleDeleteClick}
-                        onStatusChange={handleStatusChange} // Passando a nova função
-                    />
-                }
-            </div>
-            
-            <div className="bg-white rounded-lg shadow">
-                <button onClick={() => setIsGanttCollapsed(!isGanttCollapsed)} className="font-bold text-xl p-4 w-full text-left flex justify-between items-center">
-                    <span>Gráfico de Gantt</span>
-                    <span>{isGanttCollapsed ? '►' : '▼'}</span>
-                </button>
-                {!isGanttCollapsed && <GanttChart activities={activities} />}
-            </div>
-        </>
-      )}
+      <div className="border-b border-gray-200 bg-white shadow-sm rounded-t-lg">
+          <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">
+              <TabButton tabName="kanban" label="Kanban" />
+              <TabButton tabName="list" label="Lista" />
+              <TabButton tabName="gantt" label="Gantt" />
+              <TabButton tabName="calendar" label="Calendário" />
+          </nav>
+      </div>
 
+      <div className="mt-4">
+        {loading ? <p className="text-center p-10">Carregando atividades...</p> : (
+            <>
+                {activeTab === 'kanban' && <KanbanBoard activities={activities} onEditActivity={handleEditClick} onStatusChange={handleStatusChange} />}
+                {activeTab === 'list' && <ActivityList activities={activities} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onStatusChange={handleStatusChange} />}
+                {activeTab === 'gantt' && <GanttChart activities={activities} />}
+                {activeTab === 'calendar' && <ActivityCalendar activities={activities} onActivityClick={handleEditClick} />}
+            </>
+        )}
+      </div>
+      
       {isModalOpen && (
-        <AtividadeModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          selectedEmpreendimento={selectedEmpreendimento}
-          existingActivities={activities}
-          onActivityAdded={() => fetchActivities(selectedEmpreendimento.id)}
-          activityToEdit={editingActivity}
-        />
+        <AtividadeModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingActivity(null); }} onActivityAdded={() => fetchActivities(selectedContext)} activityToEdit={editingActivity} selectedEmpreendimento={selectedEmpreendimentoObj} funcionarios={funcionarios}/>
       )}
     </div>
   );

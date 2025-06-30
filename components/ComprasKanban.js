@@ -24,10 +24,6 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
     const [scrollLeft, setScrollLeft] = useState(0);
     
     const handleMouseDown = (e) => {
-        // **A CORREÇÃO ESTÁ AQUI**:
-        // Agora a verificação procura pela classe específica 'kanban-card'.
-        // Isso impede que o clique arraste a tela apenas quando se clica em um card,
-        // liberando o arraste para todo o resto da área.
         if (e.target.closest('.kanban-card') || e.target.closest('button')) {
             return;
         }
@@ -76,19 +72,33 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
 
     const handleStatusChange = async (pedidoId, newStatus) => {
         const originalPedidos = [...pedidos];
-        const updatedPedidos = pedidos.map(p => p.id === pedidoId ? { ...p, status: newStatus } : p);
+        // Adiciona a busca de anexos ao atualizar
+        const { data: updatedPedido, error: updateError } = await supabase
+            .from('pedidos_compra')
+            .update({ status: newStatus })
+            .eq('id', pedidoId)
+            .select('*, solicitante:solicitante_id(id, nome), itens:pedidos_compra_itens(*), anexos:pedidos_compra_anexos(*)')
+            .single();
+
+        if (updateError) {
+             alert('Erro ao atualizar status: ' + updateError.message);
+             setPedidos(originalPedidos);
+             return;
+        }
+
+        const updatedPedidos = pedidos.map(p => p.id === pedidoId ? updatedPedido : p);
         setPedidos(updatedPedidos);
 
         const { data: { user } } = await supabase.auth.getUser();
 
-        const { error } = await supabase.rpc('atualizar_status_pedido', {
+        const { error: rpcError } = await supabase.rpc('atualizar_status_pedido', {
             p_pedido_id: pedidoId,
             p_novo_status: newStatus,
             p_usuario_id: user.id
         });
 
-        if (error) {
-            alert('Erro ao atualizar status: ' + error.message);
+        if (rpcError) {
+            alert('Erro ao registrar histórico: ' + rpcError.message);
             setPedidos(originalPedidos);
         }
     };
@@ -135,14 +145,21 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
                     </div>
 
                     <div className="p-2 space-y-3 min-h-[100px] overflow-y-auto flex-1">
-                        {groupedData[column.id] && groupedData[column.id].pedidos.map(pedido => (
-                            <PedidoCard
-                                key={pedido.id}
-                                pedido={pedido}
-                                onStatusChange={handleStatusChange}
-                                allStatusColumns={statusColumns.map(s => s.id)}
-                            />
-                        ))}
+                        {groupedData[column.id] && groupedData[column.id].pedidos.map(pedido => {
+                            // NOVO: Lógica para verificar a pendência da Nota Fiscal
+                            const hasPendingInvoice = pedido.status === 'Realizado' && 
+                                                      !pedido.anexos?.some(anexo => anexo.descricao === 'Nota Fiscal');
+                            
+                            return (
+                                <PedidoCard
+                                    key={pedido.id}
+                                    pedido={pedido}
+                                    onStatusChange={handleStatusChange}
+                                    allStatusColumns={statusColumns.map(s => s.id)}
+                                    hasPendingInvoice={hasPendingInvoice} // Passando a informação para o card
+                                />
+                            );
+                        })}
                     </div>
                 </div>
             ))}

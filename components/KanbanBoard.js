@@ -1,7 +1,8 @@
 "use client";
 import { useMemo } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 
-// Componente do "Cartão de Tarefa"
 const TaskCard = ({ activity, onEditActivity }) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -10,64 +11,81 @@ const TaskCard = ({ activity, onEditActivity }) => {
 
     return (
         <div
-            className={`bg-white p-4 rounded-lg shadow-sm mb-4 cursor-pointer hover:shadow-lg transition-shadow duration-200 border-l-4 ${isOverdue ? 'border-red-500' : 'border-transparent'}`}
+            className={`bg-white p-3 rounded-md shadow border-l-4 ${isOverdue ? 'border-red-500' : 'border-blue-500'} cursor-pointer hover:shadow-lg transition-shadow duration-200 kanban-card`}
             onClick={() => onEditActivity(activity)}
         >
-            <h4 className="font-bold text-gray-800">{activity.nome}</h4>
-            {activity.descricao && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{activity.descricao}</p>}
-
+            <h4 className="font-bold text-sm text-gray-800 line-clamp-2">{activity.nome}</h4>
+            {activity.descricao && <p className="text-xs text-gray-600 mt-1 line-clamp-2">{activity.descricao}</p>}
             <div className="text-xs text-gray-500 mt-3 flex justify-between items-center">
-                <span>
-                    {activity.responsavel?.full_name || 'Sem responsável'}
-                </span>
+                <span>{activity.responsavel?.full_name || 'Sem responsável'}</span>
                 {prazo && (
                     <span className={`font-semibold ${isOverdue ? 'text-red-600' : 'text-gray-600'}`}>
                         {prazo.toLocaleDateString('pt-BR')}
                     </span>
                 )}
             </div>
-            {isOverdue && <div className="text-xs font-bold text-red-600 mt-1">TAREFA ATRASADA</div>}
+            {isOverdue && (
+                <div className="text-xs font-bold text-red-600 mt-2 flex items-center gap-1">
+                    <FontAwesomeIcon icon={faExclamationTriangle} />
+                    TAREFA ATRASADA
+                </div>
+            )}
         </div>
     );
 };
 
-// Componente do Quadro Kanban
-export default function KanbanBoard({ activities, onEditActivity }) {
-    const columns = useMemo(() => {
-        const statusOrder = ['Não Iniciado', 'Em Andamento', 'Pausado', 'Aguardando Material', 'Concluído', 'Cancelado'];
-        
-        const grouped = statusOrder.map(status => ({
-            title: status,
-            tasks: activities.filter(a => a.status === status)
-        }));
+export default function KanbanBoard({ activities, onEditActivity, onStatusChange }) {
+    const statusColumns = useMemo(() => [
+        { id: 'Não Iniciado', title: 'Não Iniciado' },
+        { id: 'Em Andamento', title: 'Em Andamento' },
+        { id: 'Pausado', title: 'Pausado' },
+        { id: 'Aguardando Material', title: 'Aguardando Material' },
+        { id: 'Concluído', title: 'Concluído' },
+        { id: 'Cancelado', title: 'Cancelado' },
+    ], []);
 
-        return grouped;
+    const groupedData = useMemo(() => {
+        const groups = {};
+        statusColumns.forEach(col => {
+            groups[col.id] = activities.filter(a => a.status === col.id);
+        });
+        return groups;
+    }, [activities, statusColumns]);
 
-    }, [activities]);
-
-    const statusColors = {
-        'Não Iniciado': 'bg-gray-200',
-        'Em Andamento': 'bg-blue-200',
-        'Pausado': 'bg-yellow-200',
-        'Aguardando Material': 'bg-purple-200',
-        'Concluído': 'bg-green-200',
-        'Cancelado': 'bg-red-200',
+    const handleDragOver = (e) => e.preventDefault();
+    const handleDrop = (e, newStatus) => {
+        e.preventDefault();
+        const activityId = parseInt(e.dataTransfer.getData('activityId'), 10);
+        const currentStatus = activities.find(a => a.id === activityId)?.status;
+        if (activityId && currentStatus !== newStatus) {
+            onStatusChange(activityId, newStatus);
+        }
     };
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
-            {columns.map(col => (
-                <div key={col.title} className={`rounded-lg p-3 ${statusColors[col.title] || 'bg-gray-200'}`}>
-                    <h3 className="font-bold text-md text-gray-800 mb-4 px-1">
-                        {col.title} ({col.tasks.length})
-                    </h3>
-                    <div className="space-y-4 h-[calc(100vh-250px)] overflow-y-auto">
-                        {col.tasks.map(activity => (
-                            <TaskCard
+        <div className="flex gap-4 overflow-x-auto p-2">
+            {statusColumns.map(column => (
+                <div 
+                    key={column.id} 
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, column.id)}
+                    className="w-80 flex-shrink-0 bg-gray-100 rounded-lg shadow-sm flex flex-col"
+                >
+                    <div className="p-3 text-sm font-semibold text-gray-700 border-b">
+                        <h3>{column.title} ({groupedData[column.id]?.length || 0})</h3>
+                    </div>
+                    <div className="p-2 space-y-3 min-h-[100px] overflow-y-auto flex-1">
+                        {groupedData[column.id] && groupedData[column.id].map(activity => (
+                             <div 
                                 key={activity.id}
-                                activity={activity}
-                                onEditActivity={onEditActivity}
-                            />
+                                draggable="true" 
+                                onDragStart={(e) => e.dataTransfer.setData('activityId', activity.id)}
+                             >
+                                <TaskCard
+                                    activity={activity}
+                                    onEditActivity={onEditActivity}
+                                />
+                             </div>
                         ))}
                     </div>
                 </div>
