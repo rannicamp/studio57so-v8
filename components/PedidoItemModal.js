@@ -1,50 +1,109 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faPlus, faPenToSquare } from '@fortawesome/free-solid-svg-icons';
 
 export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
-    // CORREÇÃO: Todos os "useState" e outras chamadas de hooks foram movidos
-    // para o topo do componente, antes de qualquer lógica condicional.
     const supabase = createClient();
-    const [newItem, setNewItem] = useState({
+    
+    const getInitialState = () => ({
+        material_id: null,
         descricao_item: '',
         quantidade_solicitada: 1,
         unidade_medida: 'unid.',
         etapa_id: '',
         fornecedor_id: null,
-        fornecedor_nome: '', // Campo auxiliar para o input de busca
+        fornecedor_nome: '', 
         preco_unitario_real: ''
     });
+
+    const [newItem, setNewItem] = useState(getInitialState());
+    const [isItemSelected, setIsItemSelected] = useState(false);
 
     const [materialSearchResults, setMaterialSearchResults] = useState([]);
     const [fornecedorSearchResults, setFornecedorSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState({ material: false, fornecedor: false });
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
 
-    // CORREÇÃO: Esta verificação agora acontece depois dos hooks,
-    // o que segue as regras do React e corrige o erro de build.
-    if (!isOpen) {
-        return null;
+    useEffect(() => {
+        if (isOpen) {
+            setNewItem(getInitialState());
+            setSearchTerm('');
+            setMaterialSearchResults([]);
+            setFornecedorSearchResults([]);
+            setMessage('');
+            setIsItemSelected(false);
+        }
+    }, [isOpen]);
+
+    const handleSearchChange = async (e) => {
+        const value = e.target.value;
+        setSearchTerm(value);
+
+        if (value.length < 3) {
+            setMaterialSearchResults([]);
+            return;
+        }
+
+        setIsSearching(prev => ({ ...prev, material: true }));
+        const { data } = await supabase.from('materiais').select('id, descricao, unidade_medida').ilike('descricao', `%${value}%`).limit(5);
+        setMaterialSearchResults(data || []);
+        setIsSearching(prev => ({ ...prev, material: false }));
+    };
+    
+    const handleSelectMaterial = (material) => {
+        setNewItem(prev => ({
+            ...prev,
+            material_id: material.id,
+            descricao_item: material.descricao,
+            unidade_medida: material.unidade_medida || 'unid.'
+        }));
+        setIsItemSelected(true);
+        setMaterialSearchResults([]); 
+    };
+    
+    const handleAddNewMaterialText = () => {
+        setNewItem(prev => ({
+            ...prev,
+            material_id: null,
+            descricao_item: searchTerm 
+        }));
+        setIsItemSelected(true);
+        setMaterialSearchResults([]);
+    }
+
+    const handleResetItemSelection = () => {
+        setIsItemSelected(false);
+        setNewItem(prev => ({...prev, material_id: null, descricao_item: ''}));
+        setSearchTerm('');
+    }
+
+    const handleSearchKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (materialSearchResults.length === 0 && searchTerm.length > 2) {
+                handleAddNewMaterialText();
+            }
+        }
+        if (e.key === 'Escape') {
+            setMaterialSearchResults([]);
+        }
+    }
+
+    const handleSearchBlur = () => {
+        setTimeout(() => {
+            setMaterialSearchResults([]);
+        }, 150);
     }
 
     const handleInputChange = async (e) => {
         const { name, value } = e.target;
         setNewItem(prev => ({ ...prev, [name]: value }));
 
-        // Busca de Materiais
-        if (name === 'descricao_item') {
-            if (value.length < 3) { setMaterialSearchResults([]); return; }
-            setIsSearching(prev => ({ ...prev, material: true }));
-            const { data } = await supabase.from('materiais').select('id, descricao, unidade_medida').ilike('descricao', `%${value}%`).limit(5);
-            setMaterialSearchResults(data || []);
-            setIsSearching(prev => ({ ...prev, material: false }));
-        }
-
-        // Busca de Fornecedores
         if (name === 'fornecedor_nome') {
             if (value.length < 3) { setFornecedorSearchResults([]); return; }
             setIsSearching(prev => ({ ...prev, fornecedor: true }));
@@ -54,22 +113,8 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
         }
     };
 
-    const handleSelectMaterial = (material) => {
-        setNewItem(prev => ({
-            ...prev,
-            material_id: material.id,
-            descricao_item: material.descricao,
-            unidade_medida: material.unidade_medida || 'unid.'
-        }));
-        setMaterialSearchResults([]);
-    };
-
     const handleSelectFornecedor = (fornecedor) => {
-        setNewItem(prev => ({
-            ...prev,
-            fornecedor_id: fornecedor.id,
-            fornecedor_nome: fornecedor.nome,
-        }));
+        setNewItem(prev => ({ ...prev, fornecedor_id: fornecedor.id, fornecedor_nome: fornecedor.nome }));
         setFornecedorSearchResults([]);
     };
 
@@ -80,12 +125,23 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
         }
         setIsSaving(true);
         setMessage('');
-        // Remove o campo auxiliar antes de salvar
-        const { fornecedor_nome, ...itemToSave } = newItem;
-        await onSave(itemToSave);
+        
+        const { fornecedor_nome, ...itemData } = newItem;
+        
+        const itemToSave = {
+            ...itemData,
+            etapa_id: itemData.etapa_id || null
+        };
+
+        const success = await onSave(itemToSave);
         setIsSaving(false);
-        setNewItem({ descricao_item: '', quantidade_solicitada: 1, unidade_medida: 'unid.', etapa_id: '', fornecedor_id: null, fornecedor_nome: '', preco_unitario_real: '' });
+        
+        if (success) {
+            onClose(); // Fecha o modal se o salvamento for bem-sucedido
+        }
     };
+
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -94,20 +150,46 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
                 {message && <p className="text-sm text-red-500 mb-4">{message}</p>}
                 
                 <div className="space-y-4">
-                    {/* BUSCA DE MATERIAL */}
                     <div className="relative">
-                        <label className="block text-sm font-medium">Buscar Material *</label>
-                        <input type="text" name="descricao_item" value={newItem.descricao_item} onChange={handleInputChange} placeholder="Digite para buscar..." className="mt-1 w-full p-2 border rounded-md" autoComplete="off" />
-                        {isSearching.material && <p className="text-xs text-gray-500">Buscando...</p>}
-                        {materialSearchResults.length > 0 && (
-                             <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-40 overflow-y-auto">
-                                {materialSearchResults.map(material => <li key={material.id} onClick={() => handleSelectMaterial(material)} className="p-2 hover:bg-gray-100 cursor-pointer">{material.descricao}</li>)}
-                            </ul>
+                        <label className="block text-sm font-medium">Material / Descrição do Item *</label>
+                        
+                        {isItemSelected ? (
+                            <div className="flex items-center justify-between mt-1 w-full p-2 border rounded-md bg-gray-100">
+                                <span className="font-semibold text-gray-800">{newItem.descricao_item}</span>
+                                <button onClick={handleResetItemSelection} className="text-blue-600 hover:text-blue-800 text-sm font-semibold flex items-center gap-1">
+                                    <FontAwesomeIcon icon={faPenToSquare} />
+                                    Alterar
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <input 
+                                    type="text" 
+                                    value={searchTerm} 
+                                    onChange={handleSearchChange}
+                                    onKeyDown={handleSearchKeyDown}
+                                    onBlur={handleSearchBlur}
+                                    placeholder="Digite para buscar ou descrever..." 
+                                    className="mt-1 w-full p-2 border rounded-md" 
+                                    autoComplete="off" 
+                                />
+                                {isSearching.material && <p className="text-xs text-gray-500 absolute -bottom-5">Buscando...</p>}
+                                
+                                {(materialSearchResults.length > 0 || searchTerm.length > 2) && !isSearching.material && (
+                                     <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-48 overflow-y-auto">
+                                        {materialSearchResults.map(material => <li key={material.id} onClick={() => handleSelectMaterial(material)} className="p-3 hover:bg-gray-100 cursor-pointer">{material.descricao}</li>)}
+                                        {materialSearchResults.length === 0 && searchTerm.length > 2 && (
+                                             <li onClick={handleAddNewMaterialText} className="p-3 hover:bg-blue-50 cursor-pointer text-blue-600 font-semibold flex items-center gap-2">
+                                                 <FontAwesomeIcon icon={faPlus} /> Adicionar "{searchTerm}" como novo item
+                                             </li>
+                                        )}
+                                    </ul>
+                                )}
+                            </>
                         )}
                     </div>
 
-                    {/* BUSCA DE FORNECEDOR */}
-                    <div className="relative">
+                    <div className="relative mt-2">
                         <label className="block text-sm font-medium">Fornecedor</label>
                         <input type="text" name="fornecedor_nome" value={newItem.fornecedor_nome} onChange={handleInputChange} placeholder="Digite para buscar um fornecedor..." className="mt-1 w-full p-2 border rounded-md" autoComplete="off" />
                          {isSearching.fornecedor && <p className="text-xs text-gray-500">Buscando...</p>}
@@ -142,7 +224,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
                 </div>
                  <div className="flex justify-end gap-4 pt-6 mt-4 border-t">
                     <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                    <button onClick={handleSaveClick} disabled={isSaving} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
+                    <button onClick={handleSaveClick} disabled={isSaving || !isItemSelected} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
                         {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Salvar Item'}
                     </button>
                 </div>

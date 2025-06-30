@@ -4,11 +4,13 @@ import { useMemo, useState, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import PedidoCard from './PedidoCard';
 
+// COLUNAS ATUALIZADAS COM O NOVO FLUXO
 const statusColumns = [
-    { id: 'Pedido Realizado', title: 'Pedido Realizado' },
+    { id: 'Solicitação', title: 'Solicitação' },
     { id: 'Pedido Visto', title: 'Pedido Visto' },
     { id: 'Em Cotação', title: 'Em Cotação' },
     { id: 'Em Negociação', title: 'Em Negociação' },
+    { id: 'Revisão do Responsável', title: 'Revisão do Responsável' },
     { id: 'Realizado', title: 'Realizado (Aguardando Entrega)' },
     { id: 'Entregue', title: 'Entregue' },
     { id: 'Cancelado', title: 'Cancelado' },
@@ -59,10 +61,12 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
         });
 
         pedidos.forEach(p => {
-            if (groups[p.status]) {
-                groups[p.status].pedidos.push(p);
+            // A lógica de agrupamento foi atualizada para usar 'Solicitação' como status inicial
+            const currentStatus = p.status === 'Pedido Realizado' ? 'Solicitação' : p.status;
+            if (groups[currentStatus]) {
+                groups[currentStatus].pedidos.push(p);
                 const pedidoTotal = p.itens?.reduce((sum, item) => sum + (item.custo_total_real || 0), 0) || 0;
-                groups[p.status].total += pedidoTotal;
+                groups[currentStatus].total += pedidoTotal;
             }
         });
         return groups;
@@ -72,10 +76,13 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
 
     const handleStatusChange = async (pedidoId, newStatus) => {
         const originalPedidos = [...pedidos];
-        // Adiciona a busca de anexos ao atualizar
+        
+        // CORREÇÃO: Mapeia 'Solicitação' de volta para o valor do banco de dados ao salvar
+        const statusToSave = newStatus === 'Solicitação' ? 'Pedido Realizado' : newStatus;
+
         const { data: updatedPedido, error: updateError } = await supabase
             .from('pedidos_compra')
-            .update({ status: newStatus })
+            .update({ status: statusToSave })
             .eq('id', pedidoId)
             .select('*, solicitante:solicitante_id(id, nome), itens:pedidos_compra_itens(*), anexos:pedidos_compra_anexos(*)')
             .single();
@@ -93,7 +100,7 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
 
         const { error: rpcError } = await supabase.rpc('atualizar_status_pedido', {
             p_pedido_id: pedidoId,
-            p_novo_status: newStatus,
+            p_novo_status: statusToSave, // Usa o status corrigido
             p_usuario_id: user.id
         });
 
@@ -113,7 +120,10 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
         const pedidoId = parseInt(e.dataTransfer.getData('pedidoId'), 10);
         setDragOverColumn(null);
         
-        if (pedidoId && pedidos.find(p => p.id === pedidoId)?.status !== newStatus) {
+        const currentStatus = pedidos.find(p => p.id === pedidoId)?.status;
+        const mappedCurrentStatus = currentStatus === 'Pedido Realizado' ? 'Solicitação' : currentStatus;
+
+        if (pedidoId && mappedCurrentStatus !== newStatus) {
             handleStatusChange(pedidoId, newStatus);
         }
     };
@@ -146,17 +156,19 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
 
                     <div className="p-2 space-y-3 min-h-[100px] overflow-y-auto flex-1">
                         {groupedData[column.id] && groupedData[column.id].pedidos.map(pedido => {
-                            // NOVO: Lógica para verificar a pendência da Nota Fiscal
                             const hasPendingInvoice = pedido.status === 'Realizado' && 
                                                       !pedido.anexos?.some(anexo => anexo.descricao === 'Nota Fiscal');
                             
+                            // Mapeia o status para exibição no card
+                            const displayStatus = pedido.status === 'Pedido Realizado' ? 'Solicitação' : pedido.status;
+
                             return (
                                 <PedidoCard
                                     key={pedido.id}
-                                    pedido={pedido}
+                                    pedido={{...pedido, status: displayStatus}} // Passa o status mapeado
                                     onStatusChange={handleStatusChange}
                                     allStatusColumns={statusColumns.map(s => s.id)}
-                                    hasPendingInvoice={hasPendingInvoice} // Passando a informação para o card
+                                    hasPendingInvoice={hasPendingInvoice}
                                 />
                             );
                         })}
