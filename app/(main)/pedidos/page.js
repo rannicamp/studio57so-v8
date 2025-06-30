@@ -5,7 +5,6 @@ import { createClient } from '../../../utils/supabase/client';
 import ComprasKanban from '../../../components/ComprasKanban';
 import { useLayout } from '../../../contexts/LayoutContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// NOVO: Ícone importado para o novo KPI
 import { faSpinner, faBoxOpen, faClock, faHourglassHalf, faClipboardList } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
 import KpiCard from '@/components/KpiCard';
@@ -16,19 +15,17 @@ export default function PedidosPage() {
     const [empreendimentos, setEmpreendimentos] = useState([]);
     const [solicitantes, setSolicitantes] = useState([]);
     
-    // Estados dos Filtros
     const [selectedEmpreendimento, setSelectedEmpreendimento] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSolicitante, setSelectedSolicitante] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 
-    // Estado para os KPIs, agora incluindo as pendências
     const [kpiData, setKpiData] = useState({
         totalPedidos: 0,
         tempoMedioCotacao: 'N/A',
         tempoMedioEntrega: 'N/A',
-        pedidosComPendencia: 0, // NOVO KPI
+        pedidosComPendencia: 0,
     });
 
     const [loading, setLoading] = useState(false);
@@ -66,7 +63,6 @@ export default function PedidosPage() {
         setError('');
         const { data, error } = await supabase
             .from('pedidos_compra')
-            // Importante: precisamos dos anexos para o cálculo do KPI
             .select('*, solicitante:solicitante_id(id, nome), itens:pedidos_compra_itens(*), anexos:pedidos_compra_anexos(descricao)')
             .eq('empreendimento_id', selectedEmpreendimento)
             .order('data_solicitacao', { ascending: false });
@@ -111,7 +107,6 @@ export default function PedidosPage() {
                 return;
             }
 
-            // NOVO: Cálculo da pendência
             const comPendencia = filteredPedidos.filter(p => 
                 p.status === 'Realizado' && !p.anexos.some(a => a.descricao === 'Nota Fiscal')
             ).length;
@@ -160,7 +155,7 @@ export default function PedidosPage() {
                 totalPedidos: filteredPedidos.length,
                 tempoMedioCotacao: countCotacao > 0 ? `${(totalDiasCotacao / countCotacao).toFixed(1)} dias` : 'N/A',
                 tempoMedioEntrega: countEntrega > 0 ? `${(totalDiasEntrega / countEntrega).toFixed(1)} dias` : 'N/A',
-                pedidosComPendencia: comPendencia, // NOVO: Passando o valor para o estado
+                pedidosComPendencia: comPendencia,
             });
         };
 
@@ -178,7 +173,7 @@ export default function PedidosPage() {
             .insert({
                 empreendimento_id: selectedEmpreendimento,
                 solicitante_id: user.id,
-                status: 'Pedido Realizado'
+                status: 'Pedido Realizado' // O status inicial no banco é 'Pedido Realizado'
             })
             .select()
             .single();
@@ -216,7 +211,6 @@ export default function PedidosPage() {
                 </button>
             </div>
             
-            {/* NOVO: A grid de KPIs agora tem 4 colunas para incluir o novo card */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <KpiCard title="Pedidos no Período" value={kpiData.totalPedidos} icon={faBoxOpen} color="blue" />
                 <KpiCard title="Pedidos com Pendências" value={kpiData.pedidosComPendencia} icon={faClipboardList} color="red" />

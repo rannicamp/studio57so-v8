@@ -119,8 +119,9 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
     };
 
     const handleSaveClick = async () => {
-        if (!newItem.descricao_item || !newItem.quantidade_solicitada || !newItem.etapa_id) {
-            setMessage('Preencha a Descrição, Quantidade e Etapa para adicionar.');
+        // VALIDAÇÃO FLEXÍVEL: Agora só a descrição é obrigatória
+        if (!newItem.descricao_item) {
+            setMessage('A descrição do item é obrigatória.');
             return;
         }
         setIsSaving(true);
@@ -133,11 +134,13 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
             etapa_id: itemData.etapa_id || null
         };
 
-        const success = await onSave(itemToSave);
+        const result = await onSave(itemToSave);
         setIsSaving(false);
         
-        if (success) {
-            onClose(); // Fecha o modal se o salvamento for bem-sucedido
+        if (result.success) {
+            onClose(); 
+        } else {
+            setMessage(result.error || 'Ocorreu um erro desconhecido.');
         }
     };
 
@@ -202,7 +205,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label className="block text-sm font-medium">Quantidade *</label>
+                            <label className="block text-sm font-medium">Quantidade</label>
                             <input type="number" name="quantidade_solicitada" value={newItem.quantidade_solicitada} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-md" />
                         </div>
                          <div>
@@ -215,7 +218,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
                         </div>
                     </div>
                      <div>
-                        <label className="block text-sm font-medium">Etapa da Obra *</label>
+                        <label className="block text-sm font-medium">Etapa da Obra</label>
                         <select name="etapa_id" value={newItem.etapa_id} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded-md">
                             <option value="">Selecione a etapa</option>
                             {etapas.map(e => <option key={e.id} value={e.id}>{e.nome_etapa}</option>)}

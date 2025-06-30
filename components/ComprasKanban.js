@@ -4,7 +4,7 @@ import { useMemo, useState, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import PedidoCard from './PedidoCard';
 
-// COLUNAS ATUALIZADAS COM O NOVO FLUXO
+// COLUNAS ATUALIZADAS COM O NOVO FLUXO E A ETAPA DE REVISÃO
 const statusColumns = [
     { id: 'Solicitação', title: 'Solicitação' },
     { id: 'Pedido Visto', title: 'Pedido Visto' },
@@ -53,7 +53,6 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
         container.scrollLeft = scrollLeft - walk;
     };
 
-
     const groupedData = useMemo(() => {
         const groups = {};
         statusColumns.forEach(col => {
@@ -61,7 +60,6 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
         });
 
         pedidos.forEach(p => {
-            // A lógica de agrupamento foi atualizada para usar 'Solicitação' como status inicial
             const currentStatus = p.status === 'Pedido Realizado' ? 'Solicitação' : p.status;
             if (groups[currentStatus]) {
                 groups[currentStatus].pedidos.push(p);
@@ -73,11 +71,26 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
     }, [pedidos]);
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    
+    // NOVO: Função para verificar se um pedido tem itens com pendências
+    const checkPendingItems = (pedido) => {
+        if (!pedido || !pedido.itens || pedido.itens.length === 0) return true; // Considera pendente se não tiver itens
+        return pedido.itens.some(item => 
+            !item.preco_unitario_real || item.preco_unitario_real <= 0 || !item.fornecedor_id
+        );
+    };
 
     const handleStatusChange = async (pedidoId, newStatus) => {
         const originalPedidos = [...pedidos];
+        const pedido = originalPedidos.find(p => p.id === pedidoId);
+
+        // BLOQUEIO DE SEGURANÇA: Impede mover para "Realizado" se houver pendências
+        if (newStatus === 'Realizado' && checkPendingItems(pedido)) {
+            alert('Ação bloqueada: Não é possível mover para "Realizado".\n\nTodos os itens do pedido devem ter um Fornecedor e um Preço Unitário definidos.');
+            setDragOverColumn(null);
+            return;
+        }
         
-        // CORREÇÃO: Mapeia 'Solicitação' de volta para o valor do banco de dados ao salvar
         const statusToSave = newStatus === 'Solicitação' ? 'Pedido Realizado' : newStatus;
 
         const { data: updatedPedido, error: updateError } = await supabase
@@ -100,7 +113,7 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
 
         const { error: rpcError } = await supabase.rpc('atualizar_status_pedido', {
             p_pedido_id: pedidoId,
-            p_novo_status: statusToSave, // Usa o status corrigido
+            p_novo_status: statusToSave,
             p_usuario_id: user.id
         });
 
@@ -143,11 +156,7 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
                     onDragOver={(e) => handleDragOver(e, column.id)}
                     onDrop={(e) => handleDrop(e, column.id)}
                     onDragLeave={() => setDragOverColumn(null)}
-                    className={`
-                        w-80 flex-shrink-0 bg-gray-100 rounded-lg shadow-sm
-                        transition-colors duration-300 flex flex-col
-                        ${dragOverColumn === column.id ? 'bg-blue-100' : ''}
-                    `}
+                    className={`w-80 flex-shrink-0 bg-gray-100 rounded-lg shadow-sm transition-colors duration-300 flex flex-col ${dragOverColumn === column.id ? 'bg-blue-100' : ''}`}
                 >
                     <div className="p-3 text-sm font-semibold text-gray-700 border-b">
                         <h3>{column.title} ({groupedData[column.id]?.pedidos.length || 0})</h3>
@@ -156,19 +165,20 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
 
                     <div className="p-2 space-y-3 min-h-[100px] overflow-y-auto flex-1">
                         {groupedData[column.id] && groupedData[column.id].pedidos.map(pedido => {
-                            const hasPendingInvoice = pedido.status === 'Realizado' && 
-                                                      !pedido.anexos?.some(anexo => anexo.descricao === 'Nota Fiscal');
-                            
-                            // Mapeia o status para exibição no card
+                            const hasPendingInvoice = pedido.status === 'Realizado' && !pedido.anexos?.some(anexo => anexo.descricao === 'Nota Fiscal');
                             const displayStatus = pedido.status === 'Pedido Realizado' ? 'Solicitação' : pedido.status;
 
+                            // NOVO: Verifica se há pendências nos itens para as colunas específicas
+                            const hasPendingItems = ['Em Negociação', 'Revisão do Responsável'].includes(displayStatus) && checkPendingItems(pedido);
+                            
                             return (
                                 <PedidoCard
                                     key={pedido.id}
-                                    pedido={{...pedido, status: displayStatus}} // Passa o status mapeado
+                                    pedido={{...pedido, status: displayStatus}}
                                     onStatusChange={handleStatusChange}
                                     allStatusColumns={statusColumns.map(s => s.id)}
                                     hasPendingInvoice={hasPendingInvoice}
+                                    hasPendingItems={hasPendingItems} // Passando a nova informação
                                 />
                             );
                         })}
