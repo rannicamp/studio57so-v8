@@ -167,26 +167,17 @@ export default function PedidoForm({ pedidoId }) {
         else window.open(data.signedUrl, '_blank');
     }
     
-    // FUNÇÃO DE SALVAMENTO CORRIGIDA E ROBUSTA
     const handleSaveNewItem = async (newItemData) => {
-        const quantidade = parseFloat(newItemData.quantidade_solicitada);
-        const preco = parseFloat(newItemData.preco_unitario_real);
+        const quantidade = parseFloat(newItemData.quantidade_solicitada) || 0;
+        const preco = newItemData.preco_unitario_real === '' || newItemData.preco_unitario_real === null ? null : parseFloat(newItemData.preco_unitario_real);
 
         const itemToInsert = {
+            ...newItemData,
             pedido_compra_id: pedidoId,
-            material_id: newItemData.material_id || null,
-            descricao_item: newItemData.descricao_item,
-            unidade_medida: newItemData.unidade_medida,
-            fornecedor_id: newItemData.fornecedor_id || null,
-            etapa_id: newItemData.etapa_id || null,
-            // Validação rigorosa dos campos numéricos para evitar erros
-            quantidade_solicitada: !isNaN(quantidade) ? quantidade : 0,
-            preco_unitario_real: !isNaN(preco) ? preco : null,
+            quantidade_solicitada: quantidade,
+            preco_unitario_real: preco,
+            custo_total_real: (preco !== null && quantidade !== null) ? quantidade * preco : null,
         };
-
-        itemToInsert.custo_total_real = (itemToInsert.preco_unitario_real !== null && itemToInsert.quantidade_solicitada !== null)
-            ? itemToInsert.quantidade_solicitada * itemToInsert.preco_unitario_real
-            : null;
         
         const { error } = await supabase.from('pedidos_compra_itens').insert(itemToInsert);
         
@@ -331,4 +322,97 @@ export default function PedidoForm({ pedidoId }) {
                                             <td className="p-2 text-sm text-gray-600">{item.fornecedor?.nome || 'Não definido'}</td>
                                             {editingItemId === item.id ? (
                                                 <>
-                                                    <td className="p-2 text-center"><input type="number" value={editingItemData.quantidade_solicitada} onChange={(e
+                                                    <td className="p-2 text-center"><input type="number" value={editingItemData.quantidade_solicitada} onChange={(e) => handleEditingDataChange('quantidade_solicitada', e.target.value)} className="w-20 p-1 border rounded-md text-center"/></td>
+                                                    <td className="p-2 text-right"><input type="number" step="0.01" value={editingItemData.preco_unitario_real} onChange={(e) => handleEditingDataChange('preco_unitario_real', e.target.value)} className="w-28 p-1 border rounded-md text-right"/></td>
+                                                    <td className="p-2 text-right font-semibold">{formatCurrency((parseFloat(editingItemData.quantidade_solicitada) || 0) * (parseFloat(editingItemData.preco_unitario_real) || 0))}</td>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <td className="p-2 text-center">{item.quantidade_solicitada} {item.unidade_medida}</td>
+                                                    <td className="p-2 text-right">{formatCurrency(item.preco_unitario_real)}</td>
+                                                    <td className="p-2 text-right font-semibold">{formatCurrency(item.custo_total_real)}</td>
+                                                </>
+                                            )}
+                                            <td className="p-2 text-center">
+                                                {editingItemId === item.id ? (
+                                                    <div className="flex justify-center items-center gap-3">
+                                                        <button onClick={handleSaveEdit} className="text-green-600 hover:text-green-800" title="Salvar"><FontAwesomeIcon icon={faSave} /></button>
+                                                        <button onClick={handleCancelEdit} className="text-red-500 hover:text-red-700" title="Cancelar"><FontAwesomeIcon icon={faTimes} /></button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex justify-center items-center gap-3">
+                                                        <button onClick={() => handleEditClick(item)} className="text-blue-600 hover:text-blue-800" title="Editar Item" disabled={editingItemId !== null}><FontAwesomeIcon icon={faPencilAlt} /></button>
+                                                        <button onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700" title="Remover Item" disabled={editingItemId !== null}><FontAwesomeIcon icon={faTrash} /></button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="border-t pt-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><FontAwesomeIcon icon={faPaperclip} /> Anexos do Pedido</h3>
+                    <div className="bg-gray-50 p-4 rounded-lg border">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Tipo de Arquivo</label>
+                                <select value={newAnexoType} onChange={(e) => setNewAnexoType(e.target.value)} className="mt-1 w-full p-2 border rounded-md">
+                                    <option>Nota Fiscal</option>
+                                    <option>Contrato</option>
+                                    <option>Orçamento</option>
+                                    <option>Outro</option>
+                                </select>
+                            </div>
+                            <div className={newAnexoType === 'Outro' ? 'block' : 'hidden'}>
+                                <label className="block text-sm font-medium text-gray-700">Descreva o arquivo</label>
+                                <input type="text" value={newAnexoOutroDescricao} onChange={(e) => setNewAnexoOutroDescricao(e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Arquivo</label>
+                                <input type="file" id="anexo-file-input" onChange={(e) => setNewAnexoFile(e.target.files[0])} className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100" />
+                            </div>
+                        </div>
+                        <div className="text-right mt-4">
+                            <button onClick={handleAddAnexo} disabled={isUploading || !newAnexoFile} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50 flex items-center gap-2">
+                                <FontAwesomeIcon icon={isUploading ? faSpinner : faUpload} spin={isUploading} />
+                                {isUploading ? 'Enviando...' : 'Adicionar Anexo'}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="mt-6">
+                        <h4 className="font-semibold text-sm">Arquivos Anexados:</h4>
+                        {anexos.length === 0 ? <p className="text-sm text-gray-500 mt-2">Nenhum anexo encontrado.</p> : (
+                            <ul className="divide-y border rounded-md mt-2">
+                                {anexos.map(anexo => (
+                                    <li key={anexo.id} className="p-3 flex justify-between items-center text-sm">
+                                        <div>
+                                            <p className="font-medium">{anexo.nome_arquivo}</p>
+                                            <p className="text-xs text-gray-600">{anexo.descricao || 'Sem descrição'}</p>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <button onClick={() => handleDownloadAnexo(anexo.caminho_arquivo)} className="text-blue-600 hover:text-blue-800" title="Baixar"><FontAwesomeIcon icon={faDownload} /></button>
+                                            <button onClick={() => handleRemoveAnexo(anexo)} className="text-red-500 hover:text-red-700" title="Remover"><FontAwesomeIcon icon={faTrash} /></button>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                </div>
+
+                <div className="border-t pt-6">
+                    <h3 className="text-lg font-semibold mb-2">Decompor Pedido</h3>
+                    <p className="text-sm text-gray-500 mb-4">Selecione os itens na tabela acima e use o botão abaixo para movê-los para um novo pedido de compra.</p>
+                    <button onClick={handleDecompose} disabled={isSaving || selectedItems.size === 0 || editingItemId !== null} className="bg-orange-500 text-white px-3 py-2 rounded-md shadow-sm hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center gap-2">Gerar Pedido com Itens Selecionados ({selectedItems.size})</button>
+                </div>
+                
+                {message && <div className="text-center mt-4 p-2 bg-gray-100 rounded-md text-sm">{message}</div>}
+            </div>
+        </>
+    );
+}
