@@ -17,7 +17,8 @@ const TaskCard = ({ activity, onEditActivity }) => {
             <h4 className="font-bold text-sm text-gray-800 line-clamp-2">{activity.nome}</h4>
             {activity.descricao && <p className="text-xs text-gray-600 mt-1 line-clamp-2">{activity.descricao}</p>}
             <div className="text-xs text-gray-500 mt-3 flex justify-between items-center">
-                <span>{activity.responsavel?.full_name || 'Sem responsável'}</span>
+                {/* **A CORREÇÃO ESTÁ AQUI**: Usando 'responsavel_texto' para mostrar o nome */}
+                <span>{activity.responsavel_texto || 'Sem responsável'}</span>
                 {prazo && (
                     <span className={`font-semibold ${isOverdue ? 'text-red-600' : 'text-gray-600'}`}>
                         {prazo.toLocaleDateString('pt-BR')}

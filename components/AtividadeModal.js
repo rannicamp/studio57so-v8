@@ -50,6 +50,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         status: 'Não Iniciado',
         data_fim_original: null,
         motivo_adiamento: null,
+        responsavel_texto: null, // Incluído para garantir que o estado esteja completo
     }), []);
 
     const [formData, setFormData] = useState(getInitialState());
@@ -95,13 +96,18 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         }
         setMessage('Salvando...');
 
+        // **A CORREÇÃO PRINCIPAL ESTÁ AQUI**
+        // Encontra o nome completo do funcionário selecionado
+        const selectedFuncionario = funcionarios.find(f => f.id == formData.funcionario_id);
+        const responsavelNome = selectedFuncionario ? selectedFuncionario.full_name : null;
+
         const etapaSelecionada = etapas.find(etapa => etapa.id == formData.etapa_id);
         
-        // **CORREÇÃO APLICADA AQUI**
         const dadosParaSalvar = {
             ...formData,
-            etapa_id: formData.etapa_id || null, // Garante que '' se torne null
-            funcionario_id: formData.funcionario_id || null, // Garante que '' se torne null
+            responsavel_texto: responsavelNome, // Salva o nome na coluna correta
+            etapa_id: formData.etapa_id || null,
+            funcionario_id: formData.funcionario_id || null,
             tipo_atividade: etapaSelecionada ? etapaSelecionada.nome_etapa : 'Atividade Interna',
             data_fim_prevista: formData.data_fim_prevista || dataFimPrevistaCalculada,
         };

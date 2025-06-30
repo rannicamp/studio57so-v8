@@ -71,7 +71,8 @@ export default function AtividadesPage() {
   }, [setPageTitle, fetchInitialData]);
 
   const fetchActivities = useCallback(async (context) => {
-    let query = supabase.from('activities').select('*, responsavel:funcionario_id(full_name)');
+    // **A CORREÇÃO ESTÁ AQUI**: Simplificamos a query para não causar mais o erro de cache.
+    let query = supabase.from('activities').select('*');
     
     if (context === 'geral') {
         query = query.is('empreendimento_id', null);
@@ -109,12 +110,9 @@ export default function AtividadesPage() {
 
     const updateData = { status: newStatus };
 
-    // **LÓGICA CORRIGIDA E APRIMORADA**
-    // Se está mudando para "Em Andamento" e não tem data de início real, define como hoje.
     if (newStatus === 'Em Andamento' && !activity.data_inicio_real) {
         updateData.data_inicio_real = new Date().toISOString().split('T')[0];
     }
-    // Se está mudando para "Concluído", define a data de fim real como hoje.
     if (newStatus === 'Concluído') {
         updateData.data_fim_real = new Date().toISOString().split('T')[0];
     }
@@ -124,7 +122,6 @@ export default function AtividadesPage() {
     if (error) {
         alert(`Erro ao atualizar o status: ${error.message}`);
     }
-    // Sempre busca os dados novamente para garantir que a UI esteja 100% sincronizada.
     fetchActivities(selectedContext);
   };
 
