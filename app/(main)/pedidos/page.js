@@ -61,11 +61,22 @@ export default function PedidosPage() {
         if (!selectedEmpreendimento) return;
         setLoading(true);
         setError('');
+
+        // ***** INÍCIO DA CORREÇÃO *****
+        // A query foi ajustada para buscar explicitamente as novas colunas 'titulo' e 'turno_entrega'.
         const { data, error } = await supabase
             .from('pedidos_compra')
-            .select('*, solicitante:solicitante_id(id, nome), itens:pedidos_compra_itens(*), anexos:pedidos_compra_anexos(descricao)')
+            .select(`
+                *,
+                titulo,
+                turno_entrega,
+                solicitante:solicitante_id(id, nome),
+                itens:pedidos_compra_itens(*),
+                anexos:pedidos_compra_anexos(descricao)
+            `)
             .eq('empreendimento_id', selectedEmpreendimento)
             .order('data_solicitacao', { ascending: false });
+        // ***** FIM DA CORREÇÃO *****
 
         if (error) {
             console.error(error);

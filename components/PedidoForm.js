@@ -1,9 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+// INÍCIO DA ALTERAÇÃO: Importar o useRouter
+import { useRouter } from 'next/navigation';
+// FIM DA ALTERAÇÃO
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTrash, faPlus, faPencilAlt, faSave, faTimes, faClock, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTrash, faPlus, faPencilAlt, faSave, faTimes, faClock, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen } from '@fortawesome/free-solid-svg-icons';
 import PedidoItemModal from './PedidoItemModal';
 import KpiCard from './KpiCard';
 
@@ -19,6 +22,9 @@ const formatDuration = (milliseconds) => {
 
 export default function PedidoForm({ pedidoId }) {
     const supabase = createClient();
+    // INÍCIO DA ALTERAÇÃO: Inicializar o router
+    const router = useRouter();
+    // FIM DA ALTERAÇÃO
     const [pedido, setPedido] = useState(null);
     const [itens, setItens] = useState([]);
     const [etapas, setEtapas] = useState([]);
@@ -30,8 +36,7 @@ export default function PedidoForm({ pedidoId }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedItems, setSelectedItems] = useState(new Set());
     
-    const [editingItemId, setEditingItemId] = useState(null);
-    const [editingItemData, setEditingItemData] = useState(null);
+    const [editingItem, setEditingItem] = useState(null);
 
     const [newAnexoFile, setNewAnexoFile] = useState(null);
     const [newAnexoType, setNewAnexoType] = useState('Nota Fiscal');
@@ -110,6 +115,27 @@ export default function PedidoForm({ pedidoId }) {
         fetchData();
     }, [fetchData]);
 
+    const handleHeaderFieldChange = (field, value) => {
+        setPedido(p => ({ ...p, [field]: value }));
+    };
+
+    const handleHeaderFieldSave = async (field) => {
+        const { error } = await supabase
+            .from('pedidos_compra')
+            .update({ [field]: pedido[field] })
+            .eq('id', pedidoId);
+        
+        if (error) {
+            setMessage(`Erro ao salvar ${field.replace('_', ' ')}: ${error.message}`);
+        } else {
+            setMessage(`${field.replace('_', ' ')} salvo com sucesso!`);
+            // INÍCIO DA ALTERAÇÃO: Atualiza os dados da aplicação
+            router.refresh();
+            // FIM DA ALTERAÇÃO
+        }
+        setTimeout(() => setMessage(''), 2000);
+    };
+    
     const handleAddAnexo = async () => {
         if (!newAnexoFile) {
             setMessage('Por favor, selecione um arquivo.');
@@ -167,42 +193,42 @@ export default function PedidoForm({ pedidoId }) {
         else window.open(data.signedUrl, '_blank');
     }
     
-    const handleSaveNewItem = async (newItemData) => {
-        const quantidade = parseFloat(newItemData.quantidade_solicitada) || 0;
-        const preco = newItemData.preco_unitario_real === '' || newItemData.preco_unitario_real === null ? null : parseFloat(newItemData.preco_unitario_real);
-
-        const itemToInsert = {
-            ...newItemData,
+    const handleSaveItem = async (itemData) => {
+        const isEditing = Boolean(itemData.id);
+        
+        const dataToUpsert = {
+            ...itemData,
             pedido_compra_id: pedidoId,
-            quantidade_solicitada: quantidade,
-            preco_unitario_real: preco,
-            custo_total_real: (preco !== null && quantidade !== null) ? quantidade * preco : null,
+            quantidade_solicitada: parseFloat(itemData.quantidade_solicitada) || 0,
+            preco_unitario_real: itemData.preco_unitario_real === '' || itemData.preco_unitario_real === null ? null : parseFloat(itemData.preco_unitario_real),
+            custo_total_real: (parseFloat(itemData.preco_unitario_real) || 0) * (parseFloat(itemData.quantidade_solicitada) || 0)
         };
         
-        const { error } = await supabase.from('pedidos_compra_itens').insert(itemToInsert);
-        
+        let error;
+        if(isEditing) {
+            const { error: updateError } = await supabase.from('pedidos_compra_itens').update(dataToUpsert).eq('id', itemData.id);
+            error = updateError;
+        } else {
+            const { error: insertError } = await supabase.from('pedidos_compra_itens').insert(dataToUpsert);
+            error = insertError;
+        }
+
         if (error) {
             return { success: false, error: error.message };
         } else {
-            setMessage('Item adicionado com sucesso!');
+            setMessage(`Item ${isEditing ? 'atualizado' : 'adicionado'} com sucesso!`);
             fetchData();
             return { success: true };
         }
     };
-    
-    const handleDateChangeAndSave = async (e) => {
-        const novaData = e.target.value;
-        setPedido(p => ({...p, data_entrega_prevista: novaData}));
-        const { error } = await supabase.from('pedidos_compra').update({ data_entrega_prevista: novaData }).eq('id', pedidoId);
-        if (error) setMessage(`Erro ao salvar data de entrega: ${error.message}`);
-        else setMessage('Data de entrega salva com sucesso!');
-    };
+
     const handleRemoveItem = async (itemId) => {
         if (!window.confirm('Tem certeza que deseja remover este item?')) return;
         const { error } = await supabase.from('pedidos_compra_itens').delete().eq('id', itemId);
         if (error) setMessage('Erro ao remover item: ' + error.message);
         else setItens(prev => prev.filter(item => item.id !== itemId));
     };
+
     const handleSelectionChange = (itemId) => {
         setSelectedItems(prev => {
             const newSet = new Set(prev);
@@ -232,34 +258,16 @@ export default function PedidoForm({ pedidoId }) {
         }
         setIsSaving(false);
     };
-    const handleEditClick = (item) => { setEditingItemId(item.id); setEditingItemData({ ...item }); };
-    const handleCancelEdit = () => { setEditingItemId(null); setEditingItemData(null); };
-    const handleEditingDataChange = (field, value) => { setEditingItemData(prev => ({ ...prev, [field]: value })); };
-    const handleSaveEdit = async () => {
-        if (!editingItemData) return;
-        setIsSaving(true);
-        const { id, quantidade_solicitada, preco_unitario_real } = editingItemData;
-        
-        const qtd = parseFloat(quantidade_solicitada) || 0;
-        const preco = (preco_unitario_real === '' || preco_unitario_real === null) ? null : parseFloat(preco_unitario_real);
-        const custo_total_real = preco !== null ? qtd * preco : null;
 
-        const { error } = await supabase.from('pedidos_compra_itens').update({ quantidade_solicitada: qtd, preco_unitario_real: preco, custo_total_real: custo_total_real }).eq('id', id);
-        if (error) setMessage(`Erro ao atualizar item: ${error.message}`);
-        else {
-            setMessage('Item atualizado com sucesso!');
-            setEditingItemId(null);
-            setEditingItemData(null);
-            fetchData();
-        }
-        setIsSaving(false);
+    const handleEditClick = (item) => {
+        setEditingItem(item);
+        setIsModalOpen(true);
     };
 
     if (loading) return <div className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>;
     if (!pedido) return <div className="text-center py-10">Pedido não encontrado.</div>;
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-
     const getSortIcon = (key) => {
         if (sortConfig.key !== key) return <FontAwesomeIcon icon={faSort} className="text-gray-400" />;
         return sortConfig.direction === 'ascending' ? <FontAwesomeIcon icon={faSortUp} /> : <FontAwesomeIcon icon={faSortDown} />;
@@ -267,16 +275,36 @@ export default function PedidoForm({ pedidoId }) {
 
     return (
         <>
-            <PedidoItemModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveNewItem} etapas={etapas} />
+            <PedidoItemModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingItem(null); }} onSave={handleSaveItem} etapas={etapas} itemToEdit={editingItem} />
             <div className="bg-white p-6 rounded-lg shadow space-y-6">
                 <div className="border-b pb-4">
-                    <h2 className="text-2xl font-bold">Solicitação de Compra #{pedido.id}</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                    <div className="flex items-center gap-2 mb-2">
+                         <FontAwesomeIcon icon={faPen} className="text-gray-400" />
+                         <input
+                            type="text"
+                            value={pedido.titulo || ''}
+                            onChange={(e) => handleHeaderFieldChange('titulo', e.target.value)}
+                            onBlur={() => handleHeaderFieldSave('titulo')}
+                            placeholder="Adicione um título para este pedido..."
+                            className="text-2xl font-bold w-full p-1 rounded-md focus:ring-2 focus:ring-blue-200"
+                        />
+                    </div>
+                    <h2 className="text-gray-600">Solicitação de Compra #{pedido.id}</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
                         <div><p><strong>Empreendimento:</strong> {pedido.empreendimentos.nome}</p></div>
                         <div><p><strong>Status:</strong> <span className="font-semibold text-blue-600">{pedido.status}</span></p></div>
-                        <div>
-                            <label className="font-bold">Data de Entrega Prevista:</label>
-                            <input type="date" value={pedido.data_entrega_prevista || ''} onChange={handleDateChangeAndSave} className="p-1 border rounded-md ml-2"/>
+                        <div className="flex items-center gap-2">
+                            <label className="font-bold">Entrega:</label>
+                            <input type="date" value={pedido.data_entrega_prevista || ''} onChange={(e) => handleHeaderFieldChange('data_entrega_prevista', e.target.value)} onBlur={() => handleHeaderFieldSave('data_entrega_prevista')} className="p-1 border rounded-md"/>
+                        </div>
+                         <div className="flex items-center gap-2">
+                            <label className="font-bold">Turno:</label>
+                            <select value={pedido.turno_entrega || ''} onChange={(e) => handleHeaderFieldChange('turno_entrega', e.target.value)} onBlur={() => handleHeaderFieldSave('turno_entrega')} className="p-1 border rounded-md">
+                                <option value="">Nenhum</option>
+                                <option value="Manhã">Manhã</option>
+                                <option value="Tarde">Tarde</option>
+                                <option value="Noite">Noite</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -294,7 +322,7 @@ export default function PedidoForm({ pedidoId }) {
                 <div>
                     <div className="flex justify-between items-center mb-2">
                         <h3 className="text-lg font-semibold">Itens do Pedido</h3>
-                        <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center justify-center gap-2 text-sm">
+                        <button onClick={() => { setEditingItem(null); setIsModalOpen(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center justify-center gap-2 text-sm">
                             <FontAwesomeIcon icon={faPlus} /> Adicionar Item
                         </button>
                     </div>
@@ -317,34 +345,17 @@ export default function PedidoForm({ pedidoId }) {
                                 ) : (
                                     sortedItens.map(item => (
                                         <tr key={item.id} className={selectedItems.has(item.id) ? 'bg-blue-50' : ''}>
-                                            <td className="p-2 w-10"><input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => handleSelectionChange(item.id)} disabled={editingItemId !== null} /></td>
+                                            <td className="p-2 w-10"><input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => handleSelectionChange(item.id)} /></td>
                                             <td className="p-2 font-medium">{item.descricao_item}</td>
                                             <td className="p-2 text-sm text-gray-600">{item.fornecedor?.nome || 'Não definido'}</td>
-                                            {editingItemId === item.id ? (
-                                                <>
-                                                    <td className="p-2 text-center"><input type="number" value={editingItemData.quantidade_solicitada} onChange={(e) => handleEditingDataChange('quantidade_solicitada', e.target.value)} className="w-20 p-1 border rounded-md text-center"/></td>
-                                                    <td className="p-2 text-right"><input type="number" step="0.01" value={editingItemData.preco_unitario_real} onChange={(e) => handleEditingDataChange('preco_unitario_real', e.target.value)} className="w-28 p-1 border rounded-md text-right"/></td>
-                                                    <td className="p-2 text-right font-semibold">{formatCurrency((parseFloat(editingItemData.quantidade_solicitada) || 0) * (parseFloat(editingItemData.preco_unitario_real) || 0))}</td>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <td className="p-2 text-center">{item.quantidade_solicitada} {item.unidade_medida}</td>
-                                                    <td className="p-2 text-right">{formatCurrency(item.preco_unitario_real)}</td>
-                                                    <td className="p-2 text-right font-semibold">{formatCurrency(item.custo_total_real)}</td>
-                                                </>
-                                            )}
+                                            <td className="p-2 text-center">{item.quantidade_solicitada} {item.unidade_medida}</td>
+                                            <td className="p-2 text-right">{formatCurrency(item.preco_unitario_real)}</td>
+                                            <td className="p-2 text-right font-semibold">{formatCurrency(item.custo_total_real)}</td>
                                             <td className="p-2 text-center">
-                                                {editingItemId === item.id ? (
-                                                    <div className="flex justify-center items-center gap-3">
-                                                        <button onClick={handleSaveEdit} className="text-green-600 hover:text-green-800" title="Salvar"><FontAwesomeIcon icon={faSave} /></button>
-                                                        <button onClick={handleCancelEdit} className="text-red-500 hover:text-red-700" title="Cancelar"><FontAwesomeIcon icon={faTimes} /></button>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex justify-center items-center gap-3">
-                                                        <button onClick={() => handleEditClick(item)} className="text-blue-600 hover:text-blue-800" title="Editar Item" disabled={editingItemId !== null}><FontAwesomeIcon icon={faPencilAlt} /></button>
-                                                        <button onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700" title="Remover Item" disabled={editingItemId !== null}><FontAwesomeIcon icon={faTrash} /></button>
-                                                    </div>
-                                                )}
+                                                <div className="flex justify-center items-center gap-3">
+                                                    <button onClick={() => handleEditClick(item)} className="text-blue-600 hover:text-blue-800" title="Editar Item"><FontAwesomeIcon icon={faPencilAlt} /></button>
+                                                    <button onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700" title="Remover Item"><FontAwesomeIcon icon={faTrash} /></button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -408,7 +419,7 @@ export default function PedidoForm({ pedidoId }) {
                 <div className="border-t pt-6">
                     <h3 className="text-lg font-semibold mb-2">Decompor Pedido</h3>
                     <p className="text-sm text-gray-500 mb-4">Selecione os itens na tabela acima e use o botão abaixo para movê-los para um novo pedido de compra.</p>
-                    <button onClick={handleDecompose} disabled={isSaving || selectedItems.size === 0 || editingItemId !== null} className="bg-orange-500 text-white px-3 py-2 rounded-md shadow-sm hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center gap-2">Gerar Pedido com Itens Selecionados ({selectedItems.size})</button>
+                    <button onClick={handleDecompose} disabled={isSaving || selectedItems.size === 0} className="bg-orange-500 text-white px-3 py-2 rounded-md shadow-sm hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center gap-2">Gerar Pedido com Itens Selecionados ({selectedItems.size})</button>
                 </div>
                 
                 {message && <div className="text-center mt-4 p-2 bg-gray-100 rounded-md text-sm">{message}</div>}

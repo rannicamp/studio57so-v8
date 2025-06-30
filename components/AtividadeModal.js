@@ -96,8 +96,6 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         }
         setMessage('Salvando...');
 
-        // **A CORREÇÃO PRINCIPAL ESTÁ AQUI**
-        // Encontra o nome completo do funcionário selecionado
         const selectedFuncionario = funcionarios.find(f => f.id == formData.funcionario_id);
         const responsavelNome = selectedFuncionario ? selectedFuncionario.full_name : null;
 
@@ -105,7 +103,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         
         const dadosParaSalvar = {
             ...formData,
-            responsavel_texto: responsavelNome, // Salva o nome na coluna correta
+            responsavel_texto: responsavelNome,
             etapa_id: formData.etapa_id || null,
             funcionario_id: formData.funcionario_id || null,
             tipo_atividade: etapaSelecionada ? etapaSelecionada.nome_etapa : 'Atividade Interna',
@@ -122,8 +120,18 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
 
         let error;
         if (isEditing) {
-            const { error: updateError } = await supabase.from('activities').update(dadosParaSalvar).eq('id', activityToEdit.id);
+            // ***** INÍCIO DA CORREÇÃO *****
+            // Removemos os campos que não podem ser atualizados (como 'id' e 'created_at')
+            // antes de enviar os dados para o Supabase.
+            const { id, criado_por_usuario_id, created_at, ...camposParaAtualizar } = dadosParaSalvar;
+
+            const { error: updateError } = await supabase
+                .from('activities')
+                .update(camposParaAtualizar) // Usamos o objeto já limpo aqui
+                .eq('id', activityToEdit.id);
             error = updateError;
+            // ***** FIM DA CORREÇÃO *****
+
         } else {
             const dadosParaCriar = { ...dadosParaSalvar, empreendimento_id: selectedEmpreendimento?.id || null, empresa_id: selectedEmpreendimento?.empresa_proprietaria_id || null, criado_por_usuario_id: currentUserId };
             const { error: insertError } = await supabase.from('activities').insert([dadosParaCriar]);
