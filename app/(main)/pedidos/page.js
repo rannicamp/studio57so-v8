@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import ComprasKanban from '../../../components/ComprasKanban';
 import { useLayout } from '../../../contexts/LayoutContext';
+import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faBoxOpen, faClock, faHourglassHalf, faClipboardList } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
@@ -11,11 +12,10 @@ import KpiCard from '@/components/KpiCard';
 
 export default function PedidosPage() {
     const { setPageTitle } = useLayout();
+    const { selectedEmpreendimento, empreendimentos } = useEmpreendimento();
     const [pedidos, setPedidos] = useState([]);
-    const [empreendimentos, setEmpreendimentos] = useState([]);
     const [solicitantes, setSolicitantes] = useState([]);
     
-    const [selectedEmpreendimento, setSelectedEmpreendimento] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSolicitante, setSelectedSolicitante] = useState('');
     const [startDate, setStartDate] = useState('');
@@ -35,18 +35,7 @@ export default function PedidosPage() {
 
     useEffect(() => {
         setPageTitle('Painel de Compras');
-
-        const fetchInitialData = async () => {
-            const { data: empData, error: empError } = await supabase.from('empreendimentos').select('id, nome').order('nome');
-            if (empError) {
-                setError('Falha ao carregar empreendimentos.');
-            } else {
-                setEmpreendimentos(empData || []);
-                if (empData.length > 0) {
-                    setSelectedEmpreendimento(empData[0].id);
-                }
-            }
-
+        const fetchSolicitantes = async () => {
             const { data: solData, error: solError } = await supabase.from('usuarios').select('id, nome, sobrenome').order('nome');
              if (solError) {
                 setError(prev => prev + ' Falha ao carregar solicitantes.');
@@ -54,16 +43,17 @@ export default function PedidosPage() {
                 setSolicitantes(solData || []);
             }
         };
-        fetchInitialData();
+        fetchSolicitantes();
     }, [setPageTitle, supabase]);
 
     const fetchPedidos = useCallback(async () => {
-        if (!selectedEmpreendimento) return;
+        if (!selectedEmpreendimento) {
+            setPedidos([]);
+            return;
+        }
         setLoading(true);
         setError('');
 
-        // ***** INÍCIO DA CORREÇÃO *****
-        // A query foi ajustada para buscar explicitamente as novas colunas 'titulo' e 'turno_entrega'.
         const { data, error } = await supabase
             .from('pedidos_compra')
             .select(`
@@ -76,13 +66,12 @@ export default function PedidosPage() {
             `)
             .eq('empreendimento_id', selectedEmpreendimento)
             .order('data_solicitacao', { ascending: false });
-        // ***** FIM DA CORREÇÃO *****
 
         if (error) {
             console.error(error);
             setError('Falha ao carregar os pedidos.');
         } else {
-            setPedidos(data);
+            setPedidos(data || []);
         }
         setLoading(false);
     }, [selectedEmpreendimento, supabase]);
@@ -175,7 +164,7 @@ export default function PedidosPage() {
     
     const handleCreateNewPedido = async () => {
         if (!selectedEmpreendimento) {
-            alert('Por favor, selecione um empreendimento primeiro.');
+            alert('Por favor, selecione um empreendimento no cabeçalho primeiro.');
             return;
         }
         const { data: { user } } = await supabase.auth.getUser();
@@ -184,7 +173,7 @@ export default function PedidosPage() {
             .insert({
                 empreendimento_id: selectedEmpreendimento,
                 solicitante_id: user.id,
-                status: 'Pedido Realizado' // O status inicial no banco é 'Pedido Realizado'
+                status: 'Pedido Realizado'
             })
             .select()
             .single();
@@ -200,20 +189,9 @@ export default function PedidosPage() {
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <div className="flex-1 w-full md:w-auto">
-                    <label htmlFor="empreendimento-select" className="sr-only">Selecione o Empreendimento</label>
-                    <select
-                        id="empreendimento-select"
-                        value={selectedEmpreendimento}
-                        onChange={(e) => setSelectedEmpreendimento(e.target.value)}
-                        className="block w-full p-2 border border-gray-300 rounded-md shadow-sm"
-                    >
-                        <option value="">Selecione um empreendimento</option>
-                        {empreendimentos.map(emp => (
-                            <option key={emp.id} value={emp.id}>{emp.nome}</option>
-                        ))}
-                    </select>
-                </div>
+                <h2 className="text-xl font-semibold">
+                    {empreendimentos.find(e => e.id == selectedEmpreendimento)?.nome || 'Selecione um empreendimento'}
+                </h2>
                 <button
                     onClick={handleCreateNewPedido}
                     className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 w-full md:w-auto"

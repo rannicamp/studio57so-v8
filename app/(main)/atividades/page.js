@@ -9,15 +9,15 @@ import KanbanBoard from '../../../components/KanbanBoard';
 import ActivityCalendar from '../../../components/ActivityCalendar';
 import KpiCard from '../../../components/KpiCard';
 import { useLayout } from '../../../contexts/LayoutContext';
+import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext'; // Importa nosso hook
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory } from '@fortawesome/free-solid-svg-icons';
 
 export default function AtividadesPage() {
   const supabase = createClient();
   const { setPageTitle } = useLayout();
+  const { selectedEmpreendimento, empreendimentos } = useEmpreendimento(); // Usa o contexto global
   
-  const [empreendimentos, setEmpreendimentos] = useState([]);
-  const [selectedContext, setSelectedContext] = useState('geral');
   const [activities, setActivities] = useState([]);
   const [funcionarios, setFuncionarios] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,17 +49,13 @@ export default function AtividadesPage() {
     };
   }, [activities]);
 
-  const fetchInitialData = useCallback(async () => {
+  const fetchPageData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: empreendimentosData } = await supabase.from('empreendimentos').select('id, nome, empresa_proprietaria_id').order('nome');
-      setEmpreendimentos(empreendimentosData || []);
-
       const { data: funcData } = await supabase.from('funcionarios').select('id, full_name').order('full_name');
       setFuncionarios(funcData || []);
-
     } catch (error) {
-      console.error("Erro ao carregar dados iniciais:", error);
+      console.error("Erro ao carregar funcionários:", error);
     } finally {
       setLoading(false);
     }
@@ -67,17 +63,17 @@ export default function AtividadesPage() {
 
   useEffect(() => {
     setPageTitle('Painel de Atividades');
-    fetchInitialData();
-  }, [setPageTitle, fetchInitialData]);
+    fetchPageData();
+  }, [setPageTitle, fetchPageData]);
 
-  const fetchActivities = useCallback(async (context) => {
-    // **A CORREÇÃO ESTÁ AQUI**: Simplificamos a query para não causar mais o erro de cache.
+  const fetchActivities = useCallback(async (contextId) => {
+    setLoading(true);
     let query = supabase.from('activities').select('*');
     
-    if (context === 'geral') {
+    if (!contextId) {
         query = query.is('empreendimento_id', null);
     } else {
-        query = query.eq('empreendimento_id', context);
+        query = query.eq('empreendimento_id', contextId);
     }
     
     query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' });
@@ -85,13 +81,13 @@ export default function AtividadesPage() {
     const { data, error } = await query;
     if (error) console.error("Erro ao buscar atividades:", error);
     setActivities(data || []);
+    setLoading(false);
   }, [supabase, sortConfig]);
 
   useEffect(() => {
-    fetchActivities(selectedContext);
-  }, [selectedContext, fetchActivities]);
+    fetchActivities(selectedEmpreendimento);
+  }, [selectedEmpreendimento, fetchActivities]);
 
-  const handleContextChange = (e) => setSelectedContext(e.target.value);
   const handleEditClick = (activity) => { setEditingActivity(activity); setIsModalOpen(true); };
   const handleDeleteClick = async (activityId) => {
     if (window.confirm('Tem certeza que deseja deletar esta atividade?')) {
@@ -99,7 +95,7 @@ export default function AtividadesPage() {
       if (error) alert(`Erro ao deletar: ${error.message}`);
       else {
         alert('Atividade deletada com sucesso!');
-        fetchActivities(selectedContext);
+        fetchActivities(selectedEmpreendimento);
       }
     }
   };
@@ -122,7 +118,7 @@ export default function AtividadesPage() {
     if (error) {
         alert(`Erro ao atualizar o status: ${error.message}`);
     }
-    fetchActivities(selectedContext);
+    fetchActivities(selectedEmpreendimento);
   };
 
   const requestSort = (key) => {
@@ -132,9 +128,9 @@ export default function AtividadesPage() {
   };
 
   const selectedEmpreendimentoObj = useMemo(() => {
-    if(selectedContext === 'geral') return null;
-    return empreendimentos.find(e => e.id.toString() === selectedContext);
-  }, [selectedContext, empreendimentos]);
+    if(!selectedEmpreendimento) return null;
+    return empreendimentos.find(e => e.id.toString() === selectedEmpreendimento);
+  }, [selectedEmpreendimento, empreendimentos]);
 
   const TabButton = ({ tabName, label }) => (
       <button onClick={() => setActiveTab(tabName)} className={`${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm`}>{label}</button>
@@ -144,13 +140,9 @@ export default function AtividadesPage() {
     <div className="space-y-6">
       <div className="bg-white p-4 rounded-lg shadow">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex-1 w-full">
-                <label htmlFor="context-select" className="block text-sm font-medium text-gray-700">Visualizar Atividades de:</label>
-                <select id="context-select" onChange={handleContextChange} value={selectedContext} className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                    <option value="geral">Tarefas Gerais (sem empreendimento)</option>
-                    {empreendimentos.map((emp) => (<option key={emp.id} value={emp.id}>{emp.nome}</option>))}
-                </select>
-            </div>
+            <h2 className="text-xl font-semibold">
+              {selectedEmpreendimentoObj?.nome || 'Atividades Gerais (sem empreendimento)'}
+            </h2>
             <button onClick={() => handleEditClick(null)} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 w-full md:w-auto mt-2 md:mt-0">+ Nova Atividade</button>
         </div>
       </div>
@@ -184,7 +176,7 @@ export default function AtividadesPage() {
       </div>
       
       {isModalOpen && (
-        <AtividadeModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingActivity(null); }} onActivityAdded={() => fetchActivities(selectedContext)} activityToEdit={editingActivity} selectedEmpreendimento={selectedEmpreendimentoObj} funcionarios={funcionarios}/>
+        <AtividadeModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingActivity(null); }} onActivityAdded={() => fetchActivities(selectedEmpreendimento)} activityToEdit={editingActivity} selectedEmpreendimento={selectedEmpreendimentoObj} funcionarios={funcionarios}/>
       )}
     </div>
   );

@@ -31,7 +31,21 @@ export default function PedidoCard({ pedido, onStatusChange, allStatusColumns, h
 
     const totalItens = pedido.itens?.length || 0;
     const dataSolicitacaoFormatada = new Date(pedido.data_solicitacao).toLocaleDateString('pt-BR');
-    const dataEntregaFormatada = pedido.data_entrega_prevista ? new Date(pedido.data_entrega_prevista + 'T00:00:00Z').toLocaleDateString('pt-BR') : 'N/A';
+
+    // ***** INÍCIO DA CORREÇÃO *****
+    // Função corrigida para tratar a data de entrega sem problemas de fuso horário.
+    const formatDataEntrega = (dateStr) => {
+      if (!dateStr) return 'N/A';
+      // A data vem como "AAAA-MM-DD". Dividimos para criar uma data local corretamente.
+      const [year, month, day] = dateStr.split('-');
+      // O mês no construtor do Date é 0-indexado (Janeiro = 0), então subtraímos 1.
+      const localDate = new Date(year, month - 1, day);
+      // Usamos timeZone: 'UTC' para garantir que a data não seja deslocada novamente.
+      return localDate.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    };
+
+    const dataEntregaFormatada = formatDataEntrega(pedido.data_entrega_prevista);
+    // ***** FIM DA CORREÇÃO *****
 
     const borderClass = hasPendingInvoice ? 'border-red-500' : 'border-blue-500';
     const cardTitle = pedido.titulo || `Pedido #${pedido.id}`;
@@ -64,12 +78,11 @@ export default function PedidoCard({ pedido, onStatusChange, allStatusColumns, h
                     <FontAwesomeIcon icon={faCalendarAlt} className="w-3" />
                     <span>{dataSolicitacaoFormatada}</span>
                 </p>
-                {/* INÍCIO DA ALTERAÇÃO: Adicionando data e turno de entrega */}
+
                 <p className="text-xs text-gray-600 mb-2 flex items-center gap-2" title="Data e Turno da Entrega">
                     <FontAwesomeIcon icon={faTruck} className="w-3" />
                     <span>{dataEntregaFormatada} ({pedido.turno_entrega || 'Não definido'})</span>
                 </p>
-                {/* FIM DA ALTERAÇÃO */}
 
                 <div className="flex justify-between items-center mt-3">
                     <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center gap-2 w-fit">
