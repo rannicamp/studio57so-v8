@@ -7,7 +7,7 @@ import { faSpinner, faPlus, faPenToSquare } from '@fortawesome/free-solid-svg-ic
 
 export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
     const supabase = createClient();
-    
+
     const getInitialState = () => ({
         material_id: null,
         descricao_item: '',
@@ -15,7 +15,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
         unidade_medida: 'unid.',
         etapa_id: '',
         fornecedor_id: null,
-        fornecedor_nome: '', 
+        fornecedor_nome: '',
         preco_unitario_real: ''
     });
 
@@ -54,7 +54,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
         setMaterialSearchResults(data || []);
         setIsSearching(prev => ({ ...prev, material: false }));
     };
-    
+
     const handleSelectMaterial = (material) => {
         setNewItem(prev => ({
             ...prev,
@@ -63,14 +63,14 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
             unidade_medida: material.unidade_medida || 'unid.'
         }));
         setIsItemSelected(true);
-        setMaterialSearchResults([]); 
+        setMaterialSearchResults([]);
     };
-    
+
     const handleAddNewMaterialText = () => {
         setNewItem(prev => ({
             ...prev,
             material_id: null,
-            descricao_item: searchTerm 
+            descricao_item: searchTerm
         }));
         setIsItemSelected(true);
         setMaterialSearchResults([]);
@@ -126,9 +126,9 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
         }
         setIsSaving(true);
         setMessage('');
-        
+
         const { fornecedor_nome, ...itemData } = newItem;
-        
+
         const itemToSave = {
             ...itemData,
             etapa_id: itemData.etapa_id || null
@@ -136,9 +136,9 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
 
         const result = await onSave(itemToSave);
         setIsSaving(false);
-        
+
         if (result.success) {
-            onClose(); 
+            onClose();
         } else {
             setMessage(result.error || 'Ocorreu um erro desconhecido.');
         }
@@ -151,11 +151,11 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl">
                 <h3 className="text-xl font-bold mb-4">Adicionar Item ao Pedido</h3>
                 {message && <p className="text-sm text-red-500 mb-4">{message}</p>}
-                
+
                 <div className="space-y-4">
                     <div className="relative">
                         <label className="block text-sm font-medium">Material / Descrição do Item *</label>
-                        
+
                         {isItemSelected ? (
                             <div className="flex items-center justify-between mt-1 w-full p-2 border rounded-md bg-gray-100">
                                 <span className="font-semibold text-gray-800">{newItem.descricao_item}</span>
@@ -166,24 +166,24 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas }) {
                             </div>
                         ) : (
                             <>
-                                <input 
-                                    type="text" 
-                                    value={searchTerm} 
+                                <input
+                                    type="text"
+                                    value={searchTerm}
                                     onChange={handleSearchChange}
                                     onKeyDown={handleSearchKeyDown}
                                     onBlur={handleSearchBlur}
-                                    placeholder="Digite para buscar ou descrever..." 
-                                    className="mt-1 w-full p-2 border rounded-md" 
-                                    autoComplete="off" 
+                                    placeholder="Digite para buscar ou descrever..."
+                                    className="mt-1 w-full p-2 border rounded-md"
+                                    autoComplete="off"
                                 />
                                 {isSearching.material && <p className="text-xs text-gray-500 absolute -bottom-5">Buscando...</p>}
-                                
+
                                 {(materialSearchResults.length > 0 || searchTerm.length > 2) && !isSearching.material && (
                                      <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-48 overflow-y-auto">
                                         {materialSearchResults.map(material => <li key={material.id} onClick={() => handleSelectMaterial(material)} className="p-3 hover:bg-gray-100 cursor-pointer">{material.descricao}</li>)}
                                         {materialSearchResults.length === 0 && searchTerm.length > 2 && (
                                              <li onClick={handleAddNewMaterialText} className="p-3 hover:bg-blue-50 cursor-pointer text-blue-600 font-semibold flex items-center gap-2">
-                                                 <FontAwesomeIcon icon={faPlus} /> Adicionar "{searchTerm}" como novo item
+                                                 <FontAwesomeIcon icon={faPlus} /> Adicionar &quot;{searchTerm}&quot; como novo item
                                              </li>
                                         )}
                                     </ul>
