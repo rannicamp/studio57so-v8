@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-// INÍCIO DA ALTERAÇÃO: Importar o useRouter
 import { useRouter } from 'next/navigation';
-// FIM DA ALTERAÇÃO
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTrash, faPlus, faPencilAlt, faSave, faTimes, faClock, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen } from '@fortawesome/free-solid-svg-icons';
@@ -22,9 +20,7 @@ const formatDuration = (milliseconds) => {
 
 export default function PedidoForm({ pedidoId }) {
     const supabase = createClient();
-    // INÍCIO DA ALTERAÇÃO: Inicializar o router
     const router = useRouter();
-    // FIM DA ALTERAÇÃO
     const [pedido, setPedido] = useState(null);
     const [itens, setItens] = useState([]);
     const [etapas, setEtapas] = useState([]);
@@ -129,9 +125,7 @@ export default function PedidoForm({ pedidoId }) {
             setMessage(`Erro ao salvar ${field.replace('_', ' ')}: ${error.message}`);
         } else {
             setMessage(`${field.replace('_', ' ')} salvo com sucesso!`);
-            // INÍCIO DA ALTERAÇÃO: Atualiza os dados da aplicação
             router.refresh();
-            // FIM DA ALTERAÇÃO
         }
         setTimeout(() => setMessage(''), 2000);
     };
@@ -209,8 +203,12 @@ export default function PedidoForm({ pedidoId }) {
             const { error: updateError } = await supabase.from('pedidos_compra_itens').update(dataToUpsert).eq('id', itemData.id);
             error = updateError;
         } else {
+            // ***** INÍCIO DA CORREÇÃO *****
+            // Remove o campo 'id' antes de inserir um novo item para que o banco de dados o gere automaticamente.
+            delete dataToUpsert.id; 
             const { error: insertError } = await supabase.from('pedidos_compra_itens').insert(dataToUpsert);
             error = insertError;
+            // ***** FIM DA CORREÇÃO *****
         }
 
         if (error) {
