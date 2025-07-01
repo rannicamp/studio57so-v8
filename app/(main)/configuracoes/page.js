@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserCog, faShieldAlt } from '@fortawesome/free-solid-svg-icons';
+import { faUserCog, faShieldAlt, faBoxOpen } from '@fortawesome/free-solid-svg-icons'; // Ícone adicionado
 import { createClient } from '../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 
@@ -21,14 +21,12 @@ export default async function ConfiguracoesPage() {
     // Protege a página para que apenas proprietários possam acessá-la
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-        // Verifica a função do usuário no banco de dados
         const { data: userData } = await supabase
             .from('usuarios')
             .select('funcao:funcoes ( nome_funcao )')
             .eq('id', user.id)
             .single();
 
-        // Redireciona se a função não for 'Proprietário'
         if (userData?.funcao?.nome_funcao !== 'Proprietário') {
             redirect('/');
         }
@@ -55,6 +53,13 @@ export default async function ConfiguracoesPage() {
           icon={faShieldAlt}
           title="Gerenciar Permissões"
           description="Defina o que cada função pode ver, criar, editar ou excluir."
+        />
+        {/* NOVO CARD ADICIONADO AQUI */}
+        <SettingsCard 
+          href="/configuracoes/materiais"
+          icon={faBoxOpen}
+          title="Gestão de Materiais"
+          description="Importe, exporte e gerencie a sua base de materiais."
         />
       </div>
     </div>
