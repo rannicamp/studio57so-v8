@@ -151,7 +151,9 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas, itemT
                                     <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-48 overflow-y-auto">
                                         {materialSearchResults.map(material => <li key={material.id} onClick={() => handleSelectMaterial(material)} className="p-3 hover:bg-gray-100 cursor-pointer">{material.descricao}</li>)}
                                         {searchTerm.length > 2 && (
-                                            <li onClick={handleAddNewMaterialText} className="p-3 hover:bg-blue-50 cursor-pointer text-blue-600 font-semibold flex items-center gap-2"> <FontAwesomeIcon icon={faPlus} /> Adicionar "{searchTerm}" como novo item </li>
+                                            /* ***** INÍCIO DA CORREÇÃO ***** */
+                                            <li onClick={handleAddNewMaterialText} className="p-3 hover:bg-blue-50 cursor-pointer text-blue-600 font-semibold flex items-center gap-2"> <FontAwesomeIcon icon={faPlus} /> Adicionar &quot;{searchTerm}&quot; como novo item </li>
+                                            /* ***** FIM DA CORREÇÃO ***** */
                                         )}
                                     </ul>
                                 )}
