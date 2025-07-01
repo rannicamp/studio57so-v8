@@ -7,7 +7,7 @@ import { faChevronLeft, faChevronRight, faHome, faUserCircle, faBuilding } from 
 import { useRouter } from 'next/navigation';
 import { useLayout } from '../contexts/LayoutContext';
 import { useAuth } from '../contexts/AuthContext';
-import { useEmpreendimento } from '../contexts/EmpreendimentoContext'; // Importamos nosso novo hook
+import { useEmpreendimento } from '../contexts/EmpreendimentoContext';
 
 export default function Header({ isCollapsed }) {
   const router = useRouter();
@@ -45,16 +45,15 @@ export default function Header({ isCollapsed }) {
       </div>
 
       <div className="flex items-center gap-6">
-        {/* Seletor Global de Empreendimento */}
         {!loadingEmpreendimento && empreendimentos.length > 0 && (
           <div className="flex items-center gap-2">
             <FontAwesomeIcon icon={faBuilding} className="text-gray-500" />
             <select
-              value={selectedEmpreendimento || ''}
+              value={selectedEmpreendimento || 'all'}
               onChange={handleEmpreendimentoChange}
               className="text-sm font-medium border-none bg-transparent focus:ring-0 cursor-pointer"
             >
-              <option value="">Atividades Gerais</option>
+              <option value="all">Todas as Atividades</option>
               {empreendimentos.map(emp => (
                 <option key={emp.id} value={emp.id}>{emp.nome}</option>
               ))}
@@ -62,7 +61,6 @@ export default function Header({ isCollapsed }) {
           </div>
         )}
 
-        {/* Informações do Usuário */}
         {userName && (
           <div className="flex items-center gap-3">
             {userPhoto ? (

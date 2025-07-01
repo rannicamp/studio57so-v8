@@ -9,16 +9,18 @@ import KanbanBoard from '../../../components/KanbanBoard';
 import ActivityCalendar from '../../../components/ActivityCalendar';
 import KpiCard from '../../../components/KpiCard';
 import { useLayout } from '../../../contexts/LayoutContext';
-import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext'; // Importa nosso hook
+import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory } from '@fortawesome/free-solid-svg-icons';
 
 export default function AtividadesPage() {
   const supabase = createClient();
   const { setPageTitle } = useLayout();
-  const { selectedEmpreendimento, empreendimentos } = useEmpreendimento(); // Usa o contexto global
+  const { selectedEmpreendimento, empreendimentos } = useEmpreendimento();
   
-  const [activities, setActivities] = useState([]);
+  const [allActivities, setAllActivities] = useState([]);
+  const [filteredActivities, setFilteredActivities] = useState([]);
+  
   const [funcionarios, setFuncionarios] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -29,33 +31,39 @@ export default function AtividadesPage() {
   
   const [sortConfig, setSortConfig] = useState({ key: 'data_inicio_prevista', direction: 'ascending' });
 
+  const [filterEmpresa, setFilterEmpresa] = useState('');
+  const [filterEmpreendimento, setFilterEmpreendimento] = useState('');
+  const [filterResponsavel, setFilterResponsavel] = useState('');
+  const [allEmpresas, setAllEmpresas] = useState([]);
+
   const kpiData = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
     const thisMonth = today.getMonth();
     const thisYear = today.getFullYear();
 
     return {
-        atrasadas: activities.filter(act => act.data_fim_prevista && new Date(act.data_fim_prevista) < today && act.status !== 'Concluído').length,
-        concluidasNoMes: activities.filter(act => {
+        atrasadas: filteredActivities.filter(act => act.data_fim_prevista && new Date(act.data_fim_prevista) < today && act.status !== 'Concluído').length,
+        concluidasNoMes: filteredActivities.filter(act => {
             if (act.status !== 'Concluído' || !act.data_fim_real) return false;
             const dataFim = new Date(act.data_fim_real);
             return dataFim.getMonth() === thisMonth && dataFim.getFullYear() === thisYear;
         }).length,
-        ativas: activities.filter(act => ['Em Andamento', 'Pausado', 'Aguardando Material'].includes(act.status)).length,
-        semResponsavel: activities.filter(act => !act.funcionario_id && act.status !== 'Concluído' && act.status !== 'Cancelado').length,
-        reprogramadas: activities.filter(act => act.data_fim_original).length,
+        ativas: filteredActivities.filter(act => ['Em Andamento', 'Pausado', 'Aguardando Material'].includes(act.status)).length,
+        semResponsavel: filteredActivities.filter(act => !act.funcionario_id && act.status !== 'Concluído' && act.status !== 'Cancelado').length,
+        reprogramadas: filteredActivities.filter(act => act.data_fim_original).length,
     };
-  }, [activities]);
+  }, [filteredActivities]);
 
   const fetchPageData = useCallback(async () => {
     setLoading(true);
     try {
       const { data: funcData } = await supabase.from('funcionarios').select('id, full_name').order('full_name');
       setFuncionarios(funcData || []);
+      const { data: empresasData } = await supabase.from('cadastro_empresa').select('id, razao_social').order('razao_social');
+      setAllEmpresas(empresasData || []);
     } catch (error) {
-      console.error("Erro ao carregar funcionários:", error);
+      console.error("Erro ao carregar dados da página:", error);
     } finally {
       setLoading(false);
     }
@@ -66,27 +74,45 @@ export default function AtividadesPage() {
     fetchPageData();
   }, [setPageTitle, fetchPageData]);
 
-  const fetchActivities = useCallback(async (contextId) => {
-    setLoading(true);
-    let query = supabase.from('activities').select('*');
-    
-    if (!contextId) {
-        query = query.is('empreendimento_id', null);
-    } else {
-        query = query.eq('empreendimento_id', contextId);
-    }
-    
-    query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' });
-    
-    const { data, error } = await query;
-    if (error) console.error("Erro ao buscar atividades:", error);
-    setActivities(data || []);
-    setLoading(false);
-  }, [supabase, sortConfig]);
+  const fetchAllActivities = useCallback(async () => {
+      setLoading(true);
+      const { data, error } = await supabase.from('activities').select('*, empreendimentos(empresa_proprietaria_id)');
+      if (error) {
+        console.error("Erro ao buscar todas as atividades:", error);
+        setAllActivities([]);
+      } else {
+        setAllActivities(data || []);
+      }
+      setLoading(false);
+  }, [supabase]);
 
   useEffect(() => {
-    fetchActivities(selectedEmpreendimento);
-  }, [selectedEmpreendimento, fetchActivities]);
+    let activitiesToDisplay = [];
+    if (selectedEmpreendimento === 'all') {
+      activitiesToDisplay = allActivities.filter(act => {
+          const empresaMatch = !filterEmpresa || (act.empreendimentos && act.empreendimentos.empresa_proprietaria_id == filterEmpresa);
+          const empreendimentoMatch = !filterEmpreendimento || act.empreendimento_id == filterEmpreendimento;
+          const responsavelMatch = !filterResponsavel || act.funcionario_id == filterResponsavel;
+          return empresaMatch && empreendimentoMatch && responsavelMatch;
+      });
+    } else {
+      activitiesToDisplay = allActivities.filter(act => act.empreendimento_id == selectedEmpreendimento);
+    }
+
+    activitiesToDisplay.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
+        return 0;
+    });
+
+    setFilteredActivities(activitiesToDisplay);
+  }, [selectedEmpreendimento, allActivities, filterEmpresa, filterEmpreendimento, filterResponsavel, sortConfig]);
+
+  useEffect(() => {
+    if (selectedEmpreendimento !== null) {
+      fetchAllActivities();
+    }
+  }, [selectedEmpreendimento, fetchAllActivities]);
 
   const handleEditClick = (activity) => { setEditingActivity(activity); setIsModalOpen(true); };
   const handleDeleteClick = async (activityId) => {
@@ -95,30 +121,24 @@ export default function AtividadesPage() {
       if (error) alert(`Erro ao deletar: ${error.message}`);
       else {
         alert('Atividade deletada com sucesso!');
-        fetchActivities(selectedEmpreendimento);
+        fetchAllActivities();
       }
     }
   };
 
   const handleStatusChange = async (activityId, newStatus) => {
-    const activity = activities.find(a => a.id === activityId);
+    const activity = allActivities.find(a => a.id === activityId);
     if (!activity) return;
-
     const updateData = { status: newStatus };
-
     if (newStatus === 'Em Andamento' && !activity.data_inicio_real) {
         updateData.data_inicio_real = new Date().toISOString().split('T')[0];
     }
     if (newStatus === 'Concluído') {
         updateData.data_fim_real = new Date().toISOString().split('T')[0];
     }
-    
     const { error } = await supabase.from('activities').update(updateData).eq('id', activityId);
-    
-    if (error) {
-        alert(`Erro ao atualizar o status: ${error.message}`);
-    }
-    fetchActivities(selectedEmpreendimento);
+    if (error) alert(`Erro ao atualizar o status: ${error.message}`);
+    else fetchAllActivities();
   };
 
   const requestSort = (key) => {
@@ -126,9 +146,9 @@ export default function AtividadesPage() {
     if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
     setSortConfig({ key, direction });
   };
-
+  
   const selectedEmpreendimentoObj = useMemo(() => {
-    if(!selectedEmpreendimento) return null;
+    if(!selectedEmpreendimento || selectedEmpreendimento === 'all') return null;
     return empreendimentos.find(e => e.id.toString() === selectedEmpreendimento);
   }, [selectedEmpreendimento, empreendimentos]);
 
@@ -141,10 +161,28 @@ export default function AtividadesPage() {
       <div className="bg-white p-4 rounded-lg shadow">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <h2 className="text-xl font-semibold">
-              {selectedEmpreendimentoObj?.nome || 'Atividades Gerais (sem empreendimento)'}
+              {selectedEmpreendimentoObj?.nome || 'Todas as Atividades'}
             </h2>
             <button onClick={() => handleEditClick(null)} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 w-full md:w-auto mt-2 md:mt-0">+ Nova Atividade</button>
         </div>
+        
+        {selectedEmpreendimento === 'all' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 border-t pt-4">
+                <select value={filterEmpresa} onChange={e => setFilterEmpresa(e.target.value)} className="p-2 border rounded-md">
+                    <option value="">Filtrar por Empresa...</option>
+                    {allEmpresas.map(e => <option key={e.id} value={e.id}>{e.razao_social}</option>)}
+                </select>
+                <select value={filterEmpreendimento} onChange={e => setFilterEmpreendimento(e.target.value)} className="p-2 border rounded-md">
+                    <option value="">Filtrar por Empreendimento...</option>
+                    {empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                </select>
+                <select value={filterResponsavel} onChange={e => setFilterResponsavel(e.target.value)} className="p-2 border rounded-md">
+                    <option value="">Filtrar por Responsável...</option>
+                    {funcionarios.map(f => <option key={f.id} value={f.id}>{f.full_name}</option>)}
+                </select>
+                <button onClick={() => {setFilterEmpresa(''); setFilterEmpreendimento(''); setFilterResponsavel('');}} className="p-2 bg-gray-200 rounded-md hover:bg-gray-300">Limpar Filtros</button>
+            </div>
+        )}
       </div>
       
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -165,18 +203,27 @@ export default function AtividadesPage() {
       </div>
 
       <div className="mt-4">
-        {loading ? <p className="text-center p-10">Carregando atividades...</p> : (
+        {loading || selectedEmpreendimento === null ? <p className="text-center p-10">Carregando atividades...</p> : (
             <>
-                {activeTab === 'kanban' && <KanbanBoard activities={activities} onEditActivity={handleEditClick} onStatusChange={handleStatusChange} />}
-                {activeTab === 'list' && <ActivityList activities={activities} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onStatusChange={handleStatusChange} />}
-                {activeTab === 'gantt' && <GanttChart activities={activities} />}
-                {activeTab === 'calendar' && <ActivityCalendar activities={activities} onActivityClick={handleEditClick} />}
+                {activeTab === 'kanban' && <KanbanBoard activities={filteredActivities} onEditActivity={handleEditClick} onStatusChange={handleStatusChange} />}
+                {activeTab === 'list' && <ActivityList activities={filteredActivities} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onStatusChange={handleStatusChange} />}
+                {activeTab === 'gantt' && <GanttChart activities={filteredActivities} />}
+                {activeTab === 'calendar' && <ActivityCalendar activities={filteredActivities} onActivityClick={handleEditClick} />}
             </>
         )}
       </div>
       
       {isModalOpen && (
-        <AtividadeModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingActivity(null); }} onActivityAdded={() => fetchActivities(selectedEmpreendimento)} activityToEdit={editingActivity} selectedEmpreendimento={selectedEmpreendimentoObj} funcionarios={funcionarios}/>
+        <AtividadeModal 
+          isOpen={isModalOpen} 
+          onClose={() => { setIsModalOpen(false); setEditingActivity(null); }} 
+          onActivityAdded={() => fetchAllActivities()} 
+          activityToEdit={editingActivity} 
+          selectedEmpreendimento={selectedEmpreendimentoObj} 
+          funcionarios={funcionarios} 
+          allEmpreendimentos={empreendimentos}
+          allEmpresas={allEmpresas}
+        />
       )}
     </div>
   );

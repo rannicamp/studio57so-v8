@@ -13,21 +13,35 @@ export function EmpreendimentoProvider({ children }) {
 
   const fetchEmpreendimentos = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('empreendimentos').select('id, nome').order('nome');
+    
+    // ***** INÍCIO DA CORREÇÃO *****
+    // Agora, também buscamos o 'empresa_proprietaria_id' para fazer a ligação.
+    const { data, error } = await supabase
+      .from('empreendimentos')
+      .select('id, nome, empresa_proprietaria_id') // Campo adicionado aqui
+      .order('nome');
+    // ***** FIM DA CORREÇÃO *****
+    
     if (error) {
       console.error("Erro ao buscar empreendimentos:", error);
-    } else {
-      setEmpreendimentos(data || []);
-      // Tenta recuperar o último empreendimento selecionado da memória do navegador
-      const lastSelectedId = localStorage.getItem('selectedEmpreendimentoId');
-      if (lastSelectedId && data.some(e => e.id.toString() === lastSelectedId)) {
-        setSelectedEmpreendimento(lastSelectedId);
-      } else if (data.length > 0) {
-        // Se não houver um salvo, seleciona o primeiro da lista
-        setSelectedEmpreendimento(data[0].id.toString());
-        localStorage.setItem('selectedEmpreendimentoId', data[0].id.toString());
-      }
+      setLoading(false);
+      return;
+    } 
+    
+    setEmpreendimentos(data || []);
+    const lastSelectedId = localStorage.getItem('selectedEmpreendimentoId');
+
+    if (lastSelectedId === 'all') {
+      setSelectedEmpreendimento('all');
+    } 
+    else if (lastSelectedId && data.some(e => e.id.toString() === lastSelectedId)) {
+      setSelectedEmpreendimento(lastSelectedId);
+    } 
+    else {
+      setSelectedEmpreendimento('all');
+      localStorage.setItem('selectedEmpreendimentoId', 'all');
     }
+
     setLoading(false);
   }, [supabase]);
 
@@ -37,9 +51,8 @@ export function EmpreendimentoProvider({ children }) {
 
   const changeEmpreendimento = (empreendimentoId) => {
     setSelectedEmpreendimento(empreendimentoId);
-    // Salva a seleção na memória do navegador para persistir
     localStorage.setItem('selectedEmpreendimentoId', empreendimentoId);
-    window.location.reload(); // Recarrega a página para garantir que todas as partes do sistema atualizem
+    window.location.reload(); 
   };
 
   const value = {

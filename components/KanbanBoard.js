@@ -1,7 +1,10 @@
 "use client";
 import { useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+// **INÍCIO DA ALTERAÇÃO**
+// Importamos o ícone de 'sync' (sincronizar/repetir)
+import { faExclamationTriangle, faSync } from '@fortawesome/free-solid-svg-icons';
+// **FIM DA ALTERAÇÃO**
 
 const TaskCard = ({ activity, onEditActivity }) => {
     const today = new Date();
@@ -17,13 +20,21 @@ const TaskCard = ({ activity, onEditActivity }) => {
             <h4 className="font-bold text-sm text-gray-800 line-clamp-2">{activity.nome}</h4>
             {activity.descricao && <p className="text-xs text-gray-600 mt-1 line-clamp-2">{activity.descricao}</p>}
             <div className="text-xs text-gray-500 mt-3 flex justify-between items-center">
-                {/* **A CORREÇÃO ESTÁ AQUI**: Usando 'responsavel_texto' para mostrar o nome */}
                 <span>{activity.responsavel_texto || 'Sem responsável'}</span>
-                {prazo && (
-                    <span className={`font-semibold ${isOverdue ? 'text-red-600' : 'text-gray-600'}`}>
-                        {prazo.toLocaleDateString('pt-BR')}
-                    </span>
-                )}
+                
+                {/* **INÍCIO DA ALTERAÇÃO** */}
+                {/* Mostra o ícone se a tarefa for recorrente */}
+                <div className="flex items-center gap-2">
+                    {activity.is_recorrente && (
+                        <FontAwesomeIcon icon={faSync} title="Tarefa Recorrente" />
+                    )}
+                    {prazo && (
+                        <span className={`font-semibold ${isOverdue ? 'text-red-600' : 'text-gray-600'}`}>
+                            {prazo.toLocaleDateString('pt-BR')}
+                        </span>
+                    )}
+                </div>
+                {/* **FIM DA ALTERAÇÃO** */}
             </div>
             {isOverdue && (
                 <div className="text-xs font-bold text-red-600 mt-2 flex items-center gap-1">
