@@ -132,7 +132,9 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
             return;
         }
         setLoading(true);
-        await onSave(formData);
+        // Não envie 'custo_total' para a função onSave, o banco de dados vai calculá-lo
+        const { custo_total, ...dataToSave } = formData; 
+        await onSave(dataToSave); 
         setLoading(false);
     };
 
