@@ -18,6 +18,7 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
 
     const fetchItens = useCallback(async () => {
         setLoading(true);
+        // Garante que o custo_total seja buscado também, para exibição
         const { data, error } = await supabase.from('orcamento_itens').select('*, etapa:etapa_id(*)').eq('orcamento_id', orcamento.id).order('ordem', { ascending: true, nullsFirst: true });
         if (error) { console.error("Erro:", error); setMessage('Não foi possível carregar os itens.'); }
         else { setItens((data || []).map((item, index) => ({ ...item, ordem: item.ordem ?? index }))); }
@@ -45,6 +46,7 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
     const handleSaveItem = async (formData) => {
         let materialId = formData.material_id;
 
+        // Passo 1: Se for um item novo (sem ID de material), cria na tabela central 'materiais'
         if (!materialId && formData.descricao) {
             const { data: newMaterial, error: materialError } = await supabase
                 .from('materiais')
@@ -58,14 +60,20 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
                 .select('id')
                 .single();
 
-            if (materialError) { setMessage('Erro ao criar novo material na base: ' + materialError.message); return; }
+            if (materialError) { setMessage('Erro ao criar novo material na base: ' + materialError.message); return false; } // Retorna false em caso de erro
             materialId = newMaterial.id;
         }
 
         const itemParaSalvar = {
-            orcamento_id: orcamento.id, material_id: materialId, descricao: formData.descricao, unidade: formData.unidade, quantidade: formData.quantidade,
-            preco_unitario: formData.preco_unitario || null, custo_total: (formData.quantidade || 0) * (formData.preco_unitario || 0),
-            categoria: formData.categoria, etapa_id: formData.etapa_id || null,
+            orcamento_id: orcamento.id,
+            material_id: materialId,
+            descricao: formData.descricao,
+            unidade: formData.unidade,
+            quantidade: formData.quantidade,
+            preco_unitario: formData.preco_unitario || null,
+            // REMOVIDO: custo_total NÃO deve ser enviado, o DB calcula
+            categoria: formData.categoria,
+            etapa_id: formData.etapa_id || null,
         };
 
         let error;
@@ -73,12 +81,19 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
             const { error: updateError } = await supabase.from('orcamento_itens').update(itemParaSalvar).eq('id', formData.id);
             error = updateError;
         } else {
+            // Se for um novo item, adicione a 'ordem' para a posição final
+            itemParaSalvar.ordem = itens.length;
             const { error: insertError } = await supabase.from('orcamento_itens').insert(itemParaSalvar);
             error = insertError;
         }
 
-        if (error) { setMessage('Erro ao salvar o item no orçamento: ' + error.message); }
-        else { handleCloseModal(); fetchItens(); }
+        if (error) { setMessage('Erro ao salvar o item no orçamento: ' + error.message); return false; } // Retorna false em caso de erro
+        else {
+            setMessage('Item salvo com sucesso!');
+            fetchItens(); // Re-busca os itens para exibir a nova lista
+            // A responsabilidade de fechar ou limpar o modal está no OrcamentoItemModal.js agora
+            return true; // Retorna true em caso de sucesso
+        }
     };
 
     const handleOpenModal = (item = null) => { setEditingItem(item); setIsModalOpen(true); };

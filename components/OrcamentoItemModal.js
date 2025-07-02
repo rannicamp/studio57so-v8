@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faPlus, faPenToSquare } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faPlus, faPenToSquare, faTimes } from '@fortawesome/free-solid-svg-icons'; // Adicionado faTimes
 
 // Componente para destacar o texto da busca em amarelo
 const HighlightedText = ({ text = '', highlight = '' }) => {
@@ -132,10 +132,21 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
             return;
         }
         setLoading(true);
-        // Não envie 'custo_total' para a função onSave, o banco de dados vai calculá-lo
-        const { custo_total, ...dataToSave } = formData; 
-        await onSave(dataToSave); 
+        const success = await onSave(formData); // Assume onSave retorna true/false ou um objeto com 'success'
         setLoading(false);
+
+        if (success) { // Verifica se a operação de salvar foi bem-sucedida
+            setMessage('Item salvo com sucesso!');
+            if (!isEditing) { // Se estiver adicionando um novo item
+                setFormData(getInitialState()); // Limpa o formulário
+                setSearchResults({ descricao: [], categoria: [], unidade: [] }); // Limpa os resultados de busca
+                setIsSearching(false);
+            } else { // Se estiver editando um item existente
+                onClose(); // Fecha o modal após a edição
+            }
+        } else {
+            setMessage('Erro ao salvar o item.'); // Mensagem de erro genérica se onSave falhar
+        }
     };
 
     if (!isOpen) return null;
@@ -143,7 +154,12 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl">
-                <h3 className="text-xl font-bold mb-4">{isEditing ? 'Editar Item do Orçamento' : 'Adicionar Novo Item'}</h3>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold">{isEditing ? 'Editar Item do Orçamento' : 'Adicionar Novo Item'}</h3>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" title="Fechar">
+                        <FontAwesomeIcon icon={faTimes} />
+                    </button>
+                </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="relative">
                         <label className="block text-sm font-medium">Descrição do Item/Serviço *</label>
