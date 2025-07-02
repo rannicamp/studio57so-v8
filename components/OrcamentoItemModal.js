@@ -57,7 +57,6 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, orcamentoI
             return;
         }
         setLoading(true);
-        // Garante que a descrição seja a do termo de busca se um item não foi selecionado
         const dataToSave = { ...formData };
         if (!dataToSave.descricao) {
             dataToSave.descricao = searchTerm;
@@ -83,11 +82,15 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, orcamentoI
                                 {searchResults.map(material => (<li key={material.id} onClick={() => handleSelectMaterial(material)} className="p-2 border-b hover:bg-gray-100 cursor-pointer">{material.descricao}</li>))}
                             </ul>
                         )}
+                        {/* ***** INÍCIO DA CORREÇÃO ***** */}
                         {searchTerm && !isSearching && searchResults.length === 0 && (
                              <div className="absolute z-10 w-full bg-white border rounded-md shadow-lg p-3">
-                                <button type="button" onClick={handleAddNewMaterial} className="text-blue-600 font-semibold flex items-center gap-2"><FontAwesomeIcon icon={faPlus} /> Usar o texto "{searchTerm}"</button>
+                                <button type="button" onClick={handleAddNewMaterial} className="text-blue-600 font-semibold flex items-center gap-2">
+                                    <FontAwesomeIcon icon={faPlus} /> Usar o texto &quot;{searchTerm}&quot;
+                                </button>
                             </div>
                         )}
+                        {/* ***** FIM DA CORREÇÃO ***** */}
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div><label className="block text-sm font-medium">Categoria</label><input type="text" name="categoria" value={formData.categoria || 'Outros'} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div>
