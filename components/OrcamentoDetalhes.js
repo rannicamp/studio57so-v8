@@ -19,7 +19,7 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
     const fetchItens = useCallback(async () => {
         setLoading(true);
         const { data, error } = await supabase.from('orcamento_itens').select('*, etapa:etapa_id(*)').eq('orcamento_id', orcamento.id).order('ordem', { ascending: true, nullsFirst: true });
-        if (error) { console.error("Erro:", error); setMessage('Não foi possível carregar os itens.'); } 
+        if (error) { console.error("Erro:", error); setMessage('Não foi possível carregar os itens.'); }
         else { setItens((data || []).map((item, index) => ({ ...item, ordem: item.ordem ?? index }))); }
         setLoading(false);
     }, [supabase, orcamento.id]);
@@ -41,10 +41,10 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
         });
         return Array.from(groups.entries()).map(([key, data]) => ({ key, ...data })).sort((a, b) => a.key.localeCompare(b.key));
     }, [itens]);
-    
+
     const handleSaveItem = async (formData) => {
         let materialId = formData.material_id;
-        
+
         if (!materialId && formData.descricao) {
             const { data: newMaterial, error: materialError } = await supabase
                 .from('materiais')
@@ -57,7 +57,7 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
                 })
                 .select('id')
                 .single();
-            
+
             if (materialError) { setMessage('Erro ao criar novo material na base: ' + materialError.message); return; }
             materialId = newMaterial.id;
         }
@@ -76,11 +76,11 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
             const { error: insertError } = await supabase.from('orcamento_itens').insert(itemParaSalvar);
             error = insertError;
         }
-        
-        if (error) { setMessage('Erro ao salvar o item no orçamento: ' + error.message); } 
+
+        if (error) { setMessage('Erro ao salvar o item no orçamento: ' + error.message); }
         else { handleCloseModal(); fetchItens(); }
     };
-    
+
     const handleOpenModal = (item = null) => { setEditingItem(item); setIsModalOpen(true); };
     const handleCloseModal = () => { setEditingItem(null); setIsModalOpen(false); };
     const handleDeleteItem = async (itemId) => { if (window.confirm('Tem certeza?')) { const { error } = await supabase.from('orcamento_itens').delete().eq('id', itemId); if (error) setMessage(`Erro: ${error.message}`); else { setMessage('Item excluído.'); fetchItens(); } } };
@@ -100,7 +100,7 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
         if (error) { setMessage('Erro ao salvar a nova ordem.'); fetchItens(); }
         setDraggedItem(null);
     };
-    
+
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     const formatPercentage = (value) => { if (!custoTotal || custoTotal === 0) return '0.00%'; return `${((value / custoTotal) * 100).toFixed(2)}%`; };
 
@@ -122,7 +122,15 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
                             ) : groupedItems.length === 0 ? (
                                 <tr><td colSpan="9" className="text-center py-10">Nenhum item adicionado.</td></tr>
                             ) : (
-                                groupedItems.map(group => ( <Fragment key={group.key}> <tr className="bg-gray-100 font-semibold"><td colSpan="6" className="px-6 py-3 border-t-2"> {group.codigo} - {group.nome} </td><td className="px-6 py-3 text-right border-t-2">{formatCurrency(group.total)}</td><td className="px-6 py-3 text-right border-t-2 font-bold text-blue-700">{formatPercentage(group.total)}</td><td className="px-6 py-3 border-t-2"></td></tr> {group.items.map((item, index) => (<tr key={item.id} draggable onDragStart={(e) => handleDragStart(e, item)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, item)} className="hover:bg-gray-50 cursor-grab"><td className="px-2 py-4 text-center text-gray-400"><FontAwesomeIcon icon={faGripVertical} /></td><td className="px-2 py-4 text-sm">{group.codigo}.{index + 1}</td><td className="px-6 py-4 text-sm">{item.descricao}</td><td className="px-6 py-4 text-sm">{item.unidade}</td><td className="px-6 py-4 text-sm text-center">{item.quantidade}</td><td className="px-6 py-4 text-sm text-right">{formatCurrency(item.preco_unitario)}</td><td className="px-6 py-4 text-sm text-right font-semibold">{formatCurrency(item.custo_total)}</td><td className="px-6 py-4 text-sm text-right font-semibold text-blue-600">{formatPercentage(item.custo_total)}</td><td className="px-6 py-4 text-sm text-center space-x-4"><button onClick={() => handleOpenModal(item)} title="Editar" className="text-blue-500"><FontAwesomeIcon icon={faEdit} /></button><button onClick={() => handleDeleteItem(item.id)} title="Excluir" className="text-red-500"><FontAwesomeIcon icon={faTrash} /></button></td></tr>))} </Fragment> )))}
+                                groupedItems.map(group => (
+                                    <Fragment key={group.key}>
+                                        <tr className="bg-gray-100 font-semibold"><td colSpan="6" className="px-6 py-3 border-t-2"> {group.codigo} - {group.nome} </td><td className="px-6 py-3 text-right border-t-2">{formatCurrency(group.total)}</td><td className="px-6 py-3 text-right border-t-2 font-bold text-blue-700">{formatPercentage(group.total)}</td><td className="px-6 py-3 border-t-2"></td></tr>
+                                        {group.items.map((item, index) => (
+                                            <tr key={item.id} draggable onDragStart={(e) => handleDragStart(e, item)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, item)} className="hover:bg-gray-50 cursor-grab"><td className="px-2 py-4 text-center text-gray-400"><FontAwesomeIcon icon={faGripVertical} /></td><td className="px-2 py-4 text-sm">{group.codigo}.{index + 1}</td><td className="px-6 py-4 text-sm">{item.descricao}</td><td className="px-6 py-4 text-sm">{item.unidade}</td><td className="px-6 py-4 text-sm text-center">{item.quantidade}</td><td className="px-6 py-4 text-sm text-right">{formatCurrency(item.preco_unitario)}</td><td className="px-6 py-4 text-sm text-right font-semibold">{formatCurrency(item.custo_total)}</td><td className="px-6 py-4 text-sm text-right font-semibold text-blue-600">{formatPercentage(item.custo_total)}</td><td className="px-6 py-4 text-sm text-center space-x-4"><button onClick={() => handleOpenModal(item)} title="Editar" className="text-blue-500"><FontAwesomeIcon icon={faEdit} /></button><button onClick={() => handleDeleteItem(item.id)} title="Excluir" className="text-red-500"><FontAwesomeIcon icon={faTrash} /></button></td></tr>
+                                        ))}
+                                    </Fragment>
+                                ))
+                            )}
                         </tbody>
                         <tfoot className="bg-gray-100"><tr><td colSpan="8" className="px-6 py-3 text-right text-sm font-bold uppercase">Custo Total Previsto:</td><td className="px-6 py-3 text-right text-base font-bold">{formatCurrency(custoTotal)}</td></tr></tfoot>
                     </table>

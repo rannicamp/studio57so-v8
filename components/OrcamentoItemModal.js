@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faPlus, faPenToSquare } from '@fortawesome/free-solid-svg-icons';
 
-// Componente para destacar o texto da busca em amarelo (sem alteração)
+// Componente para destacar o texto da busca em amarelo
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight || !text) {
         return <span>{text}</span>;
@@ -27,12 +27,12 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     );
 };
 
-export default function OrcamentoItemModal({ isOpen, onClose, onSave, orcamentoId, itemToEdit, etapas }) {
+export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, itemToEdit }) {
     const supabase = createClient();
     const isEditing = Boolean(itemToEdit?.id);
 
     const getInitialState = useCallback(() => ({
-        descricao: '', categoria: 'Materiais', unidade: 'unid.', quantidade: 1, preco_unitario: '', etapa_id: '', material_id: null
+        id: null, material_id: null, descricao: '', quantidade: 1, unidade: 'unid.', preco_unitario: '', etapa_id: '', categoria: 'Materiais'
     }), []);
 
     const [formData, setFormData] = useState(getInitialState());
@@ -48,36 +48,61 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, orcamentoI
             setSearchResults({ descricao: [], categoria: [], unidade: [] });
             setMessage('');
         }
-    }, [isOpen, itemToEdit, isEditing, getInitialState]);
+    }, [isOpen, isEditing, itemToEdit, getInitialState]);
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
 
     const handleSearchChange = async (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
-        
-        if (value.length < 1) {
+
+        if (field === 'descricao' && value.length < 2) {
+            setSearchResults(prev => ({...prev, [field]: []}));
+            return;
+        } else if (field !== 'descricao' && value.length < 1) {
             setSearchResults(prev => ({...prev, [field]: []}));
             return;
         }
 
-        let query;
+        setIsSearching(true);
+        let data, error;
+
         if (field === 'descricao') {
-            query = supabase.rpc('buscar_materiais', { search_term: value });
+            ({ data, error } = await supabase
+                .from('materiais')
+                .select('id, descricao, unidade_medida, preco_unitario, categoria:Grupo')
+                .ilike('descricao', `%${value}%`)
+                .limit(10));
         } else if (field === 'categoria') {
-            query = supabase.from('materiais').select('Grupo').ilike('Grupo', `%${value}%`).limit(5);
+            ({ data, error } = await supabase
+                .from('materiais')
+                .select('Grupo')
+                .ilike('Grupo', `%${value}%`)
+                .limit(5));
         } else if (field === 'unidade') {
-            query = supabase.from('materiais').select('unidade_medida').ilike('unidade_medida', `%${value}%`).limit(5);
+            ({ data, error } = await supabase
+                .from('materiais')
+                .select('unidade_medida')
+                .ilike('unidade_medida', `%${value}%`)
+                .limit(5));
         } else {
+            setIsSearching(false);
             return;
         }
 
-        setIsSearching(true);
-        const { data, error } = await query;
         if (error) { console.error(`Erro na busca de ${field}:`, error); }
         
         let uniqueResults = [];
         if (data) {
-            if(field === 'categoria') uniqueResults = [...new Map(data.map(item => [item.Grupo, item])).values()].map(item => item.Grupo).filter(Boolean);
-            else if(field === 'unidade') uniqueResults = [...new Map(data.map(item => [item.unidade_medida, item])).values()].map(item => item.unidade_medida).filter(Boolean);
-            else uniqueResults = data;
+            if(field === 'categoria') {
+                uniqueResults = [...new Set(data.map(item => item.Grupo).filter(Boolean))];
+            } else if(field === 'unidade') {
+                uniqueResults = [...new Set(data.map(item => item.unidade_medida).filter(Boolean))];
+            } else {
+                uniqueResults = data;
+            }
         }
         
         setSearchResults(prev => ({...prev, [field]: uniqueResults || []}));
@@ -91,7 +116,7 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, orcamentoI
                 descricao: value.descricao,
                 unidade: value.unidade_medida || 'unid.',
                 preco_unitario: value.preco_unitario || '',
-                categoria: value.categoria || 'Materiais',
+                categoria: value.categoria || 'Materiais', 
                 material_id: value.id,
             }));
         } else {
@@ -132,18 +157,28 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, orcamentoI
                         <div className="relative">
                             <label className="block text-sm font-medium">Categoria</label>
                             <input type="text" name="categoria" value={formData.categoria || ''} onChange={(e) => handleSearchChange('categoria', e.target.value)} className="mt-1 w-full p-2 border rounded-md" autoComplete="off" />
+                            {isSearching && <p className="text-xs text-gray-500">Buscando categorias...</p>}
                             {searchResults.categoria && searchResults.categoria.length > 0 && (
                                 <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 shadow-lg max-h-40 overflow-y-auto">
-                                    {searchResults.categoria.map(cat => (<li key={cat} onClick={() => handleSelect('categoria', cat)} className="p-2 border-b hover:bg-gray-100 cursor-pointer">{cat}</li>))}
+                                    {searchResults.categoria.map(cat => (
+                                        <li key={cat} onClick={() => handleSelect('categoria', cat)} className="p-2 border-b hover:bg-gray-100 cursor-pointer">
+                                            <HighlightedText text={cat} highlight={formData.categoria} />
+                                        </li>
+                                    ))}
                                 </ul>
                             )}
                         </div>
                         <div className="relative">
                             <label className="block text-sm font-medium">Unidade</label>
                             <input type="text" name="unidade" value={formData.unidade || ''} onChange={(e) => handleSearchChange('unidade', e.target.value)} className="mt-1 w-full p-2 border rounded-md" autoComplete="off" />
+                            {isSearching && <p className="text-xs text-gray-500">Buscando unidades...</p>}
                             {searchResults.unidade && searchResults.unidade.length > 0 && (
                                 <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 shadow-lg max-h-40 overflow-y-auto">
-                                    {searchResults.unidade.map(un => (<li key={un} onClick={() => handleSelect('unidade', un)} className="p-2 border-b hover:bg-gray-100 cursor-pointer">{un}</li>))}
+                                    {searchResults.unidade.map(un => (
+                                        <li key={un} onClick={() => handleSelect('unidade', un)} className="p-2 border-b hover:bg-gray-100 cursor-pointer">
+                                            <HighlightedText text={un} highlight={formData.unidade} />
+                                        </li>
+                                    ))}
                                 </ul>
                             )}
                         </div>
