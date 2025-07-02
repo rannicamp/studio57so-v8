@@ -1,21 +1,51 @@
 "use client";
 
 import { useState } from 'react';
+import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faUpload } from '@fortawesome/free-solid-svg-icons';
 
-export default function AbonoModal({ isOpen, onClose, onSave, date }) {
+export default function AbonoModal({ isOpen, onClose, onSave, date, employeeId }) {
+  const supabase = createClient();
   const [horas, setHoras] = useState(8);
   const [motivo, setMotivo] = useState('');
+  const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFile(e.target.files[0]);
+    }
+  };
 
   const handleSave = async () => {
     setLoading(true);
+    let filePath = null;
+
+    // Se um arquivo foi selecionado, faz o upload primeiro
+    if (file) {
+      const fileExtension = file.name.split('.').pop();
+      filePath = `documentos/${employeeId}/abono_${date}.${fileExtension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('funcionarios-documentos')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+        alert("Erro no upload do atestado: " + uploadError.message);
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Salva o registro de abono no banco de dados
     await onSave({
       data_abono: date,
       horas_abonadas: horas,
-      motivo: motivo
+      motivo: motivo,
+      caminho_arquivo: filePath,
     });
+
     setLoading(false);
     onClose();
   };
@@ -47,6 +77,14 @@ export default function AbonoModal({ isOpen, onClose, onSave, date }) {
               rows="3"
               className="mt-1 w-full p-2 border rounded-md"
             ></textarea>
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Anexar Atestado (Opcional)</label>
+             <input
+                type="file"
+                onChange={handleFileChange}
+                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100"
+            />
           </div>
         </div>
         <div className="flex justify-end gap-4 pt-6 mt-4 border-t">
