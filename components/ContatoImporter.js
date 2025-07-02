@@ -4,206 +4,206 @@ import { useState } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUpload, faFileCsv, faDownload } from '@fortawesome/free-solid-svg-icons';
+import Papa from 'papaparse';
 
-const CSV_MODEL_HEADER = "nome;tipo_contato;status;razao_social;nome_fantasia;cnpj;inscricao_estadual;inscricao_municipal;responsavel_legal;cpf;rg;nacionalidade;birth_date;estado_civil;cargo;contract_role;admission_date;demission_date;telefones;emails;cep;address_street;address_number;address_complement;neighborhood;city;state;base_salary;total_salary;daily_value;payment_method;pix_key;bank_details;observations;numero_ponto;foto_url";
+const dbColumns = [
+    { key: 'personalidade_juridica', label: 'Personalidade Jurídica (PF/PJ)' },
+    { key: 'nome', label: 'Nome' },
+    { key: 'tipo_contato', label: 'Tipo de Contato (Obrigatório)' },
+    { key: 'status', label: 'Status' },
+    // Dados PJ
+    { key: 'razao_social', label: 'Razão Social' },
+    { key: 'nome_fantasia', label: 'Nome Fantasia' },
+    { key: 'cnpj', label: 'CNPJ' },
+    { key: 'inscricao_estadual', label: 'Inscrição Estadual' },
+    { key: 'inscricao_municipal', label: 'Inscrição Municipal' },
+    { key: 'responsavel_legal', label: 'Responsável Legal' },
+    { key: 'data_fundacao', label: 'Data de Fundação (AAAA-MM-DD)' },
+    // ***** INÍCIO DA CORREÇÃO *****
+    { key: 'pessoa_contato', label: 'Pessoa de Contato' },
+    // ***** FIM DA CORREÇÃO *****
+    // Dados PF
+    { key: 'cpf', label: 'CPF' },
+    { key: 'rg', label: 'RG' },
+    { key: 'nacionalidade', label: 'Nacionalidade' },
+    { key: 'birth_date', label: 'Data de Nascimento (AAAA-MM-DD)' },
+    { key: 'estado_civil', label: 'Estado Civil' },
+    { key: 'cargo', label: 'Cargo/Profissão' },
+    { key: 'tipo_servico_produto', label: 'Tipo de Serviço/Produto' },
+    // Contato
+    { key: 'telefones', label: 'Telefones (separar com ;)' },
+    { key: 'emails', label: 'Emails (separar com ;)' },
+    // Endereço
+    { key: 'cep', label: 'CEP' },
+    { key: 'address_street', label: 'Endereço (Rua)' },
+    { key: 'address_number', label: 'Endereço (Número)' },
+    { key: 'address_complement', label: 'Endereço (Complemento)' },
+    { key: 'neighborhood', label: 'Endereço (Bairro)' },
+    { key: 'city', label: 'Endereço (Cidade)' },
+    { key: 'state', label: 'Endereço (Estado)' },
+    // Outros
+    { key: 'observations', label: 'Observações' },
+];
+
+const CSV_MODEL_HEADER = dbColumns.map(c => c.key).join(';');
 
 export default function ContatoImporter({ isOpen, onClose, onImportComplete }) {
   const supabase = createClient();
   const [file, setFile] = useState(null);
+  const [headers, setHeaders] = useState([]);
+  const [mappings, setMappings] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState('');
   const [errorDetails, setErrorDetails] = useState([]);
 
-  const handleFileChange = (event) => {
-    const selectedFile = event.target.files[0];
-    if (selectedFile && (selectedFile.type === 'text/csv' || selectedFile.name.endsWith('.csv'))) {
-      setFile(selectedFile);
-      setMessage('');
-      setErrorDetails([]);
-    } else {
-      setFile(null);
-      setMessage('Por favor, selecione um arquivo no formato CSV.');
-    }
-  };
-  
-  const handleDownloadTemplate = () => {
-    const blob = new Blob(["\uFEFF" + CSV_MODEL_HEADER], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "modelo_importacao_contatos.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-  
   const capitalizeFirstLetter = (string) => {
     if (!string) return string;
+    const lower = string.toLowerCase();
+    if (lower.includes('física') || lower.includes('fisica')) return 'Pessoa Física';
+    if (lower.includes('jurídica') || lower.includes('juridica')) return 'Pessoa Jurídica';
     return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
   };
 
-  const intelligentCSVParser = (text) => {
-    const rawLines = text.split(/\r\n|\n/);
-    if (rawLines.length < 1) return { header: [], rows: [] };
-
-    const header = rawLines[0].replace(/^\uFEFF/, '').trim();
-    const headerKeys = header.split(';').map(h => h.trim().toLowerCase());
-    const columnCount = headerKeys.length;
-
-    const dataRows = [];
-    let currentLineBuffer = "";
-
-    for (let i = 1; i < rawLines.length; i++) {
-        const line = rawLines[i].trim();
-        if (!line) continue;
-
-        currentLineBuffer += (currentLineBuffer ? " " + line : line);
-        const fields = currentLineBuffer.split(';');
-
-        if (fields.length >= columnCount) {
-            const completeRowFields = fields.slice(0, columnCount);
-            currentLineBuffer = fields.slice(columnCount).join(';');
-            
-            const rowObject = {};
-            headerKeys.forEach((key, index) => {
-                rowObject[key] = completeRowFields[index]?.trim() || null;
-            });
-            dataRows.push(rowObject);
-        }
-    }
-    
-    if (currentLineBuffer.trim()) {
-        const fields = currentLineBuffer.split(';');
-        const rowObject = {};
-        headerKeys.forEach((key, index) => {
-            rowObject[key] = fields[index]?.trim() || null;
+  const handleFileChange = (event) => {
+    const selectedFile = event.target.files[0];
+    if (selectedFile) {
+        setFile(selectedFile);
+        setMessage(''); setErrorDetails([]); setHeaders([]); setMappings({});
+        Papa.parse(selectedFile, {
+            header: true, skipEmptyLines: true, preview: 1,
+            complete: (results) => {
+                if (results.data.length > 0) {
+                    const fileHeaders = Object.keys(results.data[0]);
+                    setHeaders(fileHeaders);
+                    const initialMappings = {};
+                    fileHeaders.forEach(header => {
+                        const cleanHeader = header.toLowerCase().replace(/ /g, '_').replace('ç', 'c').replace('ã', 'a');
+                        const found = dbColumns.find(dbCol => dbCol.key === cleanHeader || dbCol.label.toLowerCase().includes(header.toLowerCase()));
+                        if (found) initialMappings[header] = found.key;
+                    });
+                    setMappings(initialMappings);
+                } else { setMessage("Arquivo CSV vazio ou em formato inválido."); }
+            },
         });
-        dataRows.push(rowObject);
     }
-    
-    return { header: headerKeys, rows: dataRows };
+  };
+
+  const handleMappingChange = (csvHeader, dbColumn) => { setMappings((prev) => ({ ...prev, [csvHeader]: dbColumn })); };
+  
+  const handleDownloadTemplate = () => {
+    const blob = new Blob(["\uFEFF" + CSV_MODEL_HEADER], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a"); const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url); link.setAttribute("download", "modelo_importacao_contatos.csv");
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
   const processAndImport = async () => {
-    if (!file) {
-      setMessage('Nenhum arquivo selecionado.');
-      return;
-    }
-    setIsProcessing(true);
-    setMessage('Analisando arquivo...');
-    setErrorDetails([]);
+    if (!file) { setMessage('Nenhum arquivo selecionado.'); return; }
+    setIsProcessing(true); setMessage('Analisando arquivo...'); setErrorDetails([]);
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-        const text = e.target.result;
-        const { header, rows } = intelligentCSVParser(text);
-        
-        if (!header.includes('nome') || !header.includes('tipo_contato')) {
-            setMessage('Erro: O cabeçalho do seu arquivo precisa conter as colunas "nome" e "tipo_contato".');
-            setIsProcessing(false);
-            return;
-        }
-        
-        setMessage(`Arquivo válido. Importando contatos...`);
-        const errors = [];
-        let importedCount = 0;
-
-        for (let i = 0; i < rows.length; i++) {
-            const rowData = rows[i];
-            
-            // **A MELHORIA ESTÁ AQUI**
-            // Verifica se a linha é efetivamente vazia (só tem valores nulos ou em branco)
-            const isRowEssentiallyEmpty = Object.values(rowData).every(value => !value);
-            if (isRowEssentiallyEmpty) {
-                continue; // Pula a linha fantasma sem gerar erro
-            }
-
-            if (!rowData.nome || !rowData.tipo_contato) {
-                errors.push(`Linha ${i + 2}: As colunas "nome" e "tipo_contato" não podem estar em branco.`);
-                continue;
-            }
-
-            const { telefones, emails, ...contatoData } = rowData;
-            
-            const formattedContatoData = {
-                ...contatoData,
-                tipo_contato: capitalizeFirstLetter(contatoData.tipo_contato),
-            };
-            
-            const { data: savedContact, error: contactError } = await supabase.from('contatos').insert(formattedContatoData).select().single();
-
-            if (contactError) {
-                errors.push(`Linha ${i + 2}: Erro ao salvar contato - ${contactError.details || contactError.message}`);
-                continue;
-            } else {
-                importedCount++;
-            }
-
-            if (telefones) {
-                const telefonesDb = telefones.split(';').map(t => ({ contato_id: savedContact.id, telefone: t.trim(), tipo: 'Importado' }));
-                await supabase.from('telefones').insert(telefonesDb);
-            }
-            if (emails) {
-                const emailsDb = emails.split(';').map(e => ({ contato_id: savedContact.id, email: e.trim(), tipo: 'Importado' }));
-                await supabase.from('emails').insert(emailsDb);
-            }
-        }
-
-        if (errors.length > 0) {
-            setMessage(`${importedCount} contatos importados com sucesso, mas ${errors.length} linhas continham erros.`);
-            setErrorDetails(errors);
-        } else {
-            setMessage(`${importedCount} contatos foram importados com sucesso!`);
-            onImportComplete();
-            setTimeout(() => onClose(), 2000);
-        }
+    const mappedType = Object.keys(mappings).find(key => mappings[key] === 'tipo_contato');
+    if (!mappedType) {
+        setMessage("Erro: Mapeie a coluna para 'Tipo de Contato', que é obrigatória.");
         setIsProcessing(false);
-    };
-    reader.readAsText(file, 'UTF-8');
+        return;
+    }
+
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+            let importedCount = 0; const errors = [];
+            const dataToImport = results.data.map(row => {
+                const newRow = {};
+                for (const csvHeader in mappings) {
+                    const dbColumn = mappings[csvHeader];
+                    if (dbColumn && row[csvHeader] !== undefined && row[csvHeader] !== null) newRow[dbColumn] = row[csvHeader];
+                }
+                return newRow;
+            }).filter(row => Object.keys(row).length > 0 && (row.nome || row.razao_social) && row.tipo_contato);
+
+            if (dataToImport.length === 0) {
+                setMessage('Nenhuma linha válida para importar foi encontrada. Verifique se as colunas "Tipo de Contato" e ("Nome" ou "Razão Social") estão preenchidas.');
+                setIsProcessing(false);
+                return;
+            }
+
+            setMessage(`Arquivo válido. Importando ${dataToImport.length} contatos...`);
+
+            for (let i = 0; i < dataToImport.length; i++) {
+                const rowData = dataToImport[i];
+                const { telefones, emails, ...contatoData } = rowData;
+                
+                if (contatoData.tipo_contato) contatoData.tipo_contato = capitalizeFirstLetter(contatoData.tipo_contato);
+                if (contatoData.personalidade_juridica) contatoData.personalidade_juridica = capitalizeFirstLetter(contatoData.personalidade_juridica);
+                else contatoData.personalidade_juridica = contatoData.cnpj ? 'Pessoa Jurídica' : 'Pessoa Física';
+
+                if (contatoData.birth_date === '') contatoData.birth_date = null;
+                if (contatoData.data_fundacao === '') contatoData.data_fundacao = null;
+
+                const { data: savedContact, error: contactError } = await supabase.from('contatos').insert(contatoData).select().single();
+                if (contactError) {
+                    errors.push(`Linha ${i + 2}: Erro - ${contactError.details || contactError.message}`);
+                    continue;
+                } else {
+                    importedCount++;
+                    if (telefones) { const telefonesDb = String(telefones).split(';').map(t => ({ contato_id: savedContact.id, telefone: t.trim(), tipo: 'Importado' })); await supabase.from('telefones').insert(telefonesDb); }
+                    if (emails) { const emailsDb = String(emails).split(';').map(e => ({ contato_id: savedContact.id, email: e.trim(), tipo: 'Importado' })); await supabase.from('emails').insert(emailsDb); }
+                }
+            }
+
+            if (errors.length > 0) { setMessage(`${importedCount} contatos importados, mas ${errors.length} linhas continham erros.`); setErrorDetails(errors); } 
+            else { setMessage(`${importedCount} contatos foram importados com sucesso!`); onImportComplete(); setTimeout(() => onClose(), 2000); }
+            setIsProcessing(false);
+        },
+    });
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg space-y-4">
-        <h2 className="text-xl font-bold text-gray-800">Importar Contatos via CSV</h2>
-        <div className="text-sm">
-            <p>Siga os passos para uma importação correta:</p>
-            <ol className="list-decimal list-inside ml-4 mt-2 space-y-1">
-                <li>Clique em &quot;Baixar Modelo&quot; para obter a planilha no formato correto.</li>
-                <li>Preencha a planilha. As colunas podem estar em qualquer ordem, desde que os nomes no cabeçalho estejam corretos.</li>
-                <li>Para múltiplos telefones/emails, separe-os com ponto e vírgula (;) na mesma célula.</li>
-                <li>Selecione o arquivo preenchido e clique em &quot;Importar&quot;.</li>
-            </ol>
-        </div>
-        <button onClick={handleDownloadTemplate} className="w-full bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 flex items-center justify-center gap-2">
-            <FontAwesomeIcon icon={faDownload} /> Baixar Modelo de Planilha (.csv)
-        </button>
-        <div>
-          <label htmlFor="csv-importer" className="w-full flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50">
-              <FontAwesomeIcon icon={faFileCsv} className="text-4xl text-gray-400" />
-              <p className="mt-2 text-sm text-gray-500">{file ? `Arquivo: ${file.name}` : 'Clique para selecionar o arquivo'}</p>
-          </label>
-          <input id="csv-importer" type="file" accept=".csv" onChange={handleFileChange} className="hidden" />
-        </div>
-        {message && <p className="text-center text-sm font-medium p-2 bg-gray-100 rounded-md">{message}</p>}
-        {errorDetails.length > 0 && (
-            <div className="max-h-32 overflow-y-auto p-2 border border-red-200 bg-red-50 rounded-md text-sm">
-                <p className="font-bold mb-1">Detalhes dos erros:</p>
-                <ul className="list-disc list-inside">
-                    {errorDetails.map((err, i) => <li key={i}>{err}</li>)}
-                </ul>
+        <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">Importar Contatos via CSV</h2>
+            <div className="mb-4">
+              <label htmlFor="file-upload" className="block text-sm font-medium text-gray-700 mb-2">1. Selecione o arquivo CSV</label>
+              <div className="flex gap-4">
+                <input id="file-upload" type="file" accept=".csv" onChange={handleFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100" />
+                <button onClick={handleDownloadTemplate} className="flex-shrink-0 bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-700 flex items-center gap-2 text-sm"> <FontAwesomeIcon icon={faDownload} /> Modelo </button>
+              </div>
             </div>
-        )}
-        <div className="flex justify-end gap-4">
-          <button onClick={onClose} disabled={isProcessing} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"> Fechar </button>
-          <button onClick={processAndImport} disabled={!file || isProcessing} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2">
-            {isProcessing ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faUpload} />}
-            {isProcessing ? 'Importando...' : 'Importar Arquivo'}
-          </button>
+            {headers.length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold mb-2">2. Mapeamento de Colunas</h3>
+                <p className="text-sm text-gray-600 mb-3">Vincule as colunas do seu arquivo (esquerda) com as colunas do sistema (direita).</p>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                  {headers.map((header) => (
+                    <div key={header} className="grid grid-cols-2 gap-4 items-center">
+                      <div className="font-medium text-gray-800 bg-gray-100 p-2 rounded truncate"> {header} </div>
+                      <select value={mappings[header] || ''} onChange={(e) => handleMappingChange(header, e.target.value)} className="block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                        <option value="">Ignorar esta coluna</option>
+                        {dbColumns.map((col) => ( <option key={col.key} value={col.key}> {col.label} </option> ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {message && <p className={`text-sm font-semibold p-3 rounded-md mb-4 ${errorDetails.length > 0 ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>{message}</p>}
+            {errorDetails.length > 0 && (
+                <div className="max-h-32 overflow-y-auto p-2 border border-red-200 bg-red-50 rounded-md text-sm">
+                    <p className="font-bold mb-1">Detalhes dos erros:</p>
+                    <ul className="list-disc list-inside"> {errorDetails.map((err, i) => <li key={i}>{err}</li>)} </ul>
+                </div>
+            )}
+            <div className="flex justify-end space-x-3 mt-6">
+              <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"> Cancelar </button>
+              <button onClick={processAndImport} disabled={isProcessing || headers.length === 0} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300 flex items-center gap-2">
+                {isProcessing ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faUpload} />}
+                {isProcessing ? 'Importando...' : 'Importar Dados'}
+              </button>
+            </div>
         </div>
-      </div>
     </div>
   );
 }
