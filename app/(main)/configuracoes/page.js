@@ -1,10 +1,9 @@
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserCog, faShieldAlt, faBoxOpen } from '@fortawesome/free-solid-svg-icons'; // Ícone adicionado
+import { faUserCog, faShieldAlt, faBoxOpen, faClock } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 
-// Componente para criar os "cards" de navegação
 const SettingsCard = ({ href, icon, title, description }) => (
   <Link href={href}>
     <div className="bg-gray-50 p-6 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-100 transition-all cursor-pointer">
@@ -18,7 +17,6 @@ const SettingsCard = ({ href, icon, title, description }) => (
 export default async function ConfiguracoesPage() {
     const supabase = createClient();
 
-    // Protege a página para que apenas proprietários possam acessá-la
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
         const { data: userData } = await supabase
@@ -54,12 +52,18 @@ export default async function ConfiguracoesPage() {
           title="Gerenciar Permissões"
           description="Defina o que cada função pode ver, criar, editar ou excluir."
         />
-        {/* NOVO CARD ADICIONADO AQUI */}
         <SettingsCard 
           href="/configuracoes/materiais"
           icon={faBoxOpen}
           title="Gestão de Materiais"
           description="Importe, exporte e gerencie a sua base de materiais."
+        />
+        {/* NOVO CARD ADICIONADO AQUI */}
+        <SettingsCard 
+          href="/configuracoes/jornadas"
+          icon={faClock}
+          title="Jornadas de Trabalho"
+          description="Crie e gerencie os horários e cargas horárias dos funcionários."
         />
       </div>
     </div>

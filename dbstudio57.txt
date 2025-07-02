@@ -26,13 +26,20 @@ CREATE TABLE public.activities (
   etapa_id bigint,
   data_fim_original date,
   motivo_adiamento text,
+  hora_inicio time without time zone,
+  duracao_horas numeric,
+  is_recorrente boolean DEFAULT false,
+  recorrencia_tipo text,
+  recorrencia_intervalo integer DEFAULT 1,
+  recorrencia_dias_semana jsonb,
+  recorrencia_fim date,
   CONSTRAINT activities_pkey PRIMARY KEY (id),
-  CONSTRAINT activities_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id),
-  CONSTRAINT fk_etapa_obra FOREIGN KEY (etapa_id) REFERENCES public.etapa_obra(id),
   CONSTRAINT activities_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id),
-  CONSTRAINT activities_diario_obra_id_fkey FOREIGN KEY (diario_obra_id) REFERENCES public.diarios_obra(id),
   CONSTRAINT activities_criado_por_usuario_id_fkey FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id),
-  CONSTRAINT activities_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id)
+  CONSTRAINT activities_diario_obra_id_fkey FOREIGN KEY (diario_obra_id) REFERENCES public.diarios_obra(id),
+  CONSTRAINT fk_etapa_obra FOREIGN KEY (etapa_id) REFERENCES public.etapa_obra(id),
+  CONSTRAINT activities_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id),
+  CONSTRAINT activities_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id)
 );
 CREATE TABLE public.cadastro_empresa (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -57,7 +64,7 @@ CREATE TABLE public.cadastro_empresa (
 CREATE TABLE public.contatos (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   empresa_id bigint,
-  nome text NOT NULL,
+  nome text,
   cargo text,
   address_street text,
   address_number text,
@@ -71,11 +78,11 @@ CREATE TABLE public.contatos (
   foto_url text,
   razao_social text,
   nome_fantasia text,
-  cnpj text UNIQUE,
+  cnpj text,
   inscricao_estadual text,
   inscricao_municipal text,
   responsavel_legal text,
-  cpf text UNIQUE,
+  cpf text,
   rg text,
   birth_date date,
   estado_civil text,
@@ -92,6 +99,10 @@ CREATE TABLE public.contatos (
   observations text,
   numero_ponto integer UNIQUE,
   nacionalidade text,
+  personalidade_juridica text,
+  data_fundacao date,
+  tipo_servico_produto text,
+  pessoa_contato text,
   CONSTRAINT contatos_pkey PRIMARY KEY (id),
   CONSTRAINT contatos_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id)
 );
@@ -157,8 +168,8 @@ CREATE TABLE public.estoque_obra (
   quantidade numeric DEFAULT 0,
   ultima_atualizacao timestamp with time zone DEFAULT now(),
   CONSTRAINT estoque_obra_pkey PRIMARY KEY (id),
-  CONSTRAINT estoque_obra_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id),
-  CONSTRAINT estoque_obra_material_id_fkey FOREIGN KEY (material_id) REFERENCES public.materiais(id)
+  CONSTRAINT estoque_obra_material_id_fkey FOREIGN KEY (material_id) REFERENCES public.materiais(id),
+  CONSTRAINT estoque_obra_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id)
 );
 CREATE TABLE public.etapa_obra (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -203,9 +214,11 @@ CREATE TABLE public.funcionarios (
   status text DEFAULT 'Ativo'::text,
   demission_date date,
   numero_ponto integer UNIQUE,
+  jornada_id bigint,
   CONSTRAINT funcionarios_pkey PRIMARY KEY (id),
-  CONSTRAINT funcionarios_empreendimento_atual_id_fkey FOREIGN KEY (empreendimento_atual_id) REFERENCES public.empreendimentos(id),
-  CONSTRAINT funcionarios_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id)
+  CONSTRAINT funcionarios_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id),
+  CONSTRAINT funcionarios_jornada_id_fkey FOREIGN KEY (jornada_id) REFERENCES public.jornadas(id),
+  CONSTRAINT funcionarios_empreendimento_atual_id_fkey FOREIGN KEY (empreendimento_atual_id) REFERENCES public.empreendimentos(id)
 );
 CREATE TABLE public.funcoes (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -213,6 +226,25 @@ CREATE TABLE public.funcoes (
   descricao text,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT funcoes_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.jornada_detalhes (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  jornada_id bigint NOT NULL,
+  dia_semana integer NOT NULL,
+  horario_entrada time without time zone,
+  horario_saida_intervalo time without time zone,
+  horario_volta_intervalo time without time zone,
+  horario_saida time without time zone,
+  horas_feriado numeric,
+  CONSTRAINT jornada_detalhes_pkey PRIMARY KEY (id),
+  CONSTRAINT jornada_detalhes_jornada_id_fkey FOREIGN KEY (jornada_id) REFERENCES public.jornadas(id)
+);
+CREATE TABLE public.jornadas (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  nome_jornada text NOT NULL UNIQUE,
+  carga_horaria_semanal numeric NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT jornadas_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.marcas_uploads (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -268,10 +300,11 @@ CREATE TABLE public.orcamento_itens (
   status_cotacao text DEFAULT 'Pendente de Cotação'::text,
   created_at timestamp with time zone DEFAULT now(),
   etapa_id bigint,
+  ordem integer,
   CONSTRAINT orcamento_itens_pkey PRIMARY KEY (id),
+  CONSTRAINT orcamento_itens_material_id_fkey FOREIGN KEY (material_id) REFERENCES public.materiais(id),
   CONSTRAINT orcamento_itens_orcamento_id_fkey FOREIGN KEY (orcamento_id) REFERENCES public.orcamentos(id),
-  CONSTRAINT fk_etapa_obra FOREIGN KEY (etapa_id) REFERENCES public.etapa_obra(id),
-  CONSTRAINT orcamento_itens_material_id_fkey FOREIGN KEY (material_id) REFERENCES public.materiais(id)
+  CONSTRAINT fk_etapa_obra FOREIGN KEY (etapa_id) REFERENCES public.etapa_obra(id)
 );
 CREATE TABLE public.orcamentos (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -294,10 +327,12 @@ CREATE TABLE public.pedidos_compra (
   status text DEFAULT 'Pedido Realizado'::text,
   justificativa text,
   valor_total_estimado numeric,
+  titulo text,
+  turno_entrega text,
   CONSTRAINT pedidos_compra_pkey PRIMARY KEY (id),
-  CONSTRAINT pedidos_compra_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id),
+  CONSTRAINT pedidos_compra_comprador_id_fkey FOREIGN KEY (comprador_id) REFERENCES public.usuarios(id),
   CONSTRAINT pedidos_compra_solicitante_id_fkey FOREIGN KEY (solicitante_id) REFERENCES public.usuarios(id),
-  CONSTRAINT pedidos_compra_comprador_id_fkey FOREIGN KEY (comprador_id) REFERENCES public.usuarios(id)
+  CONSTRAINT pedidos_compra_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id)
 );
 CREATE TABLE public.pedidos_compra_anexos (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -324,11 +359,11 @@ CREATE TABLE public.pedidos_compra_itens (
   custo_total_real numeric,
   etapa_id bigint,
   CONSTRAINT pedidos_compra_itens_pkey PRIMARY KEY (id),
-  CONSTRAINT pedidos_compra_itens_etapa_id_fkey FOREIGN KEY (etapa_id) REFERENCES public.etapa_obra(id),
   CONSTRAINT pedidos_compra_itens_pedido_compra_id_fkey FOREIGN KEY (pedido_compra_id) REFERENCES public.pedidos_compra(id),
-  CONSTRAINT pedidos_compra_itens_orcamento_item_id_fkey FOREIGN KEY (orcamento_item_id) REFERENCES public.orcamento_itens(id),
+  CONSTRAINT pedidos_compra_itens_etapa_id_fkey FOREIGN KEY (etapa_id) REFERENCES public.etapa_obra(id),
+  CONSTRAINT pedidos_compra_itens_fornecedor_id_fkey FOREIGN KEY (fornecedor_id) REFERENCES public.contatos(id),
   CONSTRAINT pedidos_compra_itens_material_id_fkey FOREIGN KEY (material_id) REFERENCES public.materiais(id),
-  CONSTRAINT pedidos_compra_itens_fornecedor_id_fkey FOREIGN KEY (fornecedor_id) REFERENCES public.contatos(id)
+  CONSTRAINT pedidos_compra_itens_orcamento_item_id_fkey FOREIGN KEY (orcamento_item_id) REFERENCES public.orcamento_itens(id)
 );
 CREATE TABLE public.pedidos_compra_status_historico (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -339,8 +374,8 @@ CREATE TABLE public.pedidos_compra_status_historico (
   alterado_por_usuario_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT pedidos_compra_status_historico_pkey PRIMARY KEY (id),
-  CONSTRAINT pedidos_compra_status_historico_pedido_compra_id_fkey FOREIGN KEY (pedido_compra_id) REFERENCES public.pedidos_compra(id),
-  CONSTRAINT pedidos_compra_status_historico_alterado_por_usuario_id_fkey FOREIGN KEY (alterado_por_usuario_id) REFERENCES public.usuarios(id)
+  CONSTRAINT pedidos_compra_status_historico_alterado_por_usuario_id_fkey FOREIGN KEY (alterado_por_usuario_id) REFERENCES public.usuarios(id),
+  CONSTRAINT pedidos_compra_status_historico_pedido_compra_id_fkey FOREIGN KEY (pedido_compra_id) REFERENCES public.pedidos_compra(id)
 );
 CREATE TABLE public.permissoes (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -361,6 +396,8 @@ CREATE TABLE public.pontos (
   tipo_registro text,
   observacao text,
   created_at timestamp without time zone DEFAULT now(),
+  abonado boolean DEFAULT false,
+  motivo_abono text,
   CONSTRAINT pontos_pkey PRIMARY KEY (id),
   CONSTRAINT pontos_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id)
 );
@@ -395,7 +432,7 @@ CREATE TABLE public.usuarios (
   funcao_id bigint,
   avatar_url text,
   CONSTRAINT usuarios_pkey PRIMARY KEY (id),
-  CONSTRAINT usuarios_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
+  CONSTRAINT usuarios_funcao_id_fkey FOREIGN KEY (funcao_id) REFERENCES public.funcoes(id),
   CONSTRAINT usuarios_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id),
-  CONSTRAINT usuarios_funcao_id_fkey FOREIGN KEY (funcao_id) REFERENCES public.funcoes(id)
+  CONSTRAINT usuarios_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );

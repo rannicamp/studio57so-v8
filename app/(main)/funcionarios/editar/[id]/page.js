@@ -14,14 +14,14 @@ export default async function EditarFuncionarioPage({ params }) {
     .eq('id', employeeId)
     .single();
 
-  // Se não encontrar o funcionário, mostra a página de erro 404
   if (error || !employee) {
     notFound();
   }
 
-  // Busca as listas de empresas e empreendimentos para os menus de seleção
+  // Busca as listas de empresas, empreendimentos e as NOVAS jornadas
   const { data: companies } = await supabase.from('cadastro_empresa').select('id, razao_social');
   const { data: empreendimentos } = await supabase.from('empreendimentos').select('id, nome');
+  const { data: jornadas } = await supabase.from('jornadas').select('*').order('nome_jornada');
 
   return (
     <div>
@@ -29,13 +29,11 @@ export default async function EditarFuncionarioPage({ params }) {
         &larr; Voltar para a Lista de Funcionários
       </Link>
       
-      {/* Aqui está a mágica: em vez de chamar a FichaFuncionario,
-        chamamos o FuncionarioForm, passando os dados do funcionário.
-      */}
       <FuncionarioForm
         initialData={employee}
         companies={companies || []}
         empreendimentos={empreendimentos || []}
+        jornadas={jornadas || []}
       />
     </div>
   );
