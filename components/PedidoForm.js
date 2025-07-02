@@ -68,7 +68,7 @@ export default function PedidoForm({ pedidoId }) {
 
     const fetchData = useCallback(async () => {
         setLoading(true);
-        const { data: pedidoData, error: pedidoError } = await supabase.from('pedidos_compra').select(`*, solicitante:solicitante_id(nome), empreendimentos(nome), itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(nome), etapa:etapa_id(nome_etapa)), historico:pedidos_compra_status_historico(*), anexos:pedidos_compra_anexos(*)`).eq('id', pedidoId).single();
+        const { data: pedidoData, error: pedidoError } = await supabase.from('pedidos_compra').select(`*, solicitante:solicitante_id(nome), empreendimentos(nome), itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(nome, razao_social, nome_fantasia), etapa:etapa_id(nome_etapa)), historico:pedidos_compra_status_historico(*), anexos:pedidos_compra_anexos(*)`).eq('id', pedidoId).single();
         if (pedidoError) { console.error(pedidoError); setMessage('Erro ao carregar os dados do pedido.'); setLoading(false); return; }
         setPedido(pedidoData); setItens(pedidoData.itens || []); setAnexos(pedidoData.anexos || []);
         if (pedidoData.historico) {
@@ -119,19 +119,19 @@ export default function PedidoForm({ pedidoId }) {
         if (error) setMessage(`Erro ao gerar link de download: ${error.message}`); else window.open(data.signedUrl, '_blank');
     }
     
+    // ***** INÍCIO DA NOVA LÓGICA DE SALVAMENTO *****
     const handleSaveItem = async (itemData) => {
         const isEditing = Boolean(itemData.id);
         let finalMaterialId = itemData.material_id;
 
-        // ***** INÍCIO DA NOVA LÓGICA *****
-        // Se o item não tem um ID de material, significa que é um novo material que precisa ser criado.
+        // Passo 1: Se for um item novo (sem ID de material), cria na tabela central 'materiais'
         if (!finalMaterialId) {
-            const { data: newMaterial, error: materialError } = await supabase
+             const { data: newMaterial, error: materialError } = await supabase
                 .from('materiais')
                 .insert({
                     descricao: itemData.descricao_item,
                     unidade_medida: itemData.unidade_medida,
-                    Origem: 'Manual' // Adiciona a origem "Manual" automaticamente
+                    Origem: 'Manual' // Define a origem como Manual
                 })
                 .select()
                 .single();
@@ -141,30 +141,34 @@ export default function PedidoForm({ pedidoId }) {
             }
             finalMaterialId = newMaterial.id;
         }
-        // ***** FIM DA NOVA LÓGICA *****
 
+        // Passo 2: Prepara o item do pedido com o ID do material (novo ou existente)
         const dataToUpsert = {
             ...itemData,
-            material_id: finalMaterialId, // Usa o ID (existente ou recém-criado)
+            material_id: finalMaterialId,
             pedido_compra_id: pedidoId,
             quantidade_solicitada: parseFloat(itemData.quantidade_solicitada) || 0,
             preco_unitario_real: itemData.preco_unitario_real === '' || itemData.preco_unitario_real === null ? null : parseFloat(itemData.preco_unitario_real),
-            custo_total_real: (parseFloat(itemData.preco_unitario_real) || 0) * (parseFloat(itemData.quantidade_solicitada) || 0)
         };
-        delete dataToUpsert.id; // Remove o ID do item para garantir que o BD gere um novo se necessário
+        dataToUpsert.custo_total_real = (dataToUpsert.preco_unitario_real || 0) * (dataToUpsert.quantidade_solicitada || 0);
         
+        // Passo 3: Salva o item na tabela 'pedidos_compra_itens'
         let error;
         if(isEditing) {
+            delete dataToUpsert.fornecedor_nome; // Remove campo auxiliar
             const { error: updateError } = await supabase.from('pedidos_compra_itens').update(dataToUpsert).eq('id', itemData.id);
             error = updateError;
         } else {
+            delete dataToUpsert.id; 
+            delete dataToUpsert.fornecedor_nome;
             const { error: insertError } = await supabase.from('pedidos_compra_itens').insert(dataToUpsert);
             error = insertError;
         }
 
-        if (error) { return { success: false, error: error.message }; } 
+        if (error) { return { success: false, error: "Falha ao salvar o item no pedido: " + error.message }; } 
         else { setMessage(`Item ${isEditing ? 'atualizado' : 'adicionado'} com sucesso!`); fetchData(); return { success: true }; }
     };
+    // ***** FIM DA NOVA LÓGICA DE SALVAMENTO *****
 
     const handleRemoveItem = async (itemId) => {
         if (!window.confirm('Tem certeza que deseja remover este item?')) return;
@@ -174,11 +178,7 @@ export default function PedidoForm({ pedidoId }) {
     };
 
     const handleSelectionChange = (itemId) => {
-        setSelectedItems(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(itemId)) newSet.delete(itemId); else newSet.add(itemId);
-            return newSet;
-        });
+        setSelectedItems(prev => { const newSet = new Set(prev); if (newSet.has(itemId)) newSet.delete(itemId); else newSet.add(itemId); return newSet; });
     };
     const handleDecompose = async () => {
         if (selectedItems.size === 0) { alert('Selecione pelo menos um item para decompor.'); return; }
@@ -201,10 +201,7 @@ export default function PedidoForm({ pedidoId }) {
     if (!pedido) return <div className="text-center py-10">Pedido não encontrado.</div>;
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-    const getSortIcon = (key) => {
-        if (sortConfig.key !== key) return <FontAwesomeIcon icon={faSort} className="text-gray-400" />;
-        return sortConfig.direction === 'ascending' ? <FontAwesomeIcon icon={faSortUp} /> : <FontAwesomeIcon icon={faSortDown} />;
-    };
+    const getSortIcon = (key) => { if (sortConfig.key !== key) return <FontAwesomeIcon icon={faSort} className="text-gray-400" />; return sortConfig.direction === 'ascending' ? <FontAwesomeIcon icon={faSortUp} /> : <FontAwesomeIcon icon={faSortDown} />; };
 
     return (
         <>
@@ -240,7 +237,7 @@ export default function PedidoForm({ pedidoId }) {
                                 {sortedItens.length === 0 ? (<tr><td colSpan="7" className="text-center py-6 text-gray-500">Nenhum item adicionado.</td></tr>) : (sortedItens.map(item => (<tr key={item.id} className={selectedItems.has(item.id) ? 'bg-blue-50' : ''}>
                                     <td className="p-2 w-10"><input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => handleSelectionChange(item.id)} /></td>
                                     <td className="p-2 font-medium">{item.descricao_item}</td>
-                                    <td className="p-2 text-sm text-gray-600">{item.fornecedor?.nome || 'Não definido'}</td>
+                                    <td className="p-2 text-sm text-gray-600">{item.fornecedor?.razao_social || item.fornecedor?.nome || 'Não definido'}</td>
                                     <td className="p-2 text-center">{item.quantidade_solicitada} {item.unidade_medida}</td>
                                     <td className="p-2 text-right">{formatCurrency(item.preco_unitario_real)}</td>
                                     <td className="p-2 text-right font-semibold">{formatCurrency(item.custo_total_real)}</td>
