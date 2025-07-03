@@ -5,6 +5,7 @@ import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile, faPlusCircle, faCalendarAlt, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import AbonoModal from './AbonoModal';
+import Link from 'next/link'; // This line was added to fix the error
 
 // --- Componentes Auxiliares ---
 const InfoField = ({ label, value }) => (<div><dt className="text-sm font-medium text-gray-500">{label}</dt><dd className="mt-1 text-sm text-gray-900">{value || 'N/A'}</dd></div>);
