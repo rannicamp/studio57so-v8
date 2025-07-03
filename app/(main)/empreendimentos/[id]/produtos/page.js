@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../../../../../utils/supabase/client';
 import Link from 'next/link';
 import { useParams, notFound } from 'next/navigation';
 import ProdutoList from '../../../../../components/ProdutoList';
 import CondicoesPagamento from '../../../../../components/CondicoesPagamento';
 import TabelaVenda from '../../../../../components/TabelaVenda';
-import Accordion from '../../../../../components/Accordion'; // Importando o novo componente
+import Accordion from '../../../../../components/Accordion';
+import KpiCard from '../../../../../components/KpiCard'; // Importando o KpiCard
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faChartLine, faTags, faTag, faCheckCircle, faLockOpen, faBullseye } from '@fortawesome/free-solid-svg-icons';
 
 export default function ProdutosPage() {
     const supabase = createClient();
@@ -39,6 +40,29 @@ export default function ProdutosPage() {
 
     useEffect(() => { if (empreendimentoId) fetchData(); }, [empreendimentoId, fetchData]);
 
+    const kpiData = useMemo(() => {
+        const totalUnidades = produtos.length;
+        if (totalUnidades === 0) {
+            return { vgvTotal: 'R$ 0,00', totalUnidades: 0, unidadesVendidas: 0, unidadesDisponiveis: 0, unidadesReservadas: 0, taxaVendas: '0.00%', ticketMedio: 'R$ 0,00' };
+        }
+
+        const vendidas = produtos.filter(p => p.status === 'Vendido');
+        const reservadas = produtos.filter(p => p.status === 'Reservado');
+        
+        const vgvTotal = produtos.reduce((acc, p) => acc + (parseFloat(p.valor_venda_calculado) || 0), 0);
+        const valorVendido = vendidas.reduce((acc, p) => acc + (parseFloat(p.valor_venda_calculado) || 0), 0);
+        
+        return {
+            vgvTotal: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(vgvTotal),
+            totalUnidades,
+            unidadesVendidas: vendidas.length,
+            unidadesDisponiveis: totalUnidades - vendidas.length - reservadas.length,
+            unidadesReservadas: reservadas.length,
+            taxaVendas: `${((vendidas.length / totalUnidades) * 100).toFixed(2)}%`,
+            ticketMedio: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorVendido / vendidas.length || 0),
+        };
+    }, [produtos]);
+
     if (loading || !empreendimento) {
         return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
     }
@@ -53,6 +77,14 @@ export default function ProdutosPage() {
                     Comercialização de: <span className="text-blue-600">{empreendimento.nome}</span>
                 </h1>
             </div>
+
+            {/* Nova Seção de KPIs */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <KpiCard title="VGV Total" value={kpiData.vgvTotal} icon={faChartLine} color="blue" />
+                <KpiCard title="Unidades Vendidas" value={`${kpiData.unidadesVendidas} / ${kpiData.totalUnidades}`} icon={faTag} color="green" />
+                <KpiCard title="Unidades Reservadas" value={kpiData.unidadesReservadas} icon={faBullseye} color="yellow" />
+                <KpiCard title="Taxa de Vendas" value={kpiData.taxaVendas} icon={faTags} color="purple" />
+            </div>
             
             <Accordion title="1. Produtos e Preços" startOpen={true}>
                 <ProdutoList 
@@ -63,7 +95,7 @@ export default function ProdutosPage() {
                 />
             </Accordion>
 
-            <Accordion title="2. Condições de Pagamento" startOpen={true}>
+            <Accordion title="2. Condições de Pagamento" startOpen={false}>
                 <CondicoesPagamento
                     empreendimentoId={empreendimentoId}
                     initialConfig={config}
@@ -71,7 +103,7 @@ export default function ProdutosPage() {
                 />
             </Accordion>
             
-            <Accordion title="3. Tabela de Venda (Simulação)" startOpen={true}>
+            <Accordion title="3. Tabela de Venda (Simulação)" startOpen={false}>
                 <TabelaVenda 
                     produtos={produtos}
                     config={config}
