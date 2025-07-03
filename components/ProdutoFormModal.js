@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { IMaskInput } from 'react-imask';
 
 export default function ProdutoFormModal({ isOpen, onClose, onSave, produtoToEdit }) {
     const isEditing = Boolean(produtoToEdit);
@@ -27,6 +28,10 @@ export default function ProdutoFormModal({ isOpen, onClose, onSave, produtoToEdi
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleMaskedChange = (name, value) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -43,7 +48,7 @@ export default function ProdutoFormModal({ isOpen, onClose, onSave, produtoToEdi
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
                 <h3 className="text-xl font-bold mb-4">
-                    {isEditing ? `Editar Produto (Unidade ${produtoToEdit.unidade})` : 'Adicionar Novo Produto'}
+                    {isEditing ? `Editar Produto (Unidade ${produtoToEdit?.unidade || ''})` : 'Adicionar Novo Produto'}
                 </h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -58,16 +63,44 @@ export default function ProdutoFormModal({ isOpen, onClose, onSave, produtoToEdi
                     </div>
                     <div>
                         <label className="block text-sm font-medium">Área (m²) *</label>
-                        <input type="number" step="0.01" name="area_m2" value={formData.area_m2 || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md" />
+                        <IMaskInput
+                            mask={Number}
+                            radix=","
+                            scale={2}
+                            thousandsSeparator="."
+                            padFractionalZeros
+                            name="area_m2"
+                            value={String(formData.area_m2 || '')}
+                            onAccept={(unmasked) => handleMaskedChange('area_m2', unmasked)}
+                            required
+                            className="mt-1 w-full p-2 border rounded-md"
+                        />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium">Valor Base (R$) *</label>
-                            <input type="number" step="0.01" name="valor_base" value={formData.valor_base || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md" />
+                            <label className="block text-sm font-medium">Valor Base (R$)</label>
+                             <IMaskInput
+                                mask="R$ num"
+                                blocks={{
+                                    num: { mask: Number, thousandsSeparator: '.', radix: ',', scale: 2, padFractionalZeros: true }
+                                }}
+                                name="valor_base"
+                                value={String(formData.valor_base || '')}
+                                onAccept={(unmasked) => handleMaskedChange('valor_base', unmasked)}
+                                className="mt-1 w-full p-2 border rounded-md"
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium">Fator de Reajuste (%)</label>
-                            <input type="number" step="0.1" name="fator_reajuste_percentual" value={formData.fator_reajuste_percentual || 0} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
+                            <IMaskInput
+                                mask={Number}
+                                radix=","
+                                scale={2}
+                                name="fator_reajuste_percentual"
+                                value={String(formData.fator_reajuste_percentual || 0)}
+                                onAccept={(unmasked) => handleMaskedChange('fator_reajuste_percentual', unmasked)}
+                                className="mt-1 w-full p-2 border rounded-md"
+                            />
                         </div>
                     </div>
                     <div>
