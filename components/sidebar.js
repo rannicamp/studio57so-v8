@@ -12,13 +12,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
   const mainNavItems = [
     { href: '/', label: 'Dashboard', icon: faTachometerAlt },
     { href: '/perfil', label: 'Meu Perfil', icon: faUserCog },
-    // ATUALIZADO: O link de tarefas foi unificado para /atividades
     { href: '/atividades', label: 'Painel de Atividades', icon: faTasks },
     { href: '/contatos', label: 'Contatos', icon: faAddressBook },
     { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart },
     { href: '/orcamento', label: 'Planilha Orçamentária', icon: faDollarSign },
     { href: '/empresas', label: 'Empresas', icon: faBuilding },
-    { href: '/empreendimentos/cadastro', label: 'Cadastro de Empreendimento', icon: faProjectDiagram },
+    // A LINHA ABAIXO É A NOVIDADE
+    { href: '/empreendimentos', label: 'Gerenciar Empreendimentos', icon: faProjectDiagram },
     { href: '/funcionarios', label: 'Funcionários', icon: faUsers },
     { href: '/rdo/gerenciador', label: 'Diário de Obra (RDO)', icon: faClipboardList },
     { href: '/ponto', label: 'Controle de Ponto', icon: faClock },
