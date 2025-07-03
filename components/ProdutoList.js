@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faSpinner, faCopy, faSort, faSortUp, faSortDown, faSave, faPercentage } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faSpinner, faCopy, faSort, faSortUp, faSortDown, faSave } from '@fortawesome/free-solid-svg-icons';
 import ProdutoFormModal from './ProdutoFormModal';
 import { IMaskInput } from 'react-imask';
 
@@ -15,58 +15,148 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduto, setEditingProduto] = useState(null);
     const [sortConfig, setSortConfig] = useState({ key: 'unidade', direction: 'ascending' });
-    const [calculationMethod, setCalculationMethod] = useState('global');
-    const [globalValorBase, setGlobalValorBase] = useState('');
     const [valorCub, setValorCub] = useState('');
+    const [editingCell, setEditingCell] = useState(null);
 
     useEffect(() => {
         setProdutos(initialProdutos || []);
-        if (initialProdutos && initialProdutos.length > 0) { setGlobalValorBase(String(initialProdutos[0].valor_base || '')); }
-        if (initialConfig) { setValorCub(String(initialConfig.valor_cub || '')); }
+        if (initialConfig) {
+            setValorCub(String(initialConfig.valor_cub || ''));
+        }
     }, [initialProdutos, initialConfig]);
 
-    // Funções de ordenação, modal, exclusão, etc. (sem alterações)
+    const fetchProdutos = async () => { setLoading(true); const { data, error } = await supabase.from('produtos_empreendimento').select('*').eq('empreendimento_id', empreendimentoId).order('unidade'); if (error) { setMessage('Erro: ' + error.message); } else { setProdutos(data || []); } setLoading(false); };
     const requestSort = (key) => { let d = 'ascending'; if (sortConfig.key === key && sortConfig.direction === 'ascending') d = 'descending'; setSortConfig({ key, d }); };
     const sortedProdutos = useMemo(() => { const i = Array.isArray(produtos) ? [...produtos] : []; if (sortConfig.key) { i.sort((a, b) => { const vA = a[sortConfig.key], vB = b[sortConfig.key]; if (vA == null) return 1; if (vB == null) return -1; if (typeof vA === 'number') return sortConfig.direction === 'ascending' ? vA - vB : vB - vA; return sortConfig.direction === 'ascending' ? String(vA).localeCompare(String(vB)) : String(vB).localeCompare(String(vA)); }); } return i; }, [produtos, sortConfig]);
-    const fetchProdutos = async () => { setLoading(true); const { data, error } = await supabase.from('produtos_empreendimento').select('*').eq('empreendimento_id', empreendimentoId).order('unidade'); if (error) { setMessage('Erro: ' + error.message); } else { setProdutos(data || []); } setLoading(false); };
     const handleOpenModal = (produto = null) => { setEditingProduto(produto); setIsModalOpen(true); };
     const handleDuplicate = (produto) => { const p = { ...produto, id: null, unidade: `${produto.unidade}-Copia` }; setEditingProduto(p); setIsModalOpen(true); };
     const handleDelete = async (id) => { if (!window.confirm("Tem certeza?")) return; const { error } = await supabase.from('produtos_empreendimento').delete().eq('id', id); if (error) alert("Erro: " + error.message); else setProdutos(produtos.filter(p => p.id !== id)); };
-    const handleSaveFromModal = async (formData) => { setLoading(true); const isEditing = Boolean(formData.id); const valorBase = parseFloat(formData.valor_base) || 0; const fatorReajuste = parseFloat(formData.fator_reajuste_percentual) || 0; formData.valor_venda_calculado = valorBase * (1 + (fatorReajuste / 100)); const { id, ...dataToSave } = formData; let error; if (isEditing) { const { error: e } = await supabase.from('produtos_empreendimento').update(dataToSave).eq('id', id); error = e; } else { const { error: e } = await supabase.from('produtos_empreendimento').insert({ ...dataToSave, empreendimento_id: empreendimentoId }); error = e; } if (error) { setMessage('Erro: ' + error.message); setLoading(false); return false; } else { setMessage(`Produto salvo!`); await fetchProdutos(); setLoading(false); setTimeout(() => setMessage(''), 3000); return true; } };
 
-    // Lógica de atualização ajustada
-    const handleUpdateAllValorBase = async () => {
-        const novoValor = parseFloat(globalValorBase.replace(/\D/g, '')) / 100;
-        if (isNaN(novoValor)) { setMessage("Insira um Preço Base válido."); return; }
-        if (!window.confirm("Isso atualizará o Preço Base para TODOS os produtos. Continuar?")) return;
-        setLoading(true); setMessage("Atualizando...");
-        const { error } = await supabase.rpc('atualizar_valor_base_produtos', { p_empreendimento_id: empreendimentoId, p_novo_valor_base: novoValor });
-        if (error) { setMessage("Erro ao atualizar: " + error.message); }
-        else { setMessage("Produtos atualizados!"); await fetchProdutos(); }
-        setLoading(false);
+    const handleSaveFromModal = async (formData) => {
+        setLoading(true);
+        const isEditing = Boolean(formData.id);
+        const valorBase = parseFloat(String(formData.valor_base).replace(/[^0-9,-]+/g, "").replace(",", ".")) || 0;
+        const fatorReajuste = parseFloat(formData.fator_reajuste_percentual) || 0;
+        formData.valor_venda_calculado = valorBase * (1 + (fatorReajuste / 100));
+        
+        const { id, ...dataToSave } = formData;
+        let error;
+        if (isEditing) {
+            ({ error } = await supabase.from('produtos_empreendimento').update(dataToSave).eq('id', id));
+        } else {
+            ({ error } = await supabase.from('produtos_empreendimento').insert({ ...dataToSave, empreendimento_id: empreendimentoId }));
+        }
+
+        if (error) { setMessage('Erro: ' + error.message); setLoading(false); return false; } 
+        else { setMessage(`Produto salvo!`); await fetchProdutos(); setLoading(false); setTimeout(() => setMessage(''), 3000); return true; }
     };
 
+    // ***** INÍCIO DA CORREÇÃO DEFINITIVA *****
     const handleUpdateValorCub = async () => {
         const novoValorCub = parseFloat(valorCub.replace(/\D/g, '')) / 100;
-        if (isNaN(novoValorCub)) { setMessage("Insira um valor de CUB válido."); return; }
-        if (!window.confirm("Isso irá recalcular o Preço Base de TODOS os produtos usando o CUB. Continuar?")) return;
-        setLoading(true); setMessage("Atualizando com base no CUB...");
+        if (isNaN(novoValorCub) || novoValorCub <= 0) {
+            setMessage("Insira um valor de CUB válido.");
+            return;
+        }
+        if (!window.confirm("Isso irá recalcular o Preço Base de TODOS os produtos usando a fórmula (CUB x Área). Continuar?")) return;
         
-        // CORREÇÃO: Chama a nova função e usa o retorno para atualizar o estado
-        const { data: updatedProdutos, error } = await supabase.rpc('aplicar_cub_e_retornar_produtos', {
-            p_empreendimento_id: empreendimentoId,
-            p_novo_valor_cub: novoValorCub
+        setLoading(true);
+        setMessage("Calculando e atualizando produtos...");
+
+        // 1. Calcula os novos valores para todos os produtos DIRETAMENTE AQUI
+        const updates = produtos.map(produto => {
+            const area = parseFloat(produto.area_m2) || 0;
+            const fator = parseFloat(produto.fator_reajuste_percentual) || 0;
+            const novoValorBase = area * novoValorCub;
+            
+            return {
+                id: produto.id, // ID é crucial para o `upsert` saber qual linha atualizar
+                valor_base: novoValorBase,
+                valor_venda_calculado: novoValorBase * (1 + (fator / 100))
+            };
         });
+
+        // 2. Envia todas as atualizações de uma vez para o banco de dados
+        const { error } = await supabase.from('produtos_empreendimento').upsert(updates);
 
         if (error) {
             setMessage("Erro ao reajustar produtos: " + error.message);
         } else {
             setMessage("Produtos atualizados com sucesso!");
-            setProdutos(updatedProdutos || []); // Atualiza a tabela com os dados retornados pela função
+            // 3. Busca os dados atualizados do banco para garantir que a tela reflita a realidade
+            await fetchProdutos(); 
         }
         setLoading(false);
     };
+    // ***** FIM DA CORREÇÃO DEFINITIVA *****
+    
+    const handleCellClick = (rowId, field) => { setEditingCell({ rowId, field }); };
 
+    const handleInlineUpdate = async (productId, field, value) => {
+        const produtoOriginal = produtos.find(p => p.id === productId);
+        if (!produtoOriginal) return;
+
+        let finalValue = value;
+        if (field === 'area_m2' || field === 'fator_reajuste_percentual') {
+            finalValue = parseFloat(String(value).replace(/[^0-9,.]+/g, "").replace(",", ".")) || 0;
+        }
+        
+        const updateData = { [field]: finalValue };
+        
+        const area = field === 'area_m2' ? finalValue : parseFloat(produtoOriginal.area_m2);
+        const fatorReajuste = field === 'fator_reajuste_percentual' ? finalValue : parseFloat(produtoOriginal.fator_reajuste_percentual);
+        
+        if (field === 'area_m2') {
+            const cubAtual = parseFloat(valorCub.replace(/\D/g, '')) / 100 || 0;
+            if(cubAtual > 0) {
+              updateData.valor_base = area * cubAtual;
+            }
+        }
+
+        const valorBase = updateData.valor_base || parseFloat(produtoOriginal.valor_base);
+        updateData.valor_venda_calculado = valorBase * (1 + (fatorReajuste / 100));
+
+        const { error } = await supabase.from('produtos_empreendimento').update(updateData).eq('id', productId);
+
+        if (error) {
+            setMessage(`Erro ao atualizar: ${error.message}`);
+        } else {
+            setProdutos(prev => prev.map(p => p.id === productId ? { ...p, ...updateData } : p));
+        }
+        setEditingCell(null);
+    };
+
+    const renderEditableCell = (produto, field, formatFn) => {
+        if (editingCell?.rowId === produto.id && editingCell?.field === field) {
+            if (field === 'status') {
+                return (
+                    <select
+                        defaultValue={produto[field]}
+                        onBlur={(e) => handleInlineUpdate(produto.id, field, e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingCell(null); }}
+                        autoFocus
+                        className="p-1 border rounded-md w-full bg-yellow-50"
+                    >
+                        <option>Disponível</option>
+                        <option>Reservado</option>
+                        <option>Vendido</option>
+                    </select>
+                );
+            }
+            return (
+                <input
+                    type="text"
+                    defaultValue={produto[field]}
+                    onBlur={(e) => handleInlineUpdate(produto.id, field, e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingCell(null); }}
+                    autoFocus
+                    className="p-1 border rounded-md w-full bg-yellow-50 text-right"
+                />
+            );
+        }
+        return <div className="cursor-pointer" onClick={() => handleCellClick(produto.id, field)}>{formatFn ? formatFn(produto[field]) : produto[field]}</div>;
+    };
+    
     const formatCurrency = (value) => value == null || isNaN(value) ? 'N/A' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
     const SortableHeader = ({ sortKey, label, className = '' }) => {
         const icon = sortConfig.key === sortKey ? (sortConfig.direction === 'ascending' ? faSortUp : faSortDown) : faSort;
@@ -78,20 +168,21 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
             <ProdutoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveFromModal} produtoToEdit={editingProduto} />
 
             <div className="flex flex-wrap justify-between items-end gap-4 p-4 bg-gray-50 rounded-lg border">
-                <div className="flex-grow flex flex-wrap items-end gap-6">
-                    <div>
-                        <label className="flex items-center gap-2 cursor-pointer mb-2"><input type="radio" name="calc_method" value="global" checked={calculationMethod === 'global'} onChange={(e) => setCalculationMethod(e.target.value)} /><span className="font-semibold text-gray-700 text-sm">Preço Base Fixo</span></label>
-                        <div className="flex items-center gap-2"><IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', radix: ',', scale: 2, padFractionalZeros: true }}} value={globalValorBase} onAccept={(value) => setGlobalValorBase(value)} disabled={calculationMethod !== 'global'} className="p-2 border rounded-md shadow-sm w-48 disabled:bg-gray-200" /><button onClick={handleUpdateAllValorBase} disabled={loading || calculationMethod !== 'global'} className="bg-green-600 text-white px-3 py-2 rounded-md shadow-sm hover:bg-green-700 flex items-center gap-2 disabled:bg-gray-400 text-sm"><FontAwesomeIcon icon={faSave} /> Aplicar</button></div>
-                    </div>
-                    <div>
-                        <label className="flex items-center gap-2 cursor-pointer mb-2"><input type="radio" name="calc_method" value="cub" checked={calculationMethod === 'cub'} onChange={(e) => setCalculationMethod(e.target.value)} /><span className="font-semibold text-gray-700 text-sm">CUB/m²</span></label>
-                        <div className="flex items-center gap-2"><IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', radix: ',', scale: 2, padFractionalZeros: true }}} value={valorCub} onAccept={(value) => setValorCub(value)} disabled={calculationMethod !== 'cub'} className="p-2 border rounded-md shadow-sm w-48 disabled:bg-gray-200" /><button onClick={handleUpdateValorCub} disabled={loading || calculationMethod !== 'cub'} className="bg-green-600 text-white px-3 py-2 rounded-md shadow-sm hover:bg-green-700 flex items-center gap-2 disabled:bg-gray-400 text-sm"><FontAwesomeIcon icon={faSave} /> Aplicar</button></div>
+                 <div>
+                    <label className="flex items-center gap-2 cursor-pointer mb-2">
+                        <span className="font-semibold text-gray-700 text-sm">CUB/m²</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                        <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', radix: ',', scale: 2, padFractionalZeros: true }}} value={valorCub} onAccept={(value) => setValorCub(value)} className="p-2 border rounded-md shadow-sm w-48" />
+                        <button onClick={handleUpdateValorCub} disabled={loading} className="bg-green-600 text-white px-3 py-2 rounded-md shadow-sm hover:bg-green-700 flex items-center gap-2 disabled:bg-gray-400 text-sm">
+                            <FontAwesomeIcon icon={faSave} /> Aplicar CUB
+                        </button>
                     </div>
                 </div>
                 <button onClick={() => handleOpenModal()} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center gap-2 self-end"><FontAwesomeIcon icon={faPlus} />Adicionar Produto</button>
             </div>
 
-            {message && <p className="text-center p-2 bg-green-50 text-green-700 rounded-md text-sm">{message}</p>}
+            {message && <p className="text-center p-2 bg-blue-100 text-blue-800 rounded-md text-sm">{message}</p>}
             
             <div className="overflow-x-auto border rounded-lg">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -116,15 +207,16 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
                                 const precoPorM2 = (produto.area_m2 && produto.area_m2 > 0) ? produto.valor_venda_calculado / produto.area_m2 : 0;
                                 return (
                                 <tr key={produto.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-2 font-semibold">{produto.unidade}</td>
-                                    <td className="px-4 py-2">{produto.tipo}</td>
-                                    <td className="px-4 py-2 text-right">{produto.area_m2}</td>
-                                    <td className="px-4 py-2 text-right">{formatCurrency(produto.valor_base)}</td>
-                                    <td className="px-4 py-2 text-right">{produto.fator_reajuste_percentual}%</td>
+                                    <td className="px-4 py-2 font-semibold">{renderEditableCell(produto, 'unidade')}</td>
+                                    <td className="px-4 py-2">{renderEditableCell(produto, 'tipo')}</td>
+                                    <td className="px-4 py-2 text-right">{renderEditableCell(produto, 'area_m2')}</td>
+                                    <td className="px-4 py-2 text-right text-gray-600">{formatCurrency(produto.valor_base)}</td>
+                                    <td className="px-4 py-2 text-right">{renderEditableCell(produto, 'fator_reajuste_percentual', (v) => `${v}%`)}</td>
                                     <td className="px-4 py-2 text-right text-gray-600 bg-gray-50">{formatCurrency(precoPorM2)}</td>
                                     <td className="px-4 py-2 text-right font-semibold bg-gray-50">{formatCurrency(produto.valor_venda_calculado)}</td>
-                                    <td className="px-4 py-2 text-center">{produto.status}</td>
+                                    <td className="px-4 py-2 text-center">{renderEditableCell(produto, 'status')}</td>
                                     <td className="px-4 py-2 text-center space-x-2">
+                                        <button onClick={() => handleOpenModal(produto)} title="Editar no Modal" className="text-blue-500 hover:text-blue-700"><FontAwesomeIcon icon={faEdit} /></button>
                                         <button onClick={() => handleDuplicate(produto)} title="Duplicar" className="text-gray-500 hover:text-gray-700"><FontAwesomeIcon icon={faCopy} /></button>
                                         <button onClick={() => handleDelete(produto.id)} title="Excluir" className="text-red-500 hover:text-red-700"><FontAwesomeIcon icon={faTrash} /></button>
                                     </td>
