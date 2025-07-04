@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faReceipt, faCalendarAlt, faRetweet, faExchangeAlt, faArrowUp, faArrowDown, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faReceipt, faCalendarAlt, faRetweet, faExchangeAlt, faArrowUp, faArrowDown, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 
 // Botão para alternar entre os tipos de lançamento
@@ -33,6 +33,7 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     );
 };
 
+
 export default function LancamentoFormModal({ isOpen, onClose, onSave, initialData }) {
     const supabase = createClient();
     const isEditing = Boolean(initialData?.id);
@@ -56,6 +57,8 @@ export default function LancamentoFormModal({ isOpen, onClose, onSave, initialDa
     const [favorecidoSearchTerm, setFavorecidoSearchTerm] = useState('');
     const [favorecidoSearchResults, setFavorecidoSearchResults] = useState([]);
     const [isSearchingFavorecido, setIsSearchingFavorecido] = useState(false);
+    const [isAddingNewFavorecido, setIsAddingNewFavorecido] = useState(false);
+    const [newFavorecidoData, setNewFavorecidoData] = useState({ nome: '', tipo_contato: 'Contato' });
 
     useEffect(() => {
         const fetchDropdownData = async () => {
@@ -80,6 +83,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSave, initialDa
                 setFormData(getInitialState());
                 setFavorecidoSearchTerm('');
                 setFavorecidoSearchResults([]);
+                setIsAddingNewFavorecido(false);
             }
         }
     }, [isOpen, isEditing, initialData, supabase]);
@@ -102,9 +106,8 @@ export default function LancamentoFormModal({ isOpen, onClose, onSave, initialDa
             return;
         }
         setIsSearchingFavorecido(true);
-        const { data, error } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term });
-        if (error) console.error(error);
-        else setFavorecidoSearchResults(data || []);
+        const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term });
+        setFavorecidoSearchResults(data || []);
         setIsSearchingFavorecido(false);
     };
 
@@ -118,19 +121,29 @@ export default function LancamentoFormModal({ isOpen, onClose, onSave, initialDa
         setFormData(prev => ({...prev, favorecido_contato_id: null}));
         setFavorecidoSearchTerm('');
         setFavorecidoSearchResults([]);
+        setIsAddingNewFavorecido(false);
+    };
+
+    const handleAddNewFavorecido = () => {
+        setIsAddingNewFavorecido(true);
+        setNewFavorecidoData({ nome: favorecidoSearchTerm, tipo_contato: 'Fornecedor' });
+        setFavorecidoSearchResults([]);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        const valorNumerico = parseFloat(String(formData.valor).replace(/[^0-9,.]/g, '').replace('.', '').replace(',', '.')) || 0;
-        const success = await onSave({ ...formData, valor: valorNumerico });
+        let dataToSend = { ...formData };
+        if (isAddingNewFavorecido) {
+            dataToSend.novo_favorecido = newFavorecidoData;
+        }
+        dataToSend.valor = parseFloat(String(formData.valor).replace(/[^0-9,.]/g, '').replace('.', '').replace(',', '.')) || 0;
+        const success = await onSave(dataToSend);
         setLoading(false);
         if (success) onClose();
     };
 
     if (!isOpen) return null;
-
     const filteredCategorias = categorias.filter(c => c.tipo === formData.tipo);
 
     return (
@@ -140,12 +153,14 @@ export default function LancamentoFormModal({ isOpen, onClose, onSave, initialDa
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {!isEditing && (
                         <div className="grid grid-cols-2 gap-6 p-2 bg-gray-100 rounded-lg">
-                            <div className="flex flex-col gap-2"><label className="text-sm font-semibold text-center text-gray-600">Natureza</label>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-semibold text-center text-gray-600">Natureza</label>
                                 <TipoToggleButton label="Despesa" icon={faArrowDown} isActive={formData.tipo === 'Despesa'} onClick={() => handleChange({ target: { name: 'tipo', value: 'Despesa' }})} colorClass="bg-red-500 hover:bg-red-600" />
                                 <TipoToggleButton label="Receita" icon={faArrowUp} isActive={formData.tipo === 'Receita'} onClick={() => handleChange({ target: { name: 'tipo', value: 'Receita' }})} colorClass="bg-green-500 hover:bg-green-600" />
                                 <TipoToggleButton label="Transferência" icon={faExchangeAlt} isActive={formData.tipo === 'Transferência'} onClick={() => handleChange({ target: { name: 'tipo', value: 'Transferência' }})} colorClass="bg-yellow-500 hover:bg-yellow-600 text-gray-800" />
                             </div>
-                            <div className="flex flex-col gap-2"><label className="text-sm font-semibold text-center text-gray-600">Estrutura</label>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-semibold text-center text-gray-600">Estrutura</label>
                                 <TipoToggleButton label="Simples" icon={faReceipt} isActive={formData.form_type === 'simples'} onClick={() => handleChange({ target: { name: 'form_type', value: 'simples' }})} />
                                 <TipoToggleButton label="Parcelado" icon={faCalendarAlt} isActive={formData.form_type === 'parcelado'} onClick={() => handleChange({ target: { name: 'form_type', value: 'parcelado' }})} />
                                 <TipoToggleButton label="Recorrente" icon={faRetweet} isActive={formData.form_type === 'recorrente'} onClick={() => handleChange({ target: { name: 'form_type', value: 'recorrente' }})} />
@@ -155,29 +170,32 @@ export default function LancamentoFormModal({ isOpen, onClose, onSave, initialDa
                     
                     <div className="space-y-4 pt-4 border-t">
                         <input type="text" name="descricao" value={formData.descricao || ''} onChange={handleChange} required placeholder="Descrição do Lançamento *" className="w-full p-2 border rounded-md" />
-
-                        {/* --- CAMPOS PRINCIPAIS --- */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',' }}} name="valor" placeholder={`Valor ${formData.form_type === 'parcelado' ? 'Total' : ''} *`} value={String(formData.valor || '')} onAccept={(v) => setFormData(p => ({...p, valor: v}))} required className="w-full p-2 border rounded-md" />
-                            <input type="date" name="data_transacao" value={formData.data_transacao} onChange={handleChange} required className="w-full p-2 border rounded-md"/>
-                        </div>
-
-                        {/* --- SEÇÃO DE PARCELAMENTO --- */}
+                        
+                        {/* --- Seção de Parcelamento --- */}
                         {formData.form_type === 'parcelado' && !isEditing && (
                              <fieldset className="p-3 border rounded-lg bg-gray-50"><legend className="font-semibold px-2 text-sm text-gray-600">Detalhes do Parcelamento</legend>
-                                <div className="grid grid-cols-2 gap-4 pt-2">
-                                    <input type="number" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} min="2" required placeholder="Nº de Parcelas" className="w-full p-2 border rounded-md"/>
-                                    <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/>
+                                <div className="grid grid-cols-3 gap-4 pt-2">
+                                    <div><label className="block text-xs font-medium">Valor Total*</label><IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',' }}} name="valor" value={String(formData.valor || '')} onAccept={(v) => setFormData(p => ({...p, valor: v}))} required className="mt-1 w-full p-2 border rounded-md" /></div>
+                                    <div><label className="block text-xs font-medium">Nº de Parcelas*</label><input type="number" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} min="2" required className="mt-1 w-full p-2 border rounded-md"/></div>
+                                    <div><label className="block text-xs font-medium">1º Vencimento*</label><input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"/></div>
                                 </div>
                             </fieldset>
                         )}
                         
-                        {/* --- BLOCO DE ASSOCIAÇÃO - INCLUINDO FAVORECIDO --- */}
+                        {/* --- Lançamento Simples (ou edição) --- */}
+                        {formData.form_type === 'simples' && (
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label className="block text-sm font-medium">Valor *</label><IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',' }}} name="valor" value={String(formData.valor || '')} onAccept={(v) => setFormData(p => ({...p, valor: v}))} required className="w-full p-2 border rounded-md" /></div>
+                                <div><label className="block text-sm font-medium">Data de Vencimento *</label><input type="date" name="data_vencimento" value={formData.data_vencimento || formData.data_transacao} onChange={handleChange} required className="w-full p-2 border rounded-md"/></div>
+                             </div>
+                        )}
+                        
+                        {/* --- BLOCO DE ASSOCIAÇÃO FINAL --- */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {formData.tipo === 'Transferência' ? (
                                 <>
-                                    <div><label className="block text-sm font-medium">De (Origem)</label><select name="conta_id" value={formData.conta_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
-                                    <div><label className="block text-sm font-medium">Para (Destino)</label><select name="conta_destino_id" value={formData.conta_destino_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{contas.filter(c => c.id !== formData.conta_id).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
+                                    <div><label className="block text-sm font-medium">De (Origem)*</label><select name="conta_id" value={formData.conta_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
+                                    <div><label className="block text-sm font-medium">Para (Destino)*</label><select name="conta_destino_id" value={formData.conta_destino_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{contas.filter(c => c.id !== formData.conta_id).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
                                 </>
                             ) : (
                                 <>
@@ -194,6 +212,13 @@ export default function LancamentoFormModal({ isOpen, onClose, onSave, initialDa
                                                     <div className="text-xs text-gray-500">{c.detalhe}</div>
                                                 </li>)}
                                             </ul>
+                                        )}
+                                        {favorecidoSearchResults.length === 0 && !isSearchingFavorecido && favorecidoSearchTerm.length > 2 && (
+                                            <div className="absolute z-20 w-full bg-white border rounded-md mt-1 shadow-lg p-2">
+                                                <button type="button" onClick={handleAddNewFavorecido} className="w-full text-left text-blue-600 font-semibold flex items-center gap-2 p-2 hover:bg-blue-50 rounded-md">
+                                                    <FontAwesomeIcon icon={faPlus} /> Adicionar novo contato: "{favorecidoSearchTerm}"
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                     <div><label className="block text-sm font-medium">Empreendimento</label><select name="empreendimento_id" value={formData.empreendimento_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Nenhum</option>{empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></div>

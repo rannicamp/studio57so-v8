@@ -16,17 +16,13 @@ export default function LancamentosManager() {
 
     const fetchLancamentos = useCallback(async () => {
         setLoading(true);
-        // ATUALIZAÇÃO AQUI: A query agora busca também o nome do empreendimento e da empresa.
         const { data, error } = await supabase
             .from('lancamentos')
             .select(`
                 *,
                 conta:contas_financeiras(nome),
                 categoria:categorias_financeiras(nome),
-                empreendimento:empreendimentos(
-                    nome,
-                    empresa:cadastro_empresa(razao_social)
-                )
+                favorecido:favorecido_contato_id(nome, razao_social)
             `)
             .order('data_transacao', { ascending: false });
 
@@ -45,58 +41,61 @@ export default function LancamentosManager() {
     
     const handleSaveLancamento = async (formData) => {
         const isEditing = Boolean(formData.id);
-        
-        if (formData.form_type === 'parcelado') {
-            const numeroParcelas = parseInt(formData.numero_parcelas, 10);
-            const valorParcela = formData.valor / numeroParcelas;
-            const vencimentoInicial = new Date(formData.data_primeiro_vencimento + 'T12:00:00Z');
-            
+        let finalFormData = { ...formData };
+
+        if (formData.novo_favorecido && formData.novo_favorecido.nome) {
+            const { data: novoContato, error: contatoError } = await supabase
+                .from('contatos')
+                .insert({
+                    nome: formData.novo_favorecido.nome,
+                    tipo_contato: formData.novo_favorecido.tipo_contato,
+                    personalidade_juridica: 'Pessoa Física'
+                })
+                .select()
+                .single();
+            if (contatoError) { setMessage(`Erro ao criar novo contato: ${contatoError.message}`); return false; }
+            finalFormData.favorecido_contato_id = novoContato.id;
+        }
+
+        if (finalFormData.form_type === 'parcelado') {
+            const numeroParcelas = parseInt(finalFormData.numero_parcelas, 10);
+            const valorParcela = finalFormData.valor / numeroParcelas;
+            const vencimentoInicial = new Date(finalFormData.data_primeiro_vencimento + 'T12:00:00Z');
             let lancamentosParaCriar = [];
             for (let i = 0; i < numeroParcelas; i++) {
                 const dataVencimento = new Date(vencimentoInicial);
                 dataVencimento.setUTCMonth(dataVencimento.getUTCMonth() + i);
-
                 lancamentosParaCriar.push({
-                    descricao: formData.descricao,
-                    valor: valorParcela,
-                    data_transacao: formData.data_transacao,
-                    data_vencimento: dataVencimento.toISOString().split('T')[0],
-                    tipo: formData.tipo,
-                    status: 'Pendente',
-                    conta_id: formData.conta_id,
-                    categoria_id: formData.categoria_id,
-                    empreendimento_id: formData.empreendimento_id,
-                    etapa_id: formData.etapa_id,
-                    parcela_info: `${i + 1}/${numeroParcelas}`
+                    descricao: finalFormData.descricao, valor: valorParcela, data_transacao: finalFormData.data_transacao,
+                    data_vencimento: dataVencimento.toISOString().split('T')[0], tipo: finalFormData.tipo,
+                    status: 'Pendente', conta_id: finalFormData.conta_id, categoria_id: finalFormData.categoria_id,
+                    empreendimento_id: finalFormData.empreendimento_id, etapa_id: finalFormData.etapa_id,
+                    favorecido_contato_id: finalFormData.favorecido_contato_id, parcela_info: `${i + 1}/${numeroParcelas}`
                 });
             }
-            
             const { error } = await supabase.from('lancamentos').insert(lancamentosParaCriar);
             if (error) { setMessage(`Erro ao criar parcelas: ${error.message}`); return false; }
             setMessage(`${numeroParcelas} parcelas criadas com sucesso!`);
-        
-        } else if (formData.form_type === 'recorrente') {
+        } else if (finalFormData.form_type === 'recorrente') {
             const { error } = await supabase.from('recorrencias').insert({
-                descricao: formData.descricao, valor: formData.valor, frequencia: formData.frequencia,
-                data_inicio: formData.recorrencia_data_inicio, data_fim: formData.recorrencia_data_fim,
-                conta_id: formData.conta_id, categoria_id: formData.categoria_id,
-                empreendimento_id: formData.empreendimento_id, etapa_id: formData.etapa_id,
+                descricao: finalFormData.descricao, valor: finalFormData.valor, frequencia: finalFormData.frequencia,
+                data_inicio: finalFormData.recorrencia_data_inicio, data_fim: finalFormData.recorrencia_data_fim,
+                conta_id: finalFormData.conta_id, categoria_id: finalFormData.categoria_id,
+                empreendimento_id: finalFormData.empreendimento_id, etapa_id: finalFormData.etapa_id,
             });
             if (error) { setMessage(`Erro ao criar recorrência: ${error.message}`); return false; }
-            setMessage('Recorrência salva! Os lançamentos serão gerados futuramente.');
-
+            setMessage('Recorrência salva!');
         } else {
-             if (formData.tipo === 'Transferência') {
+             if (finalFormData.tipo === 'Transferência') {
                 const { error } = await supabase.rpc('realizar_transferencia', {
-                    p_descricao: formData.descricao, p_valor: formData.valor, p_data_transacao: formData.data_transacao,
-                    p_conta_origem_id: formData.conta_id, p_conta_destino_id: formData.conta_destino_id,
+                    p_descricao: finalFormData.descricao, p_valor: finalFormData.valor, p_data_transacao: finalFormData.data_transacao,
+                    p_conta_origem_id: finalFormData.conta_id, p_conta_destino_id: finalFormData.conta_destino_id,
                 });
                 if (error) { setMessage(`Erro na transferência: ${error.message}`); return false; }
                 setMessage('Transferência realizada com sucesso!');
             } else {
-                const dataToSave = { ...formData };
-                ['conta', 'categoria', 'conta_destino_id', 'form_type', 'is_parcelado', 'numero_parcelas', 'data_primeiro_vencimento', 'is_recorrente', 'frequencia', 'recorrencia_data_inicio', 'recorrencia_data_fim'].forEach(k => delete dataToSave[k]);
-                
+                const dataToSave = { ...finalFormData };
+                ['conta', 'categoria', 'favorecido', 'conta_destino_id', 'form_type', 'novo_favorecido', 'is_parcelado', 'numero_parcelas', 'data_primeiro_vencimento', 'is_recorrente', 'frequencia', 'recorrencia_data_inicio', 'recorrencia_data_fim'].forEach(k => delete dataToSave[k]);
                 let error;
                 if (isEditing) {
                     const { id, ...updateData } = dataToSave;
@@ -118,11 +117,10 @@ export default function LancamentosManager() {
     }
 
     const handleDeleteLancamento = async (id) => {
-        if (!window.confirm("Tem certeza que deseja excluir este lançamento?")) return;
-        const { error } = await supabase.from('lancamentos').delete().eq('id', id);
-        
-        if (error) { setMessage(`Erro ao excluir: ${error.message}`); } 
-        else { setMessage('Lançamento excluído.'); fetchLancamentos(); }
+        if (!window.confirm("Tem certeza?")) return;
+        await supabase.from('lancamentos').delete().eq('id', id);
+        setMessage('Lançamento excluído.');
+        fetchLancamentos();
     }
 
     const handleOpenAddModal = () => {
@@ -132,11 +130,11 @@ export default function LancamentosManager() {
 
     const handleOpenEditModal = (lancamento) => {
         if (lancamento.categoria === null && lancamento.descricao.toLowerCase().includes('transferência')) {
-            alert("Não é possível editar uma transferência. Por favor, exclua os dois lançamentos correspondentes e crie uma nova.");
+            alert("Não é possível editar uma transferência.");
             return;
         }
         if(lancamento.parcela_info) {
-            alert("Não é possível editar uma parcela individualmente. Exclua a série de parcelas e crie um novo lançamento parcelado se necessário.");
+            alert("Não é possível editar uma parcela individualmente.");
             return;
         }
         setEditingLancamento(lancamento);
@@ -168,9 +166,7 @@ export default function LancamentosManager() {
                             <tr>
                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase">Vencimento</th>
                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase">Descrição</th>
-                                <th className="px-4 py-3 text-left text-xs font-bold uppercase">Empresa</th>
-                                <th className="px-4 py-3 text-left text-xs font-bold uppercase">Empreendimento</th>
-                                <th className="px-4 py-3 text-left text-xs font-bold uppercase">Tipo</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold uppercase">Favorecido</th>
                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase">Categoria</th>
                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase">Conta</th>
                                 <th className="px-4 py-3 text-right text-xs font-bold uppercase">Valor</th>
@@ -179,22 +175,18 @@ export default function LancamentosManager() {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {lancamentos.length === 0 ? (
-                                <tr><td colSpan="9" className="text-center py-10 text-gray-500">Nenhum lançamento encontrado.</td></tr>
+                                <tr><td colSpan="7" className="text-center py-10 text-gray-500">Nenhum lançamento encontrado.</td></tr>
                             ) : lancamentos.map(item => (
                                 <tr key={item.id} className="hover:bg-gray-50">
                                     <td className="px-4 py-4 text-sm font-semibold">{formatDate(item.data_vencimento || item.data_transacao)}</td>
                                     <td className="px-4 py-4 text-sm font-medium">{item.descricao} {item.parcela_info && <span className="text-xs font-normal text-gray-500">({item.parcela_info})</span>}</td>
-                                    {/* NOVAS COLUNAS */}
-                                    <td className="px-4 py-4 text-sm text-gray-600">{item.empreendimento?.empresa?.razao_social || 'N/A'}</td>
-                                    <td className="px-4 py-4 text-sm text-gray-600">{item.empreendimento?.nome || 'N/A'}</td>
-                                    <td className="px-4 py-4 text-sm">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${item.tipo === 'Receita' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                            {item.tipo}
-                                        </span>
-                                    </td>
+                                    <td className="px-4 py-4 text-sm">{item.favorecido?.nome || item.favorecido?.razao_social || 'N/A'}</td>
                                     <td className="px-4 py-4 text-sm">{item.categoria?.nome || 'N/A'}</td>
                                     <td className="px-4 py-4 text-sm">{item.conta?.nome || 'N/A'}</td>
-                                    <td className={`px-4 py-4 text-right text-sm font-semibold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(item.valor)}</td>
+                                    <td className={`px-4 py-4 text-right text-sm font-semibold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>
+                                        <FontAwesomeIcon icon={item.tipo === 'Receita' ? faArrowUp : faArrowDown} className="mr-2" />
+                                        {formatCurrency(item.valor)}
+                                    </td>
                                     <td className="px-4 py-4 text-center">
                                         <button onClick={() => handleOpenEditModal(item)} className="text-blue-500 hover:text-blue-700 mr-3"><FontAwesomeIcon icon={faPenToSquare} /></button>
                                         <button onClick={() => handleDeleteLancamento(item.id)} className="text-red-500 hover:text-red-700"><FontAwesomeIcon icon={faTrash} /></button>
