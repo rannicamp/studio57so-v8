@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserCog, faShieldAlt, faBoxOpen, faClock } from '@fortawesome/free-solid-svg-icons';
+import { faUserCog, faShieldAlt, faBoxOpen, faClock, faFileSignature } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 
@@ -58,12 +58,17 @@ export default async function ConfiguracoesPage() {
           title="Gestão de Materiais"
           description="Importe, exporte e gerencie a sua base de materiais."
         />
-        {/* NOVO CARD ADICIONADO AQUI */}
         <SettingsCard 
           href="/configuracoes/jornadas"
           icon={faClock}
           title="Jornadas de Trabalho"
           description="Crie e gerencie os horários e cargas horárias dos funcionários."
+        />
+        <SettingsCard 
+          href="/configuracoes/tipos-documento"
+          icon={faFileSignature}
+          title="Tipos de Documento"
+          description="Gerencie as siglas e abreviaturas para nomenclatura de arquivos."
         />
       </div>
     </div>
