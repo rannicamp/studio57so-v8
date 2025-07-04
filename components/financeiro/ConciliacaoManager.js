@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faUpload, faLink, faPlus, faTimes, faCheckCircle, faExclamationCircle } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faUpload, faLink, faFileImport, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import { OFX } from 'ofx-data-extractor';
 
 // Função para formatar a data
@@ -36,96 +36,131 @@ export default function ConciliacaoManager({ contas }) {
             setMessage('');
         }
     };
+    
+    // Função para extrair transações do arquivo
+    const parseFile = (fileContent) => {
+        try {
+            const transacoesManuais = [];
+            const transacoesRegex = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/g;
+            let match;
+            
+            while ((match = transacoesRegex.exec(fileContent)) !== null) {
+                const transacaoBlock = match[1];
+                
+                const getValue = (tag) => {
+                    const regex = new RegExp(`<${tag}>([^<]*)`);
+                    const result = regex.exec(transacaoBlock);
+                    return result ? result[1].trim() : null;
+                };
 
-    const handleParseFile = async () => {
-        if (!file) {
-            setMessage('Por favor, selecione um arquivo OFX ou OFC.');
-            return;
+                const valor = parseFloat(getValue('TRNAMT'));
+                const dataStr = getValue('DTPOSTED')?.substring(0, 8);
+                
+                if (!dataStr || isNaN(valor)) continue;
+
+                const formattedDate = `${dataStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
+                
+                transacoesManuais.push({
+                    id: getValue('FITID'),
+                    data: formattedDate,
+                    valor: valor,
+                    descricao: getValue('MEMO') || getValue('NAME') || 'Sem descrição',
+                    tipo: valor < 0 ? 'Despesa' : 'Receita',
+                    conciliado: false
+                });
+            }
+            return transacoesManuais;
+        } catch (error) {
+            console.error("Erro no parse manual:", error);
+            return null;
         }
-        if (!selectedContaId) {
-            setMessage('Por favor, selecione a conta bancária correspondente.');
+    };
+
+    // Função para carregar o arquivo para conciliação
+    const handleLoadForConciliation = () => {
+        if (!file || !selectedContaId) {
+            setMessage('Selecione uma conta e um arquivo.');
             return;
         }
         setIsProcessing(true);
         setMessage('Lendo arquivo do banco...');
 
-        const tryParse = (fileContent) => {
-            try {
-                const ofx = new OFX(fileContent);
-                const transacoes = ofx.getTransactions().map(t => {
-                    // Lógica de data mais robusta
-                    const dateStr = t.DTPOSTED.substring(0, 8);
-                    const formattedDate = `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
-                    
-                    return {
-                        id: t.FITID,
-                        data: formattedDate,
-                        valor: parseFloat(t.TRNAMT),
-                        descricao: t.MEMO,
-                        tipo: t.TRNTYPE === 'DEBIT' ? 'Despesa' : 'Receita',
-                        conciliado: false,
-                    };
-                });
-                setTransacoesExtrato(transacoes);
-                fetchLancamentosNaoConciliados(transacoes.map(t => t.id));
-                setMessage(`${transacoes.length} transações encontradas no extrato.`);
-                return true; // Sucesso
-            } catch (err) {
-                console.warn('Falha ao analisar com uma codificação, tentando outra...', err);
-                return false; // Falha
-            }
-        };
-
         const reader = new FileReader();
         reader.onload = (e) => {
-            const content = e.target.result;
-            if (tryParse(content)) {
-                setIsProcessing(false);
-                return; // Funcionou, estamos prontos.
+            const transacoes = parseFile(e.target.result);
+            if (transacoes && transacoes.length > 0) {
+                setTransacoesExtrato(transacoes);
+                fetchLancamentosNaoConciliados(transacoes.map(t => t.id));
+                setMessage(`${transacoes.length} transações encontradas para conciliar.`);
+            } else {
+                setMessage('Nenhuma transação válida encontrada ou erro ao ler o arquivo.');
             }
-
-            // Se a primeira tentativa falhar, tentamos novamente com ISO-8859-1 (Latin-1)
-            const readerLatin1 = new FileReader();
-            readerLatin1.onload = (e2) => {
-                const contentLatin1 = e2.target.result;
-                if (tryParse(contentLatin1)) {
-                    setIsProcessing(false);
-                    return; // Funcionou com a segunda codificação.
-                }
-
-                // Se ambos falharem, mostre o erro.
-                setMessage('Erro ao ler o arquivo. Verifique se o formato é OFX/OFC válido e se o conteúdo não está corrompido.');
-                setIsProcessing(false);
-            };
-            readerLatin1.readAsText(file, 'ISO-8859-1'); // Lê como Latin-1
-        };
-
-        reader.onerror = () => {
-            setMessage('Não foi possível ler o arquivo.');
             setIsProcessing(false);
         };
-
-        reader.readAsText(file); // Primeira tentativa com a codificação padrão
+        reader.readAsText(file, 'ISO-8859-1');
     };
+    
+    // NOVA FUNÇÃO: Importar transações como novos lançamentos
+    const handleImportAsNew = () => {
+        if (!file || !selectedContaId) {
+            setMessage('Selecione uma conta e um arquivo para importar.');
+            return;
+        }
+        if (!window.confirm("Isso irá importar todas as transações do arquivo como novos lançamentos no sistema. Deseja continuar?")) return;
+
+        setIsProcessing(true);
+        setMessage('Importando transações...');
+        
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const transacoes = parseFile(e.target.result);
+            if (!transacoes || transacoes.length === 0) {
+                setMessage('Nenhuma transação válida encontrada para importar.');
+                setIsProcessing(false);
+                return;
+            }
+
+            const lancamentosParaInserir = transacoes.map(t => ({
+                descricao: t.descricao,
+                valor: Math.abs(t.valor),
+                data_transacao: t.data,
+                data_vencimento: t.data,
+                tipo: t.tipo,
+                status: 'Pago', // Lançamentos de extrato já estão pagos
+                conta_id: selectedContaId,
+                conciliado: true,
+                id_transacao_externa: t.id
+            }));
+            
+            const { error } = await supabase.from('lancamentos').insert(lancamentosParaInserir);
+
+            if (error) {
+                setMessage(`Erro ao importar: ${error.message}`);
+            } else {
+                setMessage(`${lancamentosParaInserir.length} transações importadas com sucesso!`);
+                // Limpa o estado para evitar re-importação acidental
+                setFile(null);
+                setTransacoesExtrato([]);
+                if(document.querySelector('input[type="file"]')) {
+                   document.querySelector('input[type="file"]').value = "";
+                }
+            }
+            setIsProcessing(false);
+        };
+        reader.readAsText(file, 'ISO-8859-1');
+    };
+
 
     const fetchLancamentosNaoConciliados = useCallback(async (transacaoIds) => {
         setIsProcessing(true);
-        const { data: lancamentosData, error } = await supabase
-            .from('lancamentos')
-            .select('*')
-            .eq('conta_id', selectedContaId)
-            .eq('conciliado', false);
-            
-        const { data: transacoesJaConciliadas } = await supabase.from('lancamentos').select('id_transacao_externa').in('id_transacao_externa', transacaoIds);
-        const idsJaConciliados = new Set((transacoesJaConciliadas || []).map(t => t.id_transacao_externa));
-
-        setTransacoesExtrato(prev => prev.map(t => ({...t, conciliado: idsJaConciliados.has(t.id) })));
-
-        if (error) {
-            setMessage('Erro ao buscar lançamentos do sistema.');
-        } else {
-            setLancamentosSistema(lancamentosData || []);
+        const { data: lancamentosData, error } = await supabase.from('lancamentos').select('*').eq('conta_id', selectedContaId).eq('conciliado', false);
+        if (transacaoIds && transacaoIds.length > 0) {
+            const { data: transacoesJaConciliadas } = await supabase.from('lancamentos').select('id_transacao_externa').in('id_transacao_externa', transacaoIds);
+            const idsJaConciliados = new Set((transacoesJaConciliadas || []).map(t => t.id_transacao_externa));
+            setTransacoesExtrato(prev => prev.map(t => ({...t, conciliado: idsJaConciliados.has(t.id) })));
         }
+        if (error) setMessage('Erro ao buscar lançamentos do sistema.');
+        else setLancamentosSistema(lancamentosData || []);
         setIsProcessing(false);
     }, [supabase, selectedContaId]);
 
@@ -135,16 +170,10 @@ export default function ConciliacaoManager({ contas }) {
             return;
         }
         setIsProcessing(true);
-        const { error } = await supabase
-            .from('lancamentos')
-            .update({ conciliado: true, id_transacao_externa: selectedTransacao.id })
-            .eq('id', selectedLancamento.id);
-
-        if (error) {
-            setMessage(`Erro: ${error.message}`);
-        } else {
+        const { error } = await supabase.from('lancamentos').update({ conciliado: true, id_transacao_externa: selectedTransacao.id }).eq('id', selectedLancamento.id);
+        if (error) setMessage(`Erro: ${error.message}`);
+        else {
             setMessage('Conciliado com sucesso!');
-            // Atualiza as listas na tela
             setTransacoesExtrato(prev => prev.map(t => t.id === selectedTransacao.id ? { ...t, conciliado: true } : t));
             setLancamentosSistema(prev => prev.filter(l => l.id !== selectedLancamento.id));
             setSelectedTransacao(null);
@@ -158,23 +187,27 @@ export default function ConciliacaoManager({ contas }) {
             <h2 className="text-xl font-bold text-gray-800">Conciliação Bancária</h2>
 
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="md:col-span-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
                         <label className="block text-sm font-medium">1. Selecione a Conta</label>
                         <select value={selectedContaId} onChange={(e) => setSelectedContaId(e.target.value)} className="mt-1 w-full p-2 border rounded-md">
                             <option value="">-- Escolha uma conta --</option>
                             {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                         </select>
                     </div>
-                    <div className="md:col-span-2">
+                    <div>
                         <label className="block text-sm font-medium">2. Envie o arquivo OFX/OFC</label>
                         <input type="file" onChange={handleFileChange} accept=".ofx,.ofc" className="mt-1 w-full text-sm"/>
                     </div>
                 </div>
-                <div className="text-right">
-                    <button onClick={handleParseFile} disabled={isProcessing || !file || !selectedContaId} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
-                        {isProcessing ? <FontAwesomeIcon icon={faSpinner} spin className="mr-2"/> : ''}
-                        Carregar e Analisar
+                <div className="flex flex-col md:flex-row justify-end gap-3 pt-3 border-t">
+                    <button onClick={handleImportAsNew} disabled={isProcessing || !file || !selectedContaId} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 flex items-center justify-center gap-2">
+                        <FontAwesomeIcon icon={isProcessing ? faSpinner : faFileImport} spin={isProcessing} />
+                        Importar para o Financeiro
+                    </button>
+                    <button onClick={handleLoadForConciliation} disabled={isProcessing || !file || !selectedContaId} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center gap-2">
+                        <FontAwesomeIcon icon={isProcessing ? faSpinner : faUpload} spin={isProcessing} />
+                        Analisar para Conciliação
                     </button>
                 </div>
             </div>
@@ -183,7 +216,6 @@ export default function ConciliacaoManager({ contas }) {
 
             {transacoesExtrato.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t">
-                    {/* Coluna do Extrato */}
                     <div>
                         <h3 className="font-semibold mb-2">Transações do Extrato ({transacoesExtrato.filter(t => !t.conciliado).length})</h3>
                         <div className="border rounded-lg max-h-96 overflow-y-auto">
@@ -198,7 +230,6 @@ export default function ConciliacaoManager({ contas }) {
                             ))}
                         </div>
                     </div>
-                    {/* Coluna de Lançamentos do Sistema */}
                     <div>
                         <h3 className="font-semibold mb-2">Lançamentos do Sistema ({lancamentosSistema.length})</h3>
                         <div className="border rounded-lg max-h-96 overflow-y-auto">
