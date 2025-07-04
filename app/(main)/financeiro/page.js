@@ -2,17 +2,29 @@
 
 import { useState, useEffect } from 'react';
 import { useLayout } from '../../../contexts/LayoutContext';
+import { createClient } from '../../../utils/supabase/client';
 import ContasManager from '../../../components/financeiro/ContasManager';
 import LancamentosManager from '../../../components/financeiro/LancamentosManager';
-import CategoriasManager from '../../../components/financeiro/CategoriasManager'; // Importado
+import CategoriasManager from '../../../components/financeiro/CategoriasManager';
+import ConciliacaoManager from '../../../components/financeiro/ConciliacaoManager';
 
 export default function FinanceiroPage() {
   const { setPageTitle } = useLayout();
   const [activeTab, setActiveTab] = useState('lancamentos');
+  const supabase = createClient();
+  
+  const [contas, setContas] = useState([]);
 
   useEffect(() => {
     setPageTitle('Gestão Financeira');
-  }, [setPageTitle]);
+    
+    const fetchContas = async () => {
+        const { data } = await supabase.from('contas_financeiras').select('id, nome');
+        setContas(data || []);
+    };
+    fetchContas();
+    
+  }, [setPageTitle, supabase]);
 
   const TabButton = ({ tabName, label }) => (
     <button
@@ -35,6 +47,7 @@ export default function FinanceiroPage() {
         <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">
           <TabButton tabName="dashboard" label="Dashboard" />
           <TabButton tabName="lancamentos" label="Lançamentos" />
+          <TabButton tabName="conciliacao" label="Conciliação Bancária" />
           <TabButton tabName="contas" label="Contas" />
           <TabButton tabName="categorias" label="Categorias" />
           <TabButton tabName="relatorios" label="Relatórios" />
@@ -42,8 +55,9 @@ export default function FinanceiroPage() {
       </div>
 
       <div className="mt-4">
-        {activeTab === 'contas' && <ContasManager />}
         {activeTab === 'lancamentos' && <LancamentosManager />}
+        {activeTab === 'conciliacao' && <ConciliacaoManager contas={contas} />}
+        {activeTab === 'contas' && <ContasManager />}
         {activeTab === 'categorias' && <CategoriasManager />}
         
         {activeTab === 'dashboard' && (

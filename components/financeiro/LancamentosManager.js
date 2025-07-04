@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faSpinner, faPenToSquare, faTrash, faArrowUp, faArrowDown, faPaperclip } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faSpinner, faPenToSquare, faTrash, faArrowUp, faArrowDown, faPaperclip, faCheckCircle, faClock } from '@fortawesome/free-solid-svg-icons';
 import LancamentoFormModal from './LancamentoFormModal';
 
 export default function LancamentosManager() {
@@ -13,10 +13,13 @@ export default function LancamentosManager() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingLancamento, setEditingLancamento] = useState(null);
     const [message, setMessage] = useState('');
+    
+    const [filtroConciliacao, setFiltroConciliacao] = useState('todos');
 
     const fetchLancamentos = useCallback(async () => {
         setLoading(true);
-        const { data, error } = await supabase
+        
+        let query = supabase
             .from('lancamentos')
             .select(`
                 *,
@@ -27,6 +30,14 @@ export default function LancamentosManager() {
             `)
             .order('data_transacao', { ascending: false });
 
+        if (filtroConciliacao === 'conciliado') {
+            query = query.eq('conciliado', true);
+        } else if (filtroConciliacao === 'pendente') {
+            query = query.eq('conciliado', false);
+        }
+
+        const { data, error } = await query;
+
         if (error) {
             setMessage("Erro ao buscar lançamentos: " + error.message);
         } else {
@@ -34,7 +45,7 @@ export default function LancamentosManager() {
         }
         
         setLoading(false);
-    }, [supabase]);
+    }, [supabase, filtroConciliacao]);
 
     useEffect(() => {
         fetchLancamentos();
@@ -43,26 +54,16 @@ export default function LancamentosManager() {
     const handleSaveLancamento = async (formData) => {
         const isEditing = Boolean(formData.id);
         const { novo_favorecido, anexo, ...baseFormData } = formData;
-
         let finalFormData = { ...baseFormData };
 
         if (novo_favorecido && novo_favorecido.nome) {
-            const { data: novoContato, error: contatoError } = await supabase
-                .from('contatos')
-                .insert({
-                    nome: novo_favorecido.nome,
-                    tipo_contato: novo_favorecido.tipo_contato,
-                    personalidade_juridica: 'Pessoa Física'
-                })
-                .select()
-                .single();
+            const { data: novoContato, error: contatoError } = await supabase.from('contatos').insert({ nome: novo_favorecido.nome, tipo_contato: novo_favorecido.tipo_contato, personalidade_juridica: 'Pessoa Física' }).select().single();
             if (contatoError) { setMessage(`Erro ao criar novo contato: ${contatoError.message}`); return false; }
             finalFormData.favorecido_contato_id = novoContato.id;
         }
         
         const saveAnexo = async (lancamentoId) => {
             if (!anexo || !anexo.file) return;
-
             const file = anexo.file;
             const safeFileNameBase = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9.]/g, '_');
             const fileExtension = safeFileNameBase.includes('.') ? safeFileNameBase.split('.').pop() : '';
@@ -70,22 +71,10 @@ export default function LancamentosManager() {
             const finalSafeName = fileNameWithoutExt.replace(/__+/g, '_') + (fileExtension ? '.' + fileExtension : '');
             const fileName = `${Date.now()}-${finalSafeName}`;
             const filePath = `lancamentos/${lancamentoId}/${fileName}`;
-
             const { error: uploadError } = await supabase.storage.from('documentos-financeiro').upload(filePath, file);
             if (uploadError) throw new Error(`Erro no upload do anexo: ${uploadError.message}`);
-
-            // Deleta anexo antigo se existir, antes de inserir o novo
-            if (isEditing) {
-                await supabase.from('lancamentos_anexos').delete().eq('lancamento_id', lancamentoId);
-            }
-
-            const { error: dbError } = await supabase.from('lancamentos_anexos').insert({
-                lancamento_id: lancamentoId,
-                caminho_arquivo: filePath,
-                nome_arquivo: file.name,
-                descricao: anexo.descricao,
-                tipo_documento_id: anexo.tipo_documento_id
-            });
+            if (isEditing) await supabase.from('lancamentos_anexos').delete().eq('lancamento_id', lancamentoId);
+            const { error: dbError } = await supabase.from('lancamentos_anexos').insert({ lancamento_id: lancamentoId, caminho_arquivo: filePath, nome_arquivo: file.name, descricao: anexo.descricao, tipo_documento_id: anexo.tipo_documento_id });
             if (dbError) throw new Error(`Erro ao salvar referência do anexo: ${dbError.message}`);
         };
 
@@ -95,43 +84,24 @@ export default function LancamentosManager() {
                 const valorParcela = finalFormData.valor / numeroParcelas;
                 const vencimentoInicial = new Date(finalFormData.data_primeiro_vencimento + 'T12:00:00Z');
                 let lancamentosParaCriar = [];
-
                 for (let i = 0; i < numeroParcelas; i++) {
                     const dataVencimento = new Date(vencimentoInicial);
                     dataVencimento.setUTCMonth(dataVencimento.getUTCMonth() + i);
-                    lancamentosParaCriar.push({
-                        descricao: finalFormData.descricao, valor: valorParcela, data_transacao: finalFormData.data_transacao,
-                        data_vencimento: dataVencimento.toISOString().split('T')[0], tipo: finalFormData.tipo,
-                        status: 'Pendente', conta_id: finalFormData.conta_id, categoria_id: finalFormData.categoria_id,
-                        empreendimento_id: finalFormData.empreendimento_id, etapa_id: finalFormData.etapa_id,
-                        favorecido_contato_id: finalFormData.favorecido_contato_id, parcela_info: `${i + 1}/${numeroParcelas}`
-                    });
+                    lancamentosParaCriar.push({ descricao: finalFormData.descricao, valor: valorParcela, data_transacao: finalFormData.data_transacao, data_vencimento: dataVencimento.toISOString().split('T')[0], tipo: finalFormData.tipo, status: 'Pendente', conta_id: finalFormData.conta_id, categoria_id: finalFormData.categoria_id, empreendimento_id: finalFormData.empreendimento_id, etapa_id: finalFormData.etapa_id, favorecido_contato_id: finalFormData.favorecido_contato_id, parcela_info: `${i + 1}/${numeroParcelas}` });
                 }
                 const { data: createdLancamentos, error } = await supabase.from('lancamentos').insert(lancamentosParaCriar).select();
                 if (error) throw error;
-                
-                if (anexo?.file && createdLancamentos) {
-                    for (const lanc of createdLancamentos) {
-                        await saveAnexo(lanc.id);
-                    }
-                }
+                if (anexo?.file && createdLancamentos) for (const lanc of createdLancamentos) await saveAnexo(lanc.id);
                 setMessage(`${numeroParcelas} parcelas criadas com sucesso!`);
-
             } else { 
                 let savedLancamento;
-
                 if (finalFormData.tipo === 'Transferência') {
-                    const { error } = await supabase.rpc('realizar_transferencia', {
-                        p_descricao: finalFormData.descricao, p_valor: finalFormData.valor, p_data_transacao: finalFormData.data_transacao,
-                        p_conta_origem_id: finalFormData.conta_id, p_conta_destino_id: finalFormData.conta_destino_id,
-                    });
+                    const { error } = await supabase.rpc('realizar_transferencia', { p_descricao: finalFormData.descricao, p_valor: finalFormData.valor, p_data_transacao: finalFormData.data_transacao, p_conta_origem_id: finalFormData.conta_id, p_conta_destino_id: finalFormData.conta_destino_id });
                     if (error) throw error;
                     setMessage('Transferência realizada com sucesso!');
-                
                 } else { 
                     const dataToSave = { ...finalFormData };
                     ['conta', 'categoria', 'favorecido', 'conta_destino_id', 'form_type', 'is_parcelado', 'numero_parcelas', 'data_primeiro_vencimento', 'is_recorrente', 'frequencia', 'recorrencia_data_inicio', 'recorrencia_data_fim', 'anexos'].forEach(k => delete dataToSave[k]);
-                    
                     let error;
                     if (isEditing) {
                         const { id, ...updateData } = dataToSave;
@@ -157,14 +127,14 @@ export default function LancamentosManager() {
         setTimeout(() => setMessage(''), 4000);
         fetchLancamentos();
         return true;
-    }
+    };
 
     const handleDeleteLancamento = async (id) => {
         if (!window.confirm("Tem certeza?")) return;
         await supabase.from('lancamentos').delete().eq('id', id);
         setMessage('Lançamento excluído.');
         fetchLancamentos();
-    }
+    };
 
     const handleOpenAddModal = () => {
         setEditingLancamento(null);
@@ -193,9 +163,16 @@ export default function LancamentosManager() {
 
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-800">Lançamentos Financeiros</h2>
-                <button onClick={handleOpenAddModal} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
-                    <FontAwesomeIcon icon={faPlus} /> Novo Lançamento
-                </button>
+                <div className="flex items-center gap-4">
+                    <select value={filtroConciliacao} onChange={e => setFiltroConciliacao(e.target.value)} className="p-2 border rounded-md text-sm">
+                        <option value="todos">Todos</option>
+                        <option value="pendente">Pendentes</option>
+                        <option value="conciliado">Conciliados</option>
+                    </select>
+                    <button onClick={handleOpenAddModal} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
+                        <FontAwesomeIcon icon={faPlus} /> Novo Lançamento
+                    </button>
+                </div>
             </div>
 
             {message && <p className="text-center text-sm font-medium p-2 bg-blue-50 text-blue-800 rounded-md">{message}</p>}
@@ -207,7 +184,7 @@ export default function LancamentosManager() {
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-4 py-3 text-left text-xs font-bold uppercase">Anexo</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold uppercase">Status</th>
                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase">Vencimento</th>
                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase">Descrição</th>
                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase">Favorecido</th>
@@ -223,8 +200,10 @@ export default function LancamentosManager() {
                             ) : lancamentos.map(item => (
                                 <tr key={item.id} className="hover:bg-gray-50">
                                     <td className="px-4 py-4 text-center">
-                                        {item.anexos && item.anexos.length > 0 && (
-                                            <FontAwesomeIcon icon={faPaperclip} className="text-gray-500" title="Este lançamento possui anexo" />
+                                        {item.conciliado ? (
+                                            <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" title="Conciliado" />
+                                        ) : (
+                                            <FontAwesomeIcon icon={faClock} className="text-gray-400" title="Pendente" />
                                         )}
                                     </td>
                                     <td className="px-4 py-4 text-sm font-semibold">{formatDate(item.data_vencimento || item.data_transacao)}</td>
