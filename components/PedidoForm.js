@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTrash, faPlus, faPencilAlt, faSave, faTimes, faClock, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTrash, faPlus, faPencilAlt, faSave, faTimes, faClock, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen, faDollarSign } from '@fortawesome/free-solid-svg-icons';
 import PedidoItemModal from './PedidoItemModal';
 import KpiCard from './KpiCard';
 
@@ -18,6 +18,40 @@ const formatDuration = (milliseconds) => {
     return result.trim() === '' ? 'Menos de 1h' : result;
 };
 
+// NOVO COMPONENTE: Modal para registrar o pagamento
+const RegistrarPagamentoModal = ({ isOpen, onClose, onConfirm, contas }) => {
+    const [contaId, setContaId] = useState('');
+    const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().split('T')[0]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+                <h3 className="text-xl font-bold mb-4">Registrar Pagamento</h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium">Conta de Pagamento *</label>
+                        <select value={contaId} onChange={(e) => setContaId(e.target.value)} required className="mt-1 w-full p-2 border rounded-md">
+                            <option value="">Selecione a conta...</option>
+                            {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium">Data do Pagamento *</label>
+                        <input type="date" value={dataPagamento} onChange={(e) => setDataPagamento(e.target.value)} required className="mt-1 w-full p-2 border rounded-md" />
+                    </div>
+                </div>
+                <div className="flex justify-end gap-4 pt-6 mt-4 border-t">
+                    <button onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                    <button onClick={() => onConfirm(contaId, dataPagamento)} disabled={!contaId || !dataPagamento} className="bg-green-600 text-white px-4 py-2 rounded-md disabled:bg-gray-400">Confirmar Pagamento</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 export default function PedidoForm({ pedidoId }) {
     const supabase = createClient();
     const router = useRouter();
@@ -25,19 +59,18 @@ export default function PedidoForm({ pedidoId }) {
     const [itens, setItens] = useState([]);
     const [etapas, setEtapas] = useState([]);
     const [anexos, setAnexos] = useState([]);
+    const [contas, setContas] = useState([]); // NOVO: Estado para as contas financeiras
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [message, setMessage] = useState('');
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+    const [isPagamentoModalOpen, setIsPagamentoModalOpen] = useState(false); // NOVO
     const [selectedItems, setSelectedItems] = useState(new Set());
-    
     const [editingItem, setEditingItem] = useState(null);
-
     const [newAnexoFile, setNewAnexoFile] = useState(null);
     const [newAnexoType, setNewAnexoType] = useState('Nota Fiscal');
     const [newAnexoOutroDescricao, setNewAnexoOutroDescricao] = useState('');
-
     const [kpis, setKpis] = useState(null);
     const [sortConfig, setSortConfig] = useState({ key: 'descricao_item', direction: 'ascending' });
 
@@ -80,6 +113,9 @@ export default function PedidoForm({ pedidoId }) {
         }
         const { data: etapasData } = await supabase.from('etapa_obra').select('id, nome_etapa');
         setEtapas(etapasData || []);
+        // NOVO: Busca as contas financeiras
+        const { data: contasData } = await supabase.from('contas_financeiras').select('id, nome');
+        setContas(contasData || []);
         setLoading(false);
     }, [pedidoId, supabase]);
 
@@ -119,30 +155,18 @@ export default function PedidoForm({ pedidoId }) {
         if (error) setMessage(`Erro ao gerar link de download: ${error.message}`); else window.open(data.signedUrl, '_blank');
     }
     
-    // ***** INÍCIO DA NOVA LÓGICA DE SALVAMENTO *****
     const handleSaveItem = async (itemData) => {
         const isEditing = Boolean(itemData.id);
         let finalMaterialId = itemData.material_id;
-
-        // Passo 1: Se for um item novo (sem ID de material), cria na tabela central 'materiais'
         if (!finalMaterialId) {
              const { data: newMaterial, error: materialError } = await supabase
                 .from('materiais')
-                .insert({
-                    descricao: itemData.descricao_item,
-                    unidade_medida: itemData.unidade_medida,
-                    Origem: 'Manual' // Define a origem como Manual
-                })
+                .insert({ descricao: itemData.descricao_item, unidade_medida: itemData.unidade_medida, Origem: 'Manual' })
                 .select()
                 .single();
-            
-            if (materialError) {
-                return { success: false, error: 'Erro ao criar o novo material na base: ' + materialError.message };
-            }
+            if (materialError) { return { success: false, error: 'Erro ao criar o novo material na base: ' + materialError.message }; }
             finalMaterialId = newMaterial.id;
         }
-
-        // Passo 2: Prepara o item do pedido com o ID do material (novo ou existente)
         const dataToUpsert = {
             ...itemData,
             material_id: finalMaterialId,
@@ -151,11 +175,9 @@ export default function PedidoForm({ pedidoId }) {
             preco_unitario_real: itemData.preco_unitario_real === '' || itemData.preco_unitario_real === null ? null : parseFloat(itemData.preco_unitario_real),
         };
         dataToUpsert.custo_total_real = (dataToUpsert.preco_unitario_real || 0) * (dataToUpsert.quantidade_solicitada || 0);
-        
-        // Passo 3: Salva o item na tabela 'pedidos_compra_itens'
         let error;
         if(isEditing) {
-            delete dataToUpsert.fornecedor_nome; // Remove campo auxiliar
+            delete dataToUpsert.fornecedor_nome;
             const { error: updateError } = await supabase.from('pedidos_compra_itens').update(dataToUpsert).eq('id', itemData.id);
             error = updateError;
         } else {
@@ -164,11 +186,9 @@ export default function PedidoForm({ pedidoId }) {
             const { error: insertError } = await supabase.from('pedidos_compra_itens').insert(dataToUpsert);
             error = insertError;
         }
-
         if (error) { return { success: false, error: "Falha ao salvar o item no pedido: " + error.message }; } 
         else { setMessage(`Item ${isEditing ? 'atualizado' : 'adicionado'} com sucesso!`); fetchData(); return { success: true }; }
     };
-    // ***** FIM DA NOVA LÓGICA DE SALVAMENTO *****
 
     const handleRemoveItem = async (itemId) => {
         if (!window.confirm('Tem certeza que deseja remover este item?')) return;
@@ -177,25 +197,32 @@ export default function PedidoForm({ pedidoId }) {
         else setItens(prev => prev.filter(item => item.id !== itemId));
     };
 
-    const handleSelectionChange = (itemId) => {
-        setSelectedItems(prev => { const newSet = new Set(prev); if (newSet.has(itemId)) newSet.delete(itemId); else newSet.add(itemId); return newSet; });
-    };
-    const handleDecompose = async () => {
-        if (selectedItems.size === 0) { alert('Selecione pelo menos um item para decompor.'); return; }
-        const itemsToMove = itens.filter(item => selectedItems.has(item.id));
-        if (!confirm(`Você tem certeza que deseja criar um novo pedido com os ${itemsToMove.length} itens selecionados?`)) return;
-        setIsSaving(true); setMessage('Decompondo pedido...');
-        const { data: { user } } = await supabase.auth.getUser();
-        const { data: newPedido, error: newPedidoError } = await supabase.from('pedidos_compra').insert({ empreendimento_id: pedido.empreendimento_id, solicitante_id: user.id, status: 'Pedido Realizado', justificativa: `Pedido decomposto do #${pedido.id}` }).select().single();
-        if (newPedidoError) { setMessage('Erro ao criar novo pedido: ' + newPedidoError.message); setIsSaving(false); return; }
-        const itemUpdates = itemsToMove.map(item => ({ ...item, id: undefined, created_at: undefined, pedido_compra_id: newPedido.id }));
-        const { error: updateError } = await supabase.from('pedidos_compra_itens').insert(itemUpdates);
-        if (updateError) { setMessage('Erro ao mover itens: ' + updateError.message); await supabase.from('pedidos_compra').delete().eq('id', newPedido.id); } 
-        else { setMessage(`Novo pedido #${newPedido.id} criado com sucesso!`); fetchData(); setSelectedItems(new Set()); }
+    // NOVO: Função para registrar o pagamento
+    const handleRegistrarPagamento = async (contaId, dataPagamento) => {
+        setIsPagamentoModalOpen(false);
+        setIsSaving(true);
+        setMessage('Registrando pagamento...');
+
+        const { data, error } = await supabase.rpc('registrar_pagamento_pedido', {
+            p_pedido_id: pedidoId,
+            p_conta_id: contaId,
+            p_data_pagamento: dataPagamento
+        });
+
+        if (error) {
+            setMessage(`Erro: ${error.message}`);
+        } else {
+            setMessage(data); // A função retorna uma mensagem de sucesso ou erro
+            fetchData(); // Recarrega os dados do pedido
+        }
         setIsSaving(false);
     };
 
-    const handleEditClick = (item) => { setEditingItem(item); setIsModalOpen(true); };
+    const handleSelectionChange = (itemId) => {
+        setSelectedItems(prev => { const newSet = new Set(prev); if (newSet.has(itemId)) newSet.delete(itemId); else newSet.add(itemId); return newSet; });
+    };
+
+    const handleEditClick = (item) => { setEditingItem(item); setIsItemModalOpen(true); };
 
     if (loading) return <div className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>;
     if (!pedido) return <div className="text-center py-10">Pedido não encontrado.</div>;
@@ -205,7 +232,9 @@ export default function PedidoForm({ pedidoId }) {
 
     return (
         <>
-            <PedidoItemModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingItem(null); }} onSave={handleSaveItem} etapas={etapas} itemToEdit={editingItem} />
+            <PedidoItemModal isOpen={isItemModalOpen} onClose={() => { setIsItemModalOpen(false); setEditingItem(null); }} onSave={handleSaveItem} etapas={etapas} itemToEdit={editingItem} />
+            <RegistrarPagamentoModal isOpen={isPagamentoModalOpen} onClose={() => setIsPagamentoModalOpen(false)} onConfirm={handleRegistrarPagamento} contas={contas} />
+
             <div className="bg-white p-6 rounded-lg shadow space-y-6">
                 <div className="border-b pb-4">
                     <div className="flex items-center gap-2 mb-2"> <FontAwesomeIcon icon={faPen} className="text-gray-400" /> <input type="text" value={pedido.titulo || ''} onChange={(e) => handleHeaderFieldChange('titulo', e.target.value)} onBlur={() => handleHeaderFieldSave('titulo')} placeholder="Adicione um título para este pedido..." className="text-2xl font-bold w-full p-1 rounded-md focus:ring-2 focus:ring-blue-200" /> </div>
@@ -217,9 +246,26 @@ export default function PedidoForm({ pedidoId }) {
                         <div className="flex items-center gap-2"> <label className="font-bold">Turno:</label> <select value={pedido.turno_entrega || ''} onChange={(e) => handleHeaderFieldChange('turno_entrega', e.target.value)} onBlur={() => handleHeaderFieldSave('turno_entrega')} className="p-1 border rounded-md"> <option value="">Nenhum</option> <option value="Manhã">Manhã</option> <option value="Tarde">Tarde</option> <option value="Noite">Noite</option> </select> </div>
                     </div>
                 </div>
-                {kpis && (<div> <h3 className="text-lg font-semibold mb-2">Indicadores do Pedido</h3> <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <KpiCard title="Tempo até Cotação" value={kpis.tempoAteCotacao} icon={faClock} color="yellow" /> <KpiCard title="Tempo Total de Entrega" value={kpis.tempoAteEntrega} icon={faClock} color="green" /> </div> </div>)}
+
+                {message && <div className="text-center p-2 bg-blue-50 text-blue-800 rounded-md text-sm">{message}</div>}
+                
+                {/* NOVO PAINEL DE PAGAMENTO */}
+                <div className="border-t pt-6">
+                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><FontAwesomeIcon icon={faDollarSign} /> Registrar Pagamento</h3>
+                     <div className="bg-gray-50 p-4 rounded-lg border flex items-center justify-between">
+                         <p className="text-sm text-gray-700">Clique no botão para registrar este pedido como uma despesa no módulo financeiro.</p>
+                         <button
+                            onClick={() => setIsPagamentoModalOpen(true)}
+                            disabled={isSaving}
+                            className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400"
+                         >
+                             {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Registrar Pagamento'}
+                         </button>
+                     </div>
+                </div>
+
                 <div>
-                    <div className="flex justify-between items-center mb-2"> <h3 className="text-lg font-semibold">Itens do Pedido</h3> <button onClick={() => { setEditingItem(null); setIsModalOpen(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center justify-center gap-2 text-sm"> <FontAwesomeIcon icon={faPlus} /> Adicionar Item </button> </div>
+                    <div className="flex justify-between items-center mb-2"> <h3 className="text-lg font-semibold">Itens do Pedido</h3> <button onClick={() => { setEditingItem(null); setIsItemModalOpen(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center justify-center gap-2 text-sm"> <FontAwesomeIcon icon={faPlus} /> Adicionar Item </button> </div>
                     <div className="overflow-x-auto border rounded-lg">
                         <table className="min-w-full">
                             <thead className="bg-gray-50">
@@ -247,6 +293,7 @@ export default function PedidoForm({ pedidoId }) {
                         </table>
                     </div>
                 </div>
+                
                 <div className="border-t pt-6">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><FontAwesomeIcon icon={faPaperclip} /> Anexos do Pedido</h3>
                     <div className="bg-gray-50 p-4 rounded-lg border">
@@ -262,12 +309,6 @@ export default function PedidoForm({ pedidoId }) {
                         {anexos.length === 0 ? <p className="text-sm text-gray-500 mt-2">Nenhum anexo encontrado.</p> : (<ul className="divide-y border rounded-md mt-2">{anexos.map(anexo => (<li key={anexo.id} className="p-3 flex justify-between items-center text-sm"><div><p className="font-medium">{anexo.nome_arquivo}</p><p className="text-xs text-gray-600">{anexo.descricao || 'Sem descrição'}</p></div><div className="flex items-center gap-4"><button onClick={() => handleDownloadAnexo(anexo.caminho_arquivo)} className="text-blue-600 hover:text-blue-800" title="Baixar"><FontAwesomeIcon icon={faDownload} /></button><button onClick={() => handleRemoveAnexo(anexo)} className="text-red-500 hover:text-red-700" title="Remover"><FontAwesomeIcon icon={faTrash} /></button></div></li>))}</ul>)}
                     </div>
                 </div>
-                <div className="border-t pt-6">
-                    <h3 className="text-lg font-semibold mb-2">Decompor Pedido</h3>
-                    <p className="text-sm text-gray-500 mb-4">Selecione os itens na tabela acima e use o botão abaixo para movê-los para um novo pedido de compra.</p>
-                    <button onClick={handleDecompose} disabled={isSaving || selectedItems.size === 0} className="bg-orange-500 text-white px-3 py-2 rounded-md shadow-sm hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center gap-2">Gerar Pedido com Itens Selecionados ({selectedItems.size})</button>
-                </div>
-                {message && <div className="text-center mt-4 p-2 bg-gray-100 rounded-md text-sm">{message}</div>}
             </div>
         </>
     );

@@ -22,6 +22,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
     { href: '/funcionarios', label: 'Funcionários', icon: faUsers },
     { href: '/rdo/gerenciador', label: 'Diário de Obra (RDO)', icon: faClipboardList },
     { href: '/ponto', label: 'Controle de Ponto', icon: faClock },
+    { href: '/financeiro', label: 'Gestão Financeira', icon: faDollarSign }
   ];
 
   const bottomNavItems = isAdmin ? [
