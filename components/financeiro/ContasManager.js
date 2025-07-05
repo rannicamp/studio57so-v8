@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSpinner, faUniversity, faCreditCard, faMoneyBillWave, faChartLine, faPenToSquare, faTrash } from '@fortawesome/free-solid-svg-icons';
-import ContaFormModal from './ContaFormModal'; // Esta linha precisa que o ContaFormModal.js também esteja na mesma pasta
+import ContaFormModal from './ContaFormModal';
 
 export default function ContasManager() {
     const supabase = createClient();
@@ -124,7 +124,7 @@ export default function ContasManager() {
             {loading ? (
                  <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
             ) : contas.length === 0 ? (
-                <p className="text-center text-gray-500 py-10">Nenhuma conta cadastrada. Clique em "Nova Conta" para começar.</p>
+                <p className="text-center text-gray-500 py-10">Nenhuma conta cadastrada. Clique em &quot;Nova Conta&quot; para começar.</p>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {contas.map(conta => (

@@ -273,7 +273,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSave, initialDa
                                                     {searchAttempted && favorecidoSearchResults.length === 0 && !isSearchingFavorecido && favorecidoSearchTerm.length > 2 && (
                                                         <div className="p-2">
                                                             <button type="button" onClick={handleAddNewFavorecido} className="w-full text-left text-blue-600 font-semibold flex items-center gap-2 p-2 hover:bg-blue-50 rounded-md">
-                                                                <FontAwesomeIcon icon={faPlus} /> Adicionar novo contato: "{favorecidoSearchTerm}"
+                                                                <FontAwesomeIcon icon={faPlus} /> Adicionar novo contato: &quot;{favorecidoSearchTerm}&quot;
                                                             </button>
                                                         </div>
                                                     )}
