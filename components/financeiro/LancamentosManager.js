@@ -3,14 +3,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faSpinner, faPenToSquare, faTrash, faArrowUp, faArrowDown, faPaperclip, faCheckCircle, faClock } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faSpinner, faPenToSquare, faTrash, faArrowUp, faArrowDown, faPaperclip, faCheckCircle, faClock, faFileImport } from '@fortawesome/free-solid-svg-icons';
 import LancamentoFormModal from './LancamentoFormModal';
+import LancamentoImporter from './LancamentoImporter'; // Importa o novo componente
 
 export default function LancamentosManager() {
     const supabase = createClient();
     const [lancamentos, setLancamentos] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [isImporterOpen, setIsImporterOpen] = useState(false); // Novo estado para o importador
     const [editingLancamento, setEditingLancamento] = useState(null);
     const [message, setMessage] = useState('');
     
@@ -138,7 +140,7 @@ export default function LancamentosManager() {
 
     const handleOpenAddModal = () => {
         setEditingLancamento(null);
-        setIsModalOpen(true);
+        setIsFormModalOpen(true);
     };
 
     const handleOpenEditModal = (lancamento) => {
@@ -151,7 +153,7 @@ export default function LancamentosManager() {
             return;
         }
         setEditingLancamento(lancamento);
-        setIsModalOpen(true);
+        setIsFormModalOpen(true);
     };
     
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -159,7 +161,8 @@ export default function LancamentosManager() {
 
     return (
         <div className="bg-white p-6 rounded-lg shadow space-y-4">
-            <LancamentoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveLancamento} initialData={editingLancamento} />
+            <LancamentoFormModal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} onSave={handleSaveLancamento} initialData={editingLancamento} />
+            <LancamentoImporter isOpen={isImporterOpen} onClose={() => setIsImporterOpen(false)} onImportComplete={fetchLancamentos} />
 
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-800">Lançamentos Financeiros</h2>
@@ -169,6 +172,9 @@ export default function LancamentosManager() {
                         <option value="pendente">Pendentes</option>
                         <option value="conciliado">Conciliados</option>
                     </select>
+                    <button onClick={() => setIsImporterOpen(true)} className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">
+                        <FontAwesomeIcon icon={faFileImport} /> Importar CSV
+                    </button>
                     <button onClick={handleOpenAddModal} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
                         <FontAwesomeIcon icon={faPlus} /> Novo Lançamento
                     </button>
