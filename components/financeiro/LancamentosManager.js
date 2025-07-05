@@ -1,188 +1,155 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '../../utils/supabase/client';
+import { useState, useMemo, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faSpinner, faPenToSquare, faTrash, faArrowUp, faArrowDown, faPaperclip, faCheckCircle, faClock, faFileImport } from '@fortawesome/free-solid-svg-icons';
-import LancamentoFormModal from './LancamentoFormModal';
-import LancamentoImporter from './LancamentoImporter'; // Importa o novo componente
+import { faSpinner, faFilter, faTimes, faPenToSquare, faTrash, faSort, faSortUp, faSortDown, faCheckCircle, faCircle } from '@fortawesome/free-solid-svg-icons'; // Corrigido aqui
 
-export default function LancamentosManager() {
-    const supabase = createClient();
-    const [lancamentos, setLancamentos] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-    const [isImporterOpen, setIsImporterOpen] = useState(false); // Novo estado para o importador
-    const [editingLancamento, setEditingLancamento] = useState(null);
-    const [message, setMessage] = useState('');
+// Componente de Cabeçalho de Tabela Ordenável
+const SortableHeader = ({ label, sortKey, sortConfig, requestSort, className = '' }) => {
+    const getIcon = () => {
+        if (sortConfig.key !== sortKey) return faSort;
+        return sortConfig.direction === 'ascending' ? faSortUp : faSortDown;
+    };
+    return (
+        <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${className}`}>
+            <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 hover:text-gray-900">
+                <span>{label}</span>
+                <FontAwesomeIcon icon={getIcon()} className="text-gray-400" />
+            </button>
+        </th>
+    );
+};
+
+export default function LancamentosManager({
+    lancamentos: initialLancamentos,
+    loading: initialLoading,
+    contas,
+    categorias,
+    empreendimentos,
+    onEdit,
+    onDelete
+}) {
+    const [lancamentos, setLancamentos] = useState(initialLancamentos);
+    const [loading, setLoading] = useState(initialLoading);
     
-    const [filtroConciliacao, setFiltroConciliacao] = useState('todos');
-
-    const fetchLancamentos = useCallback(async () => {
-        setLoading(true);
-        
-        let query = supabase
-            .from('lancamentos')
-            .select(`
-                *,
-                conta:contas_financeiras(nome),
-                categoria:categorias_financeiras(nome),
-                favorecido:favorecido_contato_id(nome, razao_social),
-                anexos:lancamentos_anexos(*)
-            `)
-            .order('data_transacao', { ascending: false });
-
-        if (filtroConciliacao === 'conciliado') {
-            query = query.eq('conciliado', true);
-        } else if (filtroConciliacao === 'pendente') {
-            query = query.eq('conciliado', false);
-        }
-
-        const { data, error } = await query;
-
-        if (error) {
-            setMessage("Erro ao buscar lançamentos: " + error.message);
-        } else {
-            setLancamentos(data || []);
-        }
-        
-        setLoading(false);
-    }, [supabase, filtroConciliacao]);
+    // Filtros
+    const [filters, setFilters] = useState({
+        searchTerm: '',
+        contaId: '',
+        categoriaId: '',
+        empreendimentoId: '',
+        startDate: '',
+        endDate: '',
+        status: ''
+    });
+    
+    // Ordenação
+    const [sortConfig, setSortConfig] = useState({ key: 'data_vencimento', direction: 'descending' });
 
     useEffect(() => {
-        fetchLancamentos();
-    }, [fetchLancamentos]);
+        setLancamentos(initialLancamentos);
+        setLoading(initialLoading);
+    }, [initialLancamentos, initialLoading]);
+
+    const handleFilterChange = (e) => {
+        const { name, value } = e.target;
+        setFilters(prev => ({ ...prev, [name]: value }));
+    };
+
+    const clearFilters = () => {
+        setFilters({ searchTerm: '', contaId: '', categoriaId: '', empreendimentoId: '', startDate: '', endDate: '', status: '' });
+    };
     
-    const handleSaveLancamento = async (formData) => {
-        const isEditing = Boolean(formData.id);
-        const { novo_favorecido, anexo, ...baseFormData } = formData;
-        let finalFormData = { ...baseFormData };
-
-        if (novo_favorecido && novo_favorecido.nome) {
-            const { data: novoContato, error: contatoError } = await supabase.from('contatos').insert({ nome: novo_favorecido.nome, tipo_contato: novo_favorecido.tipo_contato, personalidade_juridica: 'Pessoa Física' }).select().single();
-            if (contatoError) { setMessage(`Erro ao criar novo contato: ${contatoError.message}`); return false; }
-            finalFormData.favorecido_contato_id = novoContato.id;
+    const requestSort = (key) => {
+        let direction = 'descending';
+        if (sortConfig.key === key && sortConfig.direction === 'descending') {
+            direction = 'ascending';
         }
-        
-        const saveAnexo = async (lancamentoId) => {
-            if (!anexo || !anexo.file) return;
-            const file = anexo.file;
-            const safeFileNameBase = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9.]/g, '_');
-            const fileExtension = safeFileNameBase.includes('.') ? safeFileNameBase.split('.').pop() : '';
-            const fileNameWithoutExt = fileExtension ? safeFileNameBase.slice(0, - (fileExtension.length + 1)) : safeFileNameBase;
-            const finalSafeName = fileNameWithoutExt.replace(/__+/g, '_') + (fileExtension ? '.' + fileExtension : '');
-            const fileName = `${Date.now()}-${finalSafeName}`;
-            const filePath = `lancamentos/${lancamentoId}/${fileName}`;
-            const { error: uploadError } = await supabase.storage.from('documentos-financeiro').upload(filePath, file);
-            if (uploadError) throw new Error(`Erro no upload do anexo: ${uploadError.message}`);
-            if (isEditing) await supabase.from('lancamentos_anexos').delete().eq('lancamento_id', lancamentoId);
-            const { error: dbError } = await supabase.from('lancamentos_anexos').insert({ lancamento_id: lancamentoId, caminho_arquivo: filePath, nome_arquivo: file.name, descricao: anexo.descricao, tipo_documento_id: anexo.tipo_documento_id });
-            if (dbError) throw new Error(`Erro ao salvar referência do anexo: ${dbError.message}`);
-        };
+        setSortConfig({ key, direction });
+    };
 
-        try {
-            if (finalFormData.form_type === 'parcelado') {
-                const numeroParcelas = parseInt(finalFormData.numero_parcelas, 10);
-                const valorParcela = finalFormData.valor / numeroParcelas;
-                const vencimentoInicial = new Date(finalFormData.data_primeiro_vencimento + 'T12:00:00Z');
-                let lancamentosParaCriar = [];
-                for (let i = 0; i < numeroParcelas; i++) {
-                    const dataVencimento = new Date(vencimentoInicial);
-                    dataVencimento.setUTCMonth(dataVencimento.getUTCMonth() + i);
-                    lancamentosParaCriar.push({ descricao: finalFormData.descricao, valor: valorParcela, data_transacao: finalFormData.data_transacao, data_vencimento: dataVencimento.toISOString().split('T')[0], tipo: finalFormData.tipo, status: 'Pendente', conta_id: finalFormData.conta_id, categoria_id: finalFormData.categoria_id, empreendimento_id: finalFormData.empreendimento_id, etapa_id: finalFormData.etapa_id, favorecido_contato_id: finalFormData.favorecido_contato_id, parcela_info: `${i + 1}/${numeroParcelas}` });
-                }
-                const { data: createdLancamentos, error } = await supabase.from('lancamentos').insert(lancamentosParaCriar).select();
-                if (error) throw error;
-                if (anexo?.file && createdLancamentos) for (const lanc of createdLancamentos) await saveAnexo(lanc.id);
-                setMessage(`${numeroParcelas} parcelas criadas com sucesso!`);
-            } else { 
-                let savedLancamento;
-                if (finalFormData.tipo === 'Transferência') {
-                    const { error } = await supabase.rpc('realizar_transferencia', { p_descricao: finalFormData.descricao, p_valor: finalFormData.valor, p_data_transacao: finalFormData.data_transacao, p_conta_origem_id: finalFormData.conta_id, p_conta_destino_id: finalFormData.conta_destino_id });
-                    if (error) throw error;
-                    setMessage('Transferência realizada com sucesso!');
-                } else { 
-                    const dataToSave = { ...finalFormData };
-                    ['conta', 'categoria', 'favorecido', 'conta_destino_id', 'form_type', 'is_parcelado', 'numero_parcelas', 'data_primeiro_vencimento', 'is_recorrente', 'frequencia', 'recorrencia_data_inicio', 'recorrencia_data_fim', 'anexos'].forEach(k => delete dataToSave[k]);
-                    let error;
-                    if (isEditing) {
-                        const { id, ...updateData } = dataToSave;
-                        const { data, error: updateError } = await supabase.from('lancamentos').update(updateData).eq('id', id).select().single();
-                        savedLancamento = data;
-                        error = updateError;
-                    } else {
-                        delete dataToSave.id;
-                        const { data, error: insertError } = await supabase.from('lancamentos').insert(dataToSave).select().single();
-                        savedLancamento = data;
-                        error = insertError;
-                    }
-                    if (error) throw error;
-                    await saveAnexo(savedLancamento.id);
-                    setMessage(`Lançamento ${isEditing ? 'atualizado' : 'criado'} com sucesso!`);
-                }
+    // Nova função para determinar o status do pagamento
+    const getPaymentStatus = (item) => {
+        if (item.status === 'Pago') {
+            return { text: 'Paga', className: 'bg-green-100 text-green-800' };
+        }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dueDate = new Date(item.data_vencimento || item.data_transacao);
+        if (dueDate < today) {
+            return { text: 'Atrasada', className: 'bg-red-100 text-red-800' };
+        }
+        return { text: 'A Pagar', className: 'bg-yellow-100 text-yellow-800' };
+    };
+
+    const filteredAndSortedLancamentos = useMemo(() => {
+        let filtered = [...lancamentos];
+
+        if (filters.contaId) filtered = filtered.filter(l => l.conta_id == filters.contaId);
+        if (filters.categoriaId) filtered = filtered.filter(l => l.categoria_id == filters.categoriaId);
+        if (filters.empreendimentoId) filtered = filtered.filter(l => l.empreendimento_id == filters.empreendimentoId);
+        if (filters.status) {
+             if (filters.status === 'Atrasada') {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                filtered = filtered.filter(l => l.status !== 'Pago' && new Date(l.data_vencimento || l.data_transacao) < today);
+            } else {
+                filtered = filtered.filter(l => l.status === filters.status);
             }
-        } catch (error) {
-            setMessage(`Erro: ${error.message}`);
-            return false;
+        }
+        if (filters.startDate) filtered = filtered.filter(l => new Date(l.data_vencimento || l.data_transacao) >= new Date(filters.startDate));
+        if (filters.endDate) filtered = filtered.filter(l => new Date(l.data_vencimento || l.data_transacao) <= new Date(filters.endDate + 'T23:59:59'));
+        
+        if (filters.searchTerm) {
+            const term = filters.searchTerm.toLowerCase();
+            filtered = filtered.filter(l =>
+                l.descricao.toLowerCase().includes(term) ||
+                (l.favorecido?.nome && l.favorecido.nome.toLowerCase().includes(term)) ||
+                (l.favorecido?.razao_social && l.favorecido.razao_social.toLowerCase().includes(term))
+            );
         }
 
-        setTimeout(() => setMessage(''), 4000);
-        fetchLancamentos();
-        return true;
-    };
-
-    const handleDeleteLancamento = async (id) => {
-        if (!window.confirm("Tem certeza?")) return;
-        await supabase.from('lancamentos').delete().eq('id', id);
-        setMessage('Lançamento excluído.');
-        fetchLancamentos();
-    };
-
-    const handleOpenAddModal = () => {
-        setEditingLancamento(null);
-        setIsFormModalOpen(true);
-    };
-
-    const handleOpenEditModal = (lancamento) => {
-        if (lancamento.categoria === null && lancamento.descricao.toLowerCase().includes('transferência')) {
-            alert("Não é possível editar uma transferência.");
-            return;
+        if (sortConfig.key) {
+            filtered.sort((a, b) => {
+                const valA = a[sortConfig.key] || '';
+                const valB = b[sortConfig.key] || '';
+                if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+                return 0;
+            });
         }
-        if(lancamento.parcela_info) {
-            alert("Não é possível editar uma parcela individualmente.");
-            return;
-        }
-        setEditingLancamento(lancamento);
-        setIsFormModalOpen(true);
+
+        return filtered;
+    }, [lancamentos, filters, sortConfig]);
+    
+    const formatCurrency = (value, tipo) => {
+        const signal = tipo === 'Receita' ? '+' : '-';
+        return `${signal} ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(value || 0))}`;
     };
     
-    const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A';
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow space-y-4">
-            <LancamentoFormModal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} onSave={handleSaveLancamento} initialData={editingLancamento} />
-            <LancamentoImporter isOpen={isImporterOpen} onClose={() => setIsImporterOpen(false)} onImportComplete={fetchLancamentos} />
-
-            <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold text-gray-800">Lançamentos Financeiros</h2>
-                <div className="flex items-center gap-4">
-                    <select value={filtroConciliacao} onChange={e => setFiltroConciliacao(e.target.value)} className="p-2 border rounded-md text-sm">
-                        <option value="todos">Todos</option>
-                        <option value="pendente">Pendentes</option>
-                        <option value="conciliado">Conciliados</option>
+        <div className="space-y-4">
+             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
+                 <h3 className="font-semibold text-lg flex items-center gap-2"><FontAwesomeIcon icon={faFilter} /> Filtros</h3>
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <input type="text" name="searchTerm" placeholder="Buscar por descrição ou favorecido..." value={filters.searchTerm} onChange={handleFilterChange} className="p-2 border rounded-md shadow-sm lg:col-span-4" />
+                    <select name="contaId" value={filters.contaId} onChange={handleFilterChange} className="p-2 border rounded-md shadow-sm"><option value="">Todas as Contas</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
+                    <select name="categoriaId" value={filters.categoriaId} onChange={handleFilterChange} className="p-2 border rounded-md shadow-sm"><option value="">Todas as Categorias</option>{categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
+                    <select name="empreendimentoId" value={filters.empreendimentoId} onChange={handleFilterChange} className="p-2 border rounded-md shadow-sm"><option value="">Todos Empreendimentos</option>{empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select>
+                    <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md shadow-sm">
+                        <option value="">Todos os Status</option>
+                        <option value="Pago">Paga</option>
+                        <option value="Pendente">A Pagar</option>
+                        <option value="Atrasada">Atrasada</option>
                     </select>
-                    <button onClick={() => setIsImporterOpen(true)} className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">
-                        <FontAwesomeIcon icon={faFileImport} /> Importar CSV
-                    </button>
-                    <button onClick={handleOpenAddModal} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
-                        <FontAwesomeIcon icon={faPlus} /> Novo Lançamento
-                    </button>
-                </div>
+                    <div><label className="text-xs">De:</label><input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="w-full p-2 border rounded-md shadow-sm"/></div>
+                    <div><label className="text-xs">Até:</label><input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="w-full p-2 border rounded-md shadow-sm"/></div>
+                    <div className="lg:col-span-2 flex justify-end items-end"><button onClick={clearFilters} className="text-sm bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md flex items-center gap-2 w-full md:w-auto"><FontAwesomeIcon icon={faTimes} /> Limpar Filtros</button></div>
+                 </div>
             </div>
-
-            {message && <p className="text-center text-sm font-medium p-2 bg-blue-50 text-blue-800 rounded-md">{message}</p>}
-
+            
             {loading ? (
                 <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
             ) : (
@@ -190,43 +157,47 @@ export default function LancamentosManager() {
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-4 py-3 text-left text-xs font-bold uppercase">Status</th>
-                                <th className="px-4 py-3 text-left text-xs font-bold uppercase">Vencimento</th>
+                                <SortableHeader label="Vencimento" sortKey="data_vencimento" sortConfig={sortConfig} requestSort={requestSort} />
                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase">Descrição</th>
                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase">Favorecido</th>
-                                <th className="px-4 py-3 text-left text-xs font-bold uppercase">Categoria</th>
-                                <th className="px-4 py-3 text-left text-xs font-bold uppercase">Conta</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold uppercase">Conta (Banco)</th>
                                 <th className="px-4 py-3 text-right text-xs font-bold uppercase">Valor</th>
+                                <th className="px-4 py-3 text-center text-xs font-bold uppercase">Status</th>
+                                <th className="px-4 py-3 text-center text-xs font-bold uppercase">Conciliado</th>
                                 <th className="px-4 py-3 text-center text-xs font-bold uppercase">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {lancamentos.length === 0 ? (
-                                <tr><td colSpan="8" className="text-center py-10 text-gray-500">Nenhum lançamento encontrado.</td></tr>
-                            ) : lancamentos.map(item => (
-                                <tr key={item.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-4 text-center">
-                                        {item.conciliado ? (
-                                            <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" title="Conciliado" />
-                                        ) : (
-                                            <FontAwesomeIcon icon={faClock} className="text-gray-400" title="Pendente" />
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-4 text-sm font-semibold">{formatDate(item.data_vencimento || item.data_transacao)}</td>
-                                    <td className="px-4 py-4 text-sm font-medium">{item.descricao} {item.parcela_info && <span className="text-xs font-normal text-gray-500">({item.parcela_info})</span>}</td>
-                                    <td className="px-4 py-4 text-sm">{item.favorecido?.nome || item.favorecido?.razao_social || 'N/A'}</td>
-                                    <td className="px-4 py-4 text-sm">{item.categoria?.nome || 'N/A'}</td>
-                                    <td className="px-4 py-4 text-sm">{item.conta?.nome || 'N/A'}</td>
-                                    <td className={`px-4 py-4 text-right text-sm font-semibold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>
-                                        <FontAwesomeIcon icon={item.tipo === 'Receita' ? faArrowUp : faArrowDown} className="mr-2" />
-                                        {formatCurrency(item.valor)}
-                                    </td>
-                                    <td className="px-4 py-4 text-center">
-                                        <button onClick={() => handleOpenEditModal(item)} className="text-blue-500 hover:text-blue-700 mr-3"><FontAwesomeIcon icon={faPenToSquare} /></button>
-                                        <button onClick={() => handleDeleteLancamento(item.id)} className="text-red-500 hover:text-red-700"><FontAwesomeIcon icon={faTrash} /></button>
-                                    </td>
-                                </tr>
-                            ))}
+                            {filteredAndSortedLancamentos.length === 0 ? (
+                                <tr><td colSpan="8" className="text-center py-10 text-gray-500">Nenhum lançamento encontrado para os filtros aplicados.</td></tr>
+                            ) : filteredAndSortedLancamentos.map(item => {
+                                const statusInfo = getPaymentStatus(item);
+                                return (
+                                    <tr key={item.id} className="hover:bg-gray-50">
+                                        <td className="px-4 py-4 text-sm font-semibold">{formatDate(item.data_vencimento || item.data_transacao)}</td>
+                                        <td className="px-4 py-4 text-sm font-medium">{item.descricao} {item.parcela_info && <span className="text-xs text-gray-500">({item.parcela_info})</span>}</td>
+                                        <td className="px-4 py-4 text-sm">{item.favorecido?.nome || item.favorecido?.razao_social || 'N/A'}</td>
+                                        <td className="px-4 py-4 text-sm">{item.conta?.nome} {item.conta?.instituicao && `(${item.conta.instituicao})`}</td>
+                                        <td className={`px-4 py-4 text-right text-sm font-bold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(item.valor, item.tipo)}</td>
+                                        <td className="px-4 py-4 text-center text-xs">
+                                            <span className={`px-2 py-1 font-semibold leading-tight rounded-full ${statusInfo.className}`}>
+                                                {statusInfo.text}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-4 text-center">
+                                            <FontAwesomeIcon 
+                                                icon={item.conciliado ? faCheckCircle : faCircle}
+                                                className={item.conciliado ? 'text-green-500' : 'text-red-500'}
+                                                title={item.conciliado ? 'Conciliado' : 'Não Conciliado'}
+                                            />
+                                        </td>
+                                        <td className="px-4 py-4 text-center">
+                                            <button onClick={() => onEdit(item)} className="text-blue-500 hover:text-blue-700 mr-3"><FontAwesomeIcon icon={faPenToSquare} /></button>
+                                            <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700"><FontAwesomeIcon icon={faTrash} /></button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
