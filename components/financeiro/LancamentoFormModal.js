@@ -34,7 +34,7 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
 };
 
 
-export default function LancamentoFormModal({ isOpen, onClose, onSave, initialData }) {
+export default function LancamentoFormModal({ isOpen, onClose, onSave, initialData, empresas = [] }) {
     const supabase = createClient();
     const isEditing = Boolean(initialData?.id);
     
@@ -42,6 +42,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSave, initialDa
         descricao: '', valor: '', data_transacao: new Date().toISOString().split('T')[0],
         tipo: 'Despesa', form_type: 'simples', status: 'Pendente', conta_id: null, categoria_id: null,
         empreendimento_id: null, etapa_id: null, conta_destino_id: null, favorecido_contato_id: null,
+        empresa_id: null, // Campo adicionado
         numero_parcelas: 2, data_primeiro_vencimento: new Date().toISOString().split('T')[0],
         frequencia: 'Mensal', recorrencia_data_inicio: new Date().toISOString().split('T')[0], recorrencia_data_fim: null,
         novo_favorecido: null,
@@ -70,7 +71,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSave, initialDa
             setContas(contasData || []);
             const { data: categoriasData } = await supabase.from('categorias_financeiras').select('id, nome, tipo').order('nome');
             setCategorias(categoriasData || []);
-            const { data: empreendimentosData } = await supabase.from('empreendimentos').select('id, nome').order('nome');
+            const { data: empreendimentosData } = await supabase.from('empreendimentos').select('id, nome, empresa_id:empresa_proprietaria_id').order('nome'); // Busca o ID da empresa junto
             setEmpreendimentos(empreendimentosData || []);
             const { data: etapasData } = await supabase.from('etapa_obra').select('id, nome_etapa').order('nome_etapa');
             setEtapas(etapasData || []);
@@ -97,9 +98,22 @@ export default function LancamentoFormModal({ isOpen, onClose, onSave, initialDa
         const { name, value, type, checked } = e.target;
         const newValue = type === 'checkbox' ? checked : (value === '' ? null : value);
         let newFormData = { ...formData, [name]: newValue };
+
+        // Lógica de negócio
         if (name === 'tipo' && newValue === 'Transferência') newFormData.form_type = 'simples';
         if (name === 'form_type' && newValue !== 'simples') newFormData.tipo = formData.tipo === 'Transferência' ? 'Despesa' : formData.tipo;
-        if (name === 'empreendimento_id' && !value) newFormData.etapa_id = null;
+        
+        // CORREÇÃO APLICADA: Se selecionar um empreendimento, seleciona a empresa automaticamente
+        if (name === 'empreendimento_id') {
+            if (newValue) {
+                const emp = empreendimentos.find(e => e.id == newValue);
+                newFormData.empresa_id = emp?.empresa_id || null;
+            } else {
+                newFormData.empresa_id = null;
+            }
+            newFormData.etapa_id = null; // Reseta a etapa ao mudar o empreendimento
+        }
+
         setFormData(newFormData);
     };
 
@@ -280,6 +294,15 @@ export default function LancamentoFormModal({ isOpen, onClose, onSave, initialDa
                                                 </div>
                                             </>
                                         )}
+                                    </div>
+                                    
+                                    {/* CORREÇÃO APLICADA: Campo de Empresa adicionado */}
+                                    <div>
+                                        <label className="block text-sm font-medium">Empresa</label>
+                                        <select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!!formData.empreendimento_id}>
+                                            <option value="">Nenhuma</option>
+                                            {empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}
+                                        </select>
                                     </div>
                                     
                                     <div><label className="block text-sm font-medium">Empreendimento</label><select name="empreendimento_id" value={formData.empreendimento_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Nenhum</option>{empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></div>

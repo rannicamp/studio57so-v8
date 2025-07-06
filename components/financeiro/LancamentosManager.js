@@ -24,7 +24,7 @@ const SortableHeader = ({ label, sortKey, sortConfig, requestSort, className = '
 export default function LancamentosManager({
     lancamentos: initialLancamentos,
     loading: initialLoading,
-    empresas = [], // ***** CORREÇÃO APLICADA AQUI *****
+    empresas = [],
     contas = [],
     categorias = [],
     empreendimentos = [],
@@ -105,8 +105,11 @@ export default function LancamentosManager({
 
         if (field === 'empreendimento_id') {
             const empreendimento = empreendimentos.find(e => e.id == finalValue);
-            if (empreendimento) updateObject.empresa_id = empreendimento.empresa_proprietaria_id;
-            else updateObject.empresa_id = null;
+            if (empreendimento) {
+                updateObject.empresa_id = empreendimento.empresa_proprietaria_id;
+            } else {
+                updateObject.empresa_id = null;
+            }
         }
 
         const { error } = await supabase.from('lancamentos').update(updateObject).eq('id', itemId);
@@ -140,26 +143,41 @@ export default function LancamentosManager({
             const term = filters.searchTerm.toLowerCase();
             filtered = filtered.filter(l => l.descricao.toLowerCase().includes(term) || (l.favorecido?.nome && l.favorecido.nome.toLowerCase().includes(term)) || (l.favorecido?.razao_social && l.favorecido.razao_social.toLowerCase().includes(term)));
         }
+        
         if (sortConfig.key) {
             filtered.sort((a, b) => {
                 let valA, valB;
-                if (sortConfig.key === 'favorecido') valA = a.favorecido?.nome || a.favorecido?.razao_social || '';
-                else if (sortConfig.key === 'empreendimento') valA = a.empreendimento?.nome || '';
-                else if (sortConfig.key === 'empresa') valA = a.empreendimento?.empresa?.nome || a.empresa?.nome || '';
-                else valA = a[sortConfig.key] || '';
-                
-                if (sortConfig.key === 'favorecido') valB = b.favorecido?.nome || b.favorecido?.razao_social || '';
-                else if (sortConfig.key === 'empreendimento') valB = b.empreendimento?.nome || '';
-                else if (sortConfig.key === 'empresa') valB = b.empreendimento?.empresa?.nome || b.empresa?.nome || '';
-                else valB = b[sortConfig.key] || '';
-                
-                if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
-                if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
-                return 0;
+
+                // Extração de valores com lógica específica para campos aninhados
+                if (sortConfig.key === 'empresa') {
+                    valA = a.empreendimento?.empresa?.nome_fantasia || a.empresa?.nome_fantasia || '';
+                    valB = b.empreendimento?.empresa?.nome_fantasia || b.empresa?.nome_fantasia || '';
+                } else if (sortConfig.key === 'empreendimento') {
+                    valA = a.empreendimento?.nome || '';
+                    valB = b.empreendimento?.nome || '';
+                } else {
+                    valA = a[sortConfig.key];
+                    valB = b[sortConfig.key];
+                }
+
+                if (valA == null) return 1;
+                if (valB == null) return -1;
+
+                let comparison = 0;
+                // CORREÇÃO APLICADA: Lógica de comparação melhorada
+                if (sortConfig.key.startsWith('data_')) {
+                    comparison = new Date(valA) - new Date(valB);
+                } else if (typeof valA === 'number') {
+                    comparison = valA - valB;
+                } else {
+                    comparison = String(valA).localeCompare(String(valB));
+                }
+
+                return sortConfig.direction === 'ascending' ? comparison : -comparison;
             });
         }
         return filtered;
-    }, [lancamentos, filters, sortConfig, empresas, empreendimentos]);
+    }, [lancamentos, filters, sortConfig]);
     
     const formatCurrency = (value, tipo) => {
         const signal = tipo === 'Receita' ? '+' : '-';
@@ -217,6 +235,8 @@ export default function LancamentosManager({
                             {filteredAndSortedLancamentos.length > 0 ? filteredAndSortedLancamentos.map(item => {
                                 const statusInfo = getPaymentStatus(item);
                                 const isEditing = editingCell?.id === item.id;
+                                const nomeEmpresa = item.empreendimento?.empresa?.nome_fantasia || item.empresa?.nome_fantasia || 'N/A';
+
                                 return (
                                     <tr key={item.id} className={`${selectedIds.has(item.id) ? 'bg-blue-100' : 'hover:bg-gray-50'}`}>
                                         <td className="p-4"><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} /></td>
@@ -225,7 +245,7 @@ export default function LancamentosManager({
                                         <td className="px-4 py-2" onClick={() => !item.empreendimento_id && setEditingCell({ id: item.id, field: 'empresa_id' })}>
                                             {isEditing && editingCell.field === 'empresa_id' && !item.empreendimento_id
                                                 ? <select defaultValue={item.empresa_id} autoFocus onBlur={(e) => handleInlineUpdate(item.id, 'empresa_id', e.target.value)} className="w-full p-1 border rounded bg-yellow-50"><option value="">Nenhuma</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}</select> 
-                                                : <span>{item.empreendimento?.empresa?.nome_fantasia || item.empresa?.nome_fantasia || 'N/A'}</span>}
+                                                : <span>{nomeEmpresa}</span>}
                                         </td>
                                         <td className="px-4 py-2" onClick={() => setEditingCell({ id: item.id, field: 'empreendimento_id' })}>{isEditing && editingCell.field === 'empreendimento_id' ? <select defaultValue={item.empreendimento_id || ''} autoFocus onBlur={(e) => handleInlineUpdate(item.id, 'empreendimento_id', e.target.value)} className="w-full p-1 border rounded bg-yellow-50"><option value="">Nenhum</option>{empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select> : <span>{item.empreendimento?.nome || 'N/A'}</span>}</td>
                                         <td className={`px-4 py-2 text-right font-bold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`} onClick={() => setEditingCell({ id: item.id, field: 'valor' })}>{isEditing && editingCell.field === 'valor' ? <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',' }}} defaultValue={String(item.valor || '')} autoFocus onAccept={(v) => handleInlineUpdate(item.id, 'valor', v)} className="w-full p-1 border rounded bg-yellow-50 text-right"/> : formatCurrency(item.valor, item.tipo)}</td>

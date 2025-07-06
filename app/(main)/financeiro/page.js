@@ -64,16 +64,14 @@ export default function FinanceiroPage() {
         fetchData();
     }, [setPageTitle, fetchData]);
     
-    // ***** NOVA LÓGICA DE SALVAR CENTRALIZADA *****
     const handleSaveLancamento = async (formData) => {
         const isEditing = Boolean(formData.id);
         const { anexo, novo_favorecido, ...baseFormData } = formData;
         
         let finalFormData = { ...baseFormData };
 
-        // 1. Criar novo favorecido se necessário
         if (novo_favorecido && novo_favorecido.nome) {
-            const { data: novoContato, error: contatoError } = await supabase.from('contatos').insert({ nome: novo_favorecido.nome, tipo_contato: novo_favorecido.tipo_contato }).select().single();
+            const { data: novoContato, error: contatoError } = await supabase.from('contatos').insert({ nome: novo_favorecido.nome, tipo_contato: 'Fornecedor' }).select().single();
             if (contatoError) {
                 setMessage(`Erro ao criar novo favorecido: ${contatoError.message}`);
                 return false;
@@ -81,7 +79,6 @@ export default function FinanceiroPage() {
             finalFormData.favorecido_contato_id = novoContato.id;
         }
 
-        // 2. Salvar o lançamento principal (ou atualizar)
         let lancamentoId = finalFormData.id;
         let error;
         if (isEditing) {
@@ -100,7 +97,6 @@ export default function FinanceiroPage() {
             return false;
         }
 
-        // 3. Lidar com o anexo
         if (anexo && anexo.file && lancamentoId) {
             const file = anexo.file;
             const filePath = `lancamento-${lancamentoId}/${Date.now()}-${file.name}`;
@@ -121,7 +117,7 @@ export default function FinanceiroPage() {
         }
         
         setMessage(`Lançamento ${isEditing ? 'atualizado' : 'criado'} com sucesso!`);
-        router.refresh(); // FORÇA A ATUALIZAÇÃO DA PÁGINA
+        fetchData();
         return true;
     };
     
@@ -132,7 +128,7 @@ export default function FinanceiroPage() {
             setMessage('Erro ao excluir: ' + error.message);
         } else {
             setMessage('Lançamento excluído.');
-            router.refresh(); // FORÇA A ATUALIZAÇÃO DA PÁGINA
+            fetchData();
         }
     };
 
@@ -152,6 +148,7 @@ export default function FinanceiroPage() {
                 onClose={() => setIsFormModalOpen(false)} 
                 onSave={handleSaveLancamento}
                 initialData={editingLancamento}
+                empresas={empresas}
             />
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">Painel Financeiro</h1>
@@ -189,11 +186,11 @@ export default function FinanceiroPage() {
                         empresas={empresas}
                         onEdit={handleOpenEditModal}
                         onDelete={handleDeleteLancamento}
-                        onUpdate={() => router.refresh()}
+                        onUpdate={fetchData}
                     />
                 )}
                 {activeTab === 'conciliacao' && <ConciliacaoManager contas={contas} />}
-                {activeTab === 'contas' && <ContasManager />}
+                {activeTab === 'contas' && <ContasManager initialContas={contas} allLancamentos={lancamentos} onUpdate={fetchData} />}
                 {activeTab === 'categorias' && <CategoriasManager />}
             </div>
         </div>
