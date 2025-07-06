@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
-export default function CategoriaFormModal({ isOpen, onClose, onSave, initialData }) {
+export default function CategoriaFormModal({ isOpen, onClose, onSave, initialData, allCategories }) { // Adicionado allCategories
     const isEditing = Boolean(initialData);
 
     const getInitialState = () => ({
         nome: '',
         tipo: 'Despesa',
+        parent_id: null, // Novo campo para a categoria pai
     });
 
     const [formData, setFormData] = useState(getInitialState());
@@ -23,7 +24,7 @@ export default function CategoriaFormModal({ isOpen, onClose, onSave, initialDat
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
     };
 
     const handleSubmit = async (e) => {
@@ -55,6 +56,18 @@ export default function CategoriaFormModal({ isOpen, onClose, onSave, initialDat
                         <select name="tipo" value={formData.tipo} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md">
                             <option>Despesa</option>
                             <option>Receita</option>
+                        </select>
+                    </div>
+
+                    {/* Novo campo para selecionar a categoria pai */}
+                    <div>
+                        <label className="block text-sm font-medium">Subcategoria de (Opcional)</label>
+                        <select name="parent_id" value={formData.parent_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
+                            <option value="">Nenhuma (Categoria Principal)</option>
+                            {allCategories && allCategories
+                                .filter(c => !c.parent_id) // Mostra apenas categorias principais
+                                .map(cat => <option key={cat.id} value={cat.id}>{cat.nome}</option>)
+                            }
                         </select>
                     </div>
 

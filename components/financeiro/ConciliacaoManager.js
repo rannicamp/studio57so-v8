@@ -104,7 +104,19 @@ export default function ConciliacaoManager({ contas }) {
     };
     
     const conciliarPar = async (transacao, lancamento) => {
-        const { error } = await supabase.from('lancamentos').update({ conciliado: true, id_transacao_externa: transacao.id }).eq('id', lancamento.id);
+        // ***** INÍCIO DA ALTERAÇÃO *****
+        // Ao conciliar, também definimos o status como 'Pago' e a data do pagamento.
+        const { error } = await supabase
+            .from('lancamentos')
+            .update({ 
+                conciliado: true, 
+                status: 'Pago',
+                data_pagamento: new Date().toISOString(),
+                id_transacao_externa: transacao.id 
+            })
+            .eq('id', lancamento.id);
+        // ***** FIM DA ALTERAÇÃO *****
+
         if (error) { console.error("Erro ao conciliar par:", error); return false; }
         return true;
     };
