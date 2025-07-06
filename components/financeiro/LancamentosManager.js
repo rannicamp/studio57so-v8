@@ -3,14 +3,15 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-    faSpinner, faFilter, faTimes, faPenToSquare, faTrash, faSort, faSortUp, faSortDown, faTasks, faSave, faStar as faStarSolid, faEllipsisV
+    faSpinner, faFilter, faTimes, faPenToSquare, faTrash, faSort, faSortUp, faSortDown, faTasks, faSave, faStar as faStarSolid, faEllipsisV,
+    faChevronUp, faChevronDown, faArrowUp, faArrowDown, faBalanceScale, faCalendarDay, faCalendarWeek, faCalendarAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
 import { IMaskInput } from 'react-imask';
 import MultiSelectDropdown from './MultiSelectDropdown';
+import KpiCard from '../KpiCard';
 
-// Componente do Cabeçalho da Tabela
 const SortableHeader = ({ label, sortKey, sortConfig, requestSort, className = '' }) => {
     const getIcon = () => {
         if (sortConfig.key !== sortKey) return faSort;
@@ -26,7 +27,6 @@ const SortableHeader = ({ label, sortKey, sortConfig, requestSort, className = '
     );
 };
 
-// Componente Principal
 export default function LancamentosManager({
     lancamentos: initialLancamentos,
     loading: initialLoading,
@@ -44,6 +44,7 @@ export default function LancamentosManager({
 
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [editingCell, setEditingCell] = useState(null);
+    const [filtersVisible, setFiltersVisible] = useState(true);
 
     const [filters, setFilters] = useState({
         searchTerm: '',
@@ -62,6 +63,7 @@ export default function LancamentosManager({
     const [newFilterName, setNewFilterName] = useState('');
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
     const filterMenuRef = useRef(null);
+    const [activePeriodFilter, setActivePeriodFilter] = useState('');
 
     useEffect(() => {
         const loadedFilters = JSON.parse(localStorage.getItem('savedFinancialFilters') || '[]');
@@ -109,7 +111,7 @@ export default function LancamentosManager({
     }, [categorias]);
 
     const handleFilterChange = (name, value) => {
-        const newFilters = { ...filters, [name]: value };
+        const newFilters = { ...filters, [name]: value, activePeriod: null };
 
         if (name === "month" || name === "year") {
             const year = name === "year" ? value : newFilters.year;
@@ -126,10 +128,38 @@ export default function LancamentosManager({
             }
         }
         setFilters(newFilters);
+        setActivePeriodFilter(''); // Limpa o período rápido ao mudar filtros manuais
+    };
+
+    const setDateRange = (period) => {
+        const today = new Date();
+        let startDate, endDate;
+
+        if (period === 'today') {
+            startDate = endDate = today;
+        } else if (period === 'week') {
+            const firstDayOfWeek = today.getDate() - today.getDay();
+            startDate = new Date(today.setDate(firstDayOfWeek));
+            endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 6);
+        } else if (period === 'month') {
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        }
+
+        setFilters(prev => ({
+            ...prev,
+            startDate: startDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0],
+            month: '',
+            year: ''
+        }));
+        setActivePeriodFilter(period);
     };
 
     const clearFilters = () => {
         setFilters({ searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [], status: [], startDate: '', endDate: '', month: '', year: new Date().getFullYear().toString() });
+        setActivePeriodFilter('');
     };
 
     const handleSaveFilter = () => {
@@ -152,6 +182,7 @@ export default function LancamentosManager({
     const handleLoadFilter = (filterSettings) => {
         setFilters(filterSettings);
         setIsFilterMenuOpen(false);
+        setActivePeriodFilter(''); // Limpa filtro de período rápido
     };
 
     const handleDeleteFilter = (filterNameToDelete) => {
@@ -244,12 +275,7 @@ export default function LancamentosManager({
             const empreendimentoEmpresa = item.empreendimento?.empresa;
             const contaEmpresa = item.conta?.empresa;
             const diretaEmpresa = empresas.find(e => e.id === item.empresa_id);
-
-            const nomeEmpresa = empreendimentoEmpresa?.nome_fantasia || empreendimentoEmpresa?.razao_social ||
-                              contaEmpresa?.nome_fantasia || contaEmpresa?.razao_social ||
-                              diretaEmpresa?.nome_fantasia || diretaEmpresa?.razao_social ||
-                              'N/A';
-            
+            const nomeEmpresa = empreendimentoEmpresa?.nome_fantasia || empreendimentoEmpresa?.razao_social || contaEmpresa?.nome_fantasia || contaEmpresa?.razao_social || diretaEmpresa?.nome_fantasia || diretaEmpresa?.razao_social || 'N/A';
             return { ...item, nomeEmpresa };
         });
 
@@ -272,6 +298,13 @@ export default function LancamentosManager({
         }
         return augmentedData;
     }, [lancamentos, filters, sortConfig, empresas, empreendimentos]);
+    
+    const kpiData = useMemo(() => {
+        const totalReceita = filteredAndSortedLancamentos.filter(l => l.tipo === 'Receita').reduce((acc, l) => acc + l.valor, 0);
+        const totalDespesa = filteredAndSortedLancamentos.filter(l => l.tipo === 'Despesa').reduce((acc, l) => acc + l.valor, 0);
+        const resultado = totalReceita - totalDespesa;
+        return { totalReceita, totalDespesa, resultado };
+    }, [filteredAndSortedLancamentos]);
     
     const formatCurrency = (value, tipo) => {
         const signal = tipo === 'Receita' ? '+' : '-';
@@ -297,7 +330,9 @@ export default function LancamentosManager({
         <div className="space-y-4">
              <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                  <div className="flex justify-between items-center">
-                    <h3 className="font-semibold text-lg flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faFilter} /> Filtros</h3>
+                    <button onClick={() => setFiltersVisible(!filtersVisible)} className="font-semibold text-lg flex items-center gap-2 uppercase">
+                        <FontAwesomeIcon icon={faFilter} /> Filtros <FontAwesomeIcon icon={filtersVisible ? faChevronUp : faChevronDown} className="text-sm" />
+                    </button>
                     <div className="relative" ref={filterMenuRef}>
                         <button onClick={() => setIsFilterMenuOpen(prev => !prev)} className="p-2 border rounded-md bg-white hover:bg-gray-100">
                             <FontAwesomeIcon icon={faEllipsisV} />
@@ -334,52 +369,83 @@ export default function LancamentosManager({
                     </div>
                  </div>
                  
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="lg:col-span-4">
-                        <input type="text" name="searchTerm" placeholder="BUSCAR POR DESCRIÇÃO OU FAVORECIDO..." value={filters.searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} className="p-2 border rounded-md shadow-sm w-full" />
-                    </div>
-                    <div className="lg:col-span-2"><MultiSelectDropdown label="Empresas" options={empresas} selectedIds={filters.empresaIds} onChange={(selected) => handleFilterChange('empresaIds', selected)} /></div>
-                    <div className="lg:col-span-2"><MultiSelectDropdown label="Empreendimentos" options={empreendimentos} selectedIds={filters.empreendimentoIds} onChange={(selected) => handleFilterChange('empreendimentoIds', selected)} /></div>
-                    <div className="lg:col-span-2"><MultiSelectDropdown label="Contas" options={contas} selectedIds={filters.contaIds} onChange={(selected) => handleFilterChange('contaIds', selected)} /></div>
-                    <div className="lg:col-span-2"><MultiSelectDropdown label="Categorias" options={categoryTree} selectedIds={filters.categoriaIds} onChange={(selected) => handleFilterChange('categoriaIds', selected)} /></div>
-                    
-                    <div className="lg:col-span-2 flex items-end gap-2">
-                        <div className="flex-1">
-                            <label className="text-xs uppercase font-medium text-gray-600">Mês</label>
-                            <select name="month" value={filters.month} onChange={(e) => handleFilterChange('month', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm">
-                                <option value="">Todos</option>
-                                {months.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-                            </select>
+                 {filtersVisible && (
+                    <div className="space-y-4 animate-fade-in">
+                        <div className="grid grid-cols-1 gap-4"><input type="text" name="searchTerm" placeholder="BUSCAR POR DESCRIÇÃO OU FAVORECIDO..." value={filters.searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} className="p-2 border rounded-md shadow-sm w-full" /></div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div><MultiSelectDropdown label="Empresas" options={empresas} selectedIds={filters.empresaIds} onChange={(selected) => handleFilterChange('empresaIds', selected)} /></div>
+                            <div><MultiSelectDropdown label="Empreendimentos" options={empreendimentos} selectedIds={filters.empreendimentoIds} onChange={(selected) => handleFilterChange('empreendimentoIds', selected)} /></div>
+                            <div><MultiSelectDropdown label="Contas" options={contas} selectedIds={filters.contaIds} onChange={(selected) => handleFilterChange('contaIds', selected)} /></div>
+                            <div><MultiSelectDropdown label="Categorias" options={categoryTree} selectedIds={filters.categoriaIds} onChange={(selected) => handleFilterChange('categoriaIds', selected)} /></div>
                         </div>
-                        <div className="w-28">
-                            <label className="text-xs uppercase font-medium text-gray-600">Ano</label>
-                            <select name="year" value={filters.year} onChange={(e) => handleFilterChange('year', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm">
-                                 {years.map(y => <option key={y.id} value={y.id}>{y.nome}</option>)}
-                            </select>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="lg:col-span-1"><MultiSelectDropdown label="Status" options={statusOptions} selectedIds={filters.status} onChange={(selected) => handleFilterChange('status', selected)} placeholder="Todos os Status" /></div>
+                            <div className="lg:col-span-3 flex items-end gap-4">
+                                <div className="flex-1 flex items-end gap-2">
+                                    <div className="flex-1">
+                                        <label className="text-xs uppercase font-medium text-gray-600">Mês</label>
+                                        <select name="month" value={filters.month} onChange={(e) => handleFilterChange('month', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm">
+                                            <option value="">Todos</option>
+                                            {months.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="w-28">
+                                        <label className="text-xs uppercase font-medium text-gray-600">Ano</label>
+                                        <select name="year" value={filters.year} onChange={(e) => handleFilterChange('year', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm">
+                                             {years.map(y => <option key={y.id} value={y.id}>{y.nome}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="flex-1 flex items-end gap-2">
+                                    <div><label className="text-xs uppercase">De:</label><input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div>
+                                    <div><label className="text-xs uppercase">Até:</label><input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t">
+                             <div className="flex items-center gap-2">
+                                <button onClick={() => setDateRange('today')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarDay}/>Hoje</button>
+                                <button onClick={() => setDateRange('week')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarWeek}/>Semana</button>
+                                <button onClick={() => setDateRange('month')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarAlt}/>Mês</button>
+                            </div>
+                            <button onClick={clearFilters} className="text-sm bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faTimes} />Limpar</button>
                         </div>
                     </div>
-                    <div className="lg:col-span-2 flex items-end gap-2">
-                        <div><label className="text-xs uppercase">Período Personalizado - De:</label><input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div>
-                        <div><label className="text-xs uppercase">Até:</label><input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div>
-                    </div>
-                 </div>
-                 <div className="flex justify-end pt-4 mt-4 border-t">
-                     <button onClick={clearFilters} className="text-sm bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md flex items-center gap-2 w-full md:w-auto uppercase"><FontAwesomeIcon icon={faTimes} /> Limpar Filtros</button>
-                 </div>
+                 )}
             </div>
 
             {savedFilters.filter(f => f.isFavorite).length > 0 && (
                 <div className="p-4 border rounded-lg bg-white space-y-2">
                     <h4 className="font-semibold flex items-center gap-2 text-sm uppercase text-gray-600"><FontAwesomeIcon icon={faStarSolid} /> Filtros Favoritos</h4>
                     <div className="flex flex-wrap gap-2">
-                        {savedFilters.filter(f => f.isFavorite).map((f, i) => (
-                            <button key={i} onClick={() => handleLoadFilter(f.settings)} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-100 hover:border-gray-400">
-                                {f.name}
-                            </button>
-                        ))}
+                        {savedFilters.filter(f => f.isFavorite).map((f, i) => {
+                            const isActive = JSON.stringify(filters) === JSON.stringify(f.settings);
+                            return (
+                                <button 
+                                    key={i} 
+                                    onClick={() => handleLoadFilter(f.settings)} 
+                                    className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${isActive ? 'bg-blue-600 text-white border-blue-700' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+                                >
+                                    {f.name}
+                                </button>
+                            )
+                        })}
                     </div>
                 </div>
             )}
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {kpiData.totalReceita > 0 && (
+                    <KpiCard title="Receitas no Período" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalReceita)} icon={faArrowUp} color="green" />
+                )}
+                {kpiData.totalReceita > 0 && (
+                     <KpiCard title="Despesas no Período" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalDespesa)} icon={faArrowDown} color="red" />
+                )}
+                 <KpiCard title="Resultado do Período" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.resultado)} icon={faBalanceScale} color={kpiData.resultado >= 0 ? 'blue' : 'gray'} />
+            </div>
 
             {selectedIds.size > 0 && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in">
