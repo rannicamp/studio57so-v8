@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faSpinner, faFilter, faTimes, faPenToSquare, faTrash, faSort, faSortUp, faSortDown, faTasks, faSave, faStar as faStarSolid, faEllipsisV,
-    faChevronUp, faChevronDown, faArrowUp, faArrowDown, faBalanceScale, faCalendarDay, faCalendarWeek, faCalendarAlt
+    faChevronUp, faChevronDown, faArrowUp, faArrowDown, faBalanceScale, faCalendarDay, faCalendarWeek, faCalendarAlt, faLayerGroup, faSyncAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
@@ -27,6 +27,63 @@ const SortableHeader = ({ label, sortKey, sortConfig, requestSort, className = '
     );
 };
 
+const BatchUpdateModal = ({ isOpen, onClose, onConfirm, fields, allData }) => {
+    const [selectedField, setSelectedField] = useState('');
+    const [selectedValue, setSelectedValue] = useState('');
+
+    if (!isOpen) return null;
+
+    const currentField = fields.find(f => f.key === selectedField);
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
+                <h3 className="text-xl font-bold mb-4">Alterar Campo em Lote</h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium">1. Campo para alterar</label>
+                        <select value={selectedField} onChange={(e) => { setSelectedField(e.target.value); setSelectedValue(''); }} className="mt-1 w-full p-2 border rounded-md">
+                            <option value="">Selecione um campo...</option>
+                            {fields.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+                        </select>
+                    </div>
+                    {selectedField && currentField && (
+                        <div>
+                            <label className="block text-sm font-medium">2. Novo valor para "{currentField.label}"</label>
+                            {currentField.type === 'select' ? (
+                                <select value={selectedValue} onChange={(e) => setSelectedValue(e.target.value)} className="mt-1 w-full p-2 border rounded-md">
+                                    <option value="">Selecione um valor...</option>
+                                    {allData[currentField.optionsKey].map(opt => <option key={opt.id} value={opt.id}>{opt.nome || opt.razao_social || opt.nome_etapa}</option>)}
+                                </select>
+                            ) : (
+                                <input type={currentField.type || 'text'} value={selectedValue} onChange={(e) => setSelectedValue(e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
+                            )}
+                        </div>
+                    )}
+                </div>
+                <div className="flex justify-end gap-4 pt-6 mt-4 border-t">
+                    <button onClick={onClose} className="bg-gray-200 px-4 py-2 rounded-md">Cancelar</button>
+                    <button onClick={() => onConfirm(selectedField, selectedValue)} disabled={!selectedField || !selectedValue} className="bg-blue-600 text-white px-4 py-2 rounded-md disabled:bg-gray-400">Confirmar Alteração</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const initialFilterState = {
+    searchTerm: '',
+    empresaIds: [],
+    contaIds: [],
+    categoriaIds: [],
+    empreendimentoIds: [],
+    etapaIds: [],
+    status: [],
+    startDate: '',
+    endDate: '',
+    month: '',
+    year: '',
+};
+
 export default function LancamentosManager({
     lancamentos: initialLancamentos,
     loading: initialLoading,
@@ -46,18 +103,7 @@ export default function LancamentosManager({
     const [editingCell, setEditingCell] = useState(null);
     const [filtersVisible, setFiltersVisible] = useState(true);
 
-    const [filters, setFilters] = useState({
-        searchTerm: '',
-        empresaIds: [],
-        contaIds: [],
-        categoriaIds: [],
-        empreendimentoIds: [],
-        status: [],
-        startDate: '',
-        endDate: '',
-        month: '',
-        year: new Date().getFullYear().toString(),
-    });
+    const [filters, setFilters] = useState(initialFilterState);
 
     const [savedFilters, setSavedFilters] = useState([]);
     const [newFilterName, setNewFilterName] = useState('');
@@ -65,10 +111,23 @@ export default function LancamentosManager({
     const filterMenuRef = useRef(null);
     const [activePeriodFilter, setActivePeriodFilter] = useState('');
 
+    const [isBatchActionsOpen, setIsBatchActionsOpen] = useState(false);
+    const [isBatchUpdateModalOpen, setIsBatchUpdateModalOpen] = useState(false);
+    const batchActionsRef = useRef(null);
+    
+    const [etapas, setEtapas] = useState([]);
+
+
     useEffect(() => {
         const loadedFilters = JSON.parse(localStorage.getItem('savedFinancialFilters') || '[]');
         setSavedFilters(loadedFilters);
-    }, []);
+
+        const fetchExtraData = async () => {
+             const { data: etapasData } = await supabase.from('etapa_obra').select('id, nome_etapa').order('nome_etapa');
+             setEtapas(etapasData || []);
+        }
+        fetchExtraData();
+    }, [supabase]);
 
     const [sortConfig, setSortConfig] = useState({ key: 'data_transacao', direction: 'descending' });
     const [allContatos, setAllContatos] = useState([]);
@@ -86,13 +145,12 @@ export default function LancamentosManager({
     
     useEffect(() => {
         function handleClickOutside(event) {
-            if (filterMenuRef.current && !filterMenuRef.current.contains(event.target)) {
-                setIsFilterMenuOpen(false);
-            }
+            if (filterMenuRef.current && !filterMenuRef.current.contains(event.target)) { setIsFilterMenuOpen(false); }
+            if (batchActionsRef.current && !batchActionsRef.current.contains(event.target)) { setIsBatchActionsOpen(false); }
         }
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [filterMenuRef]);
+    }, [filterMenuRef, batchActionsRef]);
 
     const categoryTree = useMemo(() => {
         const tree = [];
@@ -101,43 +159,34 @@ export default function LancamentosManager({
 
         allCategories.forEach(cat => { map[cat.id] = { ...cat, children: [] }; });
         allCategories.forEach(cat => {
-            if (cat.parent_id && map[cat.parent_id]) {
-                map[cat.parent_id].children.push(map[cat.id]);
-            } else {
-                tree.push(map[cat.id]);
-            }
+            if (cat.parent_id && map[cat.parent_id]) { map[cat.parent_id].children.push(map[cat.id]); }
+            else { tree.push(map[cat.id]); }
         });
         return tree;
     }, [categorias]);
 
     const handleFilterChange = (name, value) => {
-        const newFilters = { ...filters, [name]: value, activePeriod: null };
-
-        if (name === "month" || name === "year") {
-            const year = name === "year" ? value : newFilters.year;
-            const month = name === "month" ? value : newFilters.month;
-
-            if (year && month) {
-                const startDate = new Date(year, month - 1, 1);
-                const endDate = new Date(year, month, 0);
-                newFilters.startDate = startDate.toISOString().split('T')[0];
-                newFilters.endDate = endDate.toISOString().split('T')[0];
-            } else if (year && !month) {
-                newFilters.startDate = `${year}-01-01`;
-                newFilters.endDate = `${year}-12-31`;
-            }
+        setFilters(prev => ({...prev, [name]: value}));
+        if(name !== 'startDate' && name !== 'endDate') {
+            setActivePeriodFilter('');
         }
-        setFilters(newFilters);
-        setActivePeriodFilter(''); // Limpa o período rápido ao mudar filtros manuais
     };
+    
+    useEffect(() => {
+        const { month, year } = filters;
+        if (month || year) {
+             const newStartDate = year && month ? new Date(year, month - 1, 1).toISOString().split('T')[0] : (year ? `${year}-01-01` : '');
+             const newEndDate = year && month ? new Date(year, month, 0).toISOString().split('T')[0] : (year ? `${year}-12-31` : '');
+             setFilters(prev => ({...prev, startDate: newStartDate, endDate: newEndDate}));
+        }
+    }, [filters.month, filters.year]);
 
     const setDateRange = (period) => {
         const today = new Date();
         let startDate, endDate;
 
-        if (period === 'today') {
-            startDate = endDate = today;
-        } else if (period === 'week') {
+        if (period === 'today') { startDate = endDate = today; }
+        else if (period === 'week') {
             const firstDayOfWeek = today.getDate() - today.getDay();
             startDate = new Date(today.setDate(firstDayOfWeek));
             endDate = new Date(startDate);
@@ -147,18 +196,12 @@ export default function LancamentosManager({
             endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         }
 
-        setFilters(prev => ({
-            ...prev,
-            startDate: startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0],
-            month: '',
-            year: ''
-        }));
+        setFilters(prev => ({ ...prev, startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0], month: '', year: '' }));
         setActivePeriodFilter(period);
     };
 
     const clearFilters = () => {
-        setFilters({ searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [], status: [], startDate: '', endDate: '', month: '', year: new Date().getFullYear().toString() });
+        setFilters(initialFilterState);
         setActivePeriodFilter('');
     };
 
@@ -173,6 +216,13 @@ export default function LancamentosManager({
         alert(`Filtro "${newFilterName}" salvo!`);
     };
 
+    const handleUpdateFilter = (filterName) => {
+        const updated = savedFilters.map(f => f.name === filterName ? { ...f, settings: filters } : f);
+        setSavedFilters(updated);
+        localStorage.setItem('savedFinancialFilters', JSON.stringify(updated));
+        alert(`Filtro "${filterName}" atualizado com sucesso!`);
+    };
+
     const handleToggleFavorite = (filterName) => {
         const updated = savedFilters.map(f => f.name === filterName ? { ...f, isFavorite: !f.isFavorite } : f);
         setSavedFilters(updated);
@@ -180,9 +230,9 @@ export default function LancamentosManager({
     };
 
     const handleLoadFilter = (filterSettings) => {
-        setFilters(filterSettings);
+        setFilters({ ...initialFilterState, ...filterSettings });
         setIsFilterMenuOpen(false);
-        setActivePeriodFilter(''); // Limpa filtro de período rápido
+        setActivePeriodFilter('');
     };
 
     const handleDeleteFilter = (filterNameToDelete) => {
@@ -210,37 +260,37 @@ export default function LancamentosManager({
         setSelectedIds(newSelection);
     };
 
-    const handleBulkMarkAsPaid = async () => {
-        if (!window.confirm(`Tem certeza que deseja marcar ${selectedIds.size} lançamento(s) como pago(s)?`)) return;
-        const { error } = await supabase
-            .from('lancamentos').update({ status: 'Pago', data_pagamento: new Date().toISOString() })
-            .in('id', Array.from(selectedIds));
-        if (error) alert("Erro ao atualizar: " + error.message);
-        else if (onUpdate) onUpdate();
+    const handleBulkUpdate = async (updateObject) => {
+        if (!window.confirm(`Tem certeza que deseja aplicar esta alteração a ${selectedIds.size} lançamento(s)?`)) return;
+        const { error } = await supabase.from('lancamentos').update(updateObject).in('id', Array.from(selectedIds));
+        if (error) { alert("Erro ao atualizar: " + error.message); }
+        else { alert('Lançamentos atualizados com sucesso!'); if (onUpdate) onUpdate(); }
     };
 
-    const handleInlineUpdate = async (itemId, field, value) => {
-        setEditingCell(null);
-        const originalItem = lancamentos.find(l => l.id === itemId);
-        let finalValue = value;
-        
-        if (field === 'valor') finalValue = parseFloat(String(value).replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
-        if (String(originalItem[field]) === String(finalValue)) return;
-        
-        const updateObject = { [field]: finalValue };
-
-        if (field === 'empreendimento_id') {
-            const empreendimento = empreendimentos.find(e => e.id == finalValue);
-            if (empreendimento) {
-                updateObject.empresa_id = empreendimento.empresa_proprietaria_id;
-            }
+    const handleBatchUpdateField = (field, value) => {
+        setIsBatchUpdateModalOpen(false);
+        if(!field || !value) { alert("Por favor, selecione um campo e um valor."); return; }
+        const updateObject = { [field]: value };
+        if(field === 'status' && value === 'Pago'){
+            updateObject.data_pagamento = new Date().toISOString();
         }
-
-        const { error } = await supabase.from('lancamentos').update(updateObject).eq('id', itemId);
-        if (error) alert(`Erro ao atualizar: ${error.message}`);
-        else if (onUpdate) onUpdate();
+        handleBulkUpdate(updateObject);
     };
 
+    const batchUpdateFields = [
+        { key: 'status', label: 'Status', type: 'select', optionsKey: 'statusOptions' },
+        { key: 'categoria_id', label: 'Categoria', type: 'select', optionsKey: 'categorias' },
+        { key: 'empreendimento_id', label: 'Empreendimento', type: 'select', optionsKey: 'empreendimentos' },
+        { key: 'conta_id', label: 'Conta', type: 'select', optionsKey: 'contas' },
+        { key: 'etapa_id', label: 'Etapa da Obra', type: 'select', optionsKey: 'etapas' },
+        { key: 'data_vencimento', label: 'Data de Vencimento', type: 'date' },
+    ];
+
+    const allDataForBatchModal = {
+        statusOptions: [{id: 'Pago', nome: 'Pago'}, {id: 'Pendente', nome: 'Pendente'}],
+        categorias, empreendimentos, contas, etapas,
+    };
+    
     const getPaymentStatus = (item) => {
         if (item.status === 'Pago' || item.conciliado) return { text: 'Paga', className: 'bg-green-100 text-green-800' };
         const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -251,11 +301,12 @@ export default function LancamentosManager({
 
     const filteredAndSortedLancamentos = useMemo(() => {
         let filtered = [...lancamentos];
-        if (filters.empresaIds.length > 0) filtered = filtered.filter(l => filters.empresaIds.includes(l.conta?.empresa?.id) || filters.empresaIds.includes(l.empreendimento?.empresa?.id) || filters.empresaIds.includes(l.empresa_id));
-        if (filters.contaIds.length > 0) filtered = filtered.filter(l => filters.contaIds.includes(l.conta_id));
-        if (filters.categoriaIds.length > 0) filtered = filtered.filter(l => filters.categoriaIds.includes(l.categoria_id));
-        if (filters.empreendimentoIds.length > 0) filtered = filtered.filter(l => filters.empreendimentoIds.includes(l.empreendimento_id));
-        if (filters.status.length > 0) {
+        if (filters.empresaIds?.length > 0) filtered = filtered.filter(l => filters.empresaIds.includes(l.conta?.empresa?.id) || filters.empresaIds.includes(l.empreendimento?.empresa?.id) || filters.empresaIds.includes(l.empresa_id));
+        if (filters.contaIds?.length > 0) filtered = filtered.filter(l => filters.contaIds.includes(l.conta_id));
+        if (filters.categoriaIds?.length > 0) filtered = filtered.filter(l => filters.categoriaIds.includes(l.categoria_id));
+        if (filters.empreendimentoIds?.length > 0) filtered = filtered.filter(l => filters.empreendimentoIds.includes(l.empreendimento_id));
+        if (filters.etapaIds?.length > 0) filtered = filtered.filter(l => filters.etapaIds.includes(l.etapa_id));
+        if (filters.status?.length > 0) {
             const hasAtrasada = filters.status.includes('Atrasada');
             const otherStatus = filters.status.filter(s => s !== 'Atrasada');
             filtered = filtered.filter(l => {
@@ -328,6 +379,8 @@ export default function LancamentosManager({
 
     return (
         <div className="space-y-4">
+            <BatchUpdateModal isOpen={isBatchUpdateModalOpen} onClose={() => setIsBatchUpdateModalOpen(false)} onConfirm={handleBatchUpdateField} fields={batchUpdateFields} allData={allDataForBatchModal} />
+
              <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                  <div className="flex justify-between items-center">
                     <button onClick={() => setFiltersVisible(!filtersVisible)} className="font-semibold text-lg flex items-center gap-2 uppercase">
@@ -353,12 +406,9 @@ export default function LancamentosManager({
                                             <li key={i} className="flex justify-between items-center text-sm py-1 group">
                                                 <span onClick={() => handleLoadFilter(f.settings)} className="cursor-pointer hover:underline">{f.name}</span>
                                                 <div className="flex items-center gap-2">
-                                                    <button onClick={() => handleToggleFavorite(f.name)} className="text-gray-400 hover:text-yellow-500">
-                                                        <FontAwesomeIcon icon={f.isFavorite ? faStarSolid : faStarRegular} className={f.isFavorite ? 'text-yellow-500' : ''}/>
-                                                    </button>
-                                                    <button onClick={() => handleDeleteFilter(f.name)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100">
-                                                        <FontAwesomeIcon icon={faTrash}/>
-                                                    </button>
+                                                    <button onClick={() => handleUpdateFilter(f.name)} title="Atualizar Filtro" className="text-gray-400 hover:text-blue-500 opacity-0 group-hover:opacity-100"> <FontAwesomeIcon icon={faSyncAlt}/> </button>
+                                                    <button onClick={() => handleToggleFavorite(f.name)} title="Favoritar" className="text-gray-400 hover:text-yellow-500"> <FontAwesomeIcon icon={f.isFavorite ? faStarSolid : faStarRegular} className={f.isFavorite ? 'text-yellow-500' : ''}/> </button>
+                                                    <button onClick={() => handleDeleteFilter(f.name)} title="Excluir" className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100"> <FontAwesomeIcon icon={faTrash}/> </button>
                                                 </div>
                                             </li>
                                         )) : <li className="text-xs text-gray-500">Nenhum filtro salvo.</li>}
@@ -380,38 +430,36 @@ export default function LancamentosManager({
                             <div><MultiSelectDropdown label="Categorias" options={categoryTree} selectedIds={filters.categoriaIds} onChange={(selected) => handleFilterChange('categoriaIds', selected)} /></div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div className="lg:col-span-1"><MultiSelectDropdown label="Status" options={statusOptions} selectedIds={filters.status} onChange={(selected) => handleFilterChange('status', selected)} placeholder="Todos os Status" /></div>
-                            <div className="lg:col-span-3 flex items-end gap-4">
-                                <div className="flex-1 flex items-end gap-2">
-                                    <div className="flex-1">
-                                        <label className="text-xs uppercase font-medium text-gray-600">Mês</label>
-                                        <select name="month" value={filters.month} onChange={(e) => handleFilterChange('month', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm">
-                                            <option value="">Todos</option>
-                                            {months.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="w-28">
-                                        <label className="text-xs uppercase font-medium text-gray-600">Ano</label>
-                                        <select name="year" value={filters.year} onChange={(e) => handleFilterChange('year', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm">
-                                             {years.map(y => <option key={y.id} value={y.id}>{y.nome}</option>)}
-                                        </select>
-                                    </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                             <div><MultiSelectDropdown label="Etapa da Obra" options={etapas.map(e => ({...e, nome: e.nome_etapa}))} selectedIds={filters.etapaIds} onChange={(selected) => handleFilterChange('etapaIds', selected)} /></div>
+                             <div><MultiSelectDropdown label="Status" options={statusOptions} selectedIds={filters.status} onChange={(selected) => handleFilterChange('status', selected)} placeholder="Todos os Status" /></div>
+                            <div className="lg:col-span-2 flex items-end gap-2">
+                                <div className="flex-1">
+                                    <label className="text-xs uppercase font-medium text-gray-600">Mês</label>
+                                    <select name="month" value={filters.month} onChange={(e) => handleFilterChange('month', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm">
+                                        <option value="">Todos</option>
+                                        {months.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                                    </select>
                                 </div>
-                                <div className="flex-1 flex items-end gap-2">
-                                    <div><label className="text-xs uppercase">De:</label><input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div>
-                                    <div><label className="text-xs uppercase">Até:</label><input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div>
+                                <div className="w-28">
+                                    <label className="text-xs uppercase font-medium text-gray-600">Ano</label>
+                                    <select name="year" value={filters.year} onChange={(e) => handleFilterChange('year', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm">
+                                         <option value="">Todos</option>
+                                         {years.map(y => <option key={y.id} value={y.id}>{y.nome}</option>)}
+                                    </select>
                                 </div>
+                                <div><label className="text-xs uppercase">De:</label><input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div>
+                                <div><label className="text-xs uppercase">Até:</label><input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div>
                             </div>
                         </div>
 
                         <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t">
-                             <div className="flex items-center gap-2">
-                                <button onClick={() => setDateRange('today')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarDay}/>Hoje</button>
-                                <button onClick={() => setDateRange('week')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarWeek}/>Semana</button>
-                                <button onClick={() => setDateRange('month')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarAlt}/>Mês</button>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => setDateRange('today')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarDay}/> Hoje</button>
+                                <button onClick={() => setDateRange('week')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarWeek}/> Semana</button>
+                                <button onClick={() => setDateRange('month')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarAlt}/> Mês</button>
                             </div>
-                            <button onClick={clearFilters} className="text-sm bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faTimes} />Limpar</button>
+                            <button onClick={clearFilters} className="text-sm bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faTimes} />Limpar Filtros</button>
                         </div>
                     </div>
                  )}
@@ -424,11 +472,7 @@ export default function LancamentosManager({
                         {savedFilters.filter(f => f.isFavorite).map((f, i) => {
                             const isActive = JSON.stringify(filters) === JSON.stringify(f.settings);
                             return (
-                                <button 
-                                    key={i} 
-                                    onClick={() => handleLoadFilter(f.settings)} 
-                                    className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${isActive ? 'bg-blue-600 text-white border-blue-700' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}
-                                >
+                                <button key={i} onClick={() => handleLoadFilter(f.settings)} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${isActive ? 'bg-blue-600 text-white border-blue-700' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
                                     {f.name}
                                 </button>
                             )
@@ -450,7 +494,16 @@ export default function LancamentosManager({
             {selectedIds.size > 0 && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in">
                     <span className="text-sm font-semibold text-blue-800 uppercase">{selectedIds.size} selecionado(s)</span>
-                    <button onClick={handleBulkMarkAsPaid} className="bg-green-500 text-white px-4 py-1 rounded-md text-sm font-bold hover:bg-green-600 uppercase"><FontAwesomeIcon icon={faTasks} /> Marcar como Pago</button>
+                    <div className="relative" ref={batchActionsRef}>
+                        <button onClick={() => setIsBatchActionsOpen(prev => !prev)} className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm font-bold hover:bg-blue-700 uppercase flex items-center gap-2">
+                            <FontAwesomeIcon icon={faLayerGroup} /> Ações em Lote <FontAwesomeIcon icon={faChevronDown} className="text-xs"/>
+                        </button>
+                        {isBatchActionsOpen && (
+                            <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-10 border">
+                                <a onClick={() => { setIsBatchUpdateModalOpen(true); setIsBatchActionsOpen(false); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">Alterar Campo...</a>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
             
