@@ -1,11 +1,16 @@
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faFilter, faTimes, faPenToSquare, faTrash, faSort, faSortUp, faSortDown, faTasks } from '@fortawesome/free-solid-svg-icons';
+import {
+    faSpinner, faFilter, faTimes, faPenToSquare, faTrash, faSort, faSortUp, faSortDown, faTasks, faSave, faStar as faStarSolid, faEllipsisV
+} from '@fortawesome/free-solid-svg-icons';
+import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
 import { IMaskInput } from 'react-imask';
+import MultiSelectDropdown from './MultiSelectDropdown';
 
+// Componente do Cabeçalho da Tabela
 const SortableHeader = ({ label, sortKey, sortConfig, requestSort, className = '' }) => {
     const getIcon = () => {
         if (sortConfig.key !== sortKey) return faSort;
@@ -21,6 +26,7 @@ const SortableHeader = ({ label, sortKey, sortConfig, requestSort, className = '
     );
 };
 
+// Componente Principal
 export default function LancamentosManager({
     lancamentos: initialLancamentos,
     loading: initialLoading,
@@ -35,14 +41,33 @@ export default function LancamentosManager({
     const supabase = createClient();
     const [lancamentos, setLancamentos] = useState(initialLancamentos);
     const [loading, setLoading] = useState(initialLoading);
-    
+
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [editingCell, setEditingCell] = useState(null);
-    
+
     const [filters, setFilters] = useState({
-        searchTerm: '', contaId: '', categoriaId: '', empreendimentoId: '', empresaId: '', startDate: '', endDate: '', status: ''
+        searchTerm: '',
+        empresaIds: [],
+        contaIds: [],
+        categoriaIds: [],
+        empreendimentoIds: [],
+        status: [],
+        startDate: '',
+        endDate: '',
+        month: '',
+        year: new Date().getFullYear().toString(),
     });
-    
+
+    const [savedFilters, setSavedFilters] = useState([]);
+    const [newFilterName, setNewFilterName] = useState('');
+    const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+    const filterMenuRef = useRef(null);
+
+    useEffect(() => {
+        const loadedFilters = JSON.parse(localStorage.getItem('savedFinancialFilters') || '[]');
+        setSavedFilters(loadedFilters);
+    }, []);
+
     const [sortConfig, setSortConfig] = useState({ key: 'data_transacao', direction: 'descending' });
     const [allContatos, setAllContatos] = useState([]);
 
@@ -56,14 +81,84 @@ export default function LancamentosManager({
         };
         fetchContatos();
     }, [initialLancamentos, initialLoading, supabase]);
+    
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (filterMenuRef.current && !filterMenuRef.current.contains(event.target)) {
+                setIsFilterMenuOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [filterMenuRef]);
 
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
+    const categoryTree = useMemo(() => {
+        const tree = [];
+        const map = {};
+        const allCategories = JSON.parse(JSON.stringify(categorias));
+
+        allCategories.forEach(cat => { map[cat.id] = { ...cat, children: [] }; });
+        allCategories.forEach(cat => {
+            if (cat.parent_id && map[cat.parent_id]) {
+                map[cat.parent_id].children.push(map[cat.id]);
+            } else {
+                tree.push(map[cat.id]);
+            }
+        });
+        return tree;
+    }, [categorias]);
+
+    const handleFilterChange = (name, value) => {
+        const newFilters = { ...filters, [name]: value };
+
+        if (name === "month" || name === "year") {
+            const year = name === "year" ? value : newFilters.year;
+            const month = name === "month" ? value : newFilters.month;
+
+            if (year && month) {
+                const startDate = new Date(year, month - 1, 1);
+                const endDate = new Date(year, month, 0);
+                newFilters.startDate = startDate.toISOString().split('T')[0];
+                newFilters.endDate = endDate.toISOString().split('T')[0];
+            } else if (year && !month) {
+                newFilters.startDate = `${year}-01-01`;
+                newFilters.endDate = `${year}-12-31`;
+            }
+        }
+        setFilters(newFilters);
     };
 
     const clearFilters = () => {
-        setFilters({ searchTerm: '', contaId: '', categoriaId: '', empreendimentoId: '', empresaId: '', startDate: '', endDate: '', status: '' });
+        setFilters({ searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [], status: [], startDate: '', endDate: '', month: '', year: new Date().getFullYear().toString() });
+    };
+
+    const handleSaveFilter = () => {
+        if (!newFilterName.trim()) { alert('Por favor, dê um nome para o filtro.'); return; }
+        const isFavorited = savedFilters.find(f => f.name === newFilterName)?.isFavorite || false;
+        const updatedSavedFilters = savedFilters.filter(f => f.name !== newFilterName);
+        const newSavedFilter = { name: newFilterName, settings: filters, isFavorite: isFavorited };
+        setSavedFilters([...updatedSavedFilters, newSavedFilter]);
+        localStorage.setItem('savedFinancialFilters', JSON.stringify([...updatedSavedFilters, newSavedFilter]));
+        setNewFilterName('');
+        alert(`Filtro "${newFilterName}" salvo!`);
+    };
+
+    const handleToggleFavorite = (filterName) => {
+        const updated = savedFilters.map(f => f.name === filterName ? { ...f, isFavorite: !f.isFavorite } : f);
+        setSavedFilters(updated);
+        localStorage.setItem('savedFinancialFilters', JSON.stringify(updated));
+    };
+
+    const handleLoadFilter = (filterSettings) => {
+        setFilters(filterSettings);
+        setIsFilterMenuOpen(false);
+    };
+
+    const handleDeleteFilter = (filterNameToDelete) => {
+        if (!window.confirm(`Tem certeza que deseja excluir o filtro "${filterNameToDelete}"?`)) return;
+        const updatedSavedFilters = savedFilters.filter(f => f.name !== filterNameToDelete);
+        setSavedFilters(updatedSavedFilters);
+        localStorage.setItem('savedFinancialFilters', JSON.stringify(updatedSavedFilters));
     };
     
     const requestSort = (key) => {
@@ -71,7 +166,7 @@ export default function LancamentosManager({
         if (sortConfig.key === key && sortConfig.direction === 'descending') direction = 'ascending';
         setSortConfig({ key, direction });
     };
-    
+
     const handleSelectAll = (e) => {
         if (e.target.checked) setSelectedIds(new Set(filteredAndSortedLancamentos.map(l => l.id)));
         else setSelectedIds(new Set());
@@ -92,7 +187,7 @@ export default function LancamentosManager({
         if (error) alert("Erro ao atualizar: " + error.message);
         else if (onUpdate) onUpdate();
     };
-    
+
     const handleInlineUpdate = async (itemId, field, value) => {
         setEditingCell(null);
         const originalItem = lancamentos.find(l => l.id === itemId);
@@ -125,15 +220,18 @@ export default function LancamentosManager({
 
     const filteredAndSortedLancamentos = useMemo(() => {
         let filtered = [...lancamentos];
-        if (filters.empresaId) filtered = filtered.filter(l => l.conta?.empresa?.id == filters.empresaId || l.empreendimento?.empresa?.id == filters.empresaId || l.empresa_id == filters.empresaId);
-        if (filters.contaId) filtered = filtered.filter(l => l.conta_id == filters.contaId);
-        if (filters.categoriaId) filtered = filtered.filter(l => l.categoria_id == filters.categoriaId);
-        if (filters.empreendimentoId) filtered = filtered.filter(l => l.empreendimento_id == filters.empreendimentoId);
-        if (filters.status) {
-             if (filters.status === 'Atrasada') {
+        if (filters.empresaIds.length > 0) filtered = filtered.filter(l => filters.empresaIds.includes(l.conta?.empresa?.id) || filters.empresaIds.includes(l.empreendimento?.empresa?.id) || filters.empresaIds.includes(l.empresa_id));
+        if (filters.contaIds.length > 0) filtered = filtered.filter(l => filters.contaIds.includes(l.conta_id));
+        if (filters.categoriaIds.length > 0) filtered = filtered.filter(l => filters.categoriaIds.includes(l.categoria_id));
+        if (filters.empreendimentoIds.length > 0) filtered = filtered.filter(l => filters.empreendimentoIds.includes(l.empreendimento_id));
+        if (filters.status.length > 0) {
+            const hasAtrasada = filters.status.includes('Atrasada');
+            const otherStatus = filters.status.filter(s => s !== 'Atrasada');
+            filtered = filtered.filter(l => {
                 const today = new Date(); today.setHours(0, 0, 0, 0);
-                filtered = filtered.filter(l => l.status !== 'Pago' && new Date(l.data_vencimento || l.data_transacao) < today);
-            } else { filtered = filtered.filter(l => l.status === filters.status); }
+                const isAtrasada = l.status !== 'Pago' && new Date(l.data_vencimento || l.data_transacao) < today;
+                return (hasAtrasada && isAtrasada) || otherStatus.includes(l.status);
+            });
         }
         if (filters.startDate) filtered = filtered.filter(l => new Date(l.data_vencimento || l.data_transacao) >= new Date(filters.startDate));
         if (filters.endDate) filtered = filtered.filter(l => new Date(l.data_vencimento || l.data_transacao) <= new Date(filters.endDate + 'T23:59:59'));
@@ -158,47 +256,22 @@ export default function LancamentosManager({
         if (sortConfig.key) {
             augmentedData.sort((a, b) => {
                 let valA, valB;
-                
-                if (sortConfig.key === 'empresa') {
-                    valA = a.nomeEmpresa || '';
-                    valB = b.nomeEmpresa || '';
-                } 
-                else if (sortConfig.key === 'empreendimento') {
-                    valA = a.empreendimento?.nome || '';
-                    valB = b.empreendimento?.nome || '';
-                } 
-                // ***** INÍCIO DA ALTERAÇÃO *****
-                else if (sortConfig.key === 'favorecido') {
-                    valA = a.favorecido?.nome || a.favorecido?.razao_social || '';
-                    valB = b.favorecido?.nome || b.favorecido?.razao_social || '';
-                }
-                else if (sortConfig.key === 'categoria') {
-                    valA = a.categoria?.nome || '';
-                    valB = b.categoria?.nome || '';
-                }
-                // ***** FIM DA ALTERAÇÃO *****
-                else {
-                    valA = a[sortConfig.key];
-                    valB = b[sortConfig.key];
-                }
+                if (sortConfig.key === 'empresa') { valA = a.nomeEmpresa || ''; valB = b.nomeEmpresa || ''; } 
+                else if (sortConfig.key === 'empreendimento') { valA = a.empreendimento?.nome || ''; valB = b.empreendimento?.nome || ''; }
+                else if (sortConfig.key === 'favorecido') { valA = a.favorecido?.nome || a.favorecido?.razao_social || ''; valB = b.favorecido?.nome || b.favorecido?.razao_social || ''; }
+                else if (sortConfig.key === 'categoria') { valA = a.categoria?.nome || ''; valB = b.categoria?.nome || ''; }
+                else { valA = a[sortConfig.key]; valB = b[sortConfig.key]; }
 
-                if (valA == null) return 1;
-                if (valB == null) return -1;
-
+                if (valA == null) return 1; if (valB == null) return -1;
                 let comparison = 0;
-                if (sortConfig.key.startsWith('data_')) {
-                    comparison = new Date(valA) - new Date(valB);
-                } else if (typeof valA === 'number') {
-                    comparison = valA - valB;
-                } else {
-                    comparison = String(valA).localeCompare(String(valB));
-                }
-
+                if (sortConfig.key.startsWith('data_')) { comparison = new Date(valA) - new Date(valB); }
+                else if (typeof valA === 'number') { comparison = valA - valB; }
+                else { comparison = String(valA).localeCompare(String(valB)); }
                 return sortConfig.direction === 'ascending' ? comparison : -comparison;
             });
         }
         return augmentedData;
-    }, [lancamentos, filters, sortConfig, empresas]);
+    }, [lancamentos, filters, sortConfig, empresas, empreendimentos]);
     
     const formatCurrency = (value, tipo) => {
         const signal = tipo === 'Receita' ? '+' : '-';
@@ -207,28 +280,106 @@ export default function LancamentosManager({
     
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A';
 
+    const statusOptions = [
+        { id: 'Pago', text: 'Paga' }, { id: 'Pendente', text: 'A Pagar' }, { id: 'Atrasada', text: 'Atrasada' }
+    ].map(s => ({...s, nome: s.text}));
+
+    const months = [
+        {id: "01", nome: "Janeiro"}, {id: "02", nome: "Fevereiro"}, {id: "03", nome: "Março"},
+        {id: "04", nome: "Abril"}, {id: "05", nome: "Maio"}, {id: "06", nome: "Junho"},
+        {id: "07", nome: "Julho"}, {id: "08", nome: "Agosto"}, {id: "09", nome: "Setembro"},
+        {id: "10", nome: "Outubro"}, {id: "11", nome: "Novembro"}, {id: "12", nome: "Dezembro"}
+    ];
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({length: 10}, (_, i) => ({ id: (currentYear - 5 + i).toString(), nome: (currentYear - 5 + i).toString() }));
+
     return (
         <div className="space-y-4">
              <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
-                 <h3 className="font-semibold text-lg flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faFilter} /> Filtros</h3>
+                 <div className="flex justify-between items-center">
+                    <h3 className="font-semibold text-lg flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faFilter} /> Filtros</h3>
+                    <div className="relative" ref={filterMenuRef}>
+                        <button onClick={() => setIsFilterMenuOpen(prev => !prev)} className="p-2 border rounded-md bg-white hover:bg-gray-100">
+                            <FontAwesomeIcon icon={faEllipsisV} />
+                        </button>
+                        {isFilterMenuOpen && (
+                            <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg z-20 border">
+                                <div className="p-3 border-b">
+                                    <p className="font-semibold text-sm mb-2">Salvar Filtro Atual</p>
+                                    <div className="flex items-center gap-2">
+                                        <input type="text" value={newFilterName} onChange={(e) => setNewFilterName(e.target.value)} placeholder="Nome do filtro..." className="p-2 border rounded-md text-sm w-full"/>
+                                        <button onClick={handleSaveFilter} className="text-sm bg-blue-500 text-white hover:bg-blue-600 px-3 py-2 rounded-md"><FontAwesomeIcon icon={faSave}/></button>
+                                    </div>
+                                </div>
+                                <div className="p-3">
+                                    <p className="font-semibold text-sm mb-2">Filtros Salvos</p>
+                                    <ul className="max-h-40 overflow-y-auto">
+                                        {savedFilters.length > 0 ? savedFilters.map((f, i) => (
+                                            <li key={i} className="flex justify-between items-center text-sm py-1 group">
+                                                <span onClick={() => handleLoadFilter(f.settings)} className="cursor-pointer hover:underline">{f.name}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <button onClick={() => handleToggleFavorite(f.name)} className="text-gray-400 hover:text-yellow-500">
+                                                        <FontAwesomeIcon icon={f.isFavorite ? faStarSolid : faStarRegular} className={f.isFavorite ? 'text-yellow-500' : ''}/>
+                                                    </button>
+                                                    <button onClick={() => handleDeleteFilter(f.name)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100">
+                                                        <FontAwesomeIcon icon={faTrash}/>
+                                                    </button>
+                                                </div>
+                                            </li>
+                                        )) : <li className="text-xs text-gray-500">Nenhum filtro salvo.</li>}
+                                    </ul>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                 </div>
+                 
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <input type="text" name="searchTerm" placeholder="BUSCAR POR DESCRIÇÃO OU FAVORECIDO..." value={filters.searchTerm} onChange={handleFilterChange} className="p-2 border rounded-md shadow-sm lg:col-span-4" />
+                    <div className="lg:col-span-4">
+                        <input type="text" name="searchTerm" placeholder="BUSCAR POR DESCRIÇÃO OU FAVORECIDO..." value={filters.searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} className="p-2 border rounded-md shadow-sm w-full" />
+                    </div>
+                    <div className="lg:col-span-2"><MultiSelectDropdown label="Empresas" options={empresas} selectedIds={filters.empresaIds} onChange={(selected) => handleFilterChange('empresaIds', selected)} /></div>
+                    <div className="lg:col-span-2"><MultiSelectDropdown label="Empreendimentos" options={empreendimentos} selectedIds={filters.empreendimentoIds} onChange={(selected) => handleFilterChange('empreendimentoIds', selected)} /></div>
+                    <div className="lg:col-span-2"><MultiSelectDropdown label="Contas" options={contas} selectedIds={filters.contaIds} onChange={(selected) => handleFilterChange('contaIds', selected)} /></div>
+                    <div className="lg:col-span-2"><MultiSelectDropdown label="Categorias" options={categoryTree} selectedIds={filters.categoriaIds} onChange={(selected) => handleFilterChange('categoriaIds', selected)} /></div>
                     
-                    <select name="empresaId" value={filters.empresaId} onChange={handleFilterChange} className="p-2 border rounded-md shadow-sm">
-                        <option value="">TODAS AS EMPRESAS</option>
-                        {empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}
-                    </select>
-
-                    <select name="empreendimentoId" value={filters.empreendimentoId} onChange={handleFilterChange} className="p-2 border rounded-md shadow-sm"><option value="">TODOS OS EMPREENDIMENTOS</option>{empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select>
-                    <select name="contaId" value={filters.contaId} onChange={handleFilterChange} className="p-2 border rounded-md shadow-sm"><option value="">TODAS AS CONTAS</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
-                    <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md shadow-sm">
-                        <option value="">TODOS OS STATUS</option> <option value="Pago">PAGA</option> <option value="Pendente">A PAGAR</option> <option value="Atrasada">ATRASADA</option>
-                    </select>
-                    <div><label className="text-xs uppercase">De:</label><input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="w-full p-2 border rounded-md shadow-sm"/></div>
-                    <div><label className="text-xs uppercase">Até:</label><input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="w-full p-2 border rounded-md shadow-sm"/></div>
-                    <div className="lg:col-span-2 flex justify-end items-end"><button onClick={clearFilters} className="text-sm bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md flex items-center gap-2 w-full md:w-auto uppercase"><FontAwesomeIcon icon={faTimes} /> Limpar Filtros</button></div>
+                    <div className="lg:col-span-2 flex items-end gap-2">
+                        <div className="flex-1">
+                            <label className="text-xs uppercase font-medium text-gray-600">Mês</label>
+                            <select name="month" value={filters.month} onChange={(e) => handleFilterChange('month', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm">
+                                <option value="">Todos</option>
+                                {months.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                            </select>
+                        </div>
+                        <div className="w-28">
+                            <label className="text-xs uppercase font-medium text-gray-600">Ano</label>
+                            <select name="year" value={filters.year} onChange={(e) => handleFilterChange('year', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm">
+                                 {years.map(y => <option key={y.id} value={y.id}>{y.nome}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="lg:col-span-2 flex items-end gap-2">
+                        <div><label className="text-xs uppercase">Período Personalizado - De:</label><input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div>
+                        <div><label className="text-xs uppercase">Até:</label><input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div>
+                    </div>
+                 </div>
+                 <div className="flex justify-end pt-4 mt-4 border-t">
+                     <button onClick={clearFilters} className="text-sm bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md flex items-center gap-2 w-full md:w-auto uppercase"><FontAwesomeIcon icon={faTimes} /> Limpar Filtros</button>
                  </div>
             </div>
+
+            {savedFilters.filter(f => f.isFavorite).length > 0 && (
+                <div className="p-4 border rounded-lg bg-white space-y-2">
+                    <h4 className="font-semibold flex items-center gap-2 text-sm uppercase text-gray-600"><FontAwesomeIcon icon={faStarSolid} /> Filtros Favoritos</h4>
+                    <div className="flex flex-wrap gap-2">
+                        {savedFilters.filter(f => f.isFavorite).map((f, i) => (
+                            <button key={i} onClick={() => handleLoadFilter(f.settings)} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-100 hover:border-gray-400">
+                                {f.name}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {selectedIds.size > 0 && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in">
@@ -239,7 +390,6 @@ export default function LancamentosManager({
             
             {loading ? ( <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div> ) : (
                  <div className="overflow-x-auto border rounded-lg">
-                    {/* ***** INÍCIO DA ALTERAÇÃO ***** */}
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
                         <thead className="bg-gray-50">
                             <tr>
@@ -268,9 +418,7 @@ export default function LancamentosManager({
                                         <td className="px-4 py-2 font-medium" onClick={() => setEditingCell({ id: item.id, field: 'descricao' })}>{isEditing && editingCell.field === 'descricao' ? <input defaultValue={item.descricao} autoFocus onBlur={(e) => handleInlineUpdate(item.id, 'descricao', e.target.value)} className="w-full p-1 border rounded bg-yellow-50"/> : <span>{item.descricao}</span>}</td>
                                         <td className="px-4 py-2">{item.favorecido?.nome || item.favorecido?.razao_social || 'N/A'}</td>
                                         <td className="px-4 py-2">{item.categoria?.nome || 'N/A'}</td>
-                                        <td className="px-4 py-2">
-                                            <span className="uppercase">{nomeEmpresa}</span>
-                                        </td>
+                                        <td className="px-4 py-2"><span className="uppercase">{nomeEmpresa}</span></td>
                                         <td className="px-4 py-2" onClick={() => setEditingCell({ id: item.id, field: 'empreendimento_id' })}>{isEditing && editingCell.field === 'empreendimento_id' ? <select defaultValue={item.empreendimento_id || ''} autoFocus onBlur={(e) => handleInlineUpdate(item.id, 'empreendimento_id', e.target.value)} className="w-full p-1 border rounded bg-yellow-50"><option value="">Nenhum</option>{empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select> : <span>{item.empreendimento?.nome || 'N/A'}</span>}</td>
                                         <td className={`px-4 py-2 text-right font-bold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`} onClick={() => setEditingCell({ id: item.id, field: 'valor' })}>{isEditing && editingCell.field === 'valor' ? <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',' }}} defaultValue={String(item.valor || '')} autoFocus onAccept={(v) => handleInlineUpdate(item.id, 'valor', v)} className="w-full p-1 border rounded bg-yellow-50 text-right"/> : formatCurrency(item.valor, item.tipo)}</td>
                                         <td className="px-4 py-2 text-center text-xs"><span className={`px-2 py-1 font-semibold leading-tight rounded-full ${statusInfo.className}`}>{statusInfo.text.toUpperCase()}</span></td>
@@ -285,7 +433,6 @@ export default function LancamentosManager({
                             )}
                         </tbody>
                     </table>
-                     {/* ***** FIM DA ALTERAÇÃO ***** */}
                 </div>
             )}
         </div>

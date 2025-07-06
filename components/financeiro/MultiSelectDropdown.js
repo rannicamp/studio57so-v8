@@ -1,24 +1,87 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronDown, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faChevronDown } from '@fortawesome/free-solid-svg-icons';
 
-export default function MultiSelectDropdown({ label, options, selectedIds, onChange }) {
+// Função para obter todos os IDs de uma categoria e suas descendentes
+const getAllChildIds = (option) => {
+    let ids = [option.id];
+    if (option.children && option.children.length > 0) {
+        option.children.forEach(child => {
+            ids = [...ids, ...getAllChildIds(child)];
+        });
+    }
+    return ids;
+};
+
+
+// Componente interno recursivo para renderizar cada opção e seus filhos
+const Option = ({ option, selectedIds, onSelectionChange, level = 0 }) => {
+    const getDisplayName = (opt) => opt.nome || opt.nome_fantasia || opt.razao_social || opt.text;
+
+    return (
+        <>
+            <label 
+                className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                style={{ paddingLeft: `${1 + level * 1.5}rem` }}
+            >
+                <input
+                    type="checkbox"
+                    checked={selectedIds.includes(option.id)}
+                    onChange={() => onSelectionChange(option)} // Passa o objeto option inteiro
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="ml-3 text-sm text-gray-700">{getDisplayName(option)}</span>
+            </label>
+            {option.children && option.children.length > 0 && (
+                <div>
+                    {option.children.map(child => (
+                        <Option 
+                            key={child.id}
+                            option={child}
+                            selectedIds={selectedIds}
+                            onSelectionChange={onSelectionChange}
+                            level={level + 1}
+                        />
+                    ))}
+                </div>
+            )}
+        </>
+    );
+};
+
+
+export default function MultiSelectDropdown({ 
+    label, 
+    options, 
+    selectedIds, 
+    onChange,
+    placeholder = `Todos(as) os(as) ${label}` 
+}) {
     const [isOpen, setIsOpen] = useState(false);
     const wrapperRef = useRef(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const handleToggle = () => setIsOpen(!isOpen);
 
-    const handleSelection = (optionId) => {
-        const newSelectedIds = new Set(selectedIds);
-        if (newSelectedIds.has(optionId)) {
-            newSelectedIds.delete(optionId);
+    const handleSelection = (option) => {
+        const allIdsToToggle = getAllChildIds(option);
+        const currentSelected = new Set(selectedIds);
+        
+        // Se a categoria principal já está selecionada, desmarca ela e todos os filhos.
+        // Caso contrário, marca ela e todos os filhos.
+        const isCurrentlySelected = currentSelected.has(option.id);
+
+        if (isCurrentlySelected) {
+            allIdsToToggle.forEach(id => currentSelected.delete(id));
         } else {
-            newSelectedIds.add(optionId);
+            allIdsToToggle.forEach(id => currentSelected.add(id));
         }
-        onChange(Array.from(newSelectedIds));
+        
+        onChange(Array.from(currentSelected));
     };
+
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -29,12 +92,46 @@ export default function MultiSelectDropdown({ label, options, selectedIds, onCha
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [wrapperRef]);
+    
+    const flattenOptions = (opts) => {
+        let flat = [];
+        opts.forEach(o => {
+            flat.push(o);
+            if (o.children) {
+                flat = flat.concat(flattenOptions(o.children));
+            }
+        });
+        return flat;
+    };
+    
+    const allOptionsFlat = useMemo(() => flattenOptions(options), [options]);
 
-    const getDisplayName = (option) => option.nome || option.nome_fantasia || option.razao_social;
+    const getDisplayName = (option) => option.nome || option.nome_fantasia || option.razao_social || option.text;
 
     const displayLabel = selectedIds.length > 0
-        ? options.filter(o => selectedIds.includes(o.id)).map(getDisplayName).join(', ')
-        : `TODOS OS ${label.toUpperCase()}`;
+        ? allOptionsFlat.filter(o => selectedIds.includes(o.id)).map(getDisplayName).join(', ')
+        : placeholder;
+
+    const filterOptions = (opts, term) => {
+        if (!term) return opts;
+        
+        const lowerTerm = term.toLowerCase();
+
+        return opts.reduce((acc, option) => {
+            const displayName = (getDisplayName(option) || '').toLowerCase();
+            const hasChildren = option.children && option.children.length > 0;
+
+            const childrenMatch = hasChildren ? filterOptions(option.children, term) : [];
+            
+            if (displayName.includes(lowerTerm) || childrenMatch.length > 0) {
+                acc.push({ ...option, children: childrenMatch });
+            }
+            
+            return acc;
+        }, []);
+    };
+    
+    const filteredOptions = filterOptions(options, searchTerm);
 
     return (
         <div className="relative w-full" ref={wrapperRef}>
@@ -49,25 +146,23 @@ export default function MultiSelectDropdown({ label, options, selectedIds, onCha
             </button>
 
             {isOpen && (
-                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-30 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
                      <div className="p-2 border-b">
                         <input
                           type="text"
                           placeholder="Buscar..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
                           className="w-full p-1 border rounded"
-                          // A lógica de busca dentro do dropdown pode ser adicionada aqui no futuro
                         />
                     </div>
-                    {options.map(option => (
-                        <label key={option.id} className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={selectedIds.includes(option.id)}
-                                onChange={() => handleSelection(option.id)}
-                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <span className="ml-3 text-sm text-gray-700">{getDisplayName(option)}</span>
-                        </label>
+                    {filteredOptions.map(option => (
+                        <Option 
+                            key={option.id}
+                            option={option}
+                            selectedIds={selectedIds}
+                            onSelectionChange={handleSelection}
+                        />
                     ))}
                 </div>
             )}
