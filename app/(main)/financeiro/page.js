@@ -10,7 +10,7 @@ import CategoriasManager from '../../../components/financeiro/CategoriasManager'
 import ConciliacaoManager from '../../../components/financeiro/ConciliacaoManager';
 import LancamentoFormModal from '../../../components/financeiro/LancamentoFormModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faCogs } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faCogs, faShieldAlt } from '@fortawesome/free-solid-svg-icons'; // Ícone de escudo para auditoria
 import Link from 'next/link';
 
 export default function FinanceiroPage() {
@@ -76,7 +76,7 @@ export default function FinanceiroPage() {
     }, [supabase]);
     
     useEffect(() => {
-        setPageTitle('Gestão Financeira');
+        setPageTitle('GESTÃO FINANCEIRA');
         fetchData();
     }, [setPageTitle, fetchData]);
     
@@ -152,7 +152,7 @@ export default function FinanceiroPage() {
     const handleOpenEditModal = (lancamento) => { setEditingLancamento(lancamento); setIsFormModalOpen(true); };
 
     const TabButton = ({ tabName, label }) => (
-        <button onClick={() => setActiveTab(tabName)} className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm ${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
+        <button onClick={() => setActiveTab(tabName)} className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm uppercase ${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
             {label}
         </button>
     );
@@ -167,13 +167,16 @@ export default function FinanceiroPage() {
                 empresas={empresas}
             />
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-gray-900">Painel Financeiro</h1>
+                <h1 className="text-3xl font-bold text-gray-900 uppercase">Painel Financeiro</h1>
                 {activeTab === 'lancamentos' && (
                     <div className="flex items-center gap-2">
-                         <Link href="/configuracoes/financeiro/importar" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center gap-2">
+                         <Link href="/financeiro/auditoria" title="Painel de Auditoria" className="text-gray-400 hover:text-orange-500">
+                             <FontAwesomeIcon icon={faShieldAlt} />
+                         </Link>
+                         <Link href="/configuracoes/financeiro/importar" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center gap-2 uppercase">
                              <FontAwesomeIcon icon={faCogs} /> Assistente de Importação
                          </Link>
-                         <button onClick={handleOpenAddModal} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2">
+                         <button onClick={handleOpenAddModal} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 uppercase">
                             <FontAwesomeIcon icon={faPlus} /> Novo Lançamento
                          </button>
                     </div>
@@ -189,7 +192,7 @@ export default function FinanceiroPage() {
                 </nav>
             </div>
             
-            {message && <p className="text-center p-2 bg-blue-50 text-blue-800 rounded-md text-sm">{message}</p>}
+            {message && <p className="text-center p-2 bg-blue-50 text-blue-800 rounded-md text-sm uppercase">{message}</p>}
 
             <div className="mt-4">
                 {activeTab === 'lancamentos' && (
