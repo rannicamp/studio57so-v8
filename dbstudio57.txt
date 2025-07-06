@@ -79,7 +79,9 @@ CREATE TABLE public.categorias_financeiras (
   nome text NOT NULL UNIQUE,
   tipo text NOT NULL CHECK (tipo = ANY (ARRAY['Receita'::text, 'Despesa'::text])),
   created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT categorias_financeiras_pkey PRIMARY KEY (id)
+  parent_id bigint,
+  CONSTRAINT categorias_financeiras_pkey PRIMARY KEY (id),
+  CONSTRAINT categorias_financeiras_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.categorias_financeiras(id)
 );
 CREATE TABLE public.configuracoes_venda (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -312,7 +314,7 @@ CREATE TABLE public.lancamentos (
   valor numeric NOT NULL,
   data_transacao date NOT NULL DEFAULT CURRENT_DATE,
   tipo text NOT NULL CHECK (tipo = ANY (ARRAY['Receita'::text, 'Despesa'::text, 'Transferência'::text])),
-  status text NOT NULL DEFAULT 'Pendente'::text CHECK (status = ANY (ARRAY['Pendente'::text, 'Conciliado'::text])),
+  status text NOT NULL DEFAULT 'Pendente'::text CHECK (status = ANY (ARRAY['Pendente'::text, 'Conciliado'::text, 'Pago'::text])),
   conta_id bigint NOT NULL,
   categoria_id bigint,
   empreendimento_id bigint,
@@ -327,6 +329,7 @@ CREATE TABLE public.lancamentos (
   favorecido_contato_id bigint,
   conciliado boolean DEFAULT false,
   id_transacao_externa text,
+  empresa_id bigint,
   CONSTRAINT lancamentos_pkey PRIMARY KEY (id),
   CONSTRAINT lancamentos_conta_id_fkey FOREIGN KEY (conta_id) REFERENCES public.contas_financeiras(id),
   CONSTRAINT lancamentos_categoria_id_fkey FOREIGN KEY (categoria_id) REFERENCES public.categorias_financeiras(id),
@@ -335,7 +338,8 @@ CREATE TABLE public.lancamentos (
   CONSTRAINT lancamentos_pedido_compra_id_fkey FOREIGN KEY (pedido_compra_id) REFERENCES public.pedidos_compra(id),
   CONSTRAINT lancamentos_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id),
   CONSTRAINT fk_recorrencia FOREIGN KEY (recorrencia_id) REFERENCES public.recorrencias(id),
-  CONSTRAINT fk_favorecido_contato FOREIGN KEY (favorecido_contato_id) REFERENCES public.contatos(id)
+  CONSTRAINT fk_favorecido_contato FOREIGN KEY (favorecido_contato_id) REFERENCES public.contatos(id),
+  CONSTRAINT fk_lancamento_empresa FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id)
 );
 CREATE TABLE public.lancamentos_anexos (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,

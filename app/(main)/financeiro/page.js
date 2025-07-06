@@ -40,9 +40,25 @@ export default function FinanceiroPage() {
             { data: categoriasData, error: categoriasError },
             { data: empreendimentosData, error: empreendimentosError }
         ] = await Promise.all([
-            supabase.from('lancamentos').select('*, empresa:empresa_id(nome_fantasia, razao_social), conta:conta_id(nome, instituicao), categoria:categoria_id(nome), favorecido:favorecido_contato_id(nome, razao_social), empreendimento:empreendimento_id(nome, empresa:empresa_proprietaria_id(nome_fantasia, razao_social)), anexos:lancamentos_anexos(*)').order('data_vencimento', { ascending: false, nullsFirst: false }),
+            supabase
+              .from('lancamentos')
+              .select(`
+                *,
+                conta:conta_id (
+                    *,
+                    empresa:empresa_id (id, nome_fantasia, razao_social)
+                ),
+                categoria:categoria_id (*),
+                favorecido:favorecido_contato_id (*),
+                empreendimento:empreendimento_id (
+                    *,
+                    empresa:empresa_proprietaria_id (id, nome_fantasia, razao_social)
+                ),
+                anexos:lancamentos_anexos (*)
+              `)
+              .order('data_transacao', { ascending: false, nullsFirst: false }),
             supabase.from('cadastro_empresa').select('*').order('nome_fantasia'),
-            supabase.from('contas_financeiras').select('*').order('nome'),
+            supabase.from('contas_financeiras').select('*, empresa:empresa_id(*)').order('nome'),
             supabase.from('categorias_financeiras').select('*').order('nome'),
             supabase.from('empreendimentos').select('*, empresa:empresa_proprietaria_id(nome_fantasia, razao_social)').order('nome')
         ]);
