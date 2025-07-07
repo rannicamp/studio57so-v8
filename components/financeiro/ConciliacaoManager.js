@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUpload, faLink, faFileImport, faCheckCircle, faMagic } from '@fortawesome/free-solid-svg-icons';
-import { OFX } from 'ofx-data-extractor';
+import { OfxData } from 'ofx-data-extractor'; // CORREÇÃO APLICADA AQUI
 
 // Função para formatar a data
 const formatDate = (dateStr) => {
@@ -17,8 +17,6 @@ const formatDate = (dateStr) => {
 // Função para formatar moeda
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
-// --- NOVO COMPONENTE ---
-// Card para exibir cada transação/lançamento de forma mais clara
 const ItemCard = ({ item, type, isSelected, isSuggested, onSelect, onDragStart, onDragEnd, onDrop, onDragOver, onDragLeave, isDragOver }) => {
     const isDespesa = (type === 'extrato' && item.valor < 0) || (type === 'sistema' && item.tipo === 'Despesa');
     const valor = type === 'extrato' ? item.valor : (isDespesa ? -item.valor : item.valor);
@@ -59,7 +57,6 @@ export default function ConciliacaoManager({ contas }) {
     const [transacoesExtrato, setTransacoesExtrato] = useState([]);
     const [lancamentosSistema, setLancamentosSistema] = useState([]);
     
-    // --- Novos estados para a UI melhorada ---
     const [selectedItem, setSelectedItem] = useState({ id: null, type: null });
     const [potentialMatches, setPotentialMatches] = useState([]);
     const [draggedItem, setDraggedItem] = useState(null);
@@ -96,7 +93,8 @@ export default function ConciliacaoManager({ contas }) {
 
     const parseOfxFile = (fileContent) => {
         try {
-            const ofx = new OFX(fileContent);
+            // CORREÇÃO APLICADA AQUI
+            const ofx = new OfxData(fileContent);
             const ofxData = ofx.getStatement();
             if (!ofxData?.transactions || ofxData.transactions.length === 0) { console.warn("Biblioteca OFX não encontrou transações. Tentando método manual."); return parseFileManually(fileContent); }
             return ofxData.transactions.map(t => ({ id: t.id, data: t.postedAt.toISOString().split('T')[0], valor: t.amount, descricao: t.description || 'Sem descrição', tipo: t.amount < 0 ? 'Despesa' : 'Receita', conciliado: false }));
@@ -104,8 +102,6 @@ export default function ConciliacaoManager({ contas }) {
     };
     
     const conciliarPar = async (transacao, lancamento) => {
-        // ***** INÍCIO DA ALTERAÇÃO *****
-        // Ao conciliar, também definimos o status como 'Pago' e a data do pagamento.
         const { error } = await supabase
             .from('lancamentos')
             .update({ 
@@ -115,7 +111,6 @@ export default function ConciliacaoManager({ contas }) {
                 id_transacao_externa: transacao.id 
             })
             .eq('id', lancamento.id);
-        // ***** FIM DA ALTERAÇÃO *****
 
         if (error) { console.error("Erro ao conciliar par:", error); return false; }
         return true;
