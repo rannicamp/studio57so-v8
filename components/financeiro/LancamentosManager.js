@@ -299,13 +299,18 @@ export default function LancamentosManager({
         return { text: 'A Pagar', className: 'bg-yellow-100 text-yellow-800' };
     };
 
+    // LÓGICA DE FILTRAGEM CORRIGIDA
     const filteredAndSortedLancamentos = useMemo(() => {
         let filtered = [...lancamentos];
+
+        // Filtros de ID (sem alteração)
         if (filters.empresaIds?.length > 0) filtered = filtered.filter(l => filters.empresaIds.includes(l.conta?.empresa?.id) || filters.empresaIds.includes(l.empreendimento?.empresa?.id) || filters.empresaIds.includes(l.empresa_id));
         if (filters.contaIds?.length > 0) filtered = filtered.filter(l => filters.contaIds.includes(l.conta_id));
         if (filters.categoriaIds?.length > 0) filtered = filtered.filter(l => filters.categoriaIds.includes(l.categoria_id));
         if (filters.empreendimentoIds?.length > 0) filtered = filtered.filter(l => filters.empreendimentoIds.includes(l.empreendimento_id));
         if (filters.etapaIds?.length > 0) filtered = filtered.filter(l => filters.etapaIds.includes(l.etapa_id));
+        
+        // Filtro de Status (sem alteração)
         if (filters.status?.length > 0) {
             const hasAtrasada = filters.status.includes('Atrasada');
             const otherStatus = filters.status.filter(s => s !== 'Atrasada');
@@ -315,8 +320,24 @@ export default function LancamentosManager({
                 return (hasAtrasada && isAtrasada) || otherStatus.includes(l.status);
             });
         }
-        if (filters.startDate) filtered = filtered.filter(l => new Date(l.data_vencimento || l.data_transacao) >= new Date(filters.startDate));
-        if (filters.endDate) filtered = filtered.filter(l => new Date(l.data_vencimento || l.data_transacao) <= new Date(filters.endDate + 'T23:59:59'));
+        
+        // **** INÍCIO DA CORREÇÃO DEFINITIVA DO FILTRO DE DATA ****
+        // Compara as datas como strings 'YYYY-MM-DD', o que evita problemas de fuso horário.
+        if (filters.startDate) {
+            filtered = filtered.filter(l => {
+                const itemDate = l.data_vencimento || l.data_transacao;
+                return itemDate && itemDate >= filters.startDate;
+            });
+        }
+        if (filters.endDate) {
+            filtered = filtered.filter(l => {
+                const itemDate = l.data_vencimento || l.data_transacao;
+                return itemDate && itemDate <= filters.endDate;
+            });
+        }
+        // **** FIM DA CORREÇÃO ****
+
+        // Filtro de Busca (sem alteração)
         if (filters.searchTerm) {
             const term = filters.searchTerm.toLowerCase();
             filtered = filtered.filter(l => l.descricao.toLowerCase().includes(term) || (l.favorecido?.nome && l.favorecido.nome.toLowerCase().includes(term)) || (l.favorecido?.razao_social && l.favorecido.razao_social.toLowerCase().includes(term)));
