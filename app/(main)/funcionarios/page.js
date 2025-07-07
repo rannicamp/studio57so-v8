@@ -19,20 +19,23 @@ export default async function GerenciamentoFuncionariosPage() {
     console.error('Erro ao buscar funcionários:', error);
   }
 
-  // Gera links seguros e temporários para as fotos do bucket 'avatars'
+  // Gera links seguros e temporários para as fotos
   const employees = employeesData ? await Promise.all(
     employeesData.map(async (employee) => {
       if (employee.foto_url) {
-        // *** MUDANÇA PRINCIPAL AQUI: USA O BUCKET 'avatars' ***
+        
+        // ***** CORREÇÃO APLICADA AQUI *****
+        // O sistema agora busca a foto no bucket correto 'funcionarios-documentos'
         const { data, error: urlError } = await supabase.storage
-          .from('avatars')
-          .createSignedUrl(employee.foto_url, 3600); // 1 hora de validade
+          .from('funcionarios-documentos') 
+          .createSignedUrl(employee.foto_url, 3600); // URL válida por 1 hora
 
         if (!urlError) {
           employee.foto_url = data.signedUrl;
         } else {
             // Se der erro ao gerar a URL, define como nulo para mostrar o placeholder
             employee.foto_url = null; 
+            console.error(`Erro ao gerar URL da foto para ${employee.full_name}:`, urlError.message);
         }
       }
       return employee;

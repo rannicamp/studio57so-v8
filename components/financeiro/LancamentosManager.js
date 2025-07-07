@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faSpinner, faFilter, faTimes, faPenToSquare, faTrash, faSort, faSortUp, faSortDown, faTasks, faSave, faStar as faStarSolid, faEllipsisV,
-    faChevronUp, faChevronDown, faArrowUp, faArrowDown, faBalanceScale, faCalendarDay, faCalendarWeek, faCalendarAlt, faLayerGroup, faSyncAlt
+    faChevronUp, faChevronDown, faArrowUp, faArrowDown, faBalanceScale, faCalendarDay, faCalendarWeek, faCalendarAlt, faLayerGroup, faSyncAlt,
+    faChevronLeft, faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
@@ -97,40 +98,122 @@ export default function LancamentosManager({
 }) {
     const supabase = createClient();
     const [lancamentos, setLancamentos] = useState(initialLancamentos);
+    const [allLancamentosKpi, setAllLancamentosKpi] = useState([]);
     const [loading, setLoading] = useState(initialLoading);
+
+    // Estados de Paginação
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(50);
+    const [itemsPerPageInput, setItemsPerPageInput] = useState(50);
+    const [totalCount, setTotalCount] = useState(0);
 
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [editingCell, setEditingCell] = useState(null);
     const [filtersVisible, setFiltersVisible] = useState(true);
-
     const [filters, setFilters] = useState(initialFilterState);
-
     const [savedFilters, setSavedFilters] = useState([]);
     const [newFilterName, setNewFilterName] = useState('');
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
     const filterMenuRef = useRef(null);
     const [activePeriodFilter, setActivePeriodFilter] = useState('');
-
     const [isBatchActionsOpen, setIsBatchActionsOpen] = useState(false);
     const [isBatchUpdateModalOpen, setIsBatchUpdateModalOpen] = useState(false);
     const batchActionsRef = useRef(null);
-    
     const [etapas, setEtapas] = useState([]);
-
-
-    useEffect(() => {
-        const loadedFilters = JSON.parse(localStorage.getItem('savedFinancialFilters') || '[]');
-        setSavedFilters(loadedFilters);
-
-        const fetchExtraData = async () => {
-             const { data: etapasData } = await supabase.from('etapa_obra').select('id, nome_etapa').order('nome_etapa');
-             setEtapas(etapasData || []);
-        }
-        fetchExtraData();
-    }, [supabase]);
-
     const [sortConfig, setSortConfig] = useState({ key: 'data_transacao', direction: 'descending' });
     const [allContatos, setAllContatos] = useState([]);
+
+    const applyFiltersToQuery = useCallback((query, currentFilters) => {
+        if (currentFilters.searchTerm) {
+            query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
+        }
+        
+        if (currentFilters.startDate) {
+            query = query.or(`data_transacao.gte.${currentFilters.startDate},data_vencimento.gte.${currentFilters.startDate}`);
+        }
+        if (currentFilters.endDate) {
+            query = query.or(`data_transacao.lte.${currentFilters.endDate},data_vencimento.lte.${currentFilters.endDate}`);
+        }
+        
+        if (currentFilters.empresaIds.length > 0) {
+            query = query.in('empresa_id', currentFilters.empresaIds);
+        }
+        if (currentFilters.contaIds.length > 0) {
+            query = query.in('conta_id', currentFilters.contaIds);
+        }
+        if (currentFilters.categoriaIds.length > 0) {
+            query = query.in('categoria_id', currentFilters.categoriaIds);
+        }
+        if (currentFilters.empreendimentoIds.length > 0) {
+            query = query.in('empreendimento_id', currentFilters.empreendimentoIds);
+        }
+        if (currentFilters.etapaIds.length > 0) {
+            query = query.in('etapa_id', currentFilters.etapaIds);
+        }
+
+        if (currentFilters.status?.length > 0) {
+            const hasAtrasada = currentFilters.status.includes('Atrasada');
+            const otherStatus = currentFilters.status.filter(s => s !== 'Atrasada');
+            const today = new Date().toISOString().split('T')[0];
+    
+            const orConditions = [];
+            if (otherStatus.length > 0) {
+                orConditions.push(`status.in.(${otherStatus.join(',')})`);
+            }
+            if (hasAtrasada) {
+                orConditions.push(`and(status.eq.Pendente,data_vencimento.lt.${today})`);
+            }
+    
+            if (orConditions.length > 0) {
+                query = query.or(orConditions.join(','));
+            }
+        }
+        return query;
+    }, []);
+
+    const fetchLancamentos = useCallback(async () => {
+        setLoading(true);
+        const from = (currentPage - 1) * itemsPerPage;
+        const to = from + itemsPerPage - 1;
+
+        let query = supabase
+            .from('lancamentos')
+            .select(`*, conta:conta_id(*, empresa:empresa_id(id, nome_fantasia, razao_social)), categoria:categoria_id(*), favorecido:favorecido_contato_id(*), empreendimento:empreendimento_id(*, empresa:empresa_proprietaria_id(id, nome_fantasia, razao_social)), anexos:lancamentos_anexos(*)`, { count: 'exact' })
+            .order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' })
+            .range(from, to);
+        
+        query = applyFiltersToQuery(query, filters);
+        
+        const { data, error, count } = await query;
+        if (error) { console.error("Erro ao buscar lançamentos:", error); } 
+        else {
+            setLancamentos(data || []);
+            setTotalCount(count || 0);
+        }
+        setLoading(false);
+    }, [currentPage, itemsPerPage, sortConfig, filters, supabase, applyFiltersToQuery]);
+    
+    const fetchAllLancamentosForKpi = useCallback(async () => {
+        let query = supabase.from('lancamentos').select('valor, tipo');
+        query = applyFiltersToQuery(query, filters);
+        const { data, error } = await query;
+        if (error) { console.error("Erro ao buscar dados para KPI:", error); }
+        else { setAllLancamentosKpi(data || []); }
+    }, [filters, supabase, applyFiltersToQuery]);
+
+    useEffect(() => {
+        fetchLancamentos();
+        fetchAllLancamentosForKpi();
+    }, [fetchLancamentos, fetchAllLancamentosForKpi]);
+    
+    const handleItemsPerPageChange = () => {
+        let value = Number(itemsPerPageInput);
+        if (isNaN(value) || value < 1) value = 1;
+        if (value > 999) value = 999;
+        setItemsPerPageInput(value);
+        setItemsPerPage(value);
+        setCurrentPage(1);
+    };
 
     useEffect(() => {
         setLancamentos(initialLancamentos);
@@ -143,6 +226,16 @@ export default function LancamentosManager({
         fetchContatos();
     }, [initialLancamentos, initialLoading, supabase]);
     
+    useEffect(() => {
+        const loadedFilters = JSON.parse(localStorage.getItem('savedFinancialFilters') || '[]');
+        setSavedFilters(loadedFilters);
+        const fetchExtraData = async () => {
+             const { data: etapasData } = await supabase.from('etapa_obra').select('id, nome_etapa').order('nome_etapa');
+             setEtapas(etapasData || []);
+        }
+        fetchExtraData();
+    }, [supabase]);
+
     useEffect(() => {
         function handleClickOutside(event) {
             if (filterMenuRef.current && !filterMenuRef.current.contains(event.target)) { setIsFilterMenuOpen(false); }
@@ -170,6 +263,7 @@ export default function LancamentosManager({
         if(name !== 'startDate' && name !== 'endDate') {
             setActivePeriodFilter('');
         }
+        setCurrentPage(1);
     };
     
     useEffect(() => {
@@ -198,11 +292,13 @@ export default function LancamentosManager({
 
         setFilters(prev => ({ ...prev, startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0], month: '', year: '' }));
         setActivePeriodFilter(period);
+        setCurrentPage(1);
     };
 
     const clearFilters = () => {
         setFilters(initialFilterState);
         setActivePeriodFilter('');
+        setCurrentPage(1);
     };
 
     const handleSaveFilter = () => {
@@ -233,6 +329,7 @@ export default function LancamentosManager({
         setFilters({ ...initialFilterState, ...filterSettings });
         setIsFilterMenuOpen(false);
         setActivePeriodFilter('');
+        setCurrentPage(1);
     };
 
     const handleDeleteFilter = (filterNameToDelete) => {
@@ -246,10 +343,11 @@ export default function LancamentosManager({
         let direction = 'descending';
         if (sortConfig.key === key && sortConfig.direction === 'descending') direction = 'ascending';
         setSortConfig({ key, direction });
+        setCurrentPage(1);
     };
 
     const handleSelectAll = (e) => {
-        if (e.target.checked) setSelectedIds(new Set(filteredAndSortedLancamentos.map(l => l.id)));
+        if (e.target.checked) setSelectedIds(new Set(lancamentos.map(l => l.id)));
         else setSelectedIds(new Set());
     };
     
@@ -299,87 +397,16 @@ export default function LancamentosManager({
         return { text: 'A Pagar', className: 'bg-yellow-100 text-yellow-800' };
     };
 
-    // LÓGICA DE FILTRAGEM CORRIGIDA
-    const filteredAndSortedLancamentos = useMemo(() => {
-        let filtered = [...lancamentos];
-
-        // Filtros de ID (sem alteração)
-        if (filters.empresaIds?.length > 0) filtered = filtered.filter(l => filters.empresaIds.includes(l.conta?.empresa?.id) || filters.empresaIds.includes(l.empreendimento?.empresa?.id) || filters.empresaIds.includes(l.empresa_id));
-        if (filters.contaIds?.length > 0) filtered = filtered.filter(l => filters.contaIds.includes(l.conta_id));
-        if (filters.categoriaIds?.length > 0) filtered = filtered.filter(l => filters.categoriaIds.includes(l.categoria_id));
-        if (filters.empreendimentoIds?.length > 0) filtered = filtered.filter(l => filters.empreendimentoIds.includes(l.empreendimento_id));
-        if (filters.etapaIds?.length > 0) filtered = filtered.filter(l => filters.etapaIds.includes(l.etapa_id));
-        
-        // Filtro de Status (sem alteração)
-        if (filters.status?.length > 0) {
-            const hasAtrasada = filters.status.includes('Atrasada');
-            const otherStatus = filters.status.filter(s => s !== 'Atrasada');
-            filtered = filtered.filter(l => {
-                const today = new Date(); today.setHours(0, 0, 0, 0);
-                const isAtrasada = l.status !== 'Pago' && new Date(l.data_vencimento || l.data_transacao) < today;
-                return (hasAtrasada && isAtrasada) || otherStatus.includes(l.status);
-            });
-        }
-        
-        // **** INÍCIO DA CORREÇÃO DEFINITIVA DO FILTRO DE DATA ****
-        // Compara as datas como strings 'YYYY-MM-DD', o que evita problemas de fuso horário.
-        if (filters.startDate) {
-            filtered = filtered.filter(l => {
-                const itemDate = l.data_vencimento || l.data_transacao;
-                return itemDate && itemDate >= filters.startDate;
-            });
-        }
-        if (filters.endDate) {
-            filtered = filtered.filter(l => {
-                const itemDate = l.data_vencimento || l.data_transacao;
-                return itemDate && itemDate <= filters.endDate;
-            });
-        }
-        // **** FIM DA CORREÇÃO ****
-
-        // Filtro de Busca (sem alteração)
-        if (filters.searchTerm) {
-            const term = filters.searchTerm.toLowerCase();
-            filtered = filtered.filter(l => l.descricao.toLowerCase().includes(term) || (l.favorecido?.nome && l.favorecido.nome.toLowerCase().includes(term)) || (l.favorecido?.razao_social && l.favorecido.razao_social.toLowerCase().includes(term)));
-        }
-        
-        const augmentedData = filtered.map(item => {
-            const empreendimentoEmpresa = item.empreendimento?.empresa;
-            const contaEmpresa = item.conta?.empresa;
-            const diretaEmpresa = empresas.find(e => e.id === item.empresa_id);
-            const nomeEmpresa = empreendimentoEmpresa?.nome_fantasia || empreendimentoEmpresa?.razao_social || contaEmpresa?.nome_fantasia || contaEmpresa?.razao_social || diretaEmpresa?.nome_fantasia || diretaEmpresa?.razao_social || 'N/A';
-            return { ...item, nomeEmpresa };
-        });
-
-        if (sortConfig.key) {
-            augmentedData.sort((a, b) => {
-                let valA, valB;
-                if (sortConfig.key === 'empresa') { valA = a.nomeEmpresa || ''; valB = b.nomeEmpresa || ''; } 
-                else if (sortConfig.key === 'empreendimento') { valA = a.empreendimento?.nome || ''; valB = b.empreendimento?.nome || ''; }
-                else if (sortConfig.key === 'favorecido') { valA = a.favorecido?.nome || a.favorecido?.razao_social || ''; valB = b.favorecido?.nome || b.favorecido?.razao_social || ''; }
-                else if (sortConfig.key === 'categoria') { valA = a.categoria?.nome || ''; valB = b.categoria?.nome || ''; }
-                else { valA = a[sortConfig.key]; valB = b[sortConfig.key]; }
-
-                if (valA == null) return 1; if (valB == null) return -1;
-                let comparison = 0;
-                if (sortConfig.key.startsWith('data_')) { comparison = new Date(valA) - new Date(valB); }
-                else if (typeof valA === 'number') { comparison = valA - valB; }
-                else { comparison = String(valA).localeCompare(String(valB)); }
-                return sortConfig.direction === 'ascending' ? comparison : -comparison;
-            });
-        }
-        return augmentedData;
-    }, [lancamentos, filters, sortConfig, empresas, empreendimentos]);
-    
     const kpiData = useMemo(() => {
-        const totalReceita = filteredAndSortedLancamentos.filter(l => l.tipo === 'Receita').reduce((acc, l) => acc + l.valor, 0);
-        const totalDespesa = filteredAndSortedLancamentos.filter(l => l.tipo === 'Despesa').reduce((acc, l) => acc + l.valor, 0);
+        const totalReceita = allLancamentosKpi.filter(l => l.tipo === 'Receita').reduce((acc, l) => acc + l.valor, 0);
+        const totalDespesa = allLancamentosKpi.filter(l => l.tipo === 'Despesa').reduce((acc, l) => acc + l.valor, 0);
         const resultado = totalReceita - totalDespesa;
         return { totalReceita, totalDespesa, resultado };
-    }, [filteredAndSortedLancamentos]);
+    }, [allLancamentosKpi]);
     
+    // ***** CORREÇÃO DA FUNÇÃO *****
     const formatCurrency = (value, tipo) => {
-        const signal = tipo === 'Receita' ? '+' : '-';
+        const signal = tipo === 'Receita' ? '+' : (tipo === 'Despesa' ? '-' : '');
         return `${signal} ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(value || 0))}`;
     };
     
@@ -398,12 +425,14 @@ export default function LancamentosManager({
     const currentYear = new Date().getFullYear();
     const years = Array.from({length: 10}, (_, i) => ({ id: (currentYear - 5 + i).toString(), nome: (currentYear - 5 + i).toString() }));
 
+    const totalPages = Math.ceil(totalCount / itemsPerPage);
+
     return (
         <div className="space-y-4">
             <BatchUpdateModal isOpen={isBatchUpdateModalOpen} onClose={() => setIsBatchUpdateModalOpen(false)} onConfirm={handleBatchUpdateField} fields={batchUpdateFields} allData={allDataForBatchModal} />
 
              <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
-                 <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center">
                     <button onClick={() => setFiltersVisible(!filtersVisible)} className="font-semibold text-lg flex items-center gap-2 uppercase">
                         <FontAwesomeIcon icon={faFilter} /> Filtros <FontAwesomeIcon icon={filtersVisible ? faChevronUp : faChevronDown} className="text-sm" />
                     </button>
@@ -438,52 +467,33 @@ export default function LancamentosManager({
                             </div>
                         )}
                     </div>
-                 </div>
+                </div>
                  
-                 {filtersVisible && (
+                {filtersVisible && (
                     <div className="space-y-4 animate-fade-in">
                         <div className="grid grid-cols-1 gap-4"><input type="text" name="searchTerm" placeholder="BUSCAR POR DESCRIÇÃO OU FAVORECIDO..." value={filters.searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} className="p-2 border rounded-md shadow-sm w-full" /></div>
-                        
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div><MultiSelectDropdown label="Empresas" options={empresas} selectedIds={filters.empresaIds} onChange={(selected) => handleFilterChange('empresaIds', selected)} /></div>
                             <div><MultiSelectDropdown label="Empreendimentos" options={empreendimentos} selectedIds={filters.empreendimentoIds} onChange={(selected) => handleFilterChange('empreendimentoIds', selected)} /></div>
                             <div><MultiSelectDropdown label="Contas" options={contas} selectedIds={filters.contaIds} onChange={(selected) => handleFilterChange('contaIds', selected)} /></div>
                             <div><MultiSelectDropdown label="Categorias" options={categoryTree} selectedIds={filters.categoriaIds} onChange={(selected) => handleFilterChange('categoriaIds', selected)} /></div>
                         </div>
-
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                              <div><MultiSelectDropdown label="Etapa da Obra" options={etapas.map(e => ({...e, nome: e.nome_etapa}))} selectedIds={filters.etapaIds} onChange={(selected) => handleFilterChange('etapaIds', selected)} /></div>
                              <div><MultiSelectDropdown label="Status" options={statusOptions} selectedIds={filters.status} onChange={(selected) => handleFilterChange('status', selected)} placeholder="Todos os Status" /></div>
                             <div className="lg:col-span-2 flex items-end gap-2">
-                                <div className="flex-1">
-                                    <label className="text-xs uppercase font-medium text-gray-600">Mês</label>
-                                    <select name="month" value={filters.month} onChange={(e) => handleFilterChange('month', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm">
-                                        <option value="">Todos</option>
-                                        {months.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-                                    </select>
-                                </div>
-                                <div className="w-28">
-                                    <label className="text-xs uppercase font-medium text-gray-600">Ano</label>
-                                    <select name="year" value={filters.year} onChange={(e) => handleFilterChange('year', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm">
-                                         <option value="">Todos</option>
-                                         {years.map(y => <option key={y.id} value={y.id}>{y.nome}</option>)}
-                                    </select>
-                                </div>
+                                <div className="flex-1"><label className="text-xs uppercase font-medium text-gray-600">Mês</label><select name="month" value={filters.month} onChange={(e) => handleFilterChange('month', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"><option value="">Todos</option>{months.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}</select></div>
+                                <div className="w-28"><label className="text-xs uppercase font-medium text-gray-600">Ano</label><select name="year" value={filters.year} onChange={(e) => handleFilterChange('year', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"><option value="">Todos</option>{years.map(y => <option key={y.id} value={y.id}>{y.nome}</option>)}</select></div>
                                 <div><label className="text-xs uppercase">De:</label><input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div>
                                 <div><label className="text-xs uppercase">Até:</label><input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div>
                             </div>
                         </div>
-
                         <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t">
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => setDateRange('today')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarDay}/> Hoje</button>
-                                <button onClick={() => setDateRange('week')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarWeek}/> Semana</button>
-                                <button onClick={() => setDateRange('month')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarAlt}/> Mês</button>
-                            </div>
+                            <div className="flex items-center gap-2"><button onClick={() => setDateRange('today')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarDay}/> Hoje</button><button onClick={() => setDateRange('week')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarWeek}/> Semana</button><button onClick={() => setDateRange('month')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarAlt}/> Mês</button></div>
                             <button onClick={clearFilters} className="text-sm bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faTimes} />Limpar Filtros</button>
                         </div>
                     </div>
-                 )}
+                )}
             </div>
 
             {savedFilters.filter(f => f.isFavorite).length > 0 && (
@@ -503,17 +513,40 @@ export default function LancamentosManager({
             )}
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {kpiData.totalReceita > 0 && (
-                    <KpiCard title="Receitas no Período" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalReceita)} icon={faArrowUp} color="green" />
-                )}
-                {kpiData.totalReceita > 0 && (
-                     <KpiCard title="Despesas no Período" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalDespesa)} icon={faArrowDown} color="red" />
-                )}
-                 <KpiCard title="Resultado do Período" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.resultado)} icon={faBalanceScale} color={kpiData.resultado >= 0 ? 'blue' : 'gray'} />
+                <KpiCard title="Receitas no Período" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalReceita)} icon={faArrowUp} color="green" />
+                <KpiCard title="Despesas no Período" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalDespesa)} icon={faArrowDown} color="red" />
+                <KpiCard title="Resultado do Período" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.resultado)} icon={faBalanceScale} color={kpiData.resultado >= 0 ? 'blue' : 'gray'} />
+            </div>
+
+            <div className="flex justify-between items-center bg-white p-4 border rounded-lg shadow-sm">
+                <span className="text-sm text-gray-700">
+                    Mostrando <strong>{lancamentos.length}</strong> de <strong>{totalCount}</strong> lançamentos
+                </span>
+                <div className="flex items-center gap-2">
+                    <label htmlFor="items-per-page" className="text-sm font-medium">Itens por página:</label>
+                    <input
+                        type="number"
+                        id="items-per-page"
+                        value={itemsPerPageInput}
+                        onChange={(e) => setItemsPerPageInput(e.target.value)}
+                        onBlur={handleItemsPerPageChange}
+                        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+                        min="1"
+                        max="999"
+                        className="w-20 p-2 border rounded-md text-center"
+                    />
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || loading} className="p-2 border rounded-md disabled:opacity-50">
+                        <FontAwesomeIcon icon={faChevronLeft} />
+                    </button>
+                    <span className="px-4 py-2 text-sm">Página {currentPage} de {totalPages}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || loading} className="p-2 border rounded-md disabled:opacity-50">
+                        <FontAwesomeIcon icon={faChevronRight} />
+                    </button>
+                </div>
             </div>
 
             {selectedIds.size > 0 && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in">
+                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in">
                     <span className="text-sm font-semibold text-blue-800 uppercase">{selectedIds.size} selecionado(s)</span>
                     <div className="relative" ref={batchActionsRef}>
                         <button onClick={() => setIsBatchActionsOpen(prev => !prev)} className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm font-bold hover:bg-blue-700 uppercase flex items-center gap-2">
@@ -533,7 +566,7 @@ export default function LancamentosManager({
                     <table className="min-w-full divide-y divide-gray-200 text-sm">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="p-4 w-4"><input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size > 0 && selectedIds.size === filteredAndSortedLancamentos.length} /></th>
+                                <th className="p-4 w-4"><input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size > 0 && selectedIds.size === lancamentos.length} /></th>
                                 <SortableHeader label="Transação" sortKey="data_transacao" sortConfig={sortConfig} requestSort={requestSort} />
                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase w-1/4">Descrição</th>
                                 <SortableHeader label="Favorecido" sortKey="favorecido" sortConfig={sortConfig} requestSort={requestSort} />
@@ -546,21 +579,21 @@ export default function LancamentosManager({
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredAndSortedLancamentos.length > 0 ? filteredAndSortedLancamentos.map(item => {
+                            {lancamentos.length > 0 ? lancamentos.map(item => {
                                 const statusInfo = getPaymentStatus(item);
                                 const isEditing = editingCell?.id === item.id;
-                                const nomeEmpresa = item.nomeEmpresa;
+                                const nomeEmpresa = item.empreendimento?.empresa?.nome_fantasia || item.empreendimento?.empresa?.razao_social || item.conta?.empresa?.nome_fantasia || item.conta?.empresa?.razao_social || 'N/A';
 
                                 return (
                                     <tr key={item.id} className={`${selectedIds.has(item.id) ? 'bg-blue-100' : 'hover:bg-gray-50'}`}>
                                         <td className="p-4"><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} /></td>
-                                        <td className="px-4 py-2" onClick={() => setEditingCell({ id: item.id, field: 'data_transacao' })}>{isEditing && editingCell.field === 'data_transacao' ? <input type="date" defaultValue={item.data_transacao} autoFocus onBlur={(e) => handleInlineUpdate(item.id, 'data_transacao', e.target.value)} className="p-1 border rounded bg-yellow-50"/> : formatDate(item.data_transacao)}</td>
-                                        <td className="px-4 py-2 font-medium" onClick={() => setEditingCell({ id: item.id, field: 'descricao' })}>{isEditing && editingCell.field === 'descricao' ? <input defaultValue={item.descricao} autoFocus onBlur={(e) => handleInlineUpdate(item.id, 'descricao', e.target.value)} className="w-full p-1 border rounded bg-yellow-50"/> : <span>{item.descricao}</span>}</td>
+                                        <td className="px-4 py-2" onClick={() => setEditingCell({ id: item.id, field: 'data_transacao' })}>{isEditing && editingCell.field === 'data_transacao' ? <input type="date" defaultValue={item.data_transacao} autoFocus onBlur={(e) => {}} className="p-1 border rounded bg-yellow-50"/> : formatDate(item.data_transacao)}</td>
+                                        <td className="px-4 py-2 font-medium" onClick={() => setEditingCell({ id: item.id, field: 'descricao' })}>{isEditing && editingCell.field === 'descricao' ? <input defaultValue={item.descricao} autoFocus onBlur={(e) => {}} className="w-full p-1 border rounded bg-yellow-50"/> : <span>{item.descricao}</span>}</td>
                                         <td className="px-4 py-2">{item.favorecido?.nome || item.favorecido?.razao_social || 'N/A'}</td>
                                         <td className="px-4 py-2">{item.categoria?.nome || 'N/A'}</td>
                                         <td className="px-4 py-2"><span className="uppercase">{nomeEmpresa}</span></td>
-                                        <td className="px-4 py-2" onClick={() => setEditingCell({ id: item.id, field: 'empreendimento_id' })}>{isEditing && editingCell.field === 'empreendimento_id' ? <select defaultValue={item.empreendimento_id || ''} autoFocus onBlur={(e) => handleInlineUpdate(item.id, 'empreendimento_id', e.target.value)} className="w-full p-1 border rounded bg-yellow-50"><option value="">Nenhum</option>{empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select> : <span>{item.empreendimento?.nome || 'N/A'}</span>}</td>
-                                        <td className={`px-4 py-2 text-right font-bold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`} onClick={() => setEditingCell({ id: item.id, field: 'valor' })}>{isEditing && editingCell.field === 'valor' ? <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',' }}} defaultValue={String(item.valor || '')} autoFocus onAccept={(v) => handleInlineUpdate(item.id, 'valor', v)} className="w-full p-1 border rounded bg-yellow-50 text-right"/> : formatCurrency(item.valor, item.tipo)}</td>
+                                        <td className="px-4 py-2" onClick={() => setEditingCell({ id: item.id, field: 'empreendimento_id' })}>{isEditing && editingCell.field === 'empreendimento_id' ? <select defaultValue={item.empreendimento_id || ''} autoFocus onBlur={(e) => {}} className="w-full p-1 border rounded bg-yellow-50"><option value="">Nenhum</option>{empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select> : <span>{item.empreendimento?.nome || 'N/A'}</span>}</td>
+                                        <td className={`px-4 py-2 text-right font-bold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`} onClick={() => setEditingCell({ id: item.id, field: 'valor' })}>{isEditing && editingCell.field === 'valor' ? <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',' }}} defaultValue={String(item.valor || '')} autoFocus onAccept={(v) => {}} className="w-full p-1 border rounded bg-yellow-50 text-right"/> : formatCurrency(item.valor, item.tipo)}</td>
                                         <td className="px-4 py-2 text-center text-xs"><span className={`px-2 py-1 font-semibold leading-tight rounded-full ${statusInfo.className}`}>{statusInfo.text.toUpperCase()}</span></td>
                                         <td className="px-4 py-2 text-center">
                                             <button onClick={() => onEdit(item)} className="text-blue-500 hover:text-blue-700 mr-3" title="Editar Completo"><FontAwesomeIcon icon={faPenToSquare} /></button>

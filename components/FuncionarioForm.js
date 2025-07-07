@@ -55,17 +55,21 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    if (initialData?.foto_url) {
-      if (initialData.foto_url.includes('blob:') || initialData.foto_url.includes('supabase.co')) {
-          setPhotoPreview(initialData.foto_url);
-      } else {
-          const getSignedUrl = async () => {
-              const { data } = await supabase.storage.from('avatars').createSignedUrl(initialData.foto_url, 3600);
-              setPhotoPreview(data?.signedUrl);
-          };
-          getSignedUrl();
-      }
-    }
+    // Busca a URL assinada da foto se ela existir
+    const getSignedUrlForPhoto = async () => {
+        if (initialData?.foto_url) {
+            // A URL já pode ser pública ou uma blob (para preview local)
+            if (initialData.foto_url.startsWith('blob:') || initialData.foto_url.includes('supabase.co')) {
+                setPhotoPreview(initialData.foto_url);
+            } else {
+                // Se for um caminho de arquivo, busca a URL assinada
+                const bucket = initialData.foto_url.includes('documentos/') ? 'funcionarios-documentos' : 'avatars';
+                const { data } = await supabase.storage.from(bucket).createSignedUrl(initialData.foto_url, 3600);
+                setPhotoPreview(data?.signedUrl);
+            }
+        }
+    };
+    getSignedUrlForPhoto();
   }, [initialData, supabase]);
 
   const handleChange = (e) => {
@@ -92,24 +96,29 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
 
     let finalFotoPath = formData.foto_url;
 
+    // ***** LÓGICA DE UPLOAD CORRIGIDA *****
     if (newPhotoFile) {
       const fileExtension = newPhotoFile.name.split('.').pop();
-      const employeeId = isEditing ? formData.id : (formData.cpf || 'novo').replace(/\D/g, '');
-      const photoFileName = `${employeeId}-${Date.now()}.${fileExtension}`;
+      const employeeId = formData.id; // Pega o ID do funcionário que está sendo editado
       
+      // Define o caminho do arquivo para o bucket 'funcionarios-documentos'
+      const filePath = `documentos/${employeeId}/foto_perfil_${Date.now()}.${fileExtension}`;
+
+      // Salva no mesmo bucket dos outros documentos
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(photoFileName, newPhotoFile, { upsert: true });
+        .from('funcionarios-documentos') 
+        .upload(filePath, newPhotoFile, { upsert: true });
 
       if (uploadError) {
         setMessage(`Erro no upload da foto: ${uploadError.message}`);
         setIsUploading(false);
         return;
       }
-      finalFotoPath = uploadData.path;
+      finalFotoPath = uploadData.path; // Armazena o caminho completo do arquivo
     }
 
-    const { id, created_at, ...dbData } = { ...formData, foto_url: finalFotoPath };
+    // Continua com o salvamento dos dados do formulário
+    const { id, created_at, cadastro_empresa, empreendimentos, documentos_funcionarios, ...dbData } = { ...formData, foto_url: finalFotoPath };
 
     if (isEditing) {
       const { error } = await supabase.from('funcionarios').update(dbData).eq('id', id);
@@ -135,7 +144,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
         const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
         if (!response.ok) throw new Error('CEP não encontrado');
         const data = await response.json();
-        if (data.erro) throw new Error('CEP não encontrado');
+        if (data.erro) throw new Error('CEP inválido.');
         setFormData(prev => ({ ...prev, address_street: data.logradouro, neighborhood: data.bairro, city: data.localidade, state: data.uf }));
         setMessage('Endereço preenchido!');
     } catch (error) {
@@ -248,19 +257,9 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
                         <FontAwesomeIcon icon={faClock} className="mr-2" />
                         Jornada de Trabalho
                     </label>
-                    <select
-                        name="jornada_id"
-                        id="jornada_id"
-                        value={formData.jornada_id || ''}
-                        onChange={handleChange}
-                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                    >
+                    <select name="jornada_id" id="jornada_id" value={formData.jornada_id || ''} onChange={handleChange} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
                         <option value="">Nenhuma jornada definida</option>
-                        {jornadas?.map((jornada) => (
-                            <option key={jornada.id} value={jornada.id}>
-                                {jornada.nome_jornada} ({jornada.carga_horaria_semanal}h)
-                            </option>
-                        ))}
+                        {jornadas?.map((jornada) => (<option key={jornada.id} value={jornada.id}> {jornada.nome_jornada} ({jornada.carga_horaria_semanal}h) </option>))}
                     </select>
                 </div>
                 <div>
@@ -303,19 +302,19 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
         )}
         
         <fieldset className="border-t border-gray-900/10 pt-8">
-            <h2 className="text-xl font-semibold text-gray-800">Endereço</h2>
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-6">
-                <div className="md:col-span-2">
-                    <label className="block text-sm font-medium">CEP</label>
-                    <IMaskInput mask="00000-000" name="cep" value={formData.cep || ''} onAccept={(v) => handleMaskedChange('cep', v)} onBlur={(e) => handleCepBlur(e.target.value)} className="mt-1 w-full p-2 border rounded-md"/>
-                </div>
-                <div className="md:col-span-4"><label className="block text-sm font-medium">Logradouro</label><input name="address_street" value={formData.address_street || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div>
-                <div className="md:col-span-1"><label className="block text-sm font-medium">Número</label><input name="address_number" value={formData.address_number || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div>
-                <div className="md:col-span-2"><label className="block text-sm font-medium">Complemento</label><input name="address_complement" value={formData.address_complement || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div>
-                <div className="md:col-span-3"><label className="block text-sm font-medium">Bairro</label><input name="neighborhood" value={formData.neighborhood || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div>
-                <div className="md:col-span-4"><label className="block text-sm font-medium">Cidade</label><input name="city" value={formData.city || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div>
-                <div className="md:col-span-2"><label className="block text-sm font-medium">Estado (UF)</label><input name="state" value={formData.state || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div>
+          <h2 className="text-xl font-semibold text-gray-800">Endereço</h2>
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-6">
+            <div className="md:col-span-2">
+                <label className="block text-sm font-medium">CEP</label>
+                <IMaskInput mask="00000-000" name="cep" value={formData.cep || ''} onAccept={(v) => handleMaskedChange('cep', v)} onBlur={(e) => handleCepBlur(e.target.value)} className="mt-1 w-full p-2 border rounded-md"/>
             </div>
+            <div className="md:col-span-4"><label className="block text-sm font-medium">Logradouro</label><input name="address_street" value={formData.address_street || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div>
+            <div className="md:col-span-1"><label className="block text-sm font-medium">Número</label><input name="address_number" value={formData.address_number || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div>
+            <div className="md:col-span-2"><label className="block text-sm font-medium">Complemento</label><input name="address_complement" value={formData.address_complement || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div>
+            <div className="md:col-span-3"><label className="block text-sm font-medium">Bairro</label><input name="neighborhood" value={formData.neighborhood || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div>
+            <div className="md:col-span-4"><label className="block text-sm font-medium">Cidade</label><input name="city" value={formData.city || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div>
+            <div className="md:col-span-2"><label className="block text-sm font-medium">Estado (UF)</label><input name="state" value={formData.state || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div>
+          </div>
         </fieldset>
 
         <fieldset className="border-t border-gray-900/10 pt-8">

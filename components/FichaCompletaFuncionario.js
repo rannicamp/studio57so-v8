@@ -1,209 +1,201 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile, faPlusCircle, faCalendarAlt, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
-import AbonoModal from './AbonoModal';
-import Link from 'next/link'; // This line was added to fix the error
+import { faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile, faAddressCard, faFileContract, faFileMedical, faClock, faHourglassHalf, faPlus, faExclamationTriangle, faFileLines, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+import KpiCard from './KpiCard';
 
-// --- Componentes Auxiliares ---
-const InfoField = ({ label, value }) => (<div><dt className="text-sm font-medium text-gray-500">{label}</dt><dd className="mt-1 text-sm text-gray-900">{value || 'N/A'}</dd></div>);
-const getFileIcon = (fileName) => { if (/\.pdf$/i.test(fileName)) return faFilePdf; if (/\.(jpg|jpeg|png|gif)$/i.test(fileName)) return faFileImage; if (/\.(doc|docx)$/i.test(fileName)) return faFileWord; return faFile; };
+// --- COMPONENTES INTERNOS DA PÁGINA ---
 
+const InfoField = ({ label, value, fullWidth = false }) => (
+    <div className={fullWidth ? "md:col-span-2" : ""}>
+        <dt className="text-sm font-medium text-gray-500">{label}</dt>
+        <dd className="mt-1 text-sm text-gray-900">{value || 'N/A'}</dd>
+    </div>
+);
 
-// --- Componente da Folha de Ponto Inteligente ---
-const FolhaPontoInteligente = ({ employeeId, jornada, initialPontos, initialAbonos }) => {
+const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) => {
     const supabase = createClient();
-    const [pontos, setPontos] = useState(initialPontos);
-    const [abonos, setAbonos] = useState(initialAbonos);
-    const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7));
-    const [holidays, setHolidays] = useState(new Set());
-    
-    const [isAbonoModalOpen, setIsAbonoModalOpen] = useState(false);
-    const [abonoDate, setAbonoDate] = useState(null);
-
-    // *** CORREÇÃO APLICADA AQUI ***
-    const weekDays = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+    const [isUploading, setIsUploading] = useState(false);
+    const [message, setMessage] = useState('');
+    const [tiposDocumento, setTiposDocumento] = useState([]);
+    const [selectedTipoId, setSelectedTipoId] = useState('');
+    const [descricao, setDescricao] = useState('');
+    const [file, setFile] = useState(null);
+    const [isDragging, setIsDragging] = useState(false);
 
     useEffect(() => {
-        const fetchHolidays = async (year) => {
-            try {
-                const response = await fetch(`https://brasilapi.com.br/api/feriados/v1/${year}`);
-                const data = await response.json();
-                setHolidays(new Set(data.map(h => h.date)));
-            } catch (e) { console.error("Falha ao buscar feriados."); }
+        const fetchTipos = async () => {
+            const { data } = await supabase.from('documento_tipos').select('*').order('descricao');
+            setTiposDocumento(data || []);
         };
-        fetchHolidays(currentMonth.slice(0, 4));
-    }, [currentMonth]);
+        fetchTipos();
+    }, [supabase]);
 
-    const handleSaveAbono = async (abonoData) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        const { error } = await supabase.from('abonos').insert({ ...abonoData, funcionario_id: employeeId, criado_por_usuario_id: user.id });
-        if (error) { alert("Erro ao salvar abono: " + error.message); }
-        else { const { data } = await supabase.from('abonos').select('*').eq('funcionario_id', employeeId); setAbonos(data || []); }
+    const getFileIcon = (fileName) => {
+        if (!fileName) return faFile;
+        if (/\.pdf$/i.test(fileName)) return faFilePdf;
+        if (/\.(jpg|jpeg|png|gif)$/i.test(fileName)) return faFileImage;
+        if (/\.(doc|docx)$/i.test(fileName)) return faFileWord;
+        return faFile;
+    };
+    
+    const handleFileUpload = async () => {
+        if (!file || !selectedTipoId || !descricao) {
+            setMessage("Por favor, selecione o tipo, descreva e escolha um arquivo.");
+            return;
+        }
+
+        setIsUploading(true);
+        setMessage('Enviando documento...');
+
+        const tipoSelecionado = tiposDocumento.find(t => t.id.toString() === selectedTipoId);
+        const sigla = tipoSelecionado?.sigla || 'DOC';
+        const nomeFuncionario = employeeName.replace(/\s+/g, '_');
+        const descricaoSanitizada = descricao.replace(/\s+/g, '_');
+        const fileExtension = file.name.split('.').pop();
+        const newFileName = `${sigla}_${nomeFuncionario}_${descricaoSanitizada}.${fileExtension}`;
+        const filePath = `documentos/${employeeId}/${newFileName}`;
+
+        const { error: uploadError } = await supabase.storage.from('funcionarios-documentos').upload(filePath, file, { upsert: true });
+        
+        if (uploadError) {
+            setMessage(`Erro no upload: ${uploadError.message}`);
+        } else {
+            // CORREÇÃO APLICADA: Agora salvamos a descrição e o ID do tipo separadamente
+            const { error: dbError } = await supabase.from('documentos_funcionarios').insert({
+                funcionario_id: employeeId,
+                nome_documento: descricao,
+                caminho_arquivo: filePath,
+                tipo_documento_id: tipoSelecionado.id
+            });
+
+            if (dbError) {
+                setMessage(`Erro ao salvar no banco: ${dbError.message}`);
+            } else {
+                setMessage('Documento enviado com sucesso!');
+                onUpdate();
+                setFile(null);
+                setDescricao('');
+                setSelectedTipoId('');
+                if(document.getElementById('file-upload-input')) {
+                   document.getElementById('file-upload-input').value = "";
+                }
+            }
+        }
+        setIsUploading(false);
     };
 
-    const timeToMinutes = (time) => { if (!time) return 0; const [h, m] = time.split(':').map(Number); return h * 60 + m; };
-    const minutesToTime = (minutes) => { if (isNaN(minutes) || minutes === 0) return '00:00'; const h = Math.floor(Math.abs(minutes) / 60).toString().padStart(2, '0'); const m = (Math.abs(minutes) % 60).toString().padStart(2, '0'); return `${minutes < 0 ? '-' : ''}${h}:${m}`; };
+    const handleViewDocument = async (caminho) => {
+        const { data, error } = await supabase.storage.from('funcionarios-documentos').createSignedUrl(caminho, 60);
+        if (error) { alert("Erro ao gerar link para visualização."); }
+        else { window.open(data.signedUrl, '_blank'); }
+    };
 
-    const dailyData = useMemo(() => {
-        if (!jornada) return [];
-        const [year, month] = currentMonth.split('-').map(Number);
-        const daysInMonth = new Date(year, month, 0).getDate();
-        
-        return Array.from({ length: daysInMonth }, (_, i) => {
-            const date = new Date(year, month - 1, i + 1);
-            const dateString = date.toISOString().slice(0, 10);
-            const dayOfWeek = date.getDay();
-            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-            const isHoliday = holidays.has(dateString);
+    const handleDeleteDocument = async (doc) => {
+        if (!window.confirm(`Tem certeza que deseja excluir o documento "${doc.nome_documento}"?`)) return;
+        await supabase.storage.from('funcionarios-documentos').remove([doc.caminho_arquivo]);
+        await supabase.from('documentos_funcionarios').delete().eq('id', doc.id);
+        setMessage("Documento excluído com sucesso.");
+        onUpdate();
+    };
+    
+    const handleDragEvents = (e) => { e.preventDefault(); e.stopPropagation(); if (e.type === 'dragenter' || e.type === 'dragover') setIsDragging(true); else if (e.type === 'dragleave') setIsDragging(false); };
+    const handleDrop = (e) => { handleDragEvents(e); setIsDragging(false); if (e.dataTransfer.files?.[0]) { setFile(e.dataTransfer.files[0]); } };
 
-            const dayPontos = pontos.filter(p => p.data_hora.startsWith(dateString)).sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
-            const dayAbono = abonos.find(a => a.data_abono === dateString);
-
-            let horasTrabalhadas = 0;
-            if (dayPontos.length >= 2) {
-                const entrada = new Date(dayPontos[0].data_hora);
-                const saida = new Date(dayPontos[dayPontos.length - 1].data_hora);
-                let diff = saida - entrada;
-                if (dayPontos.length >= 4) { // Considera intervalo
-                    const saidaIntervalo = new Date(dayPontos[1].data_hora);
-                    const voltaIntervalo = new Date(dayPontos[2].data_hora);
-                    diff -= (voltaIntervalo - saidaIntervalo);
-                }
-                horasTrabalhadas = diff / (1000 * 60); // em minutos
-            }
-
-            const jornadaDia = jornada.detalhes.find(d => d.dia_semana === dayOfWeek);
-            let horasPrevistas = 0;
-            if (jornadaDia && !isWeekend && !isHoliday) {
-                horasPrevistas = (timeToMinutes(jornadaDia.horario_saida) - timeToMinutes(jornadaDia.horario_entrada)) - (timeToMinutes(jornadaDia.horario_volta_intervalo) - timeToMinutes(jornadaDia.horario_saida_intervalo));
-            }
-
-            const tolerancia = jornada.tolerancia_minutos || 0;
-            let saldo = horasTrabalhadas - horasPrevistas;
-            if (Math.abs(saldo) <= tolerancia && !isWeekend && !isHoliday) {
-                saldo = 0;
-            }
-            if (dayAbono) {
-                saldo += (dayAbono.horas_abonadas * 60);
-            }
-             if (isWeekend || isHoliday) {
-                saldo = horasTrabalhadas;
-            }
-
-            return { dateString, dayOfWeek, isWeekend, isHoliday, dayPontos, dayAbono, horasTrabalhadas, horasPrevistas, saldo };
-        });
-    }, [currentMonth, jornada, pontos, abonos, holidays]);
-
-    const totalSaldo = useMemo(() => dailyData.reduce((acc, day) => acc + day.saldo, 0), [dailyData]);
-
-    if (!jornada) {
-        return <div className="p-4 bg-yellow-50 text-yellow-800 rounded-md text-center">Este funcionário não possui uma jornada de trabalho definida. Por favor, <Link href={`/funcionarios/editar/${employeeId}`} className="font-bold underline">edite o cadastro</Link> para associar uma jornada.</div>
-    }
 
     return (
-        <div>
-            <AbonoModal isOpen={isAbonoModalOpen} onClose={() => setIsAbonoModalOpen(false)} onSave={handleSaveAbono} date={abonoDate} />
-            <input type="month" value={currentMonth} onChange={e => setCurrentMonth(e.target.value)} className="p-2 border rounded-md mb-4"/>
-            <div className="overflow-x-auto border rounded-lg">
-                <table className="min-w-full text-sm">
-                    <thead className="bg-gray-100"><tr><th className="p-2">Data</th><th>Entrada</th><th>Saída</th><th>Horas Trab.</th><th>Horas Prev.</th><th>Saldo</th><th>Ações</th></tr></thead>
-                    <tbody className="divide-y">
-                        {dailyData.map(day => (
-                            <tr key={day.dateString} className={`${day.isWeekend || day.isHoliday ? 'bg-gray-50' : ''}`}>
-                                <td className="p-2">{new Date(day.dateString + 'T12:00:00Z').toLocaleDateString('pt-BR')} ({weekDays[day.dayOfWeek].slice(0,3)})</td>
-                                <td className="p-2">{day.dayPontos[0] ? new Date(day.dayPontos[0].data_hora).toLocaleTimeString('pt-BR') : '--:--'}</td>
-                                <td className="p-2">{day.dayPontos.length > 1 ? new Date(day.dayPontos[day.dayPontos.length - 1].data_hora).toLocaleTimeString('pt-BR') : '--:--'}</td>
-                                <td className="p-2 font-semibold">{minutesToTime(day.horasTrabalhadas)}</td>
-                                <td className="p-2">{minutesToTime(day.horasPrevistas)}</td>
-                                <td className={`p-2 font-bold ${day.saldo > 0 ? 'text-green-600' : (day.saldo < 0 ? 'text-red-600' : '')}`}>{minutesToTime(day.saldo)}</td>
-                                <td className="p-2">
-                                    {day.dayAbono ? 
-                                     <span className="text-xs text-blue-600" title={day.dayAbono.motivo}>Abonado ({day.dayAbono.horas_abonadas}h)</span>
-                                    : <button onClick={() => { setAbonoDate(day.dateString); setIsAbonoModalOpen(true); }} className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs hover:bg-blue-200">Abonar</button>}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                    <tfoot className="bg-gray-200 font-bold">
-                        <tr><td colSpan="5" className="p-2 text-right">Saldo Total do Mês:</td><td className={`p-2 ${totalSaldo > 0 ? 'text-green-700' : 'text-red-700'}`}>{minutesToTime(totalSaldo)}</td><td></td></tr>
-                    </tfoot>
-                </table>
+        <div className="space-y-6">
+            {message && <p className="text-center text-sm p-2 bg-blue-50 text-blue-800 rounded-md">{message}</p>}
+            
+            <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
+                <h4 className="font-semibold text-lg">Adicionar Novo Documento</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Tipo do Documento *</label>
+                        <select value={selectedTipoId} onChange={(e) => setSelectedTipoId(e.target.value)} className="mt-1 w-full p-2 border rounded-md">
+                            <option value="">Selecione um tipo...</option>
+                            {tiposDocumento.map(tipo => <option key={tipo.id} value={tipo.id}>{tipo.descricao} ({tipo.sigla})</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Descrição do Documento *</label>
+                        <input type="text" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex: ASO Admissional" className="mt-1 w-full p-2 border rounded-md" />
+                    </div>
+                </div>
+                <div onDragEnter={handleDragEvents} onDragOver={handleDragEvents} onDragLeave={handleDragEvents} onDrop={handleDrop} className={`relative mt-2 w-full h-28 border-2 border-dashed rounded-lg flex flex-col items-center justify-center transition-colors ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}>
+                    <input type="file" id="file-upload-input" className="absolute w-full h-full opacity-0 cursor-pointer" onChange={(e) => setFile(e.target.files[0])} />
+                    {file ? (
+                        <div className="text-center"><FontAwesomeIcon icon={faCheckCircle} className="text-green-500 text-2xl mb-1" /><p className="text-sm font-semibold">{file.name}</p></div>
+                    ) : (
+                        <div className="text-center text-gray-500"><FontAwesomeIcon icon={faUpload} className="text-2xl mb-1" /><p className="text-sm">Arraste e solte ou <span className="font-semibold text-blue-600">clique aqui</span></p></div>
+                    )}
+                </div>
+                <div className="text-right">
+                    <button onClick={handleFileUpload} disabled={isUploading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
+                        {isUploading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Adicionar Documento'}
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <h4 className="font-semibold text-lg mb-2">Documentos Salvos</h4>
+                <ul className="space-y-3">
+                    {documentos.length === 0 ? <p className="text-sm text-gray-500">Nenhum documento salvo para este funcionário.</p> 
+                    : documentos.map(doc => {
+                        // CORREÇÃO APLICADA AQUI: Busca a sigla e monta o nome de exibição
+                        const tipoDoc = tiposDocumento.find(t => t.id === doc.tipo_documento_id);
+                        const displayName = tipoDoc ? `${tipoDoc.sigla}_${doc.nome_documento}` : doc.nome_documento;
+
+                        return (
+                        <li key={doc.id} className="bg-white p-3 rounded-md border flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <FontAwesomeIcon icon={getFileIcon(doc.caminho_arquivo)} className="text-xl text-gray-500" />
+                                <span className="font-medium">{displayName}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button onClick={() => handleViewDocument(doc.caminho_arquivo)} className="text-sm font-semibold text-blue-600 hover:underline flex items-center gap-1"><FontAwesomeIcon icon={faEye} /> Visualizar</button>
+                                <button onClick={() => handleDeleteDocument(doc)} className="text-sm font-semibold text-red-600 hover:underline flex items-center gap-1"><FontAwesomeIcon icon={faTrash} /> Excluir</button>
+                            </div>
+                        </li>
+                    )})}
+                </ul>
             </div>
         </div>
     );
 };
 
-// --- Componente Principal da Ficha ---
-export default function FichaCompletaFuncionario({ employee, allDocuments, allJornadas, allPontos, allAbonos }) {
-    const supabase = createClient();
-    const [documentos, setDocumentos] = useState(allDocuments || []);
-    const [message, setMessage] = useState('');
-    const [isUploading, setIsUploading] = useState(null);
+// --- COMPONENTE PRINCIPAL (sem alterações) ---
 
-    const employeeJornada = useMemo(() => {
-        return allJornadas.find(j => j.id === employee.jornada_id);
-    }, [allJornadas, employee.jornada_id]);
-
-    const handleFileUpload = async (docType, file) => {
-        if (!file) return; setIsUploading(docType); setMessage('Enviando documento...');
-        const fileExtension = file.name.split('.').pop();
-        const filePath = `documentos/${employee.id}/${docType.replace(/ /g, '_')}.${fileExtension}`;
-        const { error } = await supabase.storage.from('funcionarios-documentos').upload(filePath, file, { upsert: true });
-        if (error) { setMessage(`Erro no upload: ${error.message}`); }
-        else {
-            const { error: dbError } = await supabase.from('documentos_funcionarios').upsert({ funcionario_id: employee.id, nome_documento: docType, caminho_arquivo: filePath }, { onConflict: 'funcionario_id, nome_documento' });
-            if(dbError) { setMessage(`Erro ao salvar no banco: ${dbError.message}`); }
-            else { setMessage('Documento enviado!'); const { data: updatedDocs } = await supabase.from('documentos_funcionarios').select('*').eq('funcionario_id', employee.id); setDocumentos(updatedDocs || []); }
-        }
-        setIsUploading(null);
-    };
-
-    const handleViewDocument = async (caminho) => {
-         const { data, error } = await supabase.storage.from('funcionarios-documentos').createSignedUrl(caminho, 60);
-         if(error) { alert("Erro ao gerar link."); } else { window.open(data.signedUrl, '_blank'); }
-    };
-    
-    const handleDeleteDocument = async (doc) => {
-        if (!window.confirm(`Excluir "${doc.nome_documento}"?`)) return;
-        await supabase.storage.from('funcionarios-documentos').remove([doc.caminho_arquivo]);
-        await supabase.from('documentos_funcionarios').delete().eq('id', doc.id);
-        setDocumentos(prev => prev.filter(d => d.id !== doc.id));
-        setMessage("Documento excluído.");
-    };
-
-    const requiredDocs = ['Identidade com Foto', 'CTPS', 'Comprovante de Residência', 'ASO'];
-
+export default function FichaCompletaFuncionario({ employee, allDocuments, allPontos, allAbonos, onUpdate }) {
+    const [activeTab, setActiveTab] = useState('pessoal');
+    const kpiData = useMemo(() => { const currentMonth = new Date().getMonth(); const currentYear = new Date().getFullYear(); const pontosDoMes = allPontos.filter(p => new Date(p.data_hora).getMonth() === currentMonth && new Date(p.data_hora).getFullYear() === currentYear); const abonosDoMes = allAbonos.filter(a => new Date(a.data_abono).getMonth() === currentMonth && new Date(a.data_abono).getFullYear() === currentYear); let totalMinutosTrabalhados = 0; const pontosPorDia = pontosDoMes.reduce((acc, ponto) => { const dia = ponto.data_hora.split('T')[0]; if (!acc[dia]) acc[dia] = []; acc[dia].push(new Date(ponto.data_hora)); return acc; }, {}); for (const dia in pontosPorDia) { const registros = pontosPorDia[dia].sort((a, b) => a - b); if (registros.length >= 2) { const entrada = registros[0]; const saida = registros[registros.length - 1]; let diff = saida - entrada; if (registros.length >= 4) { const saidaIntervalo = registros[1]; const voltaIntervalo = registros[2]; diff -= (voltaIntervalo - saidaIntervalo); } totalMinutosTrabalhados += diff / (1000 * 60); } } const horasTrabalhadas = (totalMinutosTrabalhados / 60).toFixed(1); const totalHorasAbonadas = abonosDoMes.reduce((acc, abono) => acc + abono.horas_abonadas, 0); return { horasTrabalhadas: `${horasTrabalhadas}h`, horasAbonadas: `${totalHorasAbonadas}h`, saldoHoras: 'N/A' }; }, [allPontos, allAbonos]);
+    const TabButton = ({ tabName, label }) => (<button onClick={() => setActiveTab(tabName)} className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === tabName ? 'bg-blue-500 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`} > {label} </button>);
     return (
-        <div className="space-y-10">
-            {message && <p className="text-center font-semibold p-2 bg-blue-50 text-blue-700 rounded-md">{message}</p>}
-            
-            <section><div className="flex items-center gap-6 border-b pb-6"><h2 className="text-3xl font-bold text-gray-900">{employee.full_name}</h2></div></section>
-            
-            <section>
-                <h3 className="text-2xl font-semibold text-gray-800 mb-4">Documentos do Funcionário</h3>
-                <ul className="space-y-3">
-                    {requiredDocs.map(docType => {
-                        const uploadedDoc = documentos.find(d => d.nome_documento === docType);
-                        return (
-                            <li key={docType} className="bg-gray-50 p-3 rounded-lg flex items-center justify-between gap-4">
-                                <div className="flex items-center gap-3"><FontAwesomeIcon icon={getFileIcon(uploadedDoc?.caminho_arquivo || '')} className="text-xl text-gray-500" /><span className="font-medium">{docType}</span></div>
-                                <div className="flex items-center gap-3">
-                                    {uploadedDoc ? (<><button onClick={() => handleViewDocument(uploadedDoc.caminho_arquivo)} className="text-sm font-semibold text-blue-600 hover:underline flex items-center gap-1"><FontAwesomeIcon icon={faEye} /> Visualizar</button><button onClick={() => handleDeleteDocument(uploadedDoc)} className="text-sm font-semibold text-red-600 hover:underline flex items-center gap-1"><FontAwesomeIcon icon={faTrash} /> Excluir</button></>) 
-                                    : (<label className="text-sm font-semibold text-white bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded-md cursor-pointer flex items-center gap-1">{isUploading === docType ? <FontAwesomeIcon icon={faSpinner} spin/> : <FontAwesomeIcon icon={faUpload} />} Enviar<input type="file" className="hidden" onChange={(e) => handleFileUpload(docType, e.target.files[0])} disabled={isUploading}/></label>)}
-                                </div>
-                            </li>
-                        )
-                    })}
-                </ul>
-            </section>
-            
-            <section>
-                <h3 className="text-2xl font-semibold text-gray-800 mb-4">Folha de Ponto e Saldo de Horas</h3>
-                <FolhaPontoInteligente employeeId={employee.id} jornada={employeeJornada} initialPontos={allPontos} initialAbonos={allAbonos} />
-            </section>
+        <div className="space-y-8">
+            <div className="flex flex-col md:flex-row gap-6 items-start">
+                {employee.foto_url ? ( <img src={employee.foto_url} alt="Foto do Funcionário" className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg" /> ) : ( <FontAwesomeIcon icon={faUserCircle} className="w-28 h-28 text-gray-300" /> )}
+                <div className="flex-grow">
+                    <h2 className="text-3xl font-bold text-gray-900">{employee.full_name}</h2>
+                    <p className="text-lg text-gray-600">{employee.contract_role}</p>
+                    <span className={`mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ employee.status === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }`}> {employee.status} </span>
+                </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <KpiCard title="Horas Trabalhadas (Mês)" value={kpiData.horasTrabalhadas} icon={faClock} color="blue" />
+                <KpiCard title="Horas Abonadas (Mês)" value={kpiData.horasAbonadas} icon={faFileMedical} color="yellow" />
+                <KpiCard title="Saldo de Horas" value={kpiData.saldoHoras} icon={faHourglassHalf} color="purple" />
+            </div>
+            <div className="border-t pt-6">
+                <div className="flex items-center border-b mb-6"> <nav className="flex space-x-2" aria-label="Tabs"> <TabButton tabName="pessoal" label="Dados Pessoais" /> <TabButton tabName="contratual" label="Dados Contratuais" /> <TabButton tabName="endereco" label="Endereço" /> <TabButton tabName="documentos" label="Documentos" /> </nav> </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                    {activeTab === 'pessoal' && ( <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"> <InfoField label="CPF" value={employee.cpf} /> <InfoField label="RG" value={employee.rg} /> <InfoField label="Data de Nascimento" value={employee.birth_date ? new Date(employee.birth_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'} /> <InfoField label="Estado Civil" value={employee.estado_civil} /> <InfoField label="Telefone" value={employee.phone} /> <InfoField label="Email" value={employee.email} /> </dl> )}
+                    {activeTab === 'contratual' && ( <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"> <InfoField label="Empresa Contratante" value={employee.cadastro_empresa?.razao_social} /> <InfoField label="Empreendimento Atual" value={employee.empreendimentos?.nome} /> <InfoField label="Data de Admissão" value={employee.admission_date ? new Date(employee.admission_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'} /> <InfoField label="Salário Base" value={employee.base_salary} /> <InfoField label="Observações" value={employee.observations} fullWidth={true} /> </dl> )}
+                    {activeTab === 'endereco' && ( <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"> <InfoField label="CEP" value={employee.cep} /> <InfoField label="Logradouro" value={`${employee.address_street || ''}, ${employee.address_number || ''}`} /> <InfoField label="Complemento" value={employee.address_complement} /> <InfoField label="Bairro" value={employee.neighborhood} /> <InfoField label="Cidade" value={employee.city} /> <InfoField label="Estado" value={employee.state} /> </dl> )}
+                    {activeTab === 'documentos' && ( <DocumentosSection documentos={allDocuments} employeeId={employee.id} employeeName={employee.full_name} onUpdate={onUpdate} /> )}
+                </div>
+            </div>
         </div>
     );
 }
