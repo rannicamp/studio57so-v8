@@ -52,15 +52,24 @@ const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) =
 
         const tipoSelecionado = tiposDocumento.find(t => t.id.toString() === selectedTipoId);
         const sigla = tipoSelecionado?.sigla || 'DOC';
-        const nomeFuncionario = employeeName.replace(/\s+/g, '_');
-        const descricaoSanitizada = descricao.replace(/\s+/g, '_');
         const fileExtension = file.name.split('.').pop();
-        const newFileName = `${sigla}_${nomeFuncionario}_${descricaoSanitizada}.${fileExtension}`;
         
-        // ***** CORREÇÃO APLICADA AQUI *****
-        // O caminho do arquivo não tem mais a pasta "documentos/".
-        // Ele será salvo diretamente na pasta do funcionário dentro do bucket.
+        // ***** INÍCIO DA CORREÇÃO *****
+        // Função de limpeza mais robusta para nomes de arquivos
+        const sanitizeString = (str) => {
+            return (str || '')
+                .trim() // Remove espaços do início e do fim
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
+                .replace(/[^a-zA-Z0-9\s-]/g, "") // Remove caracteres especiais, exceto espaços e hífens
+                .replace(/\s+/g, '_'); // Substitui espaços por um único underscore
+        };
+
+        const nomeFuncionario = sanitizeString(employeeName);
+        const descricaoSanitizada = sanitizeString(descricao);
+        
+        const newFileName = `${sigla}_${nomeFuncionario}_${descricaoSanitizada}.${fileExtension}`;
         const filePath = `${employeeId}/${newFileName}`;
+        // ***** FIM DA CORREÇÃO *****
 
         const { error: uploadError } = await supabase.storage.from('funcionarios-documentos').upload(filePath, file, { upsert: true });
 

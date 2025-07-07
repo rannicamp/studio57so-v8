@@ -190,9 +190,11 @@ CREATE TABLE public.documentos_funcionarios (
   caminho_arquivo text NOT NULL,
   data_upload timestamp with time zone DEFAULT now(),
   criado_por_usuario_id uuid,
+  tipo_documento_id bigint,
   CONSTRAINT documentos_funcionarios_pkey PRIMARY KEY (id),
   CONSTRAINT documentos_funcionarios_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id),
-  CONSTRAINT documentos_funcionarios_criado_por_usuario_id_fkey FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id)
+  CONSTRAINT documentos_funcionarios_criado_por_usuario_id_fkey FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id),
+  CONSTRAINT documentos_funcionarios_tipo_documento_id_fkey FOREIGN KEY (tipo_documento_id) REFERENCES public.documento_tipos(id)
 );
 CREATE TABLE public.emails (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
