@@ -50,7 +50,7 @@ const BatchUpdateModal = ({ isOpen, onClose, onConfirm, fields, allData }) => {
                     </div>
                     {selectedField && currentField && (
                         <div>
-                            <label className="block text-sm font-medium">2. Novo valor para "{currentField.label}"</label>
+                            <label className="block text-sm font-medium">2. Novo valor para &quot;{currentField.label}&quot;</label>
                             {currentField.type === 'select' ? (
                                 <select value={selectedValue} onChange={(e) => setSelectedValue(e.target.value)} className="mt-1 w-full p-2 border rounded-md">
                                     <option value="">Selecione um valor...</option>
@@ -404,6 +404,7 @@ export default function LancamentosManager({
         return { totalReceita, totalDespesa, resultado };
     }, [allLancamentosKpi]);
     
+    // ***** CORREÇÃO DA FUNÇÃO *****
     const formatCurrency = (value, tipo) => {
         const signal = tipo === 'Receita' ? '+' : (tipo === 'Despesa' ? '-' : '');
         return `${signal} ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(value || 0))}`;
