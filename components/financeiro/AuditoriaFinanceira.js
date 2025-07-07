@@ -49,13 +49,7 @@ export default function AuditoriaFinanceira() {
     
     const [duplicateGroups, setDuplicateGroups] = useState([]);
 
-    useEffect(() => {
-        if (activeTab === 'duplicatas') {
-            findDuplicates();
-        }
-    }, [activeTab]);
-
-    const findDuplicates = async () => {
+    const findDuplicates = useMemo(() => async () => {
         setLoading(true);
         setMessage('');
         
@@ -76,7 +70,13 @@ export default function AuditoriaFinanceira() {
             setDuplicateGroups(Object.values(groups));
         }
         setLoading(false);
-    };
+    }, [supabase]);
+
+    useEffect(() => {
+        if (activeTab === 'duplicatas') {
+            findDuplicates();
+        }
+    }, [activeTab, findDuplicates]);
 
     const handleDeleteLancamento = async (id) => {
         if (!window.confirm(`Tem certeza que deseja excluir o lançamento com ID ${id}? Esta ação não pode ser desfeita.`)) return;

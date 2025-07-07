@@ -273,7 +273,7 @@ export default function LancamentosManager({
              const newEndDate = year && month ? new Date(year, month, 0).toISOString().split('T')[0] : (year ? `${year}-12-31` : '');
              setFilters(prev => ({...prev, startDate: newStartDate, endDate: newEndDate}));
         }
-    }, [filters.month, filters.year]);
+    }, [filters]);
 
     const setDateRange = (period) => {
         const today = new Date();
