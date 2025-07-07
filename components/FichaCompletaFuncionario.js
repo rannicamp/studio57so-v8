@@ -40,7 +40,7 @@ const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) =
         if (/\.(doc|docx)$/i.test(fileName)) return faFileWord;
         return faFile;
     };
-    
+
     const handleFileUpload = async () => {
         if (!file || !selectedTipoId || !descricao) {
             setMessage("Por favor, selecione o tipo, descreva e escolha um arquivo.");
@@ -56,14 +56,17 @@ const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) =
         const descricaoSanitizada = descricao.replace(/\s+/g, '_');
         const fileExtension = file.name.split('.').pop();
         const newFileName = `${sigla}_${nomeFuncionario}_${descricaoSanitizada}.${fileExtension}`;
-        const filePath = `documentos/${employeeId}/${newFileName}`;
+        
+        // ***** CORREÇÃO APLICADA AQUI *****
+        // O caminho do arquivo não tem mais a pasta "documentos/".
+        // Ele será salvo diretamente na pasta do funcionário dentro do bucket.
+        const filePath = `${employeeId}/${newFileName}`;
 
         const { error: uploadError } = await supabase.storage.from('funcionarios-documentos').upload(filePath, file, { upsert: true });
-        
+
         if (uploadError) {
             setMessage(`Erro no upload: ${uploadError.message}`);
         } else {
-            // CORREÇÃO APLICADA: Agora salvamos a descrição e o ID do tipo separadamente
             const { error: dbError } = await supabase.from('documentos_funcionarios').insert({
                 funcionario_id: employeeId,
                 nome_documento: descricao,
@@ -100,7 +103,7 @@ const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) =
         setMessage("Documento excluído com sucesso.");
         onUpdate();
     };
-    
+
     const handleDragEvents = (e) => { e.preventDefault(); e.stopPropagation(); if (e.type === 'dragenter' || e.type === 'dragover') setIsDragging(true); else if (e.type === 'dragleave') setIsDragging(false); };
     const handleDrop = (e) => { handleDragEvents(e); setIsDragging(false); if (e.dataTransfer.files?.[0]) { setFile(e.dataTransfer.files[0]); } };
 
@@ -108,7 +111,7 @@ const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) =
     return (
         <div className="space-y-6">
             {message && <p className="text-center text-sm p-2 bg-blue-50 text-blue-800 rounded-md">{message}</p>}
-            
+
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                 <h4 className="font-semibold text-lg">Adicionar Novo Documento</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -142,9 +145,8 @@ const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) =
             <div>
                 <h4 className="font-semibold text-lg mb-2">Documentos Salvos</h4>
                 <ul className="space-y-3">
-                    {documentos.length === 0 ? <p className="text-sm text-gray-500">Nenhum documento salvo para este funcionário.</p> 
+                    {documentos.length === 0 ? <p className="text-sm text-gray-500">Nenhum documento salvo para este funcionário.</p>
                     : documentos.map(doc => {
-                        // CORREÇÃO APLICADA AQUI: Busca a sigla e monta o nome de exibição
                         const tipoDoc = tiposDocumento.find(t => t.id === doc.tipo_documento_id);
                         const displayName = tipoDoc ? `${tipoDoc.sigla}_${doc.nome_documento}` : doc.nome_documento;
 

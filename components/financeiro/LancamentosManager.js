@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faSpinner, faFilter, faTimes, faPenToSquare, faTrash, faSort, faSortUp, faSortDown, faTasks, faSave, faStar as faStarSolid, faEllipsisV,
     faChevronUp, faChevronDown, faArrowUp, faArrowDown, faBalanceScale, faCalendarDay, faCalendarWeek, faCalendarAlt, faLayerGroup, faSyncAlt,
-    faChevronLeft, faChevronRight
+    faChevronLeft, faChevronRight, faExclamationTriangle, faHourglassHalf
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
@@ -193,13 +193,63 @@ export default function LancamentosManager({
         setLoading(false);
     }, [currentPage, itemsPerPage, sortConfig, filters, supabase, applyFiltersToQuery]);
     
+    // ***** INÍCIO DA CORREÇÃO *****
+    // Esta é a "busca clonada" que pega TODOS os dados para os KPIs, sem paginação.
     const fetchAllLancamentosForKpi = useCallback(async () => {
-        let query = supabase.from('lancamentos').select('valor, tipo');
+        let query = supabase.from('lancamentos').select('valor, tipo, status, data_pagamento, data_vencimento, conciliado');
         query = applyFiltersToQuery(query, filters);
         const { data, error } = await query;
         if (error) { console.error("Erro ao buscar dados para KPI:", error); }
         else { setAllLancamentosKpi(data || []); }
     }, [filters, supabase, applyFiltersToQuery]);
+    
+    // O cálculo dos KPIs agora usa a lista completa `allLancamentosKpi`.
+    const kpiData = useMemo(() => {
+        let receitasPagas = 0;
+        let despesasPagas = 0;
+        let aPagar = 0;
+        let aReceber = 0;
+        let atrasadas = 0;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        allLancamentosKpi.forEach(l => {
+            const valor = l.valor || 0;
+            // A condição para ser "pago" agora inclui o status e se está conciliado.
+            const isRealizado = l.status === 'Pago' || l.conciliado === true;
+
+            if (l.tipo === 'Receita') {
+                if (isRealizado) {
+                    receitasPagas += valor;
+                } else {
+                    aReceber += valor;
+                }
+            } else if (l.tipo === 'Despesa') {
+                if (isRealizado) {
+                    despesasPagas += valor;
+                } else {
+                    const vencimento = l.data_vencimento ? new Date(l.data_vencimento + 'T00:00:00Z') : null;
+                    if (vencimento && vencimento < today) {
+                        atrasadas += valor;
+                    } else {
+                        aPagar += valor;
+                    }
+                }
+            }
+        });
+
+        const resultadoRealizado = receitasPagas - despesasPagas;
+
+        return { 
+            receitasPagas, 
+            despesasPagas, 
+            resultadoRealizado, 
+            aPagar, 
+            aReceber, 
+            atrasadas 
+        };
+    }, [allLancamentosKpi]); // A dependência agora é a lista completa.
+    // ***** FIM DA CORREÇÃO *****
 
     useEffect(() => {
         fetchLancamentos();
@@ -396,15 +446,7 @@ export default function LancamentosManager({
         if (dueDate < today) return { text: 'Atrasada', className: 'bg-red-100 text-red-800' };
         return { text: 'A Pagar', className: 'bg-yellow-100 text-yellow-800' };
     };
-
-    const kpiData = useMemo(() => {
-        const totalReceita = allLancamentosKpi.filter(l => l.tipo === 'Receita').reduce((acc, l) => acc + l.valor, 0);
-        const totalDespesa = allLancamentosKpi.filter(l => l.tipo === 'Despesa').reduce((acc, l) => acc + l.valor, 0);
-        const resultado = totalReceita - totalDespesa;
-        return { totalReceita, totalDespesa, resultado };
-    }, [allLancamentosKpi]);
     
-    // ***** CORREÇÃO DA FUNÇÃO *****
     const formatCurrency = (value, tipo) => {
         const signal = tipo === 'Receita' ? '+' : (tipo === 'Despesa' ? '-' : '');
         return `${signal} ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(value || 0))}`;
@@ -512,12 +554,16 @@ export default function LancamentosManager({
                 </div>
             )}
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <KpiCard title="Receitas no Período" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalReceita)} icon={faArrowUp} color="green" />
-                <KpiCard title="Despesas no Período" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalDespesa)} icon={faArrowDown} color="red" />
-                <KpiCard title="Resultado do Período" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.resultado)} icon={faBalanceScale} color={kpiData.resultado >= 0 ? 'blue' : 'gray'} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <KpiCard title="Receitas Realizadas" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.receitasPagas)} icon={faArrowUp} color="green" />
+                <KpiCard title="Despesas Realizadas" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.despesasPagas)} icon={faArrowDown} color="red" />
+                <KpiCard title="Resultado do Período" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.resultadoRealizado)} icon={faBalanceScale} color={kpiData.resultadoRealizado >= 0 ? 'blue' : 'gray'} />
+                
+                <KpiCard title="Contas a Pagar" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.aPagar)} icon={faHourglassHalf} color="yellow" />
+                <KpiCard title="Contas a Receber" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.aReceber)} icon={faHourglassHalf} color="blue" />
+                <KpiCard title="Contas Atrasadas" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.atrasadas)} icon={faExclamationTriangle} color="red" />
             </div>
-
+            
             <div className="flex justify-between items-center bg-white p-4 border rounded-lg shadow-sm">
                 <span className="text-sm text-gray-700">
                     Mostrando <strong>{lancamentos.length}</strong> de <strong>{totalCount}</strong> lançamentos
