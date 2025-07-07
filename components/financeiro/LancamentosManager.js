@@ -249,12 +249,13 @@ export default function LancamentosManager({
             atrasadas 
         };
     }, [allLancamentosKpi]); // A dependência agora é a lista completa.
-    // ***** FIM DA CORREÇÃO *****
-
+    
+    // Agora as duas buscas são chamadas juntas quando os filtros mudam.
     useEffect(() => {
         fetchLancamentos();
         fetchAllLancamentosForKpi();
     }, [fetchLancamentos, fetchAllLancamentosForKpi]);
+    // ***** FIM DA CORREÇÃO *****
     
     const handleItemsPerPageChange = () => {
         let value = Number(itemsPerPageInput);
