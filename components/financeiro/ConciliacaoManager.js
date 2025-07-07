@@ -5,7 +5,7 @@ import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUpload, faLink, faFileImport, faCheckCircle, faMagic } from '@fortawesome/free-solid-svg-icons';
 // CORREÇÃO APLICADA AQUI: A importação agora é nomeada.
-import { Ofx } from 'ofx-data-extractor'; 
+import { Ofx } from 'ofx-data-extractor';
 
 // Função para formatar a data
 const formatDate = (dateStr) => {

@@ -404,7 +404,6 @@ export default function LancamentosManager({
         return { totalReceita, totalDespesa, resultado };
     }, [allLancamentosKpi]);
     
-    // ***** CORREÇÃO DA FUNÇÃO *****
     const formatCurrency = (value, tipo) => {
         const signal = tipo === 'Receita' ? '+' : (tipo === 'Despesa' ? '-' : '');
         return `${signal} ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(value || 0))}`;
