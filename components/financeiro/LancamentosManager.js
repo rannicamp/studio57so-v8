@@ -24,7 +24,7 @@ const BatchUpdateModal = ({ isOpen, onClose, onConfirm, fields, allData }) => {
 
 const initialFilterState = {
     searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [],
-    etapaIds: [], status: [], startDate: '', endDate: '', month: '', year: '',
+    etapaIds: [], status: [], startDate: '', endDate: '', month: '', year: '', tipo: []
 };
 
 export default function LancamentosManager({
@@ -89,10 +89,32 @@ export default function LancamentosManager({
         allCategories.forEach(cat => { if (cat.parent_id && map[cat.parent_id]) { map[cat.parent_id].children.push(map[cat.id]); } else { tree.push(map[cat.id]); } });
         return tree;
     }, [categorias]);
-
+    
     const handleFilterChange = (name, value) => {
-        setFilters(prev => ({...prev, [name]: value}));
-        if(name !== 'startDate' && name !== 'endDate') setActivePeriodFilter('');
+        const newFilters = { ...filters, [name]: value };
+
+        if (name === 'month' || name === 'year') {
+            const year = name === 'year' ? value : newFilters.year;
+            const month = name === 'month' ? value : newFilters.month;
+
+            if (year) {
+                const startDate = month ? new Date(year, month - 1, 1) : new Date(year, 0, 1);
+                const endDate = month ? new Date(year, month, 0) : new Date(year, 11, 31);
+                newFilters.startDate = startDate.toISOString().split('T')[0];
+                newFilters.endDate = endDate.toISOString().split('T')[0];
+            } else {
+                newFilters.startDate = '';
+                newFilters.endDate = '';
+            }
+            setActivePeriodFilter('');
+        }
+        else if (name === 'startDate' || name === 'endDate') {
+            newFilters.month = '';
+            newFilters.year = '';
+            setActivePeriodFilter('');
+        }
+        
+        setFilters(newFilters);
         setCurrentPage(1);
     };
 
@@ -105,25 +127,72 @@ export default function LancamentosManager({
         setActivePeriodFilter(period); setCurrentPage(1);
     };
     
-    // ==================================================================
-    // ALTERAÇÃO PRINCIPAL AQUI
-    // A função clearFilters agora redefine o estado inicial corretamente, limpando o ano.
-    // ==================================================================
     const clearFilters = () => {
-        setFilters({
-            searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [],
-            etapaIds: [], status: [], startDate: '', endDate: '', month: '', year: '',
-        });
+        setFilters(initialFilterState);
         setActivePeriodFilter('');
         setCurrentPage(1);
     };
-    // ==================================================================
     
-    const handleSaveFilter = () => { if (!newFilterName.trim()) { alert('Por favor, dê um nome para o filtro.'); return; } const isFavorited = savedFilters.find(f => f.name === newFilterName)?.isFavorite || false; const updatedSavedFilters = savedFilters.filter(f => f.name !== newFilterName); const newSavedFilter = { name: newFilterName, settings: filters, isFavorite: isFavorited }; setSavedFilters([...updatedSavedFilters, newSavedFilter]); localStorage.setItem('savedFinancialFilters', JSON.stringify([...updatedSavedFilters, newSavedFilter])); setNewFilterName(''); alert(`Filtro "${newFilterName}" salvo!`); };
-    const handleUpdateFilter = (filterName) => { const updated = savedFilters.map(f => f.name === filterName ? { ...f, settings: filters } : f); setSavedFilters(updated); localStorage.setItem('savedFinancialFilters', JSON.stringify(updated)); alert(`Filtro "${filterName}" atualizado com sucesso!`); };
-    const handleToggleFavorite = (filterName) => { const updated = savedFilters.map(f => f.name === filterName ? { ...f, isFavorite: !f.isFavorite } : f); setSavedFilters(updated); localStorage.setItem('savedFinancialFilters', JSON.stringify(updated)); };
+    const handleNatureFilterClick = (nature) => {
+        setFilters(prev => {
+            const currentNature = prev.tipo || [];
+            const newNature = currentNature.includes(nature) ? [] : [nature];
+            return { ...prev, tipo: newNature };
+        });
+    };
+    
+    // ***** INÍCIO DA CORREÇÃO *****
+    // A lógica de salvar e atualizar filtros foi unificada e corrigida.
+    const handleSaveFilter = () => {
+        if (!newFilterName.trim()) {
+            alert('Por favor, dê um nome para o filtro.');
+            return;
+        }
+
+        let updatedFilters;
+        const existingFilterIndex = savedFilters.findIndex(f => f.name === newFilterName);
+
+        if (existingFilterIndex > -1) {
+            // Se o filtro já existe, atualiza apenas as configurações, mantendo o status de favorito.
+            updatedFilters = [...savedFilters];
+            updatedFilters[existingFilterIndex] = {
+                ...savedFilters[existingFilterIndex],
+                settings: filters,
+            };
+            alert(`Filtro "${newFilterName}" atualizado com sucesso!`);
+        } else {
+            // Se é um novo filtro, cria com 'isFavorite' como false por padrão.
+            const newFilter = {
+                name: newFilterName,
+                settings: filters,
+                isFavorite: false,
+            };
+            updatedFilters = [...savedFilters, newFilter];
+            alert(`Filtro "${newFilterName}" salvo!`);
+        }
+        
+        setSavedFilters(updatedFilters);
+        localStorage.setItem('savedFinancialFilters', JSON.stringify(updatedFilters));
+        setNewFilterName('');
+    };
+
+    const handleToggleFavorite = (filterName) => {
+        const updated = savedFilters.map(f =>
+            f.name === filterName ? { ...f, isFavorite: !f.isFavorite } : f
+        );
+        setSavedFilters(updated);
+        localStorage.setItem('savedFinancialFilters', JSON.stringify(updated));
+    };
+
+    const handleDeleteFilter = (filterNameToDelete) => {
+        if (!window.confirm(`Tem certeza que deseja excluir o filtro "${filterNameToDelete}"?`)) return;
+        const updatedSavedFilters = savedFilters.filter(f => f.name !== filterNameToDelete);
+        setSavedFilters(updatedSavedFilters);
+        localStorage.setItem('savedFinancialFilters', JSON.stringify(updatedSavedFilters));
+    };
+    // ***** FIM DA CORREÇÃO *****
+
     const handleLoadFilter = (filterSettings) => { setFilters({ ...initialFilterState, ...filterSettings }); setIsFilterMenuOpen(false); setActivePeriodFilter(''); setCurrentPage(1); };
-    const handleDeleteFilter = (filterNameToDelete) => { if (!window.confirm(`Tem certeza que deseja excluir o filtro "${filterNameToDelete}"?`)) return; const updatedSavedFilters = savedFilters.filter(f => f.name !== filterNameToDelete); setSavedFilters(updatedSavedFilters); localStorage.setItem('savedFinancialFilters', JSON.stringify(updatedSavedFilters)); };
     const requestSort = (key) => { let direction = 'descending'; if (sortConfig.key === key && sortConfig.direction === 'descending') direction = 'ascending'; setSortConfig({ key, direction }); setCurrentPage(1); };
     const handleSelectAll = (e) => setSelectedIds(e.target.checked ? new Set(lancamentos.map(l => l.id)) : new Set());
     const handleSelectOne = (id) => { const newSelection = new Set(selectedIds); if (newSelection.has(id)) newSelection.delete(id); else newSelection.add(id); setSelectedIds(newSelection); };
@@ -147,14 +216,19 @@ export default function LancamentosManager({
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                 <div className="flex justify-between items-center">
                     <button onClick={() => setFiltersVisible(!filtersVisible)} className="font-semibold text-lg flex items-center gap-2 uppercase"> <FontAwesomeIcon icon={faFilter} /> Filtros <FontAwesomeIcon icon={filtersVisible ? faChevronUp : faChevronDown} className="text-sm" /> </button>
-                    <div className="relative" ref={filterMenuRef}> <button onClick={() => setIsFilterMenuOpen(prev => !prev)} className="p-2 border rounded-md bg-white hover:bg-gray-100"> <FontAwesomeIcon icon={faEllipsisV} /> </button> {isFilterMenuOpen && ( <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg z-20 border"> <div className="p-3 border-b"> <p className="font-semibold text-sm mb-2">Salvar Filtro Atual</p> <div className="flex items-center gap-2"> <input type="text" value={newFilterName} onChange={(e) => setNewFilterName(e.target.value)} placeholder="Nome do filtro..." className="p-2 border rounded-md text-sm w-full"/> <button onClick={handleSaveFilter} className="text-sm bg-blue-500 text-white hover:bg-blue-600 px-3 py-2 rounded-md"><FontAwesomeIcon icon={faSave}/></button> </div> </div> <div className="p-3"> <p className="font-semibold text-sm mb-2">Filtros Salvos</p> <ul className="max-h-40 overflow-y-auto"> {savedFilters.length > 0 ? savedFilters.map((f, i) => ( <li key={i} className="flex justify-between items-center text-sm py-1 group"> <span onClick={() => handleLoadFilter(f.settings)} className="cursor-pointer hover:underline">{f.name}</span> <div className="flex items-center gap-2"> <button onClick={() => handleUpdateFilter(f.name)} title="Atualizar Filtro" className="text-gray-400 hover:text-blue-500 opacity-0 group-hover:opacity-100"> <FontAwesomeIcon icon={faSyncAlt}/> </button> <button onClick={() => handleToggleFavorite(f.name)} title="Favoritar" className="text-gray-400 hover:text-yellow-500"> <FontAwesomeIcon icon={f.isFavorite ? faStarSolid : faStarRegular} className={f.isFavorite ? 'text-yellow-500' : ''}/> </button> <button onClick={() => handleDeleteFilter(f.name)} title="Excluir" className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100"> <FontAwesomeIcon icon={faTrash}/> </button> </div> </li> )) : <li className="text-xs text-gray-500">Nenhum filtro salvo.</li>} </ul> </div> </div> )} </div>
+                    <div className="relative" ref={filterMenuRef}> <button onClick={() => setIsFilterMenuOpen(prev => !prev)} className="p-2 border rounded-md bg-white hover:bg-gray-100"> <FontAwesomeIcon icon={faEllipsisV} /> </button> {isFilterMenuOpen && ( <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg z-20 border"> <div className="p-3 border-b"> <p className="font-semibold text-sm mb-2">Salvar Filtro Atual</p> <div className="flex items-center gap-2"> <input type="text" value={newFilterName} onChange={(e) => setNewFilterName(e.target.value)} placeholder="Nome do filtro..." className="p-2 border rounded-md text-sm w-full"/> <button onClick={handleSaveFilter} className="text-sm bg-blue-500 text-white hover:bg-blue-600 px-3 py-2 rounded-md"><FontAwesomeIcon icon={faSave}/></button> </div> </div> <div className="p-3"> <p className="font-semibold text-sm mb-2">Filtros Salvos</p> <ul className="max-h-40 overflow-y-auto"> {savedFilters.length > 0 ? savedFilters.map((f, i) => ( <li key={i} className="flex justify-between items-center text-sm py-1 group"> <span onClick={() => handleLoadFilter(f.settings)} className="cursor-pointer hover:underline">{f.name}</span> <div className="flex items-center gap-2"> <button onClick={() => handleToggleFavorite(f.name)} title="Favoritar" className="text-gray-400 hover:text-yellow-500"> <FontAwesomeIcon icon={f.isFavorite ? faStarSolid : faStarRegular} className={f.isFavorite ? 'text-yellow-500' : ''}/> </button> <button onClick={() => handleDeleteFilter(f.name)} title="Excluir" className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100"> <FontAwesomeIcon icon={faTrash}/> </button> </div> </li> )) : <li className="text-xs text-gray-500">Nenhum filtro salvo.</li>} </ul> </div> </div> )} </div>
                 </div>
                  
-                {filtersVisible && ( <div className="space-y-4 animate-fade-in"> <div className="grid grid-cols-1 gap-4"><input type="text" name="searchTerm" placeholder="BUSCAR POR DESCRIÇÃO..." value={filters.searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} className="p-2 border rounded-md shadow-sm w-full" /></div> <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"><MultiSelectDropdown label="Empresas" options={empresas} selectedIds={filters.empresaIds} onChange={(selected) => handleFilterChange('empresaIds', selected)} /><MultiSelectDropdown label="Empreendimentos" options={empreendimentos} selectedIds={filters.empreendimentoIds} onChange={(selected) => handleFilterChange('empreendimentoIds', selected)} /><MultiSelectDropdown label="Contas" options={contas} selectedIds={filters.contaIds} onChange={(selected) => handleFilterChange('contaIds', selected)} /><MultiSelectDropdown label="Categorias" options={categoryTree} selectedIds={filters.categoriaIds} onChange={(selected) => handleFilterChange('categoriaIds', selected)} /></div> <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end"> <div><MultiSelectDropdown label="Etapa da Obra" options={etapas.map(e => ({...e, nome: e.nome_etapa}))} selectedIds={filters.etapaIds} onChange={(selected) => handleFilterChange('etapaIds', selected)} /></div> <div><MultiSelectDropdown label="Status" options={statusOptions} selectedIds={filters.status} onChange={(selected) => handleFilterChange('status', selected)} placeholder="Todos os Status" /></div> <div className="lg:col-span-2 flex items-end gap-2"> <div className="flex-1"><label className="text-xs uppercase font-medium text-gray-600">Mês</label><select name="month" value={filters.month} onChange={(e) => handleFilterChange('month', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"><option value="">Todos</option>{months.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}</select></div> <div className="w-28"><label className="text-xs uppercase font-medium text-gray-600">Ano</label><select name="year" value={filters.year} onChange={(e) => handleFilterChange('year', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"><option value="">Todos</option>{years.map(y => <option key={y.id} value={y.id}>{y.nome}</option>)}</select></div> <div><label className="text-xs uppercase">De:</label><input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div> <div><label className="text-xs uppercase">Até:</label><input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div> </div> </div> <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t"> <div className="flex items-center gap-2"><button onClick={() => setDateRange('today')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarDay}/> Hoje</button><button onClick={() => setDateRange('week')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarWeek}/> Semana</button><button onClick={() => setDateRange('month')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarAlt}/> Mês</button></div> <button onClick={clearFilters} className="text-sm bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faTimes} />Limpar Filtros</button> </div> </div> )}
+                {filtersVisible && ( <div className="space-y-4 animate-fade-in"> 
+                    <div className="flex items-center gap-4 pt-2">
+                        <span className="text-sm font-semibold text-gray-700">Filtrar por Natureza:</span>
+                        <button onClick={() => handleNatureFilterClick('Receita')} className={`text-sm border px-4 py-2 rounded-md flex items-center gap-2 ${filters.tipo.includes('Receita') ? 'bg-green-600 text-white border-green-700' : 'bg-white hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faArrowUp}/> Receitas </button>
+                        <button onClick={() => handleNatureFilterClick('Despesa')} className={`text-sm border px-4 py-2 rounded-md flex items-center gap-2 ${filters.tipo.includes('Despesa') ? 'bg-red-600 text-white border-red-700' : 'bg-white hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faArrowDown}/> Despesas </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4"><input type="text" name="searchTerm" placeholder="BUSCAR POR DESCRIÇÃO..." value={filters.searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} className="p-2 border rounded-md shadow-sm w-full" /></div> <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"><MultiSelectDropdown label="Empresas" options={empresas} selectedIds={filters.empresaIds} onChange={(selected) => handleFilterChange('empresaIds', selected)} /><MultiSelectDropdown label="Empreendimentos" options={empreendimentos} selectedIds={filters.empreendimentoIds} onChange={(selected) => handleFilterChange('empreendimentoIds', selected)} /><MultiSelectDropdown label="Contas" options={contas} selectedIds={filters.contaIds} onChange={(selected) => handleFilterChange('contaIds', selected)} /><MultiSelectDropdown label="Categorias" options={categoryTree} selectedIds={filters.categoriaIds} onChange={(selected) => handleFilterChange('categoriaIds', selected)} /></div> <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end"> <div><MultiSelectDropdown label="Etapa da Obra" options={etapas.map(e => ({...e, nome: e.nome_etapa}))} selectedIds={filters.etapaIds} onChange={(selected) => handleFilterChange('etapaIds', selected)} /></div> <div><MultiSelectDropdown label="Status" options={statusOptions} selectedIds={filters.status} onChange={(selected) => handleFilterChange('status', selected)} placeholder="Todos os Status" /></div> <div className="lg:col-span-2 flex items-end gap-2"> <div className="flex-1"><label className="text-xs uppercase font-medium text-gray-600">Mês</label><select name="month" value={filters.month} onChange={(e) => handleFilterChange('month', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"><option value="">Todos</option>{months.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}</select></div> <div className="w-28"><label className="text-xs uppercase font-medium text-gray-600">Ano</label><select name="year" value={filters.year} onChange={(e) => handleFilterChange('year', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"><option value="">Todos</option>{years.map(y => <option key={y.id} value={y.id}>{y.nome}</option>)}</select></div> <div><label className="text-xs uppercase">De:</label><input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div> <div><label className="text-xs uppercase">Até:</label><input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div> </div> </div> <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t"> <div className="flex items-center gap-2"><button onClick={() => setDateRange('today')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarDay}/> Hoje</button><button onClick={() => setDateRange('week')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarWeek}/> Semana</button><button onClick={() => setDateRange('month')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarAlt}/> Mês</button></div> <button onClick={clearFilters} className="text-sm bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faTimes} />Limpar Filtros</button> </div> </div> )}
             </div>
 
-            {savedFilters.filter(f => f.isFavorite).length > 0 && ( <div className="p-4 border rounded-lg bg-white space-y-2"> <h4 className="font-semibold flex items-center gap-2 text-sm uppercase text-gray-600"><FontAwesomeIcon icon={faStarSolid} /> Filtros Favoritos</h4> <div className="flex flex-wrap gap-2"> {savedFilters.filter(f => f.isFavorite).map((f, i) => { const isActive = JSON.stringify(filters) === JSON.stringify(f.settings); return ( <button key={i} onClick={() => handleLoadFilter(f.settings)} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${isActive ? 'bg-blue-600 text-white border-blue-700' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}> {f.name} </button> ) })} </div> </div> )}
-            
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <KpiCard title="Total de Receitas (Filtro)" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalReceitas)} icon={faArrowUp} color="green" />
                 <KpiCard title="Total de Despesas (Filtro)" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalDespesas)} icon={faArrowDown} color="red" />

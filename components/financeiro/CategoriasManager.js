@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faSpinner, faPenToSquare, faTrash, faAngleRight } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faSpinner, faPenToSquare, faTrash } from '@fortawesome/free-solid-svg-icons';
 import CategoriaFormModal from './CategoriaFormModal';
 
 export default function CategoriasManager() {
@@ -12,6 +12,8 @@ export default function CategoriasManager() {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategoria, setEditingCategoria] = useState(null);
+    // Novo estado para controlar o tipo padrão do modal
+    const [defaultModalType, setDefaultModalType] = useState('Despesa');
     const [message, setMessage] = useState('');
 
     const fetchCategorias = useCallback(async () => {
@@ -31,7 +33,6 @@ export default function CategoriasManager() {
         fetchCategorias();
     }, [fetchCategorias]);
 
-    // **NOVA LÓGICA**: Estrutura as categorias em formato de árvore
     const categoryTree = useMemo(() => {
         const tree = [];
         const map = {};
@@ -50,7 +51,6 @@ export default function CategoriasManager() {
 
         return tree;
     }, [categorias]);
-
 
     const handleSaveCategoria = async (formData) => {
         const isEditing = Boolean(formData.id);
@@ -80,7 +80,6 @@ export default function CategoriasManager() {
     const handleDeleteCategoria = async (id) => {
         if (!window.confirm("Atenção! Excluir uma categoria principal também excluirá todas as suas subcategorias. Deseja continuar?")) return;
         
-        // **NOVO**: Utiliza uma função RPC para deletar em cascata
         const { error } = await supabase.rpc('delete_category_and_children', { p_category_id: id });
 
         if (error) {
@@ -91,7 +90,9 @@ export default function CategoriasManager() {
         }
     };
 
-    const handleOpenAddModal = () => {
+    // Função alterada para receber o tipo
+    const handleOpenAddModal = (type) => {
+        setDefaultModalType(type);
         setEditingCategoria(null);
         setIsModalOpen(true);
     };
@@ -101,7 +102,6 @@ export default function CategoriasManager() {
         setIsModalOpen(true);
     };
 
-    // Componente para renderizar a lista de categorias recursivamente
     const CategoryList = ({ categories, level = 0 }) => (
         <ul className="divide-y border rounded-md">
             {categories.length === 0 && <li className="px-4 py-3 text-sm text-gray-500">Nenhuma categoria encontrada.</li>}
@@ -132,16 +132,11 @@ export default function CategoriasManager() {
                 onSave={handleSaveCategoria}
                 initialData={editingCategoria}
                 allCategories={categorias}
+                // Passando o tipo padrão para o modal
+                defaultType={defaultModalType}
             />
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-800">Gerenciar Categorias</h2>
-                <button
-                    onClick={handleOpenAddModal}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-                >
-                    <FontAwesomeIcon icon={faPlus} />
-                    Nova Categoria
-                </button>
             </div>
              {message && <p className="text-center text-sm font-medium p-2 bg-blue-50 text-blue-800 rounded-md">{message}</p>}
 
@@ -150,11 +145,17 @@ export default function CategoriasManager() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <h3 className="font-semibold text-lg text-green-700 mb-2">Receitas</h3>
+                        <div className="flex justify-between items-center mb-2">
+                             <h3 className="font-semibold text-lg text-green-700">Receitas</h3>
+                             <button onClick={() => handleOpenAddModal('Receita')} className="bg-green-600 text-white px-3 py-1 text-xs rounded-md hover:bg-green-700 flex items-center gap-1"><FontAwesomeIcon icon={faPlus}/> Nova Receita</button>
+                        </div>
                         <CategoryList categories={categoryTree.filter(c => c.tipo === 'Receita')} />
                     </div>
                     <div>
-                         <h3 className="font-semibold text-lg text-red-700 mb-2">Despesas</h3>
+                         <div className="flex justify-between items-center mb-2">
+                             <h3 className="font-semibold text-lg text-red-700">Despesas</h3>
+                              <button onClick={() => handleOpenAddModal('Despesa')} className="bg-red-600 text-white px-3 py-1 text-xs rounded-md hover:bg-red-700 flex items-center gap-1"><FontAwesomeIcon icon={faPlus}/> Nova Despesa</button>
+                        </div>
                         <CategoryList categories={categoryTree.filter(c => c.tipo === 'Despesa')} />
                     </div>
                 </div>

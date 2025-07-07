@@ -10,10 +10,10 @@ import CategoriasManager from '../../../components/financeiro/CategoriasManager'
 import ConciliacaoManager from '../../../components/financeiro/ConciliacaoManager';
 import LancamentoFormModal from '../../../components/financeiro/LancamentoFormModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faCogs, faShieldAlt } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faCogs, faShieldAlt, faProjectDiagram, faChartPie } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
+import KpiCard from '../../../components/KpiCard';
 
-// Componente principal da Página Financeira
 export default function FinanceiroPage() {
     const { setPageTitle } = useLayout();
     const supabase = createClient();
@@ -29,6 +29,10 @@ export default function FinanceiroPage() {
     const [empreendimentos, setEmpreendimentos] = useState([]);
     const [lancamentos, setLancamentos] = useState([]);
     const [allLancamentosKpi, setAllLancamentosKpi] = useState([]);
+    
+    const [kpis, setKpis] = useState([]);
+    const [kpiResults, setKpiResults] = useState([]);
+    const [loadingKpis, setLoadingKpis] = useState(true);
 
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingLancamento, setEditingLancamento] = useState(null);
@@ -39,28 +43,47 @@ export default function FinanceiroPage() {
 
     const [filters, setFilters] = useState({
         searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [],
-        etapaIds: [], status: [], startDate: '', endDate: '', month: '', year: '',
+        etapaIds: [], status: [], startDate: '', endDate: '', month: '', year: '', tipo: []
     });
 
     const [sortConfig, setSortConfig] = useState({ key: 'data_transacao', direction: 'descending' });
+    
+    // ***** INÍCIO DA CORREÇÃO *****
+    // A função de cálculo agora chama a nova RPC que espera a fórmula como texto
+    const fetchAndCalculateKpis = useCallback(async () => {
+        setLoadingKpis(true);
+        const { data: kpisData, error: kpisError } = await supabase.from('kpis_financeiros').select('*');
+
+        if (kpisError) {
+            console.error("Erro ao buscar KPIs:", kpisError);
+            setKpis([]);
+            setKpiResults([]);
+            setLoadingKpis(false);
+            return;
+        }
+
+        setKpis(kpisData || []);
+
+        const results = await Promise.all(
+            (kpisData || []).map(async (kpi) => {
+                // Passa a fórmula diretamente para a função RPC
+                const { data: result, error } = await supabase.rpc('calcular_valor_kpi', { p_formula: kpi.formula });
+                if (error) {
+                    console.error(`Erro ao calcular KPI "${kpi.nome_kpi}":`, error);
+                    return { ...kpi, valor: 'Erro' };
+                }
+                return { ...kpi, valor: result };
+            })
+        );
+        
+        setKpiResults(results);
+        setLoadingKpis(false);
+    }, [supabase]);
+    // ***** FIM DA CORREÇÃO *****
 
     useEffect(() => {
-        const { month, year } = filters;
-        if (year) {
-            const startDate = month ? new Date(year, month - 1, 1) : new Date(year, 0, 1);
-            const endDate = month ? new Date(year, month, 0) : new Date(year, 11, 31);
-            const newStartDate = startDate.toISOString().split('T')[0];
-            const newEndDate = endDate.toISOString().split('T')[0];
-
-            if (filters.startDate !== newStartDate || filters.endDate !== newEndDate) {
-                setFilters(prev => ({ ...prev, startDate: newStartDate, endDate: newEndDate }));
-            }
-        } else {
-             if(filters.startDate || filters.endDate) {
-                 setFilters(prev => ({ ...prev, startDate: '', endDate: '' }));
-             }
-        }
-    }, [filters.month, filters.year]);
+        fetchAndCalculateKpis();
+    }, [fetchAndCalculateKpis]);
 
     const applyFiltersToQuery = useCallback((query, currentFilters) => {
         if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
@@ -71,6 +94,9 @@ export default function FinanceiroPage() {
         if (currentFilters.categoriaIds.length > 0) query = query.in('categoria_id', currentFilters.categoriaIds);
         if (currentFilters.empreendimentoIds.length > 0) query = query.in('empreendimento_id', currentFilters.empreendimentoIds);
         if (currentFilters.etapaIds.length > 0) query = query.in('etapa_id', currentFilters.etapaIds);
+        if (currentFilters.tipo.length > 0) {
+            query = query.in('tipo', currentFilters.tipo);
+        }
         if (currentFilters.status?.length > 0) {
             const hasAtrasada = currentFilters.status.includes('Atrasada');
             const otherStatus = currentFilters.status.filter(s => s !== 'Atrasada');
@@ -128,16 +154,10 @@ export default function FinanceiroPage() {
         fetchInitialData();
     }, [setPageTitle, fetchInitialData]);
     
-    // ==================================================================
-    // ALTERAÇÃO PRINCIPAL AQUI
-    // O gatilho da busca de dados agora inclui o objeto `filters` inteiro.
-    // Qualquer mudança nos filtros (manual ou automática) vai disparar a busca.
-    // ==================================================================
     useEffect(() => {
         fetchLancamentos();
         fetchAllLancamentosForKpi();
-    }, [fetchLancamentos, fetchAllLancamentosForKpi, filters]); // <<-- Adicionado `filters` à lista
-    // ==================================================================
+    }, [fetchLancamentos, fetchAllLancamentosForKpi, filters]);
     
     const handleSaveLancamento = async (formData) => {
         const isEditing = Boolean(formData.id); const { anexo, novo_favorecido, ...baseFormData } = formData;
@@ -169,7 +189,7 @@ export default function FinanceiroPage() {
             }
         }
         setMessage(`Lançamento ${isEditing ? 'atualizado' : 'criado'} com sucesso!`);
-        fetchLancamentos(); fetchAllLancamentosForKpi(); return true;
+        fetchLancamentos(); fetchAllLancamentosForKpi(); fetchAndCalculateKpis(); return true;
     };
     
     const handleDeleteLancamento = async (id) => {
@@ -184,6 +204,21 @@ export default function FinanceiroPage() {
 
     const TabButton = ({ tabName, label }) => ( <button onClick={() => setActiveTab(tabName)} className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm uppercase ${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}> {label} </button> );
 
+    const formatKpiValue = (kpi) => {
+        const { valor, formato_exibicao } = kpi;
+        if (typeof valor !== 'number') return valor;
+    
+        switch (formato_exibicao) {
+            case 'moeda':
+                return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+            case 'porcentagem':
+                return `${valor.toFixed(2)}%`;
+            default:
+                return valor.toLocaleString('pt-BR');
+        }
+    };
+
+
     return (
         <div className="space-y-6">
             <LancamentoFormModal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} onSave={handleSaveLancamento} initialData={editingLancamento} empresas={empresas} />
@@ -192,12 +227,32 @@ export default function FinanceiroPage() {
                 {activeTab === 'lancamentos' && (
                     <div className="flex items-center gap-2">
                          <Link href="/financeiro/auditoria" title="Painel de Auditoria" className="text-gray-400 hover:text-orange-500"><FontAwesomeIcon icon={faShieldAlt} /></Link>
+                         <Link href="/financeiro/kpi-builder" title="Construtor de KPIs" className="bg-teal-500 text-white px-4 py-2 rounded-md hover:bg-teal-600 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faProjectDiagram} /> KPIs</Link>
                          <Link href="/financeiro/transferencias" className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 flex items-center gap-2 uppercase">Identificar Transferências</Link>
                          <Link href="/configuracoes/financeiro/importar" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faCogs} /> Assistente</Link>
                          <button onClick={handleOpenAddModal} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faPlus} /> Novo Lançamento</button>
                     </div>
                 )}
             </div>
+
+            {activeTab === 'lancamentos' && kpis.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    {loadingKpis ? (
+                        <p>Calculando KPIs...</p>
+                    ) : (
+                        kpiResults.map(kpi => (
+                            <KpiCard
+                                key={kpi.id}
+                                title={kpi.nome_kpi}
+                                value={formatKpiValue(kpi)}
+                                icon={faChartPie}
+                                color="purple"
+                            />
+                        ))
+                    )}
+                </div>
+            )}
+
             <div className="border-b border-gray-200 bg-white shadow-sm rounded-t-lg">
                 <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">
                     <TabButton tabName="lancamentos" label="Lançamentos" />

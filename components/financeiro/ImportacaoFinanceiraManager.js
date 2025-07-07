@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileCsv, faSpinner, faArrowRight, faCogs, faMagic, faCheckCircle, faPlusCircle, faBan, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import Papa from 'papaparse';
@@ -34,13 +35,14 @@ const ProgressBar = ({ current, total }) => {
 
 export default function ImportacaoFinanceiraManager() {
     const supabase = createClient();
+    const { user } = useAuth();
     const [step, setStep] = useState(1);
     const [file, setFile] = useState(null);
     const [fileHeaders, setFileHeaders] = useState([]);
     const [fileData, setFileData] = useState([]);
     
     const [mappings, setMappings] = useState({});
-    const [unmappedData, setUnmappedData] = useState({ contas: new Set(), categorias: new Set(), empreendimentos: new Set(), contatos: new Set() });
+    const [unmappedData, setUnmappedData] = useState({ contas: new Set(), categorias: new Map(), empreendimentos: new Set(), contatos: new Set() });
     const [dataResolutions, setDataResolutions] = useState({ contas: {}, categorias: {}, empreendimentos: {}, contatos: {} });
     
     const [systemData, setSystemData] = useState({ contas: [], categorias: [], empreendimentos: [], contatos: [] });
@@ -56,6 +58,10 @@ export default function ImportacaoFinanceiraManager() {
         { key: 'data_transacao', label: 'Data da Transação *' },
         { key: 'descricao', label: 'Descrição *' },
         { key: 'valor', label: 'Valor *' },
+        // ***** INÍCIO DA CORREÇÃO *****
+        // Adicionada a coluna 'tipo' para mapeamento
+        { key: 'tipo', label: 'Tipo (Receita/Despesa) *' },
+        // ***** FIM DA CORREÇÃO *****
         { key: 'conta_nome', label: 'Conta (Nome) *' },
         { key: 'categoria_nome', label: 'Categoria (Nome)' },
         { key: 'contato_nome', label: 'Contato/Favorecido (Nome)' },
@@ -112,33 +118,51 @@ export default function ImportacaoFinanceiraManager() {
     };
 
     const processStep2 = () => {
-        if (!mappings.data_transacao || !mappings.descricao || !mappings.valor || !mappings.conta_nome) {
-            setMessage("Por favor, mapeie os campos obrigatórios: Data, Descrição, Valor e Conta.");
+        // ***** INÍCIO DA CORREÇÃO *****
+        // Adicionada verificação para o campo 'tipo'
+        if (!mappings.data_transacao || !mappings.descricao || !mappings.valor || !mappings.conta_nome || !mappings.tipo) {
+            setMessage("Por favor, mapeie os campos obrigatórios: Data, Descrição, Valor, Conta e Tipo.");
             return;
         }
+        // ***** FIM DA CORREÇÃO *****
         setIsProcessing(true);
         const uniqueContas = new Set();
-        const uniqueCategorias = new Set();
+        const uniqueCategorias = new Map();
         const uniqueEmpreendimentos = new Set();
         const uniqueContatos = new Set();
 
         fileData.forEach(row => {
             if (row[mappings.conta_nome]) uniqueContas.add(row[mappings.conta_nome].trim());
-            if (row[mappings.categoria_nome]) uniqueCategorias.add(row[mappings.categoria_nome].trim());
             if (row[mappings.empreendimento_nome]) uniqueEmpreendimentos.add(row[mappings.empreendimento_nome].trim());
             if (row[mappings.contato_nome]) uniqueContatos.add(row[mappings.contato_nome].trim());
+            
+            const categoriaNome = row[mappings.categoria_nome];
+            if (categoriaNome) {
+                const trimmedNome = categoriaNome.trim();
+                if (!uniqueCategorias.has(trimmedNome)) {
+                    // Agora, o tipo vem diretamente da coluna mapeada
+                    const tipo = row[mappings.tipo]?.toLowerCase().includes('receita') ? 'Receita' : 'Despesa';
+                    uniqueCategorias.set(trimmedNome, tipo);
+                }
+            }
         });
         
         const filterNewItems = (systemItems, fileItems) => new Set([...fileItems].filter(item => item && !systemItems.some(sysItem => (sysItem.nome || sysItem.razao_social)?.toLowerCase() === item.toLowerCase())));
 
+        const unmappedCategorias = new Map();
+        for (const [catPath, tipo] of uniqueCategorias.entries()) {
+            if (!catPath) continue;
+            const parts = catPath.split(/[\/]/).map(p => p.trim());
+            const subCategoryName = parts[parts.length - 1];
+            const exists = systemData.categorias.some(sysCat => sysCat.nome.toLowerCase() === subCategoryName.toLowerCase());
+            if (!exists) {
+                unmappedCategorias.set(catPath, tipo);
+            }
+        }
+
         setUnmappedData({
             contas: filterNewItems(systemData.contas, uniqueContas),
-            categorias: new Set([...uniqueCategorias].filter(catPath => {
-                if (!catPath) return false;
-                const parts = catPath.split(/[\/]/).map(p => p.trim());
-                const subCategoryName = parts[parts.length - 1];
-                return !systemData.categorias.some(sysCat => sysCat.nome.toLowerCase() === subCategoryName.toLowerCase());
-            })),
+            categorias: unmappedCategorias,
             empreendimentos: filterNewItems(systemData.empreendimentos, uniqueEmpreendimentos),
             contatos: filterNewItems(systemData.contatos, uniqueContatos)
         });
@@ -148,9 +172,12 @@ export default function ImportacaoFinanceiraManager() {
     
     const handleBulkResolve = (type, action) => {
         const newResolutionsForType = {};
-        unmappedData[type].forEach(name => {
+        const itemsToResolve = type === 'categorias' ? unmappedData.categorias.keys() : unmappedData[type];
+        
+        for (const name of itemsToResolve) {
             newResolutionsForType[name] = { action: action, mapToId: null };
-        });
+        }
+        
         setDataResolutions(prev => ({
             ...prev,
             [type]: { ...prev[type], ...newResolutionsForType }
@@ -167,7 +194,8 @@ export default function ImportacaoFinanceiraManager() {
             setMessage(`Criando ${itemsToInsert.length} novo(s) item(ns) do tipo: ${type}...`);
             setProgress({ current: 0, total: itemsToInsert.length });
             
-            const { error } = await supabase.from(type === 'contatos' ? 'contatos' : `${type}_financeiras`).insert(itemsToInsert);
+            const tableName = type === 'contatos' ? 'contatos' : (type === 'empreendimentos' ? 'empreendimentos' : `${type}_financeiras`);
+            const { error } = await supabase.from(tableName).insert(itemsToInsert);
             
             setProgress({ current: itemsToInsert.length, total: itemsToInsert.length });
             if (error) {
@@ -185,19 +213,20 @@ export default function ImportacaoFinanceiraManager() {
             return;
         }
 
-        // Categorias precisam de lógica especial por causa da hierarquia
-        const categoriasToCreate = [...unmappedData.categorias].filter(path => dataResolutions.categorias[path]?.action === 'create');
+        const categoriasToCreate = [...unmappedData.categorias.keys()].filter(path => dataResolutions.categorias[path]?.action === 'create');
         if (categoriasToCreate.length > 0) {
             setMessage(`Criando ${categoriasToCreate.length} nova(s) categoria(s)...`);
             setProgress({ current: 0, total: categoriasToCreate.length });
-            await loadSystemData(); // Recarrega para garantir que temos os últimos dados antes de criar hierarquia
+            await loadSystemData();
             for (const catPath of categoriasToCreate) {
                 const parts = catPath.split(/[\/]/).map(p => p.trim());
                 let parentId = null;
+                const tipoCategoria = unmappedData.categorias.get(catPath);
+                
                 for (const part of parts) {
                     let existingCat = systemData.categorias.find(c => c.nome.toLowerCase() === part.toLowerCase() && c.parent_id === parentId);
                     if (!existingCat) {
-                        const { data: newCat } = await supabase.from('categorias_financeiras').insert({ nome: part, tipo: 'Despesa', parent_id: parentId }).select().single();
+                        const { data: newCat } = await supabase.from('categorias_financeiras').insert({ nome: part, tipo: tipoCategoria, parent_id: parentId }).select().single();
                         if (newCat) { parentId = newCat.id; systemData.categorias.push(newCat); }
                     } else { parentId = existingCat.id; }
                 }
@@ -213,6 +242,12 @@ export default function ImportacaoFinanceiraManager() {
     };
 
     const processStep4 = async () => {
+        if (!user) {
+            setMessage('Erro: Usuário não autenticado. Por favor, faça login novamente.');
+            setIsProcessing(false);
+            return;
+        }
+        
         setIsProcessing(true);
         const results = { success: [], failed: [] };
         const BATCH_SIZE = 500;
@@ -264,6 +299,11 @@ export default function ImportacaoFinanceiraManager() {
             const contaNome = row[mappings.conta_nome]?.trim();
             const { id: conta_id, error: contaError } = getItemId('contas', contaNome);
             if (contaError || !conta_id) { results.failed.push({ row, error: contaError || `Conta '${contaNome}' é obrigatória.` }); continue; }
+            
+            // ***** INÍCIO DA CORREÇÃO *****
+            // Usa a coluna mapeada 'tipo' para determinar a natureza do lançamento
+            const tipoLancamento = row[mappings.tipo]?.toLowerCase().includes('receita') ? 'Receita' : 'Despesa';
+            // ***** FIM DA CORREÇÃO *****
 
             const categoriaPath = row[mappings.categoria_nome]?.trim();
             const empreendimentoNome = row[mappings.empreendimento_nome]?.trim();
@@ -275,10 +315,18 @@ export default function ImportacaoFinanceiraManager() {
             const { id: favorecido_contato_id } = getItemId('contatos', contatoNome);
 
             lancamentosToInsert.push({
-                data_transacao: dataTransacao, descricao: row[mappings.descricao], valor: Math.abs(valor),
-                tipo: valor > 0 ? 'Receita' : 'Despesa', status: situacao.includes('pago') || situacao.includes('conciliado') ? 'Pago' : 'Pendente',
+                criado_por_usuario_id: user.id,
+                data_transacao: dataTransacao, 
+                descricao: row[mappings.descricao], 
+                valor: Math.abs(valor),
+                tipo: tipoLancamento, // Utiliza a variável corrigida
+                status: situacao.includes('pago') || situacao.includes('conciliado') ? 'Pago' : 'Pendente',
                 data_pagamento: situacao.includes('pago') || situacao.includes('conciliado') ? dataTransacao : null,
-                conciliado: situacao.includes('conciliado'), conta_id, categoria_id, empreendimento_id, favorecido_contato_id
+                conciliado: situacao.includes('conciliado'), 
+                conta_id, 
+                categoria_id, 
+                empreendimento_id, 
+                favorecido_contato_id
             });
         }
         
@@ -361,27 +409,30 @@ export default function ImportacaoFinanceiraManager() {
                      <h3 className="font-bold text-lg">Resolver Itens Não Encontrados</h3>
                      <p className="text-sm">O sistema encontrou alguns itens no seu arquivo que não existem aqui. Decida o que fazer com cada um.</p>
                      
-                     {['contas', 'categorias', 'empreendimentos', 'contatos'].map(type => (
-                         [...unmappedData[type]].length > 0 && (
+                     {Object.keys(unmappedData).map(type => {
+                        const items = type === 'categorias' ? [...unmappedData.categorias.keys()] : [...unmappedData[type]];
+                        if (items.length === 0) return null;
+
+                        return (
                             <fieldset key={type} className="p-4 border rounded-md">
                                 <legend className="font-semibold px-2 capitalize flex justify-between items-center w-full">
-                                    <span>{type}</span>
+                                    <span>{type} ({items.length})</span>
                                     <div className="flex gap-2">
                                         <button onClick={() => handleBulkResolve(type, 'create')} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded hover:bg-green-200"><FontAwesomeIcon icon={faPlusCircle}/> Criar Todos</button>
                                         <button onClick={() => handleBulkResolve(type, 'ignore')} className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded hover:bg-red-200"><FontAwesomeIcon icon={faBan}/> Ignorar Todos</button>
                                     </div>
                                 </legend>
                                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                                    {[...unmappedData[type]].map(name => (
+                                    {items.map(name => (
                                         <div key={name} className="grid grid-cols-3 gap-2 items-center text-sm">
                                             <span className="font-mono bg-gray-100 p-1 rounded truncate" title={name}>{name}</span>
-                                            <select value={dataResolutions[type][name]?.action || ''} onChange={(e) => handleResolutionChange(type, name, e.target.value)} className="p-1 border rounded-md">
+                                            <select value={dataResolutions[type]?.[name]?.action || ''} onChange={(e) => handleResolutionChange(type, name, e.target.value)} className="p-1 border rounded-md">
                                                 <option value="">Selecione uma ação...</option>
                                                 <option value="create">Criar Novo</option>
                                                 <option value="map">Associar a um existente</option>
                                                 <option value="ignore">Ignorar este item</option>
                                             </select>
-                                            {dataResolutions[type][name]?.action === 'map' && (
+                                            {dataResolutions[type]?.[name]?.action === 'map' && (
                                                 <select onChange={e => handleResolutionChange(type, name, 'map', e.target.value)} className="p-1 border rounded-md">
                                                     <option value="">Selecione para associar...</option>
                                                     {systemData[type].map(item => <option key={item.id} value={item.id}>{item.nome || item.razao_social}</option>)}
@@ -391,8 +442,8 @@ export default function ImportacaoFinanceiraManager() {
                                     ))}
                                 </div>
                             </fieldset>
-                         )
-                     ))}
+                         );
+                     })}
                      <button onClick={processStep3} className="bg-blue-600 text-white px-6 py-2 rounded-md">Avançar</button>
                 </div>
             )}

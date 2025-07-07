@@ -4,13 +4,15 @@ import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
-export default function CategoriaFormModal({ isOpen, onClose, onSave, initialData, allCategories }) { // Adicionado allCategories
+// O modal agora recebe 'defaultType' como uma propriedade
+export default function CategoriaFormModal({ isOpen, onClose, onSave, initialData, allCategories, defaultType = 'Despesa' }) {
     const isEditing = Boolean(initialData);
 
+    // O estado inicial agora usa o 'defaultType' que passamos
     const getInitialState = () => ({
         nome: '',
-        tipo: 'Despesa',
-        parent_id: null, // Novo campo para a categoria pai
+        tipo: defaultType,
+        parent_id: null,
     });
 
     const [formData, setFormData] = useState(getInitialState());
@@ -18,9 +20,10 @@ export default function CategoriaFormModal({ isOpen, onClose, onSave, initialDat
 
     useEffect(() => {
         if (isOpen) {
+            // Se estiver editando, usa os dados existentes. Se for novo, usa o 'getInitialState' corrigido.
             setFormData(isEditing ? initialData : getInitialState());
         }
-    }, [isOpen, initialData, isEditing]);
+    }, [isOpen, initialData, isEditing, defaultType]); // Adicionado 'defaultType' à lista de dependências
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -59,13 +62,12 @@ export default function CategoriaFormModal({ isOpen, onClose, onSave, initialDat
                         </select>
                     </div>
 
-                    {/* Novo campo para selecionar a categoria pai */}
                     <div>
                         <label className="block text-sm font-medium">Subcategoria de (Opcional)</label>
                         <select name="parent_id" value={formData.parent_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
                             <option value="">Nenhuma (Categoria Principal)</option>
                             {allCategories && allCategories
-                                .filter(c => !c.parent_id) // Mostra apenas categorias principais
+                                .filter(c => !c.parent_id)
                                 .map(cat => <option key={cat.id} value={cat.id}>{cat.nome}</option>)
                             }
                         </select>

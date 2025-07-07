@@ -290,6 +290,16 @@ CREATE TABLE public.funcoes (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT funcoes_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.indices_financeiros (
+  id bigint NOT NULL DEFAULT nextval('indices_financeiros_id_seq'::regclass),
+  nome_indice text NOT NULL UNIQUE,
+  descricao text,
+  configuracao_filtro jsonb NOT NULL,
+  criado_em timestamp with time zone DEFAULT now(),
+  criado_por uuid,
+  CONSTRAINT indices_financeiros_pkey PRIMARY KEY (id),
+  CONSTRAINT indices_financeiros_criado_por_fkey FOREIGN KEY (criado_por) REFERENCES public.usuarios(id)
+);
 CREATE TABLE public.jornada_detalhes (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   jornada_id bigint NOT NULL,
@@ -309,6 +319,17 @@ CREATE TABLE public.jornadas (
   created_at timestamp with time zone DEFAULT now(),
   tolerancia_minutos integer DEFAULT 5,
   CONSTRAINT jornadas_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.kpis_financeiros (
+  id bigint NOT NULL DEFAULT nextval('kpis_financeiros_id_seq'::regclass),
+  nome_kpi text NOT NULL,
+  descricao text,
+  formula text NOT NULL,
+  formato_exibicao text NOT NULL DEFAULT 'numero'::text,
+  criado_em timestamp with time zone DEFAULT now(),
+  criado_por uuid,
+  CONSTRAINT kpis_financeiros_pkey PRIMARY KEY (id),
+  CONSTRAINT kpis_financeiros_criado_por_fkey FOREIGN KEY (criado_por) REFERENCES public.usuarios(id)
 );
 CREATE TABLE public.lancamentos (
   id bigint NOT NULL DEFAULT nextval('lancamentos_id_seq'::regclass),
