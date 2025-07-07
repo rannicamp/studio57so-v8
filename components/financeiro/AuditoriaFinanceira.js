@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faCopy, faExclamationTriangle, faTrash, faCheck } from '@fortawesome/free-solid-svg-icons';
@@ -8,7 +8,6 @@ import { faSpinner, faCopy, faExclamationTriangle, faTrash, faCheck } from '@for
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 const formatDate = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR') : 'N/A';
 
-// Componente para um grupo de duplicatas
 const DuplicateGroup = ({ group, onDelete }) => {
     return (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -40,7 +39,6 @@ const DuplicateGroup = ({ group, onDelete }) => {
     );
 };
 
-
 export default function AuditoriaFinanceira() {
     const supabase = createClient();
     const [loading, setLoading] = useState(true);
@@ -49,7 +47,7 @@ export default function AuditoriaFinanceira() {
     
     const [duplicateGroups, setDuplicateGroups] = useState([]);
 
-    const findDuplicates = useMemo(() => async () => {
+    const findDuplicates = useCallback(async () => {
         setLoading(true);
         setMessage('');
         
@@ -58,7 +56,6 @@ export default function AuditoriaFinanceira() {
         if (error) {
             setMessage("Erro ao buscar duplicatas: " + error.message);
         } else {
-            // Agrupar os resultados por chave de duplicata
             const groups = data.reduce((acc, item) => {
                 const key = item.chave_duplicata;
                 if (!acc[key]) {
@@ -87,10 +84,9 @@ export default function AuditoriaFinanceira() {
             setMessage(`Erro ao excluir: ${error.message}`);
         } else {
             setMessage("Lançamento excluído com sucesso. Atualizando a lista...");
-            findDuplicates(); // Re-busca os dados para atualizar a lista
+            findDuplicates();
         }
     };
-
 
     return (
         <div className="space-y-4">
@@ -102,12 +98,9 @@ export default function AuditoriaFinanceira() {
                     >
                         Lançamentos Duplicados
                     </button>
-                    {/* Futuras abas de auditoria podem ser adicionadas aqui */}
                 </nav>
             </div>
-
             {message && <p className="text-center p-2 bg-blue-50 text-blue-800 rounded-md text-sm">{message}</p>}
-
             {loading ? (
                 <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x"/></div>
             ) : (

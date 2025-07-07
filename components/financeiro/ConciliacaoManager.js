@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUpload, faLink, faFileImport, faCheckCircle, faMagic } from '@fortawesome/free-solid-svg-icons';
-// CORREÇÃO APLICADA AQUI: A importação foi ajustada para o formato correto da biblioteca.
-import OfxData from 'ofx-data-extractor'; 
+// CORREÇÃO APLICADA AQUI: A importação agora é nomeada.
+import { Ofx } from 'ofx-data-extractor'; 
 
 // Função para formatar a data
 const formatDate = (dateStr) => {
@@ -91,15 +91,53 @@ export default function ConciliacaoManager({ contas }) {
             return transacoesManuais;
         } catch (error) { console.error("Erro no parse manual:", error); return null; }
     };
-
+    
+    // CORREÇÃO APLICADA NESTA FUNÇÃO
     const parseOfxFile = (fileContent) => {
         try {
-            // CORREÇÃO APLICADA AQUI
-            const ofx = new OfxData(fileContent);
-            const ofxData = ofx.getStatement();
-            if (!ofxData?.transactions || ofxData.transactions.length === 0) { console.warn("Biblioteca OFX não encontrou transações. Tentando método manual."); return parseFileManually(fileContent); }
-            return ofxData.transactions.map(t => ({ id: t.id, data: t.postedAt.toISOString().split('T')[0], valor: t.amount, descricao: t.description || 'Sem descrição', tipo: t.amount < 0 ? 'Despesa' : 'Receita', conciliado: false }));
-        } catch (error) { console.error("Erro com a biblioteca OFX, tentando método manual:", error); return parseFileManually(fileContent); }
+            const ofx = new Ofx(fileContent);
+            const ofxData = ofx.toJson();
+
+            let transactions = [];
+            // Verifica o caminho para extrato bancário
+            const bankStatement = ofxData?.OFX?.BANKMSGSRSV1?.STMTTRNRS?.STMTRS;
+            if (bankStatement && bankStatement.BANKTRANLIST && bankStatement.BANKTRANLIST.STMTTRN) {
+                transactions = Array.isArray(bankStatement.BANKTRANLIST.STMTTRN)
+                    ? bankStatement.BANKTRANLIST.STMTTRN
+                    : [bankStatement.BANKTRANLIST.STMTTRN];
+            } else {
+                // Verifica o caminho para fatura de cartão de crédito
+                const creditCardStatement = ofxData?.OFX?.CREDITCARDMSGSRSV1?.CCSTMTTRNRS?.CCSTMTRS;
+                if (creditCardStatement && creditCardStatement.BANKTRANLIST && creditCardStatement.BANKTRANLIST.STMTTRN) {
+                    transactions = Array.isArray(creditCardStatement.BANKTRANLIST.STMTTRN)
+                        ? creditCardStatement.BANKTRANLIST.STMTTRN
+                        : [creditCardStatement.BANKTRANLIST.STMTTRN];
+                }
+            }
+
+            if (transactions.length === 0) {
+                console.warn("Biblioteca OFX não encontrou transações. Tentando método manual.");
+                return parseFileManually(fileContent);
+            }
+            
+            // Mapeia os dados da transação para o formato esperado
+            return transactions.map(t => {
+                const dataStr = t.DTPOSTED?.substring(0, 8);
+                const formattedDate = dataStr ? `${dataStr.substring(0, 4)}-${dataStr.substring(4, 6)}-${dataStr.substring(6, 8)}` : null;
+                const amount = parseFloat(t.TRNAMT);
+                return {
+                    id: t.FITID,
+                    data: formattedDate,
+                    valor: amount,
+                    descricao: t.MEMO || 'Sem descrição',
+                    tipo: amount < 0 ? 'Despesa' : 'Receita',
+                    conciliado: false,
+                };
+            });
+        } catch (error) {
+            console.error("Erro com a biblioteca OFX, tentando método manual:", error);
+            return parseFileManually(fileContent);
+        }
     };
     
     const conciliarPar = async (transacao, lancamento) => {

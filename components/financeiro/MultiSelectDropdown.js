@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronDown } from '@fortawesome/free-solid-svg-icons';
 
-// Função para obter todos os IDs de uma categoria e suas descendentes
 const getAllChildIds = (option) => {
     let ids = [option.id];
     if (option.children && option.children.length > 0) {
@@ -15,8 +14,6 @@ const getAllChildIds = (option) => {
     return ids;
 };
 
-
-// Componente interno recursivo para renderizar cada opção e seus filhos
 const Option = ({ option, selectedIds, onSelectionChange, level = 0 }) => {
     const getDisplayName = (opt) => opt.nome || opt.nome_fantasia || opt.razao_social || opt.text;
 
@@ -29,7 +26,7 @@ const Option = ({ option, selectedIds, onSelectionChange, level = 0 }) => {
                 <input
                     type="checkbox"
                     checked={selectedIds.includes(option.id)}
-                    onChange={() => onSelectionChange(option)} // Passa o objeto option inteiro
+                    onChange={() => onSelectionChange(option)}
                     className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="ml-3 text-sm text-gray-700">{getDisplayName(option)}</span>
@@ -51,7 +48,6 @@ const Option = ({ option, selectedIds, onSelectionChange, level = 0 }) => {
     );
 };
 
-
 export default function MultiSelectDropdown({ 
     label, 
     options, 
@@ -69,8 +65,6 @@ export default function MultiSelectDropdown({
         const allIdsToToggle = getAllChildIds(option);
         const currentSelected = new Set(selectedIds);
         
-        // Se a categoria principal já está selecionada, desmarca ela e todos os filhos.
-        // Caso contrário, marca ela e todos os filhos.
         const isCurrentlySelected = currentSelected.has(option.id);
 
         if (isCurrentlySelected) {
@@ -82,7 +76,6 @@ export default function MultiSelectDropdown({
         onChange(Array.from(currentSelected));
     };
 
-
     useEffect(() => {
         function handleClickOutside(event) {
             if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
@@ -93,7 +86,7 @@ export default function MultiSelectDropdown({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [wrapperRef]);
     
-    const flattenOptions = (opts) => {
+    const flattenOptions = useCallback((opts) => {
         let flat = [];
         opts.forEach(o => {
             flat.push(o);
@@ -102,9 +95,9 @@ export default function MultiSelectDropdown({
             }
         });
         return flat;
-    };
+    }, []);
     
-    const allOptionsFlat = useMemo(() => flattenOptions(options), [options]);
+    const allOptionsFlat = useMemo(() => flattenOptions(options), [options, flattenOptions]);
 
     const getDisplayName = (option) => option.nome || option.nome_fantasia || option.razao_social || option.text;
 
