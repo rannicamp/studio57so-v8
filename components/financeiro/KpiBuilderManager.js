@@ -112,8 +112,8 @@ export default function KpiBuilderManager() {
     const [kpis, setKpis] = useState([]);
 
     const [isKpiModalOpen, setIsKpiModalOpen] = useState(false);
-    const [kpiResults, setKpiResults] = useState({}); // NOVO: Armazena os resultados dos KPIs
-    const [isCalculating, setIsCalculating] = useState(false); // NOVO: Controla o estado de cálculo
+    const [kpiResults, setKpiResults] = useState({});
+    const [isCalculating, setIsCalculating] = useState(false);
 
     const fetchData = useCallback(async (recalculate = false) => {
         if (!recalculate) setLoading(true);
@@ -127,8 +127,7 @@ export default function KpiBuilderManager() {
         
         const { data: kpisData } = await supabase.from('kpis_financeiros').select('*');
         setKpis(kpisData || []);
-
-        // NOVO: Dispara o cálculo dos KPIs
+        
         if (kpisData && kpisData.length > 0) {
             const results = {};
             for (const kpi of kpisData) {
@@ -171,7 +170,7 @@ export default function KpiBuilderManager() {
     const handleCreateIndice = async (filtro) => {
         const nomeIndice = prompt(`Dê um nome para este índice (use apenas letras e underscores, ex: CUSTO_OBRA_X):\nFiltro: ${filtro.name}`);
         if (!nomeIndice || !/^[A-Z_]+$/i.test(nomeIndice)) {
-            alert("Nome inválido. Use apenas letras e underscores (sem espaços ou números).");
+            alert('Nome inválido. Use apenas letras e underscores (sem espaços ou números).');
             return;
         }
         const { error } = await supabase.from('indices_financeiros').insert({
@@ -219,7 +218,7 @@ export default function KpiBuilderManager() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
                         <h3 className="font-semibold mb-2">Filtros Salvos</h3>
-                        <p className="text-xs text-gray-500 mb-4">Estes são os filtros que você salvou na tela de lançamentos. Clique em "+" para transformá-los em um índice.</p>
+                        <p className="text-xs text-gray-500 mb-4">Estes são os filtros que você salvou na tela de lançamentos. Clique em `+` para transformá-los em um índice.</p>
                         <div className="space-y-2 max-h-96 overflow-y-auto p-2 border rounded-md">
                             {savedFilters.length === 0 ? <p className="text-sm text-gray-500 text-center p-4">Nenhum filtro salvo encontrado.</p> :
                             savedFilters.map(filtro => (<div key={filtro.name} className="flex justify-between items-center p-2 bg-gray-50 rounded"><span>{filtro.name}</span><button onClick={() => handleCreateIndice(filtro)} title="Criar índice a partir deste filtro" className="bg-green-500 text-white w-6 h-6 rounded flex items-center justify-center hover:bg-green-600"><FontAwesomeIcon icon={faPlus} /></button></div>))}

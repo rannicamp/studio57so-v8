@@ -1,29 +1,26 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
-// O modal agora recebe 'defaultType' como uma propriedade
 export default function CategoriaFormModal({ isOpen, onClose, onSave, initialData, allCategories, defaultType = 'Despesa' }) {
     const isEditing = Boolean(initialData);
 
-    // O estado inicial agora usa o 'defaultType' que passamos
-    const getInitialState = () => ({
+    const getInitialState = useCallback(() => ({
         nome: '',
         tipo: defaultType,
         parent_id: null,
-    });
+    }), [defaultType]);
 
-    const [formData, setFormData] = useState(getInitialState());
+    const [formData, setFormData] = useState(getInitialState);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
-            // Se estiver editando, usa os dados existentes. Se for novo, usa o 'getInitialState' corrigido.
             setFormData(isEditing ? initialData : getInitialState());
         }
-    }, [isOpen, initialData, isEditing, defaultType]); // Adicionado 'defaultType' à lista de dependências
+    }, [isOpen, initialData, isEditing, getInitialState]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
