@@ -3,20 +3,15 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from 'next/server';
 
-// Pega a chave da API do ambiente
 const apiKey = process.env.GEMINI_API_KEY;
 
-// Verifica se a chave foi encontrada. Se não, para tudo e retorna um erro claro.
 if (!apiKey) {
-  // Este erro é para o console do servidor, para nós vermos
   console.error("ERRO CRÍTICO: A variável GEMINI_API_KEY não foi encontrada no ambiente.");
 }
 
-// Inicializa a IA somente se a chave existir
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
 export async function POST(request) {
-  // Nova verificação: se a IA não foi inicializada por falta da chave, retorna um erro amigável.
   if (!genAI) {
     return NextResponse.json({ error: "A chave da API de IA não está configurada no servidor." }, { status: 500 });
   }
@@ -51,12 +46,20 @@ export async function POST(request) {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const result = await model.generateContent(prompt);
     const response = await result.response;
+    
+    // Linha de diagnóstico para vermos a resposta completa do Google no terminal
+    console.log("Resposta completa do Gemini:", JSON.stringify(response, null, 2));
+
     const analysisText = response.text();
+
+    if (!analysisText) {
+        throw new Error("A IA retornou uma resposta vazia. Verifique as configurações da sua chave de API (se a API está ativada e se o faturamento está configurado no Google Cloud).");
+    }
 
     return NextResponse.json({ analysis: analysisText });
 
   } catch (error) {
-    console.error("Erro na API do Gemini:", error);
-    return NextResponse.json({ error: "Ocorreu um erro ao se comunicar com a IA." }, { status: 500 });
+    console.error("Erro no bloco da API do Gemini:", error);
+    return NextResponse.json({ error: `Ocorreu um erro ao se comunicar com a IA: ${error.message}` }, { status: 500 });
   }
 }
