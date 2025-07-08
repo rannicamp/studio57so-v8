@@ -55,14 +55,11 @@ export default function FinanceiroPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
     const [totalCount, setTotalCount] = useState(0);
-
-    // ***** INÍCIO DA CORREÇÃO *****
-    // Adicionado `tipo: []` ao estado inicial para evitar o erro.
+    
     const [filters, setFilters] = useState({
         searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [],
         etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '',
     });
-    // ***** FIM DA CORREÇÃO *****
 
     const [sortConfig, setSortConfig] = useState({ key: 'data_transacao', direction: 'descending' });
 
@@ -70,22 +67,20 @@ export default function FinanceiroPage() {
     const [loadingKpis, setLoadingKpis] = useState(true);
 
     useEffect(() => {
-        const { month, year } = filters;
+        const { month, year, startDate: currentStartDate, endDate: currentEndDate } = filters;
         if (year) {
-            const startDate = month ? new Date(year, month - 1, 1) : new Date(year, 0, 1);
-            const endDate = month ? new Date(year, month, 0) : new Date(year, 11, 31);
-            const newStartDate = startDate.toISOString().split('T')[0];
-            const newEndDate = endDate.toISOString().split('T')[0];
+            const newStartDate = month ? new Date(year, month - 1, 1) : new Date(year, 0, 1);
+            const newEndDate = month ? new Date(year, month, 0) : new Date(year, 11, 31);
+            const newStartDateStr = newStartDate.toISOString().split('T')[0];
+            const newEndDateStr = newEndDate.toISOString().split('T')[0];
 
-            if (filters.startDate !== newStartDate || filters.endDate !== newEndDate) {
-                setFilters(prev => ({ ...prev, startDate: newStartDate, endDate: newEndDate }));
+            if (currentStartDate !== newStartDateStr || currentEndDate !== newEndDateStr) {
+                setFilters(prev => ({ ...prev, startDate: newStartDateStr, endDate: newEndDateStr }));
             }
-        } else {
-             if(filters.startDate || filters.endDate) {
-                 setFilters(prev => ({ ...prev, startDate: '', endDate: '' }));
-             }
+        } else if (currentStartDate || currentEndDate) {
+            setFilters(prev => ({ ...prev, startDate: '', endDate: '' }));
         }
-    }, [filters.month, filters.year, filters.startDate, filters.endDate]);
+    }, [filters]);
 
     const applyFiltersToQuery = useCallback((query, currentFilters) => {
         if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
@@ -105,12 +100,9 @@ export default function FinanceiroPage() {
             if (hasAtrasada) orConditions.push(`and(status.eq.Pendente,data_vencimento.lt.${today})`);
             if (orConditions.length > 0) query = query.or(orConditions.join(','));
         }
-        // ***** INÍCIO DA CORREÇÃO *****
-        // Garante que o filtro de tipo (Natureza) seja aplicado corretamente.
         if (currentFilters.tipo?.length > 0) {
             query = query.in('tipo', currentFilters.tipo);
         }
-        // ***** FIM DA CORREÇÃO *****
         return query;
     }, []);
 
@@ -206,7 +198,7 @@ export default function FinanceiroPage() {
     useEffect(() => {
         fetchLancamentos();
         fetchAllLancamentosForKpi();
-    }, [fetchLancamentos, fetchAllLancamentosForKpi, filters]);
+    }, [fetchLancamentos, fetchAllLancamentosForKpi]);
     
     useEffect(() => {
         fetchDashboardKpis();
