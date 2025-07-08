@@ -4,18 +4,37 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLayout } from '../../../contexts/LayoutContext';
 import { createClient } from '../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
+import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext';
 import LancamentosManager from '../../../components/financeiro/LancamentosManager';
 import ContasManager from '../../../components/financeiro/ContasManager';
 import CategoriasManager from '../../../components/financeiro/CategoriasManager';
 import ConciliacaoManager from '../../../components/financeiro/ConciliacaoManager';
 import LancamentoFormModal from '../../../components/financeiro/LancamentoFormModal';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faCogs, faShieldAlt, faProjectDiagram, faChartPie } from '@fortawesome/free-solid-svg-icons';
-import Link from 'next/link';
 import KpiCard from '../../../components/KpiCard';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlus, faCogs, faShieldAlt, faCalculator, faSpinner, faChartLine } from '@fortawesome/free-solid-svg-icons';
+import Link from 'next/link';
+
+// Helper para formatar os valores dos KPIs
+const formatKpiValue = (value, format) => {
+    if (value === null || value === undefined || isNaN(value)) return '--';
+    try {
+        if (format === 'moeda') {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+        }
+        if (format === 'porcentagem') {
+            const finalValue = value > 1 ? value : value * 100;
+            return `${finalValue.toFixed(2)}%`;
+        }
+        return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(value);
+    } catch (e) {
+        return 'Erro';
+    }
+};
 
 export default function FinanceiroPage() {
     const { setPageTitle } = useLayout();
+    const { selectedEmpreendimento } = useEmpreendimento();
     const supabase = createClient();
     const router = useRouter();
 
@@ -29,10 +48,6 @@ export default function FinanceiroPage() {
     const [empreendimentos, setEmpreendimentos] = useState([]);
     const [lancamentos, setLancamentos] = useState([]);
     const [allLancamentosKpi, setAllLancamentosKpi] = useState([]);
-    
-    const [kpis, setKpis] = useState([]);
-    const [kpiResults, setKpiResults] = useState([]);
-    const [loadingKpis, setLoadingKpis] = useState(true);
 
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingLancamento, setEditingLancamento] = useState(null);
@@ -41,62 +56,46 @@ export default function FinanceiroPage() {
     const [itemsPerPage, setItemsPerPage] = useState(50);
     const [totalCount, setTotalCount] = useState(0);
 
+    // ***** INÍCIO DA CORREÇÃO *****
+    // Adicionado `tipo: []` ao estado inicial para evitar o erro.
     const [filters, setFilters] = useState({
         searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [],
-        etapaIds: [], status: [], startDate: '', endDate: '', month: '', year: '', tipo: []
+        etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '',
     });
-
-    const [sortConfig, setSortConfig] = useState({ key: 'data_transacao', direction: 'descending' });
-    
-    // ***** INÍCIO DA CORREÇÃO *****
-    // A função de cálculo agora chama a nova RPC que espera a fórmula como texto
-    const fetchAndCalculateKpis = useCallback(async () => {
-        setLoadingKpis(true);
-        const { data: kpisData, error: kpisError } = await supabase.from('kpis_financeiros').select('*');
-
-        if (kpisError) {
-            console.error("Erro ao buscar KPIs:", kpisError);
-            setKpis([]);
-            setKpiResults([]);
-            setLoadingKpis(false);
-            return;
-        }
-
-        setKpis(kpisData || []);
-
-        const results = await Promise.all(
-            (kpisData || []).map(async (kpi) => {
-                // Passa a fórmula diretamente para a função RPC
-                const { data: result, error } = await supabase.rpc('calcular_valor_kpi', { p_formula: kpi.formula });
-                if (error) {
-                    console.error(`Erro ao calcular KPI "${kpi.nome_kpi}":`, error);
-                    return { ...kpi, valor: 'Erro' };
-                }
-                return { ...kpi, valor: result };
-            })
-        );
-        
-        setKpiResults(results);
-        setLoadingKpis(false);
-    }, [supabase]);
     // ***** FIM DA CORREÇÃO *****
 
+    const [sortConfig, setSortConfig] = useState({ key: 'data_transacao', direction: 'descending' });
+
+    const [dashboardKpis, setDashboardKpis] = useState([]);
+    const [loadingKpis, setLoadingKpis] = useState(true);
+
     useEffect(() => {
-        fetchAndCalculateKpis();
-    }, [fetchAndCalculateKpis]);
+        const { month, year } = filters;
+        if (year) {
+            const startDate = month ? new Date(year, month - 1, 1) : new Date(year, 0, 1);
+            const endDate = month ? new Date(year, month, 0) : new Date(year, 11, 31);
+            const newStartDate = startDate.toISOString().split('T')[0];
+            const newEndDate = endDate.toISOString().split('T')[0];
+
+            if (filters.startDate !== newStartDate || filters.endDate !== newEndDate) {
+                setFilters(prev => ({ ...prev, startDate: newStartDate, endDate: newEndDate }));
+            }
+        } else {
+             if(filters.startDate || filters.endDate) {
+                 setFilters(prev => ({ ...prev, startDate: '', endDate: '' }));
+             }
+        }
+    }, [filters.month, filters.year, filters.startDate, filters.endDate]);
 
     const applyFiltersToQuery = useCallback((query, currentFilters) => {
         if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
         if (currentFilters.startDate) query = query.or(`data_transacao.gte.${currentFilters.startDate},data_vencimento.gte.${currentFilters.startDate}`);
         if (currentFilters.endDate) query = query.or(`data_transacao.lte.${currentFilters.endDate},data_vencimento.lte.${currentFilters.endDate}`);
-        if (currentFilters.empresaIds.length > 0) query = query.in('empresa_id', currentFilters.empresaIds);
-        if (currentFilters.contaIds.length > 0) query = query.in('conta_id', currentFilters.contaIds);
-        if (currentFilters.categoriaIds.length > 0) query = query.in('categoria_id', currentFilters.categoriaIds);
-        if (currentFilters.empreendimentoIds.length > 0) query = query.in('empreendimento_id', currentFilters.empreendimentoIds);
-        if (currentFilters.etapaIds.length > 0) query = query.in('etapa_id', currentFilters.etapaIds);
-        if (currentFilters.tipo.length > 0) {
-            query = query.in('tipo', currentFilters.tipo);
-        }
+        if (currentFilters.empresaIds?.length > 0) query = query.in('empresa_id', currentFilters.empresaIds);
+        if (currentFilters.contaIds?.length > 0) query = query.in('conta_id', currentFilters.contaIds);
+        if (currentFilters.categoriaIds?.length > 0) query = query.in('categoria_id', currentFilters.categoriaIds);
+        if (currentFilters.empreendimentoIds?.length > 0) query = query.in('empreendimento_id', currentFilters.empreendimentoIds);
+        if (currentFilters.etapaIds?.length > 0) query = query.in('etapa_id', currentFilters.etapaIds);
         if (currentFilters.status?.length > 0) {
             const hasAtrasada = currentFilters.status.includes('Atrasada');
             const otherStatus = currentFilters.status.filter(s => s !== 'Atrasada');
@@ -106,6 +105,12 @@ export default function FinanceiroPage() {
             if (hasAtrasada) orConditions.push(`and(status.eq.Pendente,data_vencimento.lt.${today})`);
             if (orConditions.length > 0) query = query.or(orConditions.join(','));
         }
+        // ***** INÍCIO DA CORREÇÃO *****
+        // Garante que o filtro de tipo (Natureza) seja aplicado corretamente.
+        if (currentFilters.tipo?.length > 0) {
+            query = query.in('tipo', currentFilters.tipo);
+        }
+        // ***** FIM DA CORREÇÃO *****
         return query;
     }, []);
 
@@ -135,6 +140,50 @@ export default function FinanceiroPage() {
         if (error) { console.error("Erro ao buscar dados para KPI:", error); } 
         else { setAllLancamentosKpi(data || []); }
     }, [filters, supabase, applyFiltersToQuery]);
+    
+    const fetchDashboardKpis = useCallback(async () => {
+        if (!selectedEmpreendimento || selectedEmpreendimento === 'all') {
+            setDashboardKpis([]);
+            return;
+        }
+
+        setLoadingKpis(true);
+        const kpiResults = [];
+
+        const { data: orcamento } = await supabase.from('orcamentos').select('custo_total_previsto').eq('empreendimento_id', selectedEmpreendimento).order('created_at', { ascending: false }).limit(1).single();
+        const custoPrevisto = orcamento?.custo_total_previsto || 0;
+
+        const { data: despesas } = await supabase.from('lancamentos').select('valor').eq('empreendimento_id', selectedEmpreendimento).eq('tipo', 'Despesa');
+        const custoReal = despesas ? despesas.reduce((acc, item) => acc + (item.valor || 0), 0) : 0;
+        
+        const percentualObra = custoPrevisto > 0 ? (custoReal / custoPrevisto) : 0;
+        
+        kpiResults.push({
+            id: 'obra-percent',
+            nome_kpi: '% da Obra (Gasto)',
+            value: percentualObra,
+            formato_exibicao: 'porcentagem',
+            icon: faChartLine,
+            color: 'purple'
+        });
+
+        const { data: kpisData } = await supabase.from('kpis_financeiros').select('*');
+        if (kpisData) {
+            for (const kpi of kpisData) {
+                const { data, error } = await supabase.rpc('calcular_kpi', { p_kpi_id: kpi.id });
+                kpiResults.push({
+                    ...kpi,
+                    value: error ? null : data,
+                    error: error?.message,
+                    icon: faCalculator,
+                    color: 'blue'
+                });
+            }
+        }
+        
+        setDashboardKpis(kpiResults);
+        setLoadingKpis(false);
+    }, [selectedEmpreendimento, supabase]);
 
     const fetchInitialData = useCallback(async () => {
         const [empresasRes, contasRes, categoriasRes, empreendimentosRes] = await Promise.all([
@@ -158,6 +207,10 @@ export default function FinanceiroPage() {
         fetchLancamentos();
         fetchAllLancamentosForKpi();
     }, [fetchLancamentos, fetchAllLancamentosForKpi, filters]);
+    
+    useEffect(() => {
+        fetchDashboardKpis();
+    }, [selectedEmpreendimento, fetchDashboardKpis]);
     
     const handleSaveLancamento = async (formData) => {
         const isEditing = Boolean(formData.id); const { anexo, novo_favorecido, ...baseFormData } = formData;
@@ -189,7 +242,7 @@ export default function FinanceiroPage() {
             }
         }
         setMessage(`Lançamento ${isEditing ? 'atualizado' : 'criado'} com sucesso!`);
-        fetchLancamentos(); fetchAllLancamentosForKpi(); fetchAndCalculateKpis(); return true;
+        fetchLancamentos(); fetchAllLancamentosForKpi(); return true;
     };
     
     const handleDeleteLancamento = async (id) => {
@@ -201,23 +254,7 @@ export default function FinanceiroPage() {
     
     const handleOpenAddModal = () => { setEditingLancamento(null); setIsFormModalOpen(true); };
     const handleOpenEditModal = (lancamento) => { setEditingLancamento(lancamento); setIsFormModalOpen(true); };
-
     const TabButton = ({ tabName, label }) => ( <button onClick={() => setActiveTab(tabName)} className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm uppercase ${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}> {label} </button> );
-
-    const formatKpiValue = (kpi) => {
-        const { valor, formato_exibicao } = kpi;
-        if (typeof valor !== 'number') return valor;
-    
-        switch (formato_exibicao) {
-            case 'moeda':
-                return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
-            case 'porcentagem':
-                return `${valor.toFixed(2)}%`;
-            default:
-                return valor.toLocaleString('pt-BR');
-        }
-    };
-
 
     return (
         <div className="space-y-6">
@@ -227,31 +264,33 @@ export default function FinanceiroPage() {
                 {activeTab === 'lancamentos' && (
                     <div className="flex items-center gap-2">
                          <Link href="/financeiro/auditoria" title="Painel de Auditoria" className="text-gray-400 hover:text-orange-500"><FontAwesomeIcon icon={faShieldAlt} /></Link>
-                         <Link href="/financeiro/kpi-builder" title="Construtor de KPIs" className="bg-teal-500 text-white px-4 py-2 rounded-md hover:bg-teal-600 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faProjectDiagram} /> KPIs</Link>
                          <Link href="/financeiro/transferencias" className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 flex items-center gap-2 uppercase">Identificar Transferências</Link>
+                         <Link href="/financeiro/kpi-builder" className="bg-cyan-500 text-white px-4 py-2 rounded-md hover:bg-cyan-600 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faCalculator} /> KPIs</Link>
                          <Link href="/configuracoes/financeiro/importar" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faCogs} /> Assistente</Link>
                          <button onClick={handleOpenAddModal} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faPlus} /> Novo Lançamento</button>
                     </div>
                 )}
             </div>
 
-            {activeTab === 'lancamentos' && kpis.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    {loadingKpis ? (
-                        <p>Calculando KPIs...</p>
-                    ) : (
-                        kpiResults.map(kpi => (
-                            <KpiCard
-                                key={kpi.id}
-                                title={kpi.nome_kpi}
-                                value={formatKpiValue(kpi)}
-                                icon={faChartPie}
-                                color="purple"
-                            />
-                        ))
-                    )}
-                </div>
-            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {loadingKpis ? (
+                    <div className="col-span-full text-center p-4"><FontAwesomeIcon icon={faSpinner} spin /> Carregando KPIs...</div>
+                ) : dashboardKpis.length > 0 ? (
+                    dashboardKpis.map(kpi => (
+                        <KpiCard
+                            key={kpi.id}
+                            title={kpi.nome_kpi}
+                            value={kpi.error ? 'Erro!' : formatKpiValue(kpi.value, kpi.formato_exibicao)}
+                            icon={kpi.icon}
+                            color={kpi.color}
+                        />
+                    ))
+                ) : (
+                    <div className="col-span-full bg-gray-50 p-4 rounded-lg text-center text-sm text-gray-500">
+                        Selecione um empreendimento no cabeçalho para ver os KPIs.
+                    </div>
+                )}
+            </div>
 
             <div className="border-b border-gray-200 bg-white shadow-sm rounded-t-lg">
                 <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">

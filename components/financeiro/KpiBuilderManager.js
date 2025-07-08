@@ -3,15 +3,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faChartLine, faCalculator, faPlus, faTrash, faPen } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faChartLine, faCalculator, faPlus, faTrash, faPen, faSyncAlt } from '@fortawesome/free-solid-svg-icons';
 
-// ----- INÍCIO DO COMPONENTE FINALIZADO: O MODAL REAL PARA CRIAR KPIs -----
+// --- COMPONENTE DO MODAL (sem alterações) ---
 const KpiFormModal = ({ isOpen, onClose, onSave, indicesDisponiveis }) => {
     const getInitialState = () => ({
         nome_kpi: '',
         descricao: '',
         formula: '',
-        formato_exibicao: 'numero' // 'numero', 'moeda', 'porcentagem'
+        formato_exibicao: 'numero'
     });
 
     const [kpiData, setKpiData] = useState(getInitialState());
@@ -98,9 +98,9 @@ const KpiFormModal = ({ isOpen, onClose, onSave, indicesDisponiveis }) => {
         </div>
     );
 };
-// ----- FIM DO COMPONENTE DO MODAL -----
 
 
+// --- COMPONENTE PRINCIPAL (com as correções) ---
 export default function KpiBuilderManager() {
     const supabase = createClient();
     const [activeTab, setActiveTab] = useState('indices');
@@ -112,27 +112,61 @@ export default function KpiBuilderManager() {
     const [kpis, setKpis] = useState([]);
 
     const [isKpiModalOpen, setIsKpiModalOpen] = useState(false);
+    const [kpiResults, setKpiResults] = useState({}); // NOVO: Armazena os resultados dos KPIs
+    const [isCalculating, setIsCalculating] = useState(false); // NOVO: Controla o estado de cálculo
 
+    const fetchData = useCallback(async (recalculate = false) => {
+        if (!recalculate) setLoading(true);
+        else setIsCalculating(true);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        // 1. Busca os filtros que o usuário já salvou na tela de Lançamentos
         const loadedFilters = JSON.parse(localStorage.getItem('savedFinancialFilters') || '[]');
         setSavedFilters(loadedFilters);
 
-        // 2. Busca os índices e KPIs que já foram criados no banco de dados
         const { data: indicesData } = await supabase.from('indices_financeiros').select('*');
         setIndices(indicesData || []);
         
         const { data: kpisData } = await supabase.from('kpis_financeiros').select('*');
         setKpis(kpisData || []);
 
-        setLoading(false);
+        // NOVO: Dispara o cálculo dos KPIs
+        if (kpisData && kpisData.length > 0) {
+            const results = {};
+            for (const kpi of kpisData) {
+                const { data, error } = await supabase.rpc('calcular_kpi', { p_kpi_id: kpi.id });
+                if (error) {
+                    console.error(`Erro ao calcular KPI "${kpi.nome_kpi}":`, error);
+                    results[kpi.id] = { error: error.message };
+                } else {
+                    results[kpi.id] = { value: data };
+                }
+            }
+            setKpiResults(results);
+        }
+        
+        if (!recalculate) setLoading(false);
+        else setIsCalculating(false);
+
     }, [supabase]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    const formatKpiValue = (value, format) => {
+        if (value === null || value === undefined) return 'N/A';
+        try {
+            if (format === 'moeda') {
+                return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+            }
+            if (format === 'porcentagem') {
+                return `${(value * 100).toFixed(2)}%`;
+            }
+            return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(value);
+        } catch (e) {
+            return 'Erro de Formato';
+        }
+    };
+
 
     const handleCreateIndice = async (filtro) => {
         const nomeIndice = prompt(`Dê um nome para este índice (use apenas letras e underscores, ex: CUSTO_OBRA_X):\nFiltro: ${filtro.name}`);
@@ -140,19 +174,13 @@ export default function KpiBuilderManager() {
             alert("Nome inválido. Use apenas letras e underscores (sem espaços ou números).");
             return;
         }
-
         const { error } = await supabase.from('indices_financeiros').insert({
             nome_indice: nomeIndice.toUpperCase(),
             descricao: filtro.name,
             configuracao_filtro: filtro.settings
         });
-
-        if (error) {
-            setMessage(`Erro: ${error.message}`);
-        } else {
-            setMessage("Índice criado com sucesso!");
-            fetchData();
-        }
+        if (error) setMessage(`Erro: ${error.message}`);
+        else { setMessage("Índice criado com sucesso!"); fetchData(); }
     };
     
     const handleDeleteIndice = async (id) => {
@@ -163,12 +191,8 @@ export default function KpiBuilderManager() {
     
     const handleSaveKpi = async (kpiData) => {
         const { error } = await supabase.from('kpis_financeiros').insert(kpiData);
-        if (error) {
-            setMessage(`Erro ao criar KPI: ${error.message}`);
-        } else {
-            setMessage("KPI criado com sucesso!");
-            fetchData();
-        }
+        if (error) setMessage(`Erro ao criar KPI: ${error.message}`);
+        else { setMessage("KPI criado com sucesso!"); fetchData(true); }
     };
 
     const handleDeleteKpi = async (id) => {
@@ -177,11 +201,9 @@ export default function KpiBuilderManager() {
         fetchData();
     }
 
-
     const TabButton = ({ tabName, label, icon }) => (
         <button onClick={() => setActiveTab(tabName)} className={`flex items-center gap-2 py-3 px-4 font-medium text-sm border-b-2 ${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-            <FontAwesomeIcon icon={icon} />
-            {label}
+            <FontAwesomeIcon icon={icon} /> {label}
         </button>
     );
 
@@ -192,78 +214,64 @@ export default function KpiBuilderManager() {
             <h1 className="text-2xl font-bold text-gray-800">Construtor de Indicadores</h1>
             <p className="text-sm text-gray-600">Transforme filtros em índices e crie KPIs com fórmulas personalizadas.</p>
             {message && <div className="p-3 bg-blue-50 text-blue-800 rounded-md text-sm">{message}</div>}
-
-            <div className="border-b">
-                <nav className="flex gap-4">
-                    <TabButton tabName="indices" label="1. Gerenciar Índices" icon={faChartLine} />
-                    <TabButton tabName="kpis" label="2. Gerenciar KPIs" icon={faCalculator} />
-                </nav>
-            </div>
-
+            <div className="border-b"><nav className="flex gap-4"><TabButton tabName="indices" label="1. Gerenciar Índices" icon={faChartLine} /><TabButton tabName="kpis" label="2. Gerenciar KPIs" icon={faCalculator} /></nav></div>
             {activeTab === 'indices' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
                         <h3 className="font-semibold mb-2">Filtros Salvos</h3>
                         <p className="text-xs text-gray-500 mb-4">Estes são os filtros que você salvou na tela de lançamentos. Clique em "+" para transformá-los em um índice.</p>
                         <div className="space-y-2 max-h-96 overflow-y-auto p-2 border rounded-md">
-                            {savedFilters.length === 0 && <p className="text-sm text-gray-500 text-center p-4">Nenhum filtro salvo encontrado.</p>}
-                            {savedFilters.map(filtro => (
-                                <div key={filtro.name} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                                    <span>{filtro.name}</span>
-                                    <button onClick={() => handleCreateIndice(filtro)} title="Criar índice a partir deste filtro" className="bg-green-500 text-white w-6 h-6 rounded flex items-center justify-center hover:bg-green-600">
-                                        <FontAwesomeIcon icon={faPlus} />
-                                    </button>
-                                </div>
-                            ))}
+                            {savedFilters.length === 0 ? <p className="text-sm text-gray-500 text-center p-4">Nenhum filtro salvo encontrado.</p> :
+                            savedFilters.map(filtro => (<div key={filtro.name} className="flex justify-between items-center p-2 bg-gray-50 rounded"><span>{filtro.name}</span><button onClick={() => handleCreateIndice(filtro)} title="Criar índice a partir deste filtro" className="bg-green-500 text-white w-6 h-6 rounded flex items-center justify-center hover:bg-green-600"><FontAwesomeIcon icon={faPlus} /></button></div>))}
                         </div>
                     </div>
                     <div>
                         <h3 className="font-semibold mb-2">Índices Criados</h3>
                         <p className="text-xs text-gray-500 mb-4">Estes são os índices disponíveis para usar nas fórmulas dos KPIs.</p>
-                         <div className="space-y-2 max-h-96 overflow-y-auto p-2 border rounded-md">
-                            {indices.length === 0 && <p className="text-sm text-gray-500 text-center p-4">Nenhum índice criado.</p>}
-                            {indices.map(indice => (
-                                <div key={indice.id} className="flex justify-between items-center p-2 bg-blue-50 rounded">
-                                    <div>
-                                        <p className="font-mono font-bold text-blue-800">{indice.nome_indice}</p>
-                                        <p className="text-xs text-gray-600">Origem: {indice.descricao}</p>
-                                    </div>
-                                    <button onClick={() => handleDeleteIndice(indice.id)} title="Excluir índice" className="text-red-500 hover:text-red-700">
-                                        <FontAwesomeIcon icon={faTrash} />
-                                    </button>
-                                </div>
-                            ))}
+                        <div className="space-y-2 max-h-96 overflow-y-auto p-2 border rounded-md">
+                            {indices.length === 0 ? <p className="text-sm text-gray-500 text-center p-4">Nenhum índice criado.</p> :
+                            indices.map(indice => (<div key={indice.id} className="flex justify-between items-center p-2 bg-blue-50 rounded"><div><p className="font-mono font-bold text-blue-800">{indice.nome_indice}</p><p className="text-xs text-gray-600">Origem: {indice.descricao}</p></div><button onClick={() => handleDeleteIndice(indice.id)} title="Excluir índice" className="text-red-500 hover:text-red-700"><FontAwesomeIcon icon={faTrash} /></button></div>))}
                         </div>
                     </div>
                 </div>
             )}
-
             {activeTab === 'kpis' && (
                 <div>
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-semibold">KPIs Personalizados</h3>
-                        <button onClick={() => setIsKpiModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2"><FontAwesomeIcon icon={faPlus}/> Novo KPI</button>
+                        <div className="flex items-center gap-4">
+                            <button onClick={() => fetchData(true)} disabled={isCalculating} className="text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-wait" title="Recalcular KPIs"><FontAwesomeIcon icon={faSyncAlt} spin={isCalculating} /></button>
+                            <button onClick={() => setIsKpiModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2"><FontAwesomeIcon icon={faPlus}/> Novo KPI</button>
+                        </div>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {kpis.length === 0 ? (
-                           <p className="p-4 border rounded-md text-center text-gray-500">Nenhum KPI criado ainda.</p>
+                            <p className="p-4 border rounded-md text-center text-gray-500">Nenhum KPI criado ainda.</p>
                         ) : (
                             kpis.map(kpi => (
-                                <div key={kpi.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
-                                    <div>
-                                        <p className="font-semibold">{kpi.nome_kpi}</p>
-                                        <p className="text-xs font-mono bg-gray-200 p-1 rounded inline-block">{kpi.formula}</p>
-                                    </div>
-                                    <div>
-                                        <button onClick={() => handleDeleteKpi(kpi.id)} className="text-red-500 hover:text-red-700 ml-4">
-                                            <FontAwesomeIcon icon={faTrash} />
-                                        </button>
+                                <div key={kpi.id} className="p-4 bg-white border rounded-lg shadow-sm">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="font-bold text-lg text-gray-800">{kpi.nome_kpi}</p>
+                                            <p className="text-xs text-gray-500">{kpi.descricao}</p>
+                                            <p className="text-sm font-mono bg-gray-100 p-1 rounded inline-block mt-2">{kpi.formula}</p>
+                                        </div>
+                                        <div className="text-right flex-shrink-0 ml-4">
+                                            {kpiResults[kpi.id]?.error ? (
+                                                <span className="font-bold text-xl text-red-500" title={kpiResults[kpi.id].error}>Erro!</span>
+                                            ) : (
+                                                <span className="font-bold text-2xl text-blue-700">
+                                                    {isCalculating ? <FontAwesomeIcon icon={faSpinner} spin /> : formatKpiValue(kpiResults[kpi.id]?.value, kpi.formato_exibicao)}
+                                                </span>
+                                            )}
+                                            <button onClick={() => handleDeleteKpi(kpi.id)} className="text-gray-400 hover:text-red-500 text-xs ml-2"><FontAwesomeIcon icon={faTrash} /></button>
+                                        </div>
                                     </div>
                                 </div>
                             ))
                         )}
                     </div>
-                     <KpiFormModal isOpen={isKpiModalOpen} onClose={() => setIsKpiModalOpen(false)} onSave={handleSaveKpi} indicesDisponiveis={indices} />
+                    <KpiFormModal isOpen={isKpiModalOpen} onClose={() => setIsKpiModalOpen(false)} onSave={handleSaveKpi} indicesDisponiveis={indices} />
                 </div>
             )}
         </div>
