@@ -1,3 +1,5 @@
+// components/financeiro/LancamentosManager.js
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -5,12 +7,50 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faSpinner, faFilter, faTimes, faPenToSquare, faTrash, faSort, faSortUp, faSortDown, faLayerGroup, faSave, faStar as faStarSolid, faEllipsisV,
     faChevronUp, faChevronDown, faArrowUp, faArrowDown, faBalanceScale, faCalendarDay, faCalendarWeek, faCalendarAlt, faSyncAlt,
-    faChevronLeft, faChevronRight
+    faChevronLeft, faChevronRight,
+    faRobot // Ícone para a IA
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import KpiCard from '../KpiCard';
+
+// --- INÍCIO DO NOVO COMPONENTE: MODAL DE ANÁLISE DA IA ---
+const AnalysisModal = ({ isOpen, onClose, analysisText, isLoading }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                        <FontAwesomeIcon icon={faRobot} />
+                        Análise Financeira do Gemini
+                    </h3>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                </div>
+                <div className="max-h-[60vh] overflow-y-auto p-4 bg-gray-50 rounded-md border">
+                    {isLoading ? (
+                        <div className="text-center">
+                            <FontAwesomeIcon icon={faSpinner} spin size="2x" />
+                            <p className="mt-2">Analisando dados...</p>
+                        </div>
+                    ) : (
+                        // Usamos 'whitespace-pre-wrap' para respeitar as quebras de linha e espaços da IA
+                        <div className="prose prose-sm max-w-none whitespace-pre-wrap">
+                           {analysisText}
+                        </div>
+                    )}
+                </div>
+                <div className="flex justify-end pt-4 mt-4 border-t">
+                    <button onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Fechar</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+// --- FIM DO NOVO COMPONENTE ---
+
 
 const SortableHeader = ({ label, sortKey, sortConfig, requestSort, className = '' }) => {
     const getIcon = () => { if (sortConfig.key !== sortKey) return faSort; return sortConfig.direction === 'ascending' ? faSortUp : faSortDown; };
@@ -46,6 +86,13 @@ export default function LancamentosManager({
     const [etapas, setEtapas] = useState([]);
     const [itemsPerPageInput, setItemsPerPageInput] = useState(itemsPerPage);
 
+    // --- INÍCIO DAS NOVAS VARIÁVEIS DE ESTADO PARA A IA ---
+    const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
+    const [analysisResult, setAnalysisResult] = useState('');
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    // --- FIM DAS NOVAS VARIÁVEIS ---
+
+
     const kpiData = useMemo(() => {
         let totalReceitas = 0; let totalDespesas = 0;
         (allLancamentosKpi || []).forEach(l => {
@@ -56,6 +103,36 @@ export default function LancamentosManager({
         const resultado = totalReceitas - totalDespesas;
         return { totalReceitas, totalDespesas, resultado };
     }, [allLancamentosKpi]);
+
+    // --- INÍCIO DA NOVA FUNÇÃO PARA CHAMAR A IA ---
+    const handleAnalyzeClick = async () => {
+        setIsAnalysisModalOpen(true);
+        setIsAnalyzing(true);
+        setAnalysisResult('');
+
+        try {
+            const response = await fetch('/api/gemini/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lancamentos: lancamentos }), // Envia os lançamentos atuais (já filtrados)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Erro desconhecido na API.');
+            }
+
+            const data = await response.json();
+            setAnalysisResult(data.analysis);
+
+        } catch (error) {
+            setAnalysisResult(`Erro ao gerar análise: ${error.message}`);
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+    // --- FIM DA NOVA FUNÇÃO ---
+
 
     const handleItemsPerPageChange = () => {
         let value = Number(itemsPerPageInput);
@@ -145,6 +222,14 @@ export default function LancamentosManager({
 
     return (
         <div className="space-y-4">
+            {/* O modal da IA será renderizado aqui */}
+            <AnalysisModal
+                isOpen={isAnalysisModalOpen}
+                onClose={() => setIsAnalysisModalOpen(false)}
+                analysisText={analysisResult}
+                isLoading={isAnalyzing}
+            />
+
             <BatchUpdateModal isOpen={isBatchUpdateModalOpen} onClose={() => setIsBatchUpdateModalOpen(false)} onConfirm={handleBatchUpdateField} fields={batchUpdateFields} allData={allDataForBatchModal} />
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                 <div className="flex justify-between items-center">
@@ -172,6 +257,11 @@ export default function LancamentosManager({
             <div className="flex justify-between items-center bg-white p-4 border rounded-lg shadow-sm">
                 <span className="text-sm text-gray-700"> Mostrando <strong>{lancamentos.length}</strong> de <strong>{totalCount}</strong> lançamentos </span>
                 <div className="flex items-center gap-2">
+                    {/* Botão da IA adicionado aqui */}
+                    <button onClick={handleAnalyzeClick} disabled={loading || isAnalyzing} className="bg-purple-600 text-white px-4 py-2 rounded-md flex items-center gap-2 text-sm disabled:bg-gray-400">
+                        <FontAwesomeIcon icon={isAnalyzing ? faSpinner : faRobot} spin={isAnalyzing} />
+                        Analisar com IA
+                    </button>
                     <label htmlFor="items-per-page" className="text-sm font-medium">Itens por página:</label>
                     <input type="number" id="items-per-page" value={itemsPerPageInput} onChange={(e) => setItemsPerPageInput(e.target.value)} onBlur={handleItemsPerPageChange} onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }} min="1" max="999" className="w-20 p-2 border rounded-md text-center" />
                     <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || loading} className="p-2 border rounded-md disabled:opacity-50"> <FontAwesomeIcon icon={faChevronLeft} /> </button>
