@@ -5,19 +5,26 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
   faClipboardList, faCog, faChevronLeft, faChevronRight, faClock,
-  faAddressBook, faDollarSign, faShoppingCart, faUserCog
+  faAddressBook, faDollarSign, faShoppingCart, faUserCog,
+  faWhatsapp // Ícone do WhatsApp importado
+} from '@fortawesome/free-brands-svg-icons'; // Importado da biblioteca de marcas
+import {
+  faHome
 } from '@fortawesome/free-solid-svg-icons';
+
 
 export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
   const mainNavItems = [
     { href: '/', label: 'Dashboard', icon: faTachometerAlt },
+    // **** INÍCIO DA NOVIDADE ****
+    { href: '/whatsapp', label: 'WhatsApp Chat', icon: faWhatsapp },
+    // **** FIM DA NOVIDADE ****
     { href: '/perfil', label: 'Meu Perfil', icon: faUserCog },
     { href: '/atividades', label: 'Painel de Atividades', icon: faTasks },
     { href: '/contatos', label: 'Contatos', icon: faAddressBook },
     { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart },
     { href: '/orcamento', label: 'Planilha Orçamentária', icon: faDollarSign },
     { href: '/empresas', label: 'Empresas', icon: faBuilding },
-    // A LINHA ABAIXO É A NOVIDADE
     { href: '/empreendimentos', label: 'Gerenciar Empreendimentos', icon: faProjectDiagram },
     { href: '/funcionarios', label: 'Funcionários', icon: faUsers },
     { href: '/rdo/gerenciador', label: 'Diário de Obra (RDO)', icon: faClipboardList },

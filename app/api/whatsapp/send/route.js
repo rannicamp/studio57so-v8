@@ -14,7 +14,8 @@ export async function POST(request) {
         return NextResponse.json({ error: 'As credenciais do WhatsApp não estão configuradas no servidor.' }, { status: 500 });
     }
 
-    const url = `https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
+    // A versão da API foi atualizada para v20.0, mais recente.
+    const url = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
     const payload = {
         messaging_product: 'whatsapp',

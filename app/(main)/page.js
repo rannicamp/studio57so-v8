@@ -13,9 +13,9 @@ export default function HomePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: '5533991912291',
-          templateName: 'hello_world',      // <<< VERIFIQUE SE O NOME ESTÁ EXATO
-          languageCode: 'pt_BR',            // <<< VERIFIQUE SE O IDIOMA ESTÁ CORRETO (pt_BR ou en_US)
+          to: '5533991912291', // Seu número de teste
+          templateName: 'hello_world',      // Nome exato do modelo
+          languageCode: 'en_US',            // <<< CORRIGIDO: Alterado para 'en_US' para corresponder ao seu teste
         }),
       });
 
