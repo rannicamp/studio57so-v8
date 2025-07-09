@@ -6,19 +6,19 @@ import {
   faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
   faClipboardList, faCog, faChevronLeft, faChevronRight, faClock,
   faAddressBook, faDollarSign, faShoppingCart, faUserCog,
-  faWhatsapp // Ícone do WhatsApp importado
-} from '@fortawesome/free-brands-svg-icons'; // Importado da biblioteca de marcas
+  faWhatsapp
+} from '@fortawesome/free-brands-svg-icons';
 import {
-  faHome
+  faHome,
+  faSitemap,
+  faBug // Novo ícone importado
 } from '@fortawesome/free-solid-svg-icons';
 
 
 export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
   const mainNavItems = [
     { href: '/', label: 'Dashboard', icon: faTachometerAlt },
-    // **** INÍCIO DA NOVIDADE ****
     { href: '/whatsapp', label: 'WhatsApp Chat', icon: faWhatsapp },
-    // **** FIM DA NOVIDADE ****
     { href: '/perfil', label: 'Meu Perfil', icon: faUserCog },
     { href: '/atividades', label: 'Painel de Atividades', icon: faTasks },
     { href: '/contatos', label: 'Contatos', icon: faAddressBook },
@@ -32,9 +32,12 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
     { href: '/financeiro', label: 'Gestão Financeira', icon: faDollarSign }
   ];
 
-  const bottomNavItems = isAdmin ? [
-    { href: '/configuracoes', label: 'Configurações', icon: faCog },
-  ] : [];
+  const bottomNavItems = [
+    // NOVO ITEM DE MENU ADICIONADO AQUI
+    { href: '/feedback', label: 'Reportar Problema', icon: faBug },
+    isAdmin && { href: '/configuracoes/integracoes', label: 'Integrações', icon: faSitemap },
+    isAdmin && { href: '/configuracoes', label: 'Configurações', icon: faCog },
+  ].filter(Boolean); // Filtra itens falsos (caso isAdmin seja false)
 
   const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE";
   const logoIconUrl = "/favicon.ico";

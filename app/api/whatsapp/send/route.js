@@ -1,34 +1,56 @@
 import { NextResponse } from 'next/server';
 
 export async function POST(request) {
-    const { to, templateName, languageCode = 'pt_BR', components } = await request.json();
+    const body = await request.json();
+    const { to, type, templateName, languageCode, components, text } = body;
 
     const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
     const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
-    if (!to || !templateName) {
-        return NextResponse.json({ error: 'O número de destino (to) e o nome do modelo (templateName) são obrigatórios.' }, { status: 400 });
+    if (!to || !type) {
+        return NextResponse.json({ error: 'O número de destino (to) e o tipo (type) são obrigatórios.' }, { status: 400 });
     }
 
     if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_NUMBER_ID) {
         return NextResponse.json({ error: 'As credenciais do WhatsApp não estão configuradas no servidor.' }, { status: 500 });
     }
 
-    // A versão da API foi atualizada para v20.0, mais recente.
     const url = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
+    let payload = {};
 
-    const payload = {
-        messaging_product: 'whatsapp',
-        to: to,
-        type: 'template',
-        template: {
-            name: templateName,
-            language: {
-                code: languageCode
-            },
-            components: components
+    // LÓGICA ATUALIZADA: Monta o payload baseado no tipo de mensagem
+    if (type === 'template') {
+        if (!templateName) {
+            return NextResponse.json({ error: 'O nome do modelo (templateName) é obrigatório para mensagens do tipo template.' }, { status: 400 });
         }
-    };
+        payload = {
+            messaging_product: 'whatsapp',
+            to: to,
+            type: 'template',
+            template: {
+                name: templateName,
+                language: {
+                    code: languageCode || 'pt_BR'
+                },
+                components: components
+            }
+        };
+    } else if (type === 'text') {
+        if (!text) {
+             return NextResponse.json({ error: 'O conteúdo do texto (text) é obrigatório para mensagens do tipo texto.' }, { status: 400 });
+        }
+        payload = {
+            messaging_product: 'whatsapp',
+            to: to,
+            type: 'text',
+            text: {
+                preview_url: true, // Permite que links na mensagem gerem uma pré-visualização
+                body: text
+            }
+        };
+    } else {
+         return NextResponse.json({ error: 'Tipo de mensagem inválido. Use "template" ou "text".' }, { status: 400 });
+    }
 
     try {
         const apiResponse = await fetch(url, {

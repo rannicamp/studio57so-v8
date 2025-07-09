@@ -9,13 +9,18 @@ export default function HomePage() {
   const handleSendMessage = async () => {
     setMessage('Enviando mensagem de teste...');
     try {
+      // Note que a API que chamamos não muda.
       const response = await fetch('/api/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: '5533991912291', // Seu número de teste
-          templateName: 'hello_world',      // Nome exato do modelo
-          languageCode: 'en_US',            // <<< CORRIGIDO: Alterado para 'en_US' para corresponder ao seu teste
+          to: '5533991912291', // Seu número pessoal para receber o teste
+          type: 'template',   // Continuamos dizendo que é um template
+          
+          // ***** CORREÇÃO APLICADA AQUI *****
+          templateName: 'teste_2', // Nome exato do SEU novo modelo aprovado
+          languageCode: 'en',      // Idioma do modelo que você criou (English)
+        
         }),
       });
 

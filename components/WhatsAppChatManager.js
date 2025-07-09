@@ -4,10 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperPlane, faSpinner, faUserCircle } from '@fortawesome/free-solid-svg-icons';
-// A CORREÇÃO ESTÁ AQUI: Usando o caminho relativo correto.
-import { sendWhatsAppTemplate } from '../utils/whatsapp';
+// A CORREÇÃO ESTÁ AQUI: Importando a função correta do nosso novo utilitário
+import { sendWhatsAppText } from '../utils/whatsapp';
 
-// Componente para exibir uma única mensagem na conversa
+// Componente para exibir uma única mensagem na conversa (sem alterações)
 const MessageBubble = ({ message }) => {
     const isSentByUser = message.direction === 'outbound';
     const bubbleClasses = isSentByUser
@@ -31,6 +31,10 @@ export default function WhatsAppChatManager({ contatos }) {
     const [loadingMessages, setLoadingMessages] = useState(false);
     const chatEndRef = useRef(null);
 
+    // NOVO: Estado para guardar a mensagem que o usuário está digitando
+    const [newMessage, setNewMessage] = useState('');
+    const [isSending, setIsSending] = useState(false);
+
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
@@ -39,6 +43,7 @@ export default function WhatsAppChatManager({ contatos }) {
         setSelectedContact(contact);
         setLoadingMessages(true);
         setMessages([]);
+        setNewMessage(''); // Limpa a caixa de texto ao trocar de contato
 
         const { data, error } = await supabase
             .from('whatsapp_messages')
@@ -54,20 +59,23 @@ export default function WhatsAppChatManager({ contatos }) {
         setLoadingMessages(false);
     };
 
+    // FUNÇÃO ATUALIZADA: Agora envia o texto digitado
     const handleSendMessage = async () => {
-        if (!selectedContact) return;
+        if (!selectedContact || !newMessage.trim()) return;
 
-        const result = await sendWhatsAppTemplate(
-            selectedContact.telefones[0].telefone,
-            'hello_world',
-            'en_US'
-        );
+        setIsSending(true);
+        
+        const phoneNumber = selectedContact.telefones[0].telefone;
 
-        if(result.success) {
-            alert('Mensagem enviada!');
+        const result = await sendWhatsAppText(phoneNumber, newMessage);
+
+        if (result.success) {
+            setNewMessage(''); // Limpa a caixa de texto após o envio
+            // Idealmente, recarregaríamos as mensagens aqui para ver a nova mensagem enviada
         } else {
             alert('Falha ao enviar mensagem: ' + result.error);
         }
+        setIsSending(false);
     };
 
     return (
@@ -108,14 +116,22 @@ export default function WhatsAppChatManager({ contatos }) {
                             )}
                             <div ref={chatEndRef} />
                         </div>
+                        {/* ÁREA DE DIGITAÇÃO ATUALIZADA */}
                         <div className="p-4 border-t flex items-center gap-3 bg-white">
-                           <p className="text-xs text-gray-500 flex-1">Ações rápidas:</p>
+                           <input 
+                                type="text"
+                                value={newMessage}
+                                onChange={(e) => setNewMessage(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
+                                placeholder="Digite uma mensagem..."
+                                className="flex-1 p-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           />
                             <button
                                 onClick={handleSendMessage}
-                                className="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                                disabled={isSending || !newMessage.trim()}
+                                className="bg-blue-500 text-white w-10 h-10 rounded-full flex items-center justify-center disabled:bg-gray-400"
                             >
-                                <FontAwesomeIcon icon={faPaperPlane} />
-                                Enviar Template "Hello World"
+                                {isSending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperPlane} />}
                             </button>
                         </div>
                     </>
