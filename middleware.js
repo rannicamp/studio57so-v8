@@ -40,24 +40,23 @@ export async function middleware(request) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // CORREÇÃO: Adicionado a verificação para a página de registro
-  // Se não há usuário E a página não é /login E a página não é /register
   if (!user && request.nextUrl.pathname !== '/login' && request.nextUrl.pathname !== '/register') {
-    // Redireciona para a página de login
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
   return response
 }
 
+// A CORREÇÃO ESTÁ AQUI
 export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
+     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 }

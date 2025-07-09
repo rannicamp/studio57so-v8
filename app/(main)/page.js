@@ -1,33 +1,56 @@
+"use client";
+
 import Link from 'next/link';
-// CAMINHO CORRIGIDO DE ../ PARA ../../
-import { createClient } from '../../utils/supabase/server'; 
-import LogoutButton from '../../components/LogoutButton';
+import { useState } from 'react';
 
-export default async function HomePage() {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: lembretes } = await supabase.from('lembretes').select('*');
+export default function HomePage() {
+  const [message, setMessage] = useState('');
 
-  // Este componente não precisa mais mostrar o usuário, pois o Header já faz isso.
-  // Mantendo o layout limpo e focado no conteúdo.
+  const handleSendMessage = async () => {
+    setMessage('Enviando mensagem de teste...');
+    try {
+      const response = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: '5533991912291',
+          templateName: 'hello_world',      // <<< VERIFIQUE SE O NOME ESTÁ EXATO
+          languageCode: 'pt_BR',            // <<< VERIFIQUE SE O IDIOMA ESTÁ CORRETO (pt_BR ou en_US)
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro desconhecido');
+      }
+
+      setMessage('Mensagem enviada com sucesso! Verifique seu WhatsApp.');
+    } catch (error) {
+      setMessage(`Erro ao enviar: ${error.message}`);
+    }
+  };
+
   return (
     <main className="text-center space-y-6">
       <h1 className="text-3xl font-bold text-gray-900">Dashboard Principal</h1>
       
       <div className="bg-white p-6 rounded-lg shadow-md max-w-sm mx-auto">
-        <h2 className="text-xl font-semibold mb-3 text-gray-800">Lembretes</h2>
-        {lembretes && lembretes.length > 0 ? (
-          <ul className="list-disc list-inside text-left">
-            {lembretes.map((lembrete) => (<li key={lembrete.id} className="text-gray-700">{lembrete.titulo}</li>))}
-          </ul>
-        ) : (<p className="text-gray-500">Nenhum lembrete encontrado.</p>)}
+        <h2 className="text-xl font-semibold mb-3 text-gray-800">Teste de Integração - WhatsApp</h2>
+        <button 
+          onClick={handleSendMessage}
+          className="bg-green-500 text-white px-6 py-2 rounded-md shadow-sm hover:bg-green-600 w-full"
+        >
+          Enviar Mensagem de Teste
+        </button>
+        {message && <p className="text-sm mt-4">{message}</p>}
       </div>
 
       <div className="space-x-4">
-        <Link href="/(main)/empresas/cadastro" className="inline-block bg-green-500 text-white px-6 py-2 rounded-md shadow-sm hover:bg-green-600">
+        <Link href="/empresas/cadastro" className="inline-block bg-blue-500 text-white px-6 py-2 rounded-md shadow-sm hover:bg-blue-600">
           Cadastrar Nova Empresa
         </Link>
-        <Link href="/(main)/upload" className="inline-block bg-cyan-500 text-white px-6 py-2 rounded-md shadow-sm hover:bg-cyan-600">
+        <Link href="/upload" className="inline-block bg-cyan-500 text-white px-6 py-2 rounded-md shadow-sm hover:bg-cyan-600">
           Upload de Marca
         </Link>
       </div>
