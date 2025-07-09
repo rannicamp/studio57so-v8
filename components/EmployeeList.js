@@ -12,7 +12,7 @@ const ProgressCircle = ({ score }) => {
     const circumference = 2 * Math.PI * 18;
     const offset = circumference - (percentage / 100) * circumference;
     let colorClass = 'text-red-500';
-    if (percentage >= 80) colorClass = 'text-green-500';
+    if (percentage >= 85) colorClass = 'text-green-500';
     else if (percentage >= 50) colorClass = 'text-yellow-500';
     return (
         <div className="relative flex items-center justify-center w-12 h-12" title={`Qualidade do cadastro: ${Math.round(percentage)}%`}>
@@ -25,21 +25,64 @@ const ProgressCircle = ({ score }) => {
     );
 };
 
-const requiredDocuments = ['Identidade com Foto', 'CTPS', 'Comprovante de Residência', 'ASO'];
+// ***** INÍCIO DA LÓGICA CORRIGIDA *****
 
+// 1. Lista de documentos obrigatórios atualizada e com nomes mais simples para verificação.
+const identityDocsKeywords = ['identidade', 'rg', 'cnh'];
+const otherRequiredDocsKeywords = ['ctps', 'residencia', 'aso', 'contrato', 'uniforme', 'epi', 'vt', 'vale transporte'];
+
+// 2. A função de cálculo foi reescrita para ser mais completa e flexível.
 const calculateScore = (employee) => {
     if (!employee) return 0;
+    
     let score = 0;
     const weights = {
-        fields: { full_name: 10, cpf: 10, empresa_id: 5, contract_role: 5, admission_date: 5, phone: 5, email: 5 },
-        documents: 15,
+        fields: {
+            full_name: 10,
+            cpf: 10,
+            empresa_id: 5,
+            contract_role: 5,
+            admission_date: 5,
+            phone: 5,
+            email: 3,
+            birth_date: 3,
+            cep: 2,
+            address_street: 2,
+        },
+        document: 10, // Peso individual para cada tipo de documento
     };
-    for (const field in weights.fields) { if (employee[field]) score += weights.fields[field]; }
-    const uploadedDocNames = (employee.documentos_funcionarios || []).map(doc => doc.nome_documento);
-    requiredDocuments.forEach(docType => { if (uploadedDocNames.includes(docType)) score += weights.documents; });
-    const totalPossibleScore = Object.values(weights.fields).reduce((a, b) => a + b, 0) + (requiredDocuments.length * weights.documents);
+
+    // Soma pontos pelos campos preenchidos
+    for (const field in weights.fields) {
+        if (employee[field]) {
+            score += weights.fields[field];
+        }
+    }
+    
+    // Soma pontos pelos documentos enviados
+    const uploadedDocNames = (employee.documentos_funcionarios || []).map(doc => (doc.nome_documento || '').toLowerCase());
+    
+    // Verificação especial para documentos de identidade
+    if (uploadedDocNames.some(uploadedDoc => identityDocsKeywords.some(idKeyword => uploadedDoc.includes(idKeyword)))) {
+        score += weights.document;
+    }
+    
+    // Verificação para os outros documentos
+    otherRequiredDocsKeywords.forEach(docKeyword => {
+        if (uploadedDocNames.some(uploadedDoc => uploadedDoc.includes(docKeyword))) {
+            score += weights.document;
+        }
+    });
+
+    // Calcula o total de pontos possíveis
+    const totalPossibleFieldScore = Object.values(weights.fields).reduce((a, b) => a + b, 0);
+    const totalPossibleDocScore = (otherRequiredDocsKeywords.length + 1) * weights.document; // +1 para o doc de identidade
+    const totalPossibleScore = totalPossibleFieldScore + totalPossibleDocScore;
+
     return (score / totalPossibleScore) * 100;
 };
+// ***** FIM DA LÓGICA CORRIGIDA *****
+
 
 const EmployeeTable = ({ employees, onDismissClick, requestSort, sortConfig }) => {
   const getSortIcon = (key) => {

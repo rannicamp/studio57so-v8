@@ -3,14 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faPlus, faPenToSquare } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faPlus, faPenToSquare, faTimes } from '@fortawesome/free-solid-svg-icons';
 
 // Componente para destacar o texto da busca em amarelo
 const HighlightedText = ({ text = '', highlight = '' }) => {
-    if (!highlight.trim()) {
+    if (!highlight || !text || !highlight.trim()) {
         return <span>{text}</span>;
     }
-    const regex = new RegExp(`(${highlight})`, 'gi');
+    const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
     const parts = text.split(regex);
     return (
         <span>
@@ -53,7 +53,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas, itemT
                 setItem({
                     id: itemToEdit.id, material_id: itemToEdit.material_id, descricao_item: itemToEdit.descricao_item || '', quantidade_solicitada: itemToEdit.quantidade_solicitada || 1, unidade_medida: itemToEdit.unidade_medida || 'unid.', etapa_id: itemToEdit.etapa_id || '', fornecedor_id: itemToEdit.fornecedor_id, fornecedor_nome: initialFornecedorName, preco_unitario_real: itemToEdit.preco_unitario_real || ''
                 });
-                setIsItemSelected(true);
+                setIsItemSelected(!!itemToEdit.material_id || !!itemToEdit.descricao_item);
                 setSearchTerm(itemToEdit.descricao_item || '');
                 setFornecedorSearchTerm(initialFornecedorName);
             } else {
@@ -62,47 +62,50 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas, itemT
                 setFornecedorSearchTerm('');
                 setIsItemSelected(false);
             }
+             setMaterialSearchResults([]);
+             setFornecedorSearchResults([]);
             setMessage('');
         }
     }, [isOpen, isEditing, itemToEdit, getInitialState]);
-
-    // ***** INÍCIO DA ALTERAÇÃO (TESTE) *****
-    // Voltamos para uma busca mais simples, diretamente na tabela, para diagnosticar o problema.
+    
     const handleMaterialSearchChange = async (e) => {
         const value = e.target.value;
         setSearchTerm(value);
-        if (value.length < 2) {
-            setMaterialSearchResults([]);
-            return;
-        }
+        if (value.length < 2) { setMaterialSearchResults([]); return; }
         setIsSearching(prev => ({ ...prev, material: true }));
-        
-        const { data, error } = await supabase
-            .from('materiais')
-            .select('id, descricao, unidade_medida, preco_unitario, categoria:Grupo')
-            .ilike('descricao', `%${value}%`) // Busca simples e direta
-            .limit(10);
-
-        if (error) {
-            console.error("Erro na busca direta de materiais:", error);
-            setMaterialSearchResults([]);
-        } else {
-            setMaterialSearchResults(data || []);
-        }
+        const { data, error } = await supabase.from('materiais').select('id, descricao, unidade_medida, preco_unitario, categoria:Grupo').ilike('descricao', `%${value}%`).limit(10);
+        if (error) console.error("Erro na busca de materiais:", error);
+        setMaterialSearchResults(data || []);
         setIsSearching(prev => ({ ...prev, material: false }));
     };
-    // ***** FIM DA ALTERAÇÃO (TESTE) *****
     
+    // ***** INÍCIO DA ALTERAÇÃO *****
+    // A função de busca de fornecedor foi alterada para buscar diretamente na tabela,
+    // assim como a busca de materiais, garantindo o mesmo comportamento.
     const handleFornecedorSearchChange = async (e) => {
         const value = e.target.value;
         setFornecedorSearchTerm(value);
-        if (value.length < 3) { setFornecedorSearchResults([]); return; }
+        if (value.length < 2) { setFornecedorSearchResults([]); return; }
+        
         setIsSearching(prev => ({ ...prev, fornecedor: true }));
-        const { data, error } = await supabase.rpc('buscar_fornecedores', { search_term: value });
-        if (error) { console.error("Erro na busca de fornecedores:", error); setFornecedorSearchResults([]); }
-        else { setFornecedorSearchResults(data || []); }
+        
+        // Constrói a busca para procurar em múltiplos campos
+        const { data, error } = await supabase
+            .from('contatos')
+            .select('id, nome, razao_social, nome_fantasia')
+            .or(`nome.ilike.%${value}%,razao_social.ilike.%${value}%,nome_fantasia.ilike.%${value}%`)
+            .limit(10);
+
+        if (error) {
+            console.error("Erro na busca de fornecedores:", error);
+            setFornecedorSearchResults([]);
+        } else {
+            setFornecedorSearchResults(data || []);
+        }
+        
         setIsSearching(prev => ({ ...prev, fornecedor: false }));
     };
+    // ***** FIM DA ALTERAÇÃO *****
 
     const handleSelectMaterial = (material) => {
         setItem(prev => ({ ...prev, material_id: material.id, descricao_item: material.descricao, unidade_medida: material.unidade_medida || 'unid.' }));
@@ -110,16 +113,19 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas, itemT
         setMaterialSearchResults([]);
         setSearchTerm(material.descricao);
     };
+
     const handleAddNewMaterialText = () => {
         setItem(prev => ({ ...prev, material_id: null, descricao_item: searchTerm }));
         setIsItemSelected(true);
         setMaterialSearchResults([]);
     }
+
     const handleResetItemSelection = () => {
         setIsItemSelected(false);
         setItem(prev => ({...prev, material_id: null, descricao_item: ''}));
         setSearchTerm('');
     }
+
     const handleSelectFornecedor = (fornecedor) => {
         setItem(prev => ({ ...prev, fornecedor_id: fornecedor.id }));
         setFornecedorSearchTerm(fornecedor.razao_social || fornecedor.nome);
@@ -145,7 +151,12 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, etapas, itemT
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl">
-                <h3 className="text-xl font-bold mb-4">{isEditing ? 'Editar Item do Pedido' : 'Adicionar Item ao Pedido'}</h3>
+                <div className="flex justify-between items-center mb-4">
+                     <h3 className="text-xl font-bold">{isEditing ? 'Editar Item do Pedido' : 'Adicionar Item ao Pedido'}</h3>
+                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" title="Fechar">
+                        <FontAwesomeIcon icon={faTimes} />
+                    </button>
+                </div>
                 {message && <p className="text-sm text-red-500 mb-4">{message}</p>}
                 <div className="space-y-4">
                      <div className="relative">

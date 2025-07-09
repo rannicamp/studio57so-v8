@@ -4,7 +4,6 @@ import { useMemo, useState, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import PedidoCard from './PedidoCard';
 
-// COLUNAS ATUALIZADAS COM O NOVO FLUXO E A ETAPA DE REVISÃO
 const statusColumns = [
     { id: 'Solicitação', title: 'Solicitação' },
     { id: 'Pedido Visto', title: 'Pedido Visto' },
@@ -72,19 +71,44 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     
-    // NOVO: Função para verificar se um pedido tem itens com pendências
     const checkPendingItems = (pedido) => {
-        if (!pedido || !pedido.itens || pedido.itens.length === 0) return true; // Considera pendente se não tiver itens
+        if (!pedido || !pedido.itens || pedido.itens.length === 0) return true;
         return pedido.itens.some(item => 
             !item.preco_unitario_real || item.preco_unitario_real <= 0 || !item.fornecedor_id
         );
     };
 
+    // ***** INÍCIO DA ALTERAÇÃO *****
+    // Nova função para lidar com a duplicação
+    const handleDuplicatePedido = async (pedidoId) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            alert('Você precisa estar logado para duplicar um pedido.');
+            return;
+        }
+        
+        const { data: newPedido, error } = await supabase
+            .rpc('duplicar_pedido_compra', {
+                p_original_pedido_id: pedidoId,
+                p_novo_solicitante_id: user.id
+            })
+            .select('*, solicitante:solicitante_id(id, nome), itens:pedidos_compra_itens(*), anexos:pedidos_compra_anexos(*)')
+            .single();
+
+        if (error) {
+            alert('Erro ao duplicar o pedido: ' + error.message);
+        } else {
+            alert(`Pedido #${pedidoId} duplicado com sucesso! Novo pedido gerado: #${newPedido.id}`);
+            // Adiciona o novo pedido ao início da lista para que apareça imediatamente
+            setPedidos(prevPedidos => [newPedido, ...prevPedidos]);
+        }
+    };
+    // ***** FIM DA ALTERAÇÃO *****
+
     const handleStatusChange = async (pedidoId, newStatus) => {
         const originalPedidos = [...pedidos];
         const pedido = originalPedidos.find(p => p.id === pedidoId);
 
-        // BLOQUEIO DE SEGURANÇA: Impede mover para "Realizado" se houver pendências
         if (newStatus === 'Realizado' && checkPendingItems(pedido)) {
             alert('Ação bloqueada: Não é possível mover para "Realizado".\n\nTodos os itens do pedido devem ter um Fornecedor e um Preço Unitário definidos.');
             setDragOverColumn(null);
@@ -167,8 +191,6 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
                         {groupedData[column.id] && groupedData[column.id].pedidos.map(pedido => {
                             const hasPendingInvoice = pedido.status === 'Realizado' && !pedido.anexos?.some(anexo => anexo.descricao === 'Nota Fiscal');
                             const displayStatus = pedido.status === 'Pedido Realizado' ? 'Solicitação' : pedido.status;
-
-                            // NOVO: Verifica se há pendências nos itens para as colunas específicas
                             const hasPendingItems = ['Em Negociação', 'Revisão do Responsável'].includes(displayStatus) && checkPendingItems(pedido);
                             
                             return (
@@ -176,9 +198,10 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
                                     key={pedido.id}
                                     pedido={{...pedido, status: displayStatus}}
                                     onStatusChange={handleStatusChange}
+                                    onDuplicate={handleDuplicatePedido} // ***** ALTERAÇÃO AQUI *****
                                     allStatusColumns={statusColumns.map(s => s.id)}
                                     hasPendingInvoice={hasPendingInvoice}
-                                    hasPendingItems={hasPendingItems} // Passando a nova informação
+                                    hasPendingItems={hasPendingItems}
                                 />
                             );
                         })}

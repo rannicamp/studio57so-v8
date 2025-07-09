@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile, faAddressCard, faFileContract, faFileMedical, faClock, faHourglassHalf, faPlus, faExclamationTriangle, faFileLines, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+import { faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile, faAddressCard, faFileContract, faFileMedical, faClock, faHourglassHalf, faPlus, faExclamationTriangle, faFileLines, faCheckCircle, faTimesCircle, faDollarSign } from '@fortawesome/free-solid-svg-icons';
 import KpiCard from './KpiCard';
 
 // --- COMPONENTES INTERNOS DA PÁGINA ---
@@ -14,6 +14,59 @@ const InfoField = ({ label, value, fullWidth = false }) => (
         <dd className="mt-1 text-sm text-gray-900">{value || 'N/A'}</dd>
     </div>
 );
+
+const CadastroChecklist = ({ employee }) => {
+    const checklistItems = useMemo(() => {
+        const items = [];
+        const uploadedSiglas = (employee.documentos_funcionarios || [])
+            .map(doc => doc.tipo?.sigla?.toUpperCase())
+            .filter(Boolean);
+
+        const requiredItems = [
+            { label: 'Nome Completo', type: 'field', key: 'full_name' },
+            { label: 'CPF', type: 'field', key: 'cpf' },
+            { label: 'Cargo', type: 'field', key: 'contract_role' },
+            { label: 'Data de Admissão', type: 'field', key: 'admission_date' },
+            { label: 'Telefone de Contato', type: 'field', key: 'phone' },
+            { label: 'Endereço (CEP)', type: 'field', key: 'cep' },
+            { label: 'Documento de Identidade', type: 'document', siglas: ['RG', 'CNH'] },
+            { label: 'Carteira de Trabalho', type: 'document', siglas: ['CTPS'] },
+            { label: 'Comprovante de Residência', type: 'document', siglas: ['CRES'] },
+            { label: 'ASO Admissional', type: 'document', siglas: ['AAD'] },
+            { label: 'Contrato de Experiência', type: 'document', siglas: ['CTE'] },
+            { label: 'Recibo de Entrega de Uniforme', type: 'document', siglas: ['CRE'] },
+            { label: 'Controle de EPI', type: 'document', siglas: ['CRE'] },
+            { label: 'Termo de Vale Transporte (VT)', type: 'document', siglas: ['VT', 'TRN'] },
+        ];
+
+        requiredItems.forEach(item => {
+            let isCompleted = false;
+            if (item.type === 'field') {
+                isCompleted = !!employee[item.key];
+            } else if (item.type === 'document') {
+                isCompleted = item.siglas.some(requiredSigla => uploadedSiglas.includes(requiredSigla.toUpperCase()));
+            }
+            items.push({ label: item.label, isCompleted });
+        });
+
+        return items;
+    }, [employee]);
+
+    return (
+        <div className="space-y-4">
+            <h3 className="font-semibold text-lg">Checklist de Itens do Cadastro</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {checklistItems.map((item, index) => (
+                    <div key={index} className="flex items-center p-3 bg-white border rounded-md">
+                        <FontAwesomeIcon icon={item.isCompleted ? faCheckCircle : faTimesCircle} className={`w-5 h-5 mr-3 flex-shrink-0 ${item.isCompleted ? 'text-green-500' : 'text-red-500'}`} />
+                        <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 
 const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) => {
     const supabase = createClient();
@@ -46,43 +99,21 @@ const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) =
             setMessage("Por favor, selecione o tipo, descreva e escolha um arquivo.");
             return;
         }
-
         setIsUploading(true);
         setMessage('Enviando documento...');
-
         const tipoSelecionado = tiposDocumento.find(t => t.id.toString() === selectedTipoId);
         const sigla = tipoSelecionado?.sigla || 'DOC';
         const fileExtension = file.name.split('.').pop();
-        
-        // ***** INÍCIO DA CORREÇÃO *****
-        // Função de limpeza mais robusta para nomes de arquivos
-        const sanitizeString = (str) => {
-            return (str || '')
-                .trim() // Remove espaços do início e do fim
-                .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
-                .replace(/[^a-zA-Z0-9\s-]/g, "") // Remove caracteres especiais, exceto espaços e hífens
-                .replace(/\s+/g, '_'); // Substitui espaços por um único underscore
-        };
-
+        const sanitizeString = (str) => (str || '').trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9\s-]/g, "").replace(/\s+/g, '_');
         const nomeFuncionario = sanitizeString(employeeName);
         const descricaoSanitizada = sanitizeString(descricao);
-        
         const newFileName = `${sigla}_${nomeFuncionario}_${descricaoSanitizada}.${fileExtension}`;
         const filePath = `${employeeId}/${newFileName}`;
-        // ***** FIM DA CORREÇÃO *****
-
         const { error: uploadError } = await supabase.storage.from('funcionarios-documentos').upload(filePath, file, { upsert: true });
-
         if (uploadError) {
             setMessage(`Erro no upload: ${uploadError.message}`);
         } else {
-            const { error: dbError } = await supabase.from('documentos_funcionarios').insert({
-                funcionario_id: employeeId,
-                nome_documento: descricao,
-                caminho_arquivo: filePath,
-                tipo_documento_id: tipoSelecionado.id
-            });
-
+            const { error: dbError } = await supabase.from('documentos_funcionarios').insert({ funcionario_id: employeeId, nome_documento: descricao, caminho_arquivo: filePath, tipo_documento_id: tipoSelecionado.id });
             if (dbError) {
                 setMessage(`Erro ao salvar no banco: ${dbError.message}`);
             } else {
@@ -120,7 +151,6 @@ const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) =
     return (
         <div className="space-y-6">
             {message && <p className="text-center text-sm p-2 bg-blue-50 text-blue-800 rounded-md">{message}</p>}
-
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                 <h4 className="font-semibold text-lg">Adicionar Novo Documento</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -177,12 +207,98 @@ const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) =
     );
 };
 
-// --- COMPONENTE PRINCIPAL (sem alterações) ---
+// ***** NOVO COMPONENTE PARA A ABA FINANCEIRA *****
+const FinanceiroSection = ({ lancamentos }) => {
+    const formatCurrency = (value, tipo) => {
+        const isReceita = tipo === 'Receita';
+        const formatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(value || 0));
+        return (isReceita ? `+${formatted}` : `-${formatted}`);
+    };
+    
+    const formatDate = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR') : 'N/A';
+
+    return (
+        <div className="space-y-4">
+            <h3 className="font-semibold text-lg">Lançamentos Financeiros Associados</h3>
+            {lancamentos.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">Nenhum lançamento encontrado para este funcionário.</p>
+            ) : (
+                <div className="overflow-x-auto border rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-100">
+                            <tr>
+                                <th className="px-4 py-2 text-left text-xs font-bold uppercase">Data</th>
+                                <th className="px-4 py-2 text-left text-xs font-bold uppercase">Descrição</th>
+                                <th className="px-4 py-2 text-left text-xs font-bold uppercase">Conta</th>
+                                <th className="px-4 py-2 text-right text-xs font-bold uppercase">Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {lancamentos.map(lanc => (
+                                <tr key={lanc.id}>
+                                    <td className="px-4 py-3 text-sm">{formatDate(lanc.data_transacao)}</td>
+                                    <td className="px-4 py-3 text-sm font-medium">{lanc.descricao}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-600">{lanc.conta?.nome || 'N/A'}</td>
+                                    <td className={`px-4 py-3 text-sm text-right font-bold ${lanc.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>
+                                        {formatCurrency(lanc.valor, lanc.tipo)}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+}
+
 
 export default function FichaCompletaFuncionario({ employee, allDocuments, allPontos, allAbonos, onUpdate }) {
     const [activeTab, setActiveTab] = useState('pessoal');
+    const [lancamentos, setLancamentos] = useState([]); // ***** NOVO ESTADO *****
+    const supabase = createClient();
+    
+    // ***** NOVA FUNÇÃO PARA BUSCAR LANÇAMENTOS *****
+    const fetchLancamentos = useCallback(async () => {
+        if (!employee?.cpf) return;
+    
+        // Passo 1: Encontrar o ID do contato correspondente ao CPF do funcionário
+        const { data: contatoData, error: contatoError } = await supabase
+            .from('contatos')
+            .select('id')
+            .eq('cpf', employee.cpf)
+            .limit(1)
+            .single();
+    
+        if (contatoError || !contatoData) {
+            console.warn("Nenhum contato encontrado para o CPF:", employee.cpf);
+            return;
+        }
+    
+        // Passo 2: Usar o ID do contato para buscar os lançamentos
+        const { data: lancamentosData, error: lancamentosError } = await supabase
+            .from('lancamentos')
+            .select('*, conta:conta_id(nome)')
+            .eq('favorecido_contato_id', contatoData.id)
+            .order('data_transacao', { ascending: false });
+    
+        if (lancamentosError) {
+            console.error("Erro ao buscar lançamentos financeiros:", lancamentosError);
+        } else {
+            setLancamentos(lancamentosData || []);
+        }
+    }, [employee, supabase]);
+
+    useEffect(() => {
+        if (activeTab === 'financeiro') {
+            fetchLancamentos();
+        }
+    }, [activeTab, fetchLancamentos]);
+    // ***** FIM DA NOVA LÓGICA *****
+    
     const kpiData = useMemo(() => { const currentMonth = new Date().getMonth(); const currentYear = new Date().getFullYear(); const pontosDoMes = allPontos.filter(p => new Date(p.data_hora).getMonth() === currentMonth && new Date(p.data_hora).getFullYear() === currentYear); const abonosDoMes = allAbonos.filter(a => new Date(a.data_abono).getMonth() === currentMonth && new Date(a.data_abono).getFullYear() === currentYear); let totalMinutosTrabalhados = 0; const pontosPorDia = pontosDoMes.reduce((acc, ponto) => { const dia = ponto.data_hora.split('T')[0]; if (!acc[dia]) acc[dia] = []; acc[dia].push(new Date(ponto.data_hora)); return acc; }, {}); for (const dia in pontosPorDia) { const registros = pontosPorDia[dia].sort((a, b) => a - b); if (registros.length >= 2) { const entrada = registros[0]; const saida = registros[registros.length - 1]; let diff = saida - entrada; if (registros.length >= 4) { const saidaIntervalo = registros[1]; const voltaIntervalo = registros[2]; diff -= (voltaIntervalo - saidaIntervalo); } totalMinutosTrabalhados += diff / (1000 * 60); } } const horasTrabalhadas = (totalMinutosTrabalhados / 60).toFixed(1); const totalHorasAbonadas = abonosDoMes.reduce((acc, abono) => acc + abono.horas_abonadas, 0); return { horasTrabalhadas: `${horasTrabalhadas}h`, horasAbonadas: `${totalHorasAbonadas}h`, saldoHoras: 'N/A' }; }, [allPontos, allAbonos]);
-    const TabButton = ({ tabName, label }) => (<button onClick={() => setActiveTab(tabName)} className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === tabName ? 'bg-blue-500 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`} > {label} </button>);
+    const TabButton = ({ tabName, label, icon }) => (<button onClick={() => setActiveTab(tabName)} className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${activeTab === tabName ? 'bg-blue-500 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`} > <FontAwesomeIcon icon={icon} /> {label} </button>);
+    
     return (
         <div className="space-y-8">
             <div className="flex flex-col md:flex-row gap-6 items-start">
@@ -199,12 +315,12 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                 <KpiCard title="Saldo de Horas" value={kpiData.saldoHoras} icon={faHourglassHalf} color="purple" />
             </div>
             <div className="border-t pt-6">
-                <div className="flex items-center border-b mb-6"> <nav className="flex space-x-2" aria-label="Tabs"> <TabButton tabName="pessoal" label="Dados Pessoais" /> <TabButton tabName="contratual" label="Dados Contratuais" /> <TabButton tabName="endereco" label="Endereço" /> <TabButton tabName="documentos" label="Documentos" /> </nav> </div>
+                <div className="flex items-center border-b mb-6"> <nav className="flex space-x-2" aria-label="Tabs"> <TabButton tabName="pessoal" label="Dados Pessoais" icon={faAddressCard} /> <TabButton tabName="documentos" label="Documentos" icon={faFileLines} /> <TabButton tabName="financeiro" label="Financeiro" icon={faDollarSign} /> <TabButton tabName="checklist" label="Checklist" icon={faCheckCircle} /> </nav> </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
-                    {activeTab === 'pessoal' && ( <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"> <InfoField label="CPF" value={employee.cpf} /> <InfoField label="RG" value={employee.rg} /> <InfoField label="Data de Nascimento" value={employee.birth_date ? new Date(employee.birth_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'} /> <InfoField label="Estado Civil" value={employee.estado_civil} /> <InfoField label="Telefone" value={employee.phone} /> <InfoField label="Email" value={employee.email} /> </dl> )}
-                    {activeTab === 'contratual' && ( <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"> <InfoField label="Empresa Contratante" value={employee.cadastro_empresa?.razao_social} /> <InfoField label="Empreendimento Atual" value={employee.empreendimentos?.nome} /> <InfoField label="Data de Admissão" value={employee.admission_date ? new Date(employee.admission_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'} /> <InfoField label="Salário Base" value={employee.base_salary} /> <InfoField label="Observações" value={employee.observations} fullWidth={true} /> </dl> )}
-                    {activeTab === 'endereco' && ( <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"> <InfoField label="CEP" value={employee.cep} /> <InfoField label="Logradouro" value={`${employee.address_street || ''}, ${employee.address_number || ''}`} /> <InfoField label="Complemento" value={employee.address_complement} /> <InfoField label="Bairro" value={employee.neighborhood} /> <InfoField label="Cidade" value={employee.city} /> <InfoField label="Estado" value={employee.state} /> </dl> )}
+                    {activeTab === 'pessoal' && ( <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"> <InfoField label="CPF" value={employee.cpf} /> <InfoField label="RG" value={employee.rg} /> <InfoField label="Data de Nascimento" value={employee.birth_date ? new Date(employee.birth_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'} /> <InfoField label="Estado Civil" value={employee.estado_civil} /> <InfoField label="Telefone" value={employee.phone} /> <InfoField label="Email" value={employee.email} /> <InfoField label="Empresa Contratante" value={employee.cadastro_empresa?.razao_social} /> <InfoField label="Empreendimento Atual" value={employee.empreendimentos?.nome} /> <InfoField label="Data de Admissão" value={employee.admission_date ? new Date(employee.admission_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'} /> <InfoField label="Salário Base" value={employee.base_salary} /> <InfoField label="Endereço" value={`${employee.address_street || ''}, ${employee.address_number || ''} - ${employee.neighborhood || ''}, ${employee.city || ''}`} fullWidth={true}/> <InfoField label="Observações" value={employee.observations} fullWidth={true} /> </dl> )}
                     {activeTab === 'documentos' && ( <DocumentosSection documentos={allDocuments} employeeId={employee.id} employeeName={employee.full_name} onUpdate={onUpdate} /> )}
+                    {activeTab === 'financeiro' && ( <FinanceiroSection lancamentos={lancamentos} /> )}
+                    {activeTab === 'checklist' && ( <CadastroChecklist employee={employee} /> )}
                 </div>
             </div>
         </div>
