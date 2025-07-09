@@ -11,7 +11,8 @@ import {
 import {
   faHome,
   faSitemap,
-  faBug // Novo ícone importado
+  faBug,
+  faInbox // Novo ícone importado
 } from '@fortawesome/free-solid-svg-icons';
 
 
@@ -32,9 +33,10 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
     { href: '/financeiro', label: 'Gestão Financeira', icon: faDollarSign }
   ];
 
+  // O link é adicionado à lista de itens do menu inferior
   const bottomNavItems = [
-    // NOVO ITEM DE MENU ADICIONADO AQUI
     { href: '/feedback', label: 'Reportar Problema', icon: faBug },
+    isAdmin && { href: '/feedback/list', label: 'Ver Feedbacks', icon: faInbox },
     isAdmin && { href: '/configuracoes/integracoes', label: 'Integrações', icon: faSitemap },
     isAdmin && { href: '/configuracoes', label: 'Configurações', icon: faCog },
   ].filter(Boolean); // Filtra itens falsos (caso isAdmin seja false)
