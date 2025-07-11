@@ -50,13 +50,10 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         duracao_horas: null,
         empresa_id: selectedEmpreendimento?.empresa_proprietaria_id || null,
         empreendimento_id: selectedEmpreendimento?.id || null,
-        // **INÍCIO DA ALTERAÇÃO**
-        // Novos campos para recorrência
         is_recorrente: false,
         recorrencia_tipo: 'diaria',
         recorrencia_intervalo: 1,
         recorrencia_fim: null,
-        // **FIM DA ALTERAÇÃO**
     }), [selectedEmpreendimento]);
 
     const [formData, setFormData] = useState(getInitialState());
@@ -118,43 +115,72 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!currentUserId) { setMessage("Erro: Usuário não autenticado."); return; }
+        if (!currentUserId) {
+            setMessage("Erro: Usuário não autenticado.");
+            return;
+        }
         setMessage('Salvando...');
-
+    
         const selectedFuncionario = funcionarios.find(f => f.id == formData.funcionario_id);
         const responsavelNome = selectedFuncionario ? selectedFuncionario.full_name : null;
+        
         const etapaSelecionada = etapas.find(etapa => etapa.id == formData.etapa_id);
         
         const dadosParaSalvar = {
-            ...formData,
+            nome: formData.nome,
+            descricao: formData.descricao,
+            status: formData.status,
+            is_recorrente: formData.is_recorrente,
             responsavel_texto: responsavelNome,
-            etapa_id: formData.etapa_id || null,
             funcionario_id: formData.funcionario_id || null,
-            empreendimento_id: formData.empreendimento_id || null,
-            empresa_id: allEmpreendimentos.find(e => e.id == formData.empreendimento_id)?.empresa_proprietaria_id || formData.empresa_id,
+            etapa_id: formData.etapa_id || null,
             tipo_atividade: etapaSelecionada ? etapaSelecionada.nome_etapa : 'Atividade Interna',
-            data_fim_prevista: dataFimPrevistaCalculada,
-            hora_inicio: type === 'evento' ? formData.hora_inicio : null,
-            duracao_horas: type === 'evento' ? (formData.duracao_horas ? parseFloat(formData.duracao_horas) : null) : null,
-            duracao_dias: type === 'atividade' ? formData.duracao_dias : 0,
-            // **INÍCIO DA ALTERAÇÃO**
-            // Garante que os campos de recorrência sejam nulos se não for recorrente
-            recorrencia_tipo: formData.is_recorrente ? formData.recorrencia_tipo : null,
-            recorrencia_intervalo: formData.is_recorrente ? formData.recorrencia_intervalo : null,
-            recorrencia_fim: formData.is_recorrente ? formData.recorrencia_fim : null,
-            // **FIM DA ALTERAÇÃO**
+            empreendimento_id: formData.empreendimento_id || null,
         };
 
+        if (dadosParaSalvar.empreendimento_id) {
+            const emp = allEmpreendimentos.find(e => e.id == dadosParaSalvar.empreendimento_id);
+            dadosParaSalvar.empresa_id = emp?.empresa_proprietaria_id || null;
+        } else {
+            dadosParaSalvar.empresa_id = formData.empresa_id || null;
+        }
+
+        if (type === 'atividade') {
+            dadosParaSalvar.data_inicio_prevista = formData.data_inicio_prevista;
+            dadosParaSalvar.duracao_dias = formData.duracao_dias;
+            dadosParaSalvar.data_fim_prevista = dataFimPrevistaCalculada;
+            dadosParaSalvar.hora_inicio = null;
+            dadosParaSalvar.duracao_horas = null;
+        } else { // Evento
+            dadosParaSalvar.data_inicio_prevista = formData.data_inicio_prevista;
+            dadosParaSalvar.data_fim_prevista = formData.data_inicio_prevista; // Data fim é a mesma
+            dadosParaSalvar.hora_inicio = formData.hora_inicio || null;
+            dadosParaSalvar.duracao_horas = formData.duracao_horas ? parseFloat(formData.duracao_horas) : null;
+            dadosParaSalvar.duracao_dias = 0;
+        }
+
+        if (formData.is_recorrente) {
+            dadosParaSalvar.recorrencia_tipo = formData.recorrencia_tipo;
+            dadosParaSalvar.recorrencia_intervalo = formData.recorrencia_intervalo;
+            dadosParaSalvar.recorrencia_fim = formData.recorrencia_fim || null;
+        } else {
+            dadosParaSalvar.recorrencia_tipo = null;
+            dadosParaSalvar.recorrencia_intervalo = null;
+            dadosParaSalvar.recorrencia_fim = null;
+        }
+
         if (isReprogramming && reprogramData.newEndDate && reprogramData.reason) {
-            if (!dadosParaSalvar.data_fim_original) { dadosParaSalvar.data_fim_original = dadosParaSalvar.data_fim_prevista; }
+            dadosParaSalvar.data_fim_original = formData.data_fim_prevista;
             dadosParaSalvar.data_fim_prevista = reprogramData.newEndDate;
             dadosParaSalvar.motivo_adiamento = reprogramData.reason;
         }
 
         let error;
         if (isEditing) {
-            const { id, criado_por_usuario_id, created_at, ...camposParaAtualizar } = dadosParaSalvar;
-            const { error: updateError } = await supabase.from('activities').update(camposParaAtualizar).eq('id', activityToEdit.id);
+            const { error: updateError } = await supabase
+                .from('activities')
+                .update(dadosParaSalvar)
+                .eq('id', activityToEdit.id);
             error = updateError;
         } else {
             const dadosParaCriar = { ...dadosParaSalvar, criado_por_usuario_id: currentUserId };
@@ -162,8 +188,10 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
             error = insertError;
         }
 
-        if (error) { setMessage(`Erro: ${error.message}`); } 
-        else {
+        if (error) {
+            setMessage(`Erro ao salvar: ${error.message}`);
+            console.error("Erro no handleSubmit:", error);
+        } else {
             setMessage(`Atividade ${isEditing ? 'atualizada' : 'salva'} com sucesso!`);
             onActivityAdded();
             setTimeout(onClose, 1500);
@@ -242,7 +270,6 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                         <div><label className="block text-sm font-medium">Status</label><select name="status" value={formData.status} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option>Não Iniciado</option><option>Em Andamento</option><option>Concluído</option><option>Pausado</option><option>Aguardando Material</option><option>Cancelado</option></select></div>
                     </div>
 
-                    {/* Seção de Recorrência */}
                     <fieldset className="border-t pt-4">
                         <legend className="text-lg font-semibold text-gray-700">Recorrência</legend>
                         <div className="mt-2 space-y-3">

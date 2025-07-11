@@ -56,16 +56,37 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         .eq('data_entrega_prevista', rdoData.data_relatorio);
       setPedidosPrevistos(pedidosData || []);
 
-      // **A CORREÇÃO ESTÁ AQUI**:
-      // 1. Buscamos o 'tipo_atividade' para poder filtrar.
-      // 2. Filtramos para remover as atividades do tipo 'Entrega de Pedido' da lista.
+      // ***** INÍCIO DA SOLUÇÃO IMPLEMENTADA *****
+      // 1. Buscar todos os RDOs anteriores para este empreendimento
+      const { data: pastRdos } = await supabase
+        .from('diarios_obra')
+        .select('status_atividades')
+        .eq('empreendimento_id', empreendimentoId)
+        .lt('data_relatorio', rdoData.data_relatorio);
+
+      // 2. Criar um conjunto (Set) com os IDs de todas as tarefas já concluídas
+      const completedActivityIds = new Set();
+      if (pastRdos) {
+        pastRdos.forEach(rdo => {
+          (rdo.status_atividades || []).forEach(activity => {
+            if (activity.status === 'Concluído') {
+              completedActivityIds.add(activity.id);
+            }
+          });
+        });
+      }
+
+      // 3. Buscar todas as atividades do empreendimento
       const { data: activitiesData } = await supabase
         .from('activities')
-        .select('id, nome, status, tipo_atividade') // 1. Buscando o tipo
+        .select('id, nome, status, tipo_atividade')
         .eq('empreendimento_id', empreendimentoId);
 
-      // 2. Filtrando as atividades que não são de entrega
-      const filteredActivities = (activitiesData || []).filter(act => act.tipo_atividade !== 'Entrega de Pedido');
+      // 4. Filtrar a lista de atividades para remover as já concluídas e as entregas de pedido
+      const filteredActivities = (activitiesData || []).filter(act => 
+        act.tipo_atividade !== 'Entrega de Pedido' && !completedActivityIds.has(act.id)
+      );
+      // ***** FIM DA SOLUÇÃO IMPLEMENTADA *****
 
       const { data: employeesData } = await supabase.from('funcionarios').select('id, full_name, status').eq('empreendimento_atual_id', empreendimentoId);
       const activeEmployees = (employeesData || []).filter(emp => emp.status === 'Ativo');
@@ -80,7 +101,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
       const todayFormatted = new Date().toISOString().split('T')[0];
       const isTodayRdo = rdoData.data_relatorio === todayFormatted;
 
-      // Usamos a lista já filtrada (filteredActivities)
       setActivityStatuses(filteredActivities.map(dbAct => {
         const rdoActivity = savedStatusAtividades.find(sa => sa.id === dbAct.id);
         const status = isTodayRdo ? dbAct.status : (rdoActivity?.status || dbAct.status);
