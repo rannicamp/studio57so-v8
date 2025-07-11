@@ -93,7 +93,7 @@ export default function LinkEmployeesToContacts() {
     return (
         <div className="space-y-6">
             <p className="text-sm text-gray-600 bg-gray-50 p-4 border rounded-lg">
-                Esta ferramenta busca por funcionários que ainda não estão conectados a um registro de "Contato" no sistema. A correspondência é sugerida por <strong>CPF</strong>, <strong>Nome</strong> ou <strong>Telefone</strong>. Clique em "Vincular" para criar a ponte entre os dois cadastros.
+                Esta ferramenta busca por funcionários que ainda não estão conectados a um registro de &quot;Contato&quot; no sistema. A correspondência é sugerida por <strong>CPF</strong>, <strong>Nome</strong> ou <strong>Telefone</strong>. Clique em &quot;Vincular&quot; para criar a ponte entre os dois cadastros.
             </p>
             {message && <div className={`p-3 text-center rounded-md font-semibold ${message.includes('Erro') ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>{message}</div>}
 
