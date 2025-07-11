@@ -46,6 +46,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     foto_url: null,
     numero_ponto: null,
     jornada_id: null,
+    contato_id: null, // Garantir que o campo existe no estado inicial
   });
 
   const [formData, setFormData] = useState(initialData || getInitialState());
@@ -55,22 +56,22 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    // Busca a URL assinada da foto se ela existir
     const getSignedUrlForPhoto = async () => {
         if (initialData?.foto_url) {
-            // A URL já pode ser pública ou uma blob (para preview local)
             if (initialData.foto_url.startsWith('blob:') || initialData.foto_url.includes('supabase.co')) {
                 setPhotoPreview(initialData.foto_url);
             } else {
-                // Se for um caminho de arquivo, busca a URL assinada
                 const bucket = initialData.foto_url.includes('documentos/') ? 'funcionarios-documentos' : 'avatars';
                 const { data } = await supabase.storage.from(bucket).createSignedUrl(initialData.foto_url, 3600);
                 setPhotoPreview(data?.signedUrl);
             }
         }
     };
-    getSignedUrlForPhoto();
-  }, [initialData, supabase]);
+    if (isEditing) {
+        getSignedUrlForPhoto();
+        setFormData(initialData);
+    }
+  }, [initialData, supabase, isEditing]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -95,37 +96,64 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     setMessage('Salvando...');
 
     let finalFotoPath = formData.foto_url;
+    let finalContatoId = formData.contato_id;
 
-    // ***** LÓGICA DE UPLOAD CORRIGIDA *****
-    if (newPhotoFile) {
-      const fileExtension = newPhotoFile.name.split('.').pop();
-      const employeeId = formData.id; // Pega o ID do funcionário que está sendo editado
-      
-      // Define o caminho do arquivo para o bucket 'funcionarios-documentos'
-      const filePath = `documentos/${employeeId}/foto_perfil_${Date.now()}.${fileExtension}`;
+    // 1. Criar ou atualizar o contato correspondente
+    // Apenas se for um novo funcionário ou um funcionário existente que ainda não tem um contato_id
+    if (!isEditing || !finalContatoId) {
+        const contatoData = {
+            nome: formData.full_name,
+            cpf: formData.cpf,
+            cnpj: null, // Funcionário é sempre PF para o contato
+            personalidade_juridica: 'Pessoa Física',
+            tipo_contato: 'Fornecedor', // Funcionários são considerados fornecedores de serviço
+            email: formData.email,
+        };
+        
+        // Verifica se já existe um contato com este CPF para evitar duplicatas
+        const { data: existingContact } = await supabase.from('contatos').select('id').eq('cpf', formData.cpf).single();
 
-      // Salva no mesmo bucket dos outros documentos
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('funcionarios-documentos') 
-        .upload(filePath, newPhotoFile, { upsert: true });
-
-      if (uploadError) {
-        setMessage(`Erro no upload da foto: ${uploadError.message}`);
-        setIsUploading(false);
-        return;
-      }
-      finalFotoPath = uploadData.path; // Armazena o caminho completo do arquivo
+        if (existingContact) {
+            finalContatoId = existingContact.id;
+        } else {
+            const { data: newContact, error: contactError } = await supabase.from('contatos').insert(contatoData).select('id').single();
+            if (contactError) {
+                setMessage(`Erro ao criar o 'Contato' para o funcionário: ${contactError.message}`);
+                setIsUploading(false);
+                return;
+            }
+            finalContatoId = newContact.id;
+        }
     }
 
-    // Continua com o salvamento dos dados do formulário
-    const { id, created_at, cadastro_empresa, empreendimentos, documentos_funcionarios, ...dbData } = { ...formData, foto_url: finalFotoPath };
+    // 2. Lógica de Upload da Foto (continua a mesma)
+    if (newPhotoFile) {
+        const fileExtension = newPhotoFile.name.split('.').pop();
+        const employeeIdForPath = formData.id || 'novo_funcionario';
+        const filePath = `documentos/${employeeIdForPath}/foto_perfil_${Date.now()}.${fileExtension}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage.from('funcionarios-documentos').upload(filePath, newPhotoFile, { upsert: true });
+
+        if (uploadError) {
+            setMessage(`Erro no upload da foto: ${uploadError.message}`);
+            setIsUploading(false);
+            return;
+        }
+        finalFotoPath = uploadData.path;
+    }
+
+    // 3. Preparar e Salvar os dados do Funcionário
+    const { id, created_at, cadastro_empresa, empreendimentos, documentos_funcionarios, ...dbData } = { 
+        ...formData, 
+        foto_url: finalFotoPath,
+        contato_id: finalContatoId // A "PONTE" SENDO CONSTRUÍDA!
+    };
 
     if (isEditing) {
-      const { error } = await supabase.from('funcionarios').update(dbData).eq('id', id);
-      if (error) { setMessage(`Erro ao atualizar funcionário: ${error.message}`); setIsUploading(false); return; }
+        const { error } = await supabase.from('funcionarios').update(dbData).eq('id', id);
+        if (error) { setMessage(`Erro ao atualizar funcionário: ${error.message}`); setIsUploading(false); return; }
     } else {
-      const { error } = await supabase.from('funcionarios').insert([dbData]);
-      if (error) { setMessage(`Erro ao criar funcionário: ${error.message}`); setIsUploading(false); return; }
+        const { error } = await supabase.from('funcionarios').insert([dbData]);
+        if (error) { setMessage(`Erro ao criar funcionário: ${error.message}`); setIsUploading(false); return; }
     }
 
     setMessage(`Funcionário ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);

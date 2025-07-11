@@ -207,14 +207,9 @@ const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) =
     );
 };
 
-// Seção financeira com a lógica de busca corrigida
-const FinanceiroSection = ({ lancamentos }) => {
-    const formatCurrency = (value, tipo) => {
-        const isReceita = tipo === 'Receita';
-        const formatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(value || 0));
-        return (isReceita ? `+${formatted}` : `-${formatted}`);
-    };
-    
+
+const FinanceiroSection = ({ lancamentos, onEditLancamento }) => {
+    const formatCurrency = (value, tipo) => { const isReceita = tipo === 'Receita'; const formatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(value || 0)); return (isReceita ? `+${formatted}` : `-${formatted}`); };    
     const formatDate = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR') : 'N/A';
 
     return (
@@ -235,7 +230,7 @@ const FinanceiroSection = ({ lancamentos }) => {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {lancamentos.map(lanc => (
-                                <tr key={lanc.id}>
+                                <tr key={lanc.id} onClick={() => onEditLancamento(lanc)} className="hover:bg-blue-50 cursor-pointer">
                                     <td className="px-4 py-3 text-sm">{formatDate(lanc.data_transacao)}</td>
                                     <td className="px-4 py-3 text-sm font-medium">{lanc.descricao}</td>
                                     <td className="px-4 py-3 text-sm text-gray-600">{lanc.conta?.nome || 'N/A'}</td>
@@ -250,23 +245,19 @@ const FinanceiroSection = ({ lancamentos }) => {
             )}
         </div>
     );
-}
+};
 
-
-export default function FichaCompletaFuncionario({ employee, allDocuments, allPontos, allAbonos, onUpdate }) {
+// Componente Principal
+export default function FichaCompletaFuncionario({ employee, allDocuments, allPontos, allAbonos, onUpdate, onEditLancamento }) {
     const [activeTab, setActiveTab] = useState('pessoal');
     const [lancamentos, setLancamentos] = useState([]);
     const supabase = createClient();
     
-    // LÓGICA DE BUSCA CORRIGIDA
     const fetchLancamentos = useCallback(async () => {
-        // Se o funcionário não tiver um contato_id, não há o que buscar.
         if (!employee?.contato_id) {
             setLancamentos([]);
             return;
         }
-    
-        // Busca os lançamentos usando a chave estrangeira direta.
         const { data: lancamentosData, error: lancamentosError } = await supabase
             .from('lancamentos')
             .select('*, conta:conta_id(nome)')
@@ -284,11 +275,39 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
         if (activeTab === 'financeiro') {
             fetchLancamentos();
         }
-    }, [activeTab, fetchLancamentos]);
-    // FIM DA CORREÇÃO
+    }, [activeTab, fetchLancamentos, employee]);
     
-    const kpiData = useMemo(() => { const currentMonth = new Date().getMonth(); const currentYear = new Date().getFullYear(); const pontosDoMes = allPontos.filter(p => new Date(p.data_hora).getMonth() === currentMonth && new Date(p.data_hora).getFullYear() === currentYear); const abonosDoMes = allAbonos.filter(a => new Date(a.data_abono).getMonth() === currentMonth && new Date(a.data_abono).getFullYear() === currentYear); let totalMinutosTrabalhados = 0; const pontosPorDia = pontosDoMes.reduce((acc, ponto) => { const dia = ponto.data_hora.split('T')[0]; if (!acc[dia]) acc[dia] = []; acc[dia].push(new Date(ponto.data_hora)); return acc; }, {}); for (const dia in pontosPorDia) { const registros = pontosPorDia[dia].sort((a, b) => a - b); if (registros.length >= 2) { const entrada = registros[0]; const saida = registros[registros.length - 1]; let diff = saida - entrada; if (registros.length >= 4) { const saidaIntervalo = registros[1]; const voltaIntervalo = registros[2]; diff -= (voltaIntervalo - saidaIntervalo); } totalMinutosTrabalhados += diff / (1000 * 60); } } const horasTrabalhadas = (totalMinutosTrabalhados / 60).toFixed(1); const totalHorasAbonadas = abonosDoMes.reduce((acc, abono) => acc + abono.horas_abonadas, 0); return { horasTrabalhadas: `${horasTrabalhadas}h`, horasAbonadas: `${totalHorasAbonadas}h`, saldoHoras: 'N/A' }; }, [allPontos, allAbonos]);
-    const TabButton = ({ tabName, label, icon }) => (<button onClick={() => setActiveTab(tabName)} className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${activeTab === tabName ? 'bg-blue-500 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`} > <FontAwesomeIcon icon={icon} /> {label} </button>);
+    const kpiData = useMemo(() => {
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        const pontosDoMes = allPontos.filter(p => new Date(p.data_hora).getMonth() === currentMonth && new Date(p.data_hora).getFullYear() === currentYear);
+        const abonosDoMes = allAbonos.filter(a => new Date(a.data_abono).getMonth() === currentMonth && new Date(a.data_abono).getFullYear() === currentYear);
+        let totalMinutosTrabalhados = 0;
+        const pontosPorDia = pontosDoMes.reduce((acc, ponto) => { const dia = ponto.data_hora.split('T')[0]; if (!acc[dia]) acc[dia] = []; acc[dia].push(new Date(ponto.data_hora)); return acc; }, {});
+        for (const dia in pontosPorDia) {
+            const registros = pontosPorDia[dia].sort((a, b) => a - b);
+            if (registros.length >= 2) {
+                const entrada = registros[0];
+                const saida = registros[registros.length - 1];
+                let diff = saida - entrada;
+                if (registros.length >= 4) {
+                    const saidaIntervalo = registros[1];
+                    const voltaIntervalo = registros[2];
+                    diff -= (voltaIntervalo - saidaIntervalo);
+                }
+                totalMinutosTrabalhados += diff / (1000 * 60);
+            }
+        }
+        const horasTrabalhadas = (totalMinutosTrabalhados / 60).toFixed(1);
+        const totalHorasAbonadas = abonosDoMes.reduce((acc, abono) => acc + abono.horas_abonadas, 0);
+        return { horasTrabalhadas: `${horasTrabalhadas}h`, horasAbonadas: `${totalHorasAbonadas}h`, saldoHoras: 'N/A' };
+    }, [allPontos, allAbonos]);
+
+    const TabButton = ({ tabName, label, icon }) => (
+        <button onClick={() => setActiveTab(tabName)} className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${activeTab === tabName ? 'bg-blue-500 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`} >
+            <FontAwesomeIcon icon={icon} /> {label}
+        </button>
+    );
     
     return (
         <div className="space-y-8">
@@ -306,11 +325,33 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                 <KpiCard title="Saldo de Horas" value={kpiData.saldoHoras} icon={faHourglassHalf} color="purple" />
             </div>
             <div className="border-t pt-6">
-                <div className="flex items-center border-b mb-6"> <nav className="flex space-x-2" aria-label="Tabs"> <TabButton tabName="pessoal" label="Dados Pessoais" icon={faAddressCard} /> <TabButton tabName="documentos" label="Documentos" icon={faFileLines} /> <TabButton tabName="financeiro" label="Financeiro" icon={faDollarSign} /> <TabButton tabName="checklist" label="Checklist" icon={faCheckCircle} /> </nav> </div>
+                <div className="flex items-center border-b mb-6">
+                    <nav className="flex space-x-2" aria-label="Tabs">
+                        <TabButton tabName="pessoal" label="Dados Pessoais" icon={faAddressCard} />
+                        <TabButton tabName="documentos" label="Documentos" icon={faFileLines} />
+                        <TabButton tabName="financeiro" label="Financeiro" icon={faDollarSign} />
+                        <TabButton tabName="checklist" label="Checklist" icon={faCheckCircle} />
+                    </nav>
+                </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
-                    {activeTab === 'pessoal' && ( <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"> <InfoField label="CPF" value={employee.cpf} /> <InfoField label="RG" value={employee.rg} /> <InfoField label="Data de Nascimento" value={employee.birth_date ? new Date(employee.birth_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'} /> <InfoField label="Estado Civil" value={employee.estado_civil} /> <InfoField label="Telefone" value={employee.phone} /> <InfoField label="Email" value={employee.email} /> <InfoField label="Empresa Contratante" value={employee.cadastro_empresa?.razao_social} /> <InfoField label="Empreendimento Atual" value={employee.empreendimentos?.nome} /> <InfoField label="Data de Admissão" value={employee.admission_date ? new Date(employee.admission_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'} /> <InfoField label="Salário Base" value={employee.base_salary} /> <InfoField label="Endereço" value={`${employee.address_street || ''}, ${employee.address_number || ''} - ${employee.neighborhood || ''}, ${employee.city || ''}`} fullWidth={true}/> <InfoField label="Observações" value={employee.observations} fullWidth={true} /> </dl> )}
+                    {activeTab === 'pessoal' && (
+                        <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                            <InfoField label="CPF" value={employee.cpf} />
+                            <InfoField label="RG" value={employee.rg} />
+                            <InfoField label="Data de Nascimento" value={employee.birth_date ? new Date(employee.birth_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'} />
+                            <InfoField label="Estado Civil" value={employee.estado_civil} />
+                            <InfoField label="Telefone" value={employee.phone} />
+                            <InfoField label="Email" value={employee.email} />
+                            <InfoField label="Empresa Contratante" value={employee.cadastro_empresa?.razao_social} />
+                            <InfoField label="Empreendimento Atual" value={employee.empreendimentos?.nome} />
+                            <InfoField label="Data de Admissão" value={employee.admission_date ? new Date(employee.admission_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'} />
+                            <InfoField label="Salário Base" value={employee.base_salary} />
+                            <InfoField label="Endereço" value={`${employee.address_street || ''}, ${employee.address_number || ''} - ${employee.neighborhood || ''}, ${employee.city || ''}`} fullWidth={true}/>
+                            <InfoField label="Observações" value={employee.observations} fullWidth={true} />
+                        </dl>
+                    )}
                     {activeTab === 'documentos' && ( <DocumentosSection documentos={allDocuments} employeeId={employee.id} employeeName={employee.full_name} onUpdate={onUpdate} /> )}
-                    {activeTab === 'financeiro' && ( <FinanceiroSection lancamentos={lancamentos} /> )}
+                    {activeTab === 'financeiro' && ( <FinanceiroSection lancamentos={lancamentos} onEditLancamento={onEditLancamento} /> )}
                     {activeTab === 'checklist' && ( <CadastroChecklist employee={employee} /> )}
                 </div>
             </div>
