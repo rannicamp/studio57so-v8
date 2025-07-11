@@ -8,49 +8,25 @@ import {
     faSpinner, faFilter, faTimes, faPenToSquare, faTrash, faSort, faSortUp, faSortDown, faLayerGroup, faSave, faStar as faStarSolid, faEllipsisV,
     faChevronUp, faChevronDown, faArrowUp, faArrowDown, faBalanceScale, faCalendarDay, faCalendarWeek, faCalendarAlt, faSyncAlt,
     faChevronLeft, faChevronRight,
-    faRobot // Ícone para a IA
+    faRobot
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import KpiCard from '../KpiCard';
 
-// --- INÍCIO DO NOVO COMPONENTE: MODAL DE ANÁLISE DA IA ---
 const AnalysisModal = ({ isOpen, onClose, analysisText, isLoading }) => {
     if (!isOpen) return null;
-
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-bold flex items-center gap-2">
-                        <FontAwesomeIcon icon={faRobot} />
-                        Análise Financeira do Gemini
-                    </h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
-                </div>
-                <div className="max-h-[60vh] overflow-y-auto p-4 bg-gray-50 rounded-md border">
-                    {isLoading ? (
-                        <div className="text-center">
-                            <FontAwesomeIcon icon={faSpinner} spin size="2x" />
-                            <p className="mt-2">Analisando dados...</p>
-                        </div>
-                    ) : (
-                        // Usamos 'whitespace-pre-wrap' para respeitar as quebras de linha e espaços da IA
-                        <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-                           {analysisText}
-                        </div>
-                    )}
-                </div>
-                <div className="flex justify-end pt-4 mt-4 border-t">
-                    <button onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Fechar</button>
-                </div>
+                <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold flex items-center gap-2"><FontAwesomeIcon icon={faRobot} />Análise Financeira do Gemini</h3><button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl">&times;</button></div>
+                <div className="max-h-[60vh] overflow-y-auto p-4 bg-gray-50 rounded-md border">{isLoading ? (<div className="text-center"><FontAwesomeIcon icon={faSpinner} spin size="2x" /><p className="mt-2">Analisando dados...</p></div>) : (<div className="prose prose-sm max-w-none whitespace-pre-wrap">{analysisText}</div>)}</div>
+                <div className="flex justify-end pt-4 mt-4 border-t"><button onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Fechar</button></div>
             </div>
         </div>
     );
 };
-// --- FIM DO NOVO COMPONENTE ---
-
 
 const SortableHeader = ({ label, sortKey, sortConfig, requestSort, className = '' }) => {
     const getIcon = () => { if (sortConfig.key !== sortKey) return faSort; return sortConfig.direction === 'ascending' ? faSortUp : faSortDown; };
@@ -68,7 +44,7 @@ const initialFilterState = {
 };
 
 export default function LancamentosManager({
-    lancamentos, allLancamentosKpi, loading, contas, categorias, empreendimentos, empresas,
+    lancamentos, allLancamentosKpi, loading, contas, categorias, empreendimentos, empresas, funcionarios, // ***** NOVO: funcionarios recebido aqui *****
     onEdit, onDelete, onUpdate, filters, setFilters, sortConfig, setSortConfig,
     currentPage, setCurrentPage, itemsPerPage, setItemsPerPage, totalCount
 }) {
@@ -85,13 +61,9 @@ export default function LancamentosManager({
     const batchActionsRef = useRef(null);
     const [etapas, setEtapas] = useState([]);
     const [itemsPerPageInput, setItemsPerPageInput] = useState(itemsPerPage);
-
-    // --- INÍCIO DAS NOVAS VARIÁVEIS DE ESTADO PARA A IA ---
     const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
     const [analysisResult, setAnalysisResult] = useState('');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    // --- FIM DAS NOVAS VARIÁVEIS ---
-
 
     const kpiData = useMemo(() => {
         let totalReceitas = 0; let totalDespesas = 0;
@@ -104,43 +76,18 @@ export default function LancamentosManager({
         return { totalReceitas, totalDespesas, resultado };
     }, [allLancamentosKpi]);
 
-    // --- INÍCIO DA NOVA FUNÇÃO PARA CHAMAR A IA ---
     const handleAnalyzeClick = async () => {
-        setIsAnalysisModalOpen(true);
-        setIsAnalyzing(true);
-        setAnalysisResult('');
-
+        setIsAnalysisModalOpen(true); setIsAnalyzing(true); setAnalysisResult('');
         try {
-            const response = await fetch('/api/gemini/analyze', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lancamentos: lancamentos }), // Envia os lançamentos atuais (já filtrados)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Erro desconhecido na API.');
-            }
-
-            const data = await response.json();
-            setAnalysisResult(data.analysis);
-
-        } catch (error) {
-            setAnalysisResult(`Erro ao gerar análise: ${error.message}`);
-        } finally {
-            setIsAnalyzing(false);
-        }
+            const response = await fetch('/api/gemini/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lancamentos: lancamentos }), });
+            if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.error || 'Erro desconhecido na API.'); }
+            const data = await response.json(); setAnalysisResult(data.analysis);
+        } catch (error) { setAnalysisResult(`Erro ao gerar análise: ${error.message}`); } finally { setIsAnalyzing(false); }
     };
-    // --- FIM DA NOVA FUNÇÃO ---
 
-
-    const handleItemsPerPageChange = () => {
-        let value = Number(itemsPerPageInput);
-        if (isNaN(value) || value < 1) value = 1;
-        if (value > 999) value = 999;
-        setItemsPerPageInput(value); setItemsPerPage(value); setCurrentPage(1);
-    };
+    const handleItemsPerPageChange = () => { let value = Number(itemsPerPageInput); if (isNaN(value) || value < 1) value = 1; if (value > 999) value = 999; setItemsPerPageInput(value); setItemsPerPage(value); setCurrentPage(1); };
     useEffect(() => { setSelectedIds(new Set()); }, [lancamentos]);
+    
     useEffect(() => {
         const loadedFilters = JSON.parse(localStorage.getItem('savedFinancialFilters') || '[]');
         setSavedFilters(loadedFilters);
@@ -150,6 +97,7 @@ export default function LancamentosManager({
         }
         fetchExtraData();
     }, [supabase]);
+    
     useEffect(() => {
         function handleClickOutside(event) {
             if (filterMenuRef.current && !filterMenuRef.current.contains(event.target)) { setIsFilterMenuOpen(false); }
@@ -160,45 +108,13 @@ export default function LancamentosManager({
     }, [filterMenuRef, batchActionsRef]);
 
     const categoryTree = useMemo(() => {
-        const tree = []; const map = {};
-        const allCategories = JSON.parse(JSON.stringify(categorias || []));
-        allCategories.forEach(cat => { map[cat.id] = { ...cat, children: [] }; });
-        allCategories.forEach(cat => { if (cat.parent_id && map[cat.parent_id]) { map[cat.parent_id].children.push(map[cat.id]); } else { tree.push(map[cat.id]); } });
-        return tree;
+        const tree = []; const map = {}; const allCategories = JSON.parse(JSON.stringify(categorias || [])); allCategories.forEach(cat => { map[cat.id] = { ...cat, children: [] }; }); allCategories.forEach(cat => { if (cat.parent_id && map[cat.parent_id]) { map[cat.parent_id].children.push(map[cat.id]); } else { tree.push(map[cat.id]); } }); return tree;
     }, [categorias]);
 
-    const handleFilterChange = (name, value) => {
-        setFilters(prev => ({...prev, [name]: value}));
-        if(name !== 'startDate' && name !== 'endDate') setActivePeriodFilter('');
-        setCurrentPage(1);
-    };
-    
-    const handleNatureFilterClick = (nature) => {
-        setFilters(prev => {
-            const currentTipo = prev.tipo || [];
-            const newTipo = currentTipo.includes(nature)
-                ? currentTipo.filter(t => t !== nature)
-                : [...currentTipo, nature];
-            return { ...prev, tipo: newTipo };
-        });
-        setCurrentPage(1);
-    };
-
-    const setDateRange = (period) => {
-        const today = new Date(); let startDate, endDate;
-        if (period === 'today') { startDate = endDate = today; }
-        else if (period === 'week') { const firstDayOfWeek = today.getDate() - today.getDay(); startDate = new Date(today.setDate(firstDayOfWeek)); endDate = new Date(startDate); endDate.setDate(endDate.getDate() + 6); }
-        else if (period === 'month') { startDate = new Date(today.getFullYear(), today.getMonth(), 1); endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); }
-        setFilters(prev => ({ ...prev, startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0], month: '', year: '' }));
-        setActivePeriodFilter(period); setCurrentPage(1);
-    };
-    
-    const clearFilters = () => {
-        setFilters(initialFilterState);
-        setActivePeriodFilter('');
-        setCurrentPage(1);
-    };
-    
+    const handleFilterChange = (name, value) => { setFilters(prev => ({...prev, [name]: value})); if(name !== 'startDate' && name !== 'endDate') setActivePeriodFilter(''); setCurrentPage(1); };
+    const handleNatureFilterClick = (nature) => { setFilters(prev => { const currentTipo = prev.tipo || []; const newTipo = currentTipo.includes(nature) ? currentTipo.filter(t => t !== nature) : [...currentTipo, nature]; return { ...prev, tipo: newTipo }; }); setCurrentPage(1); };
+    const setDateRange = (period) => { const today = new Date(); let startDate, endDate; if (period === 'today') { startDate = endDate = today; } else if (period === 'week') { const firstDayOfWeek = today.getDate() - today.getDay(); startDate = new Date(today.setDate(firstDayOfWeek)); endDate = new Date(startDate); endDate.setDate(endDate.getDate() + 6); } else if (period === 'month') { startDate = new Date(today.getFullYear(), today.getMonth(), 1); endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); } setFilters(prev => ({ ...prev, startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0], month: '', year: '' })); setActivePeriodFilter(period); setCurrentPage(1); };
+    const clearFilters = () => { setFilters(initialFilterState); setActivePeriodFilter(''); setCurrentPage(1); };
     const handleSaveFilter = () => { if (!newFilterName.trim()) { alert('Por favor, dê um nome para o filtro.'); return; } const isFavorited = savedFilters.find(f => f.name === newFilterName)?.isFavorite || false; const updatedSavedFilters = savedFilters.filter(f => f.name !== newFilterName); const newSavedFilter = { name: newFilterName, settings: filters, isFavorite: isFavorited }; setSavedFilters([...updatedSavedFilters, newSavedFilter]); localStorage.setItem('savedFinancialFilters', JSON.stringify([...updatedSavedFilters, newSavedFilter])); setNewFilterName(''); alert(`Filtro "${newFilterName}" salvo!`); };
     const handleUpdateFilter = (filterName) => { const updated = savedFilters.map(f => f.name === filterName ? { ...f, settings: filters } : f); setSavedFilters(updated); localStorage.setItem('savedFinancialFilters', JSON.stringify(updated)); alert(`Filtro "${filterName}" atualizado com sucesso!`); };
     const handleToggleFavorite = (filterName) => { const updated = savedFilters.map(f => f.name === filterName ? { ...f, isFavorite: !f.isFavorite } : f); setSavedFilters(updated); localStorage.setItem('savedFinancialFilters', JSON.stringify(updated)); };
@@ -208,9 +124,13 @@ export default function LancamentosManager({
     const handleSelectAll = (e) => setSelectedIds(e.target.checked ? new Set(lancamentos.map(l => l.id)) : new Set());
     const handleSelectOne = (id) => { const newSelection = new Set(selectedIds); if (newSelection.has(id)) newSelection.delete(id); else newSelection.add(id); setSelectedIds(newSelection); };
     const handleBulkUpdate = async (updateObject) => { if (!window.confirm(`Tem certeza que deseja aplicar esta alteração a ${selectedIds.size} lançamento(s)?`)) return; const { error } = await supabase.from('lancamentos').update(updateObject).in('id', Array.from(selectedIds)); if (error) { alert("Erro ao atualizar: " + error.message); } else { alert('Lançamentos atualizados com sucesso!'); if (onUpdate) onUpdate(); } };
+    
+    // ***** INÍCIO DA ALTERAÇÃO *****
+    const batchUpdateFields = [ { key: 'status', label: 'Status', type: 'select', optionsKey: 'statusOptions' }, { key: 'favorecido_contato_id', label: 'Favorecido (Contato)', type: 'select', optionsKey: 'contatos' }, { key: 'funcionario_id', label: 'Associar ao Funcionário', type: 'select', optionsKey: 'funcionarios' }, { key: 'categoria_id', label: 'Categoria', type: 'select', optionsKey: 'categorias' }, { key: 'empreendimento_id', label: 'Empreendimento', type: 'select', optionsKey: 'empreendimentos' }, { key: 'conta_id', label: 'Conta', type: 'select', optionsKey: 'contas' }, { key: 'etapa_id', label: 'Etapa da Obra', type: 'select', optionsKey: 'etapas' }, { key: 'data_vencimento', label: 'Data de Vencimento', type: 'date' }, ];
+    const allDataForBatchModal = { statusOptions: [{id: 'Pago', nome: 'Pago'}, {id: 'Pendente', nome: 'Pendente'}], categorias, empreendimentos, contas, etapas, contatos: allContacts, funcionarios: funcionarios, }; // Adicionado 'funcionarios'
+    // ***** FIM DA ALTERAÇÃO *****
+
     const handleBatchUpdateField = (field, value) => { setIsBatchUpdateModalOpen(false); if(!field || !value) { alert("Por favor, selecione um campo e um valor."); return; } const updateObject = { [field]: value }; if(field === 'status' && value === 'Pago'){ updateObject.data_pagamento = new Date().toISOString(); } handleBulkUpdate(updateObject); };
-    const batchUpdateFields = [ { key: 'status', label: 'Status', type: 'select', optionsKey: 'statusOptions' }, { key: 'categoria_id', label: 'Categoria', type: 'select', optionsKey: 'categorias' }, { key: 'empreendimento_id', label: 'Empreendimento', type: 'select', optionsKey: 'empreendimentos' }, { key: 'conta_id', label: 'Conta', type: 'select', optionsKey: 'contas' }, { key: 'etapa_id', label: 'Etapa da Obra', type: 'select', optionsKey: 'etapas' }, { key: 'data_vencimento', label: 'Data de Vencimento', type: 'date' }, ];
-    const allDataForBatchModal = { statusOptions: [{id: 'Pago', nome: 'Pago'}, {id: 'Pendente', nome: 'Pendente'}], categorias, empreendimentos, contas, etapas, };
     const getPaymentStatus = (item) => { if (item.status === 'Pago' || item.conciliado) return { text: 'Paga', className: 'bg-green-100 text-green-800' }; const today = new Date(); today.setHours(0, 0, 0, 0); const dueDate = new Date((item.data_vencimento || item.data_transacao) + 'T00:00:00Z'); if (dueDate < today) return { text: 'Atrasada', className: 'bg-red-100 text-red-800' }; return { text: 'A Pagar', className: 'bg-yellow-100 text-yellow-800' }; };
     const formatCurrency = (value, tipo) => { const signal = tipo === 'Receita' ? '+' : (tipo === 'Despesa' ? '-' : ''); return `${signal} ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(value || 0))}`; };
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A';
@@ -222,14 +142,7 @@ export default function LancamentosManager({
 
     return (
         <div className="space-y-4">
-            {/* O modal da IA será renderizado aqui */}
-            <AnalysisModal
-                isOpen={isAnalysisModalOpen}
-                onClose={() => setIsAnalysisModalOpen(false)}
-                analysisText={analysisResult}
-                isLoading={isAnalyzing}
-            />
-
+            <AnalysisModal isOpen={isAnalysisModalOpen} onClose={() => setIsAnalysisModalOpen(false)} analysisText={analysisResult} isLoading={isAnalyzing} />
             <BatchUpdateModal isOpen={isBatchUpdateModalOpen} onClose={() => setIsBatchUpdateModalOpen(false)} onConfirm={handleBatchUpdateField} fields={batchUpdateFields} allData={allDataForBatchModal} />
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                 <div className="flex justify-between items-center">
@@ -257,7 +170,6 @@ export default function LancamentosManager({
             <div className="flex justify-between items-center bg-white p-4 border rounded-lg shadow-sm">
                 <span className="text-sm text-gray-700"> Mostrando <strong>{lancamentos.length}</strong> de <strong>{totalCount}</strong> lançamentos </span>
                 <div className="flex items-center gap-2">
-                    {/* Botão da IA adicionado aqui */}
                     <button onClick={handleAnalyzeClick} disabled={loading || isAnalyzing} className="bg-purple-600 text-white px-4 py-2 rounded-md flex items-center gap-2 text-sm disabled:bg-gray-400">
                         <FontAwesomeIcon icon={isAnalyzing ? faSpinner : faRobot} spin={isAnalyzing} />
                         Analisar com IA
