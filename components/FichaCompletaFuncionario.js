@@ -258,9 +258,11 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
             setLancamentos([]);
             return;
         }
+        // ***** CORREÇÃO APLICADA AQUI *****
+        // A query agora busca os dados do favorecido junto com o lançamento
         const { data: lancamentosData, error: lancamentosError } = await supabase
             .from('lancamentos')
-            .select('*, conta:conta_id(nome)')
+            .select('*, conta:conta_id(nome), favorecido:favorecido_contato_id(nome, razao_social)')
             .eq('favorecido_contato_id', employee.contato_id)
             .order('data_transacao', { ascending: false });
     

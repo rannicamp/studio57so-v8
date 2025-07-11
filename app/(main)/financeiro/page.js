@@ -14,6 +14,7 @@ import KpiCard from '../../../components/KpiCard';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faCogs, faShieldAlt, faCalculator, faSpinner, faChartLine } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
+import { useAuth } from '../../../contexts/AuthContext';
 
 // Helper para formatar os valores dos KPIs
 const formatKpiValue = (value, format) => {
@@ -112,15 +113,32 @@ export default function FinanceiroPage() {
         setLoading(true);
         const from = (currentPage - 1) * itemsPerPage;
         const to = from + itemsPerPage - 1;
+
+        // ***** INÍCIO DA CORREÇÃO *****
+        // A sintaxe da consulta foi corrigida para usar o padrão "apelido:tabela_real(*)"
+        // que o banco de dados entende. Isso corrige os erros em cascata.
+        const selectString = `
+            *,
+            conta:contas_financeiras(*, empresa:cadastro_empresa(id, nome_fantasia, razao_social)),
+            categoria:categorias_financeiras(*),
+            favorecido:contatos!favorecido_contato_id(*),
+            empreendimento:empreendimentos(*, empresa:cadastro_empresa!empresa_proprietaria_id(id, nome_fantasia, razao_social)),
+            anexos:lancamentos_anexos(*)
+        `;
+        // ***** FIM DA CORREÇÃO *****
+
         let query = supabase
             .from('lancamentos')
-            .select(`*, conta:conta_id(*, empresa:empresa_id(id, nome_fantasia, razao_social)), categoria:categoria_id(*), favorecido:favorecido_contato_id(*), empreendimento:empreendimentos(*, empresa:empresa_proprietaria_id(id, nome_fantasia, razao_social)), anexos:lancamentos_anexos(*)`, { count: 'exact' })
+            .select(selectString, { count: 'exact' })
             .order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' })
             .range(from, to);
+        
         query = applyFiltersToQuery(query, filters);
         const { data, error, count } = await query;
-        if (error) { console.error("Erro ao buscar lançamentos:", error); } 
-        else {
+        if (error) { 
+            console.error("Erro ao buscar lançamentos:", error);
+            setMessage(`Falha ao carregar dados: ${error.message}`);
+        } else {
             setLancamentos(data || []);
             setTotalCount(count || 0);
         }
@@ -216,38 +234,11 @@ export default function FinanceiroPage() {
     useEffect(() => {
         fetchDashboardKpis();
     }, [selectedEmpreendimento, fetchDashboardKpis]);
-    
-    const handleSaveLancamento = async (formData) => {
-        const isEditing = Boolean(formData.id); const { anexo, novo_favorecido, ...baseFormData } = formData;
-        let finalFormData = { ...baseFormData };
-        if (novo_favorecido && novo_favorecido.nome) {
-            const { data: novoContato, error: contatoError } = await supabase.from('contatos').insert({ nome: novo_favorecido.nome, tipo_contato: 'Fornecedor' }).select().single();
-            if (contatoError) {setMessage(`Erro ao criar novo favorecido: ${contatoError.message}`); return false;}
-            finalFormData.favorecido_contato_id = novoContato.id;
-        }
-        let lancamentoId = finalFormData.id; let error;
-        if (isEditing) {
-            const { id, ...dataToUpdate } = finalFormData;
-            const { error: updateError } = await supabase.from('lancamentos').update(dataToUpdate).eq('id', id);
-            error = updateError;
-        } else {
-            delete finalFormData.id;
-            const { data: newLancamento, error: insertError } = await supabase.from('lancamentos').insert(finalFormData).select().single();
-            error = insertError; if (newLancamento) lancamentoId = newLancamento.id;
-        }
-        if (error) {setMessage(`Erro ao salvar lançamento: ${error.message}`); return false;}
-        if (anexo && anexo.file && lancamentoId) {
-            const file = anexo.file;
-            const filePath = `lancamento-${lancamentoId}/${Date.now()}-${file.name}`;
-            const { error: uploadError } = await supabase.storage.from('documentos-financeiro').upload(filePath, file);
-            if (uploadError) {setMessage(`Lançamento salvo, mas falha ao enviar anexo: ${uploadError.message}`);}
-            else {
-                const { error: anexoError } = await supabase.from('lancamentos_anexos').insert({ lancamento_id: lancamentoId, caminho_arquivo: filePath, nome_arquivo: file.name, descricao: anexo.descricao, tipo_documento_id: anexo.tipo_documento_id });
-                if (anexoError) setMessage(`Lançamento salvo, mas falha ao registrar anexo: ${anexoError.message}`);
-            }
-        }
-        setMessage(`Lançamento ${isEditing ? 'atualizado' : 'criado'} com sucesso!`);
-        fetchLancamentos(); fetchAllLancamentosForKpi(); return true;
+
+    const handleSuccess = () => {
+        fetchLancamentos();
+        fetchAllLancamentosForKpi();
+        fetchInitialData();
     };
     
     const handleDeleteLancamento = async (id) => {
@@ -263,7 +254,13 @@ export default function FinanceiroPage() {
 
     return (
         <div className="space-y-6">
-            <LancamentoFormModal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} onSave={handleSaveLancamento} initialData={editingLancamento} empresas={empresas} />
+            <LancamentoFormModal 
+                isOpen={isFormModalOpen} 
+                onClose={() => setIsFormModalOpen(false)} 
+                onSuccess={handleSuccess} 
+                initialData={editingLancamento} 
+                empresas={empresas} 
+            />
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900 uppercase">Painel Financeiro</h1>
                 {activeTab === 'lancamentos' && (
@@ -305,7 +302,7 @@ export default function FinanceiroPage() {
                     <TabButton tabName="categorias" label="Categorias" />
                 </nav>
             </div>
-            {message && <p className="text-center p-2 bg-blue-50 text-blue-800 rounded-md text-sm uppercase">{message}</p>}
+            {message && <p className={`text-center p-2 rounded-md text-sm uppercase font-semibold ${message.includes('ERRO') || message.includes('Falha') ? 'bg-red-100 text-red-800' : 'bg-blue-50 text-blue-800'}`}>{message}</p>}
             <div className="mt-4">
                 {activeTab === 'lancamentos' && (
                     <LancamentosManager 
