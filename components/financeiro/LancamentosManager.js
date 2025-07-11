@@ -35,7 +35,7 @@ const SortableHeader = ({ label, sortKey, sortConfig, requestSort, className = '
 
 const BatchUpdateModal = ({ isOpen, onClose, onConfirm, fields, allData }) => {
     const [selectedField, setSelectedField] = useState(''); const [selectedValue, setSelectedValue] = useState(''); if (!isOpen) return null; const currentField = fields.find(f => f.key === selectedField);
-    return ( <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"> <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg"> <h3 className="text-xl font-bold mb-4">Alterar Campo em Lote</h3> <div className="space-y-4"> <div> <label className="block text-sm font-medium">1. Campo para alterar</label> <select value={selectedField} onChange={(e) => { setSelectedField(e.target.value); setSelectedValue(''); }} className="mt-1 w-full p-2 border rounded-md"> <option value="">Selecione um campo...</option> {fields.map(f => <option key={f.key} value={f.key}>{f.label}</option>)} </select> </div> {selectedField && currentField && ( <div> <label className="block text-sm font-medium">2. Novo valor para &quot;{currentField.label}&quot;</label> {currentField.type === 'select' ? ( <select value={selectedValue} onChange={(e) => setSelectedValue(e.target.value)} className="mt-1 w-full p-2 border rounded-md"> <option value="">Selecione um valor...</option> {allData[currentField.optionsKey].map(opt => <option key={opt.id} value={opt.id}>{opt.nome || opt.razao_social || opt.nome_etapa}</option>)} </select> ) : ( <input type={currentField.type || 'text'} value={selectedValue} onChange={(e) => setSelectedValue(e.target.value)} className="mt-1 w-full p-2 border rounded-md" /> )} </div> )} </div> <div className="flex justify-end gap-4 pt-6 mt-4 border-t"> <button onClick={onClose} className="bg-gray-200 px-4 py-2 rounded-md">Cancelar</button> <button onClick={() => onConfirm(selectedField, selectedValue)} disabled={!selectedField || !selectedValue} className="bg-blue-600 text-white px-4 py-2 rounded-md disabled:bg-gray-400">Confirmar Alteração</button> </div> </div> </div> );
+    return ( <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"> <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg"> <h3 className="text-xl font-bold mb-4">Alterar Campo em Lote</h3> <div className="space-y-4"> <div> <label className="block text-sm font-medium">1. Campo para alterar</label> <select value={selectedField} onChange={(e) => { setSelectedField(e.target.value); setSelectedValue(''); }} className="mt-1 w-full p-2 border rounded-md"> <option value="">Selecione um campo...</option> {fields.map(f => <option key={f.key} value={f.key}>{f.label}</option>)} </select> </div> {selectedField && currentField && ( <div> <label className="block text-sm font-medium">2. Novo valor para &quot;{currentField.label}&quot;</label> {currentField.type === 'select' ? ( <select value={selectedValue} onChange={(e) => setSelectedValue(e.target.value)} className="mt-1 w-full p-2 border rounded-md"> <option value="">Selecione um valor...</option> {allData[currentField.optionsKey]?.map(opt => <option key={opt.id} value={opt.id}>{opt.nome || opt.razao_social || opt.nome_etapa || opt.full_name}</option>)} </select> ) : ( <input type={currentField.type || 'text'} value={selectedValue} onChange={(e) => setSelectedValue(e.target.value)} className="mt-1 w-full p-2 border rounded-md" /> )} </div> )} </div> <div className="flex justify-end gap-4 pt-6 mt-4 border-t"> <button onClick={onClose} className="bg-gray-200 px-4 py-2 rounded-md">Cancelar</button> <button onClick={() => onConfirm(selectedField, selectedValue)} disabled={!selectedField || !selectedValue} className="bg-blue-600 text-white px-4 py-2 rounded-md disabled:bg-gray-400">Confirmar Alteração</button> </div> </div> </div> );
 };
 
 const initialFilterState = {
@@ -44,7 +44,7 @@ const initialFilterState = {
 };
 
 export default function LancamentosManager({
-    lancamentos, allLancamentosKpi, loading, contas, categorias, empreendimentos, empresas, funcionarios, // ***** NOVO: funcionarios recebido aqui *****
+    lancamentos, allLancamentosKpi, loading, contas, categorias, empreendimentos, empresas, funcionarios, allContacts,
     onEdit, onDelete, onUpdate, filters, setFilters, sortConfig, setSortConfig,
     currentPage, setCurrentPage, itemsPerPage, setItemsPerPage, totalCount
 }) {
@@ -125,10 +125,26 @@ export default function LancamentosManager({
     const handleSelectOne = (id) => { const newSelection = new Set(selectedIds); if (newSelection.has(id)) newSelection.delete(id); else newSelection.add(id); setSelectedIds(newSelection); };
     const handleBulkUpdate = async (updateObject) => { if (!window.confirm(`Tem certeza que deseja aplicar esta alteração a ${selectedIds.size} lançamento(s)?`)) return; const { error } = await supabase.from('lancamentos').update(updateObject).in('id', Array.from(selectedIds)); if (error) { alert("Erro ao atualizar: " + error.message); } else { alert('Lançamentos atualizados com sucesso!'); if (onUpdate) onUpdate(); } };
     
-    // ***** INÍCIO DA ALTERAÇÃO *****
-    const batchUpdateFields = [ { key: 'status', label: 'Status', type: 'select', optionsKey: 'statusOptions' }, { key: 'favorecido_contato_id', label: 'Favorecido (Contato)', type: 'select', optionsKey: 'contatos' }, { key: 'funcionario_id', label: 'Associar ao Funcionário', type: 'select', optionsKey: 'funcionarios' }, { key: 'categoria_id', label: 'Categoria', type: 'select', optionsKey: 'categorias' }, { key: 'empreendimento_id', label: 'Empreendimento', type: 'select', optionsKey: 'empreendimentos' }, { key: 'conta_id', label: 'Conta', type: 'select', optionsKey: 'contas' }, { key: 'etapa_id', label: 'Etapa da Obra', type: 'select', optionsKey: 'etapas' }, { key: 'data_vencimento', label: 'Data de Vencimento', type: 'date' }, ];
-    const allDataForBatchModal = { statusOptions: [{id: 'Pago', nome: 'Pago'}, {id: 'Pendente', nome: 'Pendente'}], categorias, empreendimentos, contas, etapas, contatos: allContacts, funcionarios: funcionarios, }; // Adicionado 'funcionarios'
-    // ***** FIM DA ALTERAÇÃO *****
+    const batchUpdateFields = [
+        { key: 'status', label: 'Status', type: 'select', optionsKey: 'statusOptions' },
+        { key: 'favorecido_contato_id', label: 'Favorecido (Contato)', type: 'select', optionsKey: 'contatos' },
+        { key: 'funcionario_id', label: 'Associar ao Funcionário', type: 'select', optionsKey: 'funcionarios' },
+        { key: 'categoria_id', label: 'Categoria', type: 'select', optionsKey: 'categorias' },
+        { key: 'empreendimento_id', label: 'Empreendimento', type: 'select', optionsKey: 'empreendimentos' },
+        { key: 'conta_id', label: 'Conta', type: 'select', optionsKey: 'contas' },
+        { key: 'etapa_id', label: 'Etapa da Obra', type: 'select', optionsKey: 'etapas' },
+        { key: 'data_vencimento', label: 'Data de Vencimento', type: 'date' },
+    ];
+    
+    const allDataForBatchModal = {
+        statusOptions: [{id: 'Pago', nome: 'Pago'}, {id: 'Pendente', nome: 'Pendente'}],
+        categorias,
+        empreendimentos,
+        contas,
+        etapas,
+        contatos: allContacts,
+        funcionarios: funcionarios?.map(f => ({ ...f, nome: f.full_name })), // Garante que o campo 'nome' exista
+    };
 
     const handleBatchUpdateField = (field, value) => { setIsBatchUpdateModalOpen(false); if(!field || !value) { alert("Por favor, selecione um campo e um valor."); return; } const updateObject = { [field]: value }; if(field === 'status' && value === 'Pago'){ updateObject.data_pagamento = new Date().toISOString(); } handleBulkUpdate(updateObject); };
     const getPaymentStatus = (item) => { if (item.status === 'Pago' || item.conciliado) return { text: 'Paga', className: 'bg-green-100 text-green-800' }; const today = new Date(); today.setHours(0, 0, 0, 0); const dueDate = new Date((item.data_vencimento || item.data_transacao) + 'T00:00:00Z'); if (dueDate < today) return { text: 'Atrasada', className: 'bg-red-100 text-red-800' }; return { text: 'A Pagar', className: 'bg-yellow-100 text-yellow-800' }; };

@@ -104,6 +104,17 @@ CREATE TABLE public.configuracoes_venda (
   CONSTRAINT configuracoes_venda_pkey PRIMARY KEY (id),
   CONSTRAINT configuracoes_venda_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id)
 );
+CREATE TABLE public.configuracoes_whatsapp (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  empresa_id bigint NOT NULL UNIQUE,
+  whatsapp_phone_number_id text,
+  whatsapp_business_account_id text,
+  whatsapp_permanent_token text,
+  verify_token text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT configuracoes_whatsapp_pkey PRIMARY KEY (id),
+  CONSTRAINT configuracoes_whatsapp_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id)
+);
 CREATE TABLE public.contas_financeiras (
   id bigint NOT NULL DEFAULT nextval('contas_financeiras_id_seq'::regclass),
   nome text NOT NULL,
@@ -242,6 +253,17 @@ CREATE TABLE public.etapa_obra (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT etapa_obra_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.feedback (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  usuario_id uuid,
+  pagina text,
+  descricao text NOT NULL,
+  status text DEFAULT 'Aberto'::text,
+  captura_de_tela_url text,
+  CONSTRAINT feedback_pkey PRIMARY KEY (id),
+  CONSTRAINT feedback_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id)
+);
 CREATE TABLE public.funcionarios (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   empresa_id bigint NOT NULL,
@@ -278,10 +300,12 @@ CREATE TABLE public.funcionarios (
   demission_date date,
   numero_ponto integer UNIQUE,
   jornada_id bigint,
+  contato_id bigint UNIQUE,
   CONSTRAINT funcionarios_pkey PRIMARY KEY (id),
   CONSTRAINT funcionarios_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id),
   CONSTRAINT funcionarios_empreendimento_atual_id_fkey FOREIGN KEY (empreendimento_atual_id) REFERENCES public.empreendimentos(id),
-  CONSTRAINT funcionarios_jornada_id_fkey FOREIGN KEY (jornada_id) REFERENCES public.jornadas(id)
+  CONSTRAINT funcionarios_jornada_id_fkey FOREIGN KEY (jornada_id) REFERENCES public.jornadas(id),
+  CONSTRAINT fk_funcionarios_contato_id FOREIGN KEY (contato_id) REFERENCES public.contatos(id)
 );
 CREATE TABLE public.funcoes (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -353,6 +377,7 @@ CREATE TABLE public.lancamentos (
   conciliado boolean DEFAULT false,
   id_transacao_externa text,
   empresa_id bigint,
+  criado_por_usuario_id uuid,
   CONSTRAINT lancamentos_pkey PRIMARY KEY (id),
   CONSTRAINT lancamentos_conta_id_fkey FOREIGN KEY (conta_id) REFERENCES public.contas_financeiras(id),
   CONSTRAINT lancamentos_categoria_id_fkey FOREIGN KEY (categoria_id) REFERENCES public.categorias_financeiras(id),
@@ -362,7 +387,8 @@ CREATE TABLE public.lancamentos (
   CONSTRAINT lancamentos_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id),
   CONSTRAINT fk_recorrencia FOREIGN KEY (recorrencia_id) REFERENCES public.recorrencias(id),
   CONSTRAINT fk_favorecido_contato FOREIGN KEY (favorecido_contato_id) REFERENCES public.contatos(id),
-  CONSTRAINT fk_lancamento_empresa FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id)
+  CONSTRAINT fk_lancamento_empresa FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id),
+  CONSTRAINT lancamentos_criado_por_usuario_id_fkey FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id)
 );
 CREATE TABLE public.lancamentos_anexos (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -606,4 +632,20 @@ CREATE TABLE public.usuarios (
   CONSTRAINT usuarios_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
   CONSTRAINT usuarios_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id),
   CONSTRAINT usuarios_funcao_id_fkey FOREIGN KEY (funcao_id) REFERENCES public.funcoes(id)
+);
+CREATE TABLE public.whatsapp_messages (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  contato_id bigint,
+  whatsapp_message_id text NOT NULL UNIQUE,
+  sender_phone text NOT NULL,
+  recipient_phone text NOT NULL,
+  message_content text,
+  message_type text NOT NULL,
+  message_timestamp timestamp with time zone NOT NULL,
+  status text,
+  direction text NOT NULL,
+  raw_payload jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT whatsapp_messages_pkey PRIMARY KEY (id),
+  CONSTRAINT whatsapp_messages_contato_id_fkey FOREIGN KEY (contato_id) REFERENCES public.contatos(id)
 );

@@ -48,6 +48,8 @@ export default function FinanceiroPage() {
     const [empreendimentos, setEmpreendimentos] = useState([]);
     const [lancamentos, setLancamentos] = useState([]);
     const [allLancamentosKpi, setAllLancamentosKpi] = useState([]);
+    const [allContacts, setAllContacts] = useState([]);
+    const [funcionarios, setFuncionarios] = useState([]);
 
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingLancamento, setEditingLancamento] = useState(null);
@@ -178,16 +180,27 @@ export default function FinanceiroPage() {
     }, [selectedEmpreendimento, supabase]);
 
     const fetchInitialData = useCallback(async () => {
-        const [empresasRes, contasRes, categoriasRes, empreendimentosRes] = await Promise.all([
+        const [
+            empresasRes, 
+            contasRes, 
+            categoriasRes, 
+            empreendimentosRes, 
+            contatosRes,
+            funcionariosRes
+        ] = await Promise.all([
             supabase.from('cadastro_empresa').select('*').order('nome_fantasia'),
             supabase.from('contas_financeiras').select('*, empresa:empresa_id(*)').order('nome'),
             supabase.from('categorias_financeiras').select('*').order('nome'),
-            supabase.from('empreendimentos').select('*, empresa:empresa_proprietaria_id(nome_fantasia, razao_social)').order('nome')
+            supabase.from('empreendimentos').select('*, empresa:empresa_proprietaria_id(nome_fantasia, razao_social)').order('nome'),
+            supabase.from('contatos').select('id, nome, razao_social').order('nome'),
+            supabase.from('funcionarios').select('id, full_name').order('full_name')
         ]);
         setEmpresas(empresasRes.data || []);
         setContas(contasRes.data || []);
         setCategorias(categoriasRes.data || []);
         setEmpreendimentos(empreendimentosRes.data || []);
+        setAllContacts(contatosRes.data || []);
+        setFuncionarios(funcionariosRes.data || []);
     }, [supabase]);
     
     useEffect(() => {
@@ -296,11 +309,27 @@ export default function FinanceiroPage() {
             <div className="mt-4">
                 {activeTab === 'lancamentos' && (
                     <LancamentosManager 
-                        lancamentos={lancamentos} allLancamentosKpi={allLancamentosKpi} loading={loading}
-                        contas={contas} categorias={categorias} empreendimentos={empreendimentos} empresas={empresas}
-                        filters={filters} setFilters={setFilters} sortConfig={sortConfig} setSortConfig={setSortConfig}
-                        currentPage={currentPage} setCurrentPage={setCurrentPage} itemsPerPage={itemsPerPage} setItemsPerPage={setItemsPerPage}
-                        totalCount={totalCount} onEdit={handleOpenEditModal} onDelete={handleDeleteLancamento} onUpdate={fetchLancamentos}
+                        lancamentos={lancamentos}
+                        allLancamentosKpi={allLancamentosKpi}
+                        loading={loading}
+                        contas={contas}
+                        categorias={categorias}
+                        empreendimentos={empreendimentos}
+                        empresas={empresas}
+                        funcionarios={funcionarios}
+                        allContacts={allContacts}
+                        filters={filters}
+                        setFilters={setFilters}
+                        sortConfig={sortConfig}
+                        setSortConfig={setSortConfig}
+                        currentPage={currentPage}
+                        setCurrentPage={setCurrentPage}
+                        itemsPerPage={itemsPerPage}
+                        setItemsPerPage={setItemsPerPage}
+                        totalCount={totalCount}
+                        onEdit={handleOpenEditModal}
+                        onDelete={handleDeleteLancamento}
+                        onUpdate={fetchLancamentos}
                     />
                 )}
                 {activeTab === 'conciliacao' && <ConciliacaoManager contas={contas} />}

@@ -3,17 +3,26 @@
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
-  faClipboardList, faCog, faChevronLeft, faChevronRight, faClock,
-  faAddressBook, faDollarSign, faShoppingCart, faUserCog,
-  faWhatsapp
-} from '@fortawesome/free-brands-svg-icons';
-import {
+  faTachometerAlt,
+  faBuilding,
+  faProjectDiagram,
+  faUsers,
+  faTasks,
+  faClipboardList,
+  faCog,
+  faChevronLeft,
+  faChevronRight,
+  faClock,
+  faAddressBook,
+  faDollarSign,
+  faShoppingCart,
+  faUserCog,
   faHome,
   faSitemap,
   faBug,
-  faInbox // Novo ícone importado
+  faInbox
 } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 
 export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {

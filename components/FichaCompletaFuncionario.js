@@ -207,7 +207,7 @@ const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) =
     );
 };
 
-// ***** NOVO COMPONENTE PARA A ABA FINANCEIRA *****
+// Seção financeira com a lógica de busca corrigida
 const FinanceiroSection = ({ lancamentos }) => {
     const formatCurrency = (value, tipo) => {
         const isReceita = tipo === 'Receita';
@@ -255,31 +255,22 @@ const FinanceiroSection = ({ lancamentos }) => {
 
 export default function FichaCompletaFuncionario({ employee, allDocuments, allPontos, allAbonos, onUpdate }) {
     const [activeTab, setActiveTab] = useState('pessoal');
-    const [lancamentos, setLancamentos] = useState([]); // ***** NOVO ESTADO *****
+    const [lancamentos, setLancamentos] = useState([]);
     const supabase = createClient();
     
-    // ***** NOVA FUNÇÃO PARA BUSCAR LANÇAMENTOS *****
+    // LÓGICA DE BUSCA CORRIGIDA
     const fetchLancamentos = useCallback(async () => {
-        if (!employee?.cpf) return;
-    
-        // Passo 1: Encontrar o ID do contato correspondente ao CPF do funcionário
-        const { data: contatoData, error: contatoError } = await supabase
-            .from('contatos')
-            .select('id')
-            .eq('cpf', employee.cpf)
-            .limit(1)
-            .single();
-    
-        if (contatoError || !contatoData) {
-            console.warn("Nenhum contato encontrado para o CPF:", employee.cpf);
+        // Se o funcionário não tiver um contato_id, não há o que buscar.
+        if (!employee?.contato_id) {
+            setLancamentos([]);
             return;
         }
     
-        // Passo 2: Usar o ID do contato para buscar os lançamentos
+        // Busca os lançamentos usando a chave estrangeira direta.
         const { data: lancamentosData, error: lancamentosError } = await supabase
             .from('lancamentos')
             .select('*, conta:conta_id(nome)')
-            .eq('favorecido_contato_id', contatoData.id)
+            .eq('favorecido_contato_id', employee.contato_id)
             .order('data_transacao', { ascending: false });
     
         if (lancamentosError) {
@@ -294,7 +285,7 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
             fetchLancamentos();
         }
     }, [activeTab, fetchLancamentos]);
-    // ***** FIM DA NOVA LÓGICA *****
+    // FIM DA CORREÇÃO
     
     const kpiData = useMemo(() => { const currentMonth = new Date().getMonth(); const currentYear = new Date().getFullYear(); const pontosDoMes = allPontos.filter(p => new Date(p.data_hora).getMonth() === currentMonth && new Date(p.data_hora).getFullYear() === currentYear); const abonosDoMes = allAbonos.filter(a => new Date(a.data_abono).getMonth() === currentMonth && new Date(a.data_abono).getFullYear() === currentYear); let totalMinutosTrabalhados = 0; const pontosPorDia = pontosDoMes.reduce((acc, ponto) => { const dia = ponto.data_hora.split('T')[0]; if (!acc[dia]) acc[dia] = []; acc[dia].push(new Date(ponto.data_hora)); return acc; }, {}); for (const dia in pontosPorDia) { const registros = pontosPorDia[dia].sort((a, b) => a - b); if (registros.length >= 2) { const entrada = registros[0]; const saida = registros[registros.length - 1]; let diff = saida - entrada; if (registros.length >= 4) { const saidaIntervalo = registros[1]; const voltaIntervalo = registros[2]; diff -= (voltaIntervalo - saidaIntervalo); } totalMinutosTrabalhados += diff / (1000 * 60); } } const horasTrabalhadas = (totalMinutosTrabalhados / 60).toFixed(1); const totalHorasAbonadas = abonosDoMes.reduce((acc, abono) => acc + abono.horas_abonadas, 0); return { horasTrabalhadas: `${horasTrabalhadas}h`, horasAbonadas: `${totalHorasAbonadas}h`, saldoHoras: 'N/A' }; }, [allPontos, allAbonos]);
     const TabButton = ({ tabName, label, icon }) => (<button onClick={() => setActiveTab(tabName)} className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${activeTab === tabName ? 'bg-blue-500 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`} > <FontAwesomeIcon icon={icon} /> {label} </button>);
