@@ -1,99 +1,95 @@
-// app/api/whatsapp/send/route.js
-
 import { NextResponse } from 'next/server';
-import { createClient } from '../../../../utils/supabase/server';
+import { createClient } from '@supabase/supabase-js';
+
+// Função para extrair o conteúdo de texto da complexa resposta do WhatsApp
+function getTextContent(message) {
+    if (message.type === 'text') {
+        return message.text?.body || null;
+    }
+    if (message.type === 'interactive') {
+        if (message.interactive?.button_reply) {
+            return message.interactive.button_reply.title;
+        }
+        if (message.interactive?.list_reply) {
+            return message.interactive.list_reply.title;
+        }
+    }
+    return `Mensagem do tipo '${message.type}' recebida.`;
+}
+
+export async function GET(request) {
+    const searchParams = request.nextUrl.searchParams;
+    const mode = searchParams.get('hub.mode');
+    const token = searchParams.get('hub.verify_token');
+    const challenge = searchParams.get('hub.challenge');
+
+    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
+
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+        console.log("INFO: Webhook verificado com sucesso!");
+        return new NextResponse(challenge, { status: 200 });
+    } else {
+        console.error("ERRO: Falha na verificação do webhook. Tokens não correspondem.");
+        return new NextResponse(null, { status: 403 });
+    }
+}
 
 export async function POST(request) {
-    const supabase = createClient();
-    const body = await request.json();
-    const { to, type, templateName, languageCode, components, text } = body;
-
-    if (!to || !type) {
-        return NextResponse.json({ error: 'O número de destino (to) e o tipo (type) são obrigatórios.' }, { status: 400 });
-    }
-
-    const { data: config, error: configError } = await supabase
-        .from('configuracoes_whatsapp')
-        .select('whatsapp_permanent_token, whatsapp_phone_number_id')
-        .limit(1)
-        .single();
-
-    if (configError || !config) {
-        console.error("ERRO GRAVE: Não foi possível ler as configurações do WhatsApp no banco de dados.", configError);
-        return NextResponse.json({ error: 'As credenciais do WhatsApp não foram encontradas no banco de dados.' }, { status: 500 });
-    }
-
-    const { whatsapp_permanent_token: WHATSAPP_TOKEN, whatsapp_phone_number_id: WHATSAPP_PHONE_NUMBER_ID } = config;
-
-    const url = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
-    let payload = {};
-    let messageContent = '';
-
-    if (type === 'template') {
-        payload = {
-            messaging_product: 'whatsapp', recipient_type: 'individual', to: to, type: 'template',
-            template: { name: templateName, language: { code: languageCode || 'pt_BR' }, components: components || [] }
-        };
-        messageContent = `Template: ${templateName}`;
-    } else if (type === 'text') {
-        payload = {
-            messaging_product: 'whatsapp', recipient_type: 'individual', to: to, type: 'text',
-            text: { preview_url: true, body: text }
-        };
-        messageContent = text;
-    } else {
-         return NextResponse.json({ error: 'Tipo de mensagem inválido.' }, { status: 400 });
-    }
+    const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
 
     try {
-        const apiResponse = await fetch(url, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        const body = await request.json();
+        console.log("INFO: Payload recebido do webhook:", JSON.stringify(body, null, 2));
 
-        const responseData = await apiResponse.json();
-        
-        if (!apiResponse.ok) {
-            console.error("API da Meta retornou um erro:", responseData);
-            return NextResponse.json({ error: `Erro da API do WhatsApp: ${responseData.error?.message}` }, { status: apiResponse.status });
+        // Estrutura padrão de uma notificação do WhatsApp
+        if (body.object === 'whatsapp_business_account') {
+            const messageEntry = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+
+            if (messageEntry) {
+                const senderPhone = messageEntry.from;
+                const messageContent = getTextContent(messageEntry);
+                const messageId = messageEntry.id;
+                const timestamp = new Date(parseInt(messageEntry.timestamp, 10) * 1000).toISOString();
+
+                // Busca o contato pelo número de telefone
+                const { data: contact } = await supabaseAdmin
+                    .from('contatos')
+                    .select('id, empresa_id')
+                    .eq('whatsapp', senderPhone)
+                    .single();
+                
+                // Objeto para salvar no banco, com os nomes de colunas corretos
+                const messageToSave = {
+                    contato_id: contact?.id || null,
+                    enterprise_id: contact?.empresa_id || null,
+                    message_id: messageId,
+                    sender_id: senderPhone, // Quem enviou a mensagem
+                    receiver_id: process.env.WHATSAPP_PHONE_NUMBER_ID, // O seu número que recebeu
+                    content: messageContent,
+                    sent_at: timestamp,
+                    direction: 'inbound', // 'inbound' significa "de entrada"
+                    status: 'delivered',
+                    raw_payload: messageEntry,
+                };
+                
+                const { error: dbError } = await supabaseAdmin.from('whatsapp_messages').insert(messageToSave);
+
+                if (dbError) {
+                    console.error("ERRO ao salvar mensagem recebida no banco:", dbError);
+                } else {
+                    console.log("SUCESSO: Mensagem do cliente salva no banco de dados.");
+                }
+            }
         }
         
-        const newMessageId = responseData.messages?.[0]?.id;
-        if (!newMessageId) {
-            console.error("Sucesso da API, mas não foi retornado um message_id:", responseData);
-            return NextResponse.json({ message: 'Mensagem enviada, mas não pôde ser salva (ID ausente).', data: responseData }, { status: 200 });
-        }
-
-        const { data: contact } = await supabase.from('contatos').select('id, enterprise_id').eq('whatsapp', to).single();
-
-        const messageToSave = {
-            // ***** CORREÇÃO DEFINITIVA APLICADA AQUI *****
-            contato_id: contact?.id || null, // Nome da coluna IGUAL ao do banco de dados
-            enterprise_id: contact?.enterprise_id || null,
-            message_id: newMessageId,
-            sender_id: 'SYSTEM',
-            receiver_id: to,
-            content: messageContent,
-            sent_at: new Date().toISOString(),
-            direction: 'OUT',
-            status: 'SENT',
-            message_type: type,
-            raw_payload: responseData,
-        };
-
-        const { error: dbError } = await supabase.from('whatsapp_messages').insert(messageToSave);
-
-        if (dbError) {
-            console.error('ERRO AO INSERIR NO BANCO:', dbError);
-            return NextResponse.json({ message: 'Mensagem ENVIADA, mas falhou ao salvar no banco.', error: dbError.message }, { status: 206 });
-        }
-
-        console.log("Mensagem de saída salva no banco com sucesso!");
-        return NextResponse.json({ message: 'Mensagem enviada e salva com sucesso!', data: responseData }, { status: 200 });
+        // Responde à Meta com status 200 OK para confirmar o recebimento
+        return new NextResponse(null, { status: 200 });
 
     } catch (error) {
-        console.error("Erro inesperado na rota de envio:", error);
-        return NextResponse.json({ error: 'Falha crítica ao se comunicar com a API do WhatsApp.' }, { status: 500 });
+        console.error("ERRO INESPERADO no webhook:", error);
+        return new NextResponse(null, { status: 500 });
     }
 }
