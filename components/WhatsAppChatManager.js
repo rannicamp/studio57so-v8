@@ -8,7 +8,6 @@ import { sendWhatsAppText } from '../utils/whatsapp';
 
 // Componente para exibir o balão de mensagem
 const MessageBubble = ({ message }) => {
-    // Verifica se a mensagem foi enviada por si ('outbound') ou recebida ('inbound')
     const isSentByUser = message.direction === 'outbound';
     
     const bubbleClasses = isSentByUser
@@ -17,16 +16,13 @@ const MessageBubble = ({ message }) => {
 
     return (
         <div className={`max-w-md w-fit p-3 ${bubbleClasses}`}>
-            {/* CORREÇÃO: Usa a coluna 'content' para exibir o conteúdo da mensagem */}
             <p className="text-sm">{message.content}</p>
             <p className="text-xs mt-1 text-right opacity-70">
-                {/* CORREÇÃO: Usa a coluna 'sent_at' para a hora */}
                 {new Date(message.sent_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </p>
         </div>
     );
 };
-
 
 export default function WhatsAppChatManager({ contatos }) {
     const supabase = createClient();
@@ -39,7 +35,6 @@ export default function WhatsAppChatManager({ contatos }) {
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
-        // Rola a conversa para a última mensagem sempre que houver uma nova
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
@@ -49,22 +44,31 @@ export default function WhatsAppChatManager({ contatos }) {
         setMessages([]);
         setNewMessage('');
 
-        // Busca o histórico de mensagens para o contato selecionado
+        const contactPhone = contact.telefones?.[0]?.telefone;
+        if (!contactPhone) {
+            setLoadingMessages(false);
+            return;
+        }
+
+        // --- LÓGICA DE BUSCA CORRIGIDA ---
+        // Agora busca todas as mensagens ONDE:
+        // o remetente (sender_id) é o contato selecionado
+        // OU
+        // o destinatário (receiver_id) é o contato selecionado
         const { data, error } = await supabase
             .from('whatsapp_messages')
             .select('*')
-            .eq('contato_id', contact.id)
-            .order('sent_at', { ascending: true }); // Ordena pela data de envio
+            .or(`sender_id.eq.${contactPhone},receiver_id.eq.${contactPhone}`)
+            .order('sent_at', { ascending: true }); // Ordena pela data/hora de envio
 
         if (error) {
-            console.error("Erro ao buscar mensagens:", error);
+            console.error("Erro ao buscar o histórico de mensagens:", error);
         } else {
             setMessages(data || []);
         }
         setLoadingMessages(false);
     }, [supabase]);
     
-    // Efeito para "ouvir" novas mensagens em tempo real
     useEffect(() => {
         if (!selectedContact) return;
 
@@ -75,12 +79,11 @@ export default function WhatsAppChatManager({ contatos }) {
                 { 
                     event: 'INSERT', 
                     schema: 'public', 
-                    table: 'whatsapp_messages', 
-                    filter: `contato_id=eq.${selectedContact.id}` 
+                    table: 'whatsapp_messages'
                 },
                 (payload) => {
-                    // Adiciona a nova mensagem à lista de mensagens na tela
-                    setMessages(prevMessages => [...prevMessages, payload.new]);
+                    // Quando uma nova mensagem chegar, recarrega o histórico para garantir a consistência
+                    handleSelectContact(selectedContact);
                 }
             )
             .subscribe();
@@ -88,7 +91,7 @@ export default function WhatsAppChatManager({ contatos }) {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [selectedContact, supabase]);
+    }, [selectedContact, supabase, handleSelectContact]);
 
     const handleSendMessage = async () => {
         if (!selectedContact || !newMessage.trim()) return;
@@ -103,13 +106,9 @@ export default function WhatsAppChatManager({ contatos }) {
         const textToSend = newMessage;
         setNewMessage('');
         
-        // Envia a mensagem pela API
-        const result = await sendWhatsAppText(phoneNumber, textToSend);
-
-        if (!result.success) {
-            alert('Falha ao enviar mensagem: ' + result.error);
-        }
-        // Não precisamos mais da mensagem "otimista", pois o realtime irá adicionar a mensagem quando ela for salva.
+        await sendWhatsAppText(phoneNumber, textToSend);
+        
+        // A mensagem aparecerá automaticamente por causa da escuta em tempo real (realtime).
         setIsSending(false);
     };
 
@@ -130,7 +129,7 @@ export default function WhatsAppChatManager({ contatos }) {
                         <input
                             type="text"
                             placeholder="Pesquisar por nome ou telefone..."
-                            className="w-full p-2 pl-9 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full p-2 pl-9 border rounded-md text-sm"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -175,7 +174,7 @@ export default function WhatsAppChatManager({ contatos }) {
                                 onChange={(e) => setNewMessage(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter' && !isSending) handleSendMessage(); }}
                                 placeholder="Digite uma mensagem..."
-                                className="flex-1 p-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="flex-1 p-2 border rounded-full"
                            />
                             <button
                                 onClick={handleSendMessage}
