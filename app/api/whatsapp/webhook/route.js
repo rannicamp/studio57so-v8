@@ -52,10 +52,9 @@ export async function POST(request) {
 
         console.log(`Mensagem de texto recebida de ${from}: "${textBody}"`);
 
-        // ***** CORREÇÃO APLICADA AQUI *****
-        // O nome da tabela foi corrigido de 'contacts' para 'contatos'
+        // Busca o contato na tabela "contatos" (plural)
         const { data: contact, error: contactError } = await supabase
-          .from('contatos') // <--- CORREÇÃO
+          .from('contatos') // Nome da tabela correto
           .select('id, enterprise_id')
           .eq('whatsapp', from)
           .single();
@@ -72,10 +71,11 @@ export async function POST(request) {
           console.log(`Contato para o número ${from} não encontrado. A mensagem será salva sem associação.`);
         }
 
+        // Insere na tabela "whatsapp_messages" usando o nome de coluna correto
         const { error: messageError } = await supabase
           .from('whatsapp_messages')
           .insert([{
-              contact_id: contact_id,
+              contact_id: contact_id, // <--- Nome da coluna correto
               enterprise_id: enterprise_id,
               message_id: message.id,
               conversation_id: from,
