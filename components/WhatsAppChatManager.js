@@ -1,26 +1,33 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperPlane, faSpinner, faUserCircle, faSearch } from '@fortawesome/free-solid-svg-icons';
 import { sendWhatsAppText } from '../utils/whatsapp';
 
+// Componente para exibir o balão de mensagem
 const MessageBubble = ({ message }) => {
+    // Verifica se a mensagem foi enviada por si ('outbound') ou recebida ('inbound')
     const isSentByUser = message.direction === 'outbound';
+    
+    // Define o estilo do balão com base em quem enviou
     const bubbleClasses = isSentByUser
         ? 'bg-blue-500 text-white self-end rounded-l-lg rounded-tr-lg'
         : 'bg-gray-200 text-gray-800 self-start rounded-r-lg rounded-tl-lg';
 
     return (
         <div className={`max-w-md w-fit p-3 ${bubbleClasses}`}>
-            <p className="text-sm">{message.message_content}</p>
+            {/* CORREÇÃO: Usa a coluna 'content' para exibir a mensagem */}
+            <p className="text-sm">{message.content}</p>
             <p className="text-xs mt-1 text-right opacity-70">
-                {new Date(message.message_timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                {/* CORREÇÃO: Usa a coluna 'sent_at' para exibir a hora */}
+                {new Date(message.sent_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </p>
         </div>
     );
 };
+
 
 export default function WhatsAppChatManager({ contatos }) {
     const supabase = createClient();
@@ -30,25 +37,24 @@ export default function WhatsAppChatManager({ contatos }) {
     const chatEndRef = useRef(null);
     const [newMessage, setNewMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
-
-    // ***** NOVO ESTADO PARA A BARRA DE PESQUISA *****
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const handleSelectContact = async (contact) => {
+    const handleSelectContact = useCallback(async (contact) => {
         setSelectedContact(contact);
         setLoadingMessages(true);
         setMessages([]);
         setNewMessage('');
 
+        // Busca o histórico de mensagens para o contato selecionado
         const { data, error } = await supabase
             .from('whatsapp_messages')
             .select('*')
             .eq('contato_id', contact.id)
-            .order('message_timestamp', { ascending: true });
+            .order('sent_at', { ascending: true }); // Ordena pela data de envio
 
         if (error) {
             console.error("Erro ao buscar mensagens:", error);
@@ -56,18 +62,30 @@ export default function WhatsAppChatManager({ contatos }) {
             setMessages(data || []);
         }
         setLoadingMessages(false);
-    };
+    }, [supabase]);
     
+    // Efeito para "ouvir" novas mensagens em tempo real
     useEffect(() => {
         if (!selectedContact) return;
+
         const channel = supabase
-            .channel(`whatsapp_messages_for_${selectedContact.id}`)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_messages', filter: `contato_id=eq.${selectedContact.id}` },
+            .channel(`realtime_whatsapp_messages_for_${selectedContact.id}`)
+            .on(
+                'postgres_changes', 
+                { 
+                    event: 'INSERT', 
+                    schema: 'public', 
+                    table: 'whatsapp_messages', 
+                    filter: `contato_id=eq.${selectedContact.id}` 
+                },
                 (payload) => {
+                    // Adiciona a nova mensagem à lista de mensagens na tela
                     setMessages(prevMessages => [...prevMessages, payload.new]);
                 }
             )
             .subscribe();
+        
+        // "Limpa" a escuta quando o usuário troca de contato
         return () => {
             supabase.removeChannel(channel);
         };
@@ -75,21 +93,29 @@ export default function WhatsAppChatManager({ contatos }) {
 
     const handleSendMessage = async () => {
         if (!selectedContact || !newMessage.trim()) return;
+        
+        // Pega o primeiro telefone da lista de telefones do contato
+        const phoneNumber = selectedContact.telefones?.[0]?.telefone;
+        if (!phoneNumber) {
+            alert("Este contato não possui um número de telefone cadastrado.");
+            return;
+        }
+
         setIsSending(true);
-        const phoneNumber = selectedContact.telefones[0].telefone;
         const textToSend = newMessage;
-        const optimisticMessage = { id: Date.now(), direction: 'outbound', message_content: textToSend, message_timestamp: new Date().toISOString(), };
-        setMessages(prevMessages => [...prevMessages, optimisticMessage]);
         setNewMessage('');
+        
+        // Envia a mensagem pela nossa API
         const result = await sendWhatsAppText(phoneNumber, textToSend);
+
         if (!result.success) {
             alert('Falha ao enviar mensagem: ' + result.error);
-            setMessages(prevMessages => prevMessages.filter(msg => msg.id !== optimisticMessage.id));
         }
+        // Não precisamos mais adicionar a mensagem "otimista" aqui,
+        // pois a nossa API agora salva a mensagem enviada e o "realtime" a trará para a tela.
         setIsSending(false);
     };
 
-    // ***** NOVA LÓGICA PARA FILTRAR OS CONTATOS *****
     const filteredContacts = contatos.filter(contact => {
         const name = (contact.nome || contact.razao_social || '').toLowerCase();
         const phone = (contact.telefones?.[0]?.telefone || '');
@@ -101,7 +127,6 @@ export default function WhatsAppChatManager({ contatos }) {
     return (
         <div className="flex h-[calc(100vh-200px)] bg-white rounded-lg shadow-xl border">
             <div className="w-1/3 border-r flex flex-col">
-                {/* ***** ÁREA DA PESQUISA ADICIONADA ***** */}
                 <div className="p-4 border-b">
                     <h2 className="text-lg font-bold mb-2">Contatos</h2>
                     <div className="relative">
@@ -115,10 +140,8 @@ export default function WhatsAppChatManager({ contatos }) {
                         />
                     </div>
                 </div>
-                {/* ***** FIM DA ÁREA DE PESQUISA ***** */}
                 
                 <ul className="overflow-y-auto flex-1">
-                    {/* A lista agora usa os contatos filtrados */}
                     {filteredContacts.map(contact => (
                         <li
                             key={contact.id}
