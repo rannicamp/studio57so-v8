@@ -1,104 +1,99 @@
-// app/api/whatsapp/webhook/route.js
+// app/api/whatsapp/send/route.js
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '../../../../utils/supabase/server';
 
-// A função GET para verificação do webhook permanece a mesma.
-export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const mode = searchParams.get('hub.mode');
-  const token = searchParams.get('hub.verify_token');
-  const challenge = searchParams.get('hub.challenge');
-
-  if (mode && token) {
-    if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN) {
-      console.log('WEBHOOK_VERIFIED');
-      return new NextResponse(challenge, { status: 200 });
-    } else {
-      console.error('Webhook verification failed. Tokens do not match.');
-      return new NextResponse('Forbidden', { status: 403 });
-    }
-  }
-  return new NextResponse('Bad Request', { status: 400 });
-}
-
-// Função POST aprimorada para receber as mensagens
 export async function POST(request) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    console.error("ERRO CRÍTICO: Variáveis de ambiente do Supabase não configuradas no servidor.");
-    return new NextResponse('Internal Server Error: Server configuration missing', { status: 500 });
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseKey);
-
-  try {
+    const supabase = createClient();
     const body = await request.json();
-    console.log('Received WhatsApp Webhook:', JSON.stringify(body, null, 2));
+    const { to, type, templateName, languageCode, components, text } = body;
 
-    const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-
-    if (!message) {
-        console.log("Webhook recebido, mas não é uma mensagem de usuário. Ignorando.");
-        return new NextResponse('OK: Not a user message', { status: 200 });
+    if (!to || !type) {
+        return NextResponse.json({ error: 'O número de destino (to) e o tipo (type) são obrigatórios.' }, { status: 400 });
     }
 
-    if (message.type === 'text') {
-        const from = message.from;
-        const timestamp = message.timestamp;
-        const textBody = message.text.body;
+    const { data: config, error: configError } = await supabase
+        .from('configuracoes_whatsapp')
+        .select('whatsapp_permanent_token, whatsapp_phone_number_id')
+        .limit(1)
+        .single();
 
-        console.log(`Mensagem de texto recebida de ${from}: "${textBody}"`);
+    if (configError || !config) {
+        console.error("ERRO GRAVE: Não foi possível ler as configurações do WhatsApp no banco de dados.", configError);
+        return NextResponse.json({ error: 'As credenciais do WhatsApp não foram encontradas no banco de dados.' }, { status: 500 });
+    }
 
-        // Busca o contato na tabela "contatos" (plural)
-        const { data: contact, error: contactError } = await supabase
-          .from('contatos') // Nome da tabela correto
-          .select('id, enterprise_id')
-          .eq('whatsapp', from)
-          .single();
+    const { whatsapp_permanent_token: WHATSAPP_TOKEN, whatsapp_phone_number_id: WHATSAPP_PHONE_NUMBER_ID } = config;
 
-        if (contactError && contactError.code !== 'PGRST116') {
-          console.error('Erro ao buscar contato no Supabase:', contactError.message);
-          return new NextResponse('OK: Error fetching contact', { status: 200 });
+    const url = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
+    let payload = {};
+    let messageContent = '';
+
+    if (type === 'template') {
+        payload = {
+            messaging_product: 'whatsapp', recipient_type: 'individual', to: to, type: 'template',
+            template: { name: templateName, language: { code: languageCode || 'pt_BR' }, components: components || [] }
+        };
+        messageContent = `Template: ${templateName}`;
+    } else if (type === 'text') {
+        payload = {
+            messaging_product: 'whatsapp', recipient_type: 'individual', to: to, type: 'text',
+            text: { preview_url: true, body: text }
+        };
+        messageContent = text;
+    } else {
+         return NextResponse.json({ error: 'Tipo de mensagem inválido.' }, { status: 400 });
+    }
+
+    try {
+        const apiResponse = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const responseData = await apiResponse.json();
+        
+        if (!apiResponse.ok) {
+            console.error("API da Meta retornou um erro:", responseData);
+            return NextResponse.json({ error: `Erro da API do WhatsApp: ${responseData.error?.message}` }, { status: apiResponse.status });
         }
         
-        const contact_id = contact?.id || null;
-        const enterprise_id = contact?.enterprise_id || null;
-
-        if (!contact) {
-          console.log(`Contato para o número ${from} não encontrado. A mensagem será salva sem associação.`);
+        const newMessageId = responseData.messages?.[0]?.id;
+        if (!newMessageId) {
+            console.error("Sucesso da API, mas não foi retornado um message_id:", responseData);
+            return NextResponse.json({ message: 'Mensagem enviada, mas não pôde ser salva (ID ausente).', data: responseData }, { status: 200 });
         }
 
-        // Insere na tabela "whatsapp_messages" usando o nome de coluna correto
-        const { error: messageError } = await supabase
-          .from('whatsapp_messages')
-          .insert([{
-              contact_id: contact_id, // <--- Nome da coluna correto
-              enterprise_id: enterprise_id,
-              message_id: message.id,
-              conversation_id: from,
-              sender_id: from,
-              receiver_id: 'SYSTEM', 
-              content: textBody,
-              sent_at: new Date(parseInt(timestamp, 10) * 1000),
-              direction: 'IN',
-              status: 'DELIVERED',
-          }]);
+        const { data: contact } = await supabase.from('contatos').select('id, enterprise_id').eq('whatsapp', to).single();
 
-        if (messageError) {
-          console.error('Erro ao inserir mensagem no Supabase:', messageError.message);
-          return new NextResponse('OK: Error inserting message', { status: 200 });
+        const messageToSave = {
+            // ***** CORREÇÃO DEFINITIVA APLICADA AQUI *****
+            contato_id: contact?.id || null, // Nome da coluna IGUAL ao do banco de dados
+            enterprise_id: contact?.enterprise_id || null,
+            message_id: newMessageId,
+            sender_id: 'SYSTEM',
+            receiver_id: to,
+            content: messageContent,
+            sent_at: new Date().toISOString(),
+            direction: 'OUT',
+            status: 'SENT',
+            message_type: type,
+            raw_payload: responseData,
+        };
+
+        const { error: dbError } = await supabase.from('whatsapp_messages').insert(messageToSave);
+
+        if (dbError) {
+            console.error('ERRO AO INSERIR NO BANCO:', dbError);
+            return NextResponse.json({ message: 'Mensagem ENVIADA, mas falhou ao salvar no banco.', error: dbError.message }, { status: 206 });
         }
 
-        console.log(`Mensagem de ${from} salva com sucesso no banco de dados!`);
+        console.log("Mensagem de saída salva no banco com sucesso!");
+        return NextResponse.json({ message: 'Mensagem enviada e salva com sucesso!', data: responseData }, { status: 200 });
+
+    } catch (error) {
+        console.error("Erro inesperado na rota de envio:", error);
+        return NextResponse.json({ error: 'Falha crítica ao se comunicar com a API do WhatsApp.' }, { status: 500 });
     }
-
-    return new NextResponse('OK', { status: 200 });
-
-  } catch (error) {
-    console.error('Erro geral no processamento do webhook:', error.message);
-    return new NextResponse('Internal Server Error', { status: 500 });
-  }
 }

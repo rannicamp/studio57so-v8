@@ -1,63 +1,61 @@
 "use client";
 
-import Link from 'next/link';
 import { useState } from 'react';
 
 export default function HomePage() {
-  const [message, setMessage] = useState('');
+  const [apiResponse, setApiResponse] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSendMessage = async () => {
-    setMessage('Enviando mensagem de teste...');
+    setIsLoading(true);
+    setApiResponse('Enviando...');
+
     try {
-      // Note que a API que chamamos não muda.
       const response = await fetch('/api/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: '5533991912291', // Seu número pessoal para receber o teste
-          type: 'template',   // Continuamos dizendo que é um template
-          
-          // ***** CORREÇÃO APLICADA AQUI *****
-          templateName: 'teste_2', // Nome exato do SEU novo modelo aprovado
-          languageCode: 'en',      // Idioma do modelo que você criou (English)
-        
+          to: '5533991912291',
+          type: 'text',
+          text: 'Teste final com logging detalhado. 🚀'
         }),
       });
 
       const result = await response.json();
+      
+      // Transforma o objeto de resposta em uma string formatada para fácil leitura
+      const formattedResponse = JSON.stringify(result, null, 2);
+      
+      setApiResponse(formattedResponse);
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Erro desconhecido');
-      }
-
-      setMessage('Mensagem enviada com sucesso! Verifique seu WhatsApp.');
     } catch (error) {
-      setMessage(`Erro ao enviar: ${error.message}`);
+      setApiResponse(`FALHA NA REQUISIÇÃO: ${error.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <main className="text-center space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Dashboard Principal</h1>
+      <h1 className="text-3xl font-bold text-gray-900">Dashboard de Teste</h1>
       
-      <div className="bg-white p-6 rounded-lg shadow-md max-w-sm mx-auto">
-        <h2 className="text-xl font-semibold mb-3 text-gray-800">Teste de Integração - WhatsApp</h2>
+      <div className="bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto border">
+        <h2 className="text-xl font-semibold mb-3 text-gray-800">Teste de Envio e Salvamento</h2>
         <button 
           onClick={handleSendMessage}
-          className="bg-green-500 text-white px-6 py-2 rounded-md shadow-sm hover:bg-green-600 w-full"
+          disabled={isLoading}
+          className="bg-blue-600 text-white px-6 py-2 rounded-md shadow-sm hover:bg-blue-700 w-full disabled:bg-gray-400"
         >
-          Enviar Mensagem de Teste
+          {isLoading ? 'Enviando...' : 'Enviar Mensagem e Ver Resposta'}
         </button>
-        {message && <p className="text-sm mt-4">{message}</p>}
-      </div>
-
-      <div className="space-x-4">
-        <Link href="/empresas/cadastro" className="inline-block bg-blue-500 text-white px-6 py-2 rounded-md shadow-sm hover:bg-blue-600">
-          Cadastrar Nova Empresa
-        </Link>
-        <Link href="/upload" className="inline-block bg-cyan-500 text-white px-6 py-2 rounded-md shadow-sm hover:bg-cyan-600">
-          Upload de Marca
-        </Link>
+        {apiResponse && (
+            <div className="mt-4 text-left">
+              <label className="font-semibold">Resposta da API:</label>
+              <pre className="bg-gray-100 p-4 rounded-md text-xs whitespace-pre-wrap">
+                <code>{apiResponse}</code>
+              </pre>
+            </div>
+        )}
       </div>
     </main>
   );
