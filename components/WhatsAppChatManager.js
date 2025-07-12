@@ -11,17 +11,16 @@ const MessageBubble = ({ message }) => {
     // Verifica se a mensagem foi enviada por si ('outbound') ou recebida ('inbound')
     const isSentByUser = message.direction === 'outbound';
     
-    // Define o estilo do balão com base em quem enviou
     const bubbleClasses = isSentByUser
         ? 'bg-blue-500 text-white self-end rounded-l-lg rounded-tr-lg'
         : 'bg-gray-200 text-gray-800 self-start rounded-r-lg rounded-tl-lg';
 
     return (
         <div className={`max-w-md w-fit p-3 ${bubbleClasses}`}>
-            {/* CORREÇÃO: Usa a coluna 'content' para exibir a mensagem */}
+            {/* CORREÇÃO: Usa a coluna 'content' para exibir o conteúdo da mensagem */}
             <p className="text-sm">{message.content}</p>
             <p className="text-xs mt-1 text-right opacity-70">
-                {/* CORREÇÃO: Usa a coluna 'sent_at' para exibir a hora */}
+                {/* CORREÇÃO: Usa a coluna 'sent_at' para a hora */}
                 {new Date(message.sent_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </p>
         </div>
@@ -40,6 +39,7 @@ export default function WhatsAppChatManager({ contatos }) {
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
+        // Rola a conversa para a última mensagem sempre que houver uma nova
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
@@ -69,7 +69,7 @@ export default function WhatsAppChatManager({ contatos }) {
         if (!selectedContact) return;
 
         const channel = supabase
-            .channel(`realtime_whatsapp_messages_for_${selectedContact.id}`)
+            .channel(`realtime_whatsapp_for_${selectedContact.id}`)
             .on(
                 'postgres_changes', 
                 { 
@@ -85,7 +85,6 @@ export default function WhatsAppChatManager({ contatos }) {
             )
             .subscribe();
         
-        // "Limpa" a escuta quando o usuário troca de contato
         return () => {
             supabase.removeChannel(channel);
         };
@@ -94,7 +93,6 @@ export default function WhatsAppChatManager({ contatos }) {
     const handleSendMessage = async () => {
         if (!selectedContact || !newMessage.trim()) return;
         
-        // Pega o primeiro telefone da lista de telefones do contato
         const phoneNumber = selectedContact.telefones?.[0]?.telefone;
         if (!phoneNumber) {
             alert("Este contato não possui um número de telefone cadastrado.");
@@ -105,14 +103,13 @@ export default function WhatsAppChatManager({ contatos }) {
         const textToSend = newMessage;
         setNewMessage('');
         
-        // Envia a mensagem pela nossa API
+        // Envia a mensagem pela API
         const result = await sendWhatsAppText(phoneNumber, textToSend);
 
         if (!result.success) {
             alert('Falha ao enviar mensagem: ' + result.error);
         }
-        // Não precisamos mais adicionar a mensagem "otimista" aqui,
-        // pois a nossa API agora salva a mensagem enviada e o "realtime" a trará para a tela.
+        // Não precisamos mais da mensagem "otimista", pois o realtime irá adicionar a mensagem quando ela for salva.
         setIsSending(false);
     };
 
@@ -120,7 +117,6 @@ export default function WhatsAppChatManager({ contatos }) {
         const name = (contact.nome || contact.razao_social || '').toLowerCase();
         const phone = (contact.telefones?.[0]?.telefone || '');
         const term = searchTerm.toLowerCase();
-
         return name.includes(term) || phone.includes(term);
     });
 
@@ -162,7 +158,6 @@ export default function WhatsAppChatManager({ contatos }) {
                             <FontAwesomeIcon icon={faUserCircle} className="text-3xl text-gray-400" />
                             <div>
                                 <h3 className="font-bold">{selectedContact.nome || selectedContact.razao_social}</h3>
-                                <p className="text-xs text-green-600">Online</p>
                             </div>
                         </div>
                         <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50">
@@ -178,7 +173,7 @@ export default function WhatsAppChatManager({ contatos }) {
                                 type="text"
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter' && !isSending) handleSendMessage(); }}
                                 placeholder="Digite uma mensagem..."
                                 className="flex-1 p-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                            />
