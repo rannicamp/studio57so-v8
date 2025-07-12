@@ -3,12 +3,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// ATENÇÃO: Use a Service Role Key para ter permissão de escrita no servidor
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; 
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 // Função para lidar com a verificação do Webhook (GET request)
+// Esta função não precisa do banco de dados, então ela continua igual.
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get('hub.mode');
@@ -28,6 +24,15 @@ export async function GET(request) {
 
 // Função para lidar com o recebimento de mensagens (POST request)
 export async function POST(request) {
+  // *** INÍCIO DA CORREÇÃO ***
+  // A conexão com o Supabase agora é criada AQUI DENTRO.
+  // Isso garante que a chave secreta só seja usada quando uma mensagem real chegar,
+  // e não durante o processo de "build" do site na Netlify.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  // *** FIM DA CORREÇÃO ***
+
   try {
     const body = await request.json();
     console.log('Received WhatsApp Webhook:', JSON.stringify(body, null, 2));
@@ -37,21 +42,18 @@ export async function POST(request) {
       const change = entry && entry.changes && entry.changes[0];
       const message = change && change.value.messages && change.value.messages[0];
 
-      // Processa apenas mensagens de texto recebidas
       if (message && message.type === 'text') {
-        const from = message.from; // Número do remetente
+        const from = message.from;
         const timestamp = message.timestamp;
         const textBody = message.text.body;
 
-        // *** INÍCIO DA CORREÇÃO ***
-        // 1. Buscar o contato no banco de dados pelo número de telefone
         const { data: contact, error: contactError } = await supabase
           .from('contacts')
           .select('id, enterprise_id')
-          .eq('whatsapp', from) // Procura pelo número exato
+          .eq('whatsapp', from)
           .single();
 
-        if (contactError && contactError.code !== 'PGRST116') { // Ignora erro de "nenhuma linha encontrada"
+        if (contactError && contactError.code !== 'PGRST116') {
           console.error('Error fetching contact:', contactError.message);
         }
 
@@ -62,13 +64,12 @@ export async function POST(request) {
           console.log(`Contact not found for number: ${from}. Message will be saved without association.`);
         }
 
-        // 2. Inserir a mensagem no banco de dados com o ID do contato encontrado
         const { error: messageError } = await supabase
           .from('whatsapp_messages')
           .insert([
             {
-              contact_id: contact_id,       // <-- CAMPO CORRIGIDO
-              enterprise_id: enterprise_id, // <-- CAMPO ADICIONADO
+              contact_id: contact_id,
+              enterprise_id: enterprise_id,
               message_id: message.id,
               conversation_id: from,
               sender_id: from,
@@ -79,7 +80,6 @@ export async function POST(request) {
               status: 'DELIVERED',
             },
           ]);
-        // *** FIM DA CORREÇÃO ***
 
         if (messageError) {
           console.error('Error inserting message into Supabase:', messageError.message);
@@ -87,8 +87,6 @@ export async function POST(request) {
           console.log(`Message from ${from} successfully saved to Supabase.`);
         }
       }
-
-      // Responde ao WhatsApp que a mensagem foi recebida com sucesso
       return new NextResponse('OK', { status: 200 });
     } else {
       return new NextResponse('Not Found', { status: 404 });
