@@ -50,16 +50,18 @@ export default function WhatsAppChatManager({ contatos }) {
             return;
         }
 
-        // --- LÓGICA DE BUSCA CORRIGIDA ---
-        // Agora busca todas as mensagens ONDE:
-        // o remetente (sender_id) é o contato selecionado
-        // OU
-        // o destinatário (receiver_id) é o contato selecionado
+        // ***** INÍCIO DA CORREÇÃO *****
+        // Garante que o número de telefone usado na busca contém apenas dígitos.
+        // Ex: Transforma "+55 (33) 99191-2291" em "5533991912291"
+        const sanitizedPhone = contactPhone.replace(/\D/g, '');
+        
         const { data, error } = await supabase
             .from('whatsapp_messages')
             .select('*')
-            .or(`sender_id.eq.${contactPhone},receiver_id.eq.${contactPhone}`)
-            .order('sent_at', { ascending: true }); // Ordena pela data/hora de envio
+            // A busca agora usa o número limpo para garantir a correspondência correta
+            .or(`sender_id.eq.${sanitizedPhone},receiver_id.eq.${sanitizedPhone}`)
+            .order('sent_at', { ascending: true });
+        // ***** FIM DA CORREÇÃO *****
 
         if (error) {
             console.error("Erro ao buscar o histórico de mensagens:", error);
@@ -82,7 +84,6 @@ export default function WhatsAppChatManager({ contatos }) {
                     table: 'whatsapp_messages'
                 },
                 (payload) => {
-                    // Quando uma nova mensagem chegar, recarrega o histórico para garantir a consistência
                     handleSelectContact(selectedContact);
                 }
             )
@@ -96,7 +97,8 @@ export default function WhatsAppChatManager({ contatos }) {
     const handleSendMessage = async () => {
         if (!selectedContact || !newMessage.trim()) return;
         
-        const phoneNumber = selectedContact.telefones?.[0]?.telefone;
+        // Usa o número sanitizado para o envio também, garantindo consistência
+        const phoneNumber = (contact.telefones?.[0]?.telefone || '').replace(/\D/g, '');
         if (!phoneNumber) {
             alert("Este contato não possui um número de telefone cadastrado.");
             return;
@@ -108,7 +110,6 @@ export default function WhatsAppChatManager({ contatos }) {
         
         await sendWhatsAppText(phoneNumber, textToSend);
         
-        // A mensagem aparecerá automaticamente por causa da escuta em tempo real (realtime).
         setIsSending(false);
     };
 
@@ -162,8 +163,10 @@ export default function WhatsAppChatManager({ contatos }) {
                         <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50">
                             {loadingMessages ? (
                                 <div className="text-center"><FontAwesomeIcon icon={faSpinner} spin /> Carregando...</div>
-                            ) : (
+                            ) : messages.length > 0 ? (
                                 messages.map(msg => <MessageBubble key={msg.id} message={msg} />)
+                            ) : (
+                                <div className="text-center text-gray-500 py-10">Nenhuma mensagem encontrada nesta conversa.</div>
                             )}
                             <div ref={chatEndRef} />
                         </div>
