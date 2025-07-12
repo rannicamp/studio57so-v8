@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPaperPlane, faSpinner, faUserCircle } from '@fortawesome/free-solid-svg-icons';
+import { faPaperPlane, faSpinner, faUserCircle, faSearch } from '@fortawesome/free-solid-svg-icons';
 import { sendWhatsAppText } from '../utils/whatsapp';
 
 const MessageBubble = ({ message }) => {
@@ -31,6 +31,9 @@ export default function WhatsAppChatManager({ contatos }) {
     const [newMessage, setNewMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
 
+    // ***** NOVO ESTADO PARA A BARRA DE PESQUISA *****
+    const [searchTerm, setSearchTerm] = useState('');
+
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
@@ -55,37 +58,20 @@ export default function WhatsAppChatManager({ contatos }) {
         setLoadingMessages(false);
     };
     
-    // ***** INÍCIO DA CORREÇÃO: ASSINATURA EM TEMPO REAL *****
     useEffect(() => {
-        // Se nenhum contato está selecionado, não faz nada.
         if (!selectedContact) return;
-
-        // Cria uma "assinatura" para a tabela 'whatsapp_messages'
         const channel = supabase
             .channel(`whatsapp_messages_for_${selectedContact.id}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT', // Escuta apenas por NOVAS mensagens
-                    schema: 'public',
-                    table: 'whatsapp_messages',
-                    filter: `contato_id=eq.${selectedContact.id}` // Filtra apenas para o contato selecionado
-                },
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_messages', filter: `contato_id=eq.${selectedContact.id}` },
                 (payload) => {
-                    // Quando uma nova mensagem chega, adiciona ela à lista de mensagens na tela
                     setMessages(prevMessages => [...prevMessages, payload.new]);
                 }
             )
             .subscribe();
-
-        // IMPORTANTE: Quando o componente for "desmontado" (ex: trocar de contato),
-        // nós cancelamos a assinatura para não sobrecarregar o sistema.
         return () => {
             supabase.removeChannel(channel);
         };
-
     }, [selectedContact, supabase]);
-    // ***** FIM DA CORREÇÃO *****
 
     const handleSendMessage = async () => {
         if (!selectedContact || !newMessage.trim()) return;
@@ -103,14 +89,37 @@ export default function WhatsAppChatManager({ contatos }) {
         setIsSending(false);
     };
 
+    // ***** NOVA LÓGICA PARA FILTRAR OS CONTATOS *****
+    const filteredContacts = contatos.filter(contact => {
+        const name = (contact.nome || contact.razao_social || '').toLowerCase();
+        const phone = (contact.telefones?.[0]?.telefone || '');
+        const term = searchTerm.toLowerCase();
+
+        return name.includes(term) || phone.includes(term);
+    });
+
     return (
         <div className="flex h-[calc(100vh-200px)] bg-white rounded-lg shadow-xl border">
             <div className="w-1/3 border-r flex flex-col">
+                {/* ***** ÁREA DA PESQUISA ADICIONADA ***** */}
                 <div className="p-4 border-b">
-                    <h2 className="text-lg font-bold">Contatos</h2>
+                    <h2 className="text-lg font-bold mb-2">Contatos</h2>
+                    <div className="relative">
+                        <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Pesquisar por nome ou telefone..."
+                            className="w-full p-2 pl-9 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
                 </div>
+                {/* ***** FIM DA ÁREA DE PESQUISA ***** */}
+                
                 <ul className="overflow-y-auto flex-1">
-                    {contatos.map(contact => (
+                    {/* A lista agora usa os contatos filtrados */}
+                    {filteredContacts.map(contact => (
                         <li
                             key={contact.id}
                             onClick={() => handleSelectContact(contact)}
@@ -122,6 +131,7 @@ export default function WhatsAppChatManager({ contatos }) {
                     ))}
                 </ul>
             </div>
+
             <div className="w-2/3 flex flex-col">
                 {selectedContact ? (
                     <>
