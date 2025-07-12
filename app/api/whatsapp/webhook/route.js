@@ -24,7 +24,6 @@ export async function GET(request) {
 
 // Função POST aprimorada para receber as mensagens
 export async function POST(request) {
-  // --- Bloco de verificação de variáveis de ambiente ---
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -39,32 +38,30 @@ export async function POST(request) {
     const body = await request.json();
     console.log('Received WhatsApp Webhook:', JSON.stringify(body, null, 2));
 
-    // Validação mais detalhada do payload da Meta
     const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
     if (!message) {
-        console.log("Webhook recebido, mas não é uma mensagem de usuário (pode ser uma notificação de status). Ignorando.");
+        console.log("Webhook recebido, mas não é uma mensagem de usuário. Ignorando.");
         return new NextResponse('OK: Not a user message', { status: 200 });
     }
 
     if (message.type === 'text') {
-        const from = message.from; // Número de quem enviou
+        const from = message.from;
         const timestamp = message.timestamp;
         const textBody = message.text.body;
 
         console.log(`Mensagem de texto recebida de ${from}: "${textBody}"`);
 
-        // 1. Busca o contato no banco
+        // ***** CORREÇÃO APLICADA AQUI *****
+        // O nome da tabela foi corrigido de 'contacts' para 'contatos'
         const { data: contact, error: contactError } = await supabase
-          .from('contacts')
+          .from('contatos') // <--- CORREÇÃO
           .select('id, enterprise_id')
           .eq('whatsapp', from)
           .single();
 
         if (contactError && contactError.code !== 'PGRST116') {
-          // Se houver um erro que NÃO SEJA "contato não encontrado", pare e registre o erro.
           console.error('Erro ao buscar contato no Supabase:', contactError.message);
-          // Retornar 200 para a Meta não reenviar, mas logar o nosso erro interno.
           return new NextResponse('OK: Error fetching contact', { status: 200 });
         }
         
@@ -75,7 +72,6 @@ export async function POST(request) {
           console.log(`Contato para o número ${from} não encontrado. A mensagem será salva sem associação.`);
         }
 
-        // 2. Insere a mensagem no banco
         const { error: messageError } = await supabase
           .from('whatsapp_messages')
           .insert([{
@@ -93,14 +89,12 @@ export async function POST(request) {
 
         if (messageError) {
           console.error('Erro ao inserir mensagem no Supabase:', messageError.message);
-          // Novamente, retornamos 200 para a Meta, mas o erro fica registrado para nós.
           return new NextResponse('OK: Error inserting message', { status: 200 });
         }
 
         console.log(`Mensagem de ${from} salva com sucesso no banco de dados!`);
     }
 
-    // Responde OK para a Meta para qualquer outro tipo de mensagem (áudio, imagem, etc.)
     return new NextResponse('OK', { status: 200 });
 
   } catch (error) {
