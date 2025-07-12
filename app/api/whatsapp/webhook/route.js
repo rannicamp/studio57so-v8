@@ -3,8 +3,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Função para lidar com a verificação do Webhook (GET request)
-// Esta função não precisa do banco de dados, então ela continua igual.
+// A função GET para verificação do webhook permanece a mesma.
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get('hub.mode');
@@ -16,37 +15,46 @@ export async function GET(request) {
       console.log('WEBHOOK_VERIFIED');
       return new NextResponse(challenge, { status: 200 });
     } else {
+      console.error('Webhook verification failed. Tokens do not match.');
       return new NextResponse('Forbidden', { status: 403 });
     }
   }
   return new NextResponse('Bad Request', { status: 400 });
 }
 
-// Função para lidar com o recebimento de mensagens (POST request)
+// Função POST aprimorada para receber as mensagens
 export async function POST(request) {
-  // *** INÍCIO DA CORREÇÃO ***
-  // A conexão com o Supabase agora é criada AQUI DENTRO.
-  // Isso garante que a chave secreta só seja usada quando uma mensagem real chegar,
-  // e não durante o processo de "build" do site na Netlify.
+  // --- Bloco de verificação de variáveis de ambiente ---
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("ERRO CRÍTICO: Variáveis de ambiente do Supabase não configuradas no servidor.");
+    return new NextResponse('Internal Server Error: Server configuration missing', { status: 500 });
+  }
+
   const supabase = createClient(supabaseUrl, supabaseKey);
-  // *** FIM DA CORREÇÃO ***
 
   try {
     const body = await request.json();
     console.log('Received WhatsApp Webhook:', JSON.stringify(body, null, 2));
 
-    if (body.object) {
-      const entry = body.entry && body.entry[0];
-      const change = entry && entry.changes && entry.changes[0];
-      const message = change && change.value.messages && change.value.messages[0];
+    // Validação mais detalhada do payload da Meta
+    const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
-      if (message && message.type === 'text') {
-        const from = message.from;
+    if (!message) {
+        console.log("Webhook recebido, mas não é uma mensagem de usuário (pode ser uma notificação de status). Ignorando.");
+        return new NextResponse('OK: Not a user message', { status: 200 });
+    }
+
+    if (message.type === 'text') {
+        const from = message.from; // Número de quem enviou
         const timestamp = message.timestamp;
         const textBody = message.text.body;
 
+        console.log(`Mensagem de texto recebida de ${from}: "${textBody}"`);
+
+        // 1. Busca o contato no banco
         const { data: contact, error: contactError } = await supabase
           .from('contacts')
           .select('id, enterprise_id')
@@ -54,20 +62,23 @@ export async function POST(request) {
           .single();
 
         if (contactError && contactError.code !== 'PGRST116') {
-          console.error('Error fetching contact:', contactError.message);
+          // Se houver um erro que NÃO SEJA "contato não encontrado", pare e registre o erro.
+          console.error('Erro ao buscar contato no Supabase:', contactError.message);
+          // Retornar 200 para a Meta não reenviar, mas logar o nosso erro interno.
+          return new NextResponse('OK: Error fetching contact', { status: 200 });
         }
-
-        const contact_id = contact ? contact.id : null;
-        const enterprise_id = contact ? contact.enterprise_id : null;
+        
+        const contact_id = contact?.id || null;
+        const enterprise_id = contact?.enterprise_id || null;
 
         if (!contact) {
-          console.log(`Contact not found for number: ${from}. Message will be saved without association.`);
+          console.log(`Contato para o número ${from} não encontrado. A mensagem será salva sem associação.`);
         }
 
+        // 2. Insere a mensagem no banco
         const { error: messageError } = await supabase
           .from('whatsapp_messages')
-          .insert([
-            {
+          .insert([{
               contact_id: contact_id,
               enterprise_id: enterprise_id,
               message_id: message.id,
@@ -75,24 +86,25 @@ export async function POST(request) {
               sender_id: from,
               receiver_id: 'SYSTEM', 
               content: textBody,
-              sent_at: new Date(parseInt(timestamp) * 1000),
+              sent_at: new Date(parseInt(timestamp, 10) * 1000),
               direction: 'IN',
               status: 'DELIVERED',
-            },
-          ]);
+          }]);
 
         if (messageError) {
-          console.error('Error inserting message into Supabase:', messageError.message);
-        } else {
-          console.log(`Message from ${from} successfully saved to Supabase.`);
+          console.error('Erro ao inserir mensagem no Supabase:', messageError.message);
+          // Novamente, retornamos 200 para a Meta, mas o erro fica registrado para nós.
+          return new NextResponse('OK: Error inserting message', { status: 200 });
         }
-      }
-      return new NextResponse('OK', { status: 200 });
-    } else {
-      return new NextResponse('Not Found', { status: 404 });
+
+        console.log(`Mensagem de ${from} salva com sucesso no banco de dados!`);
     }
+
+    // Responde OK para a Meta para qualquer outro tipo de mensagem (áudio, imagem, etc.)
+    return new NextResponse('OK', { status: 200 });
+
   } catch (error) {
-    console.error('Error processing webhook:', error);
+    console.error('Erro geral no processamento do webhook:', error.message);
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
