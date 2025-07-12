@@ -4,10 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperPlane, faSpinner, faUserCircle } from '@fortawesome/free-solid-svg-icons';
-// A CORREÇÃO ESTÁ AQUI: Importando a função correta do nosso novo utilitário
 import { sendWhatsAppText } from '../utils/whatsapp';
 
-// Componente para exibir uma única mensagem na conversa (sem alterações)
 const MessageBubble = ({ message }) => {
     const isSentByUser = message.direction === 'outbound';
     const bubbleClasses = isSentByUser
@@ -30,8 +28,6 @@ export default function WhatsAppChatManager({ contatos }) {
     const [messages, setMessages] = useState([]);
     const [loadingMessages, setLoadingMessages] = useState(false);
     const chatEndRef = useRef(null);
-
-    // NOVO: Estado para guardar a mensagem que o usuário está digitando
     const [newMessage, setNewMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
 
@@ -43,7 +39,7 @@ export default function WhatsAppChatManager({ contatos }) {
         setSelectedContact(contact);
         setLoadingMessages(true);
         setMessages([]);
-        setNewMessage(''); // Limpa a caixa de texto ao trocar de contato
+        setNewMessage('');
 
         const { data, error } = await supabase
             .from('whatsapp_messages')
@@ -58,22 +54,51 @@ export default function WhatsAppChatManager({ contatos }) {
         }
         setLoadingMessages(false);
     };
+    
+    // ***** INÍCIO DA CORREÇÃO: ASSINATURA EM TEMPO REAL *****
+    useEffect(() => {
+        // Se nenhum contato está selecionado, não faz nada.
+        if (!selectedContact) return;
 
-    // FUNÇÃO ATUALIZADA: Agora envia o texto digitado
+        // Cria uma "assinatura" para a tabela 'whatsapp_messages'
+        const channel = supabase
+            .channel(`whatsapp_messages_for_${selectedContact.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT', // Escuta apenas por NOVAS mensagens
+                    schema: 'public',
+                    table: 'whatsapp_messages',
+                    filter: `contato_id=eq.${selectedContact.id}` // Filtra apenas para o contato selecionado
+                },
+                (payload) => {
+                    // Quando uma nova mensagem chega, adiciona ela à lista de mensagens na tela
+                    setMessages(prevMessages => [...prevMessages, payload.new]);
+                }
+            )
+            .subscribe();
+
+        // IMPORTANTE: Quando o componente for "desmontado" (ex: trocar de contato),
+        // nós cancelamos a assinatura para não sobrecarregar o sistema.
+        return () => {
+            supabase.removeChannel(channel);
+        };
+
+    }, [selectedContact, supabase]);
+    // ***** FIM DA CORREÇÃO *****
+
     const handleSendMessage = async () => {
         if (!selectedContact || !newMessage.trim()) return;
-
         setIsSending(true);
-        
         const phoneNumber = selectedContact.telefones[0].telefone;
-
-        const result = await sendWhatsAppText(phoneNumber, newMessage);
-
-        if (result.success) {
-            setNewMessage(''); // Limpa a caixa de texto após o envio
-            // Idealmente, recarregaríamos as mensagens aqui para ver a nova mensagem enviada
-        } else {
+        const textToSend = newMessage;
+        const optimisticMessage = { id: Date.now(), direction: 'outbound', message_content: textToSend, message_timestamp: new Date().toISOString(), };
+        setMessages(prevMessages => [...prevMessages, optimisticMessage]);
+        setNewMessage('');
+        const result = await sendWhatsAppText(phoneNumber, textToSend);
+        if (!result.success) {
             alert('Falha ao enviar mensagem: ' + result.error);
+            setMessages(prevMessages => prevMessages.filter(msg => msg.id !== optimisticMessage.id));
         }
         setIsSending(false);
     };
@@ -97,7 +122,6 @@ export default function WhatsAppChatManager({ contatos }) {
                     ))}
                 </ul>
             </div>
-
             <div className="w-2/3 flex flex-col">
                 {selectedContact ? (
                     <>
@@ -116,7 +140,6 @@ export default function WhatsAppChatManager({ contatos }) {
                             )}
                             <div ref={chatEndRef} />
                         </div>
-                        {/* ÁREA DE DIGITAÇÃO ATUALIZADA */}
                         <div className="p-4 border-t flex items-center gap-3 bg-white">
                            <input 
                                 type="text"

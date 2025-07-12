@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faReceipt, faCalendarAlt, faRetweet, faExchangeAlt, faArrowUp, faArrowDown, faTimes, faPlus, faPaperclip, faUpload, faFileLines, faEye, faTrashAlt } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faReceipt, faCalendarAlt, faRetweet, faExchangeAlt, faArrowUp, faArrowDown, faTimes, faPlus, faPaperclip, faUpload, faFileLines, faEye, faTrashAlt, faRobot } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 
 // Componentes internos (sem alterações)
@@ -52,6 +52,11 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     
+    // ***** INÍCIO DAS NOVAS ALTERAÇÕES *****
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [aiFile, setAiFile] = useState(null);
+    // ***** FIM DAS NOVAS ALTERAÇÕES *****
+
     const [contas, setContas] = useState([]);
     const [categorias, setCategorias] = useState([]);
     const [empreendimentos, setEmpreendimentos] = useState([]);
@@ -92,8 +97,64 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             setFavorecidoSearchTerm('');
             setFavorecidoSearchResults([]);
             setSearchAttempted(false);
+            setAiFile(null); // Limpa o ficheiro da IA ao abrir/fechar
         }
     }, [isOpen, isEditing, initialData, supabase]);
+
+    // ***** INÍCIO DAS NOVAS FUNÇÕES *****
+    const handleAiFileChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            setAiFile(e.target.files[0]);
+        }
+    };
+
+    const handleAiExtract = async () => {
+        if (!aiFile) {
+            setMessage("Por favor, selecione um ficheiro para analisar.");
+            return;
+        }
+        setIsAnalyzing(true);
+        setMessage("A IA está a ler o seu documento... Por favor, aguarde.");
+
+        const apiFormData = new FormData();
+        apiFormData.append("file", aiFile);
+
+        try {
+            const response = await fetch('/api/gemini/extract-from-invoice', {
+                method: 'POST',
+                body: apiFormData,
+            });
+
+            if (!response.ok) {
+                const errorResult = await response.json();
+                throw new Error(errorResult.error || "A resposta da API não foi bem-sucedida.");
+            }
+
+            const result = await response.json();
+
+            // Preenche o formulário com os dados extraídos
+            setFormData(prev => ({
+                ...prev,
+                descricao: result.descricao || prev.descricao,
+                valor: result.valor || prev.valor,
+                data_transacao: result.data_transacao || prev.data_transacao,
+            }));
+
+            // Coloca o nome do fornecedor no campo de busca para o utilizador confirmar
+            if (result.nome_fornecedor) {
+                setFavorecidoSearchTerm(result.nome_fornecedor);
+            }
+
+            setMessage("Dados extraídos com sucesso! Por favor, confirme as informações abaixo.");
+
+        } catch (error) {
+            setMessage(`Erro na análise: ${error.message}`);
+            console.error("Erro na extração com IA:", error);
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+    // ***** FIM DAS NOVAS FUNÇÕES *****
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -143,33 +204,23 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 lancamentoId = newLancamento.id;
             }
             
-            // ***** INÍCIO DA CORREÇÃO DO NOME DO ARQUIVO *****
             if (formData.anexo && formData.anexo.file && lancamentoId) {
                 const file = formData.anexo.file;
                 
-                // 1. "Limpa" o nome do arquivo, removendo espaços e caracteres especiais.
-                const sanitizedFileName = file.name
-                    .normalize("NFD")
-                    .replace(/[\u0300-\u036f]/g, "")
-                    .replace(/[^\w.\-]/g, '_');
-
-                // 2. Cria o caminho para o armazenamento com o nome "limpo".
+                const sanitizedFileName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w.\-]/g, '_');
                 const filePath = `lancamento-${lancamentoId}/${Date.now()}-${sanitizedFileName}`;
                 
-                // 3. Envia o arquivo para o armazenamento.
                 const { error: uploadError } = await supabase.storage.from('documentos-financeiro').upload(filePath, file);
                 if (uploadError) throw uploadError;
                 
-                // 4. Salva no banco de dados o caminho com o nome limpo, mas mantém o nome ORIGINAL para exibição.
                 await supabase.from('lancamentos_anexos').insert({ 
                     lancamento_id: lancamentoId, 
                     caminho_arquivo: filePath, 
-                    nome_arquivo: file.name, // Mantém o nome original aqui!
+                    nome_arquivo: file.name,
                     descricao: formData.anexo.descricao, 
                     tipo_documento_id: formData.anexo.tipo_documento_id 
                 });
             }
-            // ***** FIM DA CORREÇÃO DO NOME DO ARQUIVO *****
 
             setMessage(`Lançamento ${isEditing ? 'atualizado' : 'criado'} com sucesso!`);
             if (onSuccess) onSuccess();
@@ -184,7 +235,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         }
     };
     
-    // Demais funções (Handlers de UI) permanecem iguais...
+    // Demais funções (Handlers de UI)
     const handleChange = (e) => { const { name, value, type, checked } = e.target; const newValue = type === 'checkbox' ? checked : (value === '' ? null : value); let newFormData = { ...formData, [name]: newValue }; if (name === 'tipo' && newValue === 'Transferência') newFormData.form_type = 'simples'; if (name === 'form_type' && newValue !== 'simples') newFormData.tipo = formData.tipo === 'Transferência' ? 'Despesa' : formData.tipo; if (name === 'empreendimento_id') { if (newValue) { const emp = empreendimentos.find(e => e.id == newValue); newFormData.empresa_id = emp?.empresa_id || null; } else { newFormData.empresa_id = null; } newFormData.etapa_id = null; } setFormData(newFormData); };
     const handleFavorecidoSearch = async (e) => { const term = e.target.value; setFavorecidoSearchTerm(term); setSearchAttempted(false); if (term.length < 3) { setFavorecidoSearchResults([]); return; } setIsSearchingFavorecido(true); const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term }); setFavorecidoSearchResults(data || []); setIsSearchingFavorecido(false); setSearchAttempted(true); };
     const handleSelectFavorecido = (contato) => { setFormData(prev => ({ ...prev, favorecido_contato_id: contato.id, novo_favorecido: null })); setFavorecidoSearchTerm(contato.nome_exibicao); setFavorecidoSearchResults([]); };
@@ -204,8 +255,31 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl max-h-[95vh] overflow-y-auto">
                 <h3 className="text-xl font-bold mb-4 text-center">{isEditing ? 'Editar Lançamento' : 'Novo Lançamento'}</h3>
                 {message && <p className={`text-center p-3 rounded-md text-sm font-semibold mb-4 ${message.includes('ERRO') ? 'bg-red-100 text-red-800' : 'bg-blue-50 text-blue-800'}`}>{message}</p>}
+                
+                {/* ***** INÍCIO DO NOVO BLOCO DE IA ***** */}
+                <div className="p-4 border-2 border-dashed border-purple-300 bg-purple-50 rounded-lg mb-6">
+                    <h4 className="font-bold text-purple-800 flex items-center gap-2 mb-2"><FontAwesomeIcon icon={faRobot} /> Assistente de IA</h4>
+                    <p className="text-xs text-purple-700 mb-3">Envie uma foto ou PDF do seu recibo ou nota fiscal e a IA tentará preencher o formulário para si.</p>
+                    <div className="flex items-center gap-4">
+                        <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={handleAiFileChange}
+                            className="flex-grow text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200"
+                        />
+                        <button
+                            type="button"
+                            onClick={handleAiExtract}
+                            disabled={!aiFile || isAnalyzing}
+                            className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 disabled:bg-gray-400"
+                        >
+                            {isAnalyzing ? <FontAwesomeIcon icon={faSpinner} spin /> : "Analisar"}
+                        </button>
+                    </div>
+                </div>
+                {/* ***** FIM DO NOVO BLOCO DE IA ***** */}
+
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* O restante do JSX do formulário não precisa de alterações */}
                      {!isEditing && (
                         <div className="flex flex-col md:flex-row gap-6 p-2 bg-gray-100 rounded-lg">
                             <div className="flex-1 space-y-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faKey, faSave } from '@fortawesome/free-solid-svg-icons';
@@ -12,6 +12,17 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
     const [formData, setFormData] = useState({});
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
+
+    useEffect(() => {
+        // Pré-seleciona a primeira empresa se houver apenas uma
+        if (empresas && empresas.length === 1) {
+            const empresaId = empresas[0].id;
+            setSelectedEmpresaId(empresaId);
+            const existingConfig = initialConfigs.find(c => c.empresa_id == empresaId);
+            setFormData(existingConfig || { empresa_id: empresaId });
+        }
+    }, [empresas, initialConfigs]);
+
 
     const handleEmpresaChange = (e) => {
         const empresaId = e.target.value;
@@ -34,17 +45,26 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
         setLoading(true);
         setMessage('Salvando...');
 
+        // ***** CORREÇÃO APLICADA AQUI *****
+        // Garante que o ID da empresa está no objeto a ser salvo
+        const dataToSave = { ...formData, empresa_id: selectedEmpresaId };
+        
+        // Remove a propriedade 'id' se ela existir, para não causar conflito no upsert
+        // O banco de dados gerencia o 'id' da linha
+        delete dataToSave.id;
+
         const { error } = await supabase
             .from('configuracoes_whatsapp')
-            .upsert(formData, { onConflict: 'empresa_id' });
+            .upsert(dataToSave, { onConflict: 'empresa_id' }); // 'upsert' atualiza se já existe, ou insere se não existir.
 
         if (error) {
+            console.error('Erro ao salvar:', error);
             setMessage(`Erro ao salvar: ${error.message}`);
         } else {
             setMessage('Configurações salvas com sucesso!');
             // Atualiza o estado local para refletir a mudança
-            const newConfigs = configs.filter(c => c.empresa_id != formData.empresa_id);
-            setConfigs([...newConfigs, formData]);
+            const newConfigs = configs.filter(c => c.empresa_id != dataToSave.empresa_id);
+            setConfigs([...newConfigs, dataToSave]);
         }
         setLoading(false);
     };
@@ -71,15 +91,15 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
                     <div className="space-y-4 pt-4 border-t animate-fade-in">
                         <div>
                             <label className="block text-sm font-medium">ID do Número de Telefone (Phone Number ID)</label>
-                            <input type="text" name="whatsapp_phone_number_id" value={formData.whatsapp_phone_number_id || ''} onChange={handleFormChange} className="mt-1 w-full p-2 border rounded-md" />
+                            <input type="text" name="whatsapp_phone_number_id" value={formData.whatsapp_phone_number_id || ''} onChange={handleFormChange} className="mt-1 w-full p-2 border rounded-md" required />
                         </div>
                         <div>
                             <label className="block text-sm font-medium">ID da Conta Empresarial (Business Account ID)</label>
-                            <input type="text" name="whatsapp_business_account_id" value={formData.whatsapp_business_account_id || ''} onChange={handleFormChange} className="mt-1 w-full p-2 border rounded-md" />
+                            <input type="text" name="whatsapp_business_account_id" value={formData.whatsapp_business_account_id || ''} onChange={handleFormChange} className="mt-1 w-full p-2 border rounded-md" required />
                         </div>
                          <div>
                             <label className="block text-sm font-medium">Token de Acesso Permanente</label>
-                            <input type="password" name="whatsapp_permanent_token" value={formData.whatsapp_permanent_token || ''} onChange={handleFormChange} className="mt-1 w-full p-2 border rounded-md" />
+                            <input type="password" name="whatsapp_permanent_token" value={formData.whatsapp_permanent_token || ''} onChange={handleFormChange} className="mt-1 w-full p-2 border rounded-md" required />
                         </div>
                          <div>
                             <label className="block text-sm font-medium">Token de Verificação do Webhook</label>
