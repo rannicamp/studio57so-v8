@@ -67,3 +67,5 @@ Cálculo de Duração (Dias Úteis): O campo "Duração" deve operar com base em
 Exemplo: Uma tarefa que começa em uma sexta-feira com duração de "2" dias deve ter sua data final calculada para a segunda-feira seguinte, não para o domingo.
 Esta funcionalidade exige lógica de programação separada do design visual.
 Marcador de "Hoje": Uma linha vertical bg-red-500 (w-0.5 h-full) atravessa o gráfico, indicando claramente a data atual de forma dinâmica.
+
+
