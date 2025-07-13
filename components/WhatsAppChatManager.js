@@ -154,42 +154,41 @@ export default function WhatsAppChatManager({ contatos }) {
         setIsSending(true);
 
         try {
-            // ***** INÍCIO DA CORREÇÃO *****
-            // 1. Sanitiza o nome do arquivo para remover caracteres problemáticos
-            const sanitizedFileName = file.name
-                .normalize("NFD") // Separa acentos dos caracteres (ex: 'á' -> 'a' + ´)
-                .replace(/[\u0300-\u036f]/g, "") // Remove os acentos
-                .replace(/[^a-zA-Z0-9.\-_]/g, '_'); // Substitui qualquer coisa que não seja letra, número, ponto, - ou _ por _
-
-            // 2. Monta o caminho do arquivo com o nome sanitizado
+            const sanitizedFileName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9.\-_]/g, '_');
             const filePath = `${selectedContact.id}/${Date.now()}_${sanitizedFileName}`;
-            // ***** FIM DA CORREÇÃO *****
 
-            const { error: uploadError } = await supabase.storage
-                .from('whatsapp-media')
-                .upload(filePath, file);
-
+            const { error: uploadError } = await supabase.storage.from('whatsapp-media').upload(filePath, file);
             if (uploadError) { throw uploadError; }
 
-            const { data: urlData } = supabase.storage
-                .from('whatsapp-media')
-                .getPublicUrl(filePath);
-
+            const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
             if (!urlData || !urlData.publicUrl) { throw new Error("Não foi possível obter a URL pública do arquivo."); }
             const publicUrl = urlData.publicUrl;
 
-            const { error: dbError } = await supabase
-                .rpc('salvar_anexo_whatsapp', {
-                    p_contato_id: selectedContact.id,
-                    p_storage_path: filePath,
-                    p_public_url: publicUrl,
-                    p_file_name: file.name, // Salva o nome original para exibição
-                    p_file_type: file.type,
-                    p_file_size: file.size,
-                });
+            // ***** INÍCIO DA CORREÇÃO *****
+            // 1. Prepara os dados para enviar para a nossa nova API
+            const attachmentData = {
+                p_contato_id: selectedContact.id,
+                p_storage_path: filePath,
+                p_public_url: publicUrl,
+                p_file_name: file.name,
+                p_file_type: file.type,
+                p_file_size: file.size,
+            };
 
-            if (dbError) { throw dbError; }
+            // 2. Chama a nova API para que o servidor salve os dados
+            const saveResponse = await fetch('/api/whatsapp/save-attachment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(attachmentData)
+            });
 
+            if (!saveResponse.ok) {
+                const errorResult = await saveResponse.json();
+                throw new Error(errorResult.error || 'Falha ao registrar o anexo no servidor.');
+            }
+            // ***** FIM DA CORREÇÃO *****
+
+            // 3. Se tudo deu certo, envia a mensagem para o WhatsApp
             await handleSendMediaMessage('document', publicUrl, file.name);
 
         } catch (error) {
@@ -202,7 +201,7 @@ export default function WhatsAppChatManager({ contatos }) {
             }
         }
     };
-
+    
     const handleStartRecording = () => { setIsRecording(true); /* Lógica de gravação futura */ };
     const handleStopRecording = () => { setIsRecording(false); /* Lógica de envio do áudio futuro */ };
 
@@ -212,7 +211,7 @@ export default function WhatsAppChatManager({ contatos }) {
             <div className="flex flex-col border-r overflow-hidden"><div className="p-4 border-b"><h2 className="text-lg font-bold mb-2 flex items-center gap-2"><FontAwesomeIcon icon={faAddressBook} /> Contatos ({filteredContacts.length})</h2><div className="relative"><FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input type="text" placeholder="Pesquisar..." className="w-full p-2 pl-9 border rounded-md text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div></div><ul className="overflow-y-auto flex-1">{isLoadingContacts ? <div className="text-center p-4 flex items-center justify-center gap-2 text-gray-500"><FontAwesomeIcon icon={faSpinner} spin /> Carregando...</div> : filteredContacts.length === 0 ? <p className="text-center text-gray-500 p-4 text-sm">Nenhum contato.</p> : filteredContacts.map(contact => (<li key={contact.id} onClick={() => handleSelectContact(contact)} className={`p-4 cursor-pointer hover:bg-gray-100 ${selectedContact?.id === contact.id ? 'bg-blue-100' : ''}`}><p className="font-semibold truncate">{contact.nome || contact.razao_social}</p><p className="text-sm text-gray-500">{contact.telefones?.[0]?.telefone || 'Sem telefone'}</p>{contact.lastMessageDate && (<p className="text-xs text-gray-400 mt-1">Última: {contact.lastMessageDate.toLocaleDateString('pt-BR')} {contact.lastMessageDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>)}</li>))}</ul></div>
             {/* Coluna 2: Área de Mensagens */}
             <div className="flex flex-col bg-gray-100 overflow-hidden">{selectedContact ? (<><div className="p-4 border-b flex items-center gap-3 bg-white"><FontAwesomeIcon icon={faUserCircle} className="text-3xl text-gray-400" /><div><h3 className="font-bold">{selectedContact.nome || selectedContact.razao_social}</h3><p className="text-sm text-gray-500">{selectedContact.telefones?.[0]?.telefone || 'Sem telefone'}</p></div></div><div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50 flex flex-col">{loadingMessages ? <div className="m-auto text-center"><FontAwesomeIcon icon={faSpinner} spin /> Carregando...</div> : messages.map(msg => <MessageBubble key={msg.id} message={msg} />)}<div ref={chatEndRef} /></div><div className="p-4 border-t flex items-center gap-3 bg-white"><input type="file" ref={fileInputRef} onChange={handleFileSelected} className="hidden" /><button onClick={() => fileInputRef.current.click()} disabled={isSending} className="text-gray-500 hover:text-blue-500 p-2 rounded-full disabled:opacity-50"><FontAwesomeIcon icon={faPaperclip} className="text-xl"/></button>{isRecording ? (<div className="flex-1 flex items-center gap-3"><button onClick={handleStopRecording} className="text-red-500"><FontAwesomeIcon icon={faStopCircle} className="text-2xl" /></button><p className="text-sm text-red-500 font-semibold">Gravando...</p></div>) : (<>{isSending && !newMessage ? (<div className="flex-1 flex items-center justify-center"><FontAwesomeIcon icon={faSpinner} spin/> <span className="ml-2 text-sm text-gray-500">Enviando...</span></div>) : (<input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !isSending) handleSendTextMessage(); }} placeholder="Digite uma mensagem..." className="flex-1 p-2 border rounded-full" />)}<button onClick={handleStartRecording} disabled={isSending} className="text-gray-500 hover:text-blue-500 p-2 rounded-full disabled:opacity-50"><FontAwesomeIcon icon={faMicrophone} className="text-xl"/></button><button onClick={handleSendTextMessage} disabled={isSending || !newMessage.trim()} className="bg-blue-500 text-white w-10 h-10 rounded-full flex items-center justify-center disabled:bg-gray-400"><FontAwesomeIcon icon={faPaperPlane} /></button></>)}</div></>) : <div className="flex items-center justify-center h-full text-gray-500"><p>Selecione um contato para ver as mensagens.</p></div>}</div>
-            
+
             <AIChatAssistant selectedContact={selectedContact} />
         </div>
     );
