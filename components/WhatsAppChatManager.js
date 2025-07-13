@@ -1,10 +1,10 @@
+// components/WhatsAppChatManager.js
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPaperPlane, faSpinner, faUserCircle, faSearch, faComments, faAddressBook, faRobot } from '@fortawesome/free-solid-svg-icons'; // Importados novos ícones
-import { sendWhatsAppText } from '../utils/whatsapp';
+import { faPaperPlane, faSpinner, faUserCircle, faSearch, faComments, faAddressBook, faRobot } from '@fortawesome/free-solid-svg-icons';
 
 // Componente para exibir o balão de mensagem
 const MessageBubble = ({ message }) => {
@@ -24,10 +24,8 @@ const MessageBubble = ({ message }) => {
     );
 };
 
-// NOVO: Componente Placeholder para o Assistente de IA
+// Componente Placeholder para o Assistente de IA
 const AIChatAssistant = ({ selectedContact, conversationHistory }) => {
-    // Aqui você integraria a lógica para chamar a API do Gemini
-    // e exibir sugestões de resposta, resumo, etc.
     return (
         <div className="p-4 space-y-4 bg-white border-l border-gray-200">
             <h3 className="text-md font-bold text-gray-800 flex items-center gap-2">
@@ -39,21 +37,6 @@ const AIChatAssistant = ({ selectedContact, conversationHistory }) => {
                 ) : (
                     <p>Selecione um contato para ativar o assistente de IA.</p>
                 )}
-                {/* Futuramente:
-                <div className="mt-4">
-                    <h4 className="font-semibold text-xs text-gray-600 mb-2">Sugestões de Resposta:</h4>
-                    <button className="w-full bg-blue-100 text-blue-800 text-sm p-2 rounded-md mb-2 hover:bg-blue-200">Sim, posso te ajudar!</button>
-                    <button className="w-full bg-blue-100 text-blue-800 text-sm p-2 rounded-md hover:bg-blue-200">Entendido. O que mais você precisa?</button>
-                </div>
-                <div className="mt-4">
-                    <h4 className="font-semibold text-xs text-gray-600 mb-2">Resumo da Conversa:</h4>
-                    <p className="text-xs text-gray-700">A conversa até agora aborda...</p>
-                </div>
-                <div className="mt-4">
-                    <h4 className="font-semibold text-xs text-gray-600 mb-2">Sugestões de Ação:</h4>
-                    <button className="w-full bg-green-100 text-green-800 text-sm p-2 rounded-md hover:bg-green-200">Sugerir Atividade</button>
-                </div>
-                */}
             </div>
         </div>
     );
@@ -70,35 +53,34 @@ export default function WhatsAppChatManager({ contatos }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('conversas'); // 'conversas' ou 'todos'
 
-    // NOVO: Estado para armazenar os IDs dos contatos com conversas ativas
     const [activeConversationContactIds, setActiveConversationContactIds] = useState(new Set());
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    // NOVO: Função para buscar os IDs dos contatos com mensagens
     const fetchActiveConversationContactIds = useCallback(async () => {
+        console.log("DEBUG: fetchActiveConversationContactIds called"); // Debugging
         const { data, error } = await supabase
             .from('whatsapp_messages')
             .select('contato_id')
-            .neq('contato_id', null) // Garante que só pega mensagens com contato_id preenchido
-            .order('sent_at', { ascending: false }); // Pega os mais recentes primeiro
+            .neq('contato_id', null); // Garante que só pega mensagens com contato_id preenchido
+            // Removi a ordenação aqui, pois o objetivo é apenas pegar os IDs únicos
 
         if (error) {
             console.error("Erro ao buscar IDs de conversas ativas:", error);
             return;
         }
 
-        // Cria um Set de IDs únicos
         const uniqueIds = new Set(data.map(msg => msg.contato_id));
+        console.log("DEBUG: Unique Active Contact IDs fetched:", Array.from(uniqueIds)); // Debugging
         setActiveConversationContactIds(uniqueIds);
     }, [supabase]);
 
+    // GARANTE QUE A LISTA DE CONVERSAS ATIVAS É SEMPRE ATUALIZADA NA MONTAGEM E QUANDO CONTATOS MUDAM
     useEffect(() => {
         fetchActiveConversationContactIds();
-    }, [fetchActiveConversationContactIds]);
-
+    }, [fetchActiveConversationContactIds, contatos]); // Adicionei 'contatos' como dependência
 
     const handleSelectContact = useCallback(async (contact) => {
         setSelectedContact(contact);
@@ -106,11 +88,10 @@ export default function WhatsAppChatManager({ contatos }) {
         setMessages([]);
         setNewMessage('');
 
-        // CORREÇÃO: Busca mensagens pelo contato_id do contato selecionado
         const { data, error } = await supabase
             .from('whatsapp_messages')
             .select('*')
-            .eq('contato_id', contact.id) // AGORA BUSCA PELO ID DO CONTATO
+            .eq('contato_id', contact.id)
             .order('sent_at', { ascending: true });
 
         if (error) {
@@ -124,21 +105,19 @@ export default function WhatsAppChatManager({ contatos }) {
     useEffect(() => {
         if (!selectedContact) return;
 
-        // CORREÇÃO: Atualiza os filtros dos canais de realtime para usar contato_id
         const channel = supabase
             .channel(`realtime_whatsapp_for_${selectedContact.id}`)
             .on(
                 'postgres_changes', 
                 { 
-                    event: '*', // Escuta INSERT, UPDATE, DELETE
+                    event: '*',
                     schema: 'public', 
                     table: 'whatsapp_messages',
-                    filter: `contato_id=eq.${selectedContact.id}` // Filtra por contato_id
+                    filter: `contato_id=eq.${selectedContact.id}`
                 },
                 (payload) => {
-                    // Após qualquer alteração, recarrega o histórico e as conversas ativas
                     handleSelectContact(selectedContact);
-                    fetchActiveConversationContactIds();
+                    fetchActiveConversationContactIds(); // Re-fetch active conversations on any change
                 }
             )
             .subscribe();
@@ -163,24 +142,20 @@ export default function WhatsAppChatManager({ contatos }) {
         
         await sendWhatsAppText(phoneNumber, textToSend);
         
-        // A atualização via realtime já cuidará de recarregar as mensagens
         setIsSending(false);
     };
 
     const filteredContacts = contatos.filter(contact => {
         const name = (contact.nome || contact.razao_social || '').toLowerCase();
-        // Acessa o telefone de forma segura, se existir
         const phone = (contact.telefones && contact.telefones.length > 0 ? contact.telefones[0].telefone : '').toLowerCase();
         const term = searchTerm.toLowerCase();
         return name.includes(term) || phone.includes(term);
     });
 
-    // NOVO: Filtragem real para "Conversas Ativas"
     const activeConversationsList = filteredContacts.filter(contact => activeConversationContactIds.has(contact.id));
     const allContactsList = filteredContacts;
 
     return (
-        // Layout de três colunas: lista de contatos (1/4), chat (2/4), IA (1/4)
         <div className="grid grid-cols-[250px_1fr_250px] h-[calc(100vh-100px)] bg-white rounded-lg shadow-xl border">
             {/* Coluna 1: Lista de Contatos */}
             <div className="flex flex-col border-r">
@@ -223,7 +198,6 @@ export default function WhatsAppChatManager({ contatos }) {
                         >
                             <p className="font-semibold">{contact.nome || contact.razao_social}</p>
                             <p className="text-sm text-gray-500">{contact.telefones?.[0]?.telefone || 'Sem telefone'}</p>
-                            {/* Adicionar aqui um indicador de "nova mensagem" se houver */}
                         </li>
                     ))}
                      {(activeTab === 'conversas' && activeConversationsList.length === 0) && (
@@ -246,7 +220,7 @@ export default function WhatsAppChatManager({ contatos }) {
                                 <p className="text-sm text-gray-500">{selectedContact.telefones?.[0]?.telefone || 'Sem telefone'}</p>
                             </div>
                         </div>
-                        <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50 flex flex-col"> {/* Adicionado flex-col para bubbles */}
+                        <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50 flex flex-col">
                             {loadingMessages ? (
                                 <div className="text-center"><FontAwesomeIcon icon={faSpinner} spin /> Carregando...</div>
                             ) : (
