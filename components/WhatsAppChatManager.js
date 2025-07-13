@@ -1,7 +1,7 @@
 // components/WhatsAppChatManager.js
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'; // Adicionado useMemo
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperPlane, faSpinner, faUserCircle, faSearch, faComments, faAddressBook, faRobot } from '@fortawesome/free-solid-svg-icons';
@@ -61,12 +61,11 @@ export default function WhatsAppChatManager({ contatos }) {
     }, [messages]);
 
     const fetchActiveConversationData = useCallback(async () => {
-        console.log("DEBUG: fetchActiveConversationData called");
         const { data, error } = await supabase
             .from('whatsapp_messages')
             .select('contato_id, sent_at')
             .neq('contato_id', null)
-            .order('sent_at', { ascending: false }); // Busca as mais recentes primeiro
+            .order('sent_at', { ascending: false });
 
         if (error) {
             console.error("Erro ao buscar dados de conversas ativas:", error);
@@ -75,8 +74,10 @@ export default function WhatsAppChatManager({ contatos }) {
 
         const datesMap = new Map();
         data.forEach(msg => {
-            if (msg.contato_id && !datesMap.has(msg.contato_id)) {
-                datesMap.set(msg.contato_id, new Date(msg.sent_at));
+            // A CORREÇÃO PRINCIPAL ESTÁ AQUI TAMBÉM: Garantimos que a chave do mapa seja uma string.
+            const contactIdStr = String(msg.contato_id);
+            if (contactIdStr && !datesMap.has(contactIdStr)) {
+                datesMap.set(contactIdStr, new Date(msg.sent_at));
             }
         });
         setLastMessageDates(datesMap);
@@ -121,7 +122,7 @@ export default function WhatsAppChatManager({ contatos }) {
                 },
                 (payload) => {
                     handleSelectContact(selectedContact);
-                    fetchActiveConversationData(); // Re-fetch all active conversations and their dates
+                    fetchActiveConversationData();
                 }
             )
             .subscribe();
@@ -157,8 +158,6 @@ export default function WhatsAppChatManager({ contatos }) {
             const result = await response.json();
             if (response.ok) {
                 console.log("Mensagem enviada com sucesso:", result);
-                handleSelectContact(selectedContact); 
-                fetchActiveConversationData(); 
             } else {
                 alert(`Erro ao enviar mensagem: ${result.error || 'Erro desconhecido'}`);
                 setNewMessage(textToSend); 
@@ -178,15 +177,16 @@ export default function WhatsAppChatManager({ contatos }) {
         return name.includes(term) || phone.includes(term);
     });
 
-    // Filtra e ordena a lista de conversas ativas
     const activeConversationsList = useMemo(() => {
         return filteredContacts
-            .filter(contact => lastMessageDates.has(contact.id))
+            // ***** CORREÇÃO PRINCIPAL APLICADA AQUI *****
+            // Convertemos `contact.id` para String antes de checar no mapa.
+            .filter(contact => lastMessageDates.has(String(contact.id)))
             .map(contact => ({
                 ...contact,
-                lastMessageDate: lastMessageDates.get(contact.id)
+                lastMessageDate: lastMessageDates.get(String(contact.id))
             }))
-            .sort((a, b) => b.lastMessageDate.getTime() - a.lastMessageDate.getTime()); // Ordena do mais recente para o mais antigo
+            .sort((a, b) => b.lastMessageDate.getTime() - a.lastMessageDate.getTime());
     }, [filteredContacts, lastMessageDates]);
 
     const allContactsList = filteredContacts;
