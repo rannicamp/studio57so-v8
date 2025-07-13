@@ -1,7 +1,7 @@
 // components/WhatsAppChatManager.js
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'; // Adicionado useMemo
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperPlane, faSpinner, faUserCircle, faSearch, faComments, faAddressBook, faRobot } from '@fortawesome/free-solid-svg-icons';
@@ -51,36 +51,40 @@ export default function WhatsAppChatManager({ contatos }) {
     const [newMessage, setNewMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeTab, setActiveTab] = useState('conversas'); // 'conversas' ou 'todos'
+    const [activeTab, setActiveTab] = useState('conversas');
 
-    const [activeConversationContactIds, setActiveConversationContactIds] = useState(new Set());
+    // Mapeia contato_id para a data da última mensagem para ordenação
+    const [lastMessageDates, setLastMessageDates] = useState(new Map());
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const fetchActiveConversationContactIds = useCallback(async () => {
-        console.log("DEBUG: fetchActiveConversationContactIds called"); // Debugging
+    const fetchActiveConversationData = useCallback(async () => {
+        console.log("DEBUG: fetchActiveConversationData called");
         const { data, error } = await supabase
             .from('whatsapp_messages')
-            .select('contato_id')
-            .neq('contato_id', null); // Garante que só pega mensagens com contato_id preenchido
-            // Removi a ordenação aqui, pois o objetivo é apenas pegar os IDs únicos
+            .select('contato_id, sent_at')
+            .neq('contato_id', null)
+            .order('sent_at', { ascending: false }); // Busca as mais recentes primeiro
 
         if (error) {
-            console.error("Erro ao buscar IDs de conversas ativas:", error);
+            console.error("Erro ao buscar dados de conversas ativas:", error);
             return;
         }
 
-        const uniqueIds = new Set(data.map(msg => msg.contato_id));
-        console.log("DEBUG: Unique Active Contact IDs fetched:", Array.from(uniqueIds)); // Debugging
-        setActiveConversationContactIds(uniqueIds);
+        const datesMap = new Map();
+        data.forEach(msg => {
+            if (msg.contato_id && !datesMap.has(msg.contato_id)) {
+                datesMap.set(msg.contato_id, new Date(msg.sent_at));
+            }
+        });
+        setLastMessageDates(datesMap);
     }, [supabase]);
 
-    // GARANTE QUE A LISTA DE CONVERSAS ATIVAS É SEMPRE ATUALIZADA NA MONTAGEM E QUANDO CONTATOS MUDAM
     useEffect(() => {
-        fetchActiveConversationContactIds();
-    }, [fetchActiveConversationContactIds, contatos]); // Adicionei 'contatos' como dependência
+        fetchActiveConversationData();
+    }, [fetchActiveConversationData, contatos]);
 
     const handleSelectContact = useCallback(async (contact) => {
         setSelectedContact(contact);
@@ -117,7 +121,7 @@ export default function WhatsAppChatManager({ contatos }) {
                 },
                 (payload) => {
                     handleSelectContact(selectedContact);
-                    fetchActiveConversationContactIds(); // Re-fetch active conversations on any change
+                    fetchActiveConversationData(); // Re-fetch all active conversations and their dates
                 }
             )
             .subscribe();
@@ -125,7 +129,7 @@ export default function WhatsAppChatManager({ contatos }) {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [selectedContact, supabase, handleSelectContact, fetchActiveConversationContactIds]);
+    }, [selectedContact, supabase, handleSelectContact, fetchActiveConversationData]);
 
     const handleSendMessage = async () => {
         if (!selectedContact || !newMessage.trim()) return;
@@ -140,15 +144,8 @@ export default function WhatsAppChatManager({ contatos }) {
         const textToSend = newMessage;
         setNewMessage('');
         
-        // Esta função `sendWhatsAppText` precisa ser importada ou definida
-        // Considerando que ela pode estar em `utils/whatsapp.js`
-        // Exemplo: await sendWhatsAppText(phoneNumber, textToSend);
-        // Por simplicidade, vou simular o envio e a atualização localmente para o chat.
-        // Em um ambiente real, você chamaria sua API de envio aqui.
-        
-        // Simulação de envio e atualização local (REMOVA ESTE BLOCO APÓS INTEGRAR COM SUA API REAL)
         try {
-            const response = await fetch('/api/whatsapp/send', { // Supondo que você já tem esta API
+            const response = await fetch('/api/whatsapp/send', { 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -160,20 +157,18 @@ export default function WhatsAppChatManager({ contatos }) {
             const result = await response.json();
             if (response.ok) {
                 console.log("Mensagem enviada com sucesso:", result);
-                // Força o recarregamento das mensagens para refletir a nova mensagem do DB
                 handleSelectContact(selectedContact); 
-                fetchActiveConversationContactIds(); // Atualiza a lista de conversas ativas
+                fetchActiveConversationData(); 
             } else {
                 alert(`Erro ao enviar mensagem: ${result.error || 'Erro desconhecido'}`);
-                setNewMessage(textToSend); // Retorna a mensagem para o input se falhar
+                setNewMessage(textToSend); 
             }
         } catch (error) {
             alert(`Erro na comunicação com a API: ${error.message}`);
-            setNewMessage(textToSend); // Retorna a mensagem para o input se falhar
+            setNewMessage(textToSend);
+        } finally {
+            setIsSending(false);
         }
-        // FIM DA SIMULAÇÃO
-
-        setIsSending(false);
     };
 
     const filteredContacts = contatos.filter(contact => {
@@ -183,8 +178,17 @@ export default function WhatsAppChatManager({ contatos }) {
         return name.includes(term) || phone.includes(term);
     });
 
-    // Lógica para filtrar a lista de conversas ativas
-    const activeConversationsList = filteredContacts.filter(contact => activeConversationContactIds.has(contact.id));
+    // Filtra e ordena a lista de conversas ativas
+    const activeConversationsList = useMemo(() => {
+        return filteredContacts
+            .filter(contact => lastMessageDates.has(contact.id))
+            .map(contact => ({
+                ...contact,
+                lastMessageDate: lastMessageDates.get(contact.id)
+            }))
+            .sort((a, b) => b.lastMessageDate.getTime() - a.lastMessageDate.getTime()); // Ordena do mais recente para o mais antigo
+    }, [filteredContacts, lastMessageDates]);
+
     const allContactsList = filteredContacts;
 
     return (
@@ -230,6 +234,11 @@ export default function WhatsAppChatManager({ contatos }) {
                         >
                             <p className="font-semibold">{contact.nome || contact.razao_social}</p>
                             <p className="text-sm text-gray-500">{contact.telefones?.[0]?.telefone || 'Sem telefone'}</p>
+                            {contact.lastMessageDate && activeTab === 'conversas' && (
+                                <p className="text-xs text-gray-400 mt-1">
+                                    Última: {contact.lastMessageDate.toLocaleDateString('pt-BR')} {contact.lastMessageDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                            )}
                         </li>
                     ))}
                      {(activeTab === 'conversas' && activeConversationsList.length === 0) && (
