@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-    faPaperPlane, faSpinner, faUserCircle, faSearch, faAddressBook, faRobot,
-    faPaperclip, faFileAlt, faMicrophone, faStopCircle, faPlayCircle
+import { 
+    faPaperPlane, faSpinner, faUserCircle, faSearch, faAddressBook, faRobot, 
+    faPaperclip, faFileAlt, faMicrophone, faStopCircle, faPlayCircle 
 } from '@fortawesome/free-solid-svg-icons';
 
 // --- Subcomponente: Bolha de Mensagem ---
@@ -154,7 +154,10 @@ export default function WhatsAppChatManager({ contatos }) {
         setIsSending(true);
         
         try {
-            const filePath = `public/${selectedContact.id}/${Date.now()}_${file.name}`;
+            // ***** INÍCIO DA CORREÇÃO *****
+            // O caminho agora começa diretamente com o ID do contato, sem o "public/".
+            const filePath = `${selectedContact.id}/${Date.now()}_${file.name}`;
+            // ***** FIM DA CORREÇÃO *****
             
             const { error: uploadError } = await supabase.storage
                 .from('whatsapp-media')
@@ -169,8 +172,6 @@ export default function WhatsAppChatManager({ contatos }) {
             if (!urlData || !urlData.publicUrl) { throw new Error("Não foi possível obter a URL pública do arquivo."); }
             const publicUrl = urlData.publicUrl;
             
-            // ***** INÍCIO DA CORREÇÃO *****
-            // Em vez de 'insert', agora usamos 'rpc' para chamar a função segura no banco
             const { error: dbError } = await supabase
                 .rpc('salvar_anexo_whatsapp', {
                     p_contato_id: selectedContact.id,
@@ -180,7 +181,6 @@ export default function WhatsAppChatManager({ contatos }) {
                     p_file_type: file.type,
                     p_file_size: file.size,
                 });
-            // ***** FIM DA CORREÇÃO *****
 
             if (dbError) { throw dbError; }
 
