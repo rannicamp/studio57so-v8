@@ -70,9 +70,35 @@ export default function WhatsAppChatManager({ contatos }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('conversas'); // 'conversas' ou 'todos'
 
+    // NOVO: Estado para armazenar os IDs dos contatos com conversas ativas
+    const [activeConversationContactIds, setActiveConversationContactIds] = useState(new Set());
+
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    // NOVO: Função para buscar os IDs dos contatos com mensagens
+    const fetchActiveConversationContactIds = useCallback(async () => {
+        const { data, error } = await supabase
+            .from('whatsapp_messages')
+            .select('contato_id')
+            .neq('contato_id', null) // Garante que só pega mensagens com contato_id preenchido
+            .order('sent_at', { ascending: false }); // Pega os mais recentes primeiro
+
+        if (error) {
+            console.error("Erro ao buscar IDs de conversas ativas:", error);
+            return;
+        }
+
+        // Cria um Set de IDs únicos
+        const uniqueIds = new Set(data.map(msg => msg.contato_id));
+        setActiveConversationContactIds(uniqueIds);
+    }, [supabase]);
+
+    useEffect(() => {
+        fetchActiveConversationContactIds();
+    }, [fetchActiveConversationContactIds]);
+
 
     const handleSelectContact = useCallback(async (contact) => {
         setSelectedContact(contact);
@@ -80,16 +106,11 @@ export default function WhatsAppChatManager({ contatos }) {
         setMessages([]);
         setNewMessage('');
 
-        const contactPhone = contact.telefones?.[0]?.telefone;
-        if (!contactPhone) {
-            setLoadingMessages(false);
-            return;
-        }
-
+        // CORREÇÃO: Busca mensagens pelo contato_id do contato selecionado
         const { data, error } = await supabase
             .from('whatsapp_messages')
             .select('*')
-            .or(`sender_id.eq.${contactPhone},receiver_id.eq.${contactPhone}`)
+            .eq('contato_id', contact.id) // AGORA BUSCA PELO ID DO CONTATO
             .order('sent_at', { ascending: true });
 
         if (error) {
@@ -103,44 +124,29 @@ export default function WhatsAppChatManager({ contatos }) {
     useEffect(() => {
         if (!selectedContact) return;
 
-        // Canais de escuta para novas mensagens (inbound) e mensagens enviadas (outbound)
-        const inboundChannel = supabase
-            .channel(`realtime_whatsapp_inbound_${selectedContact.id}`)
+        // CORREÇÃO: Atualiza os filtros dos canais de realtime para usar contato_id
+        const channel = supabase
+            .channel(`realtime_whatsapp_for_${selectedContact.id}`)
             .on(
                 'postgres_changes', 
                 { 
-                    event: 'INSERT', 
+                    event: '*', // Escuta INSERT, UPDATE, DELETE
                     schema: 'public', 
                     table: 'whatsapp_messages',
-                    filter: `sender_id=eq.${selectedContact.telefones?.[0]?.telefone}` // Mensagens que o contato enviou para você
+                    filter: `contato_id=eq.${selectedContact.id}` // Filtra por contato_id
                 },
                 (payload) => {
-                    handleSelectContact(selectedContact); // Recarrega o histórico
-                }
-            )
-            .subscribe();
-        
-        const outboundChannel = supabase
-            .channel(`realtime_whatsapp_outbound_${selectedContact.id}`)
-            .on(
-                'postgres_changes', 
-                { 
-                    event: 'INSERT', 
-                    schema: 'public', 
-                    table: 'whatsapp_messages',
-                    filter: `receiver_id=eq.${selectedContact.telefones?.[0]?.telefone}` // Mensagens que você enviou para o contato
-                },
-                (payload) => {
-                    handleSelectContact(selectedContact); // Recarrega o histórico
+                    // Após qualquer alteração, recarrega o histórico e as conversas ativas
+                    handleSelectContact(selectedContact);
+                    fetchActiveConversationContactIds();
                 }
             )
             .subscribe();
         
         return () => {
-            supabase.removeChannel(inboundChannel);
-            supabase.removeChannel(outboundChannel);
+            supabase.removeChannel(channel);
         };
-    }, [selectedContact, supabase, handleSelectContact]);
+    }, [selectedContact, supabase, handleSelectContact, fetchActiveConversationContactIds]);
 
     const handleSendMessage = async () => {
         if (!selectedContact || !newMessage.trim()) return;
@@ -157,6 +163,7 @@ export default function WhatsAppChatManager({ contatos }) {
         
         await sendWhatsAppText(phoneNumber, textToSend);
         
+        // A atualização via realtime já cuidará de recarregar as mensagens
         setIsSending(false);
     };
 
@@ -168,10 +175,9 @@ export default function WhatsAppChatManager({ contatos }) {
         return name.includes(term) || phone.includes(term);
     });
 
-    // TODO: Implementar lógica para "Conversas Ativas"
-    // Por enquanto, "Conversas Ativas" e "Todos os Contatos" exibirão a mesma lista
-    const activeConversations = filteredContacts; // Placeholder
-    const allContactsList = filteredContacts; // Placeholder
+    // NOVO: Filtragem real para "Conversas Ativas"
+    const activeConversationsList = filteredContacts.filter(contact => activeConversationContactIds.has(contact.id));
+    const allContactsList = filteredContacts;
 
     return (
         // Layout de três colunas: lista de contatos (1/4), chat (2/4), IA (1/4)
@@ -198,18 +204,18 @@ export default function WhatsAppChatManager({ contatos }) {
                         className={`flex-1 p-3 text-center border-b-2 ${activeTab === 'conversas' ? 'border-blue-500 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                     >
                         <FontAwesomeIcon icon={faComments} className="mr-2" />
-                        Conversas
+                        Conversas ({activeConversationsList.length})
                     </button>
                     <button
                         onClick={() => setActiveTab('todos')}
                         className={`flex-1 p-3 text-center border-b-2 ${activeTab === 'todos' ? 'border-blue-500 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                     >
                         <FontAwesomeIcon icon={faAddressBook} className="mr-2" />
-                        Todos
+                        Todos ({allContactsList.length})
                     </button>
                 </div>
                 <ul className="overflow-y-auto flex-1">
-                    {activeTab === 'conversas' && activeConversations.map(contact => (
+                    {(activeTab === 'conversas' ? activeConversationsList : allContactsList).map(contact => (
                         <li
                             key={contact.id}
                             onClick={() => handleSelectContact(contact)}
@@ -220,16 +226,12 @@ export default function WhatsAppChatManager({ contatos }) {
                             {/* Adicionar aqui um indicador de "nova mensagem" se houver */}
                         </li>
                     ))}
-                    {activeTab === 'todos' && allContactsList.map(contact => (
-                        <li
-                            key={contact.id}
-                            onClick={() => handleSelectContact(contact)}
-                            className={`p-4 cursor-pointer hover:bg-gray-100 ${selectedContact?.id === contact.id ? 'bg-blue-100' : ''}`}
-                        >
-                            <p className="font-semibold">{contact.nome || contact.razao_social}</p>
-                            <p className="text-sm text-gray-500">{contact.telefones?.[0]?.telefone || 'Sem telefone'}</p>
-                        </li>
-                    ))}
+                     {(activeTab === 'conversas' && activeConversationsList.length === 0) && (
+                        <p className="text-center text-gray-500 p-4 text-sm">Nenhuma conversa ativa.</p>
+                    )}
+                     {(activeTab === 'todos' && allContactsList.length === 0) && (
+                        <p className="text-center text-gray-500 p-4 text-sm">Nenhum contato encontrado.</p>
+                    )}
                 </ul>
             </div>
 
