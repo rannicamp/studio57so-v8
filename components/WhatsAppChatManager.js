@@ -157,20 +157,17 @@ export default function WhatsAppChatManager({ contatos }) {
         const file = event.target.files[0];
         if (!file || !selectedContact) return;
 
-        setIsSending(true); // Mostra o spinner
+        setIsSending(true);
         
         try {
-            // 1. Cria um caminho único para o arquivo no Storage
             const filePath = `public/${selectedContact.id}/${Date.now()}_${file.name}`;
             
-            // 2. Faz o upload do arquivo para o Supabase Storage
             const { error: uploadError } = await supabase.storage
                 .from('whatsapp-media')
                 .upload(filePath, file);
 
             if (uploadError) { throw uploadError; }
 
-            // 3. Pega a URL pública do arquivo que acabamos de salvar
             const { data: urlData } = supabase.storage
                 .from('whatsapp-media')
                 .getPublicUrl(filePath);
@@ -178,29 +175,28 @@ export default function WhatsAppChatManager({ contatos }) {
             if (!urlData || !urlData.publicUrl) { throw new Error("Não foi possível obter a URL pública do arquivo."); }
             const publicUrl = urlData.publicUrl;
 
-            // 4. Salva o registro do anexo na nossa nova tabela 'whatsapp_attachments'
+            // ***** INÍCIO DA CORREÇÃO *****
+            // Em vez de 'insert', agora usamos 'rpc' para chamar a função segura no banco
             const { error: dbError } = await supabase
-                .from('whatsapp_attachments')
-                .insert({
-                    contato_id: selectedContact.id,
-                    storage_path: filePath,
-                    public_url: publicUrl,
-                    file_name: file.name,
-                    file_type: file.type,
-                    file_size: file.size,
+                .rpc('salvar_anexo_whatsapp', {
+                    p_contato_id: selectedContact.id,
+                    p_storage_path: filePath,
+                    p_public_url: publicUrl,
+                    p_file_name: file.name,
+                    p_file_type: file.type,
+                    p_file_size: file.size,
                 });
+            // ***** FIM DA CORREÇÃO *****
 
             if (dbError) { throw dbError; }
 
-            // 5. Envia a mensagem via WhatsApp API
             await handleSendMediaMessage('document', publicUrl, file.name);
 
         } catch (error) {
             console.error("Falha no processo de envio de anexo:", error);
             alert(`Erro ao enviar anexo: ${error.message}`);
         } finally {
-            setIsSending(false); // Esconde o spinner
-            // Limpa o input de arquivo para permitir selecionar o mesmo arquivo novamente
+            setIsSending(false);
             if(fileInputRef.current) {
                 fileInputRef.current.value = "";
             }

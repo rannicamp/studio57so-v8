@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-// Usaremos o createClient diretamente da biblioteca principal para criar um cliente seguro no servidor.
 import { createClient } from '@supabase/supabase-js';
 
 // Função para normalizar e gerar variações de números de telefone para busca (COPIADA DO WEBHOOK)
@@ -37,7 +36,6 @@ function normalizeAndGeneratePhoneNumbers(rawPhone) {
 
 export async function POST(request) {
     
-    // Verificação de segurança para garantir que as chaves existem no ambiente da Netlify.
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -46,8 +44,6 @@ export async function POST(request) {
         return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
     }
 
-    // Cria um cliente Supabase especial que usa a chave de administrador (service_role).
-    // Isto é ESSENCIAL para passar pela sua política de segurança (RLS).
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
         auth: {
             autoRefreshToken: false,
@@ -59,7 +55,7 @@ export async function POST(request) {
 
     try {
         const body = await request.json();
-        const { to, type, templateName, languageCode, components, text } = body;
+        const { to, type, templateName, languageCode, components, text, link, filename } = body;
 
         if (!to || !type) {
             return NextResponse.json({ error: 'O número de destino (to) e o tipo (type) são obrigatórios.' }, { status: 400 });
@@ -83,17 +79,14 @@ export async function POST(request) {
         let messageContentForDb = '';
 
         if (type === 'template') {
-            payload = {
-                messaging_product: 'whatsapp', to: to, type: 'template',
-                template: { name: templateName, language: { code: languageCode || 'pt_BR' }, components: components || [] }
-            };
+            payload = { messaging_product: 'whatsapp', to: to, type: 'template', template: { name: templateName, language: { code: languageCode || 'pt_BR' }, components: components || [] } };
             messageContentForDb = `Template: ${templateName}`;
         } else if (type === 'text') {
-            payload = {
-                messaging_product: 'whatsapp', to: to, type: 'text',
-                text: { preview_url: true, body: text }
-            };
+            payload = { messaging_product: 'whatsapp', to: to, type: 'text', text: { preview_url: true, body: text } };
             messageContentForDb = text;
+        } else if (type === 'document') {
+             payload = { messaging_product: 'whatsapp', to: to, type: 'document', document: { link: link, filename: filename } };
+             messageContentForDb = filename || 'Documento enviado';
         } else {
             return NextResponse.json({ error: 'Tipo de mensagem inválido.' }, { status: 400 });
         }
@@ -119,73 +112,45 @@ export async function POST(request) {
 
         console.log(`INFO: Mensagem enviada via WhatsApp (ID: ${newMessageId}). Salvando no banco...`);
 
-        // --- INÍCIO DA LÓGICA DE BUSCA DE CONTATO_ID ---
+        // --- Lógica de busca de Contato (sem alteração) ---
         let contactId = null;
         let enterpriseId = null;
-        let contactPhoneNumber = null;
-
-        // Priorizar receiver_id (que é o 'to' neste caso)
-        if (to) {
-            contactPhoneNumber = to; // Para mensagens de saída, 'to' é o contato.
-        } else if (WHATSAPP_PHONE_NUMBER_ID) {
-            // Este caso seria incomum para mensagens outbound diretas,
-            // mas serve como fallback se 'to' estivesse vazio por algum motivo,
-            // embora 'sender_id' aqui seria o número do próprio sistema.
-            contactPhoneNumber = WHATSAPP_PHONE_NUMBER_ID; 
-        }
-
+        let contactPhoneNumber = to;
+        
         if (contactPhoneNumber) {
             const possiblePhones = normalizeAndGeneratePhoneNumbers(contactPhoneNumber);
-            console.log("DEBUG: PossiblePhones para busca (send API):", possiblePhones);
-
-            const { data: matchingPhones, error: phoneSearchError } = await supabaseAdmin
-                .from('telefones')
-                .select('contato_id')
-                .in('telefone', possiblePhones)
-                .limit(1);
-
-            if (phoneSearchError) {
-                console.error("ERRO ao buscar telefone correspondente (send API):", phoneSearchError);
-            } else if (matchingPhones && matchingPhones.length > 0) {
+            const { data: matchingPhones } = await supabaseAdmin.from('telefones').select('contato_id').in('telefone', possiblePhones).limit(1);
+            if (matchingPhones && matchingPhones.length > 0) {
                 contactId = matchingPhones[0].contato_id;
                 if (contactId) {
-                    const { data: contactData, error: contactDataError } = await supabaseAdmin
-                        .from('contatos')
-                        .select('empresa_id')
-                        .eq('id', contactId)
-                        .single();
-                    if (contactDataError) {
-                        console.error("ERRO ao buscar empresa_id do contato (send API):", contactDataError);
-                    } else if (contactData) {
-                        enterpriseId = contactData.empresa_id;
-                    }
+                    const { data: contactData } = await supabaseAdmin.from('contatos').select('empresa_id').eq('id', contactId).single();
+                    if (contactData) enterpriseId = contactData.empresa_id;
                 }
             }
         }
-        console.log(`DEBUG: (send API) contactId: ${contactId}, enterpriseId: ${enterpriseId}`);
-        // --- FIM DA LÓGICA DE BUSCA DE CONTATO_ID ---
-
-        const messageToSave = {
-            contato_id: contactId,
-            enterprise_id: enterpriseId,
-            message_id: newMessageId,
-            sender_id: WHATSAPP_PHONE_NUMBER_ID,
-            receiver_id: to,
-            content: messageContentForDb,
-            sent_at: new Date().toISOString(),
-            direction: 'outbound',
-            status: 'sent',
-            raw_payload: responseData,
-        };
-
-        const { error: dbError } = await supabaseAdmin.from('whatsapp_messages').insert(messageToSave);
+        
+        // ***** INÍCIO DA CORREÇÃO *****
+        // Em vez de 'insert', agora usamos 'rpc' para chamar nossa nova função
+        const { error: dbError } = await supabaseAdmin.rpc('salvar_mensagem_whatsapp', {
+            p_contato_id: contactId,
+            p_enterprise_id: enterpriseId,
+            p_message_id: newMessageId,
+            p_sender_id: WHATSAPP_PHONE_NUMBER_ID,
+            p_receiver_id: to,
+            p_content: messageContentForDb,
+            p_sent_at: new Date().toISOString(),
+            p_direction: 'outbound',
+            p_status: 'sent',
+            p_raw_payload: payload // Salva o que foi enviado para a API da Meta
+        });
+        // ***** FIM DA CORREÇÃO *****
 
         if (dbError) {
-            console.error('ERRO ao inserir no banco:', dbError);
+            console.error('ERRO ao chamar RPC para salvar no banco:', dbError);
             return NextResponse.json({ message: 'Mensagem ENVIADA, mas falhou ao salvar no banco.', error: dbError.message }, { status: 206 });
         }
 
-        console.log("SUCESSO: Mensagem salva no banco!");
+        console.log("SUCESSO: Mensagem salva no banco via RPC!");
         return NextResponse.json({ message: 'Mensagem enviada e salva com sucesso!', data: responseData }, { status: 200 });
 
     } catch (error) {
