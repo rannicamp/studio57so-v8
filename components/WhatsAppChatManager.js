@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPaperPlane, faSpinner, faUserCircle, faSearch } from '@fortawesome/free-solid-svg-icons';
+import { faPaperPlane, faSpinner, faUserCircle, faSearch, faComments, faAddressBook, faRobot } from '@fortawesome/free-solid-svg-icons'; // Importados novos ícones
 import { sendWhatsAppText } from '../utils/whatsapp';
 
 // Componente para exibir o balão de mensagem
@@ -24,6 +24,41 @@ const MessageBubble = ({ message }) => {
     );
 };
 
+// NOVO: Componente Placeholder para o Assistente de IA
+const AIChatAssistant = ({ selectedContact, conversationHistory }) => {
+    // Aqui você integraria a lógica para chamar a API do Gemini
+    // e exibir sugestões de resposta, resumo, etc.
+    return (
+        <div className="p-4 space-y-4 bg-white border-l border-gray-200">
+            <h3 className="text-md font-bold text-gray-800 flex items-center gap-2">
+                <FontAwesomeIcon icon={faRobot} /> Assistente de IA
+            </h3>
+            <div className="bg-gray-50 p-3 rounded-md text-sm text-gray-700">
+                {selectedContact ? (
+                    <p>A IA monitorará a conversa com **{selectedContact.nome || selectedContact.razao_social}** e fornecerá sugestões aqui.</p>
+                ) : (
+                    <p>Selecione um contato para ativar o assistente de IA.</p>
+                )}
+                {/* Futuramente:
+                <div className="mt-4">
+                    <h4 className="font-semibold text-xs text-gray-600 mb-2">Sugestões de Resposta:</h4>
+                    <button className="w-full bg-blue-100 text-blue-800 text-sm p-2 rounded-md mb-2 hover:bg-blue-200">Sim, posso te ajudar!</button>
+                    <button className="w-full bg-blue-100 text-blue-800 text-sm p-2 rounded-md hover:bg-blue-200">Entendido. O que mais você precisa?</button>
+                </div>
+                <div className="mt-4">
+                    <h4 className="font-semibold text-xs text-gray-600 mb-2">Resumo da Conversa:</h4>
+                    <p className="text-xs text-gray-700">A conversa até agora aborda...</p>
+                </div>
+                <div className="mt-4">
+                    <h4 className="font-semibold text-xs text-gray-600 mb-2">Sugestões de Ação:</h4>
+                    <button className="w-full bg-green-100 text-green-800 text-sm p-2 rounded-md hover:bg-green-200">Sugerir Atividade</button>
+                </div>
+                */}
+            </div>
+        </div>
+    );
+}
+
 export default function WhatsAppChatManager({ contatos }) {
     const supabase = createClient();
     const [selectedContact, setSelectedContact] = useState(null);
@@ -33,6 +68,7 @@ export default function WhatsAppChatManager({ contatos }) {
     const [newMessage, setNewMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [activeTab, setActiveTab] = useState('conversas'); // 'conversas' ou 'todos'
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -50,16 +86,11 @@ export default function WhatsAppChatManager({ contatos }) {
             return;
         }
 
-        // --- LÓGICA DE BUSCA CORRIGIDA ---
-        // Agora busca todas as mensagens ONDE:
-        // o remetente (sender_id) é o contato selecionado
-        // OU
-        // o destinatário (receiver_id) é o contato selecionado
         const { data, error } = await supabase
             .from('whatsapp_messages')
             .select('*')
             .or(`sender_id.eq.${contactPhone},receiver_id.eq.${contactPhone}`)
-            .order('sent_at', { ascending: true }); // Ordena pela data/hora de envio
+            .order('sent_at', { ascending: true });
 
         if (error) {
             console.error("Erro ao buscar o histórico de mensagens:", error);
@@ -72,24 +103,42 @@ export default function WhatsAppChatManager({ contatos }) {
     useEffect(() => {
         if (!selectedContact) return;
 
-        const channel = supabase
-            .channel(`realtime_whatsapp_for_${selectedContact.id}`)
+        // Canais de escuta para novas mensagens (inbound) e mensagens enviadas (outbound)
+        const inboundChannel = supabase
+            .channel(`realtime_whatsapp_inbound_${selectedContact.id}`)
             .on(
                 'postgres_changes', 
                 { 
                     event: 'INSERT', 
                     schema: 'public', 
-                    table: 'whatsapp_messages'
+                    table: 'whatsapp_messages',
+                    filter: `sender_id=eq.${selectedContact.telefones?.[0]?.telefone}` // Mensagens que o contato enviou para você
                 },
                 (payload) => {
-                    // Quando uma nova mensagem chegar, recarrega o histórico para garantir a consistência
-                    handleSelectContact(selectedContact);
+                    handleSelectContact(selectedContact); // Recarrega o histórico
+                }
+            )
+            .subscribe();
+        
+        const outboundChannel = supabase
+            .channel(`realtime_whatsapp_outbound_${selectedContact.id}`)
+            .on(
+                'postgres_changes', 
+                { 
+                    event: 'INSERT', 
+                    schema: 'public', 
+                    table: 'whatsapp_messages',
+                    filter: `receiver_id=eq.${selectedContact.telefones?.[0]?.telefone}` // Mensagens que você enviou para o contato
+                },
+                (payload) => {
+                    handleSelectContact(selectedContact); // Recarrega o histórico
                 }
             )
             .subscribe();
         
         return () => {
-            supabase.removeChannel(channel);
+            supabase.removeChannel(inboundChannel);
+            supabase.removeChannel(outboundChannel);
         };
     }, [selectedContact, supabase, handleSelectContact]);
 
@@ -108,20 +157,27 @@ export default function WhatsAppChatManager({ contatos }) {
         
         await sendWhatsAppText(phoneNumber, textToSend);
         
-        // A mensagem aparecerá automaticamente por causa da escuta em tempo real (realtime).
         setIsSending(false);
     };
 
     const filteredContacts = contatos.filter(contact => {
         const name = (contact.nome || contact.razao_social || '').toLowerCase();
-        const phone = (contact.telefones?.[0]?.telefone || '');
+        // Acessa o telefone de forma segura, se existir
+        const phone = (contact.telefones && contact.telefones.length > 0 ? contact.telefones[0].telefone : '').toLowerCase();
         const term = searchTerm.toLowerCase();
         return name.includes(term) || phone.includes(term);
     });
 
+    // TODO: Implementar lógica para "Conversas Ativas"
+    // Por enquanto, "Conversas Ativas" e "Todos os Contatos" exibirão a mesma lista
+    const activeConversations = filteredContacts; // Placeholder
+    const allContactsList = filteredContacts; // Placeholder
+
     return (
-        <div className="flex h-[calc(100vh-200px)] bg-white rounded-lg shadow-xl border">
-            <div className="w-1/3 border-r flex flex-col">
+        // Layout de três colunas: lista de contatos (1/4), chat (2/4), IA (1/4)
+        <div className="grid grid-cols-[250px_1fr_250px] h-[calc(100vh-100px)] bg-white rounded-lg shadow-xl border">
+            {/* Coluna 1: Lista de Contatos */}
+            <div className="flex flex-col border-r">
                 <div className="p-4 border-b">
                     <h2 className="text-lg font-bold mb-2">Contatos</h2>
                     <div className="relative">
@@ -135,9 +191,36 @@ export default function WhatsAppChatManager({ contatos }) {
                         />
                     </div>
                 </div>
-                
+                {/* Abas para Contatos */}
+                <div className="flex border-b text-sm">
+                    <button
+                        onClick={() => setActiveTab('conversas')}
+                        className={`flex-1 p-3 text-center border-b-2 ${activeTab === 'conversas' ? 'border-blue-500 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <FontAwesomeIcon icon={faComments} className="mr-2" />
+                        Conversas
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('todos')}
+                        className={`flex-1 p-3 text-center border-b-2 ${activeTab === 'todos' ? 'border-blue-500 text-blue-600 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <FontAwesomeIcon icon={faAddressBook} className="mr-2" />
+                        Todos
+                    </button>
+                </div>
                 <ul className="overflow-y-auto flex-1">
-                    {filteredContacts.map(contact => (
+                    {activeTab === 'conversas' && activeConversations.map(contact => (
+                        <li
+                            key={contact.id}
+                            onClick={() => handleSelectContact(contact)}
+                            className={`p-4 cursor-pointer hover:bg-gray-100 ${selectedContact?.id === contact.id ? 'bg-blue-100' : ''}`}
+                        >
+                            <p className="font-semibold">{contact.nome || contact.razao_social}</p>
+                            <p className="text-sm text-gray-500">{contact.telefones?.[0]?.telefone || 'Sem telefone'}</p>
+                            {/* Adicionar aqui um indicador de "nova mensagem" se houver */}
+                        </li>
+                    ))}
+                    {activeTab === 'todos' && allContactsList.map(contact => (
                         <li
                             key={contact.id}
                             onClick={() => handleSelectContact(contact)}
@@ -150,16 +233,18 @@ export default function WhatsAppChatManager({ contatos }) {
                 </ul>
             </div>
 
-            <div className="w-2/3 flex flex-col">
+            {/* Coluna 2: Área de Mensagens */}
+            <div className="flex flex-col">
                 {selectedContact ? (
                     <>
                         <div className="p-4 border-b flex items-center gap-3">
                             <FontAwesomeIcon icon={faUserCircle} className="text-3xl text-gray-400" />
                             <div>
                                 <h3 className="font-bold">{selectedContact.nome || selectedContact.razao_social}</h3>
+                                <p className="text-sm text-gray-500">{selectedContact.telefones?.[0]?.telefone || 'Sem telefone'}</p>
                             </div>
                         </div>
-                        <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50">
+                        <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50 flex flex-col"> {/* Adicionado flex-col para bubbles */}
                             {loadingMessages ? (
                                 <div className="text-center"><FontAwesomeIcon icon={faSpinner} spin /> Carregando...</div>
                             ) : (
@@ -191,6 +276,9 @@ export default function WhatsAppChatManager({ contatos }) {
                     </div>
                 )}
             </div>
+
+            {/* Coluna 3: Assistente de IA */}
+            <AIChatAssistant selectedContact={selectedContact} conversationHistory={messages} />
         </div>
     );
 }
