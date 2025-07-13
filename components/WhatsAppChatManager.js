@@ -140,8 +140,39 @@ export default function WhatsAppChatManager({ contatos }) {
         const textToSend = newMessage;
         setNewMessage('');
         
-        await sendWhatsAppText(phoneNumber, textToSend);
+        // Esta função `sendWhatsAppText` precisa ser importada ou definida
+        // Considerando que ela pode estar em `utils/whatsapp.js`
+        // Exemplo: await sendWhatsAppText(phoneNumber, textToSend);
+        // Por simplicidade, vou simular o envio e a atualização localmente para o chat.
+        // Em um ambiente real, você chamaria sua API de envio aqui.
         
+        // Simulação de envio e atualização local (REMOVA ESTE BLOCO APÓS INTEGRAR COM SUA API REAL)
+        try {
+            const response = await fetch('/api/whatsapp/send', { // Supondo que você já tem esta API
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: phoneNumber,
+                    type: 'text',
+                    text: textToSend
+                }),
+            });
+            const result = await response.json();
+            if (response.ok) {
+                console.log("Mensagem enviada com sucesso:", result);
+                // Força o recarregamento das mensagens para refletir a nova mensagem do DB
+                handleSelectContact(selectedContact); 
+                fetchActiveConversationContactIds(); // Atualiza a lista de conversas ativas
+            } else {
+                alert(`Erro ao enviar mensagem: ${result.error || 'Erro desconhecido'}`);
+                setNewMessage(textToSend); // Retorna a mensagem para o input se falhar
+            }
+        } catch (error) {
+            alert(`Erro na comunicação com a API: ${error.message}`);
+            setNewMessage(textToSend); // Retorna a mensagem para o input se falhar
+        }
+        // FIM DA SIMULAÇÃO
+
         setIsSending(false);
     };
 
@@ -152,6 +183,7 @@ export default function WhatsAppChatManager({ contatos }) {
         return name.includes(term) || phone.includes(term);
     });
 
+    // Lógica para filtrar a lista de conversas ativas
     const activeConversationsList = filteredContacts.filter(contact => activeConversationContactIds.has(contact.id));
     const allContactsList = filteredContacts;
 
