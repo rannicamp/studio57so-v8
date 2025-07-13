@@ -128,27 +128,33 @@ export async function POST(request) {
                 const messageId = messageEntry.id;
                 const timestamp = new Date(parseInt(messageEntry.timestamp, 10) * 1000).toISOString();
 
-                let partnerPhone = null;
                 let messageDirection = null;
+                let contactPhoneNumber = null; // O número do telefone do contato (não o do sistema)
 
-                // Lógica para determinar o 'partnerPhone' (o número do cliente) e a 'direction'
-                // Se o remetente (messageEntry.from) for o seu número de sistema
-                if (SYSTEM_PHONE_NUMBER_ID && messageEntry.from === SYSTEM_PHONE_NUMBER_ID) {
-                    partnerPhone = messageEntry.to; // O número do cliente está no campo 'to'
-                    messageDirection = 'outbound';
-                    console.log("DEBUG: Direção OUTBOUND. PartnerPhone (messageEntry.to):", partnerPhone);
-                } else {
-                    // Caso contrário, o remetente (messageEntry.from) é o número do cliente
-                    partnerPhone = messageEntry.from; // O número do cliente está no campo 'from'
+                // Lógica para determinar a direção e o número do contato
+                if (SYSTEM_PHONE_NUMBER_ID && messageEntry.to === SYSTEM_PHONE_NUMBER_ID) {
+                    // Mensagem recebida pelo sistema (para o meu número)
                     messageDirection = 'inbound';
-                    console.log("DEBUG: Direção INBOUND. PartnerPhone (messageEntry.from):", partnerPhone);
+                    contactPhoneNumber = messageEntry.from; // Quem enviou é o contato
+                    console.log("DEBUG: Direção INBOUND. ContactPhoneNumber (messageEntry.from):", contactPhoneNumber);
+                } else if (SYSTEM_PHONE_NUMBER_ID && messageEntry.from === SYSTEM_PHONE_NUMBER_ID) {
+                    // Mensagem enviada pelo sistema (do meu número) - isso pode vir em notificações de status
+                    messageDirection = 'outbound';
+                    contactPhoneNumber = messageEntry.to; // Para quem foi enviado é o contato
+                    console.log("DEBUG: Direção OUTBOUND. ContactPhoneNumber (messageEntry.to):", contactPhoneNumber);
+                } else {
+                    // Se o número do sistema não for identificado, tratar como inbound do remetente
+                    // ou uma notificação que não seja mensagem direta de ou para o sistema
+                    messageDirection = 'unknown'; // Pode ser ajustado para 'inbound' se preferir um padrão
+                    contactPhoneNumber = messageEntry.from; 
+                    console.log("DEBUG: Direção UNKNOWN/INBOUND (SYSTEM_PHONE_NUMBER_ID not matched). ContactPhoneNumber (messageEntry.from):", contactPhoneNumber);
                 }
                 
                 let contactId = null;
                 let enterpriseId = null;
 
-                if (partnerPhone) {
-                    const possiblePhones = normalizeAndGeneratePhoneNumbers(partnerPhone);
+                if (contactPhoneNumber) {
+                    const possiblePhones = normalizeAndGeneratePhoneNumbers(contactPhoneNumber);
                     console.log("DEBUG: PossiblePhones para busca:", possiblePhones);
 
                     const { data: matchingPhones, error: phoneSearchError } = await supabaseAdmin

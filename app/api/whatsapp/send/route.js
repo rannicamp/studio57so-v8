@@ -2,6 +2,39 @@ import { NextResponse } from 'next/server';
 // Usaremos o createClient diretamente da biblioteca principal para criar um cliente seguro no servidor.
 import { createClient } from '@supabase/supabase-js';
 
+// Função para normalizar e gerar variações de números de telefone para busca (COPIADA DO WEBHOOK)
+function normalizeAndGeneratePhoneNumbers(rawPhone) {
+    const digitsOnly = rawPhone.replace(/\D/g, '');
+
+    let numbersToSearch = new Set();
+    numbersToSearch.add(digitsOnly);
+
+    const brazilDDI = '55';
+    const minBrazilLength = 10;
+    const maxBrazilLength = 11;
+
+    if (!digitsOnly.startsWith(brazilDDI)) {
+        if (digitsOnly.length === minBrazilLength || digitsOnly.length === maxBrazilLength) {
+            numbersToSearch.add(brazilDDI + digitsOnly);
+        }
+    }
+
+    if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 13) {
+        const ddiDdd = digitsOnly.substring(0, 4);
+        const remainingDigits = digitsOnly.substring(4);
+        if (remainingDigits.startsWith('9') && remainingDigits.length === 9) {
+            numbersToSearch.add(ddiDdd + remainingDigits.substring(1));
+        }
+    } else if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 12) {
+        const ddiDdd = digitsOnly.substring(0, 4);
+        const remainingDigits = digitsOnly.substring(4);
+        numbersToSearch.add(ddiDdd + '9' + remainingDigits);
+    }
+
+    return Array.from(numbersToSearch);
+}
+
+
 export async function POST(request) {
     
     // Verificação de segurança para garantir que as chaves existem no ambiente da Netlify.
@@ -86,12 +119,55 @@ export async function POST(request) {
 
         console.log(`INFO: Mensagem enviada via WhatsApp (ID: ${newMessageId}). Salvando no banco...`);
 
-        const { data: contact } = await supabaseAdmin.from('contatos').select('id, empresa_id').eq('whatsapp', to).single();
+        // --- INÍCIO DA LÓGICA DE BUSCA DE CONTATO_ID ---
+        let contactId = null;
+        let enterpriseId = null;
+        let contactPhoneNumber = null;
 
-        // Objeto final com todos os nomes de colunas CORRETOS.
+        // Priorizar receiver_id (que é o 'to' neste caso)
+        if (to) {
+            contactPhoneNumber = to; // Para mensagens de saída, 'to' é o contato.
+        } else if (WHATSAPP_PHONE_NUMBER_ID) {
+            // Este caso seria incomum para mensagens outbound diretas,
+            // mas serve como fallback se 'to' estivesse vazio por algum motivo,
+            // embora 'sender_id' aqui seria o número do próprio sistema.
+            contactPhoneNumber = WHATSAPP_PHONE_NUMBER_ID; 
+        }
+
+        if (contactPhoneNumber) {
+            const possiblePhones = normalizeAndGeneratePhoneNumbers(contactPhoneNumber);
+            console.log("DEBUG: PossiblePhones para busca (send API):", possiblePhones);
+
+            const { data: matchingPhones, error: phoneSearchError } = await supabaseAdmin
+                .from('telefones')
+                .select('contato_id')
+                .in('telefone', possiblePhones)
+                .limit(1);
+
+            if (phoneSearchError) {
+                console.error("ERRO ao buscar telefone correspondente (send API):", phoneSearchError);
+            } else if (matchingPhones && matchingPhones.length > 0) {
+                contactId = matchingPhones[0].contato_id;
+                if (contactId) {
+                    const { data: contactData, error: contactDataError } = await supabaseAdmin
+                        .from('contatos')
+                        .select('empresa_id')
+                        .eq('id', contactId)
+                        .single();
+                    if (contactDataError) {
+                        console.error("ERRO ao buscar empresa_id do contato (send API):", contactDataError);
+                    } else if (contactData) {
+                        enterpriseId = contactData.empresa_id;
+                    }
+                }
+            }
+        }
+        console.log(`DEBUG: (send API) contactId: ${contactId}, enterpriseId: ${enterpriseId}`);
+        // --- FIM DA LÓGICA DE BUSCA DE CONTATO_ID ---
+
         const messageToSave = {
-            contato_id: contact?.id || null,
-            enterprise_id: contact?.empresa_id || null,
+            contato_id: contactId,
+            enterprise_id: enterpriseId,
             message_id: newMessageId,
             sender_id: WHATSAPP_PHONE_NUMBER_ID,
             receiver_id: to,
