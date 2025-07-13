@@ -25,7 +25,7 @@ const MessageBubble = ({ message }) => {
 };
 
 // Componente Placeholder para o Assistente de IA
-const AIChatAssistant = ({ selectedContact, conversationHistory }) => {
+const AIChatAssistant = ({ selectedContact }) => {
     return (
         <div className="p-4 space-y-4 bg-white border-l border-gray-200">
             <h3 className="text-md font-bold text-gray-800 flex items-center gap-2">
@@ -52,8 +52,6 @@ export default function WhatsAppChatManager({ contatos }) {
     const [isSending, setIsSending] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('conversas');
-
-    // Mapeia contato_id para a data da última mensagem para ordenação
     const [lastMessageDates, setLastMessageDates] = useState(new Map());
 
     useEffect(() => {
@@ -74,7 +72,6 @@ export default function WhatsAppChatManager({ contatos }) {
 
         const datesMap = new Map();
         data.forEach(msg => {
-            // A CORREÇÃO PRINCIPAL ESTÁ AQUI TAMBÉM: Garantimos que a chave do mapa seja uma string.
             const contactIdStr = String(msg.contato_id);
             if (contactIdStr && !datesMap.has(contactIdStr)) {
                 datesMap.set(contactIdStr, new Date(msg.sent_at));
@@ -85,7 +82,7 @@ export default function WhatsAppChatManager({ contatos }) {
 
     useEffect(() => {
         fetchActiveConversationData();
-    }, [fetchActiveConversationData, contatos]);
+    }, [fetchActiveConversationData]);
 
     const handleSelectContact = useCallback(async (contact) => {
         setSelectedContact(contact);
@@ -156,9 +153,7 @@ export default function WhatsAppChatManager({ contatos }) {
                 }),
             });
             const result = await response.json();
-            if (response.ok) {
-                console.log("Mensagem enviada com sucesso:", result);
-            } else {
+            if (!response.ok) {
                 alert(`Erro ao enviar mensagem: ${result.error || 'Erro desconhecido'}`);
                 setNewMessage(textToSend); 
             }
@@ -170,26 +165,37 @@ export default function WhatsAppChatManager({ contatos }) {
         }
     };
 
-    const filteredContacts = contatos.filter(contact => {
-        const name = (contact.nome || contact.razao_social || '').toLowerCase();
-        const phone = (contact.telefones && contact.telefones.length > 0 ? contact.telefones[0].telefone : '').toLowerCase();
+    // LÓGICA DE FILTRAGEM CORRIGIDA
+    const allContactsList = useMemo(() => {
+        if (!searchTerm) return contatos;
         const term = searchTerm.toLowerCase();
-        return name.includes(term) || phone.includes(term);
-    });
+        return contatos.filter(contact => {
+            const name = (contact.nome || contact.razao_social || '').toLowerCase();
+            const phone = (contact.telefones?.[0]?.telefone || '').toLowerCase();
+            return name.includes(term) || phone.includes(term);
+        });
+    }, [contatos, searchTerm]);
 
     const activeConversationsList = useMemo(() => {
-        return filteredContacts
-            // ***** CORREÇÃO PRINCIPAL APLICADA AQUI *****
-            // Convertemos `contact.id` para String antes de checar no mapa.
+        // 1. Primeiro, pega apenas os contatos que têm mensagens
+        const contactsWithMessages = contatos
             .filter(contact => lastMessageDates.has(String(contact.id)))
             .map(contact => ({
                 ...contact,
                 lastMessageDate: lastMessageDates.get(String(contact.id))
             }))
             .sort((a, b) => b.lastMessageDate.getTime() - a.lastMessageDate.getTime());
-    }, [filteredContacts, lastMessageDates]);
 
-    const allContactsList = filteredContacts;
+        // 2. Depois, aplica o filtro de busca sobre essa lista
+        if (!searchTerm) return contactsWithMessages;
+        const term = searchTerm.toLowerCase();
+        return contactsWithMessages.filter(contact => {
+            const name = (contact.nome || contact.razao_social || '').toLowerCase();
+            const phone = (contact.telefones?.[0]?.telefone || '').toLowerCase();
+            return name.includes(term) || phone.includes(term);
+        });
+    }, [contatos, lastMessageDates, searchTerm]);
+    // FIM DA CORREÇÃO
 
     return (
         <div className="grid grid-cols-[250px_1fr_250px] h-[calc(100vh-100px)] bg-white rounded-lg shadow-xl border">
@@ -201,14 +207,13 @@ export default function WhatsAppChatManager({ contatos }) {
                         <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
                             type="text"
-                            placeholder="Pesquisar por nome ou telefone..."
+                            placeholder="Pesquisar..."
                             className="w-full p-2 pl-9 border rounded-md text-sm"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
                 </div>
-                {/* Abas para Contatos */}
                 <div className="flex border-b text-sm">
                     <button
                         onClick={() => setActiveTab('conversas')}
@@ -236,17 +241,11 @@ export default function WhatsAppChatManager({ contatos }) {
                             <p className="text-sm text-gray-500">{contact.telefones?.[0]?.telefone || 'Sem telefone'}</p>
                             {contact.lastMessageDate && activeTab === 'conversas' && (
                                 <p className="text-xs text-gray-400 mt-1">
-                                    Última: {contact.lastMessageDate.toLocaleDateString('pt-BR')} {contact.lastMessageDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                    {contact.lastMessageDate.toLocaleDateString('pt-BR')} {contact.lastMessageDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                 </p>
                             )}
                         </li>
                     ))}
-                     {(activeTab === 'conversas' && activeConversationsList.length === 0) && (
-                        <p className="text-center text-gray-500 p-4 text-sm">Nenhuma conversa ativa.</p>
-                    )}
-                     {(activeTab === 'todos' && allContactsList.length === 0) && (
-                        <p className="text-center text-gray-500 p-4 text-sm">Nenhum contato encontrado.</p>
-                    )}
                 </ul>
             </div>
 
@@ -295,7 +294,7 @@ export default function WhatsAppChatManager({ contatos }) {
             </div>
 
             {/* Coluna 3: Assistente de IA */}
-            <AIChatAssistant selectedContact={selectedContact} conversationHistory={messages} />
+            <AIChatAssistant selectedContact={selectedContact} />
         </div>
     );
 }
