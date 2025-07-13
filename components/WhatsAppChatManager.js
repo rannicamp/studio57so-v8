@@ -3,16 +3,16 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-    faPaperPlane, faSpinner, faUserCircle, faSearch, faAddressBook, faRobot, 
-    faPaperclip, faFileAlt, faMicrophone, faStopCircle, faPlayCircle 
+import {
+    faPaperPlane, faSpinner, faUserCircle, faSearch, faAddressBook, faRobot,
+    faPaperclip, faFileAlt, faMicrophone, faStopCircle, faPlayCircle
 } from '@fortawesome/free-solid-svg-icons';
 
 // --- Subcomponente: Bolha de Mensagem ---
 const MessageBubble = ({ message }) => {
     const isSentByUser = message.direction === 'outbound';
     const bubbleClasses = isSentByUser ? 'bg-blue-500 text-white self-end rounded-l-lg rounded-tr-lg' : 'bg-gray-200 text-gray-800 self-start rounded-r-lg rounded-tl-lg';
-    
+
     const renderContent = () => {
         const type = message.raw_payload?.type;
         switch (type) {
@@ -53,7 +53,7 @@ const AIChatAssistant = ({ selectedContact }) => (
 // --- Componente Principal ---
 export default function WhatsAppChatManager({ contatos }) {
     const supabase = createClient();
-    
+
     // --- Estados ---
     const [selectedContact, setSelectedContact] = useState(null);
     const [messages, setMessages] = useState([]);
@@ -92,14 +92,14 @@ export default function WhatsAppChatManager({ contatos }) {
 
     // --- Handlers e Efeitos ---
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-    
+
     const handleSelectContact = useCallback(async (contact) => {
         setSelectedContact(contact); setLoadingMessages(true); setMessages([]); setNewMessage('');
         const { data, error } = await supabase.from('whatsapp_messages').select('*').eq('contato_id', contact.id).order('sent_at', { ascending: true });
         if (error) { console.error("Erro ao buscar mensagens do contato:", error); } else { setMessages(data || []); }
         setLoadingMessages(false);
     }, [supabase]);
-    
+
     useEffect(() => {
         if (!selectedContact) return;
         const channel = supabase.channel(`realtime_whatsapp_for_${selectedContact.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_messages', filter: `contato_id=eq.${selectedContact.id}` }, (payload) => { handleSelectContact(selectedContact); setRefreshTrigger(prev => prev + 1); }).subscribe();
@@ -109,10 +109,10 @@ export default function WhatsAppChatManager({ contatos }) {
     // --- FUNÇÕES DE ENVIO DE MENSAGEM ---
     const sendMessageAPI = async (payload) => {
         try {
-            const response = await fetch('/api/whatsapp/send', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify(payload) 
+            const response = await fetch('/api/whatsapp/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
             if (!response.ok) {
                 const result = await response.json();
@@ -152,13 +152,19 @@ export default function WhatsAppChatManager({ contatos }) {
         if (!file || !selectedContact) return;
 
         setIsSending(true);
-        
+
         try {
             // ***** INÍCIO DA CORREÇÃO *****
-            // O caminho agora começa diretamente com o ID do contato, sem o "public/".
-            const filePath = `${selectedContact.id}/${Date.now()}_${file.name}`;
+            // 1. Sanitiza o nome do arquivo para remover caracteres problemáticos
+            const sanitizedFileName = file.name
+                .normalize("NFD") // Separa acentos dos caracteres (ex: 'á' -> 'a' + ´)
+                .replace(/[\u0300-\u036f]/g, "") // Remove os acentos
+                .replace(/[^a-zA-Z0-9.\-_]/g, '_'); // Substitui qualquer coisa que não seja letra, número, ponto, - ou _ por _
+
+            // 2. Monta o caminho do arquivo com o nome sanitizado
+            const filePath = `${selectedContact.id}/${Date.now()}_${sanitizedFileName}`;
             // ***** FIM DA CORREÇÃO *****
-            
+
             const { error: uploadError } = await supabase.storage
                 .from('whatsapp-media')
                 .upload(filePath, file);
@@ -171,13 +177,13 @@ export default function WhatsAppChatManager({ contatos }) {
 
             if (!urlData || !urlData.publicUrl) { throw new Error("Não foi possível obter a URL pública do arquivo."); }
             const publicUrl = urlData.publicUrl;
-            
+
             const { error: dbError } = await supabase
                 .rpc('salvar_anexo_whatsapp', {
                     p_contato_id: selectedContact.id,
                     p_storage_path: filePath,
                     p_public_url: publicUrl,
-                    p_file_name: file.name,
+                    p_file_name: file.name, // Salva o nome original para exibição
                     p_file_type: file.type,
                     p_file_size: file.size,
                 });
@@ -196,7 +202,7 @@ export default function WhatsAppChatManager({ contatos }) {
             }
         }
     };
-    
+
     const handleStartRecording = () => { setIsRecording(true); /* Lógica de gravação futura */ };
     const handleStopRecording = () => { setIsRecording(false); /* Lógica de envio do áudio futuro */ };
 
