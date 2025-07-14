@@ -128,8 +128,11 @@ export default function WhatsAppChatManager({ contatos }) {
         setAttachment(null);
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            // ***** CORREÇÃO: Usando o formato OGG, compatível com WhatsApp *****
-            mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/ogg; codecs=opus' });
+            
+            // ***** CORREÇÃO: Deixando o navegador escolher o melhor formato *****
+            mediaRecorderRef.current = new MediaRecorder(stream);
+            const mimeType = mediaRecorderRef.current.mimeType;
+
             audioChunksRef.current = [];
 
             mediaRecorderRef.current.ondataavailable = event => {
@@ -137,8 +140,8 @@ export default function WhatsAppChatManager({ contatos }) {
             };
 
             mediaRecorderRef.current.onstop = () => {
-                // ***** CORREÇÃO: Criando o Blob com o tipo OGG *****
-                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/ogg; codecs=opus' });
+                // ***** CORREÇÃO: Usando o tipo que o navegador escolheu *****
+                const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
                 const audioUrl = URL.createObjectURL(audioBlob);
                 setAudioBlob(audioBlob);
                 setAudioUrl(audioUrl);
@@ -149,7 +152,7 @@ export default function WhatsAppChatManager({ contatos }) {
             setIsRecording(true);
         } catch (err) {
             console.error("Erro ao acessar o microfone:", err);
-            alert("Não foi possível acessar o microfone. Verifique as permissões do navegador.");
+            alert(`Não foi possível acessar o microfone: ${err.message}`);
         }
     };
 
@@ -190,8 +193,11 @@ export default function WhatsAppChatManager({ contatos }) {
                 if (audioToSend.size === 0) {
                      throw new Error("O áudio gravado está vazio e não pode ser enviado.");
                 }
-                // ***** CORREÇÃO: Criando o arquivo com nome e tipo OGG *****
-                fileToSend = new File([audioToSend], "audio_gravado.ogg", { type: 'audio/ogg' });
+                
+                // ***** CORREÇÃO: Criando o nome do arquivo dinamicamente *****
+                const extension = audioToSend.type.split('/')[1].split(';')[0];
+                const fileName = `audio_gravado.${extension}`;
+                fileToSend = new File([audioToSend], fileName, { type: audioToSend.type });
             }
 
             if (fileToSend) {
