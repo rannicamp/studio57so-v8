@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Funções auxiliares não precisam de alteração
 function normalizeAndGeneratePhoneNumbers(rawPhone) {
     const digitsOnly = rawPhone.replace(/\D/g, '');
     let numbersToSearch = new Set();
@@ -64,7 +65,19 @@ export async function POST(request) {
             payload = { messaging_product: 'whatsapp', to: to, type: 'text', text: { preview_url: true, body: text } };
             messageContentForDb = text;
         } else if (type === 'document') {
-             payload = { messaging_product: 'whatsapp', to: to, type: 'document', document: { link: link, filename: filename } };
+             // ***** INÍCIO DA CORREÇÃO *****
+             // Agora incluímos o campo "caption" no payload do documento.
+             payload = {
+                messaging_product: 'whatsapp',
+                to: to,
+                type: 'document',
+                document: {
+                    link: link,
+                    filename: filename,
+                    caption: filename // Usamos o próprio nome do arquivo como legenda.
+                }
+             };
+             // ***** FIM DA CORREÇÃO *****
              messageContentForDb = filename || 'Documento enviado';
         } else {
             return NextResponse.json({ error: 'Tipo de mensagem inválido.' }, { status: 400 });
@@ -99,8 +112,6 @@ export async function POST(request) {
             }
         }
         
-        // ***** INÍCIO DA CORREÇÃO *****
-        // Trocamos a chamada RPC por um INSERT direto.
         const { error: dbError } = await supabaseAdmin.from('whatsapp_messages').insert({
             contato_id: contactId,
             enterprise_id: enterpriseId,
@@ -113,7 +124,6 @@ export async function POST(request) {
             status: 'sent',
             raw_payload: payload
         });
-        // ***** FIM DA CORREÇÃO *****
 
         if (dbError) {
             return NextResponse.json({ message: 'Mensagem ENVIADA, mas falhou ao salvar no banco.', error: dbError.message }, { status: 206 });
