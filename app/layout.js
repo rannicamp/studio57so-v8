@@ -13,6 +13,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="pt-br">
       <body className={inter.className}>
+        {/* Adicionado para conversão de áudio para MP3 */}
+        <script src="/lame.min.js"></script>
+        
         {children}
         <Toaster richColors position="top-right" />
       </body>

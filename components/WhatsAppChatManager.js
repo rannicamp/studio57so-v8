@@ -124,26 +124,56 @@ export default function WhatsAppChatManager({ contatos }) {
         return 'document';
     };
 
+    // NOVO: Função para converter áudio para MP3
+    const convertToMp3 = async (audioBlob) => {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+        const mp3Encoder = new lamejs.Mp3Encoder(1, audioBuffer.sampleRate, 128); // 1 canal (mono), 128 kbps
+        const samples = audioBuffer.getChannelData(0);
+        const mp3Data = [];
+
+        let remaining = samples.length;
+        const BATCH_SIZE = 1152; // Tamanho do lote para o encoder
+
+        for (let i = 0; remaining >= BATCH_SIZE; i += BATCH_SIZE) {
+            const batch = samples.subarray(i, i + BATCH_SIZE);
+            const mp3buf = mp3Encoder.encodeBuffer(batch);
+            if (mp3buf.length > 0) {
+                mp3Data.push(mp3buf);
+            }
+            remaining -= BATCH_SIZE;
+        }
+
+        const end = mp3Encoder.flush();
+        if (end.length > 0) {
+            mp3Data.push(end);
+        }
+
+        return new Blob(mp3Data, { type: 'audio/mpeg' });
+    };
+
+
     const handleStartRecording = async () => {
         setAttachment(null);
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
-            // ***** CORREÇÃO: Deixando o navegador escolher o melhor formato *****
             mediaRecorderRef.current = new MediaRecorder(stream);
-            const mimeType = mediaRecorderRef.current.mimeType;
-
             audioChunksRef.current = [];
 
             mediaRecorderRef.current.ondataavailable = event => {
                 audioChunksRef.current.push(event.data);
             };
 
-            mediaRecorderRef.current.onstop = () => {
-                // ***** CORREÇÃO: Usando o tipo que o navegador escolheu *****
-                const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-                const audioUrl = URL.createObjectURL(audioBlob);
-                setAudioBlob(audioBlob);
+            mediaRecorderRef.current.onstop = async () => {
+                const recordedBlob = new Blob(audioChunksRef.current, { type: mediaRecorderRef.current.mimeType });
+
+                // Inicia a conversão para MP3
+                const mp3Blob = await convertToMp3(recordedBlob);
+
+                const audioUrl = URL.createObjectURL(mp3Blob);
+                setAudioBlob(mp3Blob);
                 setAudioUrl(audioUrl);
                 stream.getTracks().forEach(track => track.stop());
             };
@@ -193,11 +223,7 @@ export default function WhatsAppChatManager({ contatos }) {
                 if (audioToSend.size === 0) {
                      throw new Error("O áudio gravado está vazio e não pode ser enviado.");
                 }
-                
-                // ***** CORREÇÃO: Criando o nome do arquivo dinamicamente *****
-                const extension = audioToSend.type.split('/')[1].split(';')[0];
-                const fileName = `audio_gravado.${extension}`;
-                fileToSend = new File([audioToSend], fileName, { type: audioToSend.type });
+                fileToSend = new File([audioToSend], "audio_gravado.mp3", { type: 'audio/mpeg' });
             }
 
             if (fileToSend) {
