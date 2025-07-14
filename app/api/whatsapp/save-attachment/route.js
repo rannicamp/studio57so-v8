@@ -6,7 +6,6 @@ export async function POST(request) {
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseServiceKey) {
-        console.error("ERRO CRÍTICO: Variáveis de ambiente do Supabase não encontradas.");
         return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
     }
 
@@ -14,32 +13,30 @@ export async function POST(request) {
     
     try {
         const body = await request.json();
-        const {
-            p_contato_id,
-            p_storage_path,
-            p_public_url,
-            p_file_name,
-            p_file_type,
-            p_file_size
-        } = body;
+        
+        // ***** INÍCIO DA CORREÇÃO *****
+        // Usamos os mesmos nomes dos parâmetros, mas agora para um objeto de inserção
+        const dadosParaSalvar = {
+            contato_id: body.p_contato_id,
+            storage_path: body.p_storage_path,
+            public_url: body.p_public_url,
+            file_name: body.p_file_name,
+            file_type: body.p_file_type,
+            file_size: body.p_file_size
+        };
 
-        // Validação básica
-        if (!p_contato_id || !p_storage_path) {
+        if (!dadosParaSalvar.contato_id || !dadosParaSalvar.storage_path) {
             return NextResponse.json({ error: 'Dados insuficientes para salvar o anexo.' }, { status: 400 });
         }
         
-        // Chama o "Funcionário Interno" (RPC) com as permissões de admin
-        const { error } = await supabaseAdmin.rpc('salvar_anexo_whatsapp', {
-            p_contato_id,
-            p_storage_path,
-            p_public_url,
-            p_file_name,
-            p_file_type,
-            p_file_size
-        });
+        // Trocamos a chamada RPC por um INSERT direto, que o nosso teste provou que funciona.
+        const { error } = await supabaseAdmin
+            .from('whatsapp_attachments')
+            .insert(dadosParaSalvar);
+        // ***** FIM DA CORREÇÃO *****
 
         if (error) {
-            console.error('Erro ao chamar RPC para salvar anexo:', error);
+            console.error('Erro ao inserir anexo no banco:', error);
             throw error;
         }
 
