@@ -140,11 +140,9 @@ export default function WhatsAppChatManager({ contatos }) {
                 const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
                 if (!urlData?.publicUrl) throw new Error("Não foi possível obter a URL pública do arquivo.");
 
-                // A função sendWhatsAppMedia foi importada do utils/whatsapp.js
                 await sendWhatsAppMedia(phoneNumber, mediaType, urlData.publicUrl, textToSend, mediaType === 'document' ? attachmentToSend.name : undefined);
             } 
             else if (textToSend) {
-                // A função sendWhatsAppText foi importada do utils/whatsapp.js
                 await sendWhatsAppText(phoneNumber, textToSend);
             }
         } catch (error) {

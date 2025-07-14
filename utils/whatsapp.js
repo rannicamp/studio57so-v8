@@ -73,7 +73,7 @@ export async function sendWhatsAppText(to, text) {
 
 
 /**
- * NOVO: Função para enviar uma mensagem com mídia (imagem, documento, etc.) do WhatsApp.
+ * Função para enviar uma mensagem com mídia (imagem, documento, etc.) do WhatsApp.
  * @param {string} to - O número de telefone do destinatário.
  * @param {string} type - O tipo de mídia ('image', 'document', 'video', 'audio').
  * @param {string} link - O link público do arquivo no Supabase Storage.

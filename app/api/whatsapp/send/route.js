@@ -59,8 +59,6 @@ export async function POST(request) {
         let payload = { messaging_product: 'whatsapp', to: to, type: type };
         let messageContentForDb = '';
         
-        // ***** INÍCIO DA CORREÇÃO *****
-        // Lógica de payload ajustada para os diferentes tipos de mensagem
         switch (type) {
             case 'text':
                 payload.text = { preview_url: true, body: text };
@@ -89,7 +87,6 @@ export async function POST(request) {
             default:
                 return NextResponse.json({ error: 'Tipo de mensagem inválido.' }, { status: 400 });
         }
-        // ***** FIM DA CORREÇÃO *****
 
         const apiResponse = await fetch(url, {
             method: 'POST',
