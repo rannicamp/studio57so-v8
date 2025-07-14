@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Função para normalizar e gerar variações de números de telefone para busca
 function normalizeAndGeneratePhoneNumbers(rawPhone) {
     const digitsOnly = rawPhone.replace(/\D/g, '');
     let numbersToSearch = new Set();
@@ -26,6 +27,7 @@ function normalizeAndGeneratePhoneNumbers(rawPhone) {
     }
     return Array.from(numbersToSearch);
 }
+
 
 export async function POST(request) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

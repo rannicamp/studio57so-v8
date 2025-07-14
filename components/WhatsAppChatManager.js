@@ -7,24 +7,26 @@ import {
     faPaperPlane, faSpinner, faUserCircle, faSearch, faAddressBook, faRobot,
     faPaperclip, faFileAlt, faMicrophone, faStopCircle, faPlayCircle, faTimes, faFileImage
 } from '@fortawesome/free-solid-svg-icons';
+import { sendWhatsAppMedia, sendWhatsAppText } from '../utils/whatsapp';
 
-// Subcomponentes (MessageBubble, AIChatAssistant) permanecem os mesmos...
 const MessageBubble = ({ message }) => {
     const isSentByUser = message.direction === 'outbound';
     const bubbleClasses = isSentByUser ? 'bg-blue-500 text-white self-end rounded-l-lg rounded-tr-lg' : 'bg-gray-200 text-gray-800 self-start rounded-r-lg rounded-tl-lg';
     
     const renderContent = () => {
         const type = message.raw_payload?.type;
+        const payload = message.raw_payload;
+
         switch (type) {
             case 'document':
-                 return (<a href={message.raw_payload.document?.link || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline">
+                 return (<a href={payload.document?.link || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline">
                     <FontAwesomeIcon icon={faFileAlt} className="text-xl" />
-                    <span>{message.raw_payload.document?.filename || message.content || 'Documento'}</span>
+                    <span>{payload.document?.caption || payload.document?.filename || 'Documento'}</span>
                 </a>);
             case 'image':
-                 return (<a href={message.raw_payload.image?.link || '#'} target="_blank" rel="noopener noreferrer" className="flex flex-col gap-2">
-                    <img src={message.raw_payload.image?.link} alt={message.raw_payload.image?.caption || 'Imagem'} className="max-w-xs rounded-md" />
-                    {message.raw_payload.image?.caption && <span className="text-sm">{message.raw_payload.image.caption}</span>}
+                 return (<a href={payload.image?.link || '#'} target="_blank" rel="noopener noreferrer" className="flex flex-col gap-2">
+                    <img src={payload.image?.link} alt={payload.image?.caption || 'Imagem'} className="max-w-xs rounded-md" />
+                    {payload.image?.caption && <span className="text-sm">{payload.image.caption}</span>}
                 </a>);
             case 'audio':
                 return (<div className="flex items-center gap-2"><FontAwesomeIcon icon={faPlayCircle} className="text-xl" /><span>Mensagem de voz</span></div>);
@@ -41,6 +43,7 @@ const MessageBubble = ({ message }) => {
         </div>
     );
 };
+
 const AIChatAssistant = ({ selectedContact }) => (
     <div className="p-4 space-y-4 bg-white border-l border-gray-200"><h3 className="text-md font-bold text-gray-800 flex items-center gap-2"><FontAwesomeIcon icon={faRobot} /> Assistente de IA</h3><div className="bg-gray-50 p-3 rounded-md text-sm text-gray-700">{selectedContact ? <p>A IA monitorará a conversa com **{selectedContact.nome || selectedContact.razao_social}**.</p> : <p>Selecione um contato para ativar o assistente.</p>}</div></div>
 );
@@ -61,18 +64,14 @@ export default function WhatsAppChatManager({ contatos }) {
     const chatEndRef = useRef(null);
     const fileInputRef = useRef(null);
     const [isRecording, setIsRecording] = useState(false);
-    
-    // ***** INÍCIO DA MUDANÇA *****
-    const [attachment, setAttachment] = useState(null); // Novo estado para o anexo
-    // ***** FIM DA MUDANÇA *****
+    const [attachment, setAttachment] = useState(null);
     
     useEffect(() => {
-        // Lógica de ordenação de contatos (sem alteração)
         const organizeAndSortContacts = async () => {
             if (!contatos || contatos.length === 0) { setDisplayContacts([]); setIsLoadingContacts(false); return; }
             setIsLoadingContacts(true);
             const { data: messagesData, error } = await supabase.from('whatsapp_messages').select('contato_id, sent_at').not('contato_id', 'is', null).order('sent_at', { ascending: false });
-            if (error) { console.error("ERRO DO SUPABASE ao buscar datas:", error.message); const sortedAlphabetically = [...contatos].sort((a, b) => (a.nome || a.razao_social || '').localeCompare(b.nome || b.razao_social || '')); setDisplayContacts(sortedAlphabetically.map(c => ({ ...c, lastMessageDate: null }))); setIsLoadingContacts(false); return; }
+            if (error) { const sortedAlphabetically = [...contatos].sort((a, b) => (a.nome || a.razao_social || '').localeCompare(b.nome || b.razao_social || '')); setDisplayContacts(sortedAlphabetically.map(c => ({ ...c, lastMessageDate: null }))); setIsLoadingContacts(false); return; }
             const datesMap = new Map();
             messagesData.forEach(msg => { const contactIdStr = String(msg.contato_id); if (!datesMap.has(contactIdStr)) { datesMap.set(contactIdStr, new Date(msg.sent_at)); } });
             const enrichedContacts = contatos.map(contact => ({ ...contact, lastMessageDate: datesMap.get(String(contact.id)) || null }));
@@ -103,18 +102,10 @@ export default function WhatsAppChatManager({ contatos }) {
         return () => { supabase.removeChannel(channel); };
     }, [selectedContact, supabase, handleSelectContact]);
 
-    // ***** INÍCIO DAS MUDANÇAS *****
-    
-    // Agora, esta função apenas prepara o anexo, não o envia.
     const handleFileSelected = (event) => {
         const file = event.target.files[0];
-        if (file) {
-            setAttachment(file);
-        }
-        // Limpa o input para permitir selecionar o mesmo arquivo novamente
-        if(fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
+        if (file) { setAttachment(file); }
+        if(fileInputRef.current) { fileInputRef.current.value = ""; }
     };
     
     const getMediaType = (file) => {
@@ -124,7 +115,6 @@ export default function WhatsAppChatManager({ contatos }) {
         return 'document';
     };
 
-    // Esta é a nova função principal de envio
     const handleSendMessage = async () => {
         if (!selectedContact || (!newMessage.trim() && !attachment)) return;
 
@@ -132,15 +122,15 @@ export default function WhatsAppChatManager({ contatos }) {
         const textToSend = newMessage;
         const attachmentToSend = attachment;
         
-        // Limpa os campos da interface imediatamente
         setNewMessage('');
         setAttachment(null);
 
         try {
-            // Se houver um anexo, faz todo o processo dele
+            const phoneNumber = selectedContact.telefones?.[0]?.telefone;
+            if (!phoneNumber) throw new Error("O contato não possui um número de telefone válido.");
+
             if (attachmentToSend) {
                 const mediaType = getMediaType(attachmentToSend);
-
                 const sanitizedFileName = attachmentToSend.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9.\-_]/g, '_');
                 const filePath = `${selectedContact.id}/${Date.now()}_${sanitizedFileName}`;
 
@@ -150,58 +140,22 @@ export default function WhatsAppChatManager({ contatos }) {
                 const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
                 if (!urlData?.publicUrl) throw new Error("Não foi possível obter a URL pública do arquivo.");
 
-                const saveResponse = await fetch('/api/whatsapp/save-attachment', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        p_contato_id: selectedContact.id, p_storage_path: filePath, p_public_url: urlData.publicUrl,
-                        p_file_name: attachmentToSend.name, p_file_type: attachmentToSend.type, p_file_size: attachmentToSend.size,
-                    })
-                });
-                if (!saveResponse.ok) {
-                    const err = await saveResponse.json();
-                    throw new Error(err.error || "Falha ao registrar anexo no servidor.");
-                }
-
-                const sendPayload = {
-                    to: selectedContact.telefones?.[0]?.telefone,
-                    type: mediaType,
-                    link: urlData.publicUrl,
-                    filename: mediaType === 'document' ? attachmentToSend.name : undefined,
-                    caption: textToSend || '' // O texto agora é a legenda!
-                };
-                await sendMessageAPI(sendPayload);
+                // A função sendWhatsAppMedia foi importada do utils/whatsapp.js
+                await sendWhatsAppMedia(phoneNumber, mediaType, urlData.publicUrl, textToSend, mediaType === 'document' ? attachmentToSend.name : undefined);
             } 
-            // Se não houver anexo, mas houver texto, envia apenas o texto
             else if (textToSend) {
-                const sendPayload = { to: selectedContact.telefones?.[0]?.telefone, type: 'text', text: textToSend };
-                await sendMessageAPI(sendPayload);
+                // A função sendWhatsAppText foi importada do utils/whatsapp.js
+                await sendWhatsAppText(phoneNumber, textToSend);
             }
         } catch (error) {
             console.error("Falha no processo de envio:", error);
             alert(`Erro ao enviar: ${error.message}`);
-            // Restaura o que o usuário estava digitando se o envio falhar
             setNewMessage(textToSend);
             setAttachment(attachmentToSend);
         } finally {
             setIsSending(false);
         }
     };
-
-    const sendMessageAPI = async (payload) => {
-        const response = await fetch('/api/whatsapp/send', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify(payload) 
-        });
-        if (!response.ok) {
-            const result = await response.json();
-            throw new Error(result.error || 'Erro desconhecido na API de envio do WhatsApp.');
-        }
-        return response.json();
-    };
-
-    // ***** FIM DAS MUDANÇAS *****
 
     const handleStartRecording = () => setIsRecording(true);
     const handleStopRecording = () => setIsRecording(false);
@@ -214,7 +168,6 @@ export default function WhatsAppChatManager({ contatos }) {
                 <div className="p-4 border-b flex items-center gap-3 bg-white"><FontAwesomeIcon icon={faUserCircle} className="text-3xl text-gray-400" /><div><h3 className="font-bold">{selectedContact.nome || selectedContact.razao_social}</h3><p className="text-sm text-gray-500">{selectedContact.telefones?.[0]?.telefone || 'Sem telefone'}</p></div></div>
                 <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50 flex flex-col">{loadingMessages ? <div className="m-auto text-center"><FontAwesomeIcon icon={faSpinner} spin /> Carregando...</div> : messages.map(msg => <MessageBubble key={msg.id} message={msg} />)}<div ref={chatEndRef} /></div>
                 <div className="p-4 border-t bg-white space-y-2">
-                    {/* ÁREA DE PREVIEW DO ANEXO */}
                     {attachment && (
                         <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in">
                             <div className="flex items-center gap-2 text-sm text-blue-800">
@@ -224,7 +177,6 @@ export default function WhatsAppChatManager({ contatos }) {
                             <button onClick={() => setAttachment(null)} className="text-blue-600 hover:text-blue-800"><FontAwesomeIcon icon={faTimes} /></button>
                         </div>
                     )}
-                    {/* ÁREA DE INPUT PRINCIPAL */}
                     <div className="flex items-center gap-3">
                         <input type="file" ref={fileInputRef} onChange={handleFileSelected} className="hidden" />
                         <button onClick={() => fileInputRef.current.click()} disabled={isSending} className="text-gray-500 hover:text-blue-500 p-2 rounded-full disabled:opacity-50"><FontAwesomeIcon icon={faPaperclip} className="text-xl"/></button>
