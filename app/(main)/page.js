@@ -18,21 +18,18 @@ export default function HomePage() {
   };
 
   const handleTestSubmit = async () => {
-      if (!file) {
-          alert("Por favor, selecione um arquivo para testar.");
-          return;
-      }
+      // O endpoint /api/debug-env não precisa de um arquivo.
+      // O teste com arquivo está no contexto de outra API, não nesta.
+      // Então, removemos a validação de 'file' e o envio de 'formData'.
+
       setIsLoading(true);
       setApiResponse(null);
 
-      const formData = new FormData();
-      formData.append("file", file);
-
       try {
-          // Chama a API de debug com o método POST
+          // Chama a API de debug com o método GET, que é o que ela espera
           const response = await fetch('/api/debug-env', {
-              method: 'POST',
-              body: formData,
+              method: 'GET', // <--- CORREÇÃO AQUI: Mudado para GET
+              // body: formData, // <--- REMOVIDO: Não precisamos enviar um corpo para uma requisição GET
           });
           const result = await response.json();
           setApiResponse(result);
@@ -58,25 +55,19 @@ export default function HomePage() {
             Teste de Upload e Salvamento de Anexo
         </h2>
 
-        <div>
-            <label htmlFor="file-input" className="block text-sm font-medium text-gray-700 mb-1 text-left">
-                1. Selecione um arquivo de teste
-            </label>
-            <input 
-                id="file-input"
-                type="file"
-                onChange={handleFileChange}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100"
-            />
-        </div>
+        {/* Removido o input de arquivo, pois o teste /api/debug-env não o utiliza.
+            Este teste é apenas para verificar as variáveis de ambiente.
+            O teste de upload de anexo real é feito via chat do WhatsApp.
+        */}
+        <p className="text-sm text-gray-600">Este teste verifica se as variáveis de ambiente do servidor estão configuradas corretamente.</p>
         
         <button
             onClick={handleTestSubmit}
-            disabled={!file || isLoading}
+            disabled={isLoading} // Removida a dependência de 'file' aqui também
             className="w-full bg-blue-600 text-white px-6 py-3 rounded-md shadow-sm hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center gap-2 font-bold text-lg"
         >
             <FontAwesomeIcon icon={isLoading ? faSpinner : faPaperPlane} spin={isLoading} />
-            {isLoading ? 'Executando Teste...' : '2. Iniciar Teste e Ver Resultado'}
+            {isLoading ? 'Executando Teste...' : 'Iniciar Teste e Ver Resultado'}
         </button>
 
       </div>
