@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Funções auxiliares não precisam de alteração
 function normalizeAndGeneratePhoneNumbers(rawPhone) {
     const digitsOnly = rawPhone.replace(/\D/g, '');
     let numbersToSearch = new Set();
@@ -40,7 +39,7 @@ export async function POST(request) {
 
     try {
         const body = await request.json();
-        const { to, type, templateName, languageCode, components, text, link, filename } = body;
+        const { to, type, templateName, languageCode, components, text, link, filename, caption } = body;
 
         if (!to || !type) {
             return NextResponse.json({ error: 'O número de destino (to) e o tipo (type) são obrigatórios.' }, { status: 400 });
@@ -55,33 +54,40 @@ export async function POST(request) {
         const { whatsapp_permanent_token: WHATSAPP_TOKEN, whatsapp_phone_number_id: WHATSAPP_PHONE_NUMBER_ID } = config;
         const url = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
         
-        let payload = {};
+        let payload = { messaging_product: 'whatsapp', to: to, type: type };
         let messageContentForDb = '';
-
-        if (type === 'template') {
-            payload = { messaging_product: 'whatsapp', to: to, type: 'template', template: { name: templateName, language: { code: languageCode || 'pt_BR' }, components: components || [] } };
-            messageContentForDb = `Template: ${templateName}`;
-        } else if (type === 'text') {
-            payload = { messaging_product: 'whatsapp', to: to, type: 'text', text: { preview_url: true, body: text } };
-            messageContentForDb = text;
-        } else if (type === 'document') {
-             // ***** INÍCIO DA CORREÇÃO *****
-             // Agora incluímos o campo "caption" no payload do documento.
-             payload = {
-                messaging_product: 'whatsapp',
-                to: to,
-                type: 'document',
-                document: {
-                    link: link,
-                    filename: filename,
-                    caption: filename // Usamos o próprio nome do arquivo como legenda.
-                }
-             };
-             // ***** FIM DA CORREÇÃO *****
-             messageContentForDb = filename || 'Documento enviado';
-        } else {
-            return NextResponse.json({ error: 'Tipo de mensagem inválido.' }, { status: 400 });
+        
+        // ***** INÍCIO DA CORREÇÃO *****
+        // Lógica de payload ajustada para os diferentes tipos de mensagem
+        switch (type) {
+            case 'text':
+                payload.text = { preview_url: true, body: text };
+                messageContentForDb = text;
+                break;
+            case 'document':
+                payload.document = { link: link, filename: filename, caption: caption };
+                messageContentForDb = caption || filename || 'Documento';
+                break;
+            case 'image':
+                payload.image = { link: link, caption: caption };
+                messageContentForDb = caption || 'Imagem';
+                break;
+            case 'video':
+                payload.video = { link: link, caption: caption };
+                messageContentForDb = caption || 'Vídeo';
+                break;
+            case 'audio':
+                payload.audio = { link: link };
+                messageContentForDb = 'Áudio';
+                break;
+            case 'template':
+                payload.template = { name: templateName, language: { code: languageCode || 'pt_BR' }, components: components || [] };
+                messageContentForDb = `Template: ${templateName}`;
+                break;
+            default:
+                return NextResponse.json({ error: 'Tipo de mensagem inválido.' }, { status: 400 });
         }
+        // ***** FIM DA CORREÇÃO *****
 
         const apiResponse = await fetch(url, {
             method: 'POST',
