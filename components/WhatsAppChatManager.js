@@ -5,7 +5,8 @@ import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faPaperPlane, faSpinner, faUserCircle, faSearch, faAddressBook, faRobot,
-    faPaperclip, faFileAlt, faMicrophone, faStopCircle, faPlayCircle, faTimes, faFileImage
+    faPaperclip, faFileAlt, faMicrophone, faStopCircle, faPlayCircle, faTimes, faFileImage,
+    faTrash, faCheck
 } from '@fortawesome/free-solid-svg-icons';
 import { sendWhatsAppMedia, sendWhatsAppText } from '../utils/whatsapp';
 
@@ -28,8 +29,9 @@ const MessageBubble = ({ message }) => {
                     <img src={payload.image?.link} alt={payload.image?.caption || 'Imagem'} className="max-w-xs rounded-md" />
                     {payload.image?.caption && <span className="text-sm">{payload.image.caption}</span>}
                 </a>);
+            // NOVO: Player de áudio para mensagens de áudio
             case 'audio':
-                return (<div className="flex items-center gap-2"><FontAwesomeIcon icon={faPlayCircle} className="text-xl" /><span>Mensagem de voz</span></div>);
+                return (<audio controls src={payload.audio?.link} className="w-64">Navegador não suporta áudio.</audio>);
             case 'text':
             default:
                 return <p className="text-sm break-words">{message.content}</p>;
@@ -63,8 +65,14 @@ export default function WhatsAppChatManager({ contatos }) {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const chatEndRef = useRef(null);
     const fileInputRef = useRef(null);
-    const [isRecording, setIsRecording] = useState(false);
     const [attachment, setAttachment] = useState(null);
+
+    // NOVO: Estados e Refs para a gravação de áudio
+    const [isRecording, setIsRecording] = useState(false);
+    const [audioBlob, setAudioBlob] = useState(null);
+    const [audioUrl, setAudioUrl] = useState(null);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
     
     useEffect(() => {
         const organizeAndSortContacts = async () => {
@@ -90,11 +98,15 @@ export default function WhatsAppChatManager({ contatos }) {
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
     
     const handleSelectContact = useCallback(async (contact) => {
-        setSelectedContact(contact); setLoadingMessages(true); setMessages([]); setNewMessage(''); setAttachment(null);
+        setSelectedContact(contact); setLoadingMessages(true); setMessages([]); setNewMessage(''); setAttachment(null); setAudioBlob(null); setAudioUrl(null);
+        if (isRecording) {
+            mediaRecorderRef.current?.stop();
+            setIsRecording(false);
+        }
         const { data, error } = await supabase.from('whatsapp_messages').select('*').eq('contato_id', contact.id).order('sent_at', { ascending: true });
         if (error) { console.error("Erro ao buscar mensagens do contato:", error); } else { setMessages(data || []); }
         setLoadingMessages(false);
-    }, [supabase]);
+    }, [supabase, isRecording]);
     
     useEffect(() => {
         if (!selectedContact) return;
@@ -115,73 +127,104 @@ export default function WhatsAppChatManager({ contatos }) {
         return 'document';
     };
 
+    // NOVO: Funções para controlar a gravação
+    const handleStartRecording = async () => {
+        setAttachment(null); // Limpa outros anexos
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorderRef.current = new MediaRecorder(stream);
+            audioChunksRef.current = [];
+
+            mediaRecorderRef.current.ondataavailable = event => {
+                audioChunksRef.current.push(event.data);
+            };
+
+            mediaRecorderRef.current.onstop = () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/ogg; codecs=opus' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                setAudioBlob(audioBlob);
+                setAudioUrl(audioUrl);
+                 // Para o stream e remove o indicador de gravação do navegador
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorderRef.current.start();
+            setIsRecording(true);
+        } catch (err) {
+            console.error("Erro ao acessar o microfone:", err);
+            alert("Não foi possível acessar o microfone. Verifique as permissões do navegador.");
+        }
+    };
+
+    const handleStopRecording = () => {
+        mediaRecorderRef.current?.stop();
+        setIsRecording(false);
+    };
+
+    const handleCancelRecording = () => {
+        mediaRecorderRef.current?.stop();
+        // Para o stream e remove o indicador de gravação do navegador
+        mediaRecorderRef.current?.stream.getTracks().forEach(track => track.stop());
+        setIsRecording(false);
+        setAudioBlob(null);
+        setAudioUrl(null);
+    };
+
     const handleSendMessage = async () => {
-        if (!selectedContact || (!newMessage.trim() && !attachment)) return;
+        if (!selectedContact || (!newMessage.trim() && !attachment && !audioBlob)) return;
 
         setIsSending(true);
         const textToSend = newMessage;
         const attachmentToSend = attachment;
+        const audioToSend = audioBlob;
         
+        // Limpa os campos
         setNewMessage('');
         setAttachment(null);
+        setAudioBlob(null);
+        setAudioUrl(null);
 
         try {
             const phoneNumber = selectedContact.telefones?.[0]?.telefone;
             if (!phoneNumber) throw new Error("O contato não possui um número de telefone válido.");
 
-            if (attachmentToSend) {
-                const mediaType = getMediaType(attachmentToSend);
-                const sanitizedFileName = attachmentToSend.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9.\-_]/g, '_');
+            let fileToSend = attachmentToSend;
+            // Define o arquivo a ser enviado, dando prioridade ao áudio se existir
+            if (audioToSend) {
+                fileToSend = new File([audioToSend], "audio_gravado.ogg", { type: 'audio/ogg' });
+            }
+
+            if (fileToSend) {
+                const mediaType = getMediaType(fileToSend);
+                const sanitizedFileName = fileToSend.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9.\-_]/g, '_');
                 const filePath = `${selectedContact.id}/${Date.now()}_${sanitizedFileName}`;
 
-                const { error: uploadError } = await supabase.storage.from('whatsapp-media').upload(filePath, attachmentToSend);
+                const { error: uploadError } = await supabase.storage.from('whatsapp-media').upload(filePath, fileToSend);
                 if (uploadError) throw uploadError;
 
                 const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
                 if (!urlData?.publicUrl) throw new Error("Não foi possível obter a URL pública do arquivo.");
 
-                // ***** INÍCIO DA CORREÇÃO *****
-                // O corpo da requisição agora é um objeto simples, sem os prefixos 'p_'
-                const saveResponse = await fetch('/api/whatsapp/save-attachment', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contato_id: selectedContact.id,
-                        storage_path: filePath,
-                        public_url: urlData.publicUrl,
-                        file_name: attachmentToSend.name,
-                        file_type: attachmentToSend.type,
-                        file_size: attachmentToSend.size,
-                    })
-                });
-                // ***** FIM DA CORREÇÃO *****
-
-                if (!saveResponse.ok) {
-                    const err = await saveResponse.json();
-                    throw new Error(err.error || "Falha ao registrar anexo no servidor.");
-                }
-
-                await sendWhatsAppMedia(phoneNumber, mediaType, urlData.publicUrl, textToSend, mediaType === 'document' ? attachmentToSend.name : undefined);
-            
-            } else if (textToSend) {
+                await sendWhatsAppMedia(phoneNumber, mediaType, urlData.publicUrl, textToSend, mediaType === 'document' ? fileToSend.name : undefined);
+            } 
+            else if (textToSend) {
                 await sendWhatsAppText(phoneNumber, textToSend);
             }
         } catch (error) {
             console.error("Falha no processo de envio:", error);
             alert(`Erro ao enviar: ${error.message}`);
+            // Restaura o estado em caso de erro
             setNewMessage(textToSend);
             setAttachment(attachmentToSend);
+            setAudioBlob(audioToSend)
         } finally {
             setIsSending(false);
         }
     };
-
-    const handleStartRecording = () => setIsRecording(true);
-    const handleStopRecording = () => setIsRecording(false);
     
     return (
         <div className="grid grid-cols-[300px_1fr_250px] h-[calc(100vh-100px)] bg-white rounded-lg shadow-xl border">
-            <div className="flex flex-col border-r overflow-hidden"><div className="p-4 border-b"><h2 className="text-lg font-bold mb-2 flex items-center gap-2"><FontAwesomeIcon icon={faAddressBook} /> Contatos ({filteredContacts.length})</h2><div className="relative"><FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input type="text" placeholder="Pesquisar..." className="w-full p-2 pl-9 border rounded-md text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div></div><ul className="overflow-y-auto flex-1">{isLoadingContacts ? <div className="text-center p-4 flex items-center justify-center gap-2 text-gray-500"><FontAwesomeIcon icon={faSpinner} spin /> Carregando...</div> : filteredContacts.length === 0 ? <p className="text-center text-gray-500 p-4 text-sm">Nenhum contato.</p> : filteredContacts.map(contact => (<li key={contact.id} onClick={() => handleSelectContact(contact)} className={`p-4 cursor-pointer hover:bg-gray-100 ${selectedContact?.id === contact.id ? 'bg-blue-100' : ''}`}><p className="font-semibold truncate">{contact.nome || contact.razao_social}</p><p className="text-sm text-gray-500">{contact.telefones?.[0]?.telefone || 'Sem telefone'}</p>{contact.lastMessageDate && (<p className="text-xs text-gray-400 mt-1">Última: {contact.lastMessageDate.toLocaleDateString('pt-BR')} {contact.lastMessageDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>)}</li>))}</ul></div>
+            <div className="flex flex-col border-r overflow-hidden"><div className="p-4 border-b"><h2 className="text-lg font-bold mb-2 flex items-center gap-2"><FontAwesomeIcon icon={faAddressBook} /> Contatos ({filteredContacts.length})</h2><div className="relative"><FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input type="text" placeholder="Pesquisar..." className="w-full p-2 pl-9 border rounded-md text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div></div><ul className="overflow-y-auto flex-1">{isLoadingContacts ? <div className="text-center p-4 flex items-center justify-center gap-2 text-gray-500"><FontAwesomeIcon icon={faSpinner} spin /> Carregando...</div> : filteredContacts.length === 0 ? <p className="text-center text-gray-500 p-4 text-sm">Nenhum contato.</p> : filteredContacts.map(contact => (<li key={contact.id} onClick={() => handleSelectContact(contact)} className={`p-4 cursor-pointer hover:bg-gray-100 ${selectedContact?.id === contact.id ? 'bg-blue-100' : ''}`}><p className="font-semibold truncate">{contact.nome || contact.razao_social}</p><p className="text-sm text-gray-500">{contact.telefones?.[0]?.telefone || 'Sem telefone'}</p>{contact.lastMessageDate && (<p className="text-xs text-gray-400 mt-1">Última: {contact.lastMessageDate.toLocaleTimeString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>)}</li>))}</ul></div>
             
             <div className="flex flex-col bg-gray-100 overflow-hidden">{selectedContact ? (<>
                 <div className="p-4 border-b flex items-center gap-3 bg-white"><FontAwesomeIcon icon={faUserCircle} className="text-3xl text-gray-400" /><div><h3 className="font-bold">{selectedContact.nome || selectedContact.razao_social}</h3><p className="text-sm text-gray-500">{selectedContact.telefones?.[0]?.telefone || 'Sem telefone'}</p></div></div>
@@ -196,18 +239,54 @@ export default function WhatsAppChatManager({ contatos }) {
                             <button onClick={() => setAttachment(null)} className="text-blue-600 hover:text-blue-800"><FontAwesomeIcon icon={faTimes} /></button>
                         </div>
                     )}
-                    <div className="flex items-center gap-3">
-                        <input type="file" ref={fileInputRef} onChange={handleFileSelected} className="hidden" />
-                        <button onClick={() => fileInputRef.current.click()} disabled={isSending} className="text-gray-500 hover:text-blue-500 p-2 rounded-full disabled:opacity-50"><FontAwesomeIcon icon={faPaperclip} className="text-xl"/></button>
-                        
-                        {isRecording ? (<div className="flex-1 flex items-center gap-3"><button onClick={handleStopRecording} className="text-red-500"><FontAwesomeIcon icon={faStopCircle} className="text-2xl" /></button><p className="text-sm text-red-500 font-semibold">Gravando...</p></div>
-                        ) : (<>
-                            <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !isSending) handleSendMessage(); }} placeholder={attachment ? "Adicione uma legenda..." : "Digite uma mensagem..."} className="flex-1 p-2 border rounded-full" />
-                            <button onClick={handleStartRecording} disabled={isSending} className="text-gray-500 hover:text-blue-500 p-2 rounded-full disabled:opacity-50"><FontAwesomeIcon icon={faMicrophone} className="text-xl"/></button>
-                            <button onClick={handleSendMessage} disabled={isSending || (!newMessage.trim() && !attachment)} className="bg-blue-500 text-white w-10 h-10 rounded-full flex items-center justify-center disabled:bg-gray-400">
-                                {isSending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperPlane} />}
+                    {/* NOVO: Preview do áudio gravado */}
+                    {audioUrl && (
+                        <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in">
+                            <audio src={audioUrl} controls className="w-full h-10"></audio>
+                             <button onClick={handleCancelRecording} className="text-red-500 hover:text-red-700 ml-2 p-1">
+                                <FontAwesomeIcon icon={faTrash} />
                             </button>
-                        </>)}
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                        {isRecording ? (
+                            // NOVO: Interface de gravação
+                            <div className="flex-1 flex items-center gap-4 bg-red-100 p-2 rounded-full">
+                                <button onClick={handleStopRecording} className="text-red-600">
+                                    <FontAwesomeIcon icon={faCheck} className="text-xl" />
+                                </button>
+                                <div className="w-full text-center text-red-600 font-semibold animate-pulse">Gravando...</div>
+                                <button onClick={handleCancelRecording} className="text-gray-600">
+                                    <FontAwesomeIcon icon={faTrash} className="text-xl" />
+                                </button>
+                            </div>
+                        ) : (
+                            // Interface padrão
+                            <>
+                                <input type="file" ref={fileInputRef} onChange={handleFileSelected} className="hidden" />
+                                <button onClick={() => fileInputRef.current.click()} disabled={isSending || audioBlob} className="text-gray-500 hover:text-blue-500 p-2 rounded-full disabled:opacity-50"><FontAwesomeIcon icon={faPaperclip} className="text-xl"/></button>
+                                
+                                <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !isSending) handleSendMessage(); }} placeholder={audioBlob ? "Áudio pronto para envio" : "Digite uma mensagem..."} className="flex-1 p-2 border rounded-full" disabled={audioBlob} />
+                                
+                                {newMessage || attachment ? (
+                                    <button onClick={handleSendMessage} disabled={isSending || (!newMessage.trim() && !attachment)} className="bg-blue-500 text-white w-10 h-10 rounded-full flex items-center justify-center disabled:bg-gray-400">
+                                        {isSending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperPlane} />}
+                                    </button>
+                                ) : (
+                                    <button onClick={handleStartRecording} disabled={isSending} className="text-gray-500 hover:text-blue-500 p-2 rounded-full disabled:opacity-50">
+                                        <FontAwesomeIcon icon={faMicrophone} className="text-xl"/>
+                                    </button>
+                                )}
+
+                                 {/* Botão de Enviar aparece se houver áudio pronto */}
+                                {audioBlob && (
+                                     <button onClick={handleSendMessage} disabled={isSending} className="bg-blue-500 text-white w-10 h-10 rounded-full flex items-center justify-center disabled:bg-gray-400">
+                                        {isSending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperPlane} />}
+                                    </button>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
             </>) : <div className="flex items-center justify-center h-full text-gray-500"><p>Selecione um contato para ver as mensagens.</p></div>}</div>
