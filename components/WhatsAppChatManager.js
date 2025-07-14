@@ -163,9 +163,9 @@ export default function WhatsAppChatManager({ contatos }) {
             const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
             if (!urlData || !urlData.publicUrl) { throw new Error("Não foi possível obter a URL pública do arquivo."); }
             const publicUrl = urlData.publicUrl;
-
+            
             // ***** INÍCIO DA CORREÇÃO *****
-            // 1. Prepara os dados para enviar para a nossa nova API
+            // 1. Prepara os dados para enviar para a nossa API de salvamento.
             const attachmentData = {
                 p_contato_id: selectedContact.id,
                 p_storage_path: filePath,
@@ -175,7 +175,7 @@ export default function WhatsAppChatManager({ contatos }) {
                 p_file_size: file.size,
             };
 
-            // 2. Chama a nova API para que o servidor salve os dados
+            // 2. Chama a API para que o servidor salve os dados.
             const saveResponse = await fetch('/api/whatsapp/save-attachment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -188,7 +188,7 @@ export default function WhatsAppChatManager({ contatos }) {
             }
             // ***** FIM DA CORREÇÃO *****
 
-            // 3. Se tudo deu certo, envia a mensagem para o WhatsApp
+            // 3. Se tudo deu certo, envia a mensagem para o WhatsApp.
             await handleSendMediaMessage('document', publicUrl, file.name);
 
         } catch (error) {
