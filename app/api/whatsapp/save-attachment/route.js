@@ -12,31 +12,22 @@ export async function POST(request) {
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     
     try {
-        const body = await request.json();
-        
-        // ***** INÍCIO DA CORREÇÃO *****
-        // Usamos os mesmos nomes dos parâmetros, mas agora para um objeto de inserção
-        const dadosParaSalvar = {
-            contato_id: body.p_contato_id,
-            storage_path: body.p_storage_path,
-            public_url: body.p_public_url,
-            file_name: body.p_file_name,
-            file_type: body.p_file_type,
-            file_size: body.p_file_size
-        };
+        // Recebe os dados do anexo do corpo da requisição
+        const dadosParaSalvar = await request.json();
 
+        // Validação simples para garantir que os dados essenciais estão presentes
         if (!dadosParaSalvar.contato_id || !dadosParaSalvar.storage_path) {
             return NextResponse.json({ error: 'Dados insuficientes para salvar o anexo.' }, { status: 400 });
         }
         
-        // Trocamos a chamada RPC por um INSERT direto, que o nosso teste provou que funciona.
+        // Insere os dados diretamente na tabela, sem chamar uma função RPC
         const { error } = await supabaseAdmin
             .from('whatsapp_attachments')
             .insert(dadosParaSalvar);
-        // ***** FIM DA CORREÇÃO *****
 
         if (error) {
             console.error('Erro ao inserir anexo no banco:', error);
+            // Lança o erro para ser pego pelo bloco catch
             throw error;
         }
 

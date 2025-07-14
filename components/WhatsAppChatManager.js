@@ -140,9 +140,30 @@ export default function WhatsAppChatManager({ contatos }) {
                 const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
                 if (!urlData?.publicUrl) throw new Error("Não foi possível obter a URL pública do arquivo.");
 
+                // ***** INÍCIO DA CORREÇÃO *****
+                // O corpo da requisição agora é um objeto simples, sem os prefixos 'p_'
+                const saveResponse = await fetch('/api/whatsapp/save-attachment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contato_id: selectedContact.id,
+                        storage_path: filePath,
+                        public_url: urlData.publicUrl,
+                        file_name: attachmentToSend.name,
+                        file_type: attachmentToSend.type,
+                        file_size: attachmentToSend.size,
+                    })
+                });
+                // ***** FIM DA CORREÇÃO *****
+
+                if (!saveResponse.ok) {
+                    const err = await saveResponse.json();
+                    throw new Error(err.error || "Falha ao registrar anexo no servidor.");
+                }
+
                 await sendWhatsAppMedia(phoneNumber, mediaType, urlData.publicUrl, textToSend, mediaType === 'document' ? attachmentToSend.name : undefined);
-            } 
-            else if (textToSend) {
+            
+            } else if (textToSend) {
                 await sendWhatsAppText(phoneNumber, textToSend);
             }
         } catch (error) {
