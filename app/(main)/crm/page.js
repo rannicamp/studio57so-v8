@@ -1,52 +1,73 @@
-// Este é um novo arquivo que você precisa criar.
+// app/(main)/crm/page.js
+
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '../../../utils/supabase/client';
-import { useLayout } from '../../../contexts/LayoutContext';
-import WhatsAppChatManager from '../../../components/WhatsAppChatManager'; // Nosso novo componente
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { useState, useEffect } from 'react';
+import { createClient } from '@/utils/supabase/client';
+import { useLayout } from '@/contexts/LayoutContext';
+import WhatsAppChatManager from '@/components/WhatsAppChatManager';
+import FunilManager from '@/components/crm/FunilManager'; // Importa nosso novo componente
 
-export default function WhatsAppPage() {
+export default function CrmPage() {
     const { setPageTitle } = useLayout();
+    const [activeTab, setActiveTab] = useState('funil'); // Inicia na aba do Funil
     const [contatos, setContatos] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loadingContatos, setLoadingContatos] = useState(true);
     const supabase = createClient();
 
-    // Função para buscar contatos que têm pelo menos um telefone
-    const getContatosComTelefone = useCallback(async () => {
-        setLoading(true);
-        const { data, error } = await supabase
-            .from('contatos')
-            .select('*, telefones!inner(telefone)') // !inner garante que só virão contatos que têm telefone
-            .order('nome');
-
-        if (error) {
-            console.error("Erro ao buscar contatos com telefone:", error);
-        } else {
-            setContatos(data || []);
-        }
-        setLoading(false);
-    }, [supabase]);
-
     useEffect(() => {
-        setPageTitle('WhatsApp Chat');
-        getContatosComTelefone();
-    }, [setPageTitle, getContatosComTelefone]);
+        setPageTitle("CRM"); // Atualiza o título da página no Header
+        
+        const fetchContatos = async () => {
+            setLoadingContatos(true);
+            const { data, error } = await supabase
+                .from('contatos')
+                .select(`*, telefones (id, telefone, tipo)`);
 
-    if (loading) {
-        return (
-            <div className="text-center p-10">
-                <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-400" />
-                <p className="mt-3 text-gray-600">Carregando contatos...</p>
-            </div>
-        )
-    }
+            if (error) {
+                console.error("Erro ao buscar contatos:", error);
+            } else {
+                setContatos(data || []);
+            }
+            setLoadingContatos(false);
+        };
+        fetchContatos();
+    }, [supabase, setPageTitle]);
+
+    const tabStyle = "px-6 py-2 font-semibold rounded-t-lg transition-colors duration-200";
+    const activeTabStyle = "bg-white text-blue-600 shadow-sm";
+    const inactiveTabStyle = "bg-gray-200 text-gray-600 hover:bg-gray-300";
 
     return (
-        <div>
-            <WhatsAppChatManager contatos={contatos} />
+        <div className="h-full flex flex-col">
+            {/* Navegação das Abas (Corrigido o typo 'WhatsAppApp') */}
+            <div className="flex border-b border-gray-200 bg-gray-100">
+                <button
+                    onClick={() => setActiveTab('whatsapp')}
+                    className={`${tabStyle} ${activeTab === 'whatsapp' ? activeTabStyle : inactiveTabStyle}`}
+                >
+                    WhatsApp
+                </button>
+                <button
+                    onClick={() => setActiveTab('funil')}
+                    className={`${tabStyle} ${activeTab === 'funil' ? activeTabStyle : inactiveTabStyle}`}
+                >
+                    Funil de Vendas
+                </button>
+            </div>
+
+            {/* Conteúdo das Abas */}
+            <div className="flex-grow bg-gray-100 pt-1">
+                {activeTab === 'whatsapp' && (
+                    loadingContatos 
+                        ? <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin /> Carregando contatos...</div> 
+                        : <WhatsAppChatManager contatos={contatos} />
+                )}
+                {activeTab === 'funil' && (
+                    // Aqui entra nosso novo componente
+                    <FunilManager />
+                )}
+            </div>
         </div>
     );
 }
