@@ -1,3 +1,5 @@
+// components/WhatsAppChatManager.js
+
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -95,30 +97,41 @@ export default function WhatsAppChatManager({ contatos }) {
         return 'document';
     };
 
-    // ----- INÍCIO DAS ALTERAÇÕES COM LOGS -----
+    // ----- INÍCIO DA CORREÇÃO -----
     const convertToMp3 = async (audioBlob) => {
-        console.log("DEBUG: Iniciando conversão para MP3.");
-        console.log("DEBUG: Blob original recebido:", audioBlob);
-
         if (!window.lamejs) {
-            console.error("DEBUG: ERRO CRÍTICO! Biblioteca lamejs não encontrada no 'window'.");
+            console.error("ERRO CRÍTICO: Biblioteca lamejs não foi carregada no objeto window.");
             throw new Error("Biblioteca de conversão de áudio não carregou.");
         }
-        if (!audioBlob || audioBlob.size === 0) {
-             console.error("DEBUG: ERRO: O blob de áudio gravado está vazio.");
-             throw new Error("O áudio gravado está vazio antes da conversão.");
-        }
-
+    
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const arrayBuffer = await audioBlob.arrayBuffer();
         
         try {
-            console.log("DEBUG: Decodificando dados de áudio...");
             const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            console.log("DEBUG: Áudio decodificado com sucesso. Canais:", audioBuffer.numberOfChannels, "Sample Rate:", audioBuffer.sampleRate);
             
-            const mp3Encoder = new lamejs.Mp3Encoder(1, audioBuffer.sampleRate, 128);
-            const samples = audioBuffer.getChannelData(0);
+            // CONVERSÃO PARA MONO (se necessário)
+            let pcmData;
+            if (audioBuffer.numberOfChannels === 2) {
+                const left = audioBuffer.getChannelData(0);
+                const right = audioBuffer.getChannelData(1);
+                pcmData = new Float32Array(left.length);
+                for (let i = 0; i < left.length; i++) {
+                    pcmData[i] = (left[i] + right[i]) / 2;
+                }
+            } else {
+                pcmData = audioBuffer.getChannelData(0);
+            }
+
+            // ***** AQUI ESTÁ A CORREÇÃO PRINCIPAL *****
+            // Converte o áudio de Float32 (-1 a 1) para PCM 16-bit (-32768 a 32767)
+            const samples = new Int16Array(pcmData.length);
+            for (let i = 0; i < pcmData.length; i++) {
+                samples[i] = pcmData[i] * 32767;
+            }
+            // ********************************************
+
+            const mp3Encoder = new lamejs.Mp3Encoder(1, audioBuffer.sampleRate, 128); // 1 canal (mono), sample rate original, 128 kbps
             const mp3Data = [];
             let remaining = samples.length;
             const BATCH_SIZE = 1152;
@@ -134,25 +147,28 @@ export default function WhatsAppChatManager({ contatos }) {
             if (end.length > 0) { mp3Data.push(end); }
     
             const mp3Blob = new Blob(mp3Data, { type: 'audio/mpeg' });
-            console.log("DEBUG: Conversão para MP3 finalizada. Tamanho do MP3:", mp3Blob.size);
-            
             if (mp3Blob.size === 0) {
-                 console.error("DEBUG: ERRO: O MP3 finalizado tem tamanho 0.");
-                 throw new Error("A conversão resultou em um arquivo de áudio vazio.");
+                 throw new Error("A conversão para MP3 resultou em um arquivo vazio.");
             }
             return mp3Blob;
 
         } catch(decodeError) {
-            console.error("DEBUG: ERRO CRÍTICO ao decodificar áudio. O formato gravado pode não ser suportado.", decodeError);
-            throw new Error(`Falha ao ler o áudio gravado: ${decodeError.message}`);
+            console.error("ERRO CRÍTICO ao decodificar áudio:", decodeError);
+            throw new Error(`Falha ao ler o áudio gravado. O navegador pode estar gravando em um formato incompatível: ${decodeError.message}`);
         }
     };
+    // ----- FIM DA CORREÇÃO -----
 
     const handleStartRecording = async () => {
         setAttachment(null);
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorderRef.current = new MediaRecorder(stream);
+            // Tenta especificar um mimeType mais comum se possível
+            const options = { mimeType: 'audio/webm;codecs=opus' };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                delete options.mimeType;
+            }
+            mediaRecorderRef.current = new MediaRecorder(stream, options);
             audioChunksRef.current = [];
             mediaRecorderRef.current.ondataavailable = event => { audioChunksRef.current.push(event.data); };
 
@@ -161,14 +177,12 @@ export default function WhatsAppChatManager({ contatos }) {
                 const recordedBlob = new Blob(audioChunksRef.current, { type: mediaRecorderRef.current.mimeType });
                 
                 try {
-                    console.log("DEBUG: Gravação parada. Iniciando processo de conversão.");
                     const mp3Blob = await convertToMp3(recordedBlob);
                     const audioUrl = URL.createObjectURL(mp3Blob);
                     setAudioBlob(mp3Blob);
                     setAudioUrl(audioUrl);
-                    console.log("DEBUG: URL do áudio MP3 pronta para preview.", audioUrl);
                 } catch (error) {
-                    console.error("DEBUG: ERRO NO PROCESSO DE 'onstop':", error);
+                    console.error("Erro no processo de conversão de áudio:", error);
                     alert(`Erro ao processar o áudio: ${error.message}`);
                     handleCancelRecording();
                 }
@@ -180,7 +194,6 @@ export default function WhatsAppChatManager({ contatos }) {
             alert(`Não foi possível acessar o microfone: ${err.message}`);
         }
     };
-    // ----- FIM DAS ALTERAÇÕES COM LOGS -----
 
     const handleStopRecording = () => { mediaRecorderRef.current?.stop(); setIsRecording(false); };
     const handleCancelRecording = () => { if (mediaRecorderRef.current && mediaRecorderRef.current.stream) { mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop()); } mediaRecorderRef.current?.stop(); setIsRecording(false); setAudioBlob(null); setAudioUrl(null); };
