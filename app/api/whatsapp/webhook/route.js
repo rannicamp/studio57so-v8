@@ -1,3 +1,5 @@
+// app/api/whatsapp/webhook/route.js
+
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -8,31 +10,18 @@ function getTextContent(message) {
         return null;
     }
     switch (message.type) {
-        case 'text':
-            return message.text?.body || null;
+        case 'text': return message.text?.body || null;
         case 'interactive':
-            if (message.interactive?.button_reply) {
-                return message.interactive.button_reply.title;
-            }
-            if (message.interactive?.list_reply) {
-                return message.interactive.list_reply.title;
-            }
-            return null; // Caso interativo sem resposta de botão/lista
-        case 'image':
-            return message.image?.caption || 'Mensagem de Imagem';
-        case 'video':
-            return message.video?.caption || 'Mensagem de Vídeo';
-        case 'document':
-            return message.document?.caption || message.document?.filename || 'Mensagem de Documento';
-        case 'audio':
-            return 'Mensagem de Áudio';
-        case 'sticker':
-            return 'Mensagem de Sticker';
-        case 'contacts':
-            return 'Mensagem de Contato';
-        case 'location':
-            return 'Mensagem de Localização';
-        // Adicionado default para tipos não previstos
+            if (message.interactive?.button_reply) return message.interactive.button_reply.title;
+            if (message.interactive?.list_reply) return message.interactive.list_reply.title;
+            return null;
+        case 'image': return message.image?.caption || 'Imagem Recebida';
+        case 'video': return message.video?.caption || 'Vídeo Recebido';
+        case 'document': return message.document?.caption || message.document?.filename || 'Documento Recebido';
+        case 'audio': return 'Áudio Recebido';
+        case 'sticker': return 'Sticker Recebido';
+        case 'contacts': return 'Contato Recebido';
+        case 'location': return 'Localização Recebida';
         default:
             console.warn(`WARN: Tipo de mensagem '${message.type}' não tratado em getTextContent.`);
             return `Mensagem do tipo '${message.type}' recebida.`;
@@ -41,57 +30,100 @@ function getTextContent(message) {
 
 // Função para normalizar e gerar variações de números de telefone para busca
 function normalizeAndGeneratePhoneNumbers(rawPhone) {
-    const digitsOnly = rawPhone.replace(/\D/g, ''); // Remove tudo que não for dígito
-
-    let numbersToSearch = new Set();
-    numbersToSearch.add(digitsOnly); // Adiciona o número original (apenas dígitos)
-
+    const digitsOnly = rawPhone.replace(/\D/g, '');
+    let numbersToSearch = new Set([digitsOnly]);
     const brazilDDI = '55';
-    const minBrazilLength = 10; // DDD + 8 dígitos (fixo)
-    const maxBrazilLength = 11; // DDD + 9 dígitos (celular)
-
-    // Se o número não começa com DDI brasileiro, tenta adicionar
     if (!digitsOnly.startsWith(brazilDDI)) {
-        if (digitsOnly.length === minBrazilLength || digitsOnly.length === maxBrazilLength) {
+        if (digitsOnly.length === 10 || digitsOnly.length === 11) {
             numbersToSearch.add(brazilDDI + digitsOnly);
         }
     }
-
-    // Lógica para lidar com o 9º dígito para números brasileiros (celular)
-    if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 13) { // Ex: 5531988887777
+    if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 13) {
         const ddiDdd = digitsOnly.substring(0, 4);
         const remainingDigits = digitsOnly.substring(4);
-        if (remainingDigits.startsWith('9') && remainingDigits.length === 9) {
-            // Remove o '9' para criar a variação sem ele (apenas para busca)
-            numbersToSearch.add(ddiDdd + remainingDigits.substring(1));
-        }
-    } else if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 12) { // Ex: 553188887777
+        if (remainingDigits.startsWith('9')) numbersToSearch.add(ddiDdd + remainingDigits.substring(1));
+    } else if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 12) {
         const ddiDdd = digitsOnly.substring(0, 4);
         const remainingDigits = digitsOnly.substring(4);
-        // Adiciona o '9' para criar a variação com ele (apenas para busca)
         numbersToSearch.add(ddiDdd + '9' + remainingDigits);
     }
-    // Para outros DDIs, a lógica pode ser expandida conforme necessário.
-
     return Array.from(numbersToSearch);
 }
 
+// ----- INÍCIO DA CORREÇÃO PRINCIPAL -----
+// Função para buscar a mídia no WhatsApp, fazer o upload no Supabase e retornar a URL pública
+async function handleMediaMessage(supabase, whatsappConfig, message) {
+    const mediaId = message.image?.id || message.video?.id || message.document?.id || message.audio?.id;
+    if (!mediaId) {
+        console.warn("WARN: Mensagem de mídia recebida, mas sem ID.", message);
+        return null;
+    }
+
+    // 1. Pegar a URL da mídia na API do WhatsApp
+    const mediaDetailsUrl = `https://graph.facebook.com/v20.0/${mediaId}`;
+    const mediaDetailsResponse = await fetch(mediaDetailsUrl, {
+        headers: { 'Authorization': `Bearer ${whatsappConfig.whatsapp_permanent_token}` }
+    });
+    if (!mediaDetailsResponse.ok) {
+        console.error("ERRO: Falha ao buscar detalhes da mídia no WhatsApp.", await mediaDetailsResponse.json());
+        return null;
+    }
+    const mediaDetails = await mediaDetailsResponse.json();
+    const mediaUrl = mediaDetails.url;
+    const mediaMimeType = mediaDetails.mime_type;
+    
+    if (!mediaUrl) {
+        console.error("ERRO: A API do WhatsApp não retornou uma URL para a mídia.");
+        return null;
+    }
+
+    // 2. Baixar o arquivo de mídia
+    const mediaFileResponse = await fetch(mediaUrl, {
+        headers: { 'Authorization': `Bearer ${whatsappConfig.whatsapp_permanent_token}` }
+    });
+    if (!mediaFileResponse.ok) {
+        console.error("ERRO: Falha ao baixar a mídia da URL fornecida pelo WhatsApp.");
+        return null;
+    }
+    const mediaBuffer = await mediaFileResponse.arrayBuffer();
+
+    // 3. Fazer o upload para o Supabase Storage
+    const fileName = message.document?.filename || `${message.type}_${mediaId}.${mediaMimeType.split('/')[1] || 'bin'}`;
+    const contactId = message.from; // Usaremos o número do contato para organizar as pastas
+    const filePath = `${contactId}/${Date.now()}_${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from('whatsapp-media')
+        .upload(filePath, mediaBuffer, { contentType: mediaMimeType });
+
+    if (uploadError) {
+        console.error("ERRO: Falha ao fazer upload da mídia para o Supabase Storage.", uploadError);
+        return null;
+    }
+
+    // 4. Obter a URL pública do arquivo que acabamos de salvar
+    const { data: publicUrlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
+    if (!publicUrlData.publicUrl) {
+        console.error("ERRO: Não foi possível obter a URL pública do arquivo no Supabase.");
+        return null;
+    }
+
+    // 5. Retorna a URL pública para ser salva no payload da mensagem
+    return publicUrlData.publicUrl;
+}
+
+// ----- FIM DA CORREÇÃO PRINCIPAL -----
 
 export async function GET(request) {
     const searchParams = request.nextUrl.searchParams;
     const mode = searchParams.get('hub.mode');
     const token = searchParams.get('hub.verify_token');
     const challenge = searchParams.get('hub.challenge');
-
     const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
-
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-        console.log("INFO: Webhook verificado com sucesso!");
         return new NextResponse(challenge, { status: 200 });
-    } else {
-        console.error("ERRO: Falha na verificação do webhook. Tokens não correspondem.");
-        return new NextResponse(null, { status: 403 });
     }
+    return new NextResponse(null, { status: 403 });
 }
 
 export async function POST(request) {
@@ -104,126 +136,62 @@ export async function POST(request) {
         const body = await request.json();
         console.log("INFO: Payload recebido do webhook:", JSON.stringify(body, null, 2));
 
-        // Buscar o WHATSAPP_PHONE_NUMBER_ID do banco de dados
-        let SYSTEM_PHONE_NUMBER_ID = null;
-        const { data: config, error: configError } = await supabaseAdmin
+        const { data: whatsappConfig, error: configError } = await supabaseAdmin
             .from('configuracoes_whatsapp')
-            .select('whatsapp_phone_number_id')
-            .limit(1)
-            .single();
+            .select('whatsapp_permanent_token, whatsapp_phone_number_id')
+            .limit(1).single();
 
-        if (configError) {
+        if (configError || !whatsappConfig) {
             console.error("ERRO ao buscar configurações do WhatsApp:", configError);
-        } else if (config && config.whatsapp_phone_number_id) {
-            SYSTEM_PHONE_NUMBER_ID = config.whatsapp_phone_number_id;
-        }
-        console.log("DEBUG: SYSTEM_PHONE_NUMBER_ID (do DB):", SYSTEM_PHONE_NUMBER_ID);
-
-
-        if (body.object === 'whatsapp_business_account') {
-            const messageEntry = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-
-            if (messageEntry) {
-                const messageContent = getTextContent(messageEntry);
-                const messageId = messageEntry.id;
-                const timestamp = new Date(parseInt(messageEntry.timestamp, 10) * 1000).toISOString();
-
-                let messageDirection = null;
-                let contactPhoneNumber = null; // O número do telefone do contato (não o do sistema)
-
-                // Lógica para determinar a direção e o número do contato
-                if (SYSTEM_PHONE_NUMBER_ID && messageEntry.to === SYSTEM_PHONE_NUMBER_ID) {
-                    // Mensagem recebida pelo sistema (para o meu número)
-                    messageDirection = 'inbound';
-                    contactPhoneNumber = messageEntry.from; // Quem enviou é o contato
-                    console.log("DEBUG: Direção INBOUND. ContactPhoneNumber (messageEntry.from):", contactPhoneNumber);
-                } else if (SYSTEM_PHONE_NUMBER_ID && messageEntry.from === SYSTEM_PHONE_NUMBER_ID) {
-                    // Mensagem enviada pelo sistema (do meu número) - isso pode vir em notificações de status
-                    messageDirection = 'outbound';
-                    contactPhoneNumber = messageEntry.to; // Para quem foi enviado é o contato
-                    console.log("DEBUG: Direção OUTBOUND. ContactPhoneNumber (messageEntry.to):", contactPhoneNumber);
-                } else {
-                    // Se o número do sistema não for identificado, tratar como inbound do remetente
-                    // ou uma notificação que não seja mensagem direta de ou para o sistema
-                    messageDirection = 'unknown'; // Pode ser ajustado para 'inbound' se preferir um padrão
-                    contactPhoneNumber = messageEntry.from; 
-                    console.log("DEBUG: Direção UNKNOWN/INBOUND (SYSTEM_PHONE_NUMBER_ID not matched). ContactPhoneNumber (messageEntry.from):", contactPhoneNumber);
-                }
-                
-                let contactId = null;
-                let enterpriseId = null;
-
-                if (contactPhoneNumber) {
-                    const possiblePhones = normalizeAndGeneratePhoneNumbers(contactPhoneNumber);
-                    console.log("DEBUG: PossiblePhones para busca:", possiblePhones);
-
-                    const { data: matchingPhones, error: phoneSearchError } = await supabaseAdmin
-                        .from('telefones')
-                        .select('contato_id')
-                        .in('telefone', possiblePhones)
-                        .limit(1);
-
-                    if (phoneSearchError) {
-                        console.error("ERRO ao buscar telefone correspondente (webhook):", phoneSearchError);
-                    } else if (matchingPhones && matchingPhones.length > 0) {
-                        contactId = matchingPhones[0].contato_id;
-                        if (contactId) {
-                            const { data: contactData, error: contactDataError } = await supabaseAdmin
-                                .from('contatos')
-                                .select('empresa_id')
-                                .eq('id', contactId)
-                                .single();
-                            if (contactDataError) {
-                                console.error("ERRO ao buscar empresa_id do contato (webhook):", contactDataError);
-                            } else if (contactData) {
-                                enterpriseId = contactData.empresa_id;
-                            }
-                        }
-                    }
-                }
-                console.log(`DEBUG: contactId: ${contactId}, enterpriseId: ${enterpriseId}`);
-                
-                const messageToSave = {
-                    contato_id: contactId,
-                    enterprise_id: enterpriseId,
-                    message_id: messageId,
-                    sender_id: messageEntry.from, // O número original do remetente no payload
-                    receiver_id: messageEntry.to, // O número original do destinatário no payload
-                    content: messageContent,
-                    sent_at: timestamp,
-                    direction: messageDirection, // 'inbound' ou 'outbound' (determinado pela lógica acima)
-                    status: 'received' || messageEntry.status, // Usar 'received' para inbound, ou status do payload
-                    raw_payload: messageEntry,
-                };
-                // Força o status para 'delivered' se for uma notificação de entrega outbound
-                if (messageDirection === 'outbound' && messageEntry.status) {
-                    messageToSave.status = messageEntry.status;
-                } else if (messageDirection === 'inbound') {
-                    messageToSave.status = 'received'; // Status padrão para mensagem de entrada
-                }
-                
-                console.log("DEBUG: Objeto MessageToSave:", JSON.stringify(messageToSave, null, 2));
-
-                const { error: dbError } = await supabaseAdmin.from('whatsapp_messages').insert(messageToSave);
-
-                if (dbError) {
-                    console.error("ERRO ao salvar mensagem no banco (final do webhook):", dbError);
-                } else {
-                    console.log("SUCESSO: Mensagem salva no banco de dados.");
-                }
-            } else {
-                console.log("INFO: Payload recebido, mas sem 'messageEntry'. Ignorando.");
-            }
-        } else {
-            console.log("INFO: Payload recebido, mas não é 'whatsapp_business_account'. Ignorando.");
+            return new NextResponse(null, { status: 200 });
         }
         
-        // Sempre retorna 200 OK para a API do WhatsApp.
+        const messageEntry = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+
+        if (messageEntry) {
+            // Se a mensagem for de mídia (imagem, áudio, etc.), busca o link real antes de continuar
+            if (['audio', 'image', 'video', 'document'].includes(messageEntry.type)) {
+                const publicUrl = await handleMediaMessage(supabaseAdmin, whatsappConfig, messageEntry);
+                if (publicUrl) {
+                    // Adiciona o link público ao objeto de mídia no payload, para que ele seja salvo no banco
+                    messageEntry[messageEntry.type].link = publicUrl;
+                }
+            }
+
+            const messageContent = getTextContent(messageEntry);
+            const messageId = messageEntry.id;
+            const timestamp = new Date(parseInt(messageEntry.timestamp, 10) * 1000).toISOString();
+            const contactPhoneNumber = messageEntry.from;
+            let contactId = null;
+
+            const possiblePhones = normalizeAndGeneratePhoneNumbers(contactPhoneNumber);
+            const { data: matchingPhones } = await supabaseAdmin.from('telefones').select('contato_id').in('telefone', possiblePhones).limit(1);
+
+            if (matchingPhones && matchingPhones.length > 0) {
+                contactId = matchingPhones[0].contato_id;
+            }
+            
+            const messageToSave = {
+                contato_id: contactId,
+                message_id: messageId,
+                sender_id: messageEntry.from,
+                receiver_id: messageEntry.to,
+                content: messageContent,
+                sent_at: timestamp,
+                direction: 'inbound', // Toda mensagem que chega no webhook é uma mensagem de entrada
+                status: 'delivered', // A mensagem foi entregue ao nosso sistema
+                raw_payload: messageEntry,
+            };
+            
+            const { error: dbError } = await supabaseAdmin.from('whatsapp_messages').insert(messageToSave);
+            if (dbError) console.error("ERRO ao salvar mensagem no banco:", dbError);
+
+        }
+        
         return new NextResponse(null, { status: 200 });
 
     } catch (error) {
-        console.error("ERRO INESPERADO no webhook (try-catch principal):", error);
-        // Em caso de erro não tratado, ainda retorna 200 OK para evitar que o WhatsApp reenvie o mesmo payload.
+        console.error("ERRO INESPERADO no webhook:", error);
         return new NextResponse(null, { status: 200 });
     }
 }
