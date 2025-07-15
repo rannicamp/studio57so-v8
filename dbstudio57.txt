@@ -83,6 +83,15 @@ CREATE TABLE public.categorias_financeiras (
   CONSTRAINT categorias_financeiras_pkey PRIMARY KEY (id),
   CONSTRAINT categorias_financeiras_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.categorias_financeiras(id)
 );
+CREATE TABLE public.colunas_funil (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  funil_id uuid NOT NULL,
+  nome character varying NOT NULL,
+  ordem integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT colunas_funil_pkey PRIMARY KEY (id),
+  CONSTRAINT colunas_funil_funil_id_fkey FOREIGN KEY (funil_id) REFERENCES public.funis(id)
+);
 CREATE TABLE public.configuracoes_venda (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   empreendimento_id bigint NOT NULL UNIQUE,
@@ -170,6 +179,16 @@ CREATE TABLE public.contatos (
   pessoa_contato text,
   CONSTRAINT contatos_pkey PRIMARY KEY (id),
   CONSTRAINT contatos_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id)
+);
+CREATE TABLE public.contatos_no_funil (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  contato_id bigint NOT NULL UNIQUE,
+  coluna_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT contatos_no_funil_pkey PRIMARY KEY (id),
+  CONSTRAINT contatos_no_funil_contato_id_fkey FOREIGN KEY (contato_id) REFERENCES public.contatos(id),
+  CONSTRAINT contatos_no_funil_coluna_id_fkey FOREIGN KEY (coluna_id) REFERENCES public.colunas_funil(id)
 );
 CREATE TABLE public.diarios_obra (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -313,6 +332,14 @@ CREATE TABLE public.funcoes (
   descricao text,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT funcoes_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.funis (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  empreendimento_id bigint,
+  nome character varying NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT funis_pkey PRIMARY KEY (id),
+  CONSTRAINT funis_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id)
 );
 CREATE TABLE public.indices_financeiros (
   id bigint NOT NULL DEFAULT nextval('indices_financeiros_id_seq'::regclass),
@@ -633,6 +660,19 @@ CREATE TABLE public.usuarios (
   CONSTRAINT usuarios_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id),
   CONSTRAINT usuarios_funcao_id_fkey FOREIGN KEY (funcao_id) REFERENCES public.funcoes(id)
 );
+CREATE TABLE public.whatsapp_attachments (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  contato_id bigint NOT NULL,
+  message_id text,
+  storage_path text NOT NULL,
+  public_url text NOT NULL,
+  file_name text,
+  file_type text,
+  file_size bigint,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT whatsapp_attachments_pkey PRIMARY KEY (id),
+  CONSTRAINT whatsapp_attachments_contato_id_fkey FOREIGN KEY (contato_id) REFERENCES public.contatos(id)
+);
 CREATE TABLE public.whatsapp_messages (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   contato_id bigint,
@@ -649,4 +689,12 @@ CREATE TABLE public.whatsapp_messages (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT whatsapp_messages_pkey PRIMARY KEY (id),
   CONSTRAINT whatsapp_messages_contato_id_fkey FOREIGN KEY (contato_id) REFERENCES public.contatos(id)
+);
+CREATE TABLE public.whatsapp_webhook_logs (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  log_level text,
+  message text,
+  payload jsonb,
+  CONSTRAINT whatsapp_webhook_logs_pkey PRIMARY KEY (id)
 );
