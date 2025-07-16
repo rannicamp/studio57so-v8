@@ -1,76 +1,112 @@
+// components/sidebar.js
+
+"use client";
+
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserCog, faShieldAlt, faBoxOpen, faClock, faFileSignature } from '@fortawesome/free-solid-svg-icons';
-import { createClient } from '../../../utils/supabase/server';
-import { redirect } from 'next/navigation';
+import {
+  faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
+  faClipboardList, faCog, faChevronLeft, faChevronRight, faClock,
+  faAddressBook, faDollarSign, faShoppingCart, faUserCog,
+  faSitemap, faBug, faInbox, faBullseye
+} from '@fortawesome/free-solid-svg-icons';
 
-const SettingsCard = ({ href, icon, title, description }) => (
-  <Link href={href}>
-    <div className="bg-gray-50 p-6 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-100 transition-all cursor-pointer">
-      <FontAwesomeIcon icon={icon} className="text-3xl text-blue-500 mb-3" />
-      <h2 className="text-xl font-bold text-gray-800">{title}</h2>
-      <p className="text-sm text-gray-600 mt-1">{description}</p>
-    </div>
-  </Link>
-);
-
-export default async function ConfiguracoesPage() {
-    const supabase = createClient();
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-        const { data: userData } = await supabase
-            .from('usuarios')
-            .select('funcao:funcoes ( nome_funcao )')
-            .eq('id', user.id)
-            .single();
-
-        if (userData?.funcao?.nome_funcao !== 'Proprietário') {
-            redirect('/');
-        }
-    } else {
-        redirect('/login');
+export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
+  const navSections = [
+    {
+      title: 'Administrativo',
+      items: [
+        { href: '/', label: 'Dashboard', icon: faTachometerAlt },
+        { href: '/financeiro', label: 'Financeiro', icon: faDollarSign },
+        { href: '/funcionarios', label: 'Funcionários', icon: faUsers },
+        { href: '/ponto', label: 'Controle de Ponto', icon: faClock },
+        { href: '/perfil', label: 'Meu Perfil', icon: faUserCog },
+        { href: '/atividades', label: 'Atividades', icon: faTasks },
+        { href: '/empresas', label: 'Empresas', icon: faBuilding }, // Movido para cá
+      ]
+    },
+    {
+      title: 'Obras',
+      items: [
+        { href: '/empreendimentos', label: 'Empreendimentos', icon: faProjectDiagram },
+        { href: '/orcamento', label: 'Orçamentária', icon: faDollarSign },
+        { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart },
+        { href: '/rdo/gerenciador', label: 'Diário de Obra', icon: faClipboardList },
+      ]
+    },
+    {
+      title: 'Comercial',
+      items: [
+        { href: '/crm', label: 'CRM', icon: faBullseye },
+        { href: '/contatos', label: 'Contatos', icon: faAddressBook },
+        // Removido daqui
+      ]
     }
+  ];
+
+  const bottomNavItems = [
+    isAdmin && { href: '/configuracoes', label: 'Configurações', icon: faCog },
+  ].filter(Boolean);
+
+  const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE";
+  const logoIconUrl = "/favicon.ico";
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Configurações do Sistema</h1>
-        <p className="text-gray-600 mt-1">Gerencie as configurações e permissões para todo o sistema.</p>
+    <aside className={`bg-white shadow-lg h-full fixed left-0 top-0 z-40 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
+      <div className="flex items-center justify-center h-[65px] border-b border-gray-200 flex-shrink-0">
+        <Link href="/">
+          <img
+            src={isCollapsed ? logoIconUrl : logoUrl}
+            alt="Logo Studio 57"
+            className={`transition-all duration-300 ${isCollapsed ? 'h-8' : 'h-10'} w-auto`}
+          />
+        </Link>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <SettingsCard 
-          href="/configuracoes/usuarios"
-          icon={faUserCog}
-          title="Gestão de Usuários"
-          description="Ative, desative e atribua funções para os usuários do sistema."
-        />
-        <SettingsCard 
-          href="/configuracoes/permissoes"
-          icon={faShieldAlt}
-          title="Gerenciar Permissões"
-          description="Defina o que cada função pode ver, criar, editar ou excluir."
-        />
-        <SettingsCard 
-          href="/configuracoes/materiais"
-          icon={faBoxOpen}
-          title="Gestão de Materiais"
-          description="Importe, exporte e gerencie a sua base de materiais."
-        />
-        <SettingsCard 
-          href="/configuracoes/jornadas"
-          icon={faClock}
-          title="Jornadas de Trabalho"
-          description="Crie e gerencie os horários e cargas horárias dos funcionários."
-        />
-        <SettingsCard 
-          href="/configuracoes/tipos-documento"
-          icon={faFileSignature}
-          title="Tipos de Documento"
-          description="Gerencie as siglas e abreviaturas para nomenclatura de arquivos."
-        />
+      <nav className="mt-4 flex-grow overflow-y-auto">
+        <ul>
+          {navSections.map((section) => (
+            <li key={section.title} className="mb-4">
+              {!isCollapsed && (
+                <h3 className="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  {section.title}
+                </h3>
+              )}
+              {isCollapsed && (
+                 <div className="flex justify-center my-4">
+                    <div className="w-8 border-t border-gray-200"></div>
+                 </div>
+              )}
+              <ul>
+                {section.items.map((item) => (
+                  <li key={item.label}>
+                    <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
+                      <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
+                      {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <nav className="mt-auto mb-2 flex-shrink-0">
+        <ul>
+          {bottomNavItems.map((item) => (
+            <li key={item.label}>
+              <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
+                <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
+                {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <div className="border-t border-gray-200 p-2">
+        <button onClick={toggleSidebar} className="w-full h-12 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
+          <FontAwesomeIcon icon={isCollapsed ? faChevronRight : faChevronLeft} size="lg" />
+        </button>
       </div>
-    </div>
+    </aside>
   );
-}
+};

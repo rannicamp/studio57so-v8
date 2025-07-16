@@ -5,49 +5,46 @@
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faTachometerAlt,
-  faBuilding,
-  faProjectDiagram,
-  faUsers,
-  faTasks,
-  faClipboardList,
-  faCog,
-  faChevronLeft,
-  faChevronRight,
-  faClock,
-  faAddressBook,
-  faDollarSign,
-  faShoppingCart,
-  faUserCog,
-  faHome,
-  faSitemap,
-  faBug,
-  faInbox,
-  faBullseye // Ícone para o CRM
+  faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
+  faClipboardList, faCog, faChevronLeft, faChevronRight, faClock,
+  faAddressBook, faDollarSign, faShoppingCart, faUserCog,
+  faSitemap, faBug, faInbox, faBullseye
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
-  const mainNavItems = [
-    { href: '/', label: 'Dashboard', icon: faTachometerAlt },
-    // AQUI ESTÁ A ALTERAÇÃO:
-    { href: '/crm', label: 'CRM', icon: faBullseye }, 
-    { href: '/perfil', label: 'Meu Perfil', icon: faUserCog },
-    { href: '/atividades', label: 'Painel de Atividades', icon: faTasks },
-    { href: '/contatos', label: 'Contatos', icon: faAddressBook },
-    { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart },
-    { href: '/orcamento', label: 'Planilha Orçamentária', icon: faDollarSign },
-    { href: '/empresas', label: 'Empresas', icon: faBuilding },
-    { href: '/empreendimentos', label: 'Gerenciar Empreendimentos', icon: faProjectDiagram },
-    { href: '/funcionarios', label: 'Funcionários', icon: faUsers },
-    { href: '/rdo/gerenciador', label: 'Diário de Obra (RDO)', icon: faClipboardList },
-    { href: '/ponto', label: 'Controle de Ponto', icon: faClock },
-    { href: '/financeiro', label: 'Gestão Financeira', icon: faDollarSign }
+  const navSections = [
+    {
+      title: 'Administrativo',
+      items: [
+        { href: '/', label: 'Dashboard', icon: faTachometerAlt },
+        { href: '/financeiro', label: 'Financeiro', icon: faDollarSign },
+        { href: '/funcionarios', label: 'Funcionários', icon: faUsers },
+        { href: '/ponto', label: 'Controle de Ponto', icon: faClock },
+        { href: '/perfil', label: 'Meu Perfil', icon: faUserCog },
+        { href: '/atividades', label: 'Atividades', icon: faTasks },
+        { href: '/empresas', label: 'Empresas', icon: faBuilding }, // Movido para cá
+      ]
+    },
+    {
+      title: 'Obras',
+      items: [
+        { href: '/empreendimentos', label: 'Empreendimentos', icon: faProjectDiagram },
+        { href: '/orcamento', label: 'Orçamentária', icon: faDollarSign },
+        { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart },
+        { href: '/rdo/gerenciador', label: 'Diário de Obra', icon: faClipboardList },
+      ]
+    },
+    {
+      title: 'Comercial',
+      items: [
+        { href: '/crm', label: 'CRM', icon: faBullseye },
+        { href: '/contatos', label: 'Contatos', icon: faAddressBook },
+        // Removido daqui
+      ]
+    }
   ];
 
   const bottomNavItems = [
-    { href: '/feedback', label: 'Reportar Problema', icon: faBug },
-    isAdmin && { href: '/feedback/list', label: 'Ver Feedbacks', icon: faInbox },
-    isAdmin && { href: '/configuracoes/integracoes', label: 'Integrações', icon: faSitemap },
     isAdmin && { href: '/configuracoes', label: 'Configurações', icon: faCog },
   ].filter(Boolean);
 
@@ -67,12 +64,28 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
       </div>
       <nav className="mt-4 flex-grow overflow-y-auto">
         <ul>
-          {mainNavItems.map((item) => (
-            <li key={item.label}>
-              <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
-                <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
-                {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
-              </Link>
+          {navSections.map((section) => (
+            <li key={section.title} className="mb-4">
+              {!isCollapsed && (
+                <h3 className="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  {section.title}
+                </h3>
+              )}
+              {isCollapsed && (
+                 <div className="flex justify-center my-4">
+                    <div className="w-8 border-t border-gray-200"></div>
+                 </div>
+              )}
+              <ul>
+                {section.items.map((item) => (
+                  <li key={item.label}>
+                    <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
+                      <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
+                      {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </li>
           ))}
         </ul>
@@ -80,12 +93,14 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
       <nav className="mt-auto mb-2 flex-shrink-0">
         <ul>
           {bottomNavItems.map((item) => (
-            <li key={item.label}>
-              <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
-                <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
-                {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
-              </Link>
-            </li>
+            item && (
+              <li key={item.label}>
+                <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
+                  <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
+                  {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
+                </Link>
+              </li>
+            )
           ))}
         </ul>
       </nav>
