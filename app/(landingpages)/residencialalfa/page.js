@@ -1,160 +1,236 @@
-// Caminho do arquivo: app/(landingpages)/residencialalfa/page.js
-
-'use client';
-
-import { motion } from 'framer-motion';
-import Link from 'next/link';
+'use client'; // Necessário para usar o estado (useState)
+import { useState } from 'react';
 import FormularioDeContato from './FormularioDeContato';
 import Image from 'next/image';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMapPin, faMountain, faShieldAlt, faChartLine, faRulerCombined, faHandshake } from '@fortawesome/free-solid-svg-icons';
 
-export default function PaginaResidencialAlfa() {
+// Importando a fonte Roboto do Google Fonts
+import { Roboto } from 'next/font/google';
+const roboto = Roboto({
+  weight: ['400', '500', '700'],
+  subsets: ['latin'],
+  display: 'swap',
+});
 
-  const imagemCapaVaziaUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa//capa%20vazia.png";
-  const imagemTatiUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa//tatisemfundo.png";
-  const logoAlfaUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa//Logo%20-%20Residencial%20ALFA%20-%206.png";
+// --- Componentes de Ícones (Exemplo) ---
+const IconeLocalizacao = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"></path></svg>;
+const IconeValorizacao = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0115 15v3h1zM4.75 12.094A5.973 5.973 0 004 15v3H3v-3a3.005 3.005 0 01-.25-1.094z"></path></svg>;
+const IconeRentabilidade = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path d="M10.293 3.293a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V16a1 1 0 11-2 0V5.414L5.707 8.707a1 1 0 01-1.414-1.414l4-4z"></path></svg>;
+const IconeCasa = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>;
+const IconeCoracao = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"></path></svg>;
+const IconePiscina = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path d="M10 3a1 1 0 011 1v1.155a3.994 3.994 0 012.382 1.43 1 1 0 01-1.414 1.414A1.994 1.994 0 0010.5 6.586V8a1 1 0 01-2 0V6.586a1.994 1.994 0 00-1.468.413 1 1 0 01-1.414-1.414A3.994 3.994 0 018 5.155V4a1 1 0 011-1z"></path><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 100-12 6 6 0 000 12zM5.222 10.26a1 1 0 010 1.414 4 4 0 005.656 0 1 1 0 111.414-1.414 6 6 0 01-8.484 0 1 1 0 011.414 0z" clipRule="evenodd"></path></svg>;
 
-  const animacaoDeEntrada = {
-    initial: { opacity: 0, y: 20 },
-    animate: { opacity: 1, y: 0 },
-  };
+export default function ResidencialAlfaPage() {
+  const [view, setView] = useState('investidor'); // 'investidor' ou 'morador'
+
+  const darkGrayColor = '#374151';
 
   return (
-    <div className="bg-white font-sans">
-
-      {/* SEÇÃO 1: CAPA MINIMALISTA E RESPONSIVA */}
-      <section className="h-screen relative text-white overflow-hidden">
-        {/* Imagem de fundo */}
-        <div className="absolute inset-0 bg-cover bg-center z-0" style={{ backgroundImage: `url('${imagemCapaVaziaUrl}')` }}>
-          <div className="absolute inset-0 bg-black bg-opacity-15"></div>
+    <div className={`${roboto.className} bg-white text-gray-800 font-sans`}>
+      {/* 1. Seção Principal (Hero) */}
+      <section className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden">
+        <div
+          className="absolute inset-0 bg-no-repeat bg-right-bottom z-0"
+          style={{
+            backgroundImage: "url('https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa//capa%20vazia2.png')",
+            backgroundSize: 'cover',
+          }}
+        ></div>
+        <div className="absolute inset-0 bg-white opacity-20 z-10"></div>
+        <div className="absolute bottom-0 left-0 w-[45%] max-w-xs sm:max-w-sm md:w-1/3 md:max-w-md z-20">
+          <img
+            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa//tatisemfundo.png"
+            alt="Tati, especialista do Residencial Alfa"
+            className="w-full h-auto"
+          />
         </div>
-
-        {/* --- LAYOUT PARA TELAS GRANDES (md: e maior) --- */}
-        <div className="hidden md:block w-full h-full relative">
-            {/* Tati (Canto Inferior Esquerdo) */}
-            <motion.div
-              variants={animacaoDeEntrada}
-              initial="initial" animate="animate" transition={{ duration: 0.8, delay: 0.4 }}
-              className="absolute left-0 bottom-0 h-[90%] w-auto z-10"
+        <div className="relative z-30 flex flex-col items-center p-4 w-full pt-16 sm:pt-0">
+          <img
+            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa//Logo%20-%20Residencial%20ALFA%20-%206.png"
+            alt="Logo Residencial Alfa"
+            className="w-3/4 max-w-sm md:max-w-md mb-8"
+          />
+          <div className="bg-gray-800/50 rounded-full p-1 flex items-center">
+            <button
+              onClick={() => setView('investidor')}
+              className={`px-6 py-2 rounded-full text-sm font-bold transition-colors duration-300 ${view === 'investidor' ? 'bg-gray-700 text-white' : 'text-white'}`}
             >
-              <img src={imagemTatiUrl} alt="Tati" className="h-full w-auto object-contain" />
-            </motion.div>
-            
-            {/* Logo Alfa (Perfeitamente Centralizada) */}
-            <motion.div
-              variants={animacaoDeEntrada}
-              initial="initial" animate="animate" transition={{ duration: 0.8, delay: 0.2 }}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20"
+              Sou Investidor
+            </button>
+            <button
+              onClick={() => setView('morador')}
+              className={`px-6 py-2 rounded-full text-sm font-bold transition-colors duration-300 ${view === 'morador' ? 'bg-gray-700 text-white' : 'text-white'}`}
             >
-              <img src={logoAlfaUrl} alt="Logo Residencial Alfa" className="h-96" />
-            </motion.div>
-        </div>
-        
-        {/* --- LAYOUT PARA CELULAR (padrão) --- */}
-        <div className="relative z-20 flex flex-col justify-center items-center h-full w-full md:hidden text-center p-4">
-            {/* Logo Alfa (Topo) */}
-            <motion.div
-                variants={animacaoDeEntrada} initial="initial" animate="animate" transition={{ duration: 0.8, delay: 0.2 }}
-                className="w-full"
-            >
-                <img src={logoAlfaUrl} alt="Logo Residencial Alfa" className="h-32 mx-auto" />
-            </motion.div>
-
-            {/* Tati (Ancorada em baixo) */}
-            <motion.div
-                variants={animacaoDeEntrada} initial="initial" animate="animate" transition={{ duration: 0.8, delay: 0.4 }}
-                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[80%] h-[60%]"
-            >
-                <img src={imagemTatiUrl} alt="Tati" className="h-full w-full object-contain" />
-            </motion.div>
-        </div>
-      </section>
-
-      {/* Restante das seções (sem alterações) */}
-      <section className="py-20 px-4 text-center">
-        <h2 className="text-4xl font-bold text-gray-800 mb-12">O Residencial Alfa é perfeito para você</h2>
-        <div className="container mx-auto grid md:grid-cols-2 gap-12">
-          <div className="bg-gray-50 p-8 rounded-lg">
-            <h3 className="text-2xl font-bold text-blue-600 mb-4">Para Morar</h3>
-            <p className="text-gray-600 text-lg">Ideal para casais e pequenas famílias que buscam um lar com layout moderno, conforto, praticidade e uma localização segura, perto de tudo o que você precisa.</p>
-          </div>
-          <div className="bg-gray-50 p-8 rounded-lg">
-            <h3 className="text-2xl font-bold text-blue-600 mb-4">Para Investir</h3>
-            <p className="text-gray-600 text-lg">Uma oportunidade única para investidores que buscam retorno garantido, com potencial de alta rentabilidade através de aluguéis e valorização do imóvel.</p>
+              Quero Morar
+            </button>
           </div>
         </div>
       </section>
 
-      <section id="diferenciais" className="py-20 px-4 bg-gray-100">
-        <div className="container mx-auto text-center">
-          <h2 className="text-4xl font-bold text-gray-800 mb-12">Vantagens que fazem a diferença</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
-            <div className="flex flex-col items-center"><FontAwesomeIcon icon={faMapPin} className="text-5xl text-blue-500 mb-4" /><h3 className="font-bold text-lg text-gray-700">Localização Estratégica</h3></div>
-            <div className="flex flex-col items-center"><FontAwesomeIcon icon={faMountain} className="text-5xl text-blue-500 mb-4" /><h3 className="font-bold text-lg text-gray-700">Vista para o Pico da Ibituruna</h3></div>
-            <div className="flex flex-col items-center"><FontAwesomeIcon icon={faShieldAlt} className="text-5xl text-blue-500 mb-4" /><h3 className="font-bold text-lg text-gray-700">Bairro Seguro e Ventilado</h3></div>
-            <div className="flex flex-col items-center"><FontAwesomeIcon icon={faChartLine} className="text-5xl text-blue-500 mb-4" /><h3 className="font-bold text-lg text-gray-700">Alto Potencial de Valorização</h3></div>
-          </div>
-        </div>
-      </section>
+      {/* --- CONTEÚDO DINÂMICO BASEADO NO TOGGLE --- */}
 
-      <section id="galeria" className="py-20 px-4">
-        <h2 className="text-4xl font-bold text-center mb-12 text-gray-800">Conheça seu futuro lar</h2>
-        <div className="container mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
-          <div className="overflow-hidden rounded-lg shadow-lg"><img src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/imagem-galeria-1.jpg" alt="Área Gourmet" className="w-full h-full object-cover transform hover:scale-110 transition-transform duration-500" /></div>
-          <div className="overflow-hidden rounded-lg shadow-lg"><img src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/imagem-galeria-2.jpg" alt="Sala Integrada" className="w-full h-full object-cover transform hover:scale-110 transition-transform duration-500" /></div>
-          <div className="overflow-hidden rounded-lg shadow-lg"><img src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/imagem-galeria-3.jpg" alt="Quarto" className="w-full h-full object-cover transform hover:scale-110 transition-transform duration-500" /></div>
-          <div className="overflow-hidden rounded-lg shadow-lg"><img src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/imagem-galeria-4.jpg" alt="Fachada" className="w-full h-full object-cover transform hover:scale-110 transition-transform duration-500" /></div>
-        </div>
-      </section>
-
-      <section id="plantas" className="py-20 px-4 bg-gray-100">
-        <h2 className="text-4xl font-bold text-center mb-12 text-gray-800">Plantas Inteligentes para o seu Estilo de Vida</h2>
-        <div className="container mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          <div className="text-center">
-            <div className="bg-white p-4 rounded-lg shadow-lg">
-              <img src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/planta-tipo-1.jpg" alt="Planta Tipo 1 - 58,86 m²" className="w-full rounded-md" />
+      {view === 'investidor' && (
+        <>
+          <section className="py-16 md:py-24 bg-white">
+            <div className="container mx-auto px-4 text-left">
+              <h2 className="text-xl md:text-2xl font-semibold uppercase tracking-wider text-gray-500 mb-6" style={{ letterSpacing: '0.05em' }}>
+                Transforme seu dinheiro em Renda Passiva
+              </h2>
+              <p className="text-4xl md:text-6xl font-bold text-gray-900 mb-4" style={{ letterSpacing: '0.02em' }}>
+                <span className="whitespace-nowrap">Até <span style={{ color: darkGrayColor }}>R$ 4.144,25/mês</span></span>
+              </p>
+              <p className="max-w-3xl mb-12 text-gray-600" style={{ letterSpacing: '0.03em' }}>
+                Com aluguel temporário no Residencial Alfa, em um cenário de alta ocupação (70%). Uma oportunidade única de investimento com retorno rápido e seguro.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="p-6 bg-gray-100 rounded-lg shadow-sm">
+                  <div className="mb-4" style={{ color: darkGrayColor }}><IconeLocalizacao /></div>
+                  <h3 className="text-xl font-bold mb-2 text-gray-900" style={{ letterSpacing: '0.04em' }}>Localização Estratégica</h3>
+                  <p className="text-gray-600" style={{ letterSpacing: '0.03em' }}>Próximo ao Centro, UFJF e hospitais. O ponto mais desejado para aluguéis de curta e longa duração.</p>
+                </div>
+                <div className="p-6 bg-gray-100 rounded-lg shadow-sm">
+                  <div className="mb-4" style={{ color: darkGrayColor }}><IconeRentabilidade /></div>
+                  <h3 className="text-xl font-bold mb-2 text-gray-900" style={{ letterSpacing: '0.04em' }}>Demanda Elevada</h3>
+                  <p className="text-gray-600" style={{ letterSpacing: '0.03em' }}>Governador Valadares recebe em média 13 mil turistas por mês, garantindo alta taxa de ocupação.</p>
+                </div>
+                <div className="p-6 bg-gray-100 rounded-lg shadow-sm">
+                  <div className="mb-4" style={{ color: darkGrayColor }}><IconeValorizacao /></div>
+                  <h3 className="text-xl font-bold mb-2 text-gray-900" style={{ letterSpacing: '0.04em' }}>Valorização Garantida</h3>
+                  <p className="text-gray-600" style={{ letterSpacing: '0.03em' }}>Invista no Alto Esplanada, o bairro com maior potencial de valorização da cidade, e veja seu patrimônio crescer.</p>
+                </div>
+              </div>
             </div>
-            <h3 className="mt-4 text-xl font-bold text-gray-800">Apartamento Tipo 1</h3>
-            <p className="font-semibold text-gray-600">58,86 m² de área privativa</p>
-          </div>
-          <div className="text-center">
-            <div className="bg-white p-4 rounded-lg shadow-lg">
-              <img src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/planta-tipo-2.jpg" alt="Planta Tipo 2 - 49,76 m²" className="w-full rounded-md" />
+          </section>
+        </>
+      )}
+
+      {view === 'morador' && (
+        <>
+          <section className="py-16 md:py-24">
+            <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900" style={{ letterSpacing: '0.02em' }}>Um Novo Conceito de Viver Bem</h2>
+                <p className="mb-4 text-gray-700" style={{ letterSpacing: '0.03em' }}>
+                  O Residencial Alfa foi pensado em cada detalhe para oferecer o máximo de conforto, segurança e qualidade de vida para você e sua família.
+                </p>
+                <p className="text-gray-700" style={{ letterSpacing: '0.03em' }}>
+                  Desfrute de uma vista privilegiada para a Ibituruna, excelente ventilação natural e a conveniência de estar perto de tudo que você precisa.
+                </p>
+              </div>
+              <div>
+                <Image src="/image_47b441.png" alt="Área de Lazer do Residencial Alfa" width={500} height={350} className="rounded-lg shadow-xl mx-auto"/>
+              </div>
             </div>
-            <h3 className="mt-4 text-xl font-bold text-gray-800">Apartamento Tipo 2</h3>
-            <p className="font-semibold text-gray-600">49,76 m² de área privativa</p>
+          </section>
+
+          <section className="bg-gray-50 py-16 md:py-24">
+            <div className="container mx-auto px-4 text-center">
+              <h2 className="text-3xl md:text-4xl font-bold mb-12 text-gray-900" style={{ letterSpacing: '0.02em' }}>Diferenciais que Transformam seu Dia a Dia</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
+                <div className="p-6 bg-white rounded-lg shadow-lg">
+                  <div className="mb-4" style={{ color: darkGrayColor }}><IconePiscina /></div>
+                  <h3 className="text-xl font-bold mb-2 text-gray-900" style={{ letterSpacing: '0.04em' }}>Lazer Completo</h3>
+                  <p className="text-gray-600" style={{ letterSpacing: '0.03em' }}>Piscina, área gourmet e tudo que você precisa para relaxar e se divertir sem sair de casa.</p>
+                </div>
+                <div className="p-6 bg-white rounded-lg shadow-lg">
+                  <div className="mb-4" style={{ color: darkGrayColor }}><IconeCasa /></div>
+                  <h3 className="text-xl font-bold mb-2 text-gray-900" style={{ letterSpacing: '0.04em' }}>Conforto e Sofisticação</h3>
+                  <p className="text-gray-600" style={{ letterSpacing: '0.03em' }}>Apartamentos com plantas inteligentes e acabamento de alto padrão, pensados para o seu bem-estar.</p>
+                </div>
+                <div className="p-6 bg-white rounded-lg shadow-lg">
+                  <div className="mb-4" style={{ color: darkGrayColor }}><IconeCoracao /></div>
+                  <h3 className="text-xl font-bold mb-2 text-gray-900" style={{ letterSpacing: '0.04em' }}>Qualidade de Vida</h3>
+                  <p className="text-gray-600" style={{ letterSpacing: '0.03em' }}>More em um bairro tranquilo, seguro e com fácil acesso a tudo que a cidade oferece de melhor.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
+
+      {/* --- SEÇÕES COMUNS PARA AMBOS --- */}
+      <section className="py-16 md:py-24">
+        <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div className="md:order-2">
+              <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900" style={{ letterSpacing: '0.02em' }}>Projetado para seu Conforto</h2>
+              <p className="mb-6 text-gray-700" style={{ letterSpacing: '0.03em' }}>
+                Apartamentos de 49 m² e 58 m² com plantas inteligentes que otimizam cada espaço, oferecendo o máximo de conforto e funcionalidade.
+              </p>
+              <ul className="list-disc list-inside mb-6 space-y-2 text-gray-700" style={{ letterSpacing: '0.03em' }}>
+                <li>2 Quartos</li>
+                <li>1 Banheiro</li>
+                <li>Varanda</li>
+                <li>Cozinha</li>
+                <li>Área de Serviço</li>
+              </ul>
+            </div>
+             <div className="md:order-1">
+                <Image 
+                  src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa//planta%20humanizada%20aps.png" 
+                  alt="Planta Humanizada do Apartamento Alfa" 
+                  width={500} 
+                  height={500} 
+                  className="rounded-lg shadow-xl mx-auto cursor-pointer" 
+                />
+                <p className="text-center text-sm mt-2 text-gray-500" style={{ letterSpacing: '0.03em' }}>Clique na imagem para ampliar</p>
+            </div>
+        </div>
+      </section>
+
+      <section className="py-16 md:py-24 bg-gray-50">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">Localização Privilegiada</h2>
+          <p className="max-w-2xl mx-auto mb-8 text-gray-600">
+            Encontre o Residencial Alfa no coração do Alto Esplanada, um bairro que combina tranquilidade e acesso rápido aos principais pontos da cidade.
+          </p>
+          <div className="w-full h-96 rounded-lg shadow-xl overflow-hidden border">
+            <iframe 
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3775.9686776155486!2d-41.94214782403811!3d-18.844060482313367!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xb1a714d5179699%3A0x59689852992b158e!2sAv.%20Dr.%20S%C3%A9rvulo%20Teixeira%2C%20725%20-%20Alto%20Esplanada%2C%20Gov.%20Valadares%20-%20MG%2C%2035064-004!5e0!3m2!1spt-BR!2sbr!4v1752700845639!5m2!1spt-BR!2sbr"
+              width="100%" 
+              height="100%" 
+              style={{ border: 0 }} 
+              allowFullScreen="" 
+              loading="lazy" 
+              referrerPolicy="no-referrer-when-downgrade"
+            ></iframe>
           </div>
         </div>
-        <div className="text-center mt-12 bg-blue-50 p-6 rounded-lg container mx-auto max-w-4xl">
-          <FontAwesomeIcon icon={faRulerCombined} className="text-4xl text-blue-500 mb-3" /><h4 className="text-2xl font-bold text-gray-800">Flexibilidade para o seu projeto</h4>
-          <p className="text-gray-600 mt-2">A laje nervurada do Residencial Alfa permite a personalização das paredes internas e até mesmo a junção de unidades, criando um espaço único para você.</p>
-        </div>
       </section>
 
-      <section id="investimento" className="py-20 px-4 bg-white text-center">
-        <div className="container mx-auto max-w-4xl">
-          <FontAwesomeIcon icon={faHandshake} className="text-5xl text-blue-500 mb-4" /><h2 className="text-4xl font-bold text-gray-800 mb-4">Um Investimento Inteligente e Seguro</h2>
-          <p className="text-lg text-gray-600 mb-6">Governador Valadares é a capital mundial do voo livre e recebe milhares de turistas. O Residencial Alfa é a opção ideal para aluguel temporário, com uma demanda constante e alto retorno financeiro.</p>
-          <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-6 rounded-lg inline-block">
-            <p className="font-bold text-xl">Renda estimada de até</p>
-            <p className="text-5xl font-extrabold tracking-tight">R$ 4.144,25/mês</p>
-            <p className="text-sm mt-1">com aluguéis de curta temporada.</p>
+      <section id="contato" className="bg-gray-800 text-white py-16 md:py-24">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ letterSpacing: '0.02em' }}>Gostou? Dê o primeiro passo para realizar seu sonho.</h2>
+          <p className="mb-8 max-w-2xl mx-auto text-gray-300" style={{ letterSpacing: '0.03em' }}>
+            Preencha o formulário abaixo e nossa equipe entrará em contato para oferecer uma consultoria exclusiva e sem compromisso.
+          </p>
+          <div className="max-w-xl mx-auto">
+            <FormularioDeContato />
           </div>
-          <p className="text-sm text-gray-500 mt-6">Empreendimento com registro de incorporação N° 24.920/R-08, garantindo total segurança e transparência na sua compra.</p>
         </div>
       </section>
 
-      <section id="contato" className="py-20 px-4 bg-gray-800">
-        <div className="container mx-auto">
-          <FormularioDeContato />
+      <footer className="bg-black text-white py-6">
+        <div className="container mx-auto px-4 text-center text-gray-400" style={{ letterSpacing: '0.03em' }}>
+          <p>© {new Date().getFullYear()} Studio 57. Todos os direitos reservados.</p>
+          <p className="text-sm mt-1">Residencial Alfa - Registro de Incorporação: Nº 24.920/R-08</p>
         </div>
-      </section>
-
-      <footer className="bg-black text-white py-8 text-center">
-        <p>&copy; {new Date().getFullYear()} Studio 57. Todos os direitos reservados.</p>
-        <p className="opacity-70">Desenvolvido com a plataforma Stella.</p>
       </footer>
+      
+      {/* BALÃO DA IA STELLA - COM MENSAGEM PRÉ-CARREGADA */}
+      <a 
+        href="https://wa.me/553398192119?text=Oi%2C%20gostaria%20de%20mais%20informa%C3%A7%C3%B5es%20sobre%20o%20Residencial%20Alfa"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-5 right-5 z-50 transform hover:scale-110 transition-transform duration-300"
+        aria-label="Converse com a Stella no WhatsApp"
+      >
+        <div className="w-16 h-16 bg-white rounded-full shadow-2xl flex items-center justify-center">
+          <img 
+            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa//stella.jpeg" 
+            alt="Converse com a Stella" 
+            className="w-full h-full rounded-full object-cover"
+          />
+        </div>
+      </a>
     </div>
   );
 }

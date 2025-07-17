@@ -1,71 +1,71 @@
 "use client";
 
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faEdit } from '@fortawesome/free-solid-svg-icons';
+import { faPenToSquare, faEye } from '@fortawesome/free-solid-svg-icons';
 
 export default function EmpreendimentoList({ initialEmpreendimentos }) {
-  const router = useRouter();
-  // Garante que a lista de empreendimentos seja sempre um array para evitar erros.
-  const [empreendimentos] = useState(initialEmpreendimentos || []);
+  const [empreendimentos] = useState(initialEmpreendimentos);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredEmpreendimentos = useMemo(() => {
-    if (!searchTerm) return empreendimentos;
-    const lowercasedFilter = searchTerm.toLowerCase();
-    
-    // Filtro mais seguro para evitar erros
-    return empreendimentos.filter(emp => {
-      // Ignora qualquer item que seja inválido
-      if (!emp) return false; 
-      
-      const nomeMatch = emp.nome && emp.nome.toLowerCase().includes(lowercasedFilter);
-      
-      // Verifica se a empresa e a razão social existem antes de tentar filtrar
-      const empresaMatch = emp.empresa_proprietaria && emp.empresa_proprietaria.razao_social && emp.empresa_proprietaria.razao_social.toLowerCase().includes(lowercasedFilter);
-      
-      return nomeMatch || empresaMatch;
-    });
-  }, [empreendimentos, searchTerm]);
+  const filteredEmpreendimentos = empreendimentos.filter(empreendimento =>
+    empreendimento.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (empreendimento.empresa_proprietaria?.razao_social && empreendimento.empresa_proprietaria.razao_social.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const getStatusClass = (status) => {
+    switch (status) {
+      case 'Em Obras':
+        return 'bg-blue-100 text-blue-800';
+      case 'Em Lançamento':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'Entregue':
+        return 'bg-green-100 text-green-800';
+      case 'Cancelado':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="p-4">
       <input
         type="text"
         placeholder="Buscar por nome do empreendimento ou empresa..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        className="p-2 border rounded-md w-full max-w-lg shadow-sm"
+        className="w-full p-2 mb-4 border border-gray-300 rounded-md"
       />
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="min-w-full bg-white">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase">Nome do Empreendimento</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase">Empresa Proprietária</th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase">Status</th>
-              <th className="relative px-6 py-3"><span className="sr-only">Ações</span></th>
+              <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome do Empreendimento</th>
+              <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa Proprietária</th>
+              <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="py-3 px-6 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredEmpreendimentos.map((emp) => (
-              <tr key={emp.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap font-semibold">{emp.nome}</td>
-                {/* Usando o '?' para garantir que o código não quebre se a empresa for nula */}
-                <td className="px-6 py-4 whitespace-nowrap">{emp.empresa_proprietaria?.razao_social || 'N/A'}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${emp.status === 'Em Andamento' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                        {emp.status || 'N/A'}
-                    </span>
+          <tbody className="divide-y divide-gray-200">
+            {filteredEmpreendimentos.map((empreendimento) => (
+              <tr key={empreendimento.id} className="hover:bg-gray-50">
+                <td className="py-4 px-6 whitespace-nowrap font-medium text-gray-900">{empreendimento.nome}</td>
+                <td className="py-4 px-6 whitespace-nowrap text-gray-500">{empreendimento.empresa_proprietaria?.razao_social || 'N/A'}</td>
+                <td className="py-4 px-6 whitespace-nowrap">
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(empreendimento.status)}`}>
+                    {empreendimento.status}
+                  </span>
                 </td>
-                <td className="px-6 py-4 text-right text-sm font-medium space-x-4">
-                  <button onClick={() => router.push(`/empreendimentos/${emp.id}/produtos`)} className="text-green-600 hover:text-green-800 font-semibold flex items-center gap-2 inline-flex">
-                      <FontAwesomeIcon icon={faBox} /> Ver Produtos
-                  </button>
-                  <button onClick={() => alert('Função de edição a ser implementada.')} className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-2 inline-flex">
-                      <FontAwesomeIcon icon={faEdit} /> Editar
-                  </button>
+                <td className="py-4 px-6 whitespace-nowrap text-right text-sm font-medium">
+                  <Link href={`/empreendimentos/${empreendimento.id}/produtos`} className="text-green-600 hover:text-green-900 mr-4">
+                    <FontAwesomeIcon icon={faEye} className="mr-1" /> Ver Produtos
+                  </Link>
+                  {/* Este é o link de edição que acabámos de criar */}
+                  <Link href={`/empreendimentos/editar/${empreendimento.id}`} className="text-indigo-600 hover:text-indigo-900">
+                    <FontAwesomeIcon icon={faPenToSquare} className="mr-1" /> Editar
+                  </Link>
                 </td>
               </tr>
             ))}

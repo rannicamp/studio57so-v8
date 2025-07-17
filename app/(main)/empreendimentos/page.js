@@ -5,7 +5,7 @@ import EmpreendimentoList from '../../../components/EmpreendimentoList';
 export default async function GerenciamentoEmpreendimentosPage() {
   const supabase = createClient();
 
-  // A busca de dados foi ajustada para ser mais robusta
+  // Busca os dados dos empreendimentos, incluindo o nome da empresa proprietária
   const { data: empreendimentos, error } = await supabase
     .from('empreendimentos')
     .select(`
