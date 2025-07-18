@@ -1,275 +1,686 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '../utils/supabase/client';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faSave, faBuilding, faRulerCombined, faFilePdf, faFileImage, faBullhorn } from '@fortawesome/free-solid-svg-icons';
-import { IMaskInput } from 'react-imask';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import {
+  Box,
+  Button,
+  TextField,
+  MenuItem,
+  CircularProgress,
+  Typography,
+  Grid,
+  Select,
+  FormControl,
+  InputLabel
+} from '@mui/material';
+import { useDropzone } from 'react-dropzone';
+import { toast } from 'sonner';
 
-// --- Componentes Internos ---
-const TabButton = ({ label, icon, isActive, onClick }) => (
-    <button type="button" onClick={onClick} className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors duration-200 ${isActive ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
-        <FontAwesomeIcon icon={icon} /> {label}
-    </button>
-);
+export default function EmpreendimentoForm({ empreendimento, corporateEntities = [] }) {
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    status: 'lancamento',
+    address_zip_code: '',
+    address_street: '',
+    address_number: '',
+    address_complement: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    country: 'Brasil',
+    total_area: '',
+    private_area: '',
+    suites: '',
+    bedrooms: '',
+    bathrooms: '',
+    garages: '',
+    delivery_date: '',
+    price: '',
+    incorporadora_id: null, // Novo campo para ID da incorporadora
+    construtora_id: null,  // Novo campo para ID da construtora
+    incorporadora_nome: '', // Mantido para exibição do nome
+    construtora_nome: '',   // Mantido para exibição do nome
+    company_proprietaria_id: null, // ID da empresa proprietária
+    company_proprietaria_name: '', // Nome da empresa proprietária (para exibição)
+    photo_url: '',
+    doc_url: '',
+    type: 'Residencial',
+    sub_type: '',
+    has_pool: false,
+    has_gym: false,
+    has_party_room: false,
+    has_playground: false,
+    has_sports_court: false,
+    has_concierge: false,
+    has_laundry: false,
+    has_coworking: false,
+    has_hvac: false,
+    has_balcony: false,
+    has_service_area: false,
+  });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [isApiLoading, setIsApiLoading] = useState(false); // Para o carregamento da API de CEP
+  const router = useRouter();
+  const supabase = createClientComponentClient();
 
-const InputField = ({ label, name, value, onChange, placeholder, required = false, readOnly = false }) => (
-    <div>
-        <label htmlFor={name} className="block text-sm font-medium text-gray-700">{label}</label>
-        <input type="text" id={name} name={name} value={value || ''} onChange={onChange} placeholder={placeholder} required={required} readOnly={readOnly} className={`mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${readOnly ? 'bg-gray-100' : ''}`} />
-    </div>
-);
+  const [proprietariaOptions, setProprietariaOptions] = useState([]);
 
-// Seções de Acabamentos e Unidades (ocultadas para simplicidade)
-const AcabamentosSection = ({ acabamentos, setAcabamentos }) => { return null; };
-const UnidadesTipoSection = ({ unidades, setUnidades }) => { return null; };
+  useEffect(() => {
+    if (empreendimento) {
+      setFormData({
+        name: empreendimento.name || '',
+        description: empreendimento.description || '',
+        status: empreendimento.status || 'lancamento',
+        address_zip_code: empreendimento.address_zip_code || '',
+        address_street: empreendimento.address_street || '',
+        address_number: empreendimento.address_number || '',
+        address_complement: empreendimento.address_complement || '',
+        neighborhood: empreendimento.neighborhood || '',
+        city: empreendimento.city || '',
+        state: empreendimento.state || '',
+        country: empreendimento.country || 'Brasil',
+        total_area: empreendimento.total_area || '',
+        private_area: empreendimento.private_area || '',
+        suites: empreendimento.suites || '',
+        bedrooms: empreendimento.bedrooms || '',
+        bathrooms: empreendimento.bathrooms || '',
+        garages: empreendimento.garages || '',
+        delivery_date: empreendimento.delivery_date || '',
+        price: empreendimento.price || '',
+        incorporadora_id: empreendimento.incorporadora_id || null,
+        construtora_id: empreendimento.construtora_id || null,
+        // Preenche o nome para exibição se o ID existir
+        incorporadora_nome: corporateEntities.find(e => e.id === empreendimento.incorporadora_id)?.display_name || empreendimento.incorporadora_nome || '',
+        construtora_nome: corporateEntities.find(e => e.id === empreendimento.construtora_id)?.display_name || empreendimento.construtora_nome || '',
+        company_proprietaria_id: empreendimento.company_proprietaria_id || null,
+        company_proprietaria_name: empreendimento.company_proprietaria_name || '',
+        photo_url: empreendimento.photo_url || '',
+        doc_url: empreendimento.doc_url || '',
+        type: empreendimento.type || 'Residencial',
+        sub_type: empreendimento.sub_type || '',
+        has_pool: empreendimento.has_pool || false,
+        has_gym: empreendimento.has_gym || false,
+        has_party_room: empreendimento.has_party_room || false,
+        has_playground: empreendimento.has_playground || false,
+        has_sports_court: empreendimento.has_sports_court || false,
+        has_concierge: empreendimento.has_concierge || false,
+        has_laundry: empreendimento.has_laundry || false,
+        has_coworking: empreendimento.has_coworking || false,
+        has_hvac: empreendimento.has_hvac || false,
+        has_balcony: empreendimento.has_balcony || false,
+        has_service_area: empreendimento.has_service_area || false,
+      });
+    }
+  }, [empreendimento, corporateEntities]);
 
-// --- Componente Principal ---
-export default function EmpreendimentoForm({ initialData = null, companies = [] }) {
-    const supabase = createClient();
-    const router = useRouter();
-    const [activeTab, setActiveTab] = useState('dadosGerais');
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState('');
-    
-    const [formData, setFormData] = useState({
-        nome_empreendimento: '',
-        status: 'Em Planejamento',
-        empresa_proprietaria_id: '',
-        matricula_numero: '',
-        matricula_cartorio: '',
-        terreno_area_total: '',
-        incorporadora_nome: '',
-        incorporadora_cnpj: '',
-        construtora_nome: '',
-        construtora_cnpj: '',
-        cep: '',
-        address_street: '',
-        address_number: '',
-        address_complement: '',
-        neighborhood: '',
-        city: '',
-        state: '',
-    });
+  useEffect(() => {
+    // Buscar empresas para o campo 'Empresa Proprietária'
+    const fetchProprietariaCompanies = async () => {
+      const { data, error } = await supabase
+        .from('cadastro_empresa')
+        .select('id, nome_fantasia, razao_social');
 
-    // ***** INÍCIO DA CORREÇÃO *****
-    // Readicionando os estados que foram removidos por engano
-    const [acabamentos, setAcabamentos] = useState([]);
-    const [unidades, setUnidades] = useState([]);
-    // ***** FIM DA CORREÇÃO *****
+      if (error) {
+        console.error('Erro ao buscar empresas proprietárias:', error);
+        toast.error('Erro ao carregar lista de empresas.');
+      } else {
+        setProprietariaOptions(data || []);
+      }
+    };
+    fetchProprietariaCompanies();
+  }, [supabase]);
 
-    // Estados para guardar o ID da empresa selecionada para incorporadora e construtora
-    const [selectedIncorporadoraId, setSelectedIncorporadoraId] = useState('');
-    const [selectedConstrutoraId, setSelectedConstrutoraId] = useState('');
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
 
-    useEffect(() => {
-        if (initialData) {
-            setFormData(prev => ({ ...prev, ...initialData }));
-            
-            const incorporadora = companies.find(c => c.nome_fantasia === initialData.incorporadora_nome);
-            if (incorporadora) setSelectedIncorporadoraId(incorporadora.id);
+  const handleCepBlur = useCallback(async (e) => {
+    const cep = e.target.value?.replace(/\D/g, '');
+    if (cep?.length !== 8) return;
 
-            const construtora = companies.find(c => c.nome_fantasia === initialData.construtora_nome);
-            if (construtora) setSelectedConstrutoraId(construtora.id);
-            
-            setAcabamentos(initialData.acabamentos || []);
-            setUnidades(initialData.unidades || []);
-        }
-    }, [initialData, companies]);
+    setMessage('Buscando CEP...');
+    setIsApiLoading(true);
+    try {
+      // Chama sua própria API Route para buscar o CEP
+      const response = await fetch(`/api/cep?cep=${cep}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro desconhecido ao buscar CEP.');
+      }
+      const data = await response.json();
 
-    const handleFormChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({
+        ...prev,
+        address_street: data.logradouro || '',
+        neighborhood: data.bairro || '',
+        city: data.localidade || '',
+        state: data.uf || '',
+      }));
+      toast.success('Endereço preenchido automaticamente!');
+    } catch (error) {
+      toast.error(`Erro ao buscar CEP: ${error.message}`);
+    } finally {
+      setIsApiLoading(false);
+      setMessage('');
+    }
+  }, []);
+
+  const handleCompanySelection = (type, selectedId) => {
+    const selectedEntity = corporateEntities.find(entity => entity.id === selectedId);
+
+    if (type === 'incorporadora') {
+      setFormData(prev => ({
+        ...prev,
+        incorporadora_id: selectedEntity ? selectedEntity.id : null,
+        incorporadora_nome: selectedEntity ? selectedEntity.display_name : '',
+      }));
+    } else if (type === 'construtora') {
+      setFormData(prev => ({
+        ...prev,
+        construtora_id: selectedEntity ? selectedEntity.id : null,
+        construtora_nome: selectedEntity ? selectedEntity.display_name : '',
+      }));
+    } else if (type === 'proprietaria') {
+        const selectedProprietaria = proprietariaOptions.find(opt => opt.id === selectedId);
+        setFormData(prev => ({
+            ...prev,
+            company_proprietaria_id: selectedProprietaria ? selectedProprietaria.id : null,
+            company_proprietaria_name: selectedProprietaria ? (selectedProprietaria.nome_fantasia || selectedProprietaria.razao_social) : '',
+        }));
+    }
+  };
+
+  const onDropPhoto = useCallback(async (acceptedFiles) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
+
+    setLoading(true);
+    const { data, error } = await supabase.storage
+      .from('empreendimento-photos')
+      .upload(`public/${file.name}_${Date.now()}`, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error) {
+      toast.error(`Erro ao fazer upload da foto: ${error.message}`);
+    } else {
+      const { data: { publicUrl } } = supabase.storage.from('empreendimento-photos').getPublicUrl(data.path);
+      setFormData((prev) => ({ ...prev, photo_url: publicUrl }));
+      toast.success('Foto enviada com sucesso!');
+    }
+    setLoading(false);
+  }, [supabase]);
+
+  const { getRootProps: getRootPropsPhoto, getInputProps: getInputPropsPhoto } = useDropzone({
+    onDrop: onDropPhoto,
+    accept: { 'image/*': ['.jpeg', '.png', '.jpg'] },
+    multiple: false,
+  });
+
+  const onDropDoc = useCallback(async (acceptedFiles) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
+
+    setLoading(true);
+    const { data, error } = await supabase.storage
+      .from('empreendimento-docs')
+      .upload(`public/${file.name}_${Date.now()}`, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error) {
+      toast.error(`Erro ao fazer upload do documento: ${error.message}`);
+    } else {
+      const { data: { publicUrl } } = supabase.storage.from('empreendimento-docs').getPublicUrl(data.path);
+      setFormData((prev) => ({ ...prev, doc_url: publicUrl }));
+      toast.success('Documento enviado com sucesso!');
+    }
+    setLoading(false);
+  }, [supabase]);
+
+  const { getRootProps: getRootPropsDoc, getInputProps: getInputPropsDoc } = useDropzone({
+    onDrop: onDropDoc,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+    },
+    multiple: false,
+  });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    // Prepara os dados para envio, garantindo que IDs nulos sejam tratados corretamente
+    const dataToSubmit = {
+        ...formData,
+        total_area: parseFloat(formData.total_area) || null,
+        private_area: parseFloat(formData.private_area) || null,
+        suites: parseInt(formData.suites) || null,
+        bedrooms: parseInt(formData.bedrooms) || null,
+        bathrooms: parseInt(formData.bathrooms) || null,
+        garages: parseInt(formData.garages) || null,
+        price: parseFloat(formData.price) || null,
+        // Garante que os campos de nome, se o ID for usado, sejam sincronizados ou removidos se não forem mais necessários na DB
+        // Para compatibilidade, manter por enquanto, mas o ideal é que a DB use apenas os IDs
+        incorporadora_nome: corporateEntities.find(e => e.id === formData.incorporadora_id)?.display_name || '',
+        construtora_nome: corporateEntities.find(e => e.id === formData.construtora_id)?.display_name || '',
+        company_proprietaria_name: proprietariaOptions.find(opt => opt.id === formData.company_proprietaria_id)?.nome_fantasia || '',
     };
 
-    const handleMaskedChange = (name, value) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
+    const { error } = await supabase
+      .from('empreendimentos')
+      .upsert(empreendimento ? { id: empreendimento.id, ...dataToSubmit } : dataToSubmit);
 
-    const handleCepBlur = async (cep) => {
-        const cepLimpo = cep?.replace(/\D/g, '');
-        if (cepLimpo?.length !== 8) return;
+    if (error) {
+      toast.error(`Erro ao salvar empreendimento: ${error.message}`);
+      setMessage(`Erro: ${error.message}`);
+    } else {
+      toast.success(`Empreendimento ${empreendimento ? 'atualizado' : 'cadastrado'} com sucesso!`);
+      setTimeout(() => {
+        router.push('/empreendimentos');
+        router.refresh(); // Revalida os dados da lista de empreendimentos
+      }, 1500);
+    }
+    setLoading(false);
+  };
 
-        setMessage('Buscando CEP...');
-        try {
-            const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-            if (!response.ok) throw new Error('CEP não encontrado');
-            const data = await response.json();
-            if (data.erro) throw new Error('CEP inválido.');
-            
-            setFormData(prev => ({
-                ...prev,
-                address_street: data.logradouro,
-                neighborhood: data.bairro,
-                city: data.localidade,
-                state: data.uf,
-            }));
-            setMessage('Endereço preenchido!');
-        } catch (error) {
-            setMessage(error.message);
-        } finally {
-            setTimeout(() => setMessage(''), 3000);
-        }
-    };
-    
-    const handleCompanySelection = (role, companyId) => {
-        const selectedCompany = companies.find(c => c.id === companyId);
-        
-        if (role === 'incorporadora') {
-            setSelectedIncorporadoraId(companyId);
-            setFormData(prev => ({
-                ...prev,
-                incorporadora_nome: selectedCompany ? selectedCompany.nome_fantasia : '',
-                incorporadora_cnpj: selectedCompany ? selectedCompany.cnpj : ''
-            }));
-        } else if (role === 'construtora') {
-            setSelectedConstrutoraId(companyId);
-            setFormData(prev => ({
-                ...prev,
-                construtora_nome: selectedCompany ? selectedCompany.nome_fantasia : '',
-                construtora_cnpj: selectedCompany ? selectedCompany.cnpj : ''
-            }));
-        }
-    };
+  return (
+    <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
+      <Grid container spacing={3}>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            label="Nome do Empreendimento"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            fullWidth
+            required
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <FormControl fullWidth required>
+            <InputLabel>Status</InputLabel>
+            <Select
+              label="Status"
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+            >
+              <MenuItem value="lancamento">Lançamento</MenuItem>
+              <MenuItem value="em_construcao">Em Construção</MenuItem>
+              <MenuItem value="pronto_para_morar">Pronto para Morar</MenuItem>
+              <MenuItem value="entregue">Entregue</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12}>
+          <TextField
+            label="Descrição"
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            fullWidth
+            multiline
+            rows={3}
+          />
+        </Grid>
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        // Lógica de submit continua aqui...
-    };
+        {/* Informações de Endereço */}
+        <Grid item xs={12} sm={4}>
+          <TextField
+            label="CEP"
+            name="address_zip_code"
+            value={formData.address_zip_code}
+            onChange={handleChange}
+            onBlur={handleCepBlur}
+            fullWidth
+            required
+            helperText={isApiLoading ? 'Buscando CEP...' : ''}
+            InputProps={{
+              endAdornment: isApiLoading ? <CircularProgress size={20} /> : null,
+            }}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            label="Rua"
+            name="address_street"
+            value={formData.address_street}
+            onChange={handleChange}
+            fullWidth
+            required
+          />
+        </Grid>
+        <Grid item xs={12} sm={2}>
+          <TextField
+            label="Número"
+            name="address_number"
+            value={formData.address_number}
+            onChange={handleChange}
+            fullWidth
+            required
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <TextField
+            label="Complemento"
+            name="address_complement"
+            value={formData.address_complement}
+            onChange={handleChange}
+            fullWidth
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <TextField
+            label="Bairro"
+            name="neighborhood"
+            value={formData.neighborhood}
+            onChange={handleChange}
+            fullWidth
+            required
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <TextField
+            label="Cidade"
+            name="city"
+            value={formData.city}
+            onChange={handleChange}
+            fullWidth
+            required
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <TextField
+            label="Estado"
+            name="state"
+            value={formData.state}
+            onChange={handleChange}
+            fullWidth
+            required
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <TextField
+            label="País"
+            name="country"
+            value={formData.country}
+            onChange={handleChange}
+            fullWidth
+            required
+          />
+        </Grid>
 
-    return (
-        <form onSubmit={handleSubmit} className="space-y-8 bg-white p-6 rounded-lg shadow-md">
-            
-            <div className="border-b border-gray-200">
-                <nav className="-mb-px flex flex-wrap" aria-label="Tabs">
-                    <TabButton label="Dados Gerais" icon={faBuilding} isActive={activeTab === 'dadosGerais'} onClick={() => setActiveTab('dadosGerais')} />
-                    <TabButton label="Características" icon={faRulerCombined} isActive={activeTab === 'caracteristicas'} onClick={() => setActiveTab('caracteristicas')} />
-                    <TabButton label="Projetos" icon={faFilePdf} isActive={activeTab === 'projetos'} onClick={() => setActiveTab('projetos')} />
-                    <TabButton label="Documentos" icon={faFileImage} isActive={activeTab === 'documentos'} onClick={() => setActiveTab('documentos')} />
-                    <TabButton label="Marketing" icon={faBullhorn} isActive={activeTab === 'marketing'} onClick={() => setActiveTab('marketing')} />
-                </nav>
-            </div>
+        {/* Informações da Incorporadora, Construtora e Proprietária */}
+        <Grid item xs={12} sm={6}>
+          <FormControl fullWidth>
+            <InputLabel>Incorporadora</InputLabel>
+            <Select
+              label="Incorporadora"
+              name="incorporadora_id" // Agora seleciona o ID
+              value={formData.incorporadora_id || ''}
+              onChange={(e) => handleCompanySelection('incorporadora', e.target.value)}
+            >
+              <MenuItem value=""><em>Nenhum</em></MenuItem>
+              {corporateEntities.map((entity) => (
+                <MenuItem key={entity.id} value={entity.id}>
+                  {entity.display_name} ({entity.cnpj})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <FormControl fullWidth>
+            <InputLabel>Construtora</InputLabel>
+            <Select
+              label="Construtora"
+              name="construtora_id" // Agora seleciona o ID
+              value={formData.construtora_id || ''}
+              onChange={(e) => handleCompanySelection('construtora', e.target.value)}
+            >
+              <MenuItem value=""><em>Nenhum</em></MenuItem>
+              {corporateEntities.map((entity) => (
+                <MenuItem key={entity.id} value={entity.id}>
+                  {entity.display_name} ({entity.cnpj})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <FormControl fullWidth>
+            <InputLabel>Empresa Proprietária</InputLabel>
+            <Select
+              label="Empresa Proprietária"
+              name="company_proprietaria_id"
+              value={formData.company_proprietaria_id || ''}
+              onChange={(e) => handleCompanySelection('proprietaria', e.target.value)}
+            >
+              <MenuItem value=""><em>Nenhum</em></MenuItem>
+              {proprietariaOptions.map((company) => (
+                <MenuItem key={company.id} value={company.id}>
+                  {company.nome_fantasia || company.razao_social}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
 
-            {message && <p className={`text-center p-2 rounded-md ${message.includes('Erro') ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-800'}`}>{message}</p>}
+        {/* Outras informações do empreendimento */}
+        <Grid item xs={12} sm={4}>
+          <TextField
+            label="Tipo"
+            name="type"
+            value={formData.type}
+            onChange={handleChange}
+            fullWidth
+            select
+            required
+          >
+            <MenuItem value="Residencial">Residencial</MenuItem>
+            <MenuItem value="Comercial">Comercial</MenuItem>
+            <MenuItem value="Misto">Misto</MenuItem>
+            <MenuItem value="Terreno">Terreno</MenuItem>
+          </TextField>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <TextField
+            label="Subtipo (Ex: Apartamento, Casa, Sala Comercial)"
+            name="sub_type"
+            value={formData.sub_type}
+            onChange={handleChange}
+            fullWidth
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <TextField
+            label="Data de Entrega"
+            name="delivery_date"
+            type="date"
+            value={formData.delivery_date}
+            onChange={handleChange}
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+          />
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <TextField
+            label="Área Total (m²)"
+            name="total_area"
+            value={formData.total_area}
+            onChange={handleChange}
+            type="number"
+            fullWidth
+            inputProps={{ step: "0.01" }}
+          />
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <TextField
+            label="Área Privativa (m²)"
+            name="private_area"
+            value={formData.private_area}
+            onChange={handleChange}
+            type="number"
+            fullWidth
+            inputProps={{ step: "0.01" }}
+          />
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <TextField
+            label="Preço Sugerido"
+            name="price"
+            value={formData.price}
+            onChange={handleChange}
+            type="number"
+            fullWidth
+            inputProps={{ step: "0.01" }}
+          />
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <TextField
+            label="Suítes"
+            name="suites"
+            value={formData.suites}
+            onChange={handleChange}
+            type="number"
+            fullWidth
+          />
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <TextField
+            label="Quartos"
+            name="bedrooms"
+            value={formData.bedrooms}
+            onChange={handleChange}
+            type="number"
+            fullWidth
+          />
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <TextField
+            label="Banheiros"
+            name="bathrooms"
+            value={formData.bathrooms}
+            onChange={handleChange}
+            type="number"
+            fullWidth
+          />
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <TextField
+            label="Vagas de Garagem"
+            name="garages"
+            value={formData.garages}
+            onChange={handleChange}
+            type="number"
+            fullWidth
+          />
+        </Grid>
 
-            <div className="mt-4">
-                {activeTab === 'dadosGerais' && (
-                    <div className="space-y-6">
-                        
-                        {/* Seção de Identificação */}
-                        <div className="p-4 border rounded-lg">
-                            <h3 className="text-xl font-semibold mb-4 text-gray-800">Identificação</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <InputField label="Nome do Empreendimento" name="nome_empreendimento" value={formData.nome_empreendimento} onChange={handleFormChange} required />
-                                <div>
-                                    <label htmlFor="status" className="block text-sm font-medium text-gray-700">Status</label>
-                                    <select id="status" name="status" value={formData.status} onChange={handleFormChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                                        <option>Em Planejamento</option>
-                                        <option>Em Obras</option>
-                                        <option>Concluído</option>
-                                        <option>Vendido</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label htmlFor="empresa_proprietaria_id" className="block text-sm font-medium text-gray-700">Empresa Proprietária</label>
-                                    <select id="empresa_proprietaria_id" name="empresa_proprietaria_id" value={formData.empresa_proprietaria_id} onChange={handleFormChange} required className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                                        <option value="">Selecione uma empresa</option>
-                                        {companies.map(company => (
-                                            <option key={company.id} value={company.id}>{company.nome_fantasia}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        {/* Seção de Endereço */}
-                        <div className="p-4 border rounded-lg">
-                            <h3 className="text-xl font-semibold mb-4 text-gray-800">Endereço do Empreendimento</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium">CEP</label>
-                                    <IMaskInput mask="00000-000" name="cep" value={formData.cep || ''} onAccept={(value) => handleMaskedChange('cep', value)} onBlur={(e) => handleCepBlur(e.target.value)} className="mt-1 w-full p-2 border rounded-md" placeholder="00000-000" />
-                                </div>
-                                <div className="md:col-span-4"><InputField label="Rua / Logradouro" name="address_street" value={formData.address_street} onChange={handleFormChange} /></div>
-                                <div className="md:col-span-1"><InputField label="Número" name="address_number" value={formData.address_number} onChange={handleFormChange} /></div>
-                                <div className="md:col-span-2"><InputField label="Complemento" name="address_complement" value={formData.address_complement} onChange={handleFormChange} /></div>
-                                <div className="md:col-span-3"><InputField label="Bairro" name="neighborhood" value={formData.neighborhood} onChange={handleFormChange} /></div>
-                                <div className="md:col-span-4"><InputField label="Cidade" name="city" value={formData.city} onChange={handleFormChange} /></div>
-                                <div className="md:col-span-2"><InputField label="Estado (UF)" name="state" value={formData.state} onChange={handleFormChange} /></div>
-                            </div>
-                        </div>
+        {/* Infraestrutura e Lazer (Checkboxes) */}
+        <Grid item xs={12}>
+            <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                Infraestrutura e Lazer
+            </Typography>
+            <Grid container spacing={2}>
+                {[
+                    { name: 'has_pool', label: 'Piscina' },
+                    { name: 'has_gym', label: 'Academia' },
+                    { name: 'has_party_room', label: 'Salão de Festas' },
+                    { name: 'has_playground', label: 'Playground' },
+                    { name: 'has_sports_court', label: 'Quadra Esportiva' },
+                    { name: 'has_concierge', label: 'Portaria/Concierge' },
+                    { name: 'has_laundry', label: 'Lavanderia' },
+                    { name: 'has_coworking', label: 'Coworking' },
+                    { name: 'has_hvac', label: 'Ar Condicionado (central)' },
+                    { name: 'has_balcony', label: 'Varanda' },
+                    { name: 'has_service_area', label: 'Área de Serviço' },
+                ].map((feature) => (
+                    <Grid item xs={6} sm={4} md={3} key={feature.name}>
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={formData[feature.name]}
+                                    onChange={handleChange}
+                                    name={feature.name}
+                                />
+                            }
+                            label={feature.label}
+                        />
+                    </Grid>
+                ))}
+            </Grid>
+        </Grid>
 
-                        {/* Seção de Dados da Matrícula */}
-                        <div className="p-4 border rounded-lg">
-                            <h3 className="text-xl font-semibold mb-4 text-gray-800">Dados da Matrícula do Terreno</h3>
-                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <InputField label="Número da Matrícula" name="matricula_numero" value={formData.matricula_numero} onChange={handleFormChange} />
-                                <InputField label="Cartório de Registro" name="matricula_cartorio" value={formData.matricula_cartorio} onChange={handleFormChange} />
-                                <InputField label="Área Total do Terreno (m²)" name="terreno_area_total" value={formData.terreno_area_total} onChange={handleFormChange} />
-                            </div>
-                        </div>
-                        
-                        {/* Seção de Empresas Responsáveis Modificada */}
-                        <div className="p-4 border rounded-lg">
-                             <h3 className="text-xl font-semibold mb-4 text-gray-800">Empresas Responsáveis</h3>
-                             <div className="space-y-4">
-                                {/* Incorporadora */}
-                                <div className="p-3 border rounded-md">
-                                    <p className="text-md font-semibold text-gray-600 mb-3">Incorporadora</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-gray-700">Selecione a Incorporadora</label>
-                                            <select value={selectedIncorporadoraId} onChange={(e) => handleCompanySelection('incorporadora', e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                                                <option value="">Selecione ou deixe em branco</option>
-                                                {companies.map(company => (
-                                                    <option key={company.id} value={company.id}>{company.nome_fantasia}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <InputField label="CNPJ da Incorporadora" name="incorporadora_cnpj" value={formData.incorporadora_cnpj} onChange={() => {}} readOnly={true} />
-                                        </div>
-                                    </div>
-                                </div>
-                                {/* Construtora */}
-                                <div className="p-3 border rounded-md">
-                                    <p className="text-md font-semibold text-gray-600 mb-3">Construtora</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                         <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-gray-700">Selecione a Construtora</label>
-                                            <select value={selectedConstrutoraId} onChange={(e) => handleCompanySelection('construtora', e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                                                <option value="">Selecione ou deixe em branco</option>
-                                                {companies.map(company => (
-                                                    <option key={company.id} value={company.id}>{company.nome_fantasia}</option>
-                                                ))}
-                                            </select>
-                                         </div>
-                                         <div>
-                                            <InputField label="CNPJ da Construtora" name="construtora_cnpj" value={formData.construtora_cnpj} onChange={() => {}} readOnly={true} />
-                                         </div>
-                                    </div>
-                                </div>
-                             </div>
-                        </div>
-                    </div>
-                )}
-                
-                 {/* Exibição das outras seções (abas) */}
-                {activeTab === 'caracteristicas' && (
-                    <AcabamentosSection acabamentos={acabamentos} setAcabamentos={setAcabamentos} />
-                )}
-                 {/* Adicione a renderização para a seção de Unidades se necessário */}
 
-            </div>
+        {/* Upload de Imagem e Documento */}
+        <Grid item xs={12} sm={6}>
+          <Box
+            {...getRootPropsPhoto()}
+            sx={{
+              border: '2px dashed gray',
+              padding: 2,
+              textAlign: 'center',
+              cursor: 'pointer',
+              mt: 2,
+            }}
+          >
+            <input {...getInputPropsPhoto()} />
+            <Typography>Arraste e solte a foto do empreendimento aqui, ou clique para selecionar.</Typography>
+            {formData.photo_url && (
+              <Box mt={2}>
+                <Typography>Foto selecionada:</Typography>
+                <img src={formData.photo_url} alt="Empreendimento" style={{ maxWidth: '100%', height: 'auto' }} />
+              </Box>
+            )}
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <Box
+            {...getRootPropsDoc()}
+            sx={{
+              border: '2px dashed gray',
+              padding: 2,
+              textAlign: 'center',
+              cursor: 'pointer',
+              mt: 2,
+            }}
+          >
+            <input {...getInputPropsDoc()} />
+            <Typography>Arraste e solte o documento do empreendimento aqui, ou clique para selecionar.</Typography>
+            {formData.doc_url && (
+              <Box mt={2}>
+                <Typography>Documento selecionado: <a href={formData.doc_url} target="_blank" rel="noopener noreferrer">Ver Documento</a></Typography>
+              </Box>
+            )}
+          </Box>
+        </Grid>
 
-            <div className="flex justify-end pt-4 border-t">
-                <button type="submit" disabled={loading} className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 disabled:bg-gray-400">
-                    {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />}
-                    {loading ? 'A guardar...' : 'Guardar Empreendimento'}
-                </button>
-            </div>
-        </form>
-    );
+        <Grid item xs={12}>
+          <Button type="submit" variant="contained" color="primary" disabled={loading}>
+            {loading ? <CircularProgress size={24} /> : (empreendimento ? 'Atualizar Empreendimento' : 'Cadastrar Empreendimento')}
+          </Button>
+        </Grid>
+      </Grid>
+      {message && (
+        <Typography mt={2} color={message.includes('Erro') ? 'error' : 'success'}>
+          {message}
+        </Typography>
+      )}
+    </Box>
+  );
 }

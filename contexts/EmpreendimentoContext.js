@@ -1,74 +1,43 @@
-"use client";
+'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { createClient } from '../utils/supabase/client';
+import { createContext, useContext, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation'; // Importar useRouter para usar router.refresh()
 
 const EmpreendimentoContext = createContext();
 
 export function EmpreendimentoProvider({ children }) {
-  const supabase = createClient();
-  const [empreendimentos, setEmpreendimentos] = useState([]);
   const [selectedEmpreendimento, setSelectedEmpreendimento] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchEmpreendimentos = useCallback(async () => {
-    setLoading(true);
-    
-    // ***** INÍCIO DA CORREÇÃO *****
-    // Agora, também buscamos o 'empresa_proprietaria_id' para fazer a ligação.
-    const { data, error } = await supabase
-      .from('empreendimentos')
-      .select('id, nome, empresa_proprietaria_id') // Campo adicionado aqui
-      .order('nome');
-    // ***** FIM DA CORREÇÃO *****
-    
-    if (error) {
-      console.error("Erro ao buscar empreendimentos:", error);
-      setLoading(false);
-      return;
-    } 
-    
-    setEmpreendimentos(data || []);
-    const lastSelectedId = localStorage.getItem('selectedEmpreendimentoId');
-
-    if (lastSelectedId === 'all') {
-      setSelectedEmpreendimento('all');
-    } 
-    else if (lastSelectedId && data.some(e => e.id.toString() === lastSelectedId)) {
-      setSelectedEmpreendimento(lastSelectedId);
-    } 
-    else {
-      setSelectedEmpreendimento('all');
-      localStorage.setItem('selectedEmpreendimentoId', 'all');
-    }
-
-    setLoading(false);
-  }, [supabase]);
+  const router = useRouter(); // Inicializar useRouter
 
   useEffect(() => {
-    fetchEmpreendimentos();
-  }, [fetchEmpreendimentos]);
+    // Carrega o empreendimento selecionado do localStorage ao iniciar
+    const storedEmpreendimentoId = localStorage.getItem('selectedEmpreendimentoId');
+    if (storedEmpreendimentoId) {
+      setSelectedEmpreendimento(parseInt(storedEmpreendimentoId)); // Garante que seja um número
+    }
+  }, []);
 
   const changeEmpreendimento = (empreendimentoId) => {
     setSelectedEmpreendimento(empreendimentoId);
-    localStorage.setItem('selectedEmpreendimentoId', empreendimentoId);
-    window.location.reload(); 
-  };
-
-  const value = {
-    empreendimentos,
-    selectedEmpreendimento,
-    loading,
-    changeEmpreendimento
+    if (empreendimentoId) {
+      localStorage.setItem('selectedEmpreendimentoId', empreendimentoId);
+    } else {
+      localStorage.removeItem('selectedEmpreendimentoId');
+    }
+    router.refresh(); // <-- AQUI! Agora usa router.refresh() para revalidar dados
   };
 
   return (
-    <EmpreendimentoContext.Provider value={value}>
+    <EmpreendimentoContext.Provider value={{ selectedEmpreendimento, changeEmpreendimento }}>
       {children}
     </EmpreendimentoContext.Provider>
   );
 }
 
 export function useEmpreendimento() {
-  return useContext(EmpreendimentoContext);
+  const context = useContext(EmpreendimentoContext);
+  if (context === undefined) {
+    throw new Error('useEmpreendimento must be used within an EmpreendimentoProvider');
+  }
+  return context;
 }
