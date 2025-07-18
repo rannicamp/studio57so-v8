@@ -20,9 +20,9 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
     neighborhood: '',
     city: '',
     state: '',
-    country: 'Brasil', // Valor padrão, se aplicável
+    country: 'Brasil', // Valor padrão, se aplicável - REMOVIDO NO SUBMIT
     terreno_area_total: '', // Renomeado de total_area no código
-    valor_total: '', // Renomeado de price no código
+    // valor_total: '', // Removido
     data_inicio: '',
     data_fim_prevista: '', // Renomeado de dataPrevisaoConclusao no código
     prazo_entrega: '', // Renomeado de delivery_date no código
@@ -36,8 +36,8 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
     cobertura_detalhes: '',
     acabamentos: null, // JSONB
     unidades: null, // JSONB
-    indice_reajuste: '',
-    dados_contrato: '',
+    // indice_reajuste: '', // Removido
+    // dados_contrato: '', // Removido
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -71,7 +71,7 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
         state: empreendimento.state || '',
         country: empreendimento.country || 'Brasil',
         terreno_area_total: empreendimento.terreno_area_total || '',
-        valor_total: empreendimento.valor_total || '',
+        // valor_total: empreendimento.valor_total || '', // Removido
         data_inicio: empreendimento.data_inicio || '',
         data_fim_prevista: empreendimento.data_fim_prevista || '',
         prazo_entrega: empreendimento.prazo_entrega || '',
@@ -85,8 +85,8 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
         cobertura_detalhes: empreendimento.cobertura_detalhes || '',
         acabamentos: empreendimento.acabamentos || null,
         unidades: empreendimento.unidades || null,
-        indice_reajuste: empreendimento.indice_reajuste || '',
-        dados_contrato: empreendimento.dados_contrato || '',
+        // indice_reajuste: empreendimento.indice_reajuste || '', // Removido
+        // dados_contrato: empreendimento.dados_contrato || '', // Removido
       });
     }
   }, [empreendimento]);
@@ -221,9 +221,9 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
         neighborhood: formData.neighborhood,
         city: formData.city,
         state: formData.state,
-        country: formData.country,
+        // REMOVIDO: country: formData.country, // Esta coluna não existe no BD
         terreno_area_total: formData.terreno_area_total,
-        valor_total: formData.valor_total,
+        // valor_total: formData.valor_total, // Removido
         data_inicio: formData.data_inicio,
         data_fim_prevista: formData.data_fim_prevista,
         prazo_entrega: formData.prazo_entrega,
@@ -237,8 +237,8 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
         cobertura_detalhes: formData.cobertura_detalhes,
         acabamentos: formData.acabamentos,
         unidades: formData.unidades,
-        indice_reajuste: formData.indice_reajuste,
-        dados_contrato: formData.dados_contrato,
+        // indice_reajuste: formData.indice_reajuste, // Removido
+        // dados_contrato: formData.dados_contrato, // Removido
     };
 
     let errorResult = null;
@@ -399,18 +399,8 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
               placeholder="Ex: 24 meses após o lançamento"
             />
           </div>
-          <div>
-            <label htmlFor="valor_total" className="block text-sm font-medium text-gray-700 mb-1">Valor Total (R$)</label>
-            <input
-              type="text"
-              id="valor_total"
-              name="valor_total"
-              value={formData.valor_total}
-              onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Ex: 1500000.00"
-            />
-          </div>
+          {/* Campo Valor Total removido */}
+          {/* Campo Índice de Reajuste removido */}
           <div>
             <label htmlFor="terreno_area_total" className="block text-sm font-medium text-gray-700 mb-1">Área Total do Terreno (m²)</label>
             <input
@@ -644,28 +634,7 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-          <div>
-            <label htmlFor="indice_reajuste" className="block text-sm font-medium text-gray-700 mb-1">Índice de Reajuste</label>
-            <input
-              type="text"
-              id="indice_reajuste"
-              name="indice_reajuste"
-              value={formData.indice_reajuste}
-              onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label htmlFor="dados_contrato" className="block text-sm font-medium text-gray-700 mb-1">Dados do Contrato</label>
-            <textarea
-              id="dados_contrato"
-              name="dados_contrato"
-              value={formData.dados_contrato}
-              onChange={handleChange}
-              rows="3"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-            ></textarea>
-          </div>
+          {/* Campo Dados do Contrato removido */}
           {/* Campos JSONB - Acabamentos e Unidades - podem ser tratados com um TextArea para JSON ou um componente mais complexo */}
           <div>
             <label htmlFor="acabamentos" className="block text-sm font-medium text-gray-700 mb-1">Acabamentos (JSON)</label>
