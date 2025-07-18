@@ -1,21 +1,44 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // Importar useRouter para usar router.refresh()
+import { useRouter } from 'next/navigation';
+import { createClient } from '../utils/supabase/client'; // Importar o cliente Supabase
 
 const EmpreendimentoContext = createContext();
 
 export function EmpreendimentoProvider({ children }) {
   const [selectedEmpreendimento, setSelectedEmpreendimento] = useState(null);
-  const router = useRouter(); // Inicializar useRouter
+  const [empreendimentos, setEmpreendimentos] = useState([]); // Novo estado para a lista de empreendimentos
+  const [loading, setLoading] = useState(true); // Novo estado para o carregamento
+  const router = useRouter();
+  const supabase = createClient(); // Inicializar o cliente Supabase
 
   useEffect(() => {
     // Carrega o empreendimento selecionado do localStorage ao iniciar
     const storedEmpreendimentoId = localStorage.getItem('selectedEmpreendimentoId');
     if (storedEmpreendimentoId) {
-      setSelectedEmpreendimento(parseInt(storedEmpreendimentoId)); // Garante que seja um número
+      setSelectedEmpreendimento(parseInt(storedEmpreendimentoId));
     }
-  }, []);
+
+    // Função para buscar todos os empreendimentos
+    const fetchEmpreendimentos = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('empreendimentos')
+        .select('id, nome') // Seleciona apenas o ID e o nome
+        .order('nome', { ascending: true }); // Ordena pelo nome
+
+      if (error) {
+        console.error('Erro ao buscar empreendimentos:', error.message);
+        // Em um ambiente de produção, você pode querer exibir um toast de erro ou outra UI
+      } else {
+        setEmpreendimentos(data || []);
+      }
+      setLoading(false);
+    };
+
+    fetchEmpreendimentos();
+  }, [supabase]); // Dependência do supabase para re-executar se o cliente mudar (raro, mas boa prática)
 
   const changeEmpreendimento = (empreendimentoId) => {
     setSelectedEmpreendimento(empreendimentoId);
@@ -24,11 +47,11 @@ export function EmpreendimentoProvider({ children }) {
     } else {
       localStorage.removeItem('selectedEmpreendimentoId');
     }
-    router.refresh(); // <-- AQUI! Agora usa router.refresh() para revalidar dados
+    router.refresh(); // Revalida os dados da lista de empreendimentos
   };
 
   return (
-    <EmpreendimentoContext.Provider value={{ selectedEmpreendimento, changeEmpreendimento }}>
+    <EmpreendimentoContext.Provider value={{ selectedEmpreendimento, changeEmpreendimento, empreendimentos, loading }}>
       {children}
     </EmpreendimentoContext.Provider>
   );

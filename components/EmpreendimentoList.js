@@ -59,10 +59,10 @@ export default function EmpreendimentoList({ initialEmpreendimentos }) {
                   </span>
                 </td>
                 <td className="py-4 px-6 whitespace-nowrap text-right text-sm font-medium">
-                  <Link href={`/empreendimentos/${empreendimento.id}/produtos`} className="text-green-600 hover:text-green-900 mr-4">
-                    <FontAwesomeIcon icon={faEye} className="mr-1" /> Ver Produtos
+                  {/* MODIFICAÇÃO AQUI: O link "Ver Produtos" agora aponta para a página de visualização principal */}
+                  <Link href={`/empreendimentos/${empreendimento.id}`} className="text-green-600 hover:text-green-900 mr-4">
+                    <FontAwesomeIcon icon={faEye} className="mr-1" /> Visualizar
                   </Link>
-                  {/* Este é o link de edição que acabámos de criar */}
                   <Link href={`/empreendimentos/editar/${empreendimento.id}`} className="text-indigo-600 hover:text-indigo-900">
                     <FontAwesomeIcon icon={faPenToSquare} className="mr-1" /> Editar
                   </Link>

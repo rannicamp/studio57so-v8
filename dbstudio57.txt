@@ -235,6 +235,20 @@ CREATE TABLE public.emails (
   CONSTRAINT emails_pkey PRIMARY KEY (id),
   CONSTRAINT emails_contato_id_fkey FOREIGN KEY (contato_id) REFERENCES public.contatos(id)
 );
+CREATE TABLE public.empreendimento_anexos (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  empreendimento_id bigint NOT NULL,
+  tipo_documento_id bigint,
+  caminho_arquivo text NOT NULL,
+  nome_arquivo text,
+  descricao text,
+  usuario_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT empreendimento_anexos_pkey PRIMARY KEY (id),
+  CONSTRAINT empreendimento_anexos_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id),
+  CONSTRAINT empreendimento_anexos_tipo_documento_id_fkey FOREIGN KEY (tipo_documento_id) REFERENCES public.documento_tipos(id),
+  CONSTRAINT empreendimento_anexos_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.empreendimentos (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   empresa_proprietaria_id bigint NOT NULL,
@@ -251,8 +265,24 @@ CREATE TABLE public.empreendimentos (
   status character varying DEFAULT 'Em Andamento'::character varying,
   valor_total character varying,
   created_at timestamp with time zone DEFAULT now(),
+  incorporadora_id bigint,
+  construtora_id bigint,
+  nome_empreendimento text,
+  matricula_numero character varying,
+  matricula_cartorio text,
+  terreno_area_total character varying,
+  estrutura_tipo text,
+  alvenaria_tipo text,
+  cobertura_detalhes text,
+  acabamentos jsonb,
+  unidades jsonb,
+  prazo_entrega text,
+  indice_reajuste text,
+  dados_contrato text,
   CONSTRAINT empreendimentos_pkey PRIMARY KEY (id),
-  CONSTRAINT empreendimentos_empresa_proprietaria_id_fkey FOREIGN KEY (empresa_proprietaria_id) REFERENCES public.cadastro_empresa(id)
+  CONSTRAINT empreendimentos_empresa_proprietaria_id_fkey FOREIGN KEY (empresa_proprietaria_id) REFERENCES public.cadastro_empresa(id),
+  CONSTRAINT empreendimentos_incorporadora_id_fkey FOREIGN KEY (incorporadora_id) REFERENCES public.contatos(id),
+  CONSTRAINT empreendimentos_construtora_id_fkey FOREIGN KEY (construtora_id) REFERENCES public.contatos(id)
 );
 CREATE TABLE public.estoque_obra (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -606,6 +636,16 @@ CREATE TABLE public.produtos_empreendimento (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT produtos_empreendimento_pkey PRIMARY KEY (id),
   CONSTRAINT produtos_empreendimento_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id)
+);
+CREATE TABLE public.quadro_de_areas (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  empreendimento_id bigint NOT NULL,
+  pavimento_nome text NOT NULL,
+  area_m2 numeric NOT NULL,
+  ordem integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT quadro_de_areas_pkey PRIMARY KEY (id),
+  CONSTRAINT quadro_de_areas_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id)
 );
 CREATE TABLE public.rdo_fotos_uploads (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
