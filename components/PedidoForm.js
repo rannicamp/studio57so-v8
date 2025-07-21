@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
+import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTrash, faPlus, faPencilAlt, faSave, faTimes, faClock, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen, faDollarSign } from '@fortawesome/free-solid-svg-icons';
 import PedidoItemModal from './PedidoItemModal';
@@ -18,7 +19,6 @@ const formatDuration = (milliseconds) => {
     return result.trim() === '' ? 'Menos de 1h' : result;
 };
 
-// NOVO COMPONENTE: Modal para registrar o pagamento
 const RegistrarPagamentoModal = ({ isOpen, onClose, onConfirm, contas }) => {
     const [contaId, setContaId] = useState('');
     const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().split('T')[0]);
@@ -59,13 +59,12 @@ export default function PedidoForm({ pedidoId }) {
     const [itens, setItens] = useState([]);
     const [etapas, setEtapas] = useState([]);
     const [anexos, setAnexos] = useState([]);
-    const [contas, setContas] = useState([]); // NOVO: Estado para as contas financeiras
+    const [contas, setContas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
-    const [message, setMessage] = useState('');
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
-    const [isPagamentoModalOpen, setIsPagamentoModalOpen] = useState(false); // NOVO
+    const [isPagamentoModalOpen, setIsPagamentoModalOpen] = useState(false);
     const [selectedItems, setSelectedItems] = useState(new Set());
     const [editingItem, setEditingItem] = useState(null);
     const [newAnexoFile, setNewAnexoFile] = useState(null);
@@ -102,7 +101,7 @@ export default function PedidoForm({ pedidoId }) {
     const fetchData = useCallback(async () => {
         setLoading(true);
         const { data: pedidoData, error: pedidoError } = await supabase.from('pedidos_compra').select(`*, solicitante:solicitante_id(nome), empreendimentos(nome), itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(nome, razao_social, nome_fantasia), etapa:etapa_id(nome_etapa)), historico:pedidos_compra_status_historico(*), anexos:pedidos_compra_anexos(*)`).eq('id', pedidoId).single();
-        if (pedidoError) { console.error(pedidoError); setMessage('Erro ao carregar os dados do pedido.'); setLoading(false); return; }
+        if (pedidoError) { console.error(pedidoError); toast.error('Erro ao carregar os dados do pedido.'); setLoading(false); return; }
         setPedido(pedidoData); setItens(pedidoData.itens || []); setAnexos(pedidoData.anexos || []);
         if (pedidoData.historico) {
             const h = pedidoData.historico.sort((a,b) => new Date(a.data_mudanca) - new Date(b.data_mudanca));
@@ -113,7 +112,6 @@ export default function PedidoForm({ pedidoId }) {
         }
         const { data: etapasData } = await supabase.from('etapa_obra').select('id, nome_etapa');
         setEtapas(etapasData || []);
-        // NOVO: Busca as contas financeiras
         const { data: contasData } = await supabase.from('contas_financeiras').select('id, nome');
         setContas(contasData || []);
         setLoading(false);
@@ -122,100 +120,142 @@ export default function PedidoForm({ pedidoId }) {
     useEffect(() => { fetchData(); }, [fetchData]);
 
     const handleHeaderFieldChange = (field, value) => { setPedido(p => ({ ...p, [field]: value })); };
+    
     const handleHeaderFieldSave = async (field) => {
-        const { error } = await supabase.from('pedidos_compra').update({ [field]: pedido[field] }).eq('id', pedidoId);
-        if (error) { setMessage(`Erro ao salvar ${field.replace('_', ' ')}: ${error.message}`); } else { setMessage(`${field.replace('_', ' ')} salvo com sucesso!`); router.refresh(); }
-        setTimeout(() => setMessage(''), 2000);
+        toast.promise(
+            supabase.from('pedidos_compra').update({ [field]: pedido[field] }).eq('id', pedidoId),
+            {
+                loading: 'Salvando...',
+                success: () => { router.refresh(); return `${field.replace('_', ' ')} salvo com sucesso!`; },
+                error: (err) => `Erro ao salvar: ${err.message}`,
+            }
+        );
     };
     
     const handleAddAnexo = async () => {
-        if (!newAnexoFile) { setMessage('Por favor, selecione um arquivo.'); return; }
-        setIsUploading(true); setMessage('Enviando anexo...');
+        if (!newAnexoFile) { toast.error('Por favor, selecione um arquivo.'); return; }
+        setIsUploading(true);
         const { data: { user } } = await supabase.auth.getUser();
-        const fileExtension = newAnexoFile.name.split('.').pop();
-        const anexoDescricaoFinal = newAnexoType === 'Outro' ? newAnexoOutroDescricao : newAnexoType;
-        const empreendimentoNome = pedido.empreendimentos.nome.replace(/ /g, '_');
-        const fileName = `${anexoDescricaoFinal.replace(/ /g, '_')}_${empreendimentoNome}_Pedido#${pedido.id}.${fileExtension}`;
-        const { error: uploadError } = await supabase.storage.from('pedidos-anexos').upload(fileName, newAnexoFile, { upsert: true });
-        if (uploadError) { setMessage(`Erro no upload: ${uploadError.message}`); setIsUploading(false); return; }
-        const { error: dbError } = await supabase.from('pedidos_compra_anexos').insert({ pedido_compra_id: pedido.id, caminho_arquivo: fileName, nome_arquivo: newAnexoFile.name, descricao: anexoDescricaoFinal, usuario_id: user.id });
-        if (dbError) { setMessage(`Erro ao salvar no banco: ${dbError.message}`); } else { setMessage('Anexo adicionado com sucesso!'); setNewAnexoFile(null); setNewAnexoType('Nota Fiscal'); setNewAnexoOutroDescricao(''); document.getElementById('anexo-file-input').value = ''; fetchData(); }
-        setIsUploading(false);
+        
+        const promise = new Promise(async (resolve, reject) => {
+            const fileExtension = newAnexoFile.name.split('.').pop();
+            const anexoDescricaoFinal = newAnexoType === 'Outro' ? newAnexoOutroDescricao : newAnexoType;
+            const empreendimentoNome = pedido.empreendimentos.nome.replace(/ /g, '_');
+            const fileName = `${anexoDescricaoFinal.replace(/ /g, '_')}_${empreendimentoNome}_Pedido#${pedido.id}_${Date.now()}.${fileExtension}`;
+            
+            const { error: uploadError } = await supabase.storage.from('pedidos-anexos').upload(fileName, newAnexoFile, { upsert: true });
+            if (uploadError) return reject(uploadError);
+
+            const { error: dbError } = await supabase.from('pedidos_compra_anexos').insert({ pedido_compra_id: pedido.id, caminho_arquivo: fileName, nome_arquivo: newAnexoFile.name, descricao: anexoDescricaoFinal, usuario_id: user.id });
+            if (dbError) return reject(dbError);
+
+            resolve("Anexo adicionado com sucesso!");
+        });
+
+        toast.promise(promise, {
+            loading: 'Enviando anexo...',
+            success: (msg) => {
+                setNewAnexoFile(null); setNewAnexoType('Nota Fiscal'); setNewAnexoOutroDescricao(''); 
+                if(document.getElementById('anexo-file-input')) document.getElementById('anexo-file-input').value = '';
+                fetchData();
+                return msg;
+            },
+            error: (err) => `Erro no upload: ${err.message}`,
+            finally: () => setIsUploading(false)
+        });
     };
 
     const handleRemoveAnexo = async (anexo) => {
         if (!window.confirm(`Tem certeza que deseja remover o anexo "${anexo.nome_arquivo}"?`)) return;
-        await supabase.storage.from('pedidos-anexos').remove([anexo.caminho_arquivo]);
-        await supabase.from('pedidos_compra_anexos').delete().eq('id', anexo.id);
-        setMessage('Anexo removido com sucesso!'); fetchData();
+        
+        toast.promise(
+            new Promise(async (resolve, reject) => {
+                await supabase.storage.from('pedidos-anexos').remove([anexo.caminho_arquivo]);
+                const { error } = await supabase.from('pedidos_compra_anexos').delete().eq('id', anexo.id);
+                if(error) return reject(error);
+                resolve("Anexo removido!");
+            }),
+            {
+                loading: 'Removendo anexo...',
+                success: (msg) => { fetchData(); return msg; },
+                error: (err) => `Erro ao remover: ${err.message}`,
+            }
+        );
     };
 
     const handleDownloadAnexo = async (caminho) => {
         const { data, error } = await supabase.storage.from('pedidos-anexos').createSignedUrl(caminho, 60);
-        if (error) setMessage(`Erro ao gerar link de download: ${error.message}`); else window.open(data.signedUrl, '_blank');
-    }
+        if (error) toast.error(`Erro ao gerar link de download: ${error.message}`); 
+        else window.open(data.signedUrl, '_blank');
+    };
     
     const handleSaveItem = async (itemData) => {
-        const isEditing = Boolean(itemData.id);
-        let finalMaterialId = itemData.material_id;
-        if (!finalMaterialId) {
-             const { data: newMaterial, error: materialError } = await supabase
-                .from('materiais')
-                .insert({ descricao: itemData.descricao_item, unidade_medida: itemData.unidade_medida, Origem: 'Manual' })
-                .select()
-                .single();
-            if (materialError) { return { success: false, error: 'Erro ao criar o novo material na base: ' + materialError.message }; }
-            finalMaterialId = newMaterial.id;
-        }
-        const dataToUpsert = {
-            ...itemData,
-            material_id: finalMaterialId,
-            pedido_compra_id: pedidoId,
-            quantidade_solicitada: parseFloat(itemData.quantidade_solicitada) || 0,
-            preco_unitario_real: itemData.preco_unitario_real === '' || itemData.preco_unitario_real === null ? null : parseFloat(itemData.preco_unitario_real),
-        };
-        dataToUpsert.custo_total_real = (dataToUpsert.preco_unitario_real || 0) * (dataToUpsert.quantidade_solicitada || 0);
-        let error;
-        if(isEditing) {
+        const promise = new Promise(async (resolve, reject) => {
+            const isEditing = Boolean(itemData.id);
+            let finalMaterialId = itemData.material_id;
+
+            if (!finalMaterialId) {
+                const { data: newMaterial, error: materialError } = await supabase.from('materiais').insert({ descricao: itemData.descricao_item, unidade_medida: itemData.unidade_medida, Origem: 'Manual' }).select().single();
+                if (materialError) return reject(new Error('Erro ao criar o novo material: ' + materialError.message));
+                finalMaterialId = newMaterial.id;
+            }
+
+            const dataToUpsert = { ...itemData, material_id: finalMaterialId, pedido_compra_id: pedidoId, quantidade_solicitada: parseFloat(itemData.quantidade_solicitada) || 0, preco_unitario_real: itemData.preco_unitario_real === '' || itemData.preco_unitario_real === null ? null : parseFloat(itemData.preco_unitario_real) };
+            dataToUpsert.custo_total_real = (dataToUpsert.preco_unitario_real || 0) * (dataToUpsert.quantidade_solicitada || 0);
             delete dataToUpsert.fornecedor_nome;
-            const { error: updateError } = await supabase.from('pedidos_compra_itens').update(dataToUpsert).eq('id', itemData.id);
-            error = updateError;
-        } else {
-            delete dataToUpsert.id; 
-            delete dataToUpsert.fornecedor_nome;
-            const { error: insertError } = await supabase.from('pedidos_compra_itens').insert(dataToUpsert);
-            error = insertError;
-        }
-        if (error) { return { success: false, error: "Falha ao salvar o item no pedido: " + error.message }; } 
-        else { setMessage(`Item ${isEditing ? 'atualizado' : 'adicionado'} com sucesso!`); fetchData(); return { success: true }; }
+
+            if(isEditing) {
+                const { error } = await supabase.from('pedidos_compra_itens').update(dataToUpsert).eq('id', itemData.id);
+                if(error) return reject(error);
+            } else {
+                delete dataToUpsert.id; 
+                const { error } = await supabase.from('pedidos_compra_itens').insert(dataToUpsert);
+                if(error) return reject(error);
+            }
+            resolve(`Item ${isEditing ? 'atualizado' : 'adicionado'} com sucesso!`);
+        });
+
+        toast.promise(promise, {
+            loading: 'Salvando item...',
+            success: (msg) => { fetchData(); return msg; },
+            error: (err) => `Falha ao salvar o item: ${err.message}`,
+        });
+        
+        return promise.then(() => true).catch(() => false);
     };
 
     const handleRemoveItem = async (itemId) => {
         if (!window.confirm('Tem certeza que deseja remover este item?')) return;
-        const { error } = await supabase.from('pedidos_compra_itens').delete().eq('id', itemId);
-        if (error) setMessage('Erro ao remover item: ' + error.message);
-        else setItens(prev => prev.filter(item => item.id !== itemId));
+        toast.promise(
+            supabase.from('pedidos_compra_itens').delete().eq('id', itemId),
+            {
+                loading: 'Removendo item...',
+                success: () => { setItens(prev => prev.filter(item => item.id !== itemId)); return "Item removido com sucesso!"; },
+                error: (err) => `Erro ao remover item: ${err.message}`
+            }
+        );
     };
 
-    // NOVO: Função para registrar o pagamento
     const handleRegistrarPagamento = async (contaId, dataPagamento) => {
         setIsPagamentoModalOpen(false);
         setIsSaving(true);
-        setMessage('Registrando pagamento...');
-
-        const { data, error } = await supabase.rpc('registrar_pagamento_pedido', {
+        
+        const promise = supabase.rpc('registrar_pagamento_pedido', {
             p_pedido_id: pedidoId,
             p_conta_id: contaId,
             p_data_pagamento: dataPagamento
         });
 
-        if (error) {
-            setMessage(`Erro: ${error.message}`);
-        } else {
-            setMessage(data); // A função retorna uma mensagem de sucesso ou erro
-            fetchData(); // Recarrega os dados do pedido
-        }
-        setIsSaving(false);
+        toast.promise(promise, {
+            loading: 'Registrando pagamento...',
+            success: (response) => {
+                if(response.error) throw new Error(response.error.message);
+                fetchData();
+                return response.data;
+            },
+            error: (err) => `Erro no registro: ${err.message}`,
+            finally: () => setIsSaving(false)
+        });
     };
 
     const handleSelectionChange = (itemId) => {
@@ -246,19 +286,12 @@ export default function PedidoForm({ pedidoId }) {
                         <div className="flex items-center gap-2"> <label className="font-bold">Turno:</label> <select value={pedido.turno_entrega || ''} onChange={(e) => handleHeaderFieldChange('turno_entrega', e.target.value)} onBlur={() => handleHeaderFieldSave('turno_entrega')} className="p-1 border rounded-md"> <option value="">Nenhum</option> <option value="Manhã">Manhã</option> <option value="Tarde">Tarde</option> <option value="Noite">Noite</option> </select> </div>
                     </div>
                 </div>
-
-                {message && <div className="text-center p-2 bg-blue-50 text-blue-800 rounded-md text-sm">{message}</div>}
                 
-                {/* NOVO PAINEL DE PAGAMENTO */}
                 <div className="border-t pt-6">
                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><FontAwesomeIcon icon={faDollarSign} /> Registrar Pagamento</h3>
                      <div className="bg-gray-50 p-4 rounded-lg border flex items-center justify-between">
                          <p className="text-sm text-gray-700">Clique no botão para registrar este pedido como uma despesa no módulo financeiro.</p>
-                         <button
-                            onClick={() => setIsPagamentoModalOpen(true)}
-                            disabled={isSaving}
-                            className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400"
-                         >
+                         <button onClick={() => setIsPagamentoModalOpen(true)} disabled={isSaving} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400">
                              {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Registrar Pagamento'}
                          </button>
                      </div>
