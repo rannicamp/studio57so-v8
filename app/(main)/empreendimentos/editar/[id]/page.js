@@ -1,7 +1,7 @@
 import { createClient } from '../../../../../utils/supabase/server';
-import { cookies } from 'next/headers';
-// Removidas as importações do @mui/material
-import EmpreendimentoForm from '@/components/EmpreendimentoForm'; // Caminho CORRIGIDO com alias
+import EmpreendimentoForm from '@/components/EmpreendimentoForm';
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,26 +15,26 @@ export default async function EditarEmpreendimentoPage({ params }) {
     .eq('id', id)
     .single();
 
-  const { data: corporateEntities, error: entitiesError } = await supabase.rpc('get_corporate_entities');
-
-  if (empreendimentoError || entitiesError) {
-    console.error('Erro ao buscar empreendimento ou entidades corporativas:', empreendimentoError || entitiesError);
-    return (
-      <div className="p-4 text-red-700 bg-red-100 rounded-md">
-        Erro ao carregar dados do empreendimento. Tente novamente.
-      </div>
-    );
+  if (empreendimentoError || !empreendimento) {
+    notFound();
   }
 
+  // Busca os mesmos dados de apoio que a página de cadastro
+  const { data: corporateEntities } = await supabase.rpc('get_corporate_entities');
+  const { data: proprietariaOptions } = await supabase.from('cadastro_empresa').select('id, razao_social');
+
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">
-        Editar Empreendimento
-      </h1>
-      <EmpreendimentoForm
-        empreendimento={empreendimento}
-        corporateEntities={corporateEntities || []}
-      />
+    <div className="space-y-6">
+       <Link href="/empreendimentos" className="text-blue-500 hover:underline mb-4 inline-block">
+            &larr; Voltar para a Lista de Empreendimentos
+        </Link>
+      <div className="bg-white rounded-lg shadow p-6">
+        <EmpreendimentoForm
+          empreendimento={empreendimento}
+          corporateEntities={corporateEntities || []}
+          proprietariaOptions={proprietariaOptions || []}
+        />
+      </div>
     </div>
   );
 }

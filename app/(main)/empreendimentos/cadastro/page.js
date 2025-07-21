@@ -1,33 +1,45 @@
-import { createClient } from '../../../../../utils/supabase/server';
-import { cookies } from 'next/headers';
-// Removidas as importações do @mui/material
-import EmpreendimentoForm from '@/components/EmpreendimentoForm'; // Caminho CORRIGIDO com alias
+'use client';
 
-export const dynamic = 'force-dynamic';
+import { createClient } from '../../../../utils/supabase/client';
+import EmpreendimentoForm from '../../../../components/EmpreendimentoForm';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
-export default async function CadastroEmpreendimentoPage() {
+export default function CadastroEmpreendimentoPage() {
   const supabase = createClient();
+  const [corporateEntities, setCorporateEntities] = useState([]);
+  const [proprietariaOptions, setProprietariaOptions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const { data: corporateEntities, error: entitiesError } = await supabase.rpc('get_corporate_entities');
+  useEffect(() => {
+    async function loadData() {
+      const { data: entitiesData } = await supabase.rpc('get_corporate_entities');
+      setCorporateEntities(entitiesData || []);
 
-  if (entitiesError) {
-    console.error('Erro ao buscar entidades corporativas:', entitiesError);
-    return (
-      <div className="p-4 text-red-700 bg-red-100 rounded-md">
-        Erro ao carregar a lista de empresas. Por favor, tente novamente.
-      </div>
-    );
+      const { data: proprietariaData } = await supabase.from('cadastro_empresa').select('id, razao_social');
+      setProprietariaOptions(proprietariaData || []);
+
+      setLoading(false);
+    }
+    loadData();
+  }, [supabase]);
+
+
+  if (loading) {
+    return <p>Carregando dados do formulário...</p>;
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">
-        Cadastrar Novo Empreendimento
-      </h1>
-      <EmpreendimentoForm
-        empreendimento={null}
-        corporateEntities={corporateEntities || []}
-      />
+    <div className="space-y-6">
+       <Link href="/empreendimentos" className="text-blue-500 hover:underline mb-4 inline-block">
+            &larr; Voltar para a Lista de Empreendimentos
+        </Link>
+      <div className="bg-white rounded-lg shadow p-6">
+        <EmpreendimentoForm
+            corporateEntities={corporateEntities}
+            proprietariaOptions={proprietariaOptions}
+        />
+      </div>
     </div>
   );
 }

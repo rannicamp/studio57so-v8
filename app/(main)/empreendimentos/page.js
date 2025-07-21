@@ -16,14 +16,12 @@ export default async function GerenciamentoEmpreendimentosPage() {
     `)
     .order('nome');
 
-  // Adicionado um tratamento de erro mais explícito
   if (error) {
     console.error('Erro ao buscar empreendimentos:', error);
     return (
       <div className="p-4 text-red-500 bg-red-50 rounded-lg">
         <h2 className="font-bold">Erro ao Carregar Dados</h2>
-        <p>Não foi possível carregar a lista de empreendimentos. Verifique a sua conexão ou os logs do servidor.</p>
-        <p className="text-xs mt-2">Detalhe do erro: {error.message}</p>
+        <p>Não foi possível carregar a lista de empreendimentos.</p>
       </div>
     );
   }
@@ -37,7 +35,7 @@ export default async function GerenciamentoEmpreendimentosPage() {
         </Link>
       </div>
       
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white rounded-lg shadow p-6">
         <EmpreendimentoList initialEmpreendimentos={empreendimentos || []} />
       </div>
     </div>

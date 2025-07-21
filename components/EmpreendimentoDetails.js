@@ -1,24 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBuilding, faRulerCombined, faBoxOpen, faFileLines } from '@fortawesome/free-solid-svg-icons'; // Adicionado faFileLines para documentos
+import { faBuilding, faRulerCombined, faBoxOpen, faFileLines, faUpload, faSpinner, faTrash, faEye, faSort, faSortUp, faSortDown, faVideo } from '@fortawesome/free-solid-svg-icons';
+import { createClient } from '../utils/supabase/client';
+import { toast } from 'sonner';
 
-// Componente auxiliar para exibir campos de informação, inspirado na ficha do funcionário
+// --- SUB-COMPONENTES ---
+
 function InfoField({ label, value, fullWidth = false }) {
-  if (value === null || value === undefined || value === '') { // Tratamento para campos vazios ou nulos
-    return null; // Não exibe o campo se não houver valor
-  }
+  if (value === null || value === undefined || value === '') return null;
   return (
-    <div className={fullWidth ? "md:col-span-3" : ""}> {/* Ajustado para 3 colunas */}
+    <div className={fullWidth ? "md:col-span-3" : ""}>
       <p className="text-sm font-medium text-gray-500">{label}</p>
-      <p className="mt-1 text-sm text-gray-900">{value}</p>
+      <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{value}</p>
     </div>
   );
 }
 
-// Componente KpiCard básico, você já tem um mais complexo, mas este serve como exemplo de estrutura.
 function KpiCard({ title, value, icon, colorClass = 'text-blue-500' }) {
   return (
     <div className="bg-white p-4 rounded-lg shadow flex items-center space-x-4">
@@ -31,272 +32,332 @@ function KpiCard({ title, value, icon, colorClass = 'text-blue-500' }) {
   );
 }
 
-export default function EmpreendimentoDetails({ empreendimento, corporateEntities = [], proprietariaOptions = [], empreendimentoAnexos = [], quadroDeAreas = [] }) {
-  const [activeTab, setActiveTab] = useState('dados_gerais');
+const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess }) => {
+    const supabase = createClient();
+    const [file, setFile] = useState(null);
+    const [descricao, setDescricao] = useState('');
+    const [tipoId, setTipoId] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
 
-  if (!empreendimento) {
+    const handleUpload = async () => {
+        if (!file || !tipoId) {
+            toast.error("Por favor, selecione um tipo de documento e um arquivo.");
+            return;
+        }
+        setIsUploading(true);
+        const tipoSelecionado = allowedTipos.find(t => t.id == tipoId);
+        const sigla = tipoSelecionado?.sigla || 'DOC';
+        const fileExt = file.name.split('.').pop();
+        const newFileName = `${empreendimentoId}/${sigla}_${Date.now()}.${fileExt}`;
+
+        const promise = new Promise(async (resolve, reject) => {
+            const { error: uploadError } = await supabase.storage.from('empreendimento-anexos').upload(newFileName, file, { upsert: true });
+            if (uploadError) return reject(uploadError);
+
+            const { error: dbError } = await supabase.from('empreendimento_anexos').insert({
+                empreendimento_id: empreendimentoId,
+                caminho_arquivo: newFileName,
+                nome_arquivo: file.name,
+                descricao: descricao,
+                tipo_documento_id: tipoId
+            });
+            if (dbError) return reject(dbError);
+
+            resolve("Anexo enviado com sucesso!");
+        });
+
+        toast.promise(promise, {
+            loading: 'Enviando arquivo...',
+            success: (msg) => {
+                onUploadSuccess();
+                setFile(null);
+                setDescricao('');
+                setTipoId('');
+                if(document.getElementById(`file-input-${tipoId}`)) {
+                   document.getElementById(`file-input-${tipoId}`).value = "";
+                }
+                setIsUploading(false);
+                return msg;
+            },
+            error: (err) => {
+                setIsUploading(false);
+                return `Erro: ${err.message}`;
+            },
+        });
+    };
+
     return (
-      <div className="p-6 text-center text-gray-700">
-        <p>Empreendimento não encontrado.</p>
-        <Link href="/empreendimentos" className="text-blue-500 hover:underline mt-4 block">Voltar para a lista de Empreendimentos</Link>
-      </div>
+        <div className="p-4 bg-gray-50 border rounded-lg space-y-3">
+            <h4 className="font-semibold text-gray-700">Adicionar Novo Documento</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <select value={tipoId} onChange={(e) => setTipoId(e.target.value)} className="p-2 border rounded-md">
+                    <option value="">-- Selecione o Tipo --</option>
+                    {allowedTipos.map(t => <option key={t.id} value={t.id}>{t.descricao} ({t.sigla})</option>)}
+                </select>
+                <input type="text" placeholder="Descrição (opcional)" value={descricao} onChange={(e) => setDescricao(e.target.value)} className="p-2 border rounded-md" />
+            </div>
+            <div className="flex items-center gap-4">
+                <input id={`file-input-${tipoId}`} type="file" onChange={(e) => setFile(e.target.files[0])} className="flex-grow text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100"/>
+                <button onClick={handleUpload} disabled={isUploading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
+                    {isUploading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Enviar'}
+                </button>
+            </div>
+        </div>
     );
-  }
+};
 
-  // Encontrar nomes das empresas a partir dos IDs
-  // Ajustado para usar os campos corretos da tabela 'contatos' que são 'nome' ou 'razao_social'
-  const incorporadora = corporateEntities.find(e => e.id === empreendimento.incorporadora_id);
-  const construtora = corporateEntities.find(e => e.id === empreendimento.construtora_id);
-  const proprietaria = proprietariaOptions.find(p => p.id === empreendimento.empresa_proprietaria_id);
+const TabelaVendas = ({ produtos, empreendimentoId }) => {
+    const [sortConfig, setSortConfig] = useState({ key: 'unidade', direction: 'ascending' });
 
+    const requestSort = (key) => {
+        let direction = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
 
-  // Formatação de valores
-  const formattedValorTotal = empreendimento.valor_total
-    ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(empreendimento.valor_total))
-    : 'N/A';
-  const formattedTerrenoAreaTotal = empreendimento.terreno_area_total ? `${empreendimento.terreno_area_total} m²` : 'N/A';
+    const sortedProdutos = useMemo(() => {
+        let sortableItems = [...produtos];
+        if (sortConfig.key !== null) {
+            sortableItems.sort((a, b) => {
+                const valA = a[sortConfig.key];
+                const valB = b[sortConfig.key];
+                if (valA === null || valA === undefined) return 1;
+                if (valB === null || valB === undefined) return -1;
+                
+                if (sortConfig.key === 'valor_venda_calculado' || sortConfig.key === 'area_privativa') {
+                    const numA = parseFloat(valA) || 0;
+                    const numB = parseFloat(valB) || 0;
+                    return sortConfig.direction === 'ascending' ? numA - numB : numB - numA;
+                }
 
-  // Funções auxiliares para filtrar anexos por tipo
-  const getAnexosBySigla = (siglas) => {
-    if (!empreendimentoAnexos || !Array.isArray(empreendimentoAnexos)) return [];
-    return empreendimentoAnexos.filter(anexo =>
-      anexo.tipo && anexo.tipo.sigla && siglas.includes(anexo.tipo.sigla.toUpperCase()) // Adicionada verificação anexo.tipo.sigla
+                if (String(valA).toLowerCase() < String(valB).toLowerCase()) { return sortConfig.direction === 'ascending' ? -1 : 1; }
+                if (String(valA).toLowerCase() > String(valB).toLowerCase()) { return sortConfig.direction === 'ascending' ? 1 : -1; }
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [produtos, sortConfig]);
+
+    const SortableHeader = ({ label, sortKey, className = '' }) => {
+        const getSortIcon = () => {
+            if (sortConfig.key !== sortKey) return faSort;
+            return sortConfig.direction === 'ascending' ? faSortUp : faSortDown;
+        };
+        return (
+            <th className={`py-3 px-4 text-sm font-semibold text-gray-600 ${className}`}>
+                <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 w-full">
+                    <span>{label}</span>
+                    <FontAwesomeIcon icon={getSortIcon()} className="text-gray-400" />
+                </button>
+            </th>
+        );
+    };
+
+    const formatCurrency = (value) => {
+        if (value == null || isNaN(value)) return 'N/A';
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(value));
+    };
+
+    const statusColors = { 'Disponível': 'bg-green-100 text-green-800', 'Vendido': 'bg-red-100 text-red-800', 'Reservado': 'bg-yellow-100 text-yellow-800', 'Bloqueado': 'bg-gray-100 text-gray-800' };
+
+    const tableSummary = useMemo(() => {
+        const total = produtos.length;
+        const disponiveis = produtos.filter(p => p.status === 'Disponível').length;
+        const vendidos = produtos.filter(p => p.status === 'Vendido').length;
+        const vgv = produtos.reduce((acc, p) => acc + (parseFloat(p.valor_venda_calculado) || 0), 0);
+        return { total, disponiveis, vendidos, vgv: formatCurrency(vgv) };
+    }, [produtos]);
+
+    if (!produtos || produtos.length === 0) {
+        return (
+            <div className="text-center p-6 bg-gray-50 rounded-lg">
+                <p className="text-gray-600">Nenhum produto cadastrado para este empreendimento ainda.</p>
+                <Link href={`/empreendimentos/${empreendimentoId}/produtos`} className="mt-4 inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                    Cadastrar Produtos
+                </Link>
+            </div>
+        );
+    }
+    
+    return (
+        <div className="animate-fade-in">
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-semibold text-gray-800">Tabela de Vendas</h2>
+                <Link href={`/empreendimentos/${empreendimentoId}/produtos`} className="text-blue-500 hover:underline font-semibold">
+                    Gerenciar Produtos e Condições &rarr;
+                </Link>
+            </div>
+            <div className="overflow-x-auto shadow-md rounded-lg">
+                <table className="min-w-full bg-white">
+                    <thead className="bg-gray-100">
+                        <tr>
+                            <SortableHeader label="Unidade" sortKey="unidade" className="text-left" />
+                            <SortableHeader label="Tipo" sortKey="tipo" className="text-left" />
+                            <SortableHeader label="Área Privativa" sortKey="area_privativa" className="text-right" />
+                            <SortableHeader label="Status" sortKey="status" className="text-center" />
+                            <SortableHeader label="Valor de Venda" sortKey="valor_venda_calculado" className="text-right" />
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                        {sortedProdutos.map(produto => (
+                            <tr key={produto.id} className="hover:bg-gray-50">
+                                <td className="py-3 px-4 font-medium">{produto.unidade}</td>
+                                <td className="py-3 px-4 text-gray-600">{produto.tipo}</td>
+                                <td className="py-3 px-4 text-right text-gray-600">{produto.area_privativa} m²</td>
+                                <td className="py-3 px-4 text-center">
+                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusColors[produto.status] || 'bg-gray-100 text-gray-800'}`}>
+                                        {produto.status}
+                                    </span>
+                                </td>
+                                <td className="py-3 px-4 text-right font-semibold text-gray-800">{formatCurrency(produto.valor_venda_calculado)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                    <tfoot className="bg-gray-100 font-bold">
+                        <tr>
+                            <td colSpan="2" className="py-3 px-4 text-left">Total: {tableSummary.total} unidades</td>
+                            <td className="py-3 px-4 text-right">Disponíveis: {tableSummary.disponiveis}</td>
+                            <td className="py-3 px-4 text-center">Vendidos: {tableSummary.vendidos}</td>
+                            <td className="py-3 px-4 text-right">VGV Total: {tableSummary.vgv}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
     );
+};
+
+// --- COMPONENTE PRINCIPAL ---
+
+export default function EmpreendimentoDetails({ empreendimento, corporateEntities = [], proprietariaOptions = [], produtos = [], initialAnexos, documentoTipos, initialQuadroDeAreas }) {
+  const [activeTab, setActiveTab] = useState('dados_gerais');
+  const supabase = createClient();
+  const router = useRouter();
+
+  const kpiData = useMemo(() => {
+    const totalUnidades = produtos ? produtos.length : 0;
+    const unidadesVendidas = produtos ? produtos.filter(p => p.status === 'Vendido').length : 0;
+    const vgvTotal = produtos ? produtos.reduce((acc, p) => acc + (parseFloat(p.valor_venda_calculado) || 0), 0) : 0;
+    return {
+      totalUnidades,
+      unidadesVendidas,
+      vgvTotal: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(vgvTotal),
+    };
+  }, [produtos]);
+  
+  const handleDeleteAnexo = async (anexo) => {
+      if (!window.confirm(`Tem certeza que deseja excluir o anexo "${anexo.nome_arquivo}"?`)) return;
+      
+      toast.promise(
+          new Promise(async (resolve, reject) => {
+              const { error: storageError } = await supabase.storage.from('empreendimento-anexos').remove([anexo.caminho_arquivo]);
+              if (storageError) return reject(storageError);
+              const { error: dbError } = await supabase.from('empreendimento_anexos').delete().eq('id', anexo.id);
+              if (dbError) return reject(dbError);
+              resolve("Anexo excluído com sucesso!");
+          }),
+          {
+              loading: 'Excluindo...',
+              success: (msg) => { router.refresh(); return msg; },
+              error: (err) => `Erro ao excluir: ${err.message}`,
+          }
+      );
   };
+  
+  const getAnexosPorCategoria = (siglas) => initialAnexos.filter(anexo => anexo.tipo && siglas.includes(anexo.tipo.sigla.toUpperCase()));
 
-  const fotosImagens = getAnexosBySigla(['FOTOS', 'IMAGEM']);
-  const documentosGerais = getAnexosBySigla(['GENERAL', 'PROJETO', 'RRT', 'CNO', 'ART', 'ALVARA', 'HABITE-SE', 'AVCB', 'LAUDO', 'CERTIDAO']); // Exemplo de siglas para documentos gerais
-  const documentosJuridicos = getAnexosBySigla(['JURIDICAL', 'MINUTA', 'CONTRATO', 'REGISTRO', 'ESCRITURA', 'MATRICULA']); // Exemplo de siglas para documentos jurídicos
-
+  const incorporadora = useMemo(() => corporateEntities.find(e => e.id === empreendimento.incorporadora_id), [corporateEntities, empreendimento.incorporadora_id]);
+  const construtora = useMemo(() => corporateEntities.find(e => e.id === empreendimento.construtora_id), [corporateEntities, empreendimento.construtora_id]);
+  const proprietaria = useMemo(() => proprietariaOptions.find(p => p.id === empreendimento.empresa_proprietaria_id), [proprietariaOptions, empreendimento.empresa_proprietaria_id]);
+  const formattedValorTotal = useMemo(() => empreendimento.valor_total ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(empreendimento.valor_total)) : 'N/A', [empreendimento.valor_total]);
+  const formattedTerrenoAreaTotal = useMemo(() => empreendimento.terreno_area_total ? `${empreendimento.terreno_area_total} m²` : 'N/A', [empreendimento.terreno_area_total]);
 
   return (
     <div className="p-6 bg-white shadow-md rounded-lg">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">{empreendimento.nome}</h1> {/* Usando 'nome' */}
+        <h1 className="text-3xl font-bold text-gray-800">{empreendimento.nome}</h1>
         <Link href={`/empreendimentos/editar/${empreendimento.id}`} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
           Editar Empreendimento
         </Link>
       </div>
 
-      {/* Seção de KPIs (inspirado no Gerenciamento de Funcionários) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <KpiCard title="Status Atual" value={empreendimento.status || 'N/A'} icon={faBuilding} />
-        <KpiCard title="Valor Total" value={formattedValorTotal} icon={faRulerCombined} />
-        <KpiCard title="Área Total do Terreno" value={formattedTerrenoAreaTotal} icon={faBoxOpen} />
-        {/* Adicione mais KPIs conforme necessário, como VGV, unidades vendidas, etc. */}
+        <KpiCard title="Total de Unidades" value={kpiData.totalUnidades} icon={faBoxOpen} />
+        <KpiCard title="Unidades Vendidas" value={kpiData.unidadesVendidas} icon={faBoxOpen} colorClass="text-green-500" />
+        <KpiCard title="VGV Total" value={kpiData.vgvTotal} icon={faRulerCombined} />
       </div>
 
-      {/* Abas de Navegação */}
       <div className="border-b border-gray-200 mb-6">
         <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-          <button
-            onClick={() => setActiveTab('dados_gerais')}
-            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'dados_gerais' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            Dados Gerais
-          </button>
-          <button
-            onClick={() => setActiveTab('caracteristicas')}
-            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'caracteristicas' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            Características
-          </button>
-          <button
-            onClick={() => setActiveTab('produtos')}
-            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'produtos' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            Produtos
-          </button>
-          <button
-            onClick={() => setActiveTab('documentos_juridicos')}
-            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'documentos_juridicos' ? 'border-b-2 border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            Documentos Jurídicos
-          </button>
-          <button
-            onClick={() => setActiveTab('documentos_gerais')}
-            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'documentos_gerais' ? 'border-b-2 border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            Documentos Gerais
-          </button>
-          <button
-            onClick={() => setActiveTab('fotos_imagens')}
-            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'fotos_imagens' ? 'border-b-2 border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-          >
-            Fotos/Imagens
-          </button>
+          <button onClick={() => setActiveTab('dados_gerais')} className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'dados_gerais' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Dados Gerais</button>
+          <button onClick={() => setActiveTab('produtos')} className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'produtos' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Produtos</button>
+          <button onClick={() => setActiveTab('documentos_juridicos')} className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'documentos_juridicos' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Documentos Jurídicos</button>
+          <button onClick={() => setActiveTab('documentos_gerais')} className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'documentos_gerais' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Documentos Gerais</button>
+          <button onClick={() => setActiveTab('marketing')} className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'marketing' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Marketing</button>
         </nav>
       </div>
 
-      {/* Conteúdo das Abas */}
       <div>
         {activeTab === 'dados_gerais' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Dados Gerais do Empreendimento</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              <InfoField label="Nome Fantasia" value={empreendimento.nome} />
-              <InfoField label="Nome Oficial (Cartório)" value={empreendimento.nome_empreendimento || 'N/A'} />
-              <InfoField label="Status" value={empreendimento.status} />
-              <InfoField label="Empresa Proprietária" value={proprietaria ? (proprietaria.nome_fantasia || proprietaria.razao_social) : 'N/A'} />
-              {/* O nome ou razão social do contato é mais apropriado que display_name aqui */}
-              <InfoField label="Incorporadora" value={incorporadora ? `${incorporadora.nome || incorporadora.razao_social} (${incorporadora.cnpj})` : 'N/A'} />
-              <InfoField label="Construtora" value={construtora ? `${construtora.nome || construtora.razao_social} (${construtora.cnpj})` : 'N/A'} />
-              <InfoField label="Data de Início" value={empreendimento.data_inicio || 'N/A'} />
-              <InfoField label="Data Fim Prevista" value={empreendimento.data_fim_prevista || 'N/A'} />
-              <InfoField label="Prazo de Entrega" value={empreendimento.prazo_entrega || 'N/A'} />
-              <InfoField label="Valor Total" value={formattedValorTotal} />
-              <InfoField label="Número da Matrícula" value={empreendimento.matricula_numero || 'N/A'} />
-              <InfoField label="Cartório da Matrícula" value={empreendimento.matricula_cartorio || 'N/A'} />
-              <InfoField label="Índice de Reajuste" value={empreendimento.indice_reajuste || 'N/A'} />
+           <div className="space-y-8 animate-fade-in">
+                <div>
+                    <h2 className="text-2xl font-semibold text-gray-800 mb-4">Dados do Empreendimento</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <InfoField label="Nome Fantasia" value={empreendimento.nome} />
+                        <InfoField label="Nome Oficial (Cartório)" value={empreendimento.nome_empreendimento} />
+                        <InfoField label="Status" value={empreendimento.status} />
+                        <InfoField label="Empresa Proprietária" value={proprietaria ? (proprietaria.nome_fantasia || proprietaria.razao_social) : 'N/A'} />
+                        <InfoField label="Incorporadora" value={incorporadora ? `${incorporadora.nome || incorporadora.razao_social}` : 'N/A'} />
+                        <InfoField label="Construtora" value={construtora ? `${construtora.nome || construtora.razao_social}` : 'N/A'} />
+                        <InfoField label="Data de Início" value={empreendimento.data_inicio} />
+                        <InfoField label="Data Fim Prevista" value={empreendimento.data_fim_prevista} />
+                        <InfoField label="Prazo de Entrega" value={empreendimento.prazo_entrega} />
+                        <InfoField label="Valor Total" value={formattedValorTotal} />
+                        <InfoField label="Número da Matrícula" value={empreendimento.matricula_numero} />
+                        <InfoField label="Cartório da Matrícula" value={empreendimento.matricula_cartorio} />
+                        <InfoField label="Índice de Reajuste" value={empreendimento.indice_reajuste} />
+                    </div>
+                </div>
+                
+                <div className="pt-6 border-t"><h3 className="text-xl font-semibold text-gray-800 mb-4">Endereço</h3><div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"><InfoField label="CEP" value={empreendimento.cep} /><InfoField label="Rua" value={empreendimento.address_street} /><InfoField label="Número" value={empreendimento.address_number} /><InfoField label="Complemento" value={empreendimento.address_complement} /><InfoField label="Bairro" value={empreendimento.neighborhood} /><InfoField label="Cidade" value={empreendimento.city} /><InfoField label="Estado" value={empreendimento.state} /></div></div>
+                <div className="pt-6 border-t"><h3 className="text-xl font-semibold text-gray-800 mb-4">Características Construtivas</h3><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><InfoField label="Área Total do Terreno" value={formattedTerrenoAreaTotal} /><InfoField label="Tipo de Estrutura" value={empreendimento.estrutura_tipo} /><InfoField label="Tipo de Alvenaria" value={empreendimento.alvenaria_tipo} /><InfoField label="Detalhes da Cobertura" value={empreendimento.cobertura_detalhes} fullWidth={true}/></div></div>
+                {initialQuadroDeAreas && initialQuadroDeAreas.length > 0 && (
+                  <div className="pt-6 border-t"><h3 className="text-xl font-semibold text-gray-800 mb-4">Quadro de Áreas</h3><table className="min-w-full bg-white border rounded-lg"><thead className="bg-gray-100"><tr><th className="py-2 px-4 text-left text-sm font-semibold">Pavimento</th><th className="py-2 px-4 text-right text-sm font-semibold">Área (m²)</th></tr></thead><tbody>{initialQuadroDeAreas.map((item) => (<tr key={item.id} className="border-t"><td className="py-2 px-4">{item.pavimento_nome}</td><td className="py-2 px-4 text-right">{item.area_m2} m²</td></tr>))}<tr className="bg-gray-100 font-bold"><td className="py-2 px-4 text-left">Total</td><td className="py-2 px-4 text-right">{initialQuadroDeAreas.reduce((sum, item) => sum + parseFloat(item.area_m2 || 0), 0).toFixed(2)} m²</td></tr></tbody></table></div>
+                )}
+           </div>
+        )}
+
+        {activeTab === 'produtos' && <TabelaVendas produtos={produtos} empreendimentoId={empreendimento.id} />}
+        {['documentos_juridicos', 'documentos_gerais', 'marketing'].includes(activeTab) && (
+            <div className="space-y-6 animate-fade-in">
+                {activeTab === 'documentos_juridicos' && <><AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={() => router.refresh()} /><ListaAnexos anexos={getAnexosPorCategoria(['JURIDICAL', 'MINUTA', 'CONTRATO', 'REGISTRO', 'ESCRITURA', 'MATRICULA'])} onDelete={handleDeleteAnexo} /></>}
+                {activeTab === 'documentos_gerais' && <><AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={() => router.refresh()} /><ListaAnexos anexos={getAnexosPorCategoria(['GENERAL', 'PROJETO', 'RRT', 'CNO', 'ART', 'ALVARA', 'HABITE-SE', 'AVCB', 'LAUDO', 'CERTIDAO'])} onDelete={handleDeleteAnexo} /></>}
+                {activeTab === 'marketing' && <><AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={() => router.refresh()} /><GaleriaMarketing anexos={getAnexosPorCategoria(['FOTOS', 'IMAGEM', 'VIDEO'])} onDelete={handleDeleteAnexo} /></>}
             </div>
-
-            <h3 className="text-xl font-semibold text-gray-800 mt-8 mb-4">Endereço</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              <InfoField label="CEP" value={empreendimento.cep || 'N/A'} />
-              <InfoField label="Rua" value={empreendimento.address_street || 'N/A'} />
-              <InfoField label="Número" value={empreendimento.address_number || 'N/A'} />
-              <InfoField label="Complemento" value={empreendimento.address_complement || 'N/A'} />
-              <InfoField label="Bairro" value={empreendimento.neighborhood || 'N/A'} />
-              <InfoField label="Cidade" value={empreendimento.city || 'N/A'} />
-              <InfoField label="Estado" value={empreendimento.state || 'N/A'} />
-              {/* REMOVIDO: InfoField para 'country' */}
-            </div>
-            
-            <h3 className="text-xl font-semibold text-gray-800 mt-8 mb-4">Dados Contratuais Adicionais</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <InfoField label="Dados do Contrato" value={empreendimento.dados_contrato || 'N/A'} fullWidth={true}/>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'caracteristicas' && (
-          <div className="p-4 bg-gray-50 rounded-md">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Características do Imóvel</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              <InfoField label="Área Total do Terreno" value={formattedTerrenoAreaTotal} />
-              <InfoField label="Tipo de Estrutura" value={empreendimento.estrutura_tipo || 'N/A'} />
-              <InfoField label="Tipo de Alvenaria" value={empreendimento.alvenaria_tipo || 'N/A'} />
-              <InfoField label="Detalhes da Cobertura" value={empreendimento.cobertura_detalhes || 'N/A'} />
-              {/* Exibindo JSONB de acabamentos */}
-              <div className="md:col-span-3">
-                <InfoField label="Acabamentos" value={empreendimento.acabamentos ? JSON.stringify(empreendimento.acabamentos, null, 2) : 'N/A'} fullWidth={true}/>
-              </div>
-              {/* Exibindo JSONB de unidades */}
-              <div className="md:col-span-3">
-                <InfoField label="Unidades" value={empreendimento.unidades ? JSON.stringify(empreendimento.unidades, null, 2) : 'N/A'} fullWidth={true}/>
-              </div>
-            </div>
-            
-            {/* Seção Quadro de Áreas */}
-            {quadroDeAreas && quadroDeAreas.length > 0 && (
-              <div className="mt-8">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">Quadro de Áreas por Pavimento</h3>
-                <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="py-2 px-4 text-left text-sm font-semibold text-gray-700">Pavimento</th>
-                      <th className="py-2 px-4 text-right text-sm font-semibold text-gray-700">Área (m²)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {quadroDeAreas.map((item, index) => (
-                      <tr key={item.id || index} className="border-t border-gray-200">
-                        <td className="py-2 px-4 text-sm">{item.pavimento_nome}</td>
-                        <td className="py-2 px-4 text-right text-sm">{item.area_m2} m²</td>
-                      </tr>
-                    ))}
-                    <tr className="bg-gray-100 font-bold">
-                      <td className="py-2 px-4 text-left text-sm">Total</td>
-                      <td className="py-2 px-4 text-right text-sm">
-                        {quadroDeAreas.reduce((sum, item) => sum + parseFloat(item.area_m2 || 0), 0).toFixed(2)} m²
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'produtos' && (
-          <div className="p-4 bg-gray-50 rounded-md">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Produtos do Empreendimento</h2>
-            {/* Link para a página de produtos atual */}
-            <Link href={`/empreendimentos/${empreendimento.id}/produtos`} className="text-blue-500 hover:underline">
-              Ir para a página de Produtos e Tabela de Vendas
-            </Link>
-            <p className="text-gray-600 mt-2">Aqui você verá a lista detalhada de produtos/unidades associados a este empreendimento.</p>
-          </div>
-        )}
-
-        {activeTab === 'documentos_juridicos' && (
-          <div className="mt-4 p-4 border border-gray-200 rounded-md bg-gray-50">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Documentos Jurídicos</h2>
-            {documentosJuridicos.length > 0 ? (
-              <ul className="space-y-2">
-                {documentosJuridicos.map(anexo => (
-                  <li key={anexo.id} className="flex items-center gap-2 text-gray-700">
-                    <FontAwesomeIcon icon={faFileLines} />
-                    <a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
-                      {anexo.nome_arquivo} ({anexo.descricao || anexo.tipo?.descricao})
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-gray-600">Nenhum documento jurídico cadastrado.</p>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'documentos_gerais' && (
-          <div className="mt-4 p-4 border border-gray-200 rounded-md bg-gray-50">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Documentos Gerais</h2>
-            {documentosGerais.length > 0 ? (
-              <ul className="space-y-2">
-                {documentosGerais.map(anexo => (
-                  <li key={anexo.id} className="flex items-center gap-2 text-gray-700">
-                    <FontAwesomeIcon icon={faFileLines} />
-                    <a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
-                      {anexo.nome_arquivo} ({anexo.descricao || anexo.tipo?.descricao})
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-gray-600">Nenhum documento geral cadastrado.</p>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'fotos_imagens' && (
-          <div className="mt-4 p-4 border border-gray-200 rounded-md bg-gray-50">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Fotos/Imagens</h2>
-            {fotosImagens.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-                {fotosImagens.map(anexo => (
-                  <div key={anexo.id} className="relative group rounded-md overflow-hidden shadow-sm">
-                    <img src={anexo.public_url} alt={anexo.nome_arquivo || 'Imagem do Empreendimento'} className="w-full h-48 object-cover"/>
-                    {anexo.descricao && (
-                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 truncate">
-                        {anexo.descricao}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-600">Nenhuma foto/imagem cadastrada.</p>
-            )}
-          </div>
         )}
       </div>
     </div>
   );
 }
+
+const ListaAnexos = ({ anexos, onDelete }) => {
+    if (!anexos || anexos.length === 0) return <p className="text-center text-gray-500 py-4">Nenhum documento nesta categoria.</p>;
+    return (
+        <ul className="space-y-2">
+            {anexos.map(anexo => (<li key={anexo.id} className="bg-white p-3 rounded-md border flex items-center justify-between gap-4"><div className="flex items-center gap-3"><FontAwesomeIcon icon={faFileLines} className="text-xl text-gray-500" /><div><p className="font-medium text-gray-800">{anexo.nome_arquivo}</p><p className="text-xs text-gray-500">{anexo.descricao || anexo.tipo?.descricao}</p></div></div><div className="flex items-center gap-4"><a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800" title="Visualizar"><FontAwesomeIcon icon={faEye} /></a><button onClick={() => onDelete(anexo)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button></div></li>))}
+        </ul>
+    );
+};
+
+const GaleriaMarketing = ({ anexos, onDelete }) => {
+    if (!anexos || anexos.length === 0) return <p className="text-center text-gray-500 py-4">Nenhum item de marketing encontrado.</p>;
+    const isVideo = (path) => /\.(mp4|webm|ogg)$/i.test(path || '');
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {anexos.map(anexo => (<div key={anexo.id} className="relative group rounded-lg overflow-hidden shadow-lg border">{isVideo(anexo.caminho_arquivo) ? (<video controls src={anexo.public_url} className="w-full h-48 object-cover bg-black">Seu navegador não suporta o elemento de vídeo.</video>) : (anexo.public_url && <img src={anexo.public_url} alt={anexo.nome_arquivo} className="w-full h-48 object-cover"/>)}<div className="absolute top-0 right-0 p-1 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-black/80"><FontAwesomeIcon icon={faEye} /></a><button onClick={() => onDelete(anexo)} className="bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-black/80"><FontAwesomeIcon icon={faTrash} /></button></div>{(anexo.descricao || anexo.tipo?.descricao) && (<div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate">{anexo.descricao || anexo.tipo.descricao}</div>)}</div>))}
+        </div>
+    );
+};
