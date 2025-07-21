@@ -1,10 +1,14 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+// ***** INÍCIO DA ALTERAÇÃO *****
+// Adicionamos o hook 'useRef' para nos ajudar a controlar o input de arquivo.
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+// ***** FIM DA ALTERAÇÃO *****
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBuilding, faRulerCombined, faBoxOpen, faFileLines, faUpload, faSpinner, faTrash, faEye, faSort, faSortUp, faSortDown, faVideo } from '@fortawesome/free-solid-svg-icons';
+import { faBuilding, faRulerCombined, faBoxOpen, faFileLines, faUpload, faSpinner, faTrash, faEye, faSort, faSortUp, faSortDown, faVideo, faCloudUploadAlt } from '@fortawesome/free-solid-svg-icons'; // Adicionado ícone novo
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 
@@ -32,16 +36,67 @@ function KpiCard({ title, value, icon, colorClass = 'text-blue-500' }) {
   );
 }
 
-const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess }) => {
+// ***** INÍCIO DA ALTERAÇÃO *****
+// O componente 'AnexoUploader' foi reescrito para incluir a funcionalidade de arrastar e soltar.
+const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, categoria }) => {
     const supabase = createClient();
     const [file, setFile] = useState(null);
     const [descricao, setDescricao] = useState('');
     const [tipoId, setTipoId] = useState('');
     const [isUploading, setIsUploading] = useState(false);
+    const [isDraggingOver, setIsDraggingOver] = useState(false); // Novo estado para controlar o visual do "arrastar"
+    const fileInputRef = useRef(null); // Referência para o input de arquivo
+
+    const handleFileSelect = (selectedFile) => {
+        if (selectedFile) {
+            setFile(selectedFile);
+        }
+    };
+
+    const resetState = () => {
+        setFile(null);
+        setDescricao('');
+        setTipoId('');
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+
+    // Funções para o "Arrastar e Soltar"
+    const handleDragEnter = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingOver(true);
+    };
+
+    const handleDragLeave = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingOver(false);
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // Necessário para o onDrop funcionar
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingOver(false);
+        const droppedFile = e.dataTransfer.files[0];
+        if (droppedFile) {
+            handleFileSelect(droppedFile);
+        }
+    };
 
     const handleUpload = async () => {
         if (!file || !tipoId) {
             toast.error("Por favor, selecione um tipo de documento e um arquivo.");
+            return;
+        }
+        if (!categoria) {
+            toast.error("Erro: A categoria da aba não foi definida.");
             return;
         }
         setIsUploading(true);
@@ -54,30 +109,27 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess }) => {
             const { error: uploadError } = await supabase.storage.from('empreendimento-anexos').upload(newFileName, file, { upsert: true });
             if (uploadError) return reject(uploadError);
 
-            const { error: dbError } = await supabase.from('empreendimento_anexos').insert({
+            const { data, error: dbError } = await supabase.from('empreendimento_anexos').insert({
                 empreendimento_id: empreendimentoId,
                 caminho_arquivo: newFileName,
                 nome_arquivo: file.name,
                 descricao: descricao,
-                tipo_documento_id: tipoId
-            });
+                tipo_documento_id: tipoId,
+                categoria_aba: categoria
+            }).select().single();
+            
             if (dbError) return reject(dbError);
 
-            resolve("Anexo enviado com sucesso!");
+            resolve({msg: "Anexo enviado com sucesso!", newAnexo: data});
         });
 
         toast.promise(promise, {
             loading: 'Enviando arquivo...',
-            success: (msg) => {
-                onUploadSuccess();
-                setFile(null);
-                setDescricao('');
-                setTipoId('');
-                if(document.getElementById(`file-input-${tipoId}`)) {
-                   document.getElementById(`file-input-${tipoId}`).value = "";
-                }
+            success: (result) => {
+                onUploadSuccess(result.newAnexo); // Passa o novo anexo para a função de sucesso
+                resetState();
                 setIsUploading(false);
-                return msg;
+                return result.msg;
             },
             error: (err) => {
                 setIsUploading(false);
@@ -85,26 +137,59 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess }) => {
             },
         });
     };
+    
+    // Define a classe da borda baseada no estado 'isDraggingOver'
+    const dropzoneClass = isDraggingOver
+        ? 'border-blue-500 bg-blue-50'
+        : 'border-gray-300 bg-gray-50';
 
     return (
-        <div className="p-4 bg-gray-50 border rounded-lg space-y-3">
+        <div className="p-4 bg-white border rounded-lg space-y-4">
             <h4 className="font-semibold text-gray-700">Adicionar Novo Documento</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <select value={tipoId} onChange={(e) => setTipoId(e.target.value)} className="p-2 border rounded-md">
+                <select value={tipoId} onChange={(e) => setTipoId(e.target.value)} className="p-2 border rounded-md w-full">
                     <option value="">-- Selecione o Tipo --</option>
                     {allowedTipos.map(t => <option key={t.id} value={t.id}>{t.descricao} ({t.sigla})</option>)}
                 </select>
-                <input type="text" placeholder="Descrição (opcional)" value={descricao} onChange={(e) => setDescricao(e.target.value)} className="p-2 border rounded-md" />
+                <input type="text" placeholder="Descrição (opcional)" value={descricao} onChange={(e) => setDescricao(e.target.value)} className="p-2 border rounded-md w-full" />
             </div>
-            <div className="flex items-center gap-4">
-                <input id={`file-input-${tipoId}`} type="file" onChange={(e) => setFile(e.target.files[0])} className="flex-grow text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100"/>
-                <button onClick={handleUpload} disabled={isUploading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
-                    {isUploading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Enviar'}
+
+            {/* Nova Área de Arrastar e Soltar */}
+            <div
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${dropzoneClass}`}
+            >
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => handleFileSelect(e.target.files[0])}
+                />
+                <FontAwesomeIcon icon={faCloudUploadAlt} className="text-4xl text-gray-400 mb-3" />
+                {file ? (
+                    <div>
+                        <p className="font-semibold text-gray-700">{file.name}</p>
+                        <p className="text-sm text-gray-500">{(file.size / 1024).toFixed(2)} KB</p>
+                    </div>
+                ) : (
+                    <p className="text-gray-500">Arraste e solte o arquivo aqui, ou <span className="text-blue-600 font-semibold">clique para selecionar</span>.</p>
+                )}
+            </div>
+
+            <div className="flex justify-end">
+                <button onClick={handleUpload} disabled={isUploading || !file || !tipoId} className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    {isUploading ? <FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> : <FontAwesomeIcon icon={faUpload} className="mr-2" />}
+                    {isUploading ? 'Enviando...' : 'Enviar Arquivo'}
                 </button>
             </div>
         </div>
     );
 };
+// ***** FIM DA ALTERAÇÃO *****
 
 const TabelaVendas = ({ produtos, empreendimentoId }) => {
     const [sortConfig, setSortConfig] = useState({ key: 'unidade', direction: 'ascending' });
@@ -229,12 +314,18 @@ const TabelaVendas = ({ produtos, empreendimentoId }) => {
     );
 };
 
+
 // --- COMPONENTE PRINCIPAL ---
 
 export default function EmpreendimentoDetails({ empreendimento, corporateEntities = [], proprietariaOptions = [], produtos = [], initialAnexos, documentoTipos, initialQuadroDeAreas }) {
   const [activeTab, setActiveTab] = useState('dados_gerais');
+  const [anexos, setAnexos] = useState(initialAnexos);
   const supabase = createClient();
   const router = useRouter();
+
+  useEffect(() => {
+    setAnexos(initialAnexos);
+  }, [initialAnexos]);
 
   const kpiData = useMemo(() => {
     const totalUnidades = produtos ? produtos.length : 0;
@@ -247,32 +338,53 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
     };
   }, [produtos]);
   
-  const handleDeleteAnexo = async (anexo) => {
-      if (!window.confirm(`Tem certeza que deseja excluir o anexo "${anexo.nome_arquivo}"?`)) return;
+  const handleDeleteAnexo = async (anexoId) => {
+    const anexoToDelete = anexos.find(a => a.id === anexoId);
+    if (!anexoToDelete || !window.confirm(`Tem certeza que deseja excluir o anexo "${anexoToDelete.nome_arquivo}"?`)) return;
       
-      toast.promise(
-          new Promise(async (resolve, reject) => {
-              const { error: storageError } = await supabase.storage.from('empreendimento-anexos').remove([anexo.caminho_arquivo]);
-              if (storageError) return reject(storageError);
-              const { error: dbError } = await supabase.from('empreendimento_anexos').delete().eq('id', anexo.id);
-              if (dbError) return reject(dbError);
-              resolve("Anexo excluído com sucesso!");
-          }),
-          {
-              loading: 'Excluindo...',
-              success: (msg) => { router.refresh(); return msg; },
-              error: (err) => `Erro ao excluir: ${err.message}`,
-          }
-      );
+    toast.promise(
+        new Promise(async (resolve, reject) => {
+            const { error: storageError } = await supabase.storage.from('empreendimento-anexos').remove([anexoToDelete.caminho_arquivo]);
+            // Ignorar erro se o arquivo não existir no storage, mas continuar para deletar no DB
+            if (storageError && storageError.statusCode !== '404') return reject(storageError);
+            
+            const { error: dbError } = await supabase.from('empreendimento_anexos').delete().eq('id', anexoId);
+            if (dbError) return reject(dbError);
+            
+            resolve("Anexo excluído com sucesso!");
+        }),
+        {
+            loading: 'Excluindo...',
+            success: (msg) => { 
+                // Remove o anexo do estado local para atualização instantânea da UI
+                setAnexos(currentAnexos => currentAnexos.filter(a => a.id !== anexoId));
+                return msg; 
+            },
+            error: (err) => `Erro ao excluir: ${err.message}`,
+        }
+    );
   };
   
-  const getAnexosPorCategoria = (siglas) => initialAnexos.filter(anexo => anexo.tipo && siglas.includes(anexo.tipo.sigla.toUpperCase()));
-
   const incorporadora = useMemo(() => corporateEntities.find(e => e.id === empreendimento.incorporadora_id), [corporateEntities, empreendimento.incorporadora_id]);
   const construtora = useMemo(() => corporateEntities.find(e => e.id === empreendimento.construtora_id), [corporateEntities, empreendimento.construtora_id]);
   const proprietaria = useMemo(() => proprietariaOptions.find(p => p.id === empreendimento.empresa_proprietaria_id), [proprietariaOptions, empreendimento.empresa_proprietaria_id]);
   const formattedValorTotal = useMemo(() => empreendimento.valor_total ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(empreendimento.valor_total)) : 'N/A', [empreendimento.valor_total]);
   const formattedTerrenoAreaTotal = useMemo(() => empreendimento.terreno_area_total ? `${empreendimento.terreno_area_total} m²` : 'N/A', [empreendimento.terreno_area_total]);
+
+  // ***** INÍCIO DA ALTERAÇÃO *****
+  // Agora, a função adiciona o novo anexo ao estado local para atualização instantânea.
+  const handleUploadSuccess = async (newAnexoData) => {
+      // Precisamos da URL pública para exibir o anexo. Buscamos ela aqui.
+      const { data } = supabase.storage.from('empreendimento-anexos').getPublicUrl(newAnexoData.caminho_arquivo);
+      const anexoCompleto = {
+        ...newAnexoData,
+        public_url: data.publicUrl,
+        tipo: documentoTipos.find(t => t.id === newAnexoData.tipo_documento_id)
+      };
+
+      setAnexos(currentAnexos => [...currentAnexos, anexoCompleto]);
+  };
+  // ***** FIM DA ALTERAÇÃO *****
 
   return (
     <div className="p-6 bg-white shadow-md rounded-lg">
@@ -331,11 +443,27 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
         )}
 
         {activeTab === 'produtos' && <TabelaVendas produtos={produtos} empreendimentoId={empreendimento.id} />}
+        
         {['documentos_juridicos', 'documentos_gerais', 'marketing'].includes(activeTab) && (
             <div className="space-y-6 animate-fade-in">
-                {activeTab === 'documentos_juridicos' && <><AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={() => router.refresh()} /><ListaAnexos anexos={getAnexosPorCategoria(['JURIDICAL', 'MINUTA', 'CONTRATO', 'REGISTRO', 'ESCRITURA', 'MATRICULA'])} onDelete={handleDeleteAnexo} /></>}
-                {activeTab === 'documentos_gerais' && <><AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={() => router.refresh()} /><ListaAnexos anexos={getAnexosPorCategoria(['GENERAL', 'PROJETO', 'RRT', 'CNO', 'ART', 'ALVARA', 'HABITE-SE', 'AVCB', 'LAUDO', 'CERTIDAO'])} onDelete={handleDeleteAnexo} /></>}
-                {activeTab === 'marketing' && <><AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={() => router.refresh()} /><GaleriaMarketing anexos={getAnexosPorCategoria(['FOTOS', 'IMAGEM', 'VIDEO'])} onDelete={handleDeleteAnexo} /></>}
+                {activeTab === 'documentos_juridicos' && (
+                    <>
+                        <AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="juridico" />
+                        <ListaAnexos anexos={anexos.filter(a => a.categoria_aba === 'juridico')} onDelete={handleDeleteAnexo} />
+                    </>
+                )}
+                {activeTab === 'documentos_gerais' && (
+                    <>
+                        <AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="geral" />
+                        <ListaAnexos anexos={anexos.filter(a => a.categoria_aba === 'geral')} onDelete={handleDeleteAnexo} />
+                    </>
+                )}
+                {activeTab === 'marketing' && (
+                     <>
+                        <AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="marketing" />
+                        <GaleriaMarketing anexos={anexos.filter(a => a.categoria_aba === 'marketing')} onDelete={handleDeleteAnexo} />
+                    </>
+                )}
             </div>
         )}
       </div>
@@ -344,20 +472,20 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
 }
 
 const ListaAnexos = ({ anexos, onDelete }) => {
-    if (!anexos || anexos.length === 0) return <p className="text-center text-gray-500 py-4">Nenhum documento nesta categoria.</p>;
+    if (!anexos || anexos.length === 0) return <p className="text-center text-gray-500 py-4 mt-4">Nenhum documento nesta categoria.</p>;
     return (
-        <ul className="space-y-2">
-            {anexos.map(anexo => (<li key={anexo.id} className="bg-white p-3 rounded-md border flex items-center justify-between gap-4"><div className="flex items-center gap-3"><FontAwesomeIcon icon={faFileLines} className="text-xl text-gray-500" /><div><p className="font-medium text-gray-800">{anexo.nome_arquivo}</p><p className="text-xs text-gray-500">{anexo.descricao || anexo.tipo?.descricao}</p></div></div><div className="flex items-center gap-4"><a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800" title="Visualizar"><FontAwesomeIcon icon={faEye} /></a><button onClick={() => onDelete(anexo)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button></div></li>))}
-        </ul>
+        <div className="space-y-3 mt-4">
+            {anexos.map(anexo => (<div key={anexo.id} className="bg-white p-3 rounded-md border flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors"><div className="flex items-center gap-4 min-w-0"><FontAwesomeIcon icon={faFileLines} className="text-xl text-gray-500 flex-shrink-0" /><div className="flex-grow min-w-0"><p className="font-medium text-gray-800 truncate" title={anexo.nome_arquivo}>{anexo.nome_arquivo}</p><p className="text-xs text-gray-500">{anexo.descricao || anexo.tipo?.descricao || 'Sem descrição'}</p></div></div><div className="flex items-center gap-4 flex-shrink-0"><a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800" title="Visualizar"><FontAwesomeIcon icon={faEye} /></a><button onClick={() => onDelete(anexo.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button></div></div>))}
+        </div>
     );
 };
 
 const GaleriaMarketing = ({ anexos, onDelete }) => {
-    if (!anexos || anexos.length === 0) return <p className="text-center text-gray-500 py-4">Nenhum item de marketing encontrado.</p>;
+    if (!anexos || anexos.length === 0) return <p className="text-center text-gray-500 py-4 mt-4">Nenhum item de marketing encontrado.</p>;
     const isVideo = (path) => /\.(mp4|webm|ogg)$/i.test(path || '');
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {anexos.map(anexo => (<div key={anexo.id} className="relative group rounded-lg overflow-hidden shadow-lg border">{isVideo(anexo.caminho_arquivo) ? (<video controls src={anexo.public_url} className="w-full h-48 object-cover bg-black">Seu navegador não suporta o elemento de vídeo.</video>) : (anexo.public_url && <img src={anexo.public_url} alt={anexo.nome_arquivo} className="w-full h-48 object-cover"/>)}<div className="absolute top-0 right-0 p-1 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-black/80"><FontAwesomeIcon icon={faEye} /></a><button onClick={() => onDelete(anexo)} className="bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-black/80"><FontAwesomeIcon icon={faTrash} /></button></div>{(anexo.descricao || anexo.tipo?.descricao) && (<div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate">{anexo.descricao || anexo.tipo.descricao}</div>)}</div>))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+            {anexos.map(anexo => (<div key={anexo.id} className="relative group rounded-lg overflow-hidden shadow-lg border">{isVideo(anexo.caminho_arquivo) ? (<video controls src={anexo.public_url} className="w-full h-48 object-cover bg-black">Seu navegador não suporta o elemento de vídeo.</video>) : (anexo.public_url && <img src={anexo.public_url} alt={anexo.nome_arquivo} className="w-full h-48 object-cover"/>)}<div className="absolute top-0 right-0 p-1 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-black/80"><FontAwesomeIcon icon={faEye} /></a><button onClick={() => onDelete(anexo.id)} className="bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-black/80"><FontAwesomeIcon icon={faTrash} /></button></div>{(anexo.descricao || anexo.tipo?.descricao) && (<div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate">{anexo.descricao || anexo.tipo.descricao}</div>)}</div>))}
         </div>
     );
 };

@@ -1,8 +1,8 @@
 import { createClient } from '@/utils/supabase/server';
 import EmpreendimentoDetails from '@/components/EmpreendimentoDetails';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+// Garante que os dados da página sejam sempre buscados do servidor, sem cache.
 export const dynamic = 'force-dynamic';
 
 export default async function ViewEmpreendimentoPage({ params }) {
