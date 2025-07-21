@@ -101,11 +101,11 @@ async function handleMediaMessage(supabase, whatsappConfig, message) {
 }
 
 // -----------------------------------------------------------------------------
-// INÍCIO DA INTEGRAÇÃO DA STELLA (NOVAS FUNÇÕES)
+// ***** INÍCIO DA CORREÇÃO *****
 // -----------------------------------------------------------------------------
 
-// Função para ENVIAR uma resposta de texto para o WhatsApp
-async function sendTextMessage(config, to, text) {
+// Função para ENVIAR uma resposta de texto e SALVAR no banco
+async function sendTextMessage(supabase, config, to, contactId, text) {
     const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
     const payload = {
         messaging_product: "whatsapp",
@@ -114,169 +114,128 @@ async function sendTextMessage(config, to, text) {
         text: { body: text }
     };
 
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${config.whatsapp_permanent_token}`
-            },
-            body: JSON.stringify(payload)
-        });
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.whatsapp_permanent_token}` },
+        body: JSON.stringify(payload)
+    });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error("ERRO ao enviar mensagem de texto via WhatsApp:", errorData);
-            return false;
-        }
-        console.log(`INFO: Resposta de texto enviada para ${to}`);
-        return true;
-    } catch (error) {
-        console.error("ERRO INESPERADO ao enviar mensagem de texto:", error);
+    const responseData = await response.json();
+    if (!response.ok) {
+        console.error("ERRO ao enviar mensagem de texto via WhatsApp:", responseData);
         return false;
     }
+
+    // Após enviar com sucesso, SALVA a mensagem no banco
+    const messageId = responseData.messages?.[0]?.id;
+    if (messageId) {
+        await supabase.from('whatsapp_messages').insert({
+            contato_id: contactId,
+            message_id: messageId,
+            sender_id: config.whatsapp_phone_number_id,
+            receiver_id: to,
+            content: text,
+            sent_at: new Date().toISOString(),
+            direction: 'outbound',
+            status: 'sent',
+            raw_payload: payload
+        });
+    }
+    console.log(`INFO: Resposta de texto enviada para ${to} e salva no banco.`);
+    return true;
 }
 
-// Função para ENVIAR um documento (PDF) para o WhatsApp
-async function sendDocumentMessage(config, to, documentUrl, caption, filename) {
+// Função para ENVIAR um documento e SALVAR no banco
+async function sendDocumentMessage(supabase, config, to, contactId, documentUrl, caption, filename) {
     const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
     const payload = {
         messaging_product: "whatsapp",
         to: to,
         type: "document",
-        document: {
-            link: documentUrl,
-            caption: caption,
-            filename: filename
-        }
+        document: { link: documentUrl, caption: caption, filename: filename }
     };
     
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${config.whatsapp_permanent_token}`
-            },
-            body: JSON.stringify(payload)
-        });
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.whatsapp_permanent_token}` },
+        body: JSON.stringify(payload)
+    });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error("ERRO ao enviar documento via WhatsApp:", errorData);
-            return false;
-        }
-        console.log(`INFO: Documento enviado para ${to}: ${filename}`);
-        return true;
-    } catch (error) {
-        console.error("ERRO INESPERADO ao enviar documento:", error);
+    const responseData = await response.json();
+    if (!response.ok) {
+        console.error("ERRO ao enviar documento via WhatsApp:", responseData);
         return false;
     }
+    
+    // Após enviar com sucesso, SALVA a mensagem no banco
+    const messageId = responseData.messages?.[0]?.id;
+    if (messageId) {
+        await supabase.from('whatsapp_messages').insert({
+            contato_id: contactId,
+            message_id: messageId,
+            sender_id: config.whatsapp_phone_number_id,
+            receiver_id: to,
+            content: caption || filename,
+            sent_at: new Date().toISOString(),
+            direction: 'outbound',
+            status: 'sent',
+            raw_payload: payload
+        });
+    }
+    console.log(`INFO: Documento enviado para ${to} e salvo no banco.`);
+    return true;
 }
 
-
-// O CÉREBRO DA STELLA: Processa a mensagem e decide o que fazer
-async function processStellaLogic(supabase, config, messageText, senderPhone) {
+// O CÉREBRO DA STELLA: Agora recebe o contactId para poder salvar as respostas
+async function processStellaLogic(supabase, config, messageText, senderPhone, contactId) {
     const texto = messageText.toLowerCase();
     const palavras = texto.split(' ');
-
-    // 1. Tentar extrair um ID de empreendimento da mensagem
     let empreendimentoId = null;
-    for (const palavra of palavras) {
-        if (!isNaN(parseInt(palavra))) {
-            empreendimentoId = parseInt(palavra);
-            break;
-        }
-    }
+    for (const palavra of palavras) { if (!isNaN(parseInt(palavra))) { empreendimentoId = parseInt(palavra); break; } }
 
-    // 2. Verificar a intenção do usuário
     const querInfo = texto.includes('info') || texto.includes('informações');
     const querBook = texto.includes('book') || texto.includes('apresentação');
     const querTabela = texto.includes('tabela');
 
-    // Se não houver ID, não podemos fazer nada.
     if (!empreendimentoId) {
         const resposta = "Olá! Sou a Stella. Para que eu possa te ajudar, por favor, inclua o código do empreendimento no seu pedido. 😉";
-        await sendTextMessage(config, senderPhone, resposta);
+        await sendTextMessage(supabase, config, senderPhone, contactId, resposta);
         return;
     }
 
-    // Busca os dados do empreendimento para usar nas respostas
-    const { data: empreendimento, error: empError } = await supabase
-        .from('empreendimentos')
-        .select('*')
-        .eq('id', empreendimentoId)
-        .single();
-    
+    const { data: empreendimento, error: empError } = await supabase.from('empreendimentos').select('*').eq('id', empreendimentoId).single();
     if (empError || !empreendimento) {
         const resposta = "Não encontrei um empreendimento com este código. Poderia verificar, por favor?";
-        await sendTextMessage(config, senderPhone, resposta);
+        await sendTextMessage(supabase, config, senderPhone, contactId, resposta);
         return;
     }
 
-    // 3. Executar a ação baseada na intenção
-
-    // Se pediu o BOOK
     if (querBook) {
-        const { data: anexo, error } = await supabase
-            .from('empreendimento_anexos')
-            .select('public_url, nome_arquivo')
-            .eq('empreendimento_id', empreendimentoId)
-            .eq('categoria_aba', 'marketing')
-            .like('nome_arquivo', '%book%') // Tenta achar um arquivo com "book" no nome
-            .limit(1)
-            .single();
-
-        if (anexo) {
-            await sendDocumentMessage(config, senderPhone, anexo.public_url, `Aqui está o book do ${empreendimento.nome}!`, anexo.nome_arquivo);
-        } else {
-            await sendTextMessage(config, senderPhone, `Peço desculpas, mas não encontrei o book de apresentação para o ${empreendimento.nome} no momento.`);
-        }
+        const { data: anexo } = await supabase.from('empreendimento_anexos').select('public_url, nome_arquivo').eq('empreendimento_id', empreendimentoId).eq('categoria_aba', 'marketing').like('nome_arquivo', '%book%').limit(1).single();
+        if (anexo) { await sendDocumentMessage(supabase, config, senderPhone, contactId, anexo.public_url, `Aqui está o book do ${empreendimento.nome}!`, anexo.nome_arquivo); } 
+        else { await sendTextMessage(supabase, config, senderPhone, contactId, `Peço desculpas, mas não encontrei o book de apresentação para o ${empreendimento.nome} no momento.`); }
         return;
     }
 
-    // Se pediu a TABELA DE VENDAS
     if (querTabela) {
-        const { data: anexo, error } = await supabase
-            .from('empreendimento_anexos')
-            .select('public_url, nome_arquivo')
-            .eq('empreendimento_id', empreendimentoId)
-            .like('nome_arquivo', '%tabela%') // Tenta achar um arquivo com "tabela" no nome
-            .limit(1)
-            .single();
-        
-        if (anexo) {
-            await sendDocumentMessage(config, senderPhone, anexo.public_url, `Conforme solicitado, segue a tabela de vendas do ${empreendimento.nome}.`, anexo.nome_arquivo);
-        } else {
-            await sendTextMessage(config, senderPhone, `Que pena! Não localizei a tabela de vendas para o ${empreendimento.nome} agora.`);
-        }
+        const { data: anexo } = await supabase.from('empreendimento_anexos').select('public_url, nome_arquivo').eq('empreendimento_id', empreendimentoId).like('nome_arquivo', '%tabela%').limit(1).single();
+        if (anexo) { await sendDocumentMessage(supabase, config, senderPhone, contactId, anexo.public_url, `Conforme solicitado, segue a tabela de vendas do ${empreendimento.nome}.`, anexo.nome_arquivo); } 
+        else { await sendTextMessage(supabase, config, senderPhone, contactId, `Que pena! Não localizei a tabela de vendas para o ${empreendimento.nome} agora.`); }
         return;
     }
 
-    // Se pediu INFORMAÇÕES GERAIS
     if (querInfo) {
-        const resposta = `
-Claro! Seguem as informações sobre o *${empreendimento.nome}*:
-
-*Status:* ${empreendimento.status || 'Não informado'}
-*Localização:* ${empreendimento.address_street || ''}, ${empreendimento.neighborhood || ''} - ${empreendimento.city || ''}
-${empreendimento.descricao_curta || ''}
-
-Posso te enviar o *book* de apresentação ou a *tabela* de vendas?
-        `.trim().replace(/^ +/gm, ''); // Remove espaços extras
-
-        await sendTextMessage(config, senderPhone, resposta);
+        const resposta = `Olá! Sou a Stella e tenho as informações que você pediu sobre o empreendimento *${empreendimento.nome}*! 🏡\n\n*Status:* ${empreendimento.status || 'Não informado'}\n*Localização:* ${empreendimento.address_street || ''}, ${empreendimento.neighborhood || ''} - ${empreendimento.city || ''}\n\n${empreendimento.descricao_curta || 'Este é um excelente empreendimento com ótimas características.'}\n\nPosso ajudar com mais alguma coisa, como o *book* de apresentação ou a *tabela* de vendas?`.trim();
+        await sendTextMessage(supabase, config, senderPhone, contactId, resposta);
         return;
     }
 
-    // Se não entendeu, envia uma resposta padrão
     const respostaPadrao = `Olá! Sou a Stella. Recebi sua mensagem sobre o empreendimento ${empreendimento.nome}. Como posso te ajudar? Você gostaria de *informações*, do *book* ou da *tabela de vendas*?`;
-    await sendTextMessage(config, senderPhone, respostaPadrao);
+    await sendTextMessage(supabase, config, senderPhone, contactId, respostaPadrao);
 }
 
-
 // -----------------------------------------------------------------------------
-// WEBHOOK PRINCIPAL (GET e POST)
+// ***** FIM DA CORREÇÃO *****
 // -----------------------------------------------------------------------------
 
 export async function GET(request) {
@@ -285,7 +244,6 @@ export async function GET(request) {
     const token = searchParams.get('hub.verify_token');
     const challenge = searchParams.get('hub.challenge');
     const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
-
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
         console.log("INFO: Webhook verificado com sucesso!");
         return new NextResponse(challenge, { status: 200 });
@@ -304,32 +262,23 @@ export async function POST(request) {
         const body = await request.json();
         console.log("INFO: Payload recebido:", JSON.stringify(body, null, 2));
 
-        const { data: whatsappConfig, error: configError } = await supabaseAdmin
-            .from('configuracoes_whatsapp')
-            .select('whatsapp_permanent_token, whatsapp_phone_number_id')
-            .limit(1).single();
-
+        const { data: whatsappConfig, error: configError } = await supabaseAdmin.from('configuracoes_whatsapp').select('whatsapp_permanent_token, whatsapp_phone_number_id').limit(1).single();
         if (configError || !whatsappConfig) {
             console.error("ERRO CRÍTICO: Não foi possível buscar as configurações do WhatsApp no banco.", configError);
-            return new NextResponse(null, { status: 200 }); // Retorna 200 para o WhatsApp não ficar reenviando
+            return new NextResponse(null, { status: 200 });
         }
         
         const messageEntry = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-
         if (messageEntry) {
-            // Se a mensagem for de mídia, processa e obtém a URL pública.
             if (['audio', 'image', 'video', 'document'].includes(messageEntry.type)) {
                 const publicUrl = await handleMediaMessage(supabaseAdmin, whatsappConfig, messageEntry);
-                if (publicUrl) {
-                    messageEntry[messageEntry.type].link = publicUrl;
-                }
+                if (publicUrl) { messageEntry[messageEntry.type].link = publicUrl; }
             }
 
             const messageContent = getTextContent(messageEntry);
             const contactPhoneNumber = messageEntry.from;
-            
-            // Lógica para salvar a mensagem no banco (seu código original)
             let contactId = null;
+
             const possiblePhones = normalizeAndGeneratePhoneNumbers(contactPhoneNumber);
             const { data: matchingPhones } = await supabaseAdmin.from('telefones').select('contato_id').in('telefone', possiblePhones).limit(1);
             if (matchingPhones && matchingPhones.length > 0) {
@@ -337,26 +286,22 @@ export async function POST(request) {
             }
             
             const messageToSave = {
-                contato_id: contactId,
-                message_id: messageEntry.id,
-                sender_id: messageEntry.from,
-                receiver_id: messageEntry.to,
-                content: messageContent,
+                contato_id: contactId, message_id: messageEntry.id, sender_id: messageEntry.from,
+                receiver_id: messageEntry.to, content: messageContent,
                 sent_at: new Date(parseInt(messageEntry.timestamp, 10) * 1000).toISOString(),
-                direction: 'inbound',
-                status: 'delivered',
-                raw_payload: messageEntry,
+                direction: 'inbound', status: 'delivered', raw_payload: messageEntry,
             };
             
             const { error: dbError } = await supabaseAdmin.from('whatsapp_messages').insert(messageToSave);
             if (dbError) console.error("ERRO ao salvar mensagem no banco:", dbError);
 
-            // ----- CHAMADA PARA A LÓGICA DA STELLA -----
-            // Se a mensagem for de texto, passamos para a IA decidir o que fazer.
+            // ***** INÍCIO DA CORREÇÃO *****
+            // Se for uma mensagem de texto, passamos para a IA decidir o que fazer.
+            // AGORA, passamos também o contactId encontrado.
             if (messageContent && messageEntry.type === 'text') {
-                // Usamos 'await' para garantir que a lógica da IA execute antes de terminar a função.
-                await processStellaLogic(supabaseAdmin, whatsappConfig, messageContent, contactPhoneNumber);
+                await processStellaLogic(supabaseAdmin, whatsappConfig, messageContent, contactPhoneNumber, contactId);
             }
+            // ***** FIM DA CORREÇÃO *****
         }
         
         return new NextResponse(null, { status: 200 });
