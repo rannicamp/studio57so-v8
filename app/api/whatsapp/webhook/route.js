@@ -44,9 +44,8 @@ function normalizeAndGeneratePhoneNumbers(rawPhone) {
     return Array.from(numbersToSearch);
 }
 
-// --- FUNÇÕES DA IA STELLA (ATUALIZADAS) ---
+// --- FUNÇÕES DA IA STELLA ---
 
-// Função para ENVIAR mensagens e SALVAR no banco
 async function sendTextMessage(supabase, config, to, contactId, text) {
     const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
     const payload = { messaging_product: "whatsapp", to: to, type: "text", text: { body: text } };
@@ -63,7 +62,6 @@ async function sendTextMessage(supabase, config, to, contactId, text) {
     }
 }
 
-// Funções de memória da conversa (sem alterações)
 async function getConversationContext(supabase, phoneNumber) {
     const { data } = await supabase.from('whatsapp_conversations').select('context').eq('phone_number', phoneNumber).single();
     return data?.context || {};
@@ -72,61 +70,26 @@ async function saveConversationContext(supabase, phoneNumber, context) {
     await supabase.from('whatsapp_conversations').upsert({ phone_number: phoneNumber, context, updated_at: new Date().toISOString() });
 }
 
-// ***** NOVA FUNÇÃO SUPERINTELIGENTE *****
-// Esta função usa a memória da Stella para responder perguntas complexas
 async function answerQuestionBasedOnMemory(supabase, empreendimentoId, userQuestion) {
-    console.log(`[STELLA] Iniciando busca na memória para a pergunta: "${userQuestion}"`);
-
-    // 1. Transforma a pergunta do usuário em "conhecimento" (vetor)
     const questionEmbeddingResult = await embeddingModel.embedContent(userQuestion);
     const questionEmbedding = questionEmbeddingResult.embedding.values;
-
-    // 2. Chama a função do banco de dados para encontrar os trechos mais parecidos
     const { data: contextChunks, error: matchError } = await supabase
         .rpc('match_documento_empreendimento', {
             query_embedding: questionEmbedding,
-            match_threshold: 0.75, // Nível de confiança da busca
-            match_count: 5, // Pega os 5 melhores resultados
+            match_threshold: 0.75,
+            match_count: 5,
             p_empreendimento_id: empreendimentoId
         });
-
-    if (matchError) {
-        console.error("[STELLA] Erro ao buscar na memória:", matchError);
-        return "Tive um problema para acessar minhas memórias. Por favor, tente novamente.";
-    }
-    
-    if (!contextChunks || contextChunks.length === 0) {
-        console.log("[STELLA] Nenhum contexto relevante encontrado na memória.");
-        return "Peço desculpas, mas não encontrei informações sobre isso nos meus documentos. Você poderia perguntar de outra forma?";
-    }
-
-    // 3. Monta o contexto para a IA
+    if (matchError) { console.error("[STELLA] Erro ao buscar na memória:", matchError); return "Tive um problema para acessar minhas memórias. Por favor, tente novamente."; }
+    if (!contextChunks || contextChunks.length === 0) { return "Peço desculpas, mas não encontrei informações sobre isso nos meus documentos. Você poderia perguntar de outra forma?"; }
     const contextText = contextChunks.map(chunk => chunk.content).join("\n\n---\n\n");
-    
-    const prompt = `
-        Você é a Stella, uma assistente especialista em imóveis.
-        Use o CONTEXTO abaixo, que foi extraído dos documentos oficiais do empreendimento, para responder à PERGUNTA do cliente.
-        Responda de forma clara, amigável e direta.
-        Se a resposta não estiver no contexto, diga que não encontrou a informação. NÃO invente respostas.
-
-        --- CONTEXTO ---
-        ${contextText}
-        --- FIM DO CONTEXTO ---
-
-        PERGUNTA: "${userQuestion}"
-    `;
-
-    // 4. Pede para a IA gerar a resposta final baseada no contexto
-    try {
-        const result = await generativeModel.generateContent(prompt);
-        const response = await result.response;
-        return response.text();
-    } catch (error) {
-        console.error("[STELLA] Erro ao gerar resposta final com a IA:", error);
-        return "Houve um problema ao processar sua pergunta. Tente novamente.";
-    }
+    const prompt = `Você é a Stella, uma assistente especialista em imóveis. Use o CONTEXTO abaixo, que foi extraído dos documentos oficiais do empreendimento, para responder à PERGUNTA do cliente. Responda de forma clara, amigável e direta. Se a resposta não estiver no contexto, diga que não encontrou a informação. NÃO invente respostas. --- CONTEXTO --- ${contextText} --- FIM DO CONTEXTO --- PERGUNTA: "${userQuestion}"`;
+    const result = await generativeModel.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
 }
 
+// ***** INÍCIO DA LÓGICA CORRIGIDA *****
 // O CÉREBRO DA STELLA (LÓGICA PRINCIPAL ATUALIZADA)
 async function processStellaLogic(supabase, config, messageText, senderPhone, contactId) {
     const texto = messageText.toLowerCase();
@@ -135,23 +98,27 @@ async function processStellaLogic(supabase, config, messageText, senderPhone, co
     let empreendimentoId = context.empreendimentoId;
     let empreendimentoNome = context.empreendimentoNome;
 
-    // Lógica para identificar o empreendimento (sem alteração)
-    const { data: empreendimentos } = await supabase.from('empreendimentos').select('id, nome');
-    for (const emp of empreendimentos || []) {
-        if (texto.includes(emp.nome.toLowerCase())) {
-            empreendimentoId = emp.id;
-            empreendimentoNome = emp.nome;
-            context = { empreendimentoId, empreendimentoNome };
-            break;
+    // 1. SÓ busca por um novo empreendimento se não houver um na memória da conversa.
+    if (!empreendimentoId) {
+        const { data: empreendimentos } = await supabase.from('empreendimentos').select('id, nome');
+        for (const emp of empreendimentos || []) {
+            if (texto.includes(emp.nome.toLowerCase())) {
+                empreendimentoId = emp.id;
+                empreendimentoNome = emp.nome;
+                context = { empreendimentoId, empreendimentoNome };
+                await saveConversationContext(supabase, senderPhone, context); // Salva na memória ASSIM que encontra
+                break;
+            }
         }
     }
     
+    // 2. AGORA, se mesmo depois de procurar, ainda não sabemos qual é, pedimos ajuda.
     if (!empreendimentoId) {
         await sendTextMessage(supabase, config, senderPhone, contactId, "Olá! Sou a Stella. Para que eu possa te ajudar, por favor, me diga o nome do empreendimento sobre o qual deseja informações.");
-        return;
+        return; // Para a execução aqui.
     }
 
-    // Lógica de palavras-chave para respostas rápidas (sem alteração)
+    // 3. Se já sabemos o empreendimento, continuamos para responder a pergunta.
     const querBook = texto.includes('book');
     const querTabela = texto.includes('tabela');
     let resposta;
@@ -173,14 +140,14 @@ async function processStellaLogic(supabase, config, messageText, senderPhone, co
             resposta = `Não localizei a tabela de vendas para o ${empreendimentoNome} no momento.`;
         }
     } else {
-        // ***** AQUI ESTÁ A MUDANÇA PRINCIPAL *****
-        // Se não for um pedido simples, usamos a nova função que busca na memória da Stella
         resposta = await answerQuestionBasedOnMemory(supabase, empreendimentoId, messageText);
     }
     
     await sendTextMessage(supabase, config, senderPhone, contactId, resposta);
+    // Salva o contexto novamente para manter a conversa ativa
     await saveConversationContext(supabase, senderPhone, context);
 }
+// ***** FIM DA LÓGICA CORRIGIDA *****
 
 
 // --- WEBHOOK PRINCIPAL (POST e GET - Sem alterações) ---
