@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import pdf from 'pdf-parse';
+// A linha 'import pdf from 'pdf-parse';' foi removida daqui.
+
+// Adicionamos esta linha para forçar o Next.js a tratar esta rota como dinâmica.
+// Isso ajuda a resolver problemas de build em ambientes como a Netlify.
+export const dynamic = 'force-dynamic';
 
 // --- Inicialização dos Serviços ---
 const getSupabaseAdmin = () => createClient(
@@ -50,11 +54,14 @@ export async function POST(request) {
             throw new Error(`Falha ao baixar o arquivo: ${downloadError.message}`);
         }
         
-        // 3. Extrair o texto do arquivo (aqui lidamos com PDF de verdade)
+        // 3. Extrair o texto do arquivo
         let text;
         const fileBuffer = Buffer.from(await fileData.arrayBuffer());
         
         if (fileData.type === 'application/pdf') {
+            // ***** MUDANÇA PRINCIPAL AQUI *****
+            // Importamos o 'pdf-parse' dinamicamente, só quando precisamos dele.
+            const pdf = (await import('pdf-parse')).default;
             const data = await pdf(fileBuffer);
             text = data.text;
         } else if (fileData.type.startsWith('text/')) {
