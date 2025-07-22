@@ -10,7 +10,6 @@ const getSupabaseAdmin = () => createClient(
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Configurações de segurança para a IA
 const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
     { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -18,7 +17,6 @@ const safetySettings = [
     { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
-// O cérebro principal da Stella, agora com suporte a "ferramentas"
 const generativeModel = genAI.getGenerativeModel({
     model: "gemini-1.5-pro-latest",
     safetySettings,
@@ -86,7 +84,6 @@ async function buscar_em_documentos(supabase, { termo_busca }, empreendimentoId)
         return "Não encontrei informações sobre isso nos documentos do empreendimento.";
     }
 
-    // Adicionamos um passo extra de raciocínio para a IA resumir os achados
     const contextText = chunks.map(c => c.content).join('\n---\n');
     const finalAnswerPrompt = `Com base nestes trechos de documentos, responda de forma concisa à pergunta: "${termo_busca}"\n\nCONTEXTO:\n${contextText}`;
     
@@ -94,14 +91,70 @@ async function buscar_em_documentos(supabase, { termo_busca }, empreendimentoId)
     return finalAnswerResult.response.text();
 }
 
-// --- FUNÇÕES AUXILIARES DE WHATSAPP (PRESERVADAS) ---
-async function sendTextMessage(supabase, config, to, contactId, text) { /* ...código preservado... */ }
-async function getConversationContext(supabase, phoneNumber) { /* ...código preservado... */ }
-async function saveConversationContext(supabase, phoneNumber, context) { /* ...código preservado... */ }
-function getTextContent(message) { /* ...código preservado... */ }
-function normalizeAndGeneratePhoneNumbers(rawPhone) { /* ...código preservado... */ }
+// --- FUNÇÕES AUXILIARES DE WHATSAPP ---
+
+async function sendTextMessage(supabase, config, to, contactId, text) {
+    const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
+    const payload = { messaging_product: "whatsapp", to: to, type: "text", text: { body: text } };
+    try {
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.whatsapp_permanent_token}` }, body: JSON.stringify(payload) });
+        const responseData = await response.json();
+        if (!response.ok) { console.error("ERRO ao enviar mensagem via WhatsApp:", responseData); return; }
+        const messageId = responseData.messages?.[0]?.id;
+        if (messageId) {
+            await supabase.from('whatsapp_messages').insert({
+                contato_id: contactId, message_id: messageId, sender_id: config.whatsapp_phone_number_id,
+                receiver_id: to, content: text, sent_at: new Date().toISOString(),
+                direction: 'outbound', status: 'sent', raw_payload: payload
+            });
+        }
+    } catch (error) {
+        console.error("ERRO de rede ao enviar mensagem via WhatsApp:", error);
+    }
+}
+
+async function getConversationContext(supabase, phoneNumber) {
+    const { data } = await supabase.from('whatsapp_conversations').select('context').eq('phone_number', phoneNumber).single();
+    return data?.context || {};
+}
+
+async function saveConversationContext(supabase, phoneNumber, context) {
+    await supabase.from('whatsapp_conversations').upsert({ phone_number: phoneNumber, context, updated_at: new Date().toISOString() });
+}
+
+function getTextContent(message) {
+    if (!message || !message.type) { return null; }
+    switch (message.type) {
+        case 'text': return message.text?.body || null;
+        case 'interactive':
+            if (message.interactive?.button_reply) return message.interactive.button_reply.title;
+            if (message.interactive?.list_reply) return message.interactive.list_reply.title;
+            return null;
+        default: return null;
+    }
+}
+
+function normalizeAndGeneratePhoneNumbers(rawPhone) {
+    const digitsOnly = rawPhone.replace(/\D/g, '');
+    let numbersToSearch = new Set([digitsOnly]);
+    const brazilDDI = '55';
+    if (!digitsOnly.startsWith(brazilDDI)) {
+        if (digitsOnly.length === 10 || digitsOnly.length === 11) numbersToSearch.add(brazilDDI + digitsOnly);
+    }
+    if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 13) {
+        const ddiDdd = digitsOnly.substring(0, 4);
+        const remainingDigits = digitsOnly.substring(4);
+        if (remainingDigits.startsWith('9')) numbersToSearch.add(ddiDdd + remainingDigits.substring(1));
+    } else if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 12) {
+        const ddiDdd = digitsOnly.substring(0, 4);
+        const remainingDigits = digitsOnly.substring(4);
+        numbersToSearch.add(ddiDdd + '9' + remainingDigits);
+    }
+    return Array.from(numbersToSearch);
+}
 
 // --- LÓGICA PRINCIPAL (O MOTOR DE RACIOCÍNIO) ---
+
 async function processStellaLogic(supabase, config, messageText, senderPhone, contactId) {
     let context = await getConversationContext(supabase, senderPhone);
     let empreendimentoId = context.empreendimentoId;
@@ -148,7 +201,7 @@ async function processStellaLogic(supabase, config, messageText, senderPhone, co
         
         const call = functionCalls[0];
         if (call.name === 'criar_atividade') {
-            const stellaUserId = 'b265268e-4493-40b7-9862-0bff34dd6799'; // <-- ID CORRIGIDO
+            const stellaUserId = 'b265268e-4493-40b7-9862-0bff34dd6799';
             respostaFinal = await criar_atividade(supabase, call.args, contactId, empreendimentoId, stellaUserId);
         } else if (call.name === 'buscar_em_documentos') {
             respostaFinal = await buscar_em_documentos(supabase, call.args, empreendimentoId);
@@ -164,68 +217,8 @@ async function processStellaLogic(supabase, config, messageText, senderPhone, co
     await saveConversationContext(supabase, senderPhone, context);
 }
 
-// --- WEBHOOK (PRESERVADO) ---
-export async function GET(request) { /* ...código preservado... */ }
-export async function POST(request) { /* ...código preservado... */ }
+// --- WEBHOOK ---
 
-
-// --- CÓDIGO COMPLETO DAS FUNÇÕES AUXILIARES ---
-// Cole o conteúdo completo das funções que foram abreviadas para restaurar o arquivo.
-async function sendTextMessage(supabase, config, to, contactId, text) {
-    const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
-    const payload = { messaging_product: "whatsapp", to: to, type: "text", text: { body: text } };
-    try {
-        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.whatsapp_permanent_token}` }, body: JSON.stringify(payload) });
-        const responseData = await response.json();
-        if (!response.ok) { console.error("ERRO ao enviar mensagem via WhatsApp:", responseData); return; }
-        const messageId = responseData.messages?.[0]?.id;
-        if (messageId) {
-            await supabase.from('whatsapp_messages').insert({
-                contato_id: contactId, message_id: messageId, sender_id: config.whatsapp_phone_number_id,
-                receiver_id: to, content: text, sent_at: new Date().toISOString(),
-                direction: 'outbound', status: 'sent', raw_payload: payload
-            });
-        }
-    } catch (error) {
-        console.error("ERRO de rede ao enviar mensagem via WhatsApp:", error);
-    }
-}
-async function getConversationContext(supabase, phoneNumber) {
-    const { data } = await supabase.from('whatsapp_conversations').select('context').eq('phone_number', phoneNumber).single();
-    return data?.context || {};
-}
-async function saveConversationContext(supabase, phoneNumber, context) {
-    await supabase.from('whatsapp_conversations').upsert({ phone_number: phoneNumber, context, updated_at: new Date().toISOString() });
-}
-function getTextContent(message) {
-    if (!message || !message.type) { return null; }
-    switch (message.type) {
-        case 'text': return message.text?.body || null;
-        case 'interactive':
-            if (message.interactive?.button_reply) return message.interactive.button_reply.title;
-            if (message.interactive?.list_reply) return message.interactive.list_reply.title;
-            return null;
-        default: return null;
-    }
-}
-function normalizeAndGeneratePhoneNumbers(rawPhone) {
-    const digitsOnly = rawPhone.replace(/\D/g, '');
-    let numbersToSearch = new Set([digitsOnly]);
-    const brazilDDI = '55';
-    if (!digitsOnly.startsWith(brazilDDI)) {
-        if (digitsOnly.length === 10 || digitsOnly.length === 11) numbersToSearch.add(brazilDDI + digitsOnly);
-    }
-    if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 13) {
-        const ddiDdd = digitsOnly.substring(0, 4);
-        const remainingDigits = digitsOnly.substring(4);
-        if (remainingDigits.startsWith('9')) numbersToSearch.add(ddiDdd + remainingDigits.substring(1));
-    } else if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 12) {
-        const ddiDdd = digitsOnly.substring(0, 4);
-        const remainingDigits = digitsOnly.substring(4);
-        numbersToSearch.add(ddiDdd + '9' + remainingDigits);
-    }
-    return Array.from(numbersToSearch);
-}
 export async function GET(request) {
     const searchParams = new URL(request.url).searchParams;
     const mode = searchParams.get('hub.mode');
@@ -237,6 +230,7 @@ export async function GET(request) {
     }
     return new NextResponse(null, { status: 403 });
 }
+
 export async function POST(request) {
     const supabaseAdmin = getSupabaseAdmin();
     try {
@@ -263,11 +257,9 @@ export async function POST(request) {
             });
             
             if (messageContent && (messageEntry.type === 'text' || messageEntry.type === 'interactive')) {
-                // Inicia o processamento da lógica da IA sem esperar a conclusão
                 processStellaLogic(supabaseAdmin, whatsappConfig, messageContent, contactPhoneNumber, contactId);
             }
         }
-        // Responde imediatamente ao webhook para evitar timeouts
         return new NextResponse(null, { status: 200 });
     } catch (error) {
         console.error("ERRO INESPERADO no webhook:", error);
