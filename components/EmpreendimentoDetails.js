@@ -4,13 +4,12 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBuilding, faRulerCombined, faBoxOpen, faFileLines, faUpload, faSpinner, faTrash, faEye, faSort, faSortUp, faSortDown, faVideo, faCloudUploadAlt } from '@fortawesome/free-solid-svg-icons';
-// ***** CORREÇÃO *****
-// O caminho do import foi revertido para o original, que estava correto.
-import { createClient } from '../utils/supabase/client';
+// ***** NOSSA ADIÇÃO: Ícone de 'varinha mágica' para o novo botão *****
+import { faBuilding, faRulerCombined, faBoxOpen, faFileLines, faUpload, faSpinner, faTrash, faEye, faSort, faSortUp, faSortDown, faVideo, faCloudUploadAlt, faMagicSparkles } from '@fortawesome/free-solid-svg-icons';
+import { createClient } from '@/utils/supabase/client'; // Usando o caminho com @ que já funciona
 import { toast } from 'sonner';
 
-// --- SUB-COMPONENTES (Sem alterações) ---
+// --- SUB-COMPONENTES (Todos preservados) ---
 
 function InfoField({ label, value, fullWidth = false }) {
   if (value === null || value === undefined || value === '') return null;
@@ -34,7 +33,6 @@ function KpiCard({ title, value, icon, colorClass = 'text-blue-500' }) {
   );
 }
 
-// --- COMPONENTE DE UPLOAD (Com a nossa adição para a IA) ---
 const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, categoria }) => {
     const supabase = createClient();
     const [file, setFile] = useState(null);
@@ -43,100 +41,47 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, catego
     const [isUploading, setIsUploading] = useState(false);
     const [isDraggingOver, setIsDraggingOver] = useState(false);
     const fileInputRef = useRef(null);
-
-    const handleFileSelect = (selectedFile) => {
-        if (selectedFile) setFile(selectedFile);
-    };
-
-    const resetState = () => {
-        setFile(null);
-        setDescricao('');
-        setTipoId('');
-        if (fileInputRef.current) fileInputRef.current.value = "";
-    };
-
+    const handleFileSelect = (selectedFile) => { if (selectedFile) setFile(selectedFile); };
+    const resetState = () => { setFile(null); setDescricao(''); setTipoId(''); if (fileInputRef.current) fileInputRef.current.value = ""; };
     const handleDragEnter = (e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOver(true); };
     const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOver(false); };
     const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); };
     const handleDrop = (e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOver(false); if (e.dataTransfer.files[0]) handleFileSelect(e.dataTransfer.files[0]); };
-
     const handleUpload = async () => {
         if (!file || !tipoId) { toast.error("Por favor, selecione um tipo de documento e um arquivo."); return; }
         if (!categoria) { toast.error("Erro: A categoria da aba não foi definida."); return; }
-        
         setIsUploading(true);
         const tipoSelecionado = allowedTipos.find(t => t.id == tipoId);
         const sigla = tipoSelecionado?.sigla || 'DOC';
         const fileExt = file.name.split('.').pop();
         const newFileName = `${empreendimentoId}/${sigla}_${Date.now()}.${fileExt}`;
-
         const promise = new Promise(async (resolve, reject) => {
             const { error: uploadError } = await supabase.storage.from('empreendimento-anexos').upload(newFileName, file, { upsert: true });
             if (uploadError) return reject(uploadError);
-
-            const { data, error: dbError } = await supabase.from('empreendimento_anexos').insert({
-                empreendimento_id: empreendimentoId,
-                caminho_arquivo: newFileName,
-                nome_arquivo: file.name,
-                descricao: descricao,
-                tipo_documento_id: tipoId,
-                categoria_aba: categoria
-            }).select().single();
-            
+            const { data, error: dbError } = await supabase.from('empreendimento_anexos').insert({ empreendimento_id: empreendimentoId, caminho_arquivo: newFileName, nome_arquivo: file.name, descricao: descricao, tipo_documento_id: tipoId, categoria_aba: categoria }).select().single();
             if (dbError) return reject(dbError);
-
-            // AVISA A NOSSA API PARA PROCESSAR O ANEXO EM SEGUNDO PLANO
-            fetch('/api/empreendimentos/process-anexo', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ anexoId: data.id })
-            }).catch(err => console.error("Erro ao chamar API de processamento da IA:", err));
-
+            fetch('/api/empreendimentos/process-anexo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ anexoId: data.id }) }).catch(err => console.error("Erro ao chamar API de processamento da IA:", err));
             resolve({msg: "Anexo enviado! A IA começará a estudá-lo.", newAnexo: data});
         });
-
         toast.promise(promise, {
             loading: 'Enviando arquivo...',
-            success: (result) => {
-                onUploadSuccess(result.newAnexo);
-                resetState();
-                return result.msg;
-            },
+            success: (result) => { onUploadSuccess(result.newAnexo); resetState(); return result.msg; },
             error: (err) => `Erro: ${err.message}`,
             finally: () => setIsUploading(false)
         });
     };
-    
     const dropzoneClass = isDraggingOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50';
-
     return (
         <div className="p-4 bg-white border rounded-lg space-y-4">
             <h4 className="font-semibold text-gray-700">Adicionar Novo Documento</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <select value={tipoId} onChange={(e) => setTipoId(e.target.value)} className="p-2 border rounded-md w-full">
-                    <option value="">-- Selecione o Tipo --</option>
-                    {allowedTipos.map(t => <option key={t.id} value={t.id}>{t.descricao} ({t.sigla})</option>)}
-                </select>
+                <select value={tipoId} onChange={(e) => setTipoId(e.target.value)} className="p-2 border rounded-md w-full"><option value="">-- Selecione o Tipo --</option>{allowedTipos.map(t => <option key={t.id} value={t.id}>{t.descricao} ({t.sigla})</option>)}</select>
                 <input type="text" placeholder="Descrição (opcional)" value={descricao} onChange={(e) => setDescricao(e.target.value)} className="p-2 border rounded-md w-full" />
             </div>
-            <div
-                onDragEnter={handleDragEnter}
-                onDragLeave={handleDragLeave}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${dropzoneClass}`}
-            >
+            <div onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()} className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${dropzoneClass}`}>
                 <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleFileSelect(e.target.files[0])} />
                 <FontAwesomeIcon icon={faCloudUploadAlt} className="text-4xl text-gray-400 mb-3" />
-                {file ? (
-                    <div>
-                        <p className="font-semibold text-gray-700">{file.name}</p>
-                        <p className="text-sm text-gray-500">{(file.size / 1024).toFixed(2)} KB</p>
-                    </div>
-                ) : (
-                    <p className="text-gray-500">Arraste e solte o arquivo aqui, ou <span className="text-blue-600 font-semibold">clique para selecionar</span>.</p>
-                )}
+                {file ? (<div><p className="font-semibold text-gray-700">{file.name}</p><p className="text-sm text-gray-500">{(file.size / 1024).toFixed(2)} KB</p></div>) : (<p className="text-gray-500">Arraste e solte o arquivo aqui, ou <span className="text-blue-600 font-semibold">clique para selecionar</span>.</p>)}
             </div>
             <div className="flex justify-end">
                 <button onClick={handleUpload} disabled={isUploading || !file || !tipoId} className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
@@ -148,7 +93,6 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, catego
     );
 };
 
-// --- RESTANTE DO COMPONENTE (Tudo aqui está igual ao seu original, 100% preservado) ---
 const TabelaVendas = ({ produtos, empreendimentoId }) => {
     const [sortConfig, setSortConfig] = useState({ key: 'unidade', direction: 'ascending' });
     const requestSort = (key) => { let direction = 'ascending'; if (sortConfig.key === key && sortConfig.direction === 'ascending') { direction = 'descending'; } setSortConfig({ key, direction }); };
@@ -180,11 +124,47 @@ const GaleriaMarketing = ({ anexos, onDelete }) => {
     );
 };
 
+
+// --- COMPONENTE PRINCIPAL (COM A NOVA FUNCIONALIDADE INTEGRADA) ---
+
 export default function EmpreendimentoDetails({ empreendimento, corporateEntities = [], proprietariaOptions = [], produtos = [], initialAnexos, documentoTipos, initialQuadroDeAreas }) {
   const [activeTab, setActiveTab] = useState('dados_gerais');
   const [anexos, setAnexos] = useState(initialAnexos);
   const supabase = createClient();
   const router = useRouter();
+
+  // ***** INÍCIO DAS ADIÇÕES PARA O RESUMO COM IA *****
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [summary, setSummary] = useState('');
+
+  const handleGerarResumo = async () => {
+    setIsGeneratingSummary(true);
+    setSummary(''); 
+    toast.info("A Stella começou a trabalhar... Isso pode levar um minuto.");
+
+    try {
+        const response = await fetch('/api/empreendimentos/gerar-resumo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ empreendimentoId: empreendimento.id })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "A IA não conseguiu gerar o resumo.");
+        }
+
+        const data = await response.json();
+        setSummary(data.summary);
+        toast.success("Resumo gerado com sucesso!");
+
+    } catch (error) {
+        toast.error(`Erro: ${error.message}`);
+    } finally {
+        setIsGeneratingSummary(false);
+    }
+  };
+  // ***** FIM DAS ADIÇÕES PARA O RESUMO COM IA *****
 
   useEffect(() => { setAnexos(initialAnexos); }, [initialAnexos]);
 
@@ -242,12 +222,34 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
 
   return (
     <div className="p-6 bg-white shadow-md rounded-lg">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-start mb-6 gap-4">
         <h1 className="text-3xl font-bold text-gray-800">{empreendimento.nome}</h1>
-        <Link href={`/empreendimentos/editar/${empreendimento.id}`} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
-          Editar Empreendimento
-        </Link>
+        {/* ***** ADIÇÃO DOS BOTÕES DE AÇÃO ***** */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+                onClick={handleGerarResumo}
+                disabled={isGeneratingSummary}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:bg-gray-400"
+            >
+                <FontAwesomeIcon icon={isGeneratingSummary ? faSpinner : faMagicSparkles} className={`mr-2 ${isGeneratingSummary ? 'animate-spin' : ''}`} />
+                {isGeneratingSummary ? 'Gerando...' : 'Gerar Resumo com IA'}
+            </button>
+            <Link href={`/empreendimentos/editar/${empreendimento.id}`} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
+                Editar Empreendimento
+            </Link>
+        </div>
       </div>
+      
+      {/* ***** ADIÇÃO DA ÁREA PARA MOSTRAR O RESUMO GERADO ***** */}
+      {summary && (
+        <div className="mb-6 p-4 border border-purple-200 bg-purple-50 rounded-lg animate-fade-in">
+            <h3 className="text-lg font-semibold text-purple-800 mb-2">Resumo Gerado pela Stella</h3>
+            <div 
+                className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap"
+                dangerouslySetInnerHTML={{ __html: summary.replace(/\n/g, '<br />') }}
+            />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <KpiCard title="Status Atual" value={empreendimento.status || 'N/A'} icon={faBuilding} />
