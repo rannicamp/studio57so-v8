@@ -43,7 +43,7 @@ export default async function ViewEmpreendimentoPage({ params }) {
 
   // 7. Buscar quadro de áreas
   const { data: quadroDeAreas } = await supabase.from('quadro_de_areas').select('*').eq('empreendimento_id', empreendimento.id).order('ordem');
-  
+
   return (
     <EmpreendimentoDetails
       empreendimento={empreendimento}

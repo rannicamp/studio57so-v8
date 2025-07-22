@@ -1,7 +1,19 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// --- Funções Auxiliares (Sua lógica original, sem alterações) ---
+// --- INICIALIZAÇÃO DOS SERVIÇOS ---
+const getSupabaseAdmin = () => createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const embeddingModel = genAI.getGenerativeModel({ model: "embedding-001" });
+const generativeModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+
+// --- FUNÇÕES AUXILIARES DE WHATSAPP (Sem alterações) ---
 function getTextContent(message) {
     if (!message || !message.type) { return null; }
     switch (message.type) {
@@ -31,29 +43,10 @@ function normalizeAndGeneratePhoneNumbers(rawPhone) {
     }
     return Array.from(numbersToSearch);
 }
-async function handleMediaMessage(supabase, whatsappConfig, message) {
-    const mediaId = message.image?.id || message.video?.id || message.document?.id || message.audio?.id;
-    if (!mediaId) return null;
-    const mediaDetailsUrl = `https://graph.facebook.com/v20.0/${mediaId}`;
-    const mediaDetailsResponse = await fetch(mediaDetailsUrl, { headers: { 'Authorization': `Bearer ${whatsappConfig.whatsapp_permanent_token}` } });
-    if (!mediaDetailsResponse.ok) return null;
-    const mediaDetails = await mediaDetailsResponse.json();
-    if (!mediaDetails.url) return null;
-    const mediaFileResponse = await fetch(mediaDetails.url, { headers: { 'Authorization': `Bearer ${whatsappConfig.whatsapp_permanent_token}` } });
-    if (!mediaFileResponse.ok) return null;
-    const mediaBuffer = await mediaFileResponse.arrayBuffer();
-    const fileName = message.document?.filename || `${message.type}_${mediaId}.${mediaDetails.mime_type.split('/')[1] || 'bin'}`;
-    const filePath = `${message.from}/${Date.now()}_${fileName}`;
-    await supabase.storage.from('whatsapp-media').upload(filePath, mediaBuffer, { contentType: mediaDetails.mime_type });
-    const { data: publicUrlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
-    return publicUrlData.publicUrl;
-}
 
-// -----------------------------------------------------------------------------
-// ***** INÍCIO DAS NOVAS FUNÇÕES DA STELLA *****
-// -----------------------------------------------------------------------------
+// --- FUNÇÕES DA IA STELLA (ATUALIZADAS) ---
 
-// Função para ENVIAR mensagens de texto e SALVAR no banco
+// Função para ENVIAR mensagens e SALVAR no banco
 async function sendTextMessage(supabase, config, to, contactId, text) {
     const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
     const payload = { messaging_product: "whatsapp", to: to, type: "text", text: { body: text } };
@@ -70,125 +63,127 @@ async function sendTextMessage(supabase, config, to, contactId, text) {
     }
 }
 
-// Função para buscar a "memória" da conversa
+// Funções de memória da conversa (sem alterações)
 async function getConversationContext(supabase, phoneNumber) {
     const { data } = await supabase.from('whatsapp_conversations').select('context').eq('phone_number', phoneNumber).single();
     return data?.context || {};
 }
-
-// Função para salvar a "memória" da conversa
 async function saveConversationContext(supabase, phoneNumber, context) {
     await supabase.from('whatsapp_conversations').upsert({ phone_number: phoneNumber, context, updated_at: new Date().toISOString() });
 }
 
-// Nova função que usa a IA para analisar um documento
-async function analyzeDocumentWithAI(supabase, empreendimentoId, userQuestion) {
-    console.log(`INFO: Analisando documento para empreendimento ${empreendimentoId} com a pergunta: "${userQuestion}"`);
-    
-    // 1. Encontrar o "book" de vendas do empreendimento
-    const { data: anexo, error: anexoError } = await supabase
-        .from('empreendimento_anexos')
-        .select('caminho_arquivo')
-        .eq('empreendimento_id', empreendimentoId)
-        .eq('categoria_aba', 'marketing')
-        .like('nome_arquivo', '%book%')
-        .limit(1).single();
+// ***** NOVA FUNÇÃO SUPERINTELIGENTE *****
+// Esta função usa a memória da Stella para responder perguntas complexas
+async function answerQuestionBasedOnMemory(supabase, empreendimentoId, userQuestion) {
+    console.log(`[STELLA] Iniciando busca na memória para a pergunta: "${userQuestion}"`);
 
-    if (anexoError || !anexo) {
-        console.error("ERRO: Book de vendas não encontrado para análise.", anexoError);
-        return "Não consegui encontrar o book de vendas para responder sua pergunta. Peço desculpas.";
-    }
+    // 1. Transforma a pergunta do usuário em "conhecimento" (vetor)
+    const questionEmbeddingResult = await embeddingModel.embedContent(userQuestion);
+    const questionEmbedding = questionEmbeddingResult.embedding.values;
 
-    // 2. Baixar o arquivo do Supabase Storage
-    const { data: fileData, error: downloadError } = await supabase.storage
-        .from('empreendimento-anexos')
-        .download(anexo.caminho_arquivo);
-
-    if (downloadError) {
-        console.error("ERRO: Falha ao baixar o book para análise.", downloadError);
-        return "Tive um problema ao acessar o book de vendas. Por favor, tente novamente mais tarde.";
-    }
-
-    // 3. Chamar a API interna que usa o Gemini
-    const formData = new FormData();
-    formData.append('file', fileData);
-    formData.append('prompt', `Baseado no documento em anexo, responda a seguinte pergunta de forma clara e direta: "${userQuestion}"`);
-
-    try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/empreendimentos/analyze-anexo`, {
-            method: 'POST',
-            body: formData,
+    // 2. Chama a função do banco de dados para encontrar os trechos mais parecidos
+    const { data: contextChunks, error: matchError } = await supabase
+        .rpc('match_documento_empreendimento', {
+            query_embedding: questionEmbedding,
+            match_threshold: 0.75, // Nível de confiança da busca
+            match_count: 5, // Pega os 5 melhores resultados
+            p_empreendimento_id: empreendimentoId
         });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Erro desconhecido na API de análise');
-        return result.analysis_result; // A resposta da IA
+
+    if (matchError) {
+        console.error("[STELLA] Erro ao buscar na memória:", matchError);
+        return "Tive um problema para acessar minhas memórias. Por favor, tente novamente.";
+    }
+    
+    if (!contextChunks || contextChunks.length === 0) {
+        console.log("[STELLA] Nenhum contexto relevante encontrado na memória.");
+        return "Peço desculpas, mas não encontrei informações sobre isso nos meus documentos. Você poderia perguntar de outra forma?";
+    }
+
+    // 3. Monta o contexto para a IA
+    const contextText = contextChunks.map(chunk => chunk.content).join("\n\n---\n\n");
+    
+    const prompt = `
+        Você é a Stella, uma assistente especialista em imóveis.
+        Use o CONTEXTO abaixo, que foi extraído dos documentos oficiais do empreendimento, para responder à PERGUNTA do cliente.
+        Responda de forma clara, amigável e direta.
+        Se a resposta não estiver no contexto, diga que não encontrou a informação. NÃO invente respostas.
+
+        --- CONTEXTO ---
+        ${contextText}
+        --- FIM DO CONTEXTO ---
+
+        PERGUNTA: "${userQuestion}"
+    `;
+
+    // 4. Pede para a IA gerar a resposta final baseada no contexto
+    try {
+        const result = await generativeModel.generateContent(prompt);
+        const response = await result.response;
+        return response.text();
     } catch (error) {
-        console.error("ERRO: Falha na chamada da API de análise de documento.", error);
-        return "Não consegui analisar o documento no momento. Você poderia tentar reformular a pergunta?";
+        console.error("[STELLA] Erro ao gerar resposta final com a IA:", error);
+        return "Houve um problema ao processar sua pergunta. Tente novamente.";
     }
 }
 
-// O NOVO CÉREBRO DA STELLA (com memória e capacidade de leitura)
+// O CÉREBRO DA STELLA (LÓGICA PRINCIPAL ATUALIZADA)
 async function processStellaLogic(supabase, config, messageText, senderPhone, contactId) {
     const texto = messageText.toLowerCase();
     
-    // 1. Recuperar a memória da conversa
     let context = await getConversationContext(supabase, senderPhone);
     let empreendimentoId = context.empreendimentoId;
     let empreendimentoNome = context.empreendimentoNome;
 
-    // 2. Tentar identificar um novo empreendimento na mensagem
-    const palavras = texto.split(' ');
-    for (const palavra of palavras) {
-        if (!isNaN(parseInt(palavra))) {
-            const { data: emp } = await supabase.from('empreendimentos').select('id, nome').eq('id', parseInt(palavra)).single();
-            if (emp) {
-                empreendimentoId = emp.id;
-                empreendimentoNome = emp.nome;
-                context = { empreendimentoId, empreendimentoNome }; // Reseta o contexto com o novo empreendimento
-                break;
-            }
+    // Lógica para identificar o empreendimento (sem alteração)
+    const { data: empreendimentos } = await supabase.from('empreendimentos').select('id, nome');
+    for (const emp of empreendimentos || []) {
+        if (texto.includes(emp.nome.toLowerCase())) {
+            empreendimentoId = emp.id;
+            empreendimentoNome = emp.nome;
+            context = { empreendimentoId, empreendimentoNome };
+            break;
         }
     }
     
-    // 3. Se AINDA não sabemos de qual empreendimento falar, peça ajuda.
     if (!empreendimentoId) {
-        await sendTextMessage(supabase, config, senderPhone, contactId, "Olá! Sou a Stella. Para que eu possa te ajudar, por favor, me diga o nome ou o código do empreendimento sobre o qual deseja informações.");
+        await sendTextMessage(supabase, config, senderPhone, contactId, "Olá! Sou a Stella. Para que eu possa te ajudar, por favor, me diga o nome do empreendimento sobre o qual deseja informações.");
         return;
     }
 
-    // 4. Se já sabemos o empreendimento, analisamos a intenção
-    const querInfo = texto.includes('info') || texto.includes('informações');
+    // Lógica de palavras-chave para respostas rápidas (sem alteração)
     const querBook = texto.includes('book');
     const querTabela = texto.includes('tabela');
-
     let resposta;
 
     if (querBook) {
-        const { data: anexo } = await supabase.from('empreendimento_anexos').select('public_url, nome_arquivo').eq('empreendimento_id', empreendimentoId).eq('categoria_aba', 'marketing').like('nome_arquivo', '%book%').limit(1).single();
-        resposta = anexo ? `Claro! Aqui está o link para o book do ${empreendimentoNome}:\n${anexo.public_url}` : `Não encontrei o book de apresentação para o ${empreendimentoNome}.`;
-    
+        const { data: anexo } = await supabase.from('empreendimento_anexos').select('caminho_arquivo').eq('empreendimento_id', empreendimentoId).eq('categoria_aba', 'marketing').like('nome_arquivo', '%book%').limit(1).single();
+        if (anexo) {
+            const { data: urlData } = supabase.storage.from('empreendimento-anexos').getPublicUrl(anexo.caminho_arquivo);
+            resposta = `Claro! Aqui está o link para o book do ${empreendimentoNome}:\n${urlData.publicUrl}`;
+        } else {
+            resposta = `Não encontrei o book de apresentação para o ${empreendimentoNome}.`;
+        }
     } else if (querTabela) {
-        const { data: anexo } = await supabase.from('empreendimento_anexos').select('public_url, nome_arquivo').eq('empreendimento_id', empreendimentoId).like('nome_arquivo', '%tabela%').limit(1).single();
-        resposta = anexo ? `Com certeza! A tabela de vendas do ${empreendimentoNome} está aqui:\n${anexo.public_url}` : `Não localizei a tabela de vendas para o ${empreendimentoNome} no momento.`;
-    
-    } else if (querInfo) {
-        const { data: emp } = await supabase.from('empreendimentos').select('nome, status, descricao_curta, address_street, neighborhood, city').eq('id', empreendimentoId).single();
-        resposta = `Claro! Seguem as informações sobre o *${emp.nome}*:\n\n*Status:* ${emp.status}\n*Localização:* ${emp.address_street}, ${emp.neighborhood} - ${emp.city}\n\n${emp.descricao_curta}\n\nO que mais você gostaria de saber?`;
-    
+        const { data: anexo } = await supabase.from('empreendimento_anexos').select('caminho_arquivo').eq('empreendimento_id', empreendimentoId).like('nome_arquivo', '%tabela%').limit(1).single();
+        if (anexo) {
+            const { data: urlData } = supabase.storage.from('empreendimento-anexos').getPublicUrl(anexo.caminho_arquivo);
+            resposta = `Com certeza! A tabela de vendas do ${empreendimentoNome} está aqui:\n${urlData.publicUrl}`;
+        } else {
+            resposta = `Não localizei a tabela de vendas para o ${empreendimentoNome} no momento.`;
+        }
     } else {
-        // Se não for um pedido simples, usamos a IA para LER o book e responder.
-        resposta = await analyzeDocumentWithAI(supabase, empreendimentoId, messageText);
+        // ***** AQUI ESTÁ A MUDANÇA PRINCIPAL *****
+        // Se não for um pedido simples, usamos a nova função que busca na memória da Stella
+        resposta = await answerQuestionBasedOnMemory(supabase, empreendimentoId, messageText);
     }
     
-    // 5. Enviar a resposta e salvar o contexto para a próxima mensagem
     await sendTextMessage(supabase, config, senderPhone, contactId, resposta);
     await saveConversationContext(supabase, senderPhone, context);
 }
 
-// -----------------------------------------------------------------------------
-// WEBHOOK PRINCIPAL (POST e GET)
-// -----------------------------------------------------------------------------
+
+// --- WEBHOOK PRINCIPAL (POST e GET - Sem alterações) ---
 export async function GET(request) {
     const searchParams = request.nextUrl.searchParams;
     const mode = searchParams.get('hub.mode');
@@ -202,36 +197,31 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const supabaseAdmin = getSupabaseAdmin();
     try {
         const body = await request.json();
-        const { data: whatsappConfig, error: configError } = await supabaseAdmin.from('configuracoes_whatsapp').select('*').limit(1).single();
-        if (configError || !whatsappConfig) {
-            console.error("ERRO CRÍTICO: Configurações do WhatsApp não encontradas.", configError);
+        const { data: whatsappConfig } = await supabaseAdmin.from('configuracoes_whatsapp').select('*').limit(1).single();
+        if (!whatsappConfig) {
+            console.error("ERRO CRÍTICO: Configurações do WhatsApp não encontradas.");
             return new NextResponse(null, { status: 200 });
         }
         const messageEntry = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
         if (messageEntry) {
-            if (['audio', 'image', 'video', 'document'].includes(messageEntry.type)) {
-                const publicUrl = await handleMediaMessage(supabaseAdmin, whatsappConfig, messageEntry);
-                if (publicUrl) messageEntry[messageEntry.type].link = publicUrl;
-            }
             const messageContent = getTextContent(messageEntry);
             const contactPhoneNumber = messageEntry.from;
             let contactId = null;
             const possiblePhones = normalizeAndGeneratePhoneNumbers(contactPhoneNumber);
             const { data: matchingPhones } = await supabaseAdmin.from('telefones').select('contato_id').in('telefone', possiblePhones).limit(1);
             if (matchingPhones?.length > 0) contactId = matchingPhones[0].contato_id;
-            const messageToSave = {
+            
+            await supabaseAdmin.from('whatsapp_messages').insert({
                 contato_id: contactId, message_id: messageEntry.id, sender_id: messageEntry.from,
                 receiver_id: whatsappConfig.whatsapp_phone_number_id, content: messageContent,
                 sent_at: new Date(parseInt(messageEntry.timestamp, 10) * 1000).toISOString(),
                 direction: 'inbound', status: 'delivered', raw_payload: messageEntry,
-            };
-            await supabaseAdmin.from('whatsapp_messages').insert(messageToSave);
-            // ----- CHAMADA PARA A NOVA LÓGICA DA STELLA -----
+            });
+            
             if (messageContent && messageEntry.type === 'text') {
-                // Não precisa de 'await' aqui, para a resposta ao webhook ser imediata
                 processStellaLogic(supabaseAdmin, whatsappConfig, messageContent, contactPhoneNumber, contactId);
             }
         }

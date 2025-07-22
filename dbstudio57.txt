@@ -244,10 +244,23 @@ CREATE TABLE public.empreendimento_anexos (
   descricao text,
   usuario_id uuid,
   created_at timestamp with time zone DEFAULT now(),
+  titulo text,
+  categoria_aba text,
   CONSTRAINT empreendimento_anexos_pkey PRIMARY KEY (id),
   CONSTRAINT empreendimento_anexos_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id),
   CONSTRAINT empreendimento_anexos_tipo_documento_id_fkey FOREIGN KEY (tipo_documento_id) REFERENCES public.documento_tipos(id),
   CONSTRAINT empreendimento_anexos_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.empreendimento_documento_embeddings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  empreendimento_id bigint NOT NULL,
+  anexo_id bigint NOT NULL,
+  content text,
+  embedding USER-DEFINED,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT empreendimento_documento_embeddings_pkey PRIMARY KEY (id),
+  CONSTRAINT empreendimento_documento_embeddings_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id),
+  CONSTRAINT empreendimento_documento_embeddings_anexo_id_fkey FOREIGN KEY (anexo_id) REFERENCES public.empreendimento_anexos(id)
 );
 CREATE TABLE public.empreendimentos (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -712,6 +725,12 @@ CREATE TABLE public.whatsapp_attachments (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT whatsapp_attachments_pkey PRIMARY KEY (id),
   CONSTRAINT whatsapp_attachments_contato_id_fkey FOREIGN KEY (contato_id) REFERENCES public.contatos(id)
+);
+CREATE TABLE public.whatsapp_conversations (
+  phone_number text NOT NULL,
+  context jsonb,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT whatsapp_conversations_pkey PRIMARY KEY (phone_number)
 );
 CREATE TABLE public.whatsapp_messages (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,

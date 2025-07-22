@@ -3,7 +3,7 @@ import { createClient } from '../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faUsersCog, faKey, faFileAlt, faBusinessTime, faBox, faNetworkWired
+  faUsersCog, faKey, faFileAlt, faBusinessTime, faBox, faNetworkWired, faRobot
 } from '@fortawesome/free-solid-svg-icons';
 
 // Opções de configuração que aparecerão na página
@@ -43,6 +43,13 @@ const settingsOptions = [
     icon: faBox,
     title: 'Base de Materiais',
     description: 'Gerencie a base de dados central de materiais e serviços para orçamentos.'
+  },
+  // NOSSA NOVA OPÇÃO ADICIONADA AQUI:
+  {
+    href: '/configuracoes/treinamento-ia',
+    icon: faRobot,
+    title: 'Treinamento da IA',
+    description: 'Acompanhe o que a IA Stella já aprendeu e gerencie seu conhecimento.'
   },
 ];
 

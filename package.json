@@ -22,6 +22,7 @@
     "lamejs": "^1.2.1",
     "next": "15.3.4",
     "papaparse": "^5.5.3",
+    "pdf-parse": "^1.1.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-google-charts": "^5.2.1",
