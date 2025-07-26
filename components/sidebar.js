@@ -1,5 +1,3 @@
-// components/sidebar.js
-
 "use client";
 
 import Link from 'next/link';
@@ -22,7 +20,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
         { href: '/ponto', label: 'Controle de Ponto', icon: faClock },
         { href: '/perfil', label: 'Meu Perfil', icon: faUserCog },
         { href: '/atividades', label: 'Atividades', icon: faTasks },
-        { href: '/empresas', label: 'Empresas', icon: faBuilding }, // Movido para cá
+        { href: '/empresas', label: 'Empresas', icon: faBuilding },
       ]
     },
     {
@@ -39,10 +37,16 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
       items: [
         { href: '/crm', label: 'CRM', icon: faBullseye },
         { href: '/contatos', label: 'Contatos', icon: faAddressBook },
-        // Removido daqui
       ]
     }
   ];
+
+  // ***** INÍCIO DA ALTERAÇÃO *****
+  // Adicionado um array para o item de feedback que é sempre visível.
+  const bottomNavAlwaysVisible = [
+      { href: '/configuracoes/feedback/enviar', label: 'Enviar Feedback', icon: faInbox },
+  ];
+  // ***** FIM DA ALTERAÇÃO *****
 
   const bottomNavItems = [
     isAdmin && { href: '/configuracoes', label: 'Configurações', icon: faCog },
@@ -72,9 +76,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
                 </h3>
               )}
               {isCollapsed && (
-                 <div className="flex justify-center my-4">
-                    <div className="w-8 border-t border-gray-200"></div>
-                 </div>
+                  <div className="flex justify-center my-4">
+                     <div className="w-8 border-t border-gray-200"></div>
+                  </div>
               )}
               <ul>
                 {section.items.map((item) => (
@@ -92,6 +96,18 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
       </nav>
       <nav className="mt-auto mb-2 flex-shrink-0">
         <ul>
+          {/* ***** INÍCIO DA ALTERAÇÃO ***** */}
+          {/* Renderiza o link de feedback para todos os usuários */}
+          {bottomNavAlwaysVisible.map((item) => (
+            <li key={item.label}>
+              <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
+                <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
+                {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
+              </Link>
+            </li>
+          ))}
+          {/* ***** FIM DA ALTERAÇÃO ***** */}
+          
           {bottomNavItems.map((item) => (
             item && (
               <li key={item.label}>

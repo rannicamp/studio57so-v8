@@ -56,7 +56,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         .eq('data_entrega_prevista', rdoData.data_relatorio);
       setPedidosPrevistos(pedidosData || []);
 
-      // ***** INÍCIO DA SOLUÇÃO IMPLEMENTADA *****
       // 1. Buscar todos os RDOs anteriores para este empreendimento
       const { data: pastRdos } = await supabase
         .from('diarios_obra')
@@ -84,9 +83,10 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
 
       // 4. Filtrar a lista de atividades para remover as já concluídas e as entregas de pedido
       const filteredActivities = (activitiesData || []).filter(act => 
-        act.tipo_atividade !== 'Entrega de Pedido' && !completedActivityIds.has(act.id)
+        act.tipo_atividade !== 'Entrega de Pedido' && 
+        !act.nome.startsWith('Entrega Pedido') && 
+        !completedActivityIds.has(act.id)
       );
-      // ***** FIM DA SOLUÇÃO IMPLEMENTADA *****
 
       const { data: employeesData } = await supabase.from('funcionarios').select('id, full_name, status').eq('empreendimento_atual_id', empreendimentoId);
       const activeEmployees = (employeesData || []).filter(emp => emp.status === 'Ativo');

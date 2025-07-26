@@ -3,7 +3,7 @@ import { createClient } from '../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faUsersCog, faKey, faFileAlt, faBusinessTime, faBox, faNetworkWired, faRobot
+  faUsersCog, faKey, faFileAlt, faBusinessTime, faBox, faNetworkWired, faRobot, faInbox
 } from '@fortawesome/free-solid-svg-icons';
 
 // Opções de configuração que aparecerão na página
@@ -44,13 +44,21 @@ const settingsOptions = [
     title: 'Base de Materiais',
     description: 'Gerencie a base de dados central de materiais e serviços para orçamentos.'
   },
-  // NOSSA NOVA OPÇÃO ADICIONADA AQUI:
   {
     href: '/configuracoes/treinamento-ia',
     icon: faRobot,
     title: 'Treinamento da IA',
     description: 'Acompanhe o que a IA Stella já aprendeu e gerencie seu conhecimento.'
   },
+  // ***** INÍCIO DA ALTERAÇÃO *****
+  // Adicionamos o novo card para a Central de Feedback
+  {
+    href: '/configuracoes/feedback',
+    icon: faInbox,
+    title: 'Central de Feedback',
+    description: 'Envie sugestões ou visualize os feedbacks recebidos dos usuários.'
+  },
+  // ***** FIM DA ALTERAÇÃO *****
 ];
 
 export default async function ConfiguracoesPage() {

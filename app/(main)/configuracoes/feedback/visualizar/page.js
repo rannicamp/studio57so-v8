@@ -1,11 +1,11 @@
-import { createClient } from '../../../../utils/supabase/server';
+import { createClient } from '../../../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import FeedbackList from '../../../../components/FeedbackList';
+import FeedbackList from '../../../../../components/FeedbackList';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ListFeedbackPage() {
+export default async function VisualizarFeedbackPage() {
     const supabase = createClient();
 
     // Proteção de Rota
@@ -39,6 +39,9 @@ export default async function ListFeedbackPage() {
 
     return (
         <div className="space-y-6">
+            <Link href="/configuracoes/feedback" className="text-blue-500 hover:underline mb-4 inline-block">
+                &larr; Voltar para a Central de Feedback
+            </Link>
             <h1 className="text-3xl font-bold text-gray-900">Painel de Feedback</h1>
             <p className="text-gray-600">
                 Visualize e gerencie os problemas e sugestões reportados pelos usuários.
