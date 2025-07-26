@@ -12,6 +12,8 @@ import { useLayout } from '../../../contexts/LayoutContext';
 import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory } from '@fortawesome/free-solid-svg-icons';
+import MultiSelectDropdown from '../../../components/financeiro/MultiSelectDropdown';
+
 
 export default function AtividadesPage() {
   const supabase = createClient();
@@ -31,10 +33,36 @@ export default function AtividadesPage() {
   
   const [sortConfig, setSortConfig] = useState({ key: 'data_inicio_prevista', direction: 'ascending' });
 
-  const [filterEmpresa, setFilterEmpresa] = useState('');
-  const [filterEmpreendimento, setFilterEmpreendimento] = useState('');
-  const [filterResponsavel, setFilterResponsavel] = useState('');
   const [allEmpresas, setAllEmpresas] = useState([]);
+
+  // ***** INÍCIO DA ALTERAÇÃO *****
+  // Adicionado 'selectedDate' para o filtro de data.
+  const [filters, setFilters] = useState(() => {
+    try {
+      const savedFilters = localStorage.getItem('atividadesFilters');
+      if (savedFilters) {
+        const parsedFilters = JSON.parse(savedFilters);
+        if (!Array.isArray(parsedFilters.status)) {
+            parsedFilters.status = [];
+        }
+        return parsedFilters;
+      }
+    } catch (error) {
+      console.error("Falha ao carregar filtros do localStorage", error);
+    }
+    // Valor padrão dos filtros, incluindo a nova data.
+    return { empresa: '', empreendimento: '', responsavel: '', status: [], selectedDate: '' };
+  });
+
+  // Salva os filtros (incluindo a data) no navegador sempre que eles são alterados.
+  useEffect(() => {
+    try {
+      localStorage.setItem('atividadesFilters', JSON.stringify(filters));
+    } catch (error) {
+      console.error("Falha ao salvar filtros no localStorage", error);
+    }
+  }, [filters]);
+  // ***** FIM DA ALTERAÇÃO *****
 
   const kpiData = useMemo(() => {
     const today = new Date();
@@ -86,17 +114,37 @@ export default function AtividadesPage() {
       setLoading(false);
   }, [supabase]);
 
+  // ***** INÍCIO DA ALTERAÇÃO *****
+  // A lógica de filtragem foi atualizada para incluir a verificação da data selecionada.
   useEffect(() => {
     let activitiesToDisplay = [];
     if (selectedEmpreendimento === 'all') {
       activitiesToDisplay = allActivities.filter(act => {
-          const empresaMatch = !filterEmpresa || (act.empreendimentos && act.empreendimentos.empresa_proprietaria_id == filterEmpresa);
-          const empreendimentoMatch = !filterEmpreendimento || act.empreendimento_id == filterEmpreendimento;
-          const responsavelMatch = !filterResponsavel || act.funcionario_id == filterResponsavel;
-          return empresaMatch && empreendimentoMatch && responsavelMatch;
+          const empresaMatch = !filters.empresa || (act.empreendimentos && act.empreendimentos.empresa_proprietaria_id == filters.empresa);
+          const empreendimentoMatch = !filters.empreendimento || act.empreendimento_id == filters.empreendimento;
+          const responsavelMatch = !filters.responsavel || act.funcionario_id == filters.responsavel;
+          const statusMatch = filters.status.length === 0 || filters.status.includes(act.status);
+          
+          // Verifica se a atividade está programada para a data selecionada.
+          const dateMatch = !filters.selectedDate || (
+            act.data_inicio_prevista && act.data_fim_prevista &&
+            filters.selectedDate >= act.data_inicio_prevista &&
+            filters.selectedDate <= act.data_fim_prevista
+          );
+          
+          return empresaMatch && empreendimentoMatch && responsavelMatch && statusMatch && dateMatch;
       });
     } else {
-      activitiesToDisplay = allActivities.filter(act => act.empreendimento_id == selectedEmpreendimento);
+      activitiesToDisplay = allActivities.filter(act => {
+          const empreendimentoMatch = act.empreendimento_id == selectedEmpreendimento;
+          const statusMatch = filters.status.length === 0 || filters.status.includes(act.status);
+          const dateMatch = !filters.selectedDate || (
+            act.data_inicio_prevista && act.data_fim_prevista &&
+            filters.selectedDate >= act.data_inicio_prevista &&
+            filters.selectedDate <= act.data_fim_prevista
+          );
+          return empreendimentoMatch && statusMatch && dateMatch;
+      });
     }
 
     activitiesToDisplay.sort((a, b) => {
@@ -106,7 +154,9 @@ export default function AtividadesPage() {
     });
 
     setFilteredActivities(activitiesToDisplay);
-  }, [selectedEmpreendimento, allActivities, filterEmpresa, filterEmpreendimento, filterResponsavel, sortConfig]);
+  }, [selectedEmpreendimento, allActivities, filters, sortConfig]);
+  // ***** FIM DA ALTERAÇÃO *****
+
 
   useEffect(() => {
     if (selectedEmpreendimento !== null) {
@@ -156,6 +206,37 @@ export default function AtividadesPage() {
       <button onClick={() => setActiveTab(tabName)} className={`${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm`}>{label}</button>
   );
 
+  const handleFilterChange = (filterName, value) => {
+    setFilters(prevFilters => ({
+      ...prevFilters,
+      [filterName]: value
+    }));
+  };
+
+  // ***** INÍCIO DA ALTERAÇÃO *****
+  // A função de limpar filtros foi atualizada para limpar também a data.
+  const clearFilters = () => {
+    setFilters({
+      empresa: '',
+      empreendimento: '',
+      responsavel: '',
+      status: [],
+      selectedDate: ''
+    });
+    localStorage.removeItem('atividadesFilters');
+  };
+  // ***** FIM DA ALTERAÇÃO *****
+
+  const statusOptions = [
+    { id: 'Não Iniciado', text: 'Não Iniciado' },
+    { id: 'Em Andamento', text: 'Em Andamento' },
+    { id: 'Concluído', text: 'Concluído' },
+    { id: 'Pausado', text: 'Pausado' },
+    { id: 'Aguardando Material', text: 'Aguardando Material' },
+    { id: 'Cancelado', text: 'Cancelado' }
+  ];
+
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-4 rounded-lg shadow">
@@ -166,23 +247,43 @@ export default function AtividadesPage() {
             <button onClick={() => handleEditClick(null)} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 w-full md:w-auto mt-2 md:mt-0">+ Nova Atividade</button>
         </div>
         
-        {selectedEmpreendimento === 'all' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 border-t pt-4">
-                <select value={filterEmpresa} onChange={e => setFilterEmpresa(e.target.value)} className="p-2 border rounded-md">
+        {/* ***** INÍCIO DA ALTERAÇÃO ***** */}
+        {/* Adicionado o campo de input de data aos filtros. */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 border-t pt-4">
+            {selectedEmpreendimento === 'all' && (
+              <>
+                <select value={filters.empresa} onChange={e => handleFilterChange('empresa', e.target.value)} className="p-2 border rounded-md">
                     <option value="">Filtrar por Empresa...</option>
                     {allEmpresas.map(e => <option key={e.id} value={e.id}>{e.razao_social}</option>)}
                 </select>
-                <select value={filterEmpreendimento} onChange={e => setFilterEmpreendimento(e.target.value)} className="p-2 border rounded-md">
+                <select value={filters.empreendimento} onChange={e => handleFilterChange('empreendimento', e.target.value)} className="p-2 border rounded-md">
                     <option value="">Filtrar por Empreendimento...</option>
                     {empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
                 </select>
-                <select value={filterResponsavel} onChange={e => setFilterResponsavel(e.target.value)} className="p-2 border rounded-md">
-                    <option value="">Filtrar por Responsável...</option>
-                    {funcionarios.map(f => <option key={f.id} value={f.id}>{f.full_name}</option>)}
-                </select>
-                <button onClick={() => {setFilterEmpresa(''); setFilterEmpreendimento(''); setFilterResponsavel('');}} className="p-2 bg-gray-200 rounded-md hover:bg-gray-300">Limpar Filtros</button>
-            </div>
-        )}
+              </>
+            )}
+            <select value={filters.responsavel} onChange={e => handleFilterChange('responsavel', e.target.value)} className="p-2 border rounded-md">
+                <option value="">Filtrar por Responsável...</option>
+                {funcionarios.map(f => <option key={f.id} value={f.id}>{f.full_name}</option>)}
+            </select>
+            
+            <MultiSelectDropdown
+                options={statusOptions}
+                selectedIds={filters.status} 
+                onChange={(selected) => handleFilterChange('status', selected)}
+                placeholder="Filtrar por Status..."
+            />
+
+            <input
+              type="date"
+              value={filters.selectedDate || ''}
+              onChange={e => handleFilterChange('selectedDate', e.target.value)}
+              className="p-2 border rounded-md"
+            />
+
+            <button onClick={clearFilters} className="p-2 bg-gray-200 rounded-md hover:bg-gray-300 w-full">Limpar Filtros</button>
+        </div>
+        {/* ***** FIM DA ALTERAÇÃO ***** */}
       </div>
       
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
