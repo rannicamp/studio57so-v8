@@ -6,205 +6,478 @@ import { useRouter } from 'next/navigation';
 import { IMaskInput } from 'react-imask';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTrashAlt, faPlusCircle } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'sonner'; // Importar toast
+
+// Países para o seletor de código de telefone
+const countries = [
+    { name: "Brasil", code: "BR", dial_code: "+55", mask: "(00) 00000-0000" },
+    { name: "Estados Unidos", code: "US", dial_code: "+1", mask: "(000) 000-0000" },
+    { name: "Portugal", code: "PT", dial_code: "+351", mask: "000 000 000" },
+    // Adicione mais países conforme necessário
+];
 
 const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }) => {
     const handleUpdate = (field, newValue) => onUpdate(index, field, newValue);
     if (isPhone) {
+        // Encontrar a máscara correta para o país selecionado
+        const selectedCountry = countries.find(c => c.dial_code === item.country_code) || countries[0];
+        const mask = selectedCountry.mask;
+
         return (
             <div className="flex items-center gap-2">
                 <select value={item.country_code || '+55'} onChange={(e) => handleUpdate('country_code', e.target.value)} className="p-2 border rounded-md bg-gray-50 text-sm max-w-[150px]">
                     {countries.map(c => (<option key={c.code} value={c.dial_code}>{c.name} ({c.dial_code})</option>))}
                 </select>
-                <IMaskInput mask={[{ mask: '(00) 0000-0000' }, { mask: '(00) 00000-0000' }]} placeholder="(DDD) Telefone" value={item.telefone || ''} onAccept={(value) => handleUpdate('telefone', value)} className="flex-grow p-2 border rounded-md" />
-                <input type="text" placeholder="Tipo (Ex: Celular)" value={item.tipo || ''} onChange={(e) => handleUpdate('tipo', e.target.value)} className="w-1/3 p-2 border rounded-md" />
-                <button type="button" onClick={() => onRemove(index)}><FontAwesomeIcon icon={faTrashAlt} className="text-red-500 hover:text-red-700" /></button>
+                <IMaskInput 
+                    mask={mask} // Usar a máscara dinâmica
+                    placeholder="(DDD) Telefone" 
+                    value={item.telefone || ''} 
+                    onAccept={(value) => handleUpdate('telefone', value)} 
+                    className="flex-grow p-2 border rounded-md" 
+                />
+                <button type="button" onClick={() => onRemove(index)} className="text-red-500 hover:text-red-700 p-2 rounded-full">
+                    <FontAwesomeIcon icon={faTrashAlt} />
+                </button>
             </div>
-        )
+        );
     }
     return (
         <div className="flex items-center gap-2">
-            <input type="email" placeholder="endereco@email.com" value={item.email || ''} onChange={(e) => handleUpdate('email', e.target.value)} className="flex-grow p-2 border rounded-md" />
-            <input type="text" placeholder="Tipo (Ex: Pessoal)" value={item.tipo || ''} onChange={(e) => handleUpdate('tipo', e.target.value)} className="w-1/3 p-2 border rounded-md" />
-            <button type="button" onClick={() => onRemove(index)}><FontAwesomeIcon icon={faTrashAlt} className="text-red-500 hover:text-red-700" /></button>
+            <input
+                type="email"
+                placeholder="email@exemplo.com"
+                value={item.email || ''}
+                onChange={(e) => handleUpdate('email', e.target.value)}
+                className="flex-grow p-2 border rounded-md"
+            />
+            <button type="button" onClick={() => onRemove(index)} className="text-red-500 hover:text-red-700 p-2 rounded-full">
+                <FontAwesomeIcon icon={faTrashAlt} />
+            </button>
         </div>
     );
 };
 
-const countryList = [ { name: 'Brazil', dial_code: '+55', code: 'BR' }, { name: 'United States', dial_code: '+1', code: 'US' } ];
 
-export default function ContatoForm({ initialData }) {
-  const supabase = createClient();
-  const router = useRouter();
-  const isEditing = Boolean(initialData?.id);
-  
-  const getInitialState = useCallback((type = 'Pessoa Física') => ({
-    personalidade_juridica: type,
-    nome: '', tipo_contato: null, status: 'Ativo', razao_social: '', nome_fantasia: '', cnpj: '', responsavel_legal: '', 
-    // ***** INÍCIO DA ALTERAÇÃO *****
-    pessoa_contato: '', // Adicionado ao estado inicial
-    // ***** FIM DA ALTERAÇÃO *****
-    cpf: '', rg: '', birth_date: null, data_fundacao: null, tipo_servico_produto: '', cep: '', address_street: '', address_number: '', address_complement: '', neighborhood: '', city: '', state: '', observations: '',
-    telefones: [{ tempId: 'phone_0', country_code: '+55', telefone: '', tipo: 'Celular' }],
-    emails: [{ tempId: 'email_0', email: '', tipo: 'Pessoal' }],
-  }), []);
+export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
+    const supabase = createClient();
+    const router = useRouter();
+    const isEditing = Boolean(contactToEdit);
 
-  const [formData, setFormData] = useState(getInitialState());
-  const [message, setMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isApiLoading, setIsApiLoading] = useState(false);
-  const [uniqueKeyCounter, setUniqueKeyCounter] = useState(1);
+    const getInitialState = useCallback(() => ({
+        nome: '',
+        razao_social: '',
+        nome_fantasia: '',
+        cnpj: '',
+        cpf: '',
+        rg: '',
+        birth_date: '',
+        estado_civil: '',
+        nacionalidade: '',
+        personalidade_juridica: 'Pessoa Física', // Default
+        data_fundacao: '',
+        tipo_servico_produto: '',
+        pessoa_contato: '',
+        cargo: '',
+        empresa_id: null, // Certificar que é null se não selecionado
+        tipo_contato: 'Outro', // NOVO CAMPO: Valor padrão 'Outro'
+        address_street: '',
+        address_number: '',
+        address_complement: '',
+        cep: '',
+        city: '',
+        state: '',
+        neighborhood: '',
+        observacoes: '',
+        telefones: [{ telefone: '', country_code: '+55' }],
+        emails: [{ email: '' }],
+    }), []);
 
-  useEffect(() => {
-    const loadInitialData = async () => {
-      if (initialData?.id) {
+    const [formData, setFormData] = useState(getInitialState());
+    const [isLoading, setIsLoading] = useState(false);
+    const [isApiLoading, setIsApiLoading] = useState(false);
+    const [companies, setCompanies] = useState([]);
+
+    useEffect(() => {
+        const fetchCompanies = async () => {
+            const { data, error } = await supabase.from('cadastro_empresa').select('id, razao_social').order('razao_social');
+            if (error) {
+                console.error("Erro ao buscar empresas:", error.message);
+                toast.error("Erro ao carregar empresas.");
+            } else {
+                setCompanies(data || []);
+            }
+        };
+        fetchCompanies();
+    }, [supabase]);
+
+    useEffect(() => {
+        if (isEditing && contactToEdit) {
+            setFormData({
+                ...contactToEdit,
+                empresa_id: contactToEdit.empresa_id || null, // Garante que seja null
+                tipo_contato: contactToEdit.tipo_contato || 'Outro', // NOVO CAMPO: Popula o tipo de contato
+                telefones: contactToEdit.telefones?.length > 0 ? contactToEdit.telefones : [{ telefone: '', country_code: '+55' }],
+                emails: contactToEdit.emails?.length > 0 ? contactToEdit.emails : [{ email: '' }],
+                // Formatar datas para o input type="date"
+                birth_date: contactToEdit.birth_date ? new Date(contactToEdit.birth_date).toISOString().split('T')[0] : '',
+                data_fundacao: contactToEdit.data_fundacao ? new Date(contactToEdit.data_fundacao).toISOString().split('T')[0] : '',
+            });
+        } else {
+            setFormData(getInitialState());
+        }
+    }, [isEditing, contactToEdit, getInitialState]);
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const handleDynamicInputChange = (listName, index, field, value) => {
+        setFormData(prev => ({
+            ...prev,
+            [listName]: prev[listName].map((item, i) =>
+                i === index ? { ...item, [field]: value } : item
+            )
+        }));
+    };
+
+    const handleAddDynamicInput = (listName, defaultValue) => {
+        setFormData(prev => ({
+            ...prev,
+            [listName]: [...prev[listName], defaultValue]
+        }));
+    };
+
+    const handleRemoveDynamicInput = (listName, index) => {
+        setFormData(prev => ({
+            ...prev,
+            [listName]: prev[listName].filter((_, i) => i !== index)
+        }));
+    };
+
+    const handleCepChange = async (e) => {
+        const cep = e.target.value.replace(/\D/g, '');
+        setFormData(prev => ({ ...prev, cep: cep }));
+        if (cep.length === 8) {
+            setIsApiLoading(true);
+            try {
+                const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                const data = await response.json();
+                if (data.erro) {
+                    toast.error("CEP não encontrado.");
+                } else {
+                    setFormData(prev => ({
+                        ...prev,
+                        address_street: data.logradouro,
+                        neighborhood: data.bairro,
+                        city: data.localidade,
+                        state: data.uf,
+                    }));
+                }
+            } catch (error) {
+                console.error("Erro ao buscar CEP:", error);
+                toast.error("Erro ao buscar CEP.");
+            } finally {
+                setIsApiLoading(false);
+            }
+        }
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
         setIsLoading(true);
-        const { data: telefones } = await supabase.from('telefones').select('*').eq('contato_id', initialData.id);
-        const { data: emails } = await supabase.from('emails').select('*').eq('contato_id', initialData.id);
-        const fullData = { ...getInitialState(initialData.personalidade_juridica), ...initialData, telefones: telefones?.length ? telefones : getInitialState().telefones, emails: emails?.length ? emails : getInitialState().emails };
-        setFormData(fullData);
+
+        // --- VALIDAÇÃO APRIMORADA ---
+        let errors = [];
+
+        if (!formData.nome.trim()) {
+            errors.push("O nome é obrigatório.");
+        }
+
+        if (formData.personalidade_juridica === 'Pessoa Física') {
+            if (!formData.cpf.trim()) {
+                errors.push("O CPF é obrigatório para Pessoa Física.");
+            }
+        } else { // Pessoa Jurídica
+            if (!formData.razao_social.trim()) {
+                errors.push("A Razão Social é obrigatória para Pessoa Jurídica.");
+            }
+            if (!formData.cnpj.trim()) {
+                errors.push("O CNPJ é obrigatório para Pessoa Jurídica.");
+            }
+        }
+
+        const hasValidPhone = formData.telefones.some(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length >= 10);
+        const hasValidEmail = formData.emails.some(mail => mail.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail.email));
+
+        if (!hasValidPhone && !hasValidEmail) {
+            errors.push("É necessário informar ao menos um telefone ou um e-mail válido.");
+        }
+
+        if (errors.length > 0) {
+            errors.forEach(err => toast.error(err));
+            setIsLoading(false);
+            return;
+        }
+        // --- FIM DA VALIDAÇÃO APRIMORADA ---
+
+        const dataToSave = {
+            ...formData,
+            // Garantir que empresa_id seja null se vazio
+            empresa_id: formData.empresa_id ? parseInt(formData.empresa_id, 10) : null,
+            // NOVO CAMPO: Incluir tipo_contato
+            tipo_contato: formData.tipo_contato,
+            // Limpar dados irrelevantes para o tipo de personalidade
+            cpf: formData.personalidade_juridica === 'Pessoa Física' ? formData.cpf.replace(/\D/g, '') : null,
+            rg: formData.personalidade_juridica === 'Pessoa Física' ? formData.rg : null,
+            razao_social: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.razao_social : null,
+            nome_fantasia: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.nome_fantasia : null,
+            cnpj: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.cnpj.replace(/\D/g, '') : null,
+            inscricao_estadual: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.inscricao_estadual : null,
+            inscricao_municipal: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.inscricao_municipal : null,
+            responsavel_legal: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.responsavel_legal : null,
+            data_fundacao: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.data_fundacao : null,
+            tipo_servico_produto: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.tipo_servico_produto : null,
+            pessoa_contato: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.pessoa_contato : null,
+            cargo: formData.personalidade_juridica === 'Pessoa Física' ? formData.cargo : null,
+            birth_date: formData.personalidade_juridica === 'Pessoa Física' ? formData.birth_date : null,
+            estado_civil: formData.personalidade_juridica === 'Pessoa Física' ? formData.estado_civil : null,
+            nacionalidade: formData.personalidade_juridica === 'Pessoa Física' ? formData.nacionalidade : null,
+        };
+
+        const cleanedPhones = formData.telefones.filter(tel => tel.telefone.replace(/\D/g, '').length > 0).map(tel => ({
+            telefone: tel.telefone.replace(/\D/g, ''),
+            country_code: tel.country_code
+        }));
+        const cleanedEmails = formData.emails.filter(mail => mail.email.trim() !== '').map(mail => ({
+            email: mail.email.trim()
+        }));
+        
+        let contactId = null;
+        let error = null;
+
+        if (isEditing) {
+            const { data, error: updateError } = await supabase
+                .from('contatos')
+                .update(dataToSave)
+                .eq('id', contactToEdit.id)
+                .select()
+                .single();
+            if (updateError) error = updateError;
+            contactId = data?.id;
+        } else {
+            const { data, error: insertError } = await supabase
+                .from('contatos')
+                .insert(dataToSave)
+                .select()
+                .single();
+            if (insertError) error = insertError;
+            contactId = data?.id;
+        }
+
+        if (error) {
+            console.error("Erro ao salvar contato:", error);
+            toast.error(`Erro ao salvar contato: ${error.message}`);
+            setIsLoading(false);
+            return;
+        }
+
+        // --- SALVAR TELEFONES E EMAILS ---
+        if (contactId) {
+            // Remover telefones/emails antigos
+            await supabase.from('telefones').delete().eq('contato_id', contactId);
+            await supabase.from('emails').delete().eq('contato_id', contactId);
+
+            // Inserir novos telefones
+            if (cleanedPhones.length > 0) {
+                const phonesWithContactId = cleanedPhones.map(tel => ({ ...tel, contato_id: contactId, tipo: 'Celular' })); // Adicionar tipo padrão
+                const { error: phoneError } = await supabase.from('telefones').insert(phonesWithContactId);
+                if (phoneError) console.error("Erro ao salvar telefones:", phoneError);
+            }
+
+            // Inserir novos emails
+            if (cleanedEmails.length > 0) {
+                const emailsWithContactId = cleanedEmails.map(mail => ({ ...mail, contato_id: contactId, tipo: 'Pessoal' })); // Adicionar tipo padrão
+                const { error: emailError } = await supabase.from('emails').insert(emailsWithContactId);
+                if (emailError) console.error("Erro ao salvar emails:", emailError);
+            }
+        }
+        // --- FIM SALVAR TELEFONES E EMAILS ---
+
+        toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
         setIsLoading(false);
-      }
+        if (onSaveSuccess) onSaveSuccess(contactId);
+        if (onClose) onClose();
+        else router.push('/contatos'); // Redirecionar para a lista de contatos
     };
-    loadInitialData();
-  }, [initialData, supabase, getInitialState]);
-  
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    
-    if (name === 'personalidade_juridica') {
-        const currentState = formData;
-        const newState = getInitialState(value);
-        newState.telefones = currentState.telefones;
-        newState.emails = currentState.emails;
-        newState.tipo_contato = currentState.tipo_contato;
-        newState.cep = currentState.cep;
-        newState.address_street = currentState.address_street;
-        newState.address_number = currentState.address_number;
-        newState.address_complement = currentState.address_complement;
-        newState.neighborhood = currentState.neighborhood;
-        newState.city = currentState.city;
-        newState.state = currentState.state;
-        newState.observations = currentState.observations;
-        newState.tipo_servico_produto = currentState.tipo_servico_produto;
-        setFormData(newState);
-    } else {
-        setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
-    }
-  };
 
-  const handleMaskedChange = (name, value) => setFormData(prevState => ({ ...prevState, [name]: value }));
-  const handleDynamicListUpdate = (listName, index, field, value) => setFormData(prev => ({ ...prev, [listName]: formData[listName].map((item, i) => i === index ? { ...item, [field]: value } : item) }));
-  const addDynamicListItem = (listName) => {
-    const newKey = uniqueKeyCounter; setUniqueKeyCounter(prev => prev + 1);
-    const newItem = listName === 'telefones' ? { tempId: `phone_${newKey}`, country_code: '+55', telefone: '', tipo: '' } : { tempId: `email_${newKey}`, email: '', tipo: '' };
-    setFormData(prev => ({ ...prev, [listName]: [...prev[listName], newItem] }));
-  };
-  const removeDynamicListItem = (listName, index) => {
-    if (formData[listName].length > 1) { setFormData(prev => ({ ...prev, [listName]: prev[listName].filter((_, i) => i !== index) })); } 
-    else { setFormData(prev => ({ ...prev, [listName]: formData[listName].map((item, i) => i === index ? { ...item, telefone: '', email: '', tipo: '' } : item) })); }
-  };
-  
-  const handleCepBlur = async (cep) => {
-    const cepLimpo = cep?.replace(/\D/g, ''); if (cepLimpo?.length !== 8) return;
-    setIsApiLoading(true); setMessage('Buscando CEP...');
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`); if (!response.ok) throw new Error('CEP não encontrado');
-      const data = await response.json(); if (data.erro) throw new Error('CEP inválido.');
-      setFormData(prev => ({ ...prev, address_street: data.logradouro, neighborhood: data.bairro, city: data.localidade, state: data.uf, cep: cepLimpo }));
-      setMessage('Endereço preenchido!');
-    } catch (error) { setMessage(error.message); } finally { setIsApiLoading(false); setTimeout(() => setMessage(''), 3000); }
-  };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true); setMessage(isEditing ? 'Atualizando...' : 'Criando...');
-    const { id, telefones, emails, ...contatoData } = formData;
-    let savedContact;
-    if (isEditing) {
-      const { data, error } = await supabase.from('contatos').update(contatoData).eq('id', initialData.id).select().single();
-      if (error) { setMessage(`Erro: ${error.message}`); setIsLoading(false); return; }
-      savedContact = data;
-    } else {
-      const { data, error } = await supabase.from('contatos').insert(contatoData).select().single();
-      if (error) { setMessage(`Erro: ${error.message}`); setIsLoading(false); return; }
-      savedContact = data;
-    }
-    const saveRelatedData = async (list, tableName, field) => {
-        const itemsToSave = list.filter(item => item[field] && item[field].trim() !== '').map(({ id, tempId, ...dbItem }) => ({ ...dbItem, contato_id: savedContact.id }));
-        if (isEditing) { await supabase.from(tableName).delete().eq('contato_id', savedContact.id); }
-        if (itemsToSave.length > 0) { const { error } = await supabase.from(tableName).insert(itemsToSave); if (error) throw new Error(`Erro em ${tableName}: ${error.message}`); }
-    };
-    try {
-      await saveRelatedData(formData.telefones, 'telefones', 'telefone');
-      await saveRelatedData(formData.emails, 'emails', 'email');
-      setMessage(`Contato ${isEditing ? 'atualizado' : 'criado'}!`);
-      setTimeout(() => { router.push('/contatos'); router.refresh(); }, 1500);
-    } catch (error) { setMessage(error.message); setIsLoading(false); } 
-  };
+    return (
+        <form onSubmit={handleSubmit} className="space-y-6 p-6 bg-white rounded-lg shadow-md">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">{isEditing ? 'Editar Contato' : 'Cadastrar Novo Contato'}</h2>
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      {(message || isApiLoading) && ( <div className={`p-3 rounded-md text-center sticky top-2 z-10 ${message.includes('Erro') ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}> {isApiLoading && <FontAwesomeIcon icon={faSpinner} spin className="mr-2" />} {message} </div> )}
-      
-      <fieldset>
-        <legend className="text-xl font-semibold text-gray-800 border-b pb-2">Identificação</legend>
-        <div className="mt-6">
-            <label className="block text-sm font-medium">Personalidade Jurídica *</label>
-            <select name="personalidade_juridica" value={formData.personalidade_juridica} onChange={handleChange} required className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                <option>Pessoa Física</option>
-                <option>Pessoa Jurídica</option>
-            </select>
-        </div>
+            <fieldset className="border p-4 rounded-md">
+                <legend className="text-lg font-semibold text-gray-700">Tipo de Contato</legend>
+                <div className="mt-2 flex gap-4">
+                    <label className="inline-flex items-center">
+                        <input
+                            type="radio"
+                            name="personalidade_juridica"
+                            value="Pessoa Física"
+                            checked={formData.personalidade_juridica === 'Pessoa Física'}
+                            onChange={handleChange}
+                            className="form-radio"
+                        />
+                        <span className="ml-2">Pessoa Física</span>
+                    </label>
+                    <label className="inline-flex items-center">
+                        <input
+                            type="radio"
+                            name="personalidade_juridica"
+                            value="Pessoa Jurídica"
+                            checked={formData.personalidade_juridica === 'Pessoa Jurídica'}
+                            onChange={handleChange}
+                            className="form-radio"
+                        />
+                        <span className="ml-2">Pessoa Jurídica</span>
+                    </label>
+                </div>
+            </fieldset>
 
-        {formData.personalidade_juridica === 'Pessoa Física' ? (
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2"> <label className="block text-sm font-medium">Nome Completo</label> <input name="nome" value={formData.nome || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /> </div>
-            <div> <label className="block text-sm font-medium">Tipo de Contato *</label> <select name="tipo_contato" value={formData.tipo_contato || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"> <option value="">Selecione...</option> <option>Contato</option> <option>Cliente</option> <option>Fornecedor</option> <option>Lead</option> </select> </div>
-            <div><label className="block text-sm font-medium">CPF</label><IMaskInput mask="000.000.000-00" name="cpf" onAccept={(v) => handleMaskedChange('cpf', v)} value={formData.cpf || ''} className="w-full p-2 border rounded-md"/></div>
-            <div><label className="block text-sm font-medium">RG</label><input name="rg" value={formData.rg || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
-            <div><label className="block text-sm font-medium">Data de Nascimento</label><input type="date" name="birth_date" value={formData.birth_date || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
-            <div className="md:col-span-3"><label className="block text-sm font-medium">Tipo de Serviço/Produto</label><input name="tipo_servico_produto" value={formData.tipo_servico_produto || ''} onChange={handleChange} className="w-full p-2 border rounded-md" placeholder="Ex: Material de Construção, Elétrica, Hidráulica..." /></div>
-          </div>
-        ) : (
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div> <label className="block text-sm font-medium">Razão Social</label> <input name="razao_social" value={formData.razao_social || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /> </div>
-                <div> <label className="block text-sm font-medium">Nome Fantasia</label> <input name="nome_fantasia" value={formData.nome_fantasia || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /> </div>
-                <div> <label className="block text-sm font-medium">CNPJ</label> <IMaskInput mask="00.000.000/0000-00" name="cnpj" onAccept={(v) => handleMaskedChange('cnpj', v)} value={formData.cnpj || ''} className="w-full p-2 border rounded-md"/> </div>
-                <div> <label className="block text-sm font-medium">Tipo de Contato *</label> <select name="tipo_contato" value={formData.tipo_contato || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"> <option value="">Selecione...</option> <option>Contato</option> <option>Cliente</option> <option>Fornecedor</option> <option>Lead</option> </select> </div>
-                <div><label className="block text-sm font-medium">Data de Fundação</label><input type="date" name="data_fundacao" value={formData.data_fundacao || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
-                {/* ***** INÍCIO DA ALTERAÇÃO ***** */}
-                <div><label className="block text-sm font-medium">Pessoa de Contato</label><input name="pessoa_contato" value={formData.pessoa_contato || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
-                <div className="md:col-span-2"><label className="block text-sm font-medium">Tipo de Serviço/Produto</label><input name="tipo_servico_produto" value={formData.tipo_servico_produto || ''} onChange={handleChange} className="w-full p-2 border rounded-md" placeholder="Ex: Material de Construção, Elétrica, Hidráulica..." /></div>
-                {/* ***** FIM DA ALTERAÇÃO ***** */}
+            <fieldset className="border p-4 rounded-md">
+                <legend className="text-lg font-semibold text-gray-700">{formData.personalidade_juridica === 'Pessoa Física' ? 'Dados Pessoais' : 'Dados da Empresa'}</legend>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    {formData.personalidade_juridica === 'Pessoa Física' ? (
+                        <>
+                            <div><label className="block text-sm font-medium">Nome Completo *</label><input name="nome" value={formData.nome || ''} onChange={handleChange} className="w-full p-2 border rounded-md" required /></div>
+                            <div><label className="block text-sm font-medium">CPF *</label><IMaskInput mask="000.000.000-00" name="cpf" value={formData.cpf || ''} onAccept={(value) => setFormData(prev => ({ ...prev, cpf: value }))} className="w-full p-2 border rounded-md" required /></div>
+                            <div><label className="block text-sm font-medium">RG</label><input name="rg" value={formData.rg || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                            <div><label className="block text-sm font-medium">Data de Nascimento</label><input type="date" name="birth_date" value={formData.birth_date || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                            <div><label className="block text-sm font-medium">Estado Civil</label><input name="estado_civil" value={formData.estado_civil || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                            <div><label className="block text-sm font-medium">Nacionalidade</label><input name="nacionalidade" value={formData.nacionalidade || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                            <div><label className="block text-sm font-medium">Cargo</label><input name="cargo" value={formData.cargo || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                        </>
+                    ) : (
+                        <>
+                            <div><label className="block text-sm font-medium">Razão Social *</label><input name="razao_social" value={formData.razao_social || ''} onChange={handleChange} className="w-full p-2 border rounded-md" required /></div>
+                            <div><label className="block text-sm font-medium">Nome Fantasia</label><input name="nome_fantasia" value={formData.nome_fantasia || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                            <div><label className="block text-sm font-medium">CNPJ *</label><IMaskInput mask="00.000.000/0000-00" name="cnpj" value={formData.cnpj || ''} onAccept={(value) => setFormData(prev => ({ ...prev, cnpj: value }))} className="w-full p-2 border rounded-md" required /></div>
+                            <div><label className="block text-sm font-medium">Inscrição Estadual</label><input name="inscricao_estadual" value={formData.inscricao_estadual || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                            <div><label className="block text-sm font-medium">Inscrição Municipal</label><input name="inscricao_municipal" value={formData.inscricao_municipal || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                            <div><label className="block text-sm font-medium">Responsável Legal</label><input name="responsavel_legal" value={formData.responsavel_legal || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                            <div><label className="block text-sm font-medium">Data de Fundação</label><input type="date" name="data_fundacao" value={formData.data_fundacao || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                            <div><label className="block text-sm font-medium">Tipo de Serviço/Produto</label><input name="tipo_servico_produto" value={formData.tipo_servico_produto || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                            <div><label className="block text-sm font-medium">Pessoa de Contato</label><input name="pessoa_contato" value={formData.pessoa_contato || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                        </>
+                    )}
+                </div>
+            </fieldset>
+
+            {/* NOVO CAMPO: Tipo de Contato */}
+            <fieldset className="border p-4 rounded-md">
+                <legend className="text-lg font-semibold text-gray-700">Classificação do Contato</legend>
+                <div className="mt-4">
+                    <label className="block text-sm font-medium">Tipo de Contato</label>
+                    <select
+                        name="tipo_contato"
+                        value={formData.tipo_contato || 'Outro'} // Garante um valor padrão
+                        onChange={handleChange}
+                        className="w-full p-2 border rounded-md"
+                    >
+                        <option value="Lead">Lead</option>
+                        <option value="Cliente">Cliente</option>
+                        <option value="Fornecedor">Fornecedor</option>
+                        <option value="Parceiro">Parceiro</option>
+                        <option value="Outro">Outro</option>
+                    </select>
+                </div>
+            </fieldset>
+
+            <fieldset className="border p-4 rounded-md">
+                <legend className="text-lg font-semibold text-gray-700">Contatos</legend>
+                <div className="space-y-3 mt-4">
+                    <h4 className="text-md font-medium">Telefones *</h4>
+                    {formData.telefones.map((tel, index) => (
+                        <DynamicInputRow
+                            key={index}
+                            item={tel}
+                            index={index}
+                            onUpdate={(i, field, value) => handleDynamicInputChange('telefones', i, field, value)}
+                            onRemove={() => handleRemoveDynamicInput('telefones', index)}
+                            isPhone={true}
+                            countries={countries}
+                        />
+                    ))}
+                    <button type="button" onClick={() => handleAddDynamicInput('telefones', { telefone: '', country_code: '+55' })} className="text-blue-600 hover:text-blue-800 flex items-center gap-2 text-sm">
+                        <FontAwesomeIcon icon={faPlusCircle} /> Adicionar Telefone
+                    </button>
+
+                    <h4 className="text-md font-medium mt-6">E-mails *</h4>
+                    {formData.emails.map((mail, index) => (
+                        <DynamicInputRow
+                            key={index}
+                            item={mail}
+                            index={index}
+                            onUpdate={(i, field, value) => handleDynamicInputChange('emails', i, field, value)}
+                            onRemove={() => handleRemoveDynamicInput('emails', index)}
+                            isPhone={false}
+                        />
+                    ))}
+                    <button type="button" onClick={() => handleAddDynamicInput('emails', { email: '' })} className="text-blue-600 hover:text-blue-800 flex items-center gap-2 text-sm">
+                        <FontAwesomeIcon icon={faPlusCircle} /> Adicionar E-mail
+                    </button>
+                </div>
+            </fieldset>
+
+            <fieldset className="border p-4 rounded-md">
+                <legend className="text-lg font-semibold text-gray-700">Informações Adicionais</legend>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label className="block text-sm font-medium">Empresa Associada</label>
+                        <select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="w-full p-2 border rounded-md">
+                            <option value="">Nenhuma</option>
+                            {companies.map(company => (
+                                <option key={company.id} value={company.id}>{company.razao_social}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div><label className="block text-sm font-medium">Observações</label><textarea name="observacoes" value={formData.observacoes || ''} onChange={handleChange} rows="3" className="w-full p-2 border rounded-md"></textarea></div>
+                </div>
+            </fieldset>
+
+            <fieldset className="border p-4 rounded-md">
+                <legend className="text-lg font-semibold text-gray-700">Endereço</legend>
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mt-4">
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-medium">CEP</label>
+                        <IMaskInput
+                            mask="00000-000"
+                            name="cep"
+                            value={formData.cep || ''}
+                            onAccept={(value) => setFormData(prev => ({ ...prev, cep: value }))}
+                            onBlur={handleCepChange}
+                            className="w-full p-2 border rounded-md"
+                        />
+                        {isApiLoading && <p className="text-xs text-gray-500">Buscando CEP...</p>}
+                    </div>
+                    <div className="md:col-span-4"><label className="block text-sm font-medium">Logradouro</label><input name="address_street" value={formData.address_street || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                    <div className="md:col-span-1"><label className="block text-sm font-medium">Número</label><input name="address_number" value={formData.address_number || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                    <div className="md:col-span-3"><label className="block text-sm font-medium">Complemento</label><input name="address_complement" value={formData.address_complement || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                    <div className="md:col-span-2"><label className="block text-sm font-medium">Bairro</label><input name="neighborhood" value={formData.neighborhood || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                    <div className="md:col-span-4"><label className="block text-sm font-medium">Cidade</label><input name="city" value={formData.city || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                    <div className="md:col-span-2"><label className="block text-sm font-medium">Estado (UF)</label><input name="state" value={formData.state || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                </div>
+            </fieldset>
+
+            <div className="mt-8 flex justify-end gap-4">
+                <button type="button" onClick={() => router.push('/contatos')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"> Cancelar </button>
+                <button type="submit" disabled={isLoading || isApiLoading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2">
+                    {isLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Salvar Contato'}
+                </button>
             </div>
-        )}
-      </fieldset>
-
-      <fieldset>
-        <legend className="text-xl font-semibold text-gray-800 border-b pb-2">Informações de Contato</legend>
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-x-10">
-           <div><label className="block text-sm font-medium mb-2">Telefones</label><div className="space-y-3">{formData.telefones.map((item, index) => <DynamicInputRow key={item.id || item.tempId} item={item} index={index} onUpdate={(...args) => handleDynamicListUpdate('telefones', ...args)} onRemove={(idx) => removeDynamicListItem('telefones', idx)} isPhone={true} countries={countryList}/>)}<button type="button" onClick={() => addDynamicListItem('telefones')} className="text-blue-500 hover:text-blue-700 flex items-center gap-2 text-sm"> <FontAwesomeIcon icon={faPlusCircle} /> Adicionar </button></div></div>
-           <div><label className="block text-sm font-medium mb-2">Emails</label><div className="space-y-3">{formData.emails.map((item, index) => <DynamicInputRow key={item.id || item.tempId} item={item} index={index} onUpdate={(...args) => handleDynamicListUpdate('emails', ...args)} onRemove={(idx) => removeDynamicListItem('emails', idx)} isPhone={false} countries={countryList}/>)}<button type="button" onClick={() => addDynamicListItem('emails')} className="text-blue-500 hover:text-blue-700 flex items-center gap-2 text-sm"> <FontAwesomeIcon icon={faPlusCircle} /> Adicionar </button></div></div>
-        </div>
-      </fieldset>
-      
-      <fieldset>
-          <legend className="text-xl font-semibold text-gray-800 border-b pb-2">Endereço</legend>
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-6">
-            <div className="md:col-span-2"> <label className="block text-sm font-medium">CEP</label> <IMaskInput mask="00000-000" name="cep" onAccept={(v) => handleMaskedChange('cep', v)} onBlur={(e) => handleCepBlur(e.target.value)} value={formData.cep || ''} className="w-full p-2 border rounded-md"/> </div>
-            <div className="md:col-span-4"><label className="block text-sm font-medium">Rua</label><input name="address_street" value={formData.address_street || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
-            <div className="md:col-span-1"><label className="block text-sm font-medium">Número</label><input name="address_number" value={formData.address_number || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
-            <div className="md:col-span-2"><label className="block text-sm font-medium">Complemento</label><input name="address_complement" value={formData.address_complement || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
-            <div className="md:col-span-3"><label className="block text-sm font-medium">Bairro</label><input name="neighborhood" value={formData.neighborhood || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
-            <div className="md:col-span-4"><label className="block text-sm font-medium">Cidade</label><input name="city" value={formData.city || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
-            <div className="md:col-span-2"><label className="block text-sm font-medium">Estado (UF)</label><input name="state" value={formData.state || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
-          </div>
-      </fieldset>
-
-      <div className="mt-8 flex justify-end gap-4">
-        <button type="button" onClick={() => router.push('/contatos')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"> Cancelar </button>
-        <button type="submit" disabled={isLoading || isApiLoading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2"> {(isLoading || isApiLoading) && <FontAwesomeIcon icon={faSpinner} spin />} {isEditing ? 'Salvar Alterações' : 'Salvar Contato'} </button>
-      </div>
-    </form>
-  );
+        </form>
+    );
 }

@@ -1,3 +1,4 @@
+// app/(main)/contatos/editar/[id]/page.js
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
@@ -34,22 +35,25 @@ export default function EditarContatoPage() {
                 .single();
 
             if (fetchError) {
-                // Se o erro for "PGRST116", significa que o contato não foi encontrado
+                // ADIÇÃO CRÍTICA AQUI: Logar o erro detalhado do fetchError
+                console.error("Erro detalhado do Supabase ao buscar contato:", fetchError); 
+
                 if (fetchError.code === 'PGRST116') {
                     setError('Contato não encontrado.');
                     setInitialData(null);
                 } else {
-                    throw fetchError; // Lança outros erros para serem pegos pelo catch
+                    // Use a mensagem de erro do Supabase se ela for amigável
+                    setError(`Ocorreu um erro ao carregar os dados do contato: ${fetchError.message || 'Erro desconhecido.'}`);
+                    setInitialData(null);
                 }
             } else {
                 setInitialData(data);
             }
         } catch (err) {
-            console.error('Erro ao buscar dados do contato:', err);
-            setError('Ocorreu um erro ao carregar os dados do contato.');
+            console.error('Erro inesperado ao buscar dados do contato:', err);
+            setError('Ocorreu um erro ao carregar os dados do contato. (Erro interno)');
             setInitialData(null);
         } finally {
-            // **A CORREÇÃO ESTÁ AQUI**: Garante que o "carregando" sempre termine.
             setLoading(false);
         }
     }, [supabase]);
@@ -60,6 +64,10 @@ export default function EditarContatoPage() {
             getContato(id);
         }
     }, [id, getContato, setPageTitle]);
+
+    const handleSaveSuccess = () => {
+        router.push('/contatos');
+    };
 
     if (loading) {
         return (
@@ -87,7 +95,18 @@ export default function EditarContatoPage() {
 
     return (
         <div>
-            {initialData && <ContatoForm initialData={initialData} onActionComplete={() => getContato(id)} />}
+            {initialData && <ContatoForm contactToEdit={initialData} onSaveSuccess={handleSaveSuccess} onClose={handleSaveSuccess} />}
+            {!initialData && !loading && !error && (
+                <div className="text-center p-10 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <h2 className="text-2xl font-bold text-yellow-600">Nenhum contato para editar.</h2>
+                    <button 
+                        onClick={() => router.push('/contatos')}
+                        className="mt-6 bg-blue-600 text-white px-6 py-2 rounded-md shadow-sm hover:bg-blue-700"
+                    >
+                        Voltar para Contatos
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
