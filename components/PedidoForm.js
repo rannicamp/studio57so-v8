@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTrash, faPlus, faPencilAlt, faSave, faTimes, faClock, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen, faDollarSign } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTrash, faPlus, faPencilAlt, faSave, faTimes, faClock, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom } from '@fortawesome/free-solid-svg-icons'; // Adicionado faBroom
 import PedidoItemModal from './PedidoItemModal';
 import KpiCard from './KpiCard';
 
@@ -65,7 +65,7 @@ export default function PedidoForm({ pedidoId }) {
     const [isUploading, setIsUploading] = useState(false);
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [isPagamentoModalOpen, setIsPagamentoModalOpen] = useState(false);
-    const [selectedItems, setSelectedItems] = useState(new Set());
+    const [selectedItems, setSelectedItems] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
     const [newAnexoFile, setNewAnexoFile] = useState(null);
     const [newAnexoType, setNewAnexoType] = useState('Nota Fiscal');
@@ -200,9 +200,28 @@ export default function PedidoForm({ pedidoId }) {
                 finalMaterialId = newMaterial.id;
             }
 
-            const dataToUpsert = { ...itemData, material_id: finalMaterialId, pedido_compra_id: pedidoId, quantidade_solicitada: parseFloat(itemData.quantidade_solicitada) || 0, preco_unitario_real: itemData.preco_unitario_real === '' || itemData.preco_unitario_real === null ? null : parseFloat(itemData.preco_unitario_real) };
-            dataToUpsert.custo_total_real = (dataToUpsert.preco_unitario_real || 0) * (dataToUpsert.quantidade_solicitada || 0);
-            delete dataToUpsert.fornecedor_nome;
+            const dataToUpsert = { 
+                ...itemData, 
+                material_id: finalMaterialId, 
+                pedido_compra_id: pedidoId, 
+                quantidade_solicitada: parseInt(itemData.quantidade_solicitada) || 0, 
+                preco_unitario_real: itemData.preco_unitario_real === '' || itemData.preco_unitario_real === null ? null : parseFloat(itemData.preco_unitario_real),
+                
+                // Conversão de IDs para null se forem string vazia, antes de enviar ao Supabase
+                etapa_id: itemData.etapa_id === '' ? null : parseInt(itemData.etapa_id) || null,
+                fornecedor_id: itemData.fornecedor_id === '' ? null : parseInt(itemData.fornecedor_id) || null,
+                // material_id já é tratado acima
+            };
+            
+            // LÓGICA CORRIGIDA PARA CUSTO_TOTAL_REAL
+            if (itemData.tipo_operacao === 'Aluguel') {
+                dataToUpsert.custo_total_real = 
+                    (dataToUpsert.quantidade_solicitada || 0) * (dataToUpsert.preco_unitario_real || 0) * (parseInt(itemData.dias_aluguel) || 0); 
+            } else {
+                dataToUpsert.custo_total_real = (dataToUpsert.preco_unitario_real || 0) * (dataToUpsert.quantidade_solicitada || 0);
+            }
+            
+            delete dataToUpsert.fornecedor_nome; // Garante que este campo de UI não seja enviado
 
             if(isEditing) {
                 const { error } = await supabase.from('pedidos_compra_itens').update(dataToUpsert).eq('id', itemData.id);
@@ -232,6 +251,35 @@ export default function PedidoForm({ pedidoId }) {
                 loading: 'Removendo item...',
                 success: () => { setItens(prev => prev.filter(item => item.id !== itemId)); return "Item removido com sucesso!"; },
                 error: (err) => `Erro ao remover item: ${err.message}`
+            }
+        );
+    };
+
+    // NOVA FUNÇÃO: Esvaziar Itens do Pedido
+    const handleEmptyItemList = async () => {
+        if (!window.confirm('ATENÇÃO: Tem certeza que deseja REMOVER TODOS OS ITENS deste pedido? Esta ação é irreversível!')) return;
+
+        toast.promise(
+            new Promise(async (resolve, reject) => {
+                const { error } = await supabase
+                    .from('pedidos_compra_itens')
+                    .delete()
+                    .eq('pedido_compra_id', pedidoId);
+
+                if (error) {
+                    reject(new Error(`Erro ao esvaziar a lista: ${error.message}`));
+                } else {
+                    resolve('Lista de itens esvaziada com sucesso!');
+                }
+            }),
+            {
+                loading: 'Esvaziando lista de itens...',
+                success: (msg) => { 
+                    fetchData(); // Recarrega os dados do pedido para mostrar a lista vazia
+                    setSelectedItems(new Set()); // Limpa a seleção
+                    return msg; 
+                },
+                error: (err) => err.message,
             }
         );
     };
@@ -288,23 +336,41 @@ export default function PedidoForm({ pedidoId }) {
                 </div>
                 
                 <div className="border-t pt-6">
-                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><FontAwesomeIcon icon={faDollarSign} /> Registrar Pagamento</h3>
-                     <div className="bg-gray-50 p-4 rounded-lg border flex items-center justify-between">
-                         <p className="text-sm text-gray-700">Clique no botão para registrar este pedido como uma despesa no módulo financeiro.</p>
-                         <button onClick={() => setIsPagamentoModalOpen(true)} disabled={isSaving} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400">
-                             {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Registrar Pagamento'}
-                         </button>
-                     </div>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><FontAwesomeIcon icon={faDollarSign} /> Registrar Pagamento</h3>
+                    <div className="bg-gray-50 p-4 rounded-lg border flex items-center justify-between">
+                        <p className="text-sm text-gray-700">Clique no botão para registrar este pedido como uma despesa no módulo financeiro.</p>
+                        <button onClick={() => setIsPagamentoModalOpen(true)} disabled={isSaving} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400">
+                            {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Registrar Pagamento'}
+                        </button>
+                    </div>
                 </div>
 
                 <div>
-                    <div className="flex justify-between items-center mb-2"> <h3 className="text-lg font-semibold">Itens do Pedido</h3> <button onClick={() => { setEditingItem(null); setIsItemModalOpen(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center justify-center gap-2 text-sm"> <FontAwesomeIcon icon={faPlus} /> Adicionar Item </button> </div>
+                    <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-lg font-semibold">Itens do Pedido</h3>
+                        <div className="flex items-center gap-2">
+                            {/* NOVO BOTÃO: Esvaziar Lista (Visível apenas se o status for Cancelado) */}
+                            {pedido.status === 'Cancelado' && itens.length > 0 && (
+                                <button
+                                    onClick={handleEmptyItemList}
+                                    className="bg-red-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-red-600 flex items-center justify-center gap-2 text-sm"
+                                    title="Esvaziar a lista de itens deste pedido"
+                                >
+                                    <FontAwesomeIcon icon={faBroom} /> Esvaziar Itens
+                                </button>
+                            )}
+                            <button onClick={() => { setEditingItem(null); setIsItemModalOpen(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center justify-center gap-2 text-sm">
+                                <FontAwesomeIcon icon={faPlus} /> Adicionar Item
+                            </button>
+                        </div>
+                    </div>
                     <div className="overflow-x-auto border rounded-lg">
                         <table className="min-w-full">
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="p-2 w-10"><input type="checkbox" onChange={(e) => e.target.checked ? setSelectedItems(new Set(itens.map(i => i.id))) : setSelectedItems(new Set())} /></th>
                                     <th className="p-2 text-left text-xs font-medium uppercase cursor-pointer" onClick={() => requestSort('descricao_item')}>Descrição {getSortIcon('descricao_item')}</th>
+                                    <th className="p-2 text-left text-xs font-medium uppercase cursor-pointer" onClick={() => requestSort('tipo_operacao')}>Tipo {getSortIcon('tipo_operacao')}</th>
                                     <th className="p-2 text-left text-xs font-medium uppercase cursor-pointer" onClick={() => requestSort('fornecedor')}>Fornecedor {getSortIcon('fornecedor')}</th>
                                     <th className="p-2 text-center text-xs font-medium uppercase w-24 cursor-pointer" onClick={() => requestSort('quantidade_solicitada')}>Qtd. {getSortIcon('quantidade_solicitada')}</th>
                                     <th className="p-2 text-right text-xs font-medium uppercase w-32 cursor-pointer" onClick={() => requestSort('preco_unitario_real')}>Preço Unit. {getSortIcon('preco_unitario_real')}</th>
@@ -313,15 +379,21 @@ export default function PedidoForm({ pedidoId }) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {sortedItens.length === 0 ? (<tr><td colSpan="7" className="text-center py-6 text-gray-500">Nenhum item adicionado.</td></tr>) : (sortedItens.map(item => (<tr key={item.id} className={selectedItems.has(item.id) ? 'bg-blue-50' : ''}>
-                                    <td className="p-2 w-10"><input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => handleSelectionChange(item.id)} /></td>
-                                    <td className="p-2 font-medium">{item.descricao_item}</td>
-                                    <td className="p-2 text-sm text-gray-600">{item.fornecedor?.razao_social || item.fornecedor?.nome || 'Não definido'}</td>
-                                    <td className="p-2 text-center">{item.quantidade_solicitada} {item.unidade_medida}</td>
-                                    <td className="p-2 text-right">{formatCurrency(item.preco_unitario_real)}</td>
-                                    <td className="p-2 text-right font-semibold">{formatCurrency(item.custo_total_real)}</td>
-                                    <td className="p-2 text-center"> <div className="flex justify-center items-center gap-3"> <button onClick={() => handleEditClick(item)} className="text-blue-600 hover:text-blue-800" title="Editar Item"><FontAwesomeIcon icon={faPencilAlt} /></button> <button onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700" title="Remover Item"><FontAwesomeIcon icon={faTrash} /></button> </div> </td>
-                                </tr>)))}
+                                {sortedItens.length === 0 ? (<tr><td colSpan="8" className="text-center py-6 text-gray-500">Nenhum item adicionado.</td></tr>) : (sortedItens.map(item => (<tr key={item.id} className={selectedItems.has(item.id) ? 'bg-blue-50' : ''}>
+                                        <td className="p-2 w-10"><input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => handleSelectionChange(item.id)} /></td>
+                                        <td className="p-2 font-medium">{item.descricao_item}</td>
+                                        <td className="p-2 text-sm text-gray-600">
+                                            {item.tipo_operacao}
+                                            {item.tipo_operacao === 'Aluguel' && item.dias_aluguel && (
+                                                <span className="block text-xs text-gray-500">({item.dias_aluguel} dias)</span>
+                                            )}
+                                        </td>
+                                        <td className="p-2 text-sm text-gray-600">{item.fornecedor?.razao_social || item.fornecedor?.nome || 'Não definido'}</td>
+                                        <td className="p-2 text-center">{item.quantidade_solicitada} {item.unidade_medida}</td>
+                                        <td className="p-2 text-right">{formatCurrency(item.preco_unitario_real)}</td>
+                                        <td className="p-2 text-right font-semibold">{formatCurrency(item.custo_total_real)}</td>
+                                        <td className="p-2 text-center"> <div className="flex justify-center items-center gap-3"> <button onClick={() => handleEditClick(item)} className="text-blue-600 hover:text-blue-800" title="Editar Item"><FontAwesomeIcon icon={faPencilAlt} /></button> <button onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700" title="Remover Item"><FontAwesomeIcon icon={faTrash} /></button> </div> </td>
+                                    </tr>)))}
                             </tbody>
                         </table>
                     </div>

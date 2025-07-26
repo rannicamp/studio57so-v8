@@ -3,6 +3,9 @@
 import { useMemo, useState, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import PedidoCard from './PedidoCard';
+import { toast } from 'sonner'; // Importar toast para feedback
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner, faTrash, faBroom } from '@fortawesome/free-solid-svg-icons'; // Importar faTrash ou faBroom
 
 const statusColumns = [
     { id: 'Solicitação', title: 'Solicitação' },
@@ -23,7 +26,8 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
     const [scrollLeft, setScrollLeft] = useState(0);
-    
+    const [isDeletingCanceled, setIsDeletingCanceled] = useState(false); // Novo estado para o botão de exclusão
+
     const handleMouseDown = (e) => {
         if (e.target.closest('.kanban-card') || e.target.closest('button')) {
             return;
@@ -78,8 +82,6 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
         );
     };
 
-    // ***** INÍCIO DA ALTERAÇÃO *****
-    // Nova função para lidar com a duplicação
     const handleDuplicatePedido = async (pedidoId) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
@@ -99,11 +101,9 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
             alert('Erro ao duplicar o pedido: ' + error.message);
         } else {
             alert(`Pedido #${pedidoId} duplicado com sucesso! Novo pedido gerado: #${newPedido.id}`);
-            // Adiciona o novo pedido ao início da lista para que apareça imediatamente
             setPedidos(prevPedidos => [newPedido, ...prevPedidos]);
         }
     };
-    // ***** FIM DA ALTERAÇÃO *****
 
     const handleStatusChange = async (pedidoId, newStatus) => {
         const originalPedidos = [...pedidos];
@@ -147,6 +147,46 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
         }
     };
 
+    // NOVA FUNÇÃO: Excluir todos os pedidos cancelados
+    const handleDeleteAllCanceled = async () => {
+        const canceledPedidosCount = groupedData['Cancelado']?.pedidos.length || 0;
+
+        if (canceledPedidosCount === 0) {
+            toast.info('Não há pedidos cancelados para excluir.');
+            return;
+        }
+
+        if (!window.confirm(`Tem certeza que deseja EXCLUIR PERMANENTEMENTE TODOS os ${canceledPedidosCount} pedidos cancelados? Esta ação é irreversível!`)) {
+            return;
+        }
+
+        setIsDeletingCanceled(true);
+        
+        toast.promise(
+            new Promise(async (resolve, reject) => {
+                const { error } = await supabase
+                    .from('pedidos_compra')
+                    .delete()
+                    .eq('status', 'Cancelado'); // Exclui pedidos com status 'Cancelado'
+
+                if (error) {
+                    reject(new Error(`Erro ao excluir pedidos cancelados: ${error.message}`));
+                } else {
+                    resolve(`Todos os ${canceledPedidosCount} pedidos cancelados foram excluídos com sucesso!`);
+                }
+            }),
+            {
+                loading: 'Excluindo pedidos cancelados...',
+                success: (msg) => { 
+                    setPedidos(prev => prev.filter(p => p.status !== 'Cancelado')); // Remove os pedidos cancelados do estado
+                    return msg; 
+                },
+                error: (err) => err.message,
+                finally: () => setIsDeletingCanceled(false)
+            }
+        );
+    };
+
     const handleDragOver = (e, columnId) => {
         e.preventDefault();
         setDragOverColumn(columnId);
@@ -182,10 +222,25 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
                     onDragLeave={() => setDragOverColumn(null)}
                     className={`w-80 flex-shrink-0 bg-gray-100 rounded-lg shadow-sm transition-colors duration-300 flex flex-col ${dragOverColumn === column.id ? 'bg-blue-100' : ''}`}
                 >
-                    <div className="p-3 text-sm font-semibold text-gray-700 border-b">
+                    <div className="p-3 text-sm font-semibold text-gray-700 border-b flex justify-between items-center"> {/* Adicionado flex para alinhamento */}
                         <h3>{column.title} ({groupedData[column.id]?.pedidos.length || 0})</h3>
-                        <p className="font-bold text-green-700">{formatCurrency(groupedData[column.id]?.total)}</p>
+                        {/* NOVO BOTÃO DE EXCLUIR PEDIDOS CANCELADOS EM MASSA */}
+                        {column.id === 'Cancelado' && groupedData[column.id]?.pedidos.length > 0 && (
+                            <button
+                                onClick={handleDeleteAllCanceled}
+                                disabled={isDeletingCanceled}
+                                className="bg-red-500 text-white p-1 rounded-full text-xs hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                                title="Excluir todos os pedidos cancelados"
+                            >
+                                {isDeletingCanceled ? (
+                                    <FontAwesomeIcon icon={faSpinner} spin size="sm" />
+                                ) : (
+                                    <FontAwesomeIcon icon={faTrash} size="sm" />
+                                )}
+                            </button>
+                        )}
                     </div>
+                    <p className="font-bold text-green-700 px-3">{formatCurrency(groupedData[column.id]?.total)}</p>
 
                     <div className="p-2 space-y-3 min-h-[100px] overflow-y-auto flex-1">
                         {groupedData[column.id] && groupedData[column.id].pedidos.map(pedido => {
@@ -198,7 +253,7 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
                                     key={pedido.id}
                                     pedido={{...pedido, status: displayStatus}}
                                     onStatusChange={handleStatusChange}
-                                    onDuplicate={handleDuplicatePedido} // ***** ALTERAÇÃO AQUI *****
+                                    onDuplicate={handleDuplicatePedido}
                                     allStatusColumns={statusColumns.map(s => s.id)}
                                     hasPendingInvoice={hasPendingInvoice}
                                     hasPendingItems={hasPendingItems}

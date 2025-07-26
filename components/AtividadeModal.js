@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHistory } from '@fortawesome/free-solid-svg-icons';
+import { useEmpreendimento } from '@/contexts/EmpreendimentoContext'; // Adicionado para consumir o contexto
 
 function addBusinessDays(startDate, days) {
     if (!startDate || isNaN(days)) return startDate || '';
@@ -23,8 +24,15 @@ function addBusinessDays(startDate, days) {
     return currentDate.toISOString().split('T')[0];
 }
 
-export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activityToEdit, selectedEmpreendimento, funcionarios, allEmpreendimentos, allEmpresas }) {
+// Assinatura do componente original foi mantida, mas `allEmpreendimentos` vindo das props não será mais usado.
+export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activityToEdit, selectedEmpreendimento, funcionarios, allEmpresas }) {
     const supabase = createClient();
+    
+    // **INÍCIO DA CORREÇÃO**
+    // Busca os empreendimentos e o status de carregamento diretamente do contexto.
+    const { empreendimentos: allEmpreendimentos, loading: empreendimentosLoading } = useEmpreendimento();
+    // **FIM DA CORREÇÃO**
+
     const [etapas, setEtapas] = useState([]);
     const [message, setMessage] = useState('');
     const [currentUserId, setCurrentUserId] = useState(null);
@@ -97,15 +105,28 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
     const dataFimPrevistaCalculada = useMemo(() => {
         return addBusinessDays(formData.data_inicio_prevista, formData.duracao_dias);
     }, [formData.data_inicio_prevista, formData.duracao_dias]);
-
+    
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        const newValue = type === 'checkbox' ? checked : (value === 'null' ? null : value);
-        setFormData(prevState => ({ ...prevState, [name]: newValue }));
 
-        if (name === 'empresa_id') {
-            setFormData(prevState => ({ ...prevState, empreendimento_id: null, etapa_id: '' }));
+        let finalValue;
+        if (type === 'checkbox') {
+            finalValue = checked;
+        } else if (name === 'empresa_id' && value) {
+            finalValue = parseInt(value, 10);
+        } else {
+            finalValue = value;
         }
+
+        setFormData(prevState => {
+            const newState = { ...prevState, [name]: finalValue };
+            
+            if (name === 'empresa_id') {
+                newState.empreendimento_id = null;
+                newState.etapa_id = '';
+            }
+            return newState;
+        });
     };
 
     const handleReprogramChange = (e) => {
@@ -198,10 +219,13 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         }
     };
     
+    // **INÍCIO DA CORREÇÃO**
+    // A lista de empreendimentos filtrados agora usa `allEmpreendimentos` do contexto.
     const filteredEmpreendimentos = useMemo(() => {
-        if (!formData.empresa_id) return [];
-        return allEmpreendimentos.filter(e => e.empresa_proprietaria_id == formData.empresa_id);
+        if (!formData.empresa_id || !allEmpreendimentos) return [];
+        return allEmpreendimentos.filter(e => e.empresa_proprietaria_id === formData.empresa_id);
     }, [formData.empresa_id, allEmpreendimentos]);
+    // **FIM DA CORREÇÃO**
 
 
     if (!isOpen) return null;
@@ -240,12 +264,27 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                         </div>
                         <div>
                             <label className="block text-sm font-medium">Empreendimento</label>
-                            <select name="empreendimento_id" value={formData.empreendimento_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!formData.empresa_id}>
-                                <option value="">Nenhum</option>
-                                {filteredEmpreendimentos.map(emp => (
-                                    <option key={emp.id} value={emp.id}>{emp.nome}</option>
-                                ))}
+                            {/* **INÍCIO DA CORREÇÃO** */}
+                            {/* O select agora mostra um estado de carregamento */}
+                            <select 
+                                name="empreendimento_id" 
+                                value={formData.empreendimento_id || ''} 
+                                onChange={handleChange} 
+                                className="mt-1 w-full p-2 border rounded-md" 
+                                disabled={!formData.empresa_id || empreendimentosLoading}
+                            >
+                                {empreendimentosLoading ? (
+                                    <option>Carregando...</option>
+                                ) : (
+                                    <>
+                                        <option value="">Nenhum</option>
+                                        {filteredEmpreendimentos.map(emp => (
+                                            <option key={emp.id} value={emp.id}>{emp.nome}</option>
+                                        ))}
+                                    </>
+                                )}
                             </select>
+                             {/* **FIM DA CORREÇÃO** */}
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium">Descrição</label>
@@ -299,10 +338,10 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                             )}
                         </div>
                     </fieldset>
-                   
+                    
                     {isEditing && (
                         <div className="border-t pt-4">
-                           {/* Lógica de reprogramação (sem alterações) */}
+                            {/* Lógica de reprogramação aqui, se houver */}
                         </div>
                     )}
                     <div className="flex justify-end gap-4 pt-4 border-t">

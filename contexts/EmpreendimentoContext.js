@@ -1,3 +1,4 @@
+// contexts/EmpreendimentoContext.js
 'use client';
 
 import { createContext, useContext, useState, useEffect } from 'react';
@@ -25,8 +26,9 @@ export function EmpreendimentoProvider({ children }) {
       setLoading(true);
       const { data, error } = await supabase
         .from('empreendimentos')
-        .select('id, nome') // Seleciona apenas o ID e o nome
-        .order('nome', { ascending: true }); // Ordena pelo nome
+        // MODIFICAÇÃO AQUI: Adicionar 'empresa_proprietaria_id'
+        .select('id, nome, empresa_proprietaria_id') 
+        .order('nome', { ascending: true });
 
       if (error) {
         console.error('Erro ao buscar empreendimentos:', error.message);
