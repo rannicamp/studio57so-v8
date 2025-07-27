@@ -53,14 +53,14 @@ const AddColumn = ({ onCreate }) => {
 };
 
 
-export default function FunilKanban({ contatos, statusColumns, onStatusChange, onCreateColumn, onAddContact, onEditColumn, onDeleteColumn, onReorderColumns }) { // Adicionado onEditColumn, onDeleteColumn e onReorderColumns
+export default function FunilKanban({ contatos, statusColumns, onStatusChange, onCreateColumn, onAddContact, onEditColumn, onDeleteColumn, onReorderColumns }) { 
     
     const [editingColumnId, setEditingColumnId] = useState(null);
     const [editedColumnName, setEditedColumnName] = useState("");
 
-    // Funções de Drag-and-Drop para CARTÕES DE CONTATO
     const handleDragStart = (e, contatoNoFunilId) => {
         e.dataTransfer.setData("contatoNoFunilId", contatoNoFunilId);
+        // Não adicione e.stopPropagation() aqui, pois o ContatoCardCRM já o faz.
     };
 
     const handleDragOver = (e) => {
@@ -71,50 +71,40 @@ export default function FunilKanban({ contatos, statusColumns, onStatusChange, o
         e.preventDefault();
         const contatoNoFunilId = e.dataTransfer.getData("contatoNoFunilId");
         if (contatoNoFunilId) {
+            console.log(`FunilKanban: Drag-and-Drop - Dropping card ${contatoNoFunilId} into column ${colunaDestinoId}`); // LOG DE DEBUG
             onStatusChange(contatoNoFunilId, colunaDestinoId);
         }
     };
 
-    // NOVAS Funções de Drag-and-Drop para COLUNAS (ETAPAS)
+    // Funções de Drag-and-Drop para COLUNAS
     const handleDragStartColumn = (e, columnId) => {
-        e.dataTransfer.setData("columnId", columnId);
-        e.dataTransfer.effectAllowed = "move"; // Indica que é para mover
-    };
-
-    const handleDragOverColumn = (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move"; // Indica visualmente que é possível soltar
+        e.dataTransfer.setData("draggedColumnId", columnId);
     };
 
     const handleDropColumn = (e, targetColumnId) => {
         e.preventDefault();
-        const draggedColumnId = e.dataTransfer.getData("columnId");
-        
+        const draggedColumnId = e.dataTransfer.getData("draggedColumnId");
         if (!draggedColumnId || draggedColumnId === targetColumnId) return;
 
-        // Cria uma cópia das colunas atuais para reordenar
-        const updatedColumns = [...statusColumns];
-        const draggedColumnIndex = updatedColumns.findIndex(col => col.id === draggedColumnId);
-        const targetColumnIndex = updatedColumns.findIndex(col => col.id === targetColumnId);
+        // Encontra o índice da coluna arrastada e da coluna de destino
+        const draggedIndex = statusColumns.findIndex(col => col.id === draggedColumnId);
+        const targetIndex = statusColumns.findIndex(col => col.id === targetColumnId);
 
-        if (draggedColumnIndex === -1 || targetColumnIndex === -1) return;
+        if (draggedIndex === -1 || targetIndex === -1) return;
 
-        // Remove a coluna arrastada da posição original
-        const [reorderedColumn] = updatedColumns.splice(draggedColumnIndex, 1);
-        // Insere a coluna na nova posição
-        updatedColumns.splice(targetColumnIndex, 0, reorderedColumn);
+        // Cria uma cópia das colunas para não modificar o estado diretamente
+        const newColumns = Array.from(statusColumns);
+        const [draggedColumn] = newColumns.splice(draggedIndex, 1);
+        newColumns.splice(targetIndex, 0, draggedColumn);
 
-        // Atualiza a propriedade 'ordem' com base na nova ordem visual
-        const newOrderWithIndices = updatedColumns.map((col, index) => ({
-            id: col.id,
-            nome: col.nome, // GARANTIDO: Incluir o nome da coluna
-            ordem: index, // A nova ordem é o índice no array
+        // Atribui novas ordens baseadas na nova posição no array
+        const reorderedWithNewOrder = newColumns.map((col, index) => ({
+            ...col,
+            ordem: index // Define a nova ordem sequencial
         }));
         
-        // Chama a função do componente pai para persistir a nova ordem
-        onReorderColumns(newOrderWithIndices);
+        onReorderColumns(reorderedWithNewOrder);
     };
-
 
     const handleEditClick = (coluna) => {
         setEditingColumnId(coluna.id);
@@ -139,11 +129,20 @@ export default function FunilKanban({ contatos, statusColumns, onStatusChange, o
         }
     };
 
+    // Nova função para mover o card de contato através do dropdown
+    const handleMoveCardFromDropdown = (contatoNoFunilId, newColumnId) => {
+        console.log(`FunilKanban: handleMoveCardFromDropdown - Mover contato ${contatoNoFunilId} para coluna ${newColumnId}`); // LOG DE DEBUG
+        onStatusChange(contatoNoFunilId, newColumnId);
+    };
+
     const contatosPorColuna = useMemo(() => {
         const grouped = {};
         if (statusColumns && contatos) {
             statusColumns.forEach(coluna => {
-                grouped[coluna.id] = contatos.filter(c => c.coluna_id === coluna.id);
+                // Filtra e ordena os contatos pelo numero_card para exibição
+                grouped[coluna.id] = contatos
+                    .filter(c => c.coluna_id === coluna.id)
+                    .sort((a, b) => (a.numero_card || 0) - (b.numero_card || 0)); // Ordena por numero_card
             });
         }
         return grouped;
@@ -155,16 +154,19 @@ export default function FunilKanban({ contatos, statusColumns, onStatusChange, o
                 <div
                     key={coluna.id}
                     className="w-80 flex-shrink-0 bg-gray-200 rounded-lg shadow-sm flex flex-col"
-                    // Drag-and-drop para CONTATOS (ainda necessário para os cartões)
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, coluna.id)}
-                    // Drag-and-drop para COLUNAS (adicionado)
-                    draggable // Torna a coluna arrastável
-                    onDragStart={(e) => handleDragStartColumn(e, coluna.id)}
-                    onDragOver={handleDragOverColumn}
+                    // Permite arrastar a coluna
+                    draggable 
+                    onDragStart={(e) => handleDragStartColumn(e, coluna.id)} 
+                    // Permite soltar colunas no corpo principal da coluna
+                    onDragOver={(e) => e.preventDefault()} 
                     onDrop={(e) => handleDropColumn(e, coluna.id)}
                 >
-                    <div className="p-3 text-sm font-semibold text-gray-700 border-b bg-gray-50 rounded-t-lg flex justify-between items-center">
+                    <div
+                        className="p-3 text-sm font-semibold text-gray-700 border-b bg-gray-50 rounded-t-lg flex justify-between items-center"
+                        // Permite soltar colunas no cabeçalho
+                        onDragOver={(e) => e.preventDefault()} 
+                        onDrop={(e) => handleDropColumn(e, coluna.id)} 
+                    >
                         {editingColumnId === coluna.id ? (
                             <div className="flex w-full items-center gap-2">
                                 <input
@@ -194,16 +196,22 @@ export default function FunilKanban({ contatos, statusColumns, onStatusChange, o
                             </>
                         )}
                     </div>
-                    <div className="p-2 space-y-3 overflow-y-auto flex-1">
+                    <div 
+                        className="p-2 space-y-3 overflow-y-auto flex-1"
+                        onDragOver={handleDragOver} // Adicionado onDragOver para a área de cards
+                        onDrop={(e) => handleDrop(e, coluna.id)} // Adicionado onDrop para a área de cards
+                    >
                         {(contatosPorColuna[coluna.id] || []).map((contato) => (
                             <ContatoCardCRM
                                 key={contato.id}
-                                contato={contato.contatos}
-                                onDragStart={(e) => handleDragStart(e, contato.id)}
+                                contato={contato.contatos} // Passa o objeto contato (contatos:contato_id (*))
+                                onDragStart={(e) => handleDragStart(e, contato.id)} // Passa o ID da linha contatos_no_funil
+                                cardNumber={contato.numero_card}
+                                allColumns={statusColumns}
+                                onMoveToColumn={handleMoveCardFromDropdown}
                             />
                         ))}
                     </div>
-                    {/* Botão para Adicionar Contato */}
                     <div className="p-2 border-t mt-auto">
                         <button 
                             onClick={() => onAddContact(coluna.id)}
@@ -215,7 +223,6 @@ export default function FunilKanban({ contatos, statusColumns, onStatusChange, o
                 </div>
             ))}
             
-            {/* Componente para adicionar uma nova ETAPA */}
             <AddColumn onCreate={onCreateColumn} />
         </div>
     );
