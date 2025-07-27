@@ -5,7 +5,8 @@ import { createClient } from '@supabase/supabase-js';
 
 const getSupabaseAdmin = () => createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    // Alterado para usar SUPABASE_SECRET_KEY conforme seu .env.local
+    process.env.SUPABASE_SECRET_KEY 
 );
 
 // Função para criar um funil padrão com colunas
@@ -141,21 +142,107 @@ export async function POST(request) {
 export async function PUT(request) {
     const supabase = getSupabaseAdmin();
     try {
-        const { contatoId, novaColunaId } = await request.json();
-        if (!contatoId || !novaColunaId) {
-            return new NextResponse(JSON.stringify({ error: "contatoId e novaColunaId são obrigatórios" }), { status: 400 });
+        const payload = await request.json();
+        console.log("Recebido payload na API PUT /api/crm:", payload); // Log do payload
+
+        if (payload.contatoId && payload.novaColunaId) {
+            // Lógica para mover contato
+            const { data, error } = await supabase
+                .from('contatos_no_funil')
+                .upsert({ contato_id: payload.contatoId, coluna_id: payload.novaColunaId }, { onConflict: 'contato_id' })
+                .select();
+
+            if (error) {
+                console.error("Erro ao mover contato no Supabase:", error.message); // Log de erro específico
+                throw new Error("Não foi possível mover o contato.");
+            }
+            return NextResponse.json({ success: true, data });
+
+        } else if (payload.columnId && payload.newName) {
+            // Lógica para editar nome da coluna
+            const { data, error } = await supabase
+                .from('colunas_funil')
+                .update({ nome: payload.newName })
+                .eq('id', payload.columnId)
+                .select();
+            
+            if (error) {
+                console.error("Erro ao atualizar nome da coluna no Supabase:", error.message); // Log de erro específico
+                throw new Error("Não foi possível atualizar o nome da coluna.");
+            }
+            return NextResponse.json({ success: true, data });
+        } else if (payload.reorderColumns && Array.isArray(payload.reorderColumns) && payload.funilId) {
+            // Lógica para reordenar colunas
+            const updates = payload.reorderColumns.map(col => ({
+                id: col.id,
+                ordem: col.ordem,
+                nome: col.nome, // Incluído o nome para garantir o upsert
+                funil_id: payload.funilId // Garante que a atualização é para o funil correto
+            }));
+
+            // Agora, vamos fazer as atualizações uma a uma para garantir a ordem
+            // e ter mais controle sobre o processo.
+            const updatePromises = updates.map(async (colData) => {
+                const { error } = await supabase
+                    .from('colunas_funil')
+                    .update({ ordem: colData.ordem }) // Apenas atualiza a ordem
+                    .eq('id', colData.id)
+                    .eq('funil_id', colData.funil_id); // Garante que atualiza a coluna do funil correto
+                
+                if (error) {
+                    console.error(`Erro ao atualizar ordem da coluna ${colData.id}:`, error.message);
+                    throw new Error(`Falha ao atualizar a ordem da coluna ${colData.nome}.`);
+                }
+                return true;
+            });
+
+            await Promise.all(updatePromises); // Aguarda todas as atualizações
+
+            return NextResponse.json({ success: true, message: "Ordem das colunas atualizada com sucesso." });
         }
-
-        const { data, error } = await supabase
-            .from('contatos_no_funil')
-            .upsert({ contato_id: contatoId, coluna_id: novaColunaId }, { onConflict: 'contato_id' })
-            .select();
-
-        if (error) throw new Error("Não foi possível mover o contato.");
-
-        return NextResponse.json({ success: true, data });
+        
+        return new NextResponse(JSON.stringify({ error: "Payload inválido para a operação PUT." }), { status: 400 });
 
     } catch (error) {
+        console.error("Erro geral na API PUT /api/crm:", error.message); // Log de erro geral
+        return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
+    }
+}
+
+export async function DELETE(request) {
+    const supabase = getSupabaseAdmin();
+    try {
+        const { searchParams } = new URL(request.url);
+        const columnId = searchParams.get('columnId');
+
+        if (!columnId) {
+            return new NextResponse(JSON.stringify({ error: "ID da coluna é obrigatório para a exclusão." }), { status: 400 });
+        }
+
+        const { error: deleteContactsError } = await supabase
+            .from('contatos_no_funil')
+            .delete()
+            .eq('coluna_id', columnId);
+
+        if (deleteContactsError) {
+            console.error("Erro ao deletar contatos associados à coluna no Supabase:", deleteContactsError.message); // Log de erro específico
+            throw new Error("Não foi possível deletar os contatos associados à coluna.");
+        }
+
+        const { error } = await supabase
+            .from('colunas_funil')
+            .delete()
+            .eq('id', columnId);
+
+        if (error) {
+            console.error("Erro ao deletar coluna no Supabase:", error.message); // Log de erro específico
+            throw new Error("Não foi possível deletar a coluna.");
+        }
+
+        return NextResponse.json({ success: true, message: "Coluna deletada com sucesso." });
+
+    } catch (error) {
+        console.error("Erro geral na API DELETE /api/crm:", error.message); // Log de erro geral
         return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
     }
 }

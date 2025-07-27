@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useLayout } from '@/contexts/LayoutContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTimes, faSearch } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'sonner'; 
 
 import FunilKanban from '@/components/crm/FunilKanban';
 import WhatsAppChatManager from '@/components/WhatsAppChatManager';
@@ -94,6 +95,7 @@ export default function CrmPage() {
 
         } catch (error) {
             console.error('Erro ao carregar dados do funil:', error.message);
+            toast.error('Erro ao carregar dados do funil.');
         } finally {
             setLoadingFunil(false);
         }
@@ -107,6 +109,7 @@ export default function CrmPage() {
             setContatosWhatsapp(data || []);
         } catch (error) {
             console.error("Erro ao buscar contatos para o WhatsApp:", error.message);
+            toast.error('Erro ao carregar contatos do WhatsApp.');
         } finally {
             setLoadingWhatsapp(false);
         }
@@ -146,9 +149,10 @@ export default function CrmPage() {
 
         if (error) {
             console.error("Erro ao adicionar contato:", error);
-            alert(`Não foi possível adicionar o contato. Erro: ${error.message}`);
+            toast.error(`Não foi possível adicionar o contato. Erro: ${error.message}`);
         } else {
             setIsModalOpen(false);
+            toast.success('Contato adicionado ao funil com sucesso!');
             fetchFunilData();
         }
     };
@@ -160,22 +164,130 @@ export default function CrmPage() {
         const { error } = await supabase.from('contatos_no_funil').update({ coluna_id: novaColunaId }).eq('id', contatoNoFunilId);
         if (error) {
             console.error('Erro ao mover contato:', error);
-            fetchFunilData();
+            toast.error('Erro ao mover contato.');
+            fetchFunilData(); // Refetch data to revert to correct state
+        } else {
+            toast.success('Contato movido com sucesso!');
         }
     };
 
     const handleCreateColumn = async (columnName) => {
         if (!funilId) {
-            alert("ID do Funil não encontrado. Não é possível criar a coluna.");
+            toast.error("ID do Funil não encontrado. Não é possível criar a coluna.");
             return;
         }
         const maxOrder = colunasDoFunil.reduce((max, col) => Math.max(max, col.ordem || 0), 0);
         const { error } = await supabase.from('colunas_funil').insert({ nome: columnName, funil_id: funilId, ordem: maxOrder + 1 });
         if (error) {
             console.error("Erro detalhado ao criar etapa:", error);
-            alert(`Não foi possível criar a etapa. Verifique as permissões do banco de dados.`);
+            toast.error(`Não foi possível criar a etapa. Verifique as permissões do banco de dados.`);
         } else {
+            toast.success('Etapa criada com sucesso!');
             fetchFunilData();
+        }
+    };
+
+    const handleEditColumn = async (columnId, newName) => {
+        try {
+            const response = await fetch('/api/crm', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ columnId, newName }),
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Erro ao atualizar o nome da coluna.');
+            }
+            setColunasDoFunil(prev => prev.map(col => col.id === columnId ? { ...col, nome: newName } : col));
+            toast.success('Nome da etapa atualizado com sucesso!');
+        } catch (error) {
+            console.error("Erro ao editar etapa:", error.message);
+            toast.error(`Não foi possível editar a etapa. Erro: ${error.message}`);
+        }
+    };
+
+    const handleDeleteColumn = async (columnId) => {
+        try {
+            const response = await fetch(`/api/crm?columnId=${columnId}`, {
+                method: 'DELETE',
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Erro ao deletar a coluna.');
+            }
+            
+            setColunasDoFunil(prev => prev.filter(col => col.id !== columnId));
+            setContatosNoFunil(prev => prev.filter(c => c.coluna_id !== columnId)); 
+            toast.success('Etapa deletada com sucesso!');
+        } catch (error) {
+            console.error("Erro ao deletar etapa:", error.message);
+            toast.error(`Não foi possível deletar a etapa. Erro: ${error.message}`);
+        }
+    };
+
+    const handleReorderColumns = async (newOrder) => {
+        // Salva o estado original das colunas para reverter em caso de erro
+        const originalColunas = [...colunasDoFunil]; 
+        
+        // Otimista: atualiza a interface antes da resposta da API
+        // Isso garante que a UI reaja instantaneamente, melhorando a experiência do usuário
+        const updatedColunas = newOrder.map(reorderedCol => {
+            const originalCol = originalColunas.find(col => col.id === reorderedCol.id);
+            return { ...originalCol, ordem: reorderedCol.ordem };
+        }).sort((a, b) => a.ordem - b.ordem); // Garante a ordenação local
+        setColunasDoFunil(updatedColunas);
+
+        try {
+            const response = await fetch('/api/crm', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ reorderColumns: newOrder, funilId: funilId }),
+            });
+
+            // Verifica se a resposta não foi OK (status 4xx ou 5xx)
+            if (!response.ok) {
+                // Tenta ler o corpo da resposta como texto primeiro
+                const errorText = await response.text();
+                let errorMessage = `Erro no servidor (${response.status} ${response.statusText})`;
+                
+                // Tenta parsear o texto como JSON para obter detalhes mais específicos
+                try {
+                    const parsedError = JSON.parse(errorText);
+                    errorMessage = parsedError.error || errorMessage;
+                } catch (parseError) {
+                    // Se o texto não for JSON válido, usa o texto puro ou uma mensagem genérica
+                    console.error("Erro ao tentar parsear a resposta de erro como JSON:", parseError, "Resposta original:", errorText);
+                    // Não altera errorMessage, pois já tem um fallback decente
+                }
+
+                // Reverte o estado das colunas na interface, já que a operação falhou
+                setColunasDoFunil(originalColunas); 
+                toast.error(`Não foi possível reordenar as etapas. Detalhes: ${errorMessage}`);
+                // Lança um erro para interromper a execução e ser capturado pelo catch externo
+                throw new Error(`API Error: ${errorMessage}`); 
+            }
+
+            // Se a resposta foi OK, tenta parsear como JSON
+            const data = await response.json();
+            if (data.success) {
+                toast.success('Ordem das etapas atualizada com sucesso!');
+            } else {
+                // Se 'success' for falso, mesmo com status OK, significa um erro lógico
+                setColunasDoFunil(originalColunas); // Reverte
+                toast.error(`Falha ao reordenar as etapas: ${data.message || 'Erro desconhecido.'}`);
+            }
+
+        } catch (error) {
+            // Captura erros de rede ou erros lançados pelos 'throw new Error' acima
+            console.error("Erro geral ao reordenar colunas:", error); 
+            toast.error(`Ocorreu um erro ao reordenar as etapas: ${error.message || 'Erro desconhecido.'}`);
+            setColunasDoFunil(originalColunas); // Garante a reversão em qualquer erro
         }
     };
     
@@ -201,6 +313,9 @@ export default function CrmPage() {
                             onStatusChange={handleStatusChange}
                             onCreateColumn={handleCreateColumn}
                             onAddContact={openAddContactModal}
+                            onEditColumn={handleEditColumn} 
+                            onDeleteColumn={handleDeleteColumn} 
+                            onReorderColumns={handleReorderColumns} 
                         />
                     )
                 )}
