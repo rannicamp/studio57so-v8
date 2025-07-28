@@ -5,9 +5,25 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisV, faStickyNote } from '@fortawesome/free-solid-svg-icons'; // Adicionado faStickyNote
+import { faEllipsisV, faStickyNote } from '@fortawesome/free-solid-svg-icons';
 
-export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, onMoveToColumn, onOpenNotesModal }) { // Adicionado onOpenNotesModal
+export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, onMoveToColumn, onOpenNotesModal }) {
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    // Mover os hooks para antes do return condicional
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsDropdownOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
     if (!funilEntry || !funilEntry.contatos) {
         return <div className="bg-red-100 p-3 rounded-md shadow">Erro ao carregar contato.</div>;
     }
@@ -15,9 +31,6 @@ export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, on
     const contato = funilEntry.contatos;
     const cardNumber = funilEntry.numero_card;
     const currentColumnId = funilEntry.coluna_id;
-
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const dropdownRef = useRef(null);
 
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
@@ -38,8 +51,8 @@ export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, on
     };
 
     const displayName = contato.razao_social || contato.nome || 'Nome Indisponível';
-    const displayContactInfo = (contato.telefones && contato.telefones.length > 0) 
-        ? contato.telefones[0].telefone 
+    const displayContactInfo = (contato.telefones && contato.telefones.length > 0)
+        ? contato.telefones[0].telefone
         : contato.email || 'Contato indisponível';
 
     const handleMoveClick = (columnId) => {
@@ -48,22 +61,9 @@ export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, on
     };
 
     const handleOpenNotes = () => {
-        // Chama a função passada pelo componente pai para abrir o modal de notas
-        onOpenNotesModal(funilEntry.id, contato.id); 
-        setIsDropdownOpen(false); // Fecha o dropdown
+        onOpenNotesModal(funilEntry.id, contato.id);
+        setIsDropdownOpen(false);
     };
-
-    useEffect(() => {
-        function handleClickOutside(event) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setIsDropdownOpen(false);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, []);
 
     const handleCardDragStart = (e) => {
         e.stopPropagation();
@@ -84,12 +84,12 @@ export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, on
                     </span>
                 )}
                 {/* Nome do Cliente/Razão Social */}
-                <div className="font-semibold text-gray-800 text-sm flex-grow pr-10"> {/* Adicionado pr-10 para evitar sobreposição com 3 pontinhos */}
+                <div className="font-semibold text-gray-800 text-sm flex-grow pr-10">
                     {displayName}
                 </div>
 
                 {/* Menu de três pontinhos no canto superior direito */}
-                <div className="absolute top-2 right-3 z-10" ref={dropdownRef}> {/* Posicionado absolute */}
+                <div className="absolute top-2 right-3 z-10" ref={dropdownRef}>
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
@@ -132,7 +132,7 @@ export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, on
                 {contato.created_at && (
                     <p>Criado em: {formatDate(contato.created_at)}</p>
                 )}
-                
+
                 {contato.last_whatsapp_message && (
                     <>
                         <div className="border-t border-gray-200 my-2"></div>
