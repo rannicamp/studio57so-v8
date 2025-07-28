@@ -1,22 +1,24 @@
 // components/crm/ContatoCardCRM.js
 "use client";
 
-import { format } from 'date-fns'; // Importa a função format para formatar a data
-import { ptBR } from 'date-fns/locale'; // Importa o locale para português do Brasil
-import { useState, useRef, useEffect } from 'react'; // Adicionado useState, useRef, useEffect
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; // Adicionado FontAwesomeIcon
-import { faEllipsisV } from '@fortawesome/free-solid-svg-icons'; // Adicionado faEllipsisV (ícone de 3 pontos verticais)
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { useState, useRef, useEffect } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faEllipsisV, faStickyNote } from '@fortawesome/free-solid-svg-icons'; // Adicionado faStickyNote
 
-export default function ContatoCardCRM({ contato, onDragStart, cardNumber, allColumns, onMoveToColumn }) { // Adicionado allColumns, onMoveToColumn
-    // Se por algum motivo o contato não for carregado, retorna um card vazio para evitar erros.
-    if (!contato) {
+export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, onMoveToColumn, onOpenNotesModal }) { // Adicionado onOpenNotesModal
+    if (!funilEntry || !funilEntry.contatos) {
         return <div className="bg-red-100 p-3 rounded-md shadow">Erro ao carregar contato.</div>;
     }
 
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const dropdownRef = useRef(null); // Ref para o dropdown para detectar cliques fora
+    const contato = funilEntry.contatos;
+    const cardNumber = funilEntry.numero_card;
+    const currentColumnId = funilEntry.coluna_id;
 
-    // Função para formatar a data
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
         try {
@@ -27,7 +29,6 @@ export default function ContatoCardCRM({ contato, onDragStart, cardNumber, allCo
         }
     };
 
-    // Função para truncar a mensagem
     const truncateMessage = (message, maxLength = 70) => {
         if (!message) return 'Nenhuma mensagem recente';
         if (message.length > maxLength) {
@@ -41,16 +42,17 @@ export default function ContatoCardCRM({ contato, onDragStart, cardNumber, allCo
         ? contato.telefones[0].telefone 
         : contato.email || 'Contato indisponível';
 
-    // Função para mover o card para a coluna selecionada no dropdown
     const handleMoveClick = (columnId) => {
-        // contato.id aqui é o ID da entrada em contatos_no_funil (id da linha do Kanban)
-        // newColumnId é o ID da coluna para onde o contato será movido
-        // onMoveToColumn é a função que será passada do componente pai (FunilKanban)
-        onMoveToColumn(contato.id, columnId); 
-        setIsDropdownOpen(false); // Fecha o dropdown após a seleção
+        onMoveToColumn(funilEntry.id, columnId);
+        setIsDropdownOpen(false);
     };
 
-    // Hook para fechar o dropdown ao clicar fora
+    const handleOpenNotes = () => {
+        // Chama a função passada pelo componente pai para abrir o modal de notas
+        onOpenNotesModal(funilEntry.id, contato.id); 
+        setIsDropdownOpen(false); // Fecha o dropdown
+    };
+
     useEffect(() => {
         function handleClickOutside(event) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -63,16 +65,15 @@ export default function ContatoCardCRM({ contato, onDragStart, cardNumber, allCo
         };
     }, []);
 
-    // Modificado para parar a propagação do evento de arrastar
     const handleCardDragStart = (e) => {
-        e.stopPropagation(); // IMPORTANTE: Impede que o evento de arrastar da coluna seja acionado
-        onDragStart(e); // Chama a função de arrastar original do card
+        e.stopPropagation();
+        onDragStart(e);
     };
 
     return (
         <div
             draggable
-            onDragStart={handleCardDragStart} // Usa a nova função para arrastar o card
+            onDragStart={handleCardDragStart}
             className="relative bg-white p-3 rounded-md shadow border-l-4 border-blue-500 cursor-grab hover:shadow-lg transition-shadow duration-200 text-left"
         >
             <div className="flex justify-between items-start mb-1">
@@ -83,27 +84,26 @@ export default function ContatoCardCRM({ contato, onDragStart, cardNumber, allCo
                     </span>
                 )}
                 {/* Nome do Cliente/Razão Social */}
-                <div className="font-semibold text-gray-800 text-sm flex-grow">
+                <div className="font-semibold text-gray-800 text-sm flex-grow pr-10"> {/* Adicionado pr-10 para evitar sobreposição com 3 pontinhos */}
                     {displayName}
                 </div>
 
                 {/* Menu de três pontinhos no canto superior direito */}
-                <div className="relative" ref={dropdownRef}>
+                <div className="absolute top-2 right-3 z-10" ref={dropdownRef}> {/* Posicionado absolute */}
                     <button
                         onClick={(e) => {
-                            e.stopPropagation(); // Previne que o arrastar comece ao clicar no menu
+                            e.stopPropagation();
                             setIsDropdownOpen(!isDropdownOpen);
                         }}
-                        className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-200 transition-colors -mt-1 -mr-1" // Margem ajustada para melhor alinhamento
+                        className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-200 transition-colors"
                     >
                         <FontAwesomeIcon icon={faEllipsisV} size="sm" />
                     </button>
                     {isDropdownOpen && (
                         <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1">
                             <p className="px-3 py-2 text-xs text-gray-500 border-b">Mover para:</p>
-                            {/* Renderiza as opções de colunas */}
                             {allColumns
-                                .filter(col => col.id !== contato.coluna_id) // Filtra a coluna atual
+                                .filter(col => col.id !== currentColumnId)
                                 .map(column => (
                                     <button
                                         key={column.id}
@@ -113,15 +113,21 @@ export default function ContatoCardCRM({ contato, onDragStart, cardNumber, allCo
                                         {column.nome}
                                     </button>
                                 ))}
+                            {/* Novo item para Notas */}
+                            <div className="border-t border-gray-200 my-1"></div>
+                            <button
+                                onClick={handleOpenNotes}
+                                className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            >
+                                <FontAwesomeIcon icon={faStickyNote} className="mr-2"/> Ver/Adicionar Notas
+                            </button>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Informações de Contato (telefone/email) */}
             <p className="text-xs text-gray-600 mb-1">{displayContactInfo}</p>
 
-            {/* Data de Criação e Última Mensagem */}
             <div className="text-xs text-gray-500 mt-2">
                 {contato.created_at && (
                     <p>Criado em: {formatDate(contato.created_at)}</p>
@@ -129,7 +135,7 @@ export default function ContatoCardCRM({ contato, onDragStart, cardNumber, allCo
                 
                 {contato.last_whatsapp_message && (
                     <>
-                        <div className="border-t border-gray-200 my-2"></div> {/* Separador visual */}
+                        <div className="border-t border-gray-200 my-2"></div>
                         <p className="text-gray-700">
                             Última mensagem: <span className="font-medium">{truncateMessage(contato.last_whatsapp_message)}</span>
                             {contato.last_whatsapp_message_time && ` (${formatDate(contato.last_whatsapp_message_time)})`}

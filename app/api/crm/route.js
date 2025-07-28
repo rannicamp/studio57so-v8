@@ -52,12 +52,43 @@ export async function GET(request) {
     const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
     const empreendimentoId = searchParams.get('empreendimentoId');
+    const context = searchParams.get('context'); // Novo: para buscar notas
+    const contatoNoFunilId = searchParams.get('contatoNoFunilId'); // Novo: para buscar notas
+
+    console.log(`API GET /api/crm: Recebida requisição. Empreendimento ID: ${empreendimentoId}, Contexto: ${context}, ContatoNoFunil ID: ${contatoNoFunilId}`);
+
+    // Nova lógica para buscar notas
+    if (context === 'notes' && contatoNoFunilId) {
+        console.log(`API GET /api/crm: Buscando notas para contatoNoFunilId: ${contatoNoFunilId}`);
+        try {
+            const { data, error } = await supabase
+                .from('crm_notas')
+                .select(`
+                    *,
+                    usuarios(nome, sobrenome)
+                `)
+                .eq('contato_no_funil_id', contatoNoFunilId)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error("API GET /api/crm (notas): Erro ao buscar notas:", error.message);
+                throw new Error(`Não foi possível buscar as notas. Erro: ${error.message}`);
+            }
+            console.log(`API GET /api/crm (notas): ${data.length} notas encontradas.`);
+            return NextResponse.json(data);
+        } catch (error) {
+            console.error("API GET /api/crm (notas): Erro geral no catch:", error);
+            return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
+        }
+    }
 
     if (!empreendimentoId || empreendimentoId === 'all') {
+        console.log("API GET /api/crm: ID de empreendimento não fornecido ou é 'all'.");
         return new NextResponse(JSON.stringify({ error: "ID de empreendimento é obrigatório." }), { status: 400 });
     }
 
     try {
+        console.log(`API GET /api/crm: Buscando funil para empreendimentoId: ${empreendimentoId}`);
         let { data: funil, error: funilError } = await supabase
             .from('funis')
             .select('id, nome')
@@ -66,23 +97,33 @@ export async function GET(request) {
             .single();
         
         if (!funil && funilError?.code === 'PGRST116') {
-             funil = await createDefaultFunnel(supabase, empreendimentoId);
-             if (!funil) throw new Error("Falha ao criar o funil de vendas padrão.");
+            console.log("API GET /api/crm: Funil não encontrado. Tentando criar funil padrão.");
+            funil = await createDefaultFunnel(supabase, empreendimentoId);
+            if (!funil) throw new Error("Falha ao criar o funil de vendas padrão.");
+            console.log("API GET /api/crm: Funil padrão criado.");
         } else if (funilError) {
+            console.error("API GET /api/crm: Erro ao buscar funil de vendas:", funilError.message);
             throw new Error(`Falha ao buscar o funil de vendas: ${funilError.message}`);
         }
+        console.log("API GET /api/crm: Funil encontrado/criado:", funil);
 
+        console.log(`API GET /api/crm: Buscando colunas para funilId: ${funil.id}`);
         const { data: colunas, error: colunasError } = await supabase
             .from('colunas_funil')
             .select('id, nome, ordem')
             .eq('funil_id', funil.id)
             .order('ordem', { ascending: true });
 
-        if (colunasError) throw new Error(`Falha ao buscar as colunas do funil: ${colunasError.message}`);
+        if (colunasError) {
+            console.error("API GET /api/crm: Erro ao buscar colunas do funil:", colunasError.message);
+            throw new Error(`Falha ao buscar as colunas do funil: ${colunasError.message}`);
+        }
+        console.log("API GET /api/crm: Colunas encontradas:", colunas);
 
         let contatosNoFunil = [];
-        // CORREÇÃO: Só busca contatos se existirem colunas
         if (colunas && colunas.length > 0) {
+            const colunaIds = colunas.map(c => c.id);
+            console.log(`API GET /api/crm: Buscando contatos no funil para coluna IDs:`, colunaIds);
             const { data: contatosData, error: contatosError } = await supabase
                 .from('contatos_no_funil')
                 .select(`
@@ -98,21 +139,28 @@ export async function GET(request) {
                         whatsapp_messages (content, sent_at, direction)
                     )
                 `)
-                .in('coluna_id', colunas.map(c => c.id));
+                .in('coluna_id', colunaIds);
 
-            if (contatosError) throw new Error(`Falha ao buscar os contatos no funil: ${contatosError.message}`);
+            if (contatosError) {
+                console.error("API GET /api/crm: Erro ao buscar contatos no funil:", contatosError.message);
+                throw new Error(`Falha ao buscar os contatos no funil: ${contatosError.message}`);
+            }
             contatosNoFunil = contatosData || [];
+            console.log("API GET /api/crm: Contatos no funil carregados:", contatosNoFunil.length, "contatos.");
+        } else {
+            console.log("API GET /api/crm: Nenhuma coluna encontrada para o funil.");
         }
 
         const colunasComContatos = (colunas || []).map(coluna => ({
             ...coluna,
             contatos: contatosNoFunil.filter(c => c.coluna_id === coluna.id).map(item => item.contatos) || [],
         }));
+        console.log("API GET /api/crm: Colunas com contatos formatadas.");
 
         return NextResponse.json({ funilId: funil.id, nome: funil.nome, colunas: colunasComContatos });
 
     } catch (error) {
-        console.error("Erro na API GET /api/crm:", error.message);
+        console.error("API GET /api/crm: Erro CATCH geral:", error); // Log do objeto de erro completo
         return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
     }
 }
@@ -121,15 +169,54 @@ export async function POST(request) {
     const supabase = getSupabaseAdmin();
     try {
         const payload = await request.json();
-        const { funilId, nomeColuna, contatoIdParaFunil } = payload;
+        const { funilId, nomeColuna, contatoIdParaFunil, action, contato_no_funil_id, contato_id, conteudo, usuario_id, empreendimentoId } = payload; // Adicionado empreendimentoId ao payload
 
-        if (contatoIdParaFunil) {
-            // Lógica para adicionar contato ao funil (novo caso de uso)
+        console.log("API POST /api/crm: Recebida requisição POST com payload:", payload);
+
+        // Nova condição para criar funil padrão
+        if (empreendimentoId === 'default') {
+            console.log("API POST /api/crm: Tentando criar funil padrão para empreendimento 'default'.");
+            const novoFunil = await createDefaultFunnel(supabase, empreendimentoId); // Reutiliza a função existente
+            if (!novoFunil) {
+                console.error("API POST /api/crm (createDefaultFunnel): Falha ao criar funil padrão.");
+                throw new Error("Falha ao criar o funil de vendas padrão.");
+            }
+            console.log("API POST /api/crm (createDefaultFunnel): Funil padrão criado com sucesso:", novoFunil);
+            return NextResponse.json(novoFunil);
+        }
+        
+        if (action === 'createNote') {
+            console.log("API POST /api/crm: Tentando criar nota.");
+            if (!contato_no_funil_id || !contato_id || !conteudo || !usuario_id) {
+                console.error("API POST /api/crm (createNote): Campos obrigatórios faltando.");
+                return new NextResponse(JSON.stringify({ error: "contato_no_funil_id, contato_id, conteudo e usuario_id são obrigatórios para criar nota." }), { status: 400 });
+            }
+
+            const { data: novaNota, error: insertNoteError } = await supabase
+                .from('crm_notas')
+                .insert({ 
+                    contato_no_funil_id, 
+                    contato_id, 
+                    conteudo, 
+                    usuario_id 
+                })
+                .select()
+                .single();
+
+            if (insertNoteError) {
+                console.error("API POST /api/crm (createNote): Erro ao inserir nota:", insertNoteError.message);
+                throw new Error("Não foi possível criar a nota.");
+            }
+            console.log("API POST /api/crm (createNote): Nota criada com sucesso:", novaNota);
+            return NextResponse.json(novaNota);
+
+        } else if (contatoIdParaFunil) {
+            console.log("API POST /api/crm: Tentando adicionar contato ao funil.");
             if (!funilId || !contatoIdParaFunil) {
+                console.error("API POST /api/crm (addContactToFunnel): Campos obrigatórios faltando.");
                 return new NextResponse(JSON.stringify({ error: "funilId e contatoIdParaFunil são obrigatórios para adicionar contato." }), { status: 400 });
             }
 
-            // Busca a primeira coluna do funil (ordem 0)
             const { data: primeiraColuna, error: colunaError } = await supabase
                 .from('colunas_funil')
                 .select('id')
@@ -138,11 +225,10 @@ export async function POST(request) {
                 .single();
 
             if (colunaError || !primeiraColuna) {
-                console.error("Erro ao buscar primeira coluna do funil:", colunaError?.message);
+                console.error("API POST /api/crm (addContactToFunnel): Erro ao buscar primeira coluna do funil:", colunaError?.message);
                 throw new Error("Não foi possível encontrar a primeira coluna do funil para adicionar o contato.");
             }
 
-            // Busca o maior numero_card para gerar o próximo sequencial
             const { data: maxNumeroCardData, error: maxNumeroCardError } = await supabase
                 .from('contatos_no_funil')
                 .select('numero_card')
@@ -151,6 +237,7 @@ export async function POST(request) {
                 .single();
 
             const proximoNumeroCard = (maxNumeroCardData?.numero_card || 0) + 1;
+            console.log(`API POST /api/crm (addContactToFunnel): Próximo numero_card: ${proximoNumeroCard}`);
 
             const { data: novoContatoNoFunil, error: insertError } = await supabase
                 .from('contatos_no_funil')
@@ -163,15 +250,16 @@ export async function POST(request) {
                 .single();
 
             if (insertError) {
-                console.error("Erro ao inserir contato no funil:", insertError.message);
+                console.error("API POST /api/crm (addContactToFunnel): Erro ao inserir contato no funil:", insertError.message);
                 throw new Error("Não foi possível adicionar o contato ao funil.");
             }
-
+            console.log("API POST /api/crm (addContactToFunnel): Contato adicionado ao funil:", novoContatoNoFunil);
             return NextResponse.json(novoContatoNoFunil);
 
         } else if (nomeColuna) {
-            // Lógica para criar nova coluna
+            console.log("API POST /api/crm: Tentando criar nova coluna.");
             if (!funilId || !nomeColuna) {
+                console.error("API POST /api/crm (createColumn): Campos obrigatórios faltando.");
                 return new NextResponse(JSON.stringify({ error: "funilId e nomeColuna são obrigatórios para criar coluna." }), { status: 400 });
             }
 
@@ -184,6 +272,7 @@ export async function POST(request) {
                 .single();
             
             const novaOrdem = (maxOrdemData?.ordem ?? -1) + 1;
+            console.log(`API POST /api/crm (createColumn): Nova ordem para coluna: ${novaOrdem}`);
 
             const { data: novaColuna, error } = await supabase
                 .from('colunas_funil')
@@ -191,15 +280,19 @@ export async function POST(request) {
                 .select()
                 .single();
 
-            if (error) throw new Error("Não foi possível criar a nova coluna.");
-
+            if (error) {
+                console.error("API POST /api/crm (createColumn): Erro ao criar nova coluna:", error.message);
+                throw new Error("Não foi possível criar a nova coluna.");
+            }
+            console.log("API POST /api/crm (createColumn): Coluna criada:", novaColuna);
             return NextResponse.json(novaColuna);
         }
         
+        console.warn("API POST /api/crm: Payload inválido ou ação não reconhecida.");
         return new NextResponse(JSON.stringify({ error: "Payload inválido para a operação POST." }), { status: 400 });
 
     } catch (error) {
-        console.error("Erro geral na API POST /api/crm:", error.message);
+        console.error("API POST /api/crm: Erro CATCH geral:", error); // Log do objeto de erro completo
         return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
     }
 }
@@ -208,25 +301,25 @@ export async function PUT(request) {
     const supabase = getSupabaseAdmin();
     try {
         const payload = await request.json();
-        console.log("Recebido payload na API PUT /api/crm:", payload); // Log do payload
+        console.log("API PUT /api/crm: Recebido payload:", payload); 
 
         if (payload.contatoId && payload.novaColunaId) {
-            // Lógica para mover contato
-            // contatoId aqui é o ID da linha em 'contatos_no_funil', não o id do contato em si.
+            console.log(`API PUT /api/crm: Tentando mover contato ${payload.contatoId} para coluna ${payload.novaColunaId}.`);
             const { data, error } = await supabase
                 .from('contatos_no_funil')
-                .update({ coluna_id: payload.novaColunaId }) // Atualiza apenas a coluna_id
-                .eq('id', payload.contatoId) // Onde o ID da linha do funil é igual a payload.contatoId
-                .select(); // Adicionado .select() para garantir que a resposta traga os dados atualizados
+                .update({ coluna_id: payload.novaColunaId })
+                .eq('id', payload.contatoId) 
+                .select(); 
 
             if (error) {
-                console.error("Erro ao mover contato no Supabase:", error.message); // Log de erro específico
+                console.error("API PUT /api/crm (moveContact): Erro ao mover contato no Supabase:", error.message); 
                 throw new Error("Não foi possível mover o contato.");
             }
+            console.log("API PUT /api/crm (moveContact): Contato movido com sucesso:", data);
             return NextResponse.json({ success: true, data });
 
         } else if (payload.columnId && payload.newName) {
-            // Lógica para editar nome da coluna
+            console.log(`API PUT /api/crm: Tentando editar nome da coluna ${payload.columnId} para ${payload.newName}.`);
             const { data, error } = await supabase
                 .from('colunas_funil')
                 .update({ nome: payload.newName })
@@ -234,40 +327,44 @@ export async function PUT(request) {
                 .select();
             
             if (error) {
-                console.error("Erro ao atualizar nome da coluna no Supabase:", error.message); // Log de erro específico
+                console.error("API PUT /api/crm (editColumn): Erro ao atualizar nome da coluna no Supabase:", error.message); 
                 throw new Error("Não foi possível atualizar o nome da coluna.");
             }
+            console.log("API PUT /api/crm (editColumn): Nome da coluna atualizado:", data);
             return NextResponse.json({ success: true, data });
+
         } else if (payload.reorderColumns && Array.isArray(payload.reorderColumns) && payload.funilId) {
-            // Lógica para reordenar colunas
+            console.log("API PUT /api/crm: Tentando reordenar colunas.");
             const updates = payload.reorderColumns.map(col => ({
                 id: col.id,
                 ordem: col.ordem,
-                funil_id: payload.funilId // Garante que a atualização é para o funil correto
+                funil_id: payload.funilId 
             }));
 
             const updatePromises = updates.map(async (colData) => {
+                console.log(`API PUT /api/crm (reorderColumns): Atualizando coluna ${colData.id} para ordem ${colData.ordem}.`);
                 const { data, error } = await supabase
                     .from('colunas_funil')
-                    .update({ ordem: colData.ordem }) // Apenas a ordem
+                    .update({ ordem: colData.ordem })
                     .eq('id', colData.id)
-                    .eq('funil_id', colData.funil_id); // Garante que a atualização é para o funil correto
+                    .eq('funil_id', colData.funil_id); 
                 if (error) {
-                    console.error(`Erro ao atualizar ordem da coluna ${colData.id}:`, error.message);
+                    console.error(`API PUT /api/crm (reorderColumns): Erro ao atualizar ordem da coluna ${colData.id}:`, error.message);
                     throw error;
                 }
                 return data;
             });
             
             await Promise.all(updatePromises);
-
+            console.log("API PUT /api/crm (reorderColumns): Ordem das colunas atualizada com sucesso.");
             return NextResponse.json({ success: true, message: "Ordem das colunas atualizada com sucesso." });
         }
         
+        console.warn("API PUT /api/crm: Payload inválido para a operação PUT.");
         return new NextResponse(JSON.stringify({ error: "Payload inválido para a operação PUT." }), { status: 400 });
 
     } catch (error) {
-        console.error("Erro geral na API PUT /api/crm:", error.message); // Log de erro geral
+        console.error("API PUT /api/crm: Erro CATCH geral:", error); 
         return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
     }
 }
@@ -277,35 +374,41 @@ export async function DELETE(request) {
     try {
         const { searchParams } = new URL(request.url);
         const columnId = searchParams.get('columnId');
+        console.log(`API DELETE /api/crm: Recebida requisição para deletar coluna ${columnId}`);
 
         if (!columnId) {
+            console.error("API DELETE /api/crm: ID da coluna é obrigatório para a exclusão.");
             return new NextResponse(JSON.stringify({ error: "ID da coluna é obrigatório para a exclusão." }), { status: 400 });
         }
 
+        console.log(`API DELETE /api/crm: Deletando contatos associados à coluna ${columnId}.`);
         const { error: deleteContactsError } = await supabase
             .from('contatos_no_funil')
             .delete()
             .eq('coluna_id', columnId);
 
         if (deleteContactsError) {
-            console.error("Erro ao deletar contatos associados à coluna no Supabase:", deleteContactsError.message); // Log de erro específico
+            console.error("API DELETE /api/crm: Erro ao deletar contatos associados à coluna no Supabase:", deleteContactsError.message); 
             throw new Error("Não foi possível deletar os contatos associados à coluna.");
         }
+        console.log(`API DELETE /api/crm: Contatos associados à coluna ${columnId} deletados.`);
 
+        console.log(`API DELETE /api/crm: Deletando coluna ${columnId}.`);
         const { error } = await supabase
             .from('colunas_funil')
             .delete()
             .eq('id', columnId);
 
         if (error) {
-            console.error("Erro ao deletar coluna no Supabase:", error.message); // Log de erro específico
+            console.error("API DELETE /api/crm: Erro ao deletar coluna no Supabase:", error.message); 
             throw new Error("Não foi possível deletar a coluna.");
         }
+        console.log(`API DELETE /api/crm: Coluna ${columnId} deletada com sucesso.`);
 
         return NextResponse.json({ success: true, message: "Coluna deletada com sucesso." });
 
     } catch (error) {
-        console.error("Erro geral na API DELETE /api/crm:", error.message); // Log de erro geral
+        console.error("API DELETE /api/crm: Erro CATCH geral:", error); 
         return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
     }
 }
