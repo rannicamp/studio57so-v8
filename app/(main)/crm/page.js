@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 
 import FunilKanban from '@/components/crm/FunilKanban';
 import WhatsAppChatManager from '@/components/WhatsAppChatManager';
-import CrmNotesModal from '@/components/crm/CrmNotesModal'; // Importado o novo modal de notas
+import CrmNotesModal from '@/components/crm/CrmNotesModal';
 
 // --- Componente da Janela de Busca ---
 const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, existingContactIds }) => {
@@ -77,7 +77,7 @@ export default function CrmPage() {
     const [loadingWhatsapp, setLoadingWhatsapp] = useState(true);
 
     // Estados para a janela de busca
-    const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false); // Renomeado para clareza
+    const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false);
     const [targetColumnId, setTargetColumnId] = useState(null);
     const [searchResults, setSearchResults] = useState([]);
 
@@ -160,34 +160,37 @@ export default function CrmPage() {
                 }
                 console.log('fetchFunilData: Contatos brutos carregados:', contatosNoFunilRaw);
 
-                contatosParaEstado = (contatosNoFunilRaw || []).map(item => {
-                    if (!item.contatos) {
-                        console.warn(`fetchFunilData: Contato ID nulo para contatos_no_funil ID: ${item.id}. Este item será filtrado.`);
-                        return { ...item, contatos: null }; 
-                    }
-
-                    const contato = item.contatos;
-                    let lastWhatsappMessage = null;
-                    let lastWhatsappMessageTime = null;
-
-                    if (contato.whatsapp_messages && contato.whatsapp_messages.length > 0) {
-                        const sortedMessages = [...contato.whatsapp_messages].sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
-                        lastWhatsappMessage = sortedMessages[0]?.content; // Usar optional chaining aqui também
-                        lastWhatsappMessageTime = sortedMessages[0]?.sent_at;
-                        console.log(`fetchFunilData: Processando contato ${contato.id}, última mensagem:`, lastWhatsappMessage);
-                    } else {
-                        console.log(`fetchFunilData: Contato ${contato.id} sem mensagens WhatsApp.`);
-                    }
-
-                    return {
-                        ...item,
-                        contatos: {
-                            ...contato,
-                            last_whatsapp_message: lastWhatsappMessage,
-                            last_whatsapp_message_time: lastWhatsappMessageTime,
+                contatosParaEstado = (contatosNoFunilRaw || [])
+                    .map(item => {
+                        // VEREFICAR AQUI SE item.contatos EXISTE E TEM UM ID VÁLIDO
+                        if (!item.contatos || !item.contatos.id) {
+                            console.warn(`fetchFunilData: Contato ID nulo ou inválido para contatos_no_funil ID: ${item.id}. Este item será filtrado.`);
+                            return { ...item, contatos: null }; // Marca para ser filtrado
                         }
-                    };
-                }).filter(item => item.contatos !== null); 
+
+                        const contato = item.contatos;
+                        let lastWhatsappMessage = null;
+                        let lastWhatsappMessageTime = null;
+
+                        if (contato.whatsapp_messages && contato.whatsapp_messages.length > 0) {
+                            const sortedMessages = [...contato.whatsapp_messages].sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+                            lastWhatsappMessage = sortedMessages[0]?.content;
+                            lastWhatsappMessageTime = sortedMessages[0]?.sent_at;
+                            console.log(`fetchFunilData: Processando contato ${contato.id}, última mensagem:`, lastWhatsappMessage);
+                        } else {
+                            console.log(`fetchFunilData: Contato ${contato.id} sem mensagens WhatsApp.`);
+                        }
+
+                        return {
+                            ...item,
+                            contatos: {
+                                ...contato,
+                                last_whatsapp_message: lastWhatsappMessage,
+                                last_whatsapp_message_time: lastWhatsappMessageTime,
+                            }
+                        };
+                    })
+                    .filter(item => item.contatos !== null); // Mantém o filtro para remover itens marcados como nulos
                 console.log('fetchFunilData: Contatos processados para o estado:', contatosParaEstado);
             } else {
                 console.log('fetchFunilData: Nenhuma coluna encontrada, contatosParaEstado permanece vazio.');
@@ -196,7 +199,7 @@ export default function CrmPage() {
             console.log('fetchFunilData: Estado de contatosNoFunil atualizado.');
 
         } catch (error) {
-            console.error('fetchFunilData: Erro CATCH geral ao carregar dados do funil:', error); // Log do objeto de erro completo
+            console.error('fetchFunilData: Erro CATCH geral ao carregar dados do funil:', error);
             toast.error(`Erro ao carregar dados do funil. Detalhes: ${error.message || error.toString()}`);
         } finally {
             setLoadingFunil(false);
@@ -417,7 +420,7 @@ export default function CrmPage() {
                             onEditColumn={handleEditColumn}
                             onDeleteColumn={handleDeleteColumn}
                             onReorderColumns={handleReorderColumns}
-                            onOpenNotesModal={handleOpenNotesModal} // Passando a nova função
+                            onOpenNotesModal={handleOpenNotesModal}
                         />
                     )
                 )}
@@ -431,8 +434,8 @@ export default function CrmPage() {
             </div>
 
             <AddContactModal
-                isOpen={isAddContactModalOpen} // Usando o novo estado
-                onClose={() => setIsAddContactModalOpen(false)} // Usando o novo estado
+                isOpen={isAddContactModalOpen}
+                onClose={() => setIsAddContactModalOpen(false)}
                 onSearch={handleSearch}
                 results={searchResults}
                 onAddContact={handleAddContactToFunnel}

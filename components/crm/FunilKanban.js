@@ -53,7 +53,7 @@ const AddColumn = ({ onCreate }) => {
 };
 
 
-export default function FunilKanban({ contatos, statusColumns, onStatusChange, onCreateColumn, onAddContact, onEditColumn, onDeleteColumn, onReorderColumns }) { 
+export default function FunilKanban({ contatos, statusColumns, onStatusChange, onCreateColumn, onAddContact, onEditColumn, onDeleteColumn, onReorderColumns, onOpenNotesModal }) { 
     
     const [editingColumnId, setEditingColumnId] = useState(null);
     const [editedColumnName, setEditedColumnName] = useState("");
@@ -71,7 +71,7 @@ export default function FunilKanban({ contatos, statusColumns, onStatusChange, o
         e.preventDefault();
         const contatoNoFunilId = e.dataTransfer.getData("contatoNoFunilId");
         if (contatoNoFunilId) {
-            console.log(`FunilKanban: Drag-and-Drop - Dropping card ${contatoNoFunilId} into column ${colunaDestinoId}`); // LOG DE DEBUG
+            console.log(`FunilKanban: Drag-and-Drop - Dropping card ${contatoNoFunilId} into column ${colunaDestinoId}`);
             onStatusChange(contatoNoFunilId, colunaDestinoId);
         }
     };
@@ -100,7 +100,7 @@ export default function FunilKanban({ contatos, statusColumns, onStatusChange, o
         // Atribui novas ordens baseadas na nova posição no array
         const reorderedWithNewOrder = newColumns.map((col, index) => ({
             ...col,
-            ordem: index // Define a nova ordem sequencial
+            ordem: index
         }));
         
         onReorderColumns(reorderedWithNewOrder);
@@ -131,7 +131,7 @@ export default function FunilKanban({ contatos, statusColumns, onStatusChange, o
 
     // Nova função para mover o card de contato através do dropdown
     const handleMoveCardFromDropdown = (contatoNoFunilId, newColumnId) => {
-        console.log(`FunilKanban: handleMoveCardFromDropdown - Mover contato ${contatoNoFunilId} para coluna ${newColumnId}`); // LOG DE DEBUG
+        console.log(`FunilKanban: handleMoveCardFromDropdown - Mover contato ${contatoNoFunilId} para coluna ${newColumnId}`);
         onStatusChange(contatoNoFunilId, newColumnId);
     };
 
@@ -139,10 +139,9 @@ export default function FunilKanban({ contatos, statusColumns, onStatusChange, o
         const grouped = {};
         if (statusColumns && contatos) {
             statusColumns.forEach(coluna => {
-                // Filtra e ordena os contatos pelo numero_card para exibição
                 grouped[coluna.id] = contatos
                     .filter(c => c.coluna_id === coluna.id)
-                    .sort((a, b) => (a.numero_card || 0) - (b.numero_card || 0)); // Ordena por numero_card
+                    .sort((a, b) => (a.numero_card || 0) - (b.numero_card || 0));
             });
         }
         return grouped;
@@ -154,16 +153,13 @@ export default function FunilKanban({ contatos, statusColumns, onStatusChange, o
                 <div
                     key={coluna.id}
                     className="w-80 flex-shrink-0 bg-gray-200 rounded-lg shadow-sm flex flex-col"
-                    // Permite arrastar a coluna
                     draggable 
                     onDragStart={(e) => handleDragStartColumn(e, coluna.id)} 
-                    // Permite soltar colunas no corpo principal da coluna
                     onDragOver={(e) => e.preventDefault()} 
                     onDrop={(e) => handleDropColumn(e, coluna.id)}
                 >
                     <div
                         className="p-3 text-sm font-semibold text-gray-700 border-b bg-gray-50 rounded-t-lg flex justify-between items-center"
-                        // Permite soltar colunas no cabeçalho
                         onDragOver={(e) => e.preventDefault()} 
                         onDrop={(e) => handleDropColumn(e, coluna.id)} 
                     >
@@ -198,17 +194,17 @@ export default function FunilKanban({ contatos, statusColumns, onStatusChange, o
                     </div>
                     <div 
                         className="p-2 space-y-3 overflow-y-auto flex-1"
-                        onDragOver={handleDragOver} // Adicionado onDragOver para a área de cards
-                        onDrop={(e) => handleDrop(e, coluna.id)} // Adicionado onDrop para a área de cards
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, coluna.id)}
                     >
                         {(contatosPorColuna[coluna.id] || []).map((contato) => (
                             <ContatoCardCRM
                                 key={contato.id}
-                                contato={contato.contatos} // Passa o objeto contato (contatos:contato_id (*))
-                                onDragStart={(e) => handleDragStart(e, contato.id)} // Passa o ID da linha contatos_no_funil
-                                cardNumber={contato.numero_card}
+                                funilEntry={contato}
+                                onDragStart={(e) => handleDragStart(e, contato.id)}
                                 allColumns={statusColumns}
                                 onMoveToColumn={handleMoveCardFromDropdown}
+                                onOpenNotesModal={onOpenNotesModal}
                             />
                         ))}
                     </div>
