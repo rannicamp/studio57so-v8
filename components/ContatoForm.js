@@ -41,6 +41,7 @@ const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }
             </div>
         );
     }
+    // Bloco para emails - REATIVADO
     return (
         <div className="flex items-center gap-2">
             <input
@@ -89,7 +90,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         neighborhood: '',
         observacoes: '',
         telefones: [{ telefone: '', country_code: '+55' }],
-        emails: [{ email: '' }],
+        emails: [{ email: '' }], // REATIVADO: Inicialização de emails
     }), []);
 
     const [formData, setFormData] = useState(getInitialState());
@@ -112,20 +113,37 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
 
     useEffect(() => {
         if (isEditing && contactToEdit) {
-            setFormData({
-                ...contactToEdit,
-                empresa_id: contactToEdit.empresa_id || null, // Garante que seja null
-                tipo_contato: contactToEdit.tipo_contato || 'Outro', // NOVO CAMPO: Popula o tipo de contato
-                telefones: contactToEdit.telefones?.length > 0 ? contactToEdit.telefones : [{ telefone: '', country_code: '+55' }],
-                emails: contactToEdit.emails?.length > 0 ? contactToEdit.emails : [{ email: '' }],
-                // Formatar datas para o input type="date"
-                birth_date: contactToEdit.birth_date ? new Date(contactToEdit.birth_date).toISOString().split('T')[0] : '',
-                data_fundacao: contactToEdit.data_fundacao ? new Date(contactToEdit.data_fundacao).toISOString().split('T')[0] : '',
-            });
+            // Buscando telefones e emails separadamente para contatos existentes
+            const fetchContactDetails = async () => {
+                const { data: phonesData, error: phonesError } = await supabase
+                    .from('telefones')
+                    .select('*')
+                    .eq('contato_id', contactToEdit.id);
+                
+                const { data: emailsData, error: emailsError } = await supabase
+                    .from('emails')
+                    .select('*')
+                    .eq('contato_id', contactToEdit.id);
+
+                if (phonesError) console.error("Erro ao buscar telefones do contato:", phonesError);
+                if (emailsError) console.error("Erro ao buscar emails do contato:", emailsError);
+
+                setFormData({
+                    ...contactToEdit,
+                    empresa_id: contactToEdit.empresa_id || null,
+                    tipo_contato: contactToEdit.tipo_contato || 'Outro',
+                    // REATIVADO E AJUSTADO: População de telefones e emails do banco de dados
+                    telefones: phonesData?.length > 0 ? phonesData : [{ telefone: '', country_code: '+55' }],
+                    emails: emailsData?.length > 0 ? emailsData : [{ email: '' }],
+                    birth_date: contactToEdit.birth_date ? new Date(contactToEdit.birth_date).toISOString().split('T')[0] : '',
+                    data_fundacao: contactToEdit.data_fundacao ? new Date(contactToEdit.data_fundacao).toISOString().split('T')[0] : '',
+                });
+            };
+            fetchContactDetails();
         } else {
             setFormData(getInitialState());
         }
-    }, [isEditing, contactToEdit, getInitialState]);
+    }, [isEditing, contactToEdit, getInitialState, supabase]); // Adicionado supabase como dependência
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -211,9 +229,9 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         }
 
         const hasValidPhone = formData.telefones.some(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length >= 10);
-        const hasValidEmail = formData.emails.some(mail => mail.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail.email));
+        const hasValidEmail = formData.emails.some(mail => mail.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail.email)); // REATIVADO: Validação de emails
 
-        if (!hasValidPhone && !hasValidEmail) {
+        if (!hasValidPhone && !hasValidEmail) { // REATIVADO: Condição de validação de emails
             errors.push("É necessário informar ao menos um telefone ou um e-mail válido.");
         }
 
@@ -228,7 +246,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
             ...formData,
             // Garantir que empresa_id seja null se vazio
             empresa_id: formData.empresa_id ? parseInt(formData.empresa_id, 10) : null,
-            // NOVO CAMPO: Incluir tipo_contato
+            // Incluir tipo_contato
             tipo_contato: formData.tipo_contato,
             // Limpar dados irrelevantes para o tipo de personalidade
             cpf: formData.personalidade_juridica === 'Pessoa Física' ? formData.cpf.replace(/\D/g, '') : null,
@@ -252,11 +270,11 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
             telefone: tel.telefone.replace(/\D/g, ''),
             country_code: tel.country_code
         }));
-        const cleanedEmails = formData.emails.filter(mail => mail.email.trim() !== '').map(mail => ({
+        const cleanedEmails = formData.emails.filter(mail => mail.email.trim() !== '').map(mail => ({ // REATIVADO: Limpeza de emails
             email: mail.email.trim()
         }));
         
-        let contactId = null;
+        let contatoId = null; // Renomeado para contatoId para consistência
         let error = null;
 
         if (isEditing) {
@@ -264,43 +282,43 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                 .from('contatos')
                 .update(dataToSave)
                 .eq('id', contactToEdit.id)
-                .select()
+                .select('id') // Seleciona apenas o ID para evitar cache de colunas não existentes
                 .single();
             if (updateError) error = updateError;
-            contactId = data?.id;
+            contatoId = data?.id;
         } else {
             const { data, error: insertError } = await supabase
                 .from('contatos')
                 .insert(dataToSave)
-                .select()
+                .select('id') // Seleciona apenas o ID
                 .single();
             if (insertError) error = insertError;
-            contactId = data?.id;
+            contatoId = data?.id;
         }
 
         if (error) {
-            console.error("Erro ao salvar contato:", error);
+            console.error("Erro ao salvar contato (principal):", error);
             toast.error(`Erro ao salvar contato: ${error.message}`);
             setIsLoading(false);
             return;
         }
 
         // --- SALVAR TELEFONES E EMAILS ---
-        if (contactId) {
-            // Remover telefones/emails antigos
-            await supabase.from('telefones').delete().eq('contato_id', contactId);
-            await supabase.from('emails').delete().eq('contato_id', contactId);
+        if (contatoId) {
+            // Remover telefones e emails antigos
+            await supabase.from('telefones').delete().eq('contato_id', contatoId);
+            await supabase.from('emails').delete().eq('contato_id', contatoId); // REATIVADO: Deleção de emails
 
             // Inserir novos telefones
             if (cleanedPhones.length > 0) {
-                const phonesWithContactId = cleanedPhones.map(tel => ({ ...tel, contato_id: contactId, tipo: 'Celular' })); // Adicionar tipo padrão
+                const phonesWithContactId = cleanedPhones.map(tel => ({ ...tel, contato_id: contatoId, tipo: 'Celular' })); // Adicionar tipo padrão
                 const { error: phoneError } = await supabase.from('telefones').insert(phonesWithContactId);
                 if (phoneError) console.error("Erro ao salvar telefones:", phoneError);
             }
 
-            // Inserir novos emails
+            // Inserir novos emails - REATIVADO
             if (cleanedEmails.length > 0) {
-                const emailsWithContactId = cleanedEmails.map(mail => ({ ...mail, contato_id: contactId, tipo: 'Pessoal' })); // Adicionar tipo padrão
+                const emailsWithContactId = cleanedEmails.map(mail => ({ ...mail, contato_id: contatoId, tipo: 'Pessoal' })); // Adicionar tipo padrão
                 const { error: emailError } = await supabase.from('emails').insert(emailsWithContactId);
                 if (emailError) console.error("Erro ao salvar emails:", emailError);
             }
@@ -309,7 +327,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
 
         toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
         setIsLoading(false);
-        if (onSaveSuccess) onSaveSuccess(contactId);
+        if (onSaveSuccess) onSaveSuccess(contatoId);
         if (onClose) onClose();
         else router.push('/contatos'); // Redirecionar para a lista de contatos
     };
@@ -415,6 +433,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                         <FontAwesomeIcon icon={faPlusCircle} /> Adicionar Telefone
                     </button>
 
+                    {/* Bloco de E-mails REATIVADO */}
                     <h4 className="text-md font-medium mt-6">E-mails *</h4>
                     {formData.emails.map((mail, index) => (
                         <DynamicInputRow
@@ -424,6 +443,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                             onUpdate={(i, field, value) => handleDynamicInputChange('emails', i, field, value)}
                             onRemove={() => handleRemoveDynamicInput('emails', index)}
                             isPhone={false}
+                            countries={countries}
                         />
                     ))}
                     <button type="button" onClick={() => handleAddDynamicInput('emails', { email: '' })} className="text-blue-600 hover:text-blue-800 flex items-center gap-2 text-sm">
