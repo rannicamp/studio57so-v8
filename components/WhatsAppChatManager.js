@@ -9,7 +9,8 @@ import {
     faPaperPlane, faSpinner, faUserCircle, faSearch, faAddressBook,
     faPaperclip, faFileAlt, faMicrophone, faTimes, faFileImage,
     faTrash, faCheck,
-    faCheckDouble // Importa o ícone de dois vistos
+    faCheckDouble,
+    faUserPlus // Importa o ícone para "novo contato"
 } from '@fortawesome/free-solid-svg-icons';
 import { sendWhatsAppMedia, sendWhatsAppText } from '../utils/whatsapp';
 
@@ -18,7 +19,7 @@ const MessageBubble = ({ message }) => {
     const isSentByUser = message.direction === 'outbound';
     const bubbleClasses = isSentByUser ? 'bg-blue-500 text-white self-end rounded-l-lg rounded-tr-lg' : 'bg-gray-200 text-gray-800 self-start rounded-r-lg rounded-tl-lg';
     
-    // --- DEBUGGING: Adiciona um console.log para ver o status da mensagem ---
+    // DEBUGGING: Adiciona um console.log para ver o status da mensagem
     // console.log(`Message ID: ${message.id}, Direction: ${message.direction}, Status: ${message.status}`);
 
     const renderContent = () => {
@@ -112,27 +113,32 @@ export default function WhatsAppChatManager({ contatos }) {
                 return; 
             }
             setIsLoadingContacts(true);
-            const { data: messagesData, error } = await supabase.from('whatsapp_messages')
+            
+            // Busca mensagens para ordenar contatos
+            const { data: messagesData, error: messagesError } = await supabase.from('whatsapp_messages')
                 .select('contato_id, sent_at')
                 .not('contato_id', 'is', null)
                 .order('sent_at', { ascending: false });
 
-            if (error) { 
-                console.error("Erro ao buscar datas de últimas mensagens:", error);
-                // Se houver erro, apenas ordena alfabeticamente
-                const sortedAlphabetically = [...contatos].sort((a, b) => (a.nome || a.razao_social || '').localeCompare(b.nome || b.razao_social || '')); 
-                setDisplayContacts(sortedAlphabetically.map(c => ({ ...c, lastMessageDate: null }))); 
-                setIsLoadingContacts(false); 
-                return; 
+            if (messagesError) { 
+                console.error("Erro ao buscar datas de últimas mensagens:", messagesError);
             }
 
             const datesMap = new Map();
-            messagesData.forEach(msg => { 
-                const contactIdStr = String(msg.contato_id); 
-                if (!datesMap.has(contactIdStr)) { 
-                    datesMap.set(contactIdStr, new Date(msg.sent_at)); 
-                } 
-            });
+            if (messagesData) {
+                messagesData.forEach(msg => { 
+                    const contactIdStr = String(msg.contato_id); 
+                    if (!datesMap.has(contactIdStr)) { 
+                        datesMap.set(contactIdStr, new Date(msg.sent_at)); 
+                    } 
+                });
+            }
+
+            // Garante que a prop `contatos` já inclui `is_unregistered`
+            // Se `contatos` não vier com `is_unregistered`, você precisaria buscar aqui:
+            // const { data: fullContacts, error: contactsError } = await supabase.from('contatos').select('*, telefones(telefone), is_unregistered');
+            // const enrichedContacts = fullContacts.map(contact => ({ ...contact, lastMessageDate: datesMap.get(String(contact.id)) || null }));
+            // Por enquanto, assumimos que `contatos` já tem `is_unregistered`.
 
             const enrichedContacts = contatos.map(contact => ({ 
                 ...contact, 
@@ -445,6 +451,24 @@ export default function WhatsAppChatManager({ contatos }) {
         }
     };
 
+    // Função para renderizar o avatar do contato
+    const renderContactAvatar = (contact) => {
+        const name = contact?.nome || contact?.razao_social;
+        const bgColor = contact?.is_unregistered ? 'bg-yellow-400' : 'bg-blue-200'; // Cor diferente para não registrados
+        const textColor = contact?.is_unregistered ? 'text-yellow-900' : 'text-blue-800'; // Cor diferente para não registrados
+
+        if (name && name.trim().length > 0) {
+            const firstLetter = name.trim().charAt(0).toUpperCase();
+            return (
+                <div className={`w-10 h-10 rounded-full ${bgColor} ${textColor} flex items-center justify-center text-lg font-bold`}>
+                    {firstLetter}
+                </div>
+            );
+        }
+        // Fallback para ícone genérico se não houver nome
+        return <FontAwesomeIcon icon={faUserCircle} className="text-3xl text-gray-400" />;
+    };
+
     return (
         <div className="grid grid-cols-[300px_1fr_250px] h-[calc(100vh-100px)] bg-white rounded-lg shadow-xl border">
             {/* Coluna da Lista de Contatos */}
@@ -476,10 +500,25 @@ export default function WhatsAppChatManager({ contatos }) {
                             <li
                                 key={contact.id}
                                 onClick={() => handleSelectContact(contact)}
-                                className={`p-4 cursor-pointer hover:bg-gray-100 ${selectedContact?.id === contact.id ? 'bg-blue-100' : ''}`}
+                                className={`p-4 cursor-pointer hover:bg-gray-100 ${selectedContact?.id === contact.id ? 'bg-blue-100' : ''} ${contact.is_unregistered ? 'bg-yellow-50 border-l-4 border-yellow-500' : ''}`}
                             >
-                                <p className="font-semibold truncate">{contact.nome || contact.razao_social}</p>
-                                <p className="text-sm text-gray-500">{contact.telefones?.[0]?.telefone || 'Sem telefone'}</p>
+                                <div className="flex items-center gap-2">
+                                    {renderContactAvatar(contact)} {/* Avatar na lista de contatos */}
+                                    <div>
+                                        <p className="font-semibold truncate">
+                                            {contact.is_unregistered ? (
+                                                <span className="text-yellow-800 flex items-center gap-1">
+                                                    <FontAwesomeIcon icon={faUserPlus} className="text-sm" /> Novo Contato
+                                                </span>
+                                            ) : (
+                                                contact.nome || contact.razao_social
+                                            )}
+                                        </p>
+                                        <p className="text-sm text-gray-500">
+                                            {contact.telefones?.[0]?.telefone || 'Sem telefone'}
+                                        </p>
+                                    </div>
+                                </div>
                                 {contact.lastMessageDate && (
                                     <p className="text-xs text-gray-400 mt-1">
                                         Última: {new Date(contact.lastMessageDate).toLocaleTimeString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
@@ -496,10 +535,23 @@ export default function WhatsAppChatManager({ contatos }) {
                 {selectedContact ? (
                     <>
                         <div className="p-4 border-b flex items-center gap-3 bg-white">
-                            <FontAwesomeIcon icon={faUserCircle} className="text-3xl text-gray-400" />
+                            {renderContactAvatar(selectedContact)} {/* Avatar no cabeçalho do chat */}
                             <div>
-                                <h3 className="font-bold">{selectedContact.nome || selectedContact.razao_social}</h3>
-                                <p className="text-sm text-gray-500">{selectedContact.telefones?.[0]?.telefone || 'Sem telefone'}</p>
+                                <h3 className="font-bold">
+                                    {selectedContact.is_unregistered ? (
+                                        <span className="text-yellow-800 flex items-center gap-1">
+                                            <FontAwesomeIcon icon={faUserPlus} className="text-lg" /> Novo Contato
+                                        </span>
+                                    ) : (
+                                        selectedContact.nome || selectedContact.razao_social
+                                    )}
+                                </h3>
+                                <p className="text-sm text-gray-500">
+                                    {selectedContact.telefones?.[0]?.telefone || 'Sem telefone'}
+                                    {selectedContact.is_unregistered && (
+                                        <span className="ml-2 text-yellow-700">(Aguardando nome)</span>
+                                    )}
+                                </p>
                             </div>
                         </div>
                         <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50 flex flex-col">
