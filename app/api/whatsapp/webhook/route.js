@@ -88,7 +88,7 @@ export async function POST(request) {
     const supabaseAdmin = getSupabaseAdmin();
     try {
         const body = await request.json();
-        console.log("[WEBHOOK] Corpo da requisição recebido:", JSON.stringify(body, null, 2)); // DEBUG: Loga o corpo completo
+        console.log("[WEBHOOK] Corpo da requisição recebido:", JSON.stringify(body, null, 2));
 
         const { data: whatsappConfig } = await supabaseAdmin.from('configuracoes_whatsapp').select('*').limit(1).single();
         if (!whatsappConfig) {
@@ -110,7 +110,7 @@ export async function POST(request) {
                 default: dbStatus = 'sent';
             }
 
-            console.log(`[WEBHOOK STATUS] Atualização de status: message_id=${messageId}, status=${dbStatus}`); // DEBUG: Loga a atualização de status
+            console.log(`[WEBHOOK STATUS] Atualização de status: message_id=${messageId}, status=${dbStatus}`);
 
             const { error: updateError } = await supabaseAdmin
                 .from('whatsapp_messages')
@@ -118,8 +118,14 @@ export async function POST(request) {
                 .eq('message_id', messageId);
 
             if (updateError) {
-                console.error("[WEBHOOK STATUS] Erro ao atualizar status da mensagem:", updateError); // DEBUG: Loga erro na atualização
+                console.error("[WEBHOOK STATUS] Erro ao atualizar status da mensagem:", updateError);
             }
+
+            // --- ATUALIZA updated_at da conversa para ordenação ---
+            await supabaseAdmin.from('whatsapp_conversations')
+                .upsert({ phone_number: statusEntry.recipient_id, updated_at: new Date().toISOString() }, { onConflict: ['phone_number'] });
+            // --- FIM ATUALIZA updated_at ---
+
             return NextResponse.json({ status: 'ok' });
         }
 
@@ -127,42 +133,45 @@ export async function POST(request) {
         // Processa mensagens de entrada
         const messageEntry = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
         if (messageEntry) {
-            console.log("[WEBHOOK MESSAGE] Nova mensagem recebida:", JSON.stringify(messageEntry, null, 2)); // DEBUG: Loga a mensagem completa
+            console.log("[WEBHOOK MESSAGE] Nova mensagem recebida:", JSON.stringify(messageEntry, null, 2));
 
             const messageContent = getTextContent(messageEntry);
             const contactPhoneNumber = messageEntry.from;
             let contatoId = null;
+            let currentContato = null; // Adicionado para buscar os detalhes do contato
             let shouldSendAutoReply = false;
 
             const possiblePhones = normalizeAndGeneratePhoneNumbers(contactPhoneNumber);
-            console.log("[WEBHOOK MESSAGE] Telefones normalizados para busca:", possiblePhones); // DEBUG: Loga telefones normalizados
+            console.log("[WEBHOOK MESSAGE] Telefones normalizados para busca:", possiblePhones);
 
             const { data: matchingPhones, error: matchingPhonesError } = await supabaseAdmin.from('telefones').select('contato_id').in('telefone', possiblePhones).limit(1);
             
             if (matchingPhonesError) {
-                console.error("[WEBHOOK MESSAGE] Erro ao buscar telefone existente:", matchingPhonesError); // DEBUG: Loga erro na busca
+                console.error("[WEBHOOK MESSAGE] Erro ao buscar telefone existente:", matchingPhonesError);
             } else if (matchingPhones?.length > 0) {
                 contatoId = matchingPhones[0].contato_id;
-                console.log("[WEBHOOK MESSAGE] Contato existente encontrado, ID:", contatoId); // DEBUG: Loga ID do contato existente
+                console.log("[WEBHOOK MESSAGE] Contato existente encontrado, ID:", contatoId);
             }
             
             if (!contatoId) {
-                console.log(`[WEBHOOK MESSAGE] Contato não encontrado para ${contactPhoneNumber}. Tentando criar provisório.`); // DEBUG: Novo contato
+                console.log(`[WEBHOOK MESSAGE] Contato não encontrado para ${contactPhoneNumber}. Tentando criar provisório.`);
                 const { data: newContact, error: contactError } = await supabaseAdmin
                     .from('contatos')
                     .insert({ 
                         nome: `Desconhecido (${contactPhoneNumber})`,
-                        tipo_contato: 'Lead' // Definido como 'Lead' para novos contatos
+                        tipo_contato: 'Lead', // Definido como 'Lead' para novos contatos
+                        is_awaiting_name_response: true // Define como TRUE para aguardar o nome
                     })
-                    .select('id')
+                    .select('*') // Seleciona todas as colunas para ter o objeto completo
                     .single();
 
                 if (contactError) {
-                    console.error("ERRO ao criar novo contato provisório:", contactError); // DEBUG: Erro ao criar
+                    console.error("ERRO ao criar novo contato provisório:", contactError);
                     return NextResponse.json({ status: 'error', message: 'Falha ao criar contato provisório.' }, { status: 500 });
                 }
                 contatoId = newContact.id;
-                console.log("[WEBHOOK MESSAGE] Novo contato provisório criado, ID:", contatoId); // DEBUG: ID do novo contato
+                currentContato = newContact; // Define o contato recém-criado
+                console.log("[WEBHOOK MESSAGE] Novo contato provisório criado, ID:", contatoId);
 
                 const { error: phoneError } = await supabaseAdmin.from('telefones').insert({
                     contato_id: contatoId,
@@ -171,17 +180,14 @@ export async function POST(request) {
                 });
 
                 if (phoneError) {
-                    console.error("ERRO ao associar telefone ao novo contato provisório:", phoneError); // DEBUG: Erro ao associar telefone
+                    console.error("ERRO ao associar telefone ao novo contato provisório:", phoneError);
                 }
                 shouldSendAutoReply = true;
 
                 // --- INÍCIO DA LÓGICA DE CRIAÇÃO DE CARD NO CRM ---
-                // Suposição: Pegamos o primeiro funil e a primeira coluna para inserir o lead.
-                // Pode ser necessário ajustar a lógica para selecionar o funil e a coluna corretos para o seu CRM.
                 const { data: funnelData, error: funnelError } = await supabaseAdmin.from('funis').select('id').order('created_at').limit(1).single();
                 if (funnelError || !funnelData) {
                     console.error('Erro ao buscar funil padrão para CRM:', funnelError);
-                    // Opcional: Decidir se falha a requisição ou continua sem criar o card no CRM
                 } else {
                     const funilId = funnelData.id;
                     const { data: columnData, error: columnError } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funilId).order('ordem').limit(1).single();
@@ -198,7 +204,29 @@ export async function POST(request) {
                     }
                 }
                 // --- FIM DA LÓGICA DE CRIAÇÃO DE CARD NO CRM ---
+            } else {
+                // Se o contato já existe, busca os detalhes para verificar a flag is_awaiting_name_response
+                const { data: existingContato, error: fetchContatoError } = await supabaseAdmin.from('contatos').select('nome, is_awaiting_name_response').eq('id', contatoId).single();
+                if (fetchContatoError) {
+                    console.error("ERRO ao buscar detalhes do contato existente:", fetchContatoError);
+                } else {
+                    currentContato = existingContato;
+                }
             }
+
+            // --- Lógica para atualizar o nome do contato ---
+            if (currentContato && currentContato.is_awaiting_name_response && messageContent && messageContent.length > 2 && !messageContent.toLowerCase().includes('olá') && !messageContent.toLowerCase().includes('oi') && !messageContent.toLowerCase().includes('obrigado')) {
+                const { error: nameUpdateError } = await supabaseAdmin
+                    .from('contatos')
+                    .update({ nome: messageContent, is_awaiting_name_response: false })
+                    .eq('id', contatoId);
+                if (nameUpdateError) {
+                    console.error("ERRO ao atualizar nome do contato:", nameUpdateError);
+                } else {
+                    console.log(`[WEBHOOK] Nome do contato ${contatoId} atualizado para: ${messageContent}`);
+                }
+            }
+            // --- Fim da lógica de atualização do nome ---
             
             const { error: messageInsertError } = await supabaseAdmin.from('whatsapp_messages').insert({
                 contato_id: contatoId,
@@ -213,21 +241,27 @@ export async function POST(request) {
             });
 
             if (messageInsertError) {
-                console.error("ERRO ao salvar mensagem recebida:", messageInsertError); // DEBUG: Erro ao salvar mensagem
+                console.error("ERRO ao salvar mensagem recebida:", messageInsertError);
             } else {
-                console.log("[WEBHOOK MESSAGE] Mensagem recebida salva com sucesso no DB."); // DEBUG: Mensagem salva
+                console.log("[WEBHOOK MESSAGE] Mensagem recebida salva com sucesso no DB.");
             }
+
+            // --- ATUALIZA updated_at da conversa para ordenação ---
+            await supabaseAdmin.from('whatsapp_conversations')
+                .upsert({ phone_number: contactPhoneNumber, updated_at: new Date().toISOString() }, { onConflict: ['phone_number'] });
+            // --- FIM ATUALIZA updated_at ---
+
 
             if (shouldSendAutoReply) {
                 const autoReplyText = "Olá! 👋 Sou um assistente virtual. Recebi sua mensagem de um número novo aqui. Para que eu possa te ajudar melhor, poderia me informar o seu nome?";
                 await sendTextMessage(supabaseAdmin, whatsappConfig, contactPhoneNumber, contatoId, autoReplyText);
-                console.log(`[WEBHOOK MESSAGE] Mensagem automática enviada para novo contato ${contactPhoneNumber}.`); // DEBUG: Auto-resposta enviada
+                console.log(`[WEBHOOK MESSAGE] Mensagem automática enviada para novo contato ${contactPhoneNumber}.`);
             }
         }
         return NextResponse.json({ status: 'ok' });
 
     } catch (error) {
-        console.error("ERRO INESPERADO no webhook (catch final):", error); // DEBUG: Erro geral
+        console.error("ERRO INESPERADO no webhook (catch final):", error);
         return NextResponse.json({ status: 'error', message: error.message }, { status: 500 });
     }
 }
