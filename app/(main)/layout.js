@@ -8,7 +8,7 @@ import { AuthProvider } from '../../contexts/AuthContext';
 import { LayoutProvider } from '../../contexts/LayoutContext';
 import { EmpreendimentoProvider } from '../../contexts/EmpreendimentoContext';
 import { useAuth } from '../../contexts/AuthContext';
-import StellaChat from '../../components/StellaChat'; // Importar o novo componente
+// Removido: import StellaChat from '../../components/StellaChat';
 
 function MainLayoutContent({ children }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -31,8 +31,7 @@ function MainLayoutContent({ children }) {
           <main className={`p-6 mt-[65px] transition-all duration-300 ${isCollapsed ? 'ml-[80px]' : 'ml-[260px]'}`}>
             {children}
           </main>
-          {/* Adicionar o componente StellaChat aqui */}
-          <StellaChat />
+          {/* Removido: Componente StellaChat */}
         </div>
       </EmpreendimentoProvider>
     </LayoutProvider>
