@@ -1,10 +1,11 @@
+// V8 APP E COMPONENTS/components/ContatoForm.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { IMaskInput } from 'react-imask';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; // CORRIGIDO: Importação correta para FontAwesomeIcon
 import { faSpinner, faTrashAlt, faPlusCircle } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner'; // Importar toast
 
@@ -28,12 +29,12 @@ const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }
                 <select value={item.country_code || '+55'} onChange={(e) => handleUpdate('country_code', e.target.value)} className="p-2 border rounded-md bg-gray-50 text-sm max-w-[150px]">
                     {countries.map(c => (<option key={c.code} value={c.dial_code}>{c.name} ({c.dial_code})</option>))}
                 </select>
-                <IMaskInput 
+                <IMaskInput
                     mask={mask} // Usar a máscara dinâmica
-                    placeholder="(DDD) Telefone" 
-                    value={item.telefone || ''} 
-                    onAccept={(value) => handleUpdate('telefone', value)} 
-                    className="flex-grow p-2 border rounded-md" 
+                    placeholder="(DDD) Telefone"
+                    value={item.telefone || ''}
+                    onAccept={(value) => handleUpdate('telefone', value)}
+                    className="flex-grow p-2 border rounded-md"
                 />
                 <button type="button" onClick={() => onRemove(index)} className="text-red-500 hover:text-red-700 p-2 rounded-full">
                     <FontAwesomeIcon icon={faTrashAlt} />
@@ -80,7 +81,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         pessoa_contato: '',
         cargo: '',
         empresa_id: null, // Certificar que é null se não selecionado
-        tipo_contato: 'Outro', // NOVO CAMPO: Valor padrão 'Outro'
+        tipo_contato: 'Lead', // CORRIGIDO: Valor padrão 'Lead'
         address_street: '',
         address_number: '',
         address_complement: '',
@@ -88,7 +89,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         city: '',
         state: '',
         neighborhood: '',
-        observacoes: '',
+        observations: '',
         telefones: [{ telefone: '', country_code: '+55' }],
         emails: [{ email: '' }], // REATIVADO: Inicialização de emails
     }), []);
@@ -119,7 +120,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                     .from('telefones')
                     .select('*')
                     .eq('contato_id', contactToEdit.id);
-                
+
                 const { data: emailsData, error: emailsError } = await supabase
                     .from('emails')
                     .select('*')
@@ -131,7 +132,8 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                 setFormData({
                     ...contactToEdit,
                     empresa_id: contactToEdit.empresa_id || null,
-                    tipo_contato: contactToEdit.tipo_contato || 'Outro',
+                    tipo_contato: contactToEdit.tipo_contato || 'Lead', // Garante um valor padrão válido
+                    observations: contactToEdit.observations || '',
                     // REATIVADO E AJUSTADO: População de telefones e emails do banco de dados
                     telefones: phonesData?.length > 0 ? phonesData : [{ telefone: '', country_code: '+55' }],
                     emails: emailsData?.length > 0 ? emailsData : [{ email: '' }],
@@ -143,7 +145,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         } else {
             setFormData(getInitialState());
         }
-    }, [isEditing, contactToEdit, getInitialState, supabase]); // Adicionado supabase como dependência
+    }, [isEditing, contactToEdit, getInitialState, supabase]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -208,73 +210,55 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         e.preventDefault();
         setIsLoading(true);
 
-        // --- VALIDAÇÃO APRIMORADA ---
-        let errors = [];
-
-        if (!formData.nome.trim()) {
-            errors.push("O nome é obrigatório.");
-        }
-
-        if (formData.personalidade_juridica === 'Pessoa Física') {
-            if (!formData.cpf.trim()) {
-                errors.push("O CPF é obrigatório para Pessoa Física.");
-            }
-        } else { // Pessoa Jurídica
-            if (!formData.razao_social.trim()) {
-                errors.push("A Razão Social é obrigatória para Pessoa Jurídica.");
-            }
-            if (!formData.cnpj.trim()) {
-                errors.push("O CNPJ é obrigatório para Pessoa Jurídica.");
-            }
-        }
-
-        const hasValidPhone = formData.telefones.some(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length >= 10);
-        const hasValidEmail = formData.emails.some(mail => mail.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail.email)); // REATIVADO: Validação de emails
-
-        if (!hasValidPhone && !hasValidEmail) { // REATIVADO: Condição de validação de emails
-            errors.push("É necessário informar ao menos um telefone ou um e-mail válido.");
-        }
-
-        if (errors.length > 0) {
-            errors.forEach(err => toast.error(err));
-            setIsLoading(false);
-            return;
-        }
-        // --- FIM DA VALIDAÇÃO APRIMORADA ---
+        // --- VALIDAÇÃO APRIMORADA (REMOVIDA A OBRIGATORIEDADE) ---
+        // Agora, todos os campos são opcionais por padrão, a menos que uma nova validação seja adicionada.
+        // A lógica de validação de campos obrigatórios foi removida para atender à sua solicitação.
 
         const dataToSave = {
             ...formData,
             // Garantir que empresa_id seja null se vazio
             empresa_id: formData.empresa_id ? parseInt(formData.empresa_id, 10) : null,
-            // Incluir tipo_contato
             tipo_contato: formData.tipo_contato,
-            // Limpar dados irrelevantes para o tipo de personalidade
-            cpf: formData.personalidade_juridica === 'Pessoa Física' ? formData.cpf.replace(/\D/g, '') : null,
-            rg: formData.personalidade_juridica === 'Pessoa Física' ? formData.rg : null,
-            razao_social: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.razao_social : null,
-            nome_fantasia: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.nome_fantasia : null,
-            cnpj: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.cnpj.replace(/\D/g, '') : null,
-            inscricao_estadual: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.inscricao_estadual : null,
-            inscricao_municipal: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.inscricao_municipal : null,
-            responsavel_legal: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.responsavel_legal : null,
-            data_fundacao: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.data_fundacao : null,
-            tipo_servico_produto: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.tipo_servico_produto : null,
-            pessoa_contato: formData.personalidade_juridica === 'Pessoa Jurídica' ? formData.pessoa_contato : null,
-            cargo: formData.personalidade_juridica === 'Pessoa Física' ? formData.cargo : null,
-            birth_date: formData.personalidade_juridica === 'Pessoa Física' ? formData.birth_date : null,
-            estado_civil: formData.personalidade_juridica === 'Pessoa Física' ? formData.estado_civil : null,
-            nacionalidade: formData.personalidade_juridica === 'Pessoa Física' ? formData.nacionalidade : null,
+            // Limpar dados irrelevantes para o tipo de personalidade e garantir null para campos de data vazios
+            cpf: formData.personalidade_juridica === 'Pessoa Física' && formData.cpf.trim() !== '' ? formData.cpf.replace(/\D/g, '') : null,
+            rg: formData.personalidade_juridica === 'Pessoa Física' && formData.rg.trim() !== '' ? formData.rg : null,
+            razao_social: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.razao_social.trim() !== '' ? formData.razao_social : null,
+            nome_fantasia: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.nome_fantasia.trim() !== '' ? formData.nome_fantasia : null,
+            cnpj: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.cnpj.trim() !== '' ? formData.cnpj.replace(/\D/g, '') : null,
+            inscricao_estadual: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.inscricao_estadual.trim() !== '' ? formData.inscricao_estadual : null,
+            inscricao_municipal: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.inscricao_municipal.trim() !== '' ? formData.inscricao_municipal : null,
+            responsavel_legal: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.responsavel_legal.trim() !== '' ? formData.responsavel_legal : null,
+            data_fundacao: (formData.personalidade_juridica === 'Pessoa Jurídica' && formData.data_fundacao.trim() !== '') ? formData.data_fundacao : null,
+            tipo_servico_produto: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.tipo_servico_produto.trim() !== '' ? formData.tipo_servico_produto : null,
+            pessoa_contato: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.pessoa_contato.trim() !== '' ? formData.pessoa_contato : null,
+            cargo: formData.personalidade_juridica === 'Pessoa Física' && formData.cargo.trim() !== '' ? formData.cargo : null,
+            birth_date: (formData.personalidade_juridica === 'Pessoa Física' && formData.birth_date.trim() !== '') ? formData.birth_date : null,
+            estado_civil: formData.personalidade_juridica === 'Pessoa Física' && formData.estado_civil.trim() !== '' ? formData.estado_civil : null,
+            nacionalidade: formData.personalidade_juridica === 'Pessoa Física' && formData.nacionalidade.trim() !== '' ? formData.nacionalidade : null,
+            nome: formData.nome.trim() !== '' ? formData.nome : null,
+            observations: formData.observations.trim() !== '' ? formData.observations : null,
+            address_street: formData.address_street.trim() !== '' ? formData.address_street : null,
+            address_number: formData.address_number.trim() !== '' ? formData.address_number : null,
+            address_complement: formData.address_complement.trim() !== '' ? formData.address_complement : null,
+            cep: formData.cep.trim() !== '' ? formData.cep : null,
+            city: formData.city.trim() !== '' ? formData.city : null,
+            state: formData.state.trim() !== '' ? formData.state : null,
+            neighborhood: formData.neighborhood.trim() !== '' ? formData.neighborhood : null,
         };
+
+        // Remover telefones e emails do objeto principal (já feito anteriormente)
+        delete dataToSave.telefones;
+        delete dataToSave.emails;
 
         const cleanedPhones = formData.telefones.filter(tel => tel.telefone.replace(/\D/g, '').length > 0).map(tel => ({
             telefone: tel.telefone.replace(/\D/g, ''),
             country_code: tel.country_code
         }));
-        const cleanedEmails = formData.emails.filter(mail => mail.email.trim() !== '').map(mail => ({ // REATIVADO: Limpeza de emails
+        const cleanedEmails = formData.emails.filter(mail => mail.email.trim() !== '').map(mail => ({
             email: mail.email.trim()
         }));
-        
-        let contatoId = null; // Renomeado para contatoId para consistência
+
+        let contatoId = null;
         let error = null;
 
         if (isEditing) {
@@ -282,7 +266,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                 .from('contatos')
                 .update(dataToSave)
                 .eq('id', contactToEdit.id)
-                .select('id') // Seleciona apenas o ID para evitar cache de colunas não existentes
+                .select('id')
                 .single();
             if (updateError) error = updateError;
             contatoId = data?.id;
@@ -290,7 +274,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
             const { data, error: insertError } = await supabase
                 .from('contatos')
                 .insert(dataToSave)
-                .select('id') // Seleciona apenas o ID
+                .select('id')
                 .single();
             if (insertError) error = insertError;
             contatoId = data?.id;
@@ -305,31 +289,27 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
 
         // --- SALVAR TELEFONES E EMAILS ---
         if (contatoId) {
-            // Remover telefones e emails antigos
             await supabase.from('telefones').delete().eq('contato_id', contatoId);
-            await supabase.from('emails').delete().eq('contato_id', contatoId); // REATIVADO: Deleção de emails
+            await supabase.from('emails').delete().eq('contato_id', contatoId);
 
-            // Inserir novos telefones
             if (cleanedPhones.length > 0) {
-                const phonesWithContactId = cleanedPhones.map(tel => ({ ...tel, contato_id: contatoId, tipo: 'Celular' })); // Adicionar tipo padrão
+                const phonesWithContactId = cleanedPhones.map(tel => ({ ...tel, contato_id: contatoId, tipo: 'Celular' }));
                 const { error: phoneError } = await supabase.from('telefones').insert(phonesWithContactId);
                 if (phoneError) console.error("Erro ao salvar telefones:", phoneError);
             }
 
-            // Inserir novos emails - REATIVADO
             if (cleanedEmails.length > 0) {
-                const emailsWithContactId = cleanedEmails.map(mail => ({ ...mail, contato_id: contatoId, tipo: 'Pessoal' })); // Adicionar tipo padrão
+                const emailsWithContactId = cleanedEmails.map(mail => ({ ...mail, contato_id: contatoId, tipo: 'Pessoal' }));
                 const { error: emailError } = await supabase.from('emails').insert(emailsWithContactId);
                 if (emailError) console.error("Erro ao salvar emails:", emailError);
             }
         }
-        // --- FIM SALVAR TELEFONES E EMAILS ---
 
         toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
         setIsLoading(false);
         if (onSaveSuccess) onSaveSuccess(contatoId);
         if (onClose) onClose();
-        else router.push('/contatos'); // Redirecionar para a lista de contatos
+        else router.push('/contatos');
     };
 
 
@@ -370,8 +350,8 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     {formData.personalidade_juridica === 'Pessoa Física' ? (
                         <>
-                            <div><label className="block text-sm font-medium">Nome Completo *</label><input name="nome" value={formData.nome || ''} onChange={handleChange} className="w-full p-2 border rounded-md" required /></div>
-                            <div><label className="block text-sm font-medium">CPF *</label><IMaskInput mask="000.000.000-00" name="cpf" value={formData.cpf || ''} onAccept={(value) => setFormData(prev => ({ ...prev, cpf: value }))} className="w-full p-2 border rounded-md" required /></div>
+                            <div><label className="block text-sm font-medium">Nome Completo</label><input name="nome" value={formData.nome || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                            <div><label className="block text-sm font-medium">CPF</label><IMaskInput mask="000.000.000-00" name="cpf" value={formData.cpf || ''} onAccept={(value) => setFormData(prev => ({ ...prev, cpf: value }))} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">RG</label><input name="rg" value={formData.rg || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">Data de Nascimento</label><input type="date" name="birth_date" value={formData.birth_date || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">Estado Civil</label><input name="estado_civil" value={formData.estado_civil || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
@@ -380,9 +360,9 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                         </>
                     ) : (
                         <>
-                            <div><label className="block text-sm font-medium">Razão Social *</label><input name="razao_social" value={formData.razao_social || ''} onChange={handleChange} className="w-full p-2 border rounded-md" required /></div>
+                            <div><label className="block text-sm font-medium">Razão Social</label><input name="razao_social" value={formData.razao_social || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">Nome Fantasia</label><input name="nome_fantasia" value={formData.nome_fantasia || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
-                            <div><label className="block text-sm font-medium">CNPJ *</label><IMaskInput mask="00.000.000/0000-00" name="cnpj" value={formData.cnpj || ''} onAccept={(value) => setFormData(prev => ({ ...prev, cnpj: value }))} className="w-full p-2 border rounded-md" required /></div>
+                            <div><label className="block text-sm font-medium">CNPJ</label><IMaskInput mask="00.000.000/0000-00" name="cnpj" value={formData.cnpj || ''} onAccept={(value) => setFormData(prev => ({ ...prev, cnpj: value }))} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">Inscrição Estadual</label><input name="inscricao_estadual" value={formData.inscricao_estadual || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">Inscrição Municipal</label><input name="inscricao_municipal" value={formData.inscricao_municipal || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">Responsável Legal</label><input name="responsavel_legal" value={formData.responsavel_legal || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
@@ -394,14 +374,14 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                 </div>
             </fieldset>
 
-            {/* NOVO CAMPO: Tipo de Contato */}
+            {/* CAMPO: Tipo de Contato */}
             <fieldset className="border p-4 rounded-md">
                 <legend className="text-lg font-semibold text-gray-700">Classificação do Contato</legend>
                 <div className="mt-4">
                     <label className="block text-sm font-medium">Tipo de Contato</label>
                     <select
                         name="tipo_contato"
-                        value={formData.tipo_contato || 'Outro'} // Garante um valor padrão
+                        value={formData.tipo_contato || 'Lead'}
                         onChange={handleChange}
                         className="w-full p-2 border rounded-md"
                     >
@@ -409,7 +389,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                         <option value="Cliente">Cliente</option>
                         <option value="Fornecedor">Fornecedor</option>
                         <option value="Parceiro">Parceiro</option>
-                        <option value="Outro">Outro</option>
+                        {/* A opção "Outro" foi removida para evitar erros de enum */}
                     </select>
                 </div>
             </fieldset>
@@ -417,7 +397,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
             <fieldset className="border p-4 rounded-md">
                 <legend className="text-lg font-semibold text-gray-700">Contatos</legend>
                 <div className="space-y-3 mt-4">
-                    <h4 className="text-md font-medium">Telefones *</h4>
+                    <h4 className="text-md font-medium">Telefones</h4>
                     {formData.telefones.map((tel, index) => (
                         <DynamicInputRow
                             key={index}
@@ -433,8 +413,8 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                         <FontAwesomeIcon icon={faPlusCircle} /> Adicionar Telefone
                     </button>
 
-                    {/* Bloco de E-mails REATIVADO */}
-                    <h4 className="text-md font-medium mt-6">E-mails *</h4>
+                    {/* Bloco de E-mails */}
+                    <h4 className="text-md font-medium mt-6">E-mails</h4>
                     {formData.emails.map((mail, index) => (
                         <DynamicInputRow
                             key={index}
@@ -464,7 +444,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                             ))}
                         </select>
                     </div>
-                    <div><label className="block text-sm font-medium">Observações</label><textarea name="observacoes" value={formData.observacoes || ''} onChange={handleChange} rows="3" className="w-full p-2 border rounded-md"></textarea></div>
+                    <div><label className="block text-sm font-medium">Observações</label><textarea name="observations" value={formData.observations || ''} onChange={handleChange} rows="3" className="w-full p-2 border rounded-md"></textarea></div>
                 </div>
             </fieldset>
 

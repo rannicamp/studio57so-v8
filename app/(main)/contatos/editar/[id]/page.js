@@ -24,31 +24,53 @@ export default function EditarContatoPage() {
         setLoading(true);
         setError('');
         try {
-            const { data, error: fetchError } = await supabase
+            // 1. Buscar os dados principais do contato
+            const { data: contatoData, error: contatoError } = await supabase
                 .from('contatos')
-                .select(`
-                    *,
-                    telefones(*),
-                    emails(*)
-                `)
+                .select(`*`) // Seleciona apenas as colunas da tabela contatos
                 .eq('id', contatoId)
                 .single();
 
-            if (fetchError) {
-                // ADIÇÃO CRÍTICA AQUI: Logar o erro detalhado do fetchError
-                console.error("Erro detalhado do Supabase ao buscar contato:", fetchError); 
-
-                if (fetchError.code === 'PGRST116') {
+            if (contatoError) {
+                console.error("Erro detalhado do Supabase ao buscar contato principal:", contatoError); 
+                if (contatoError.code === 'PGRST116') {
                     setError('Contato não encontrado.');
-                    setInitialData(null);
                 } else {
-                    // Use a mensagem de erro do Supabase se ela for amigável
-                    setError(`Ocorreu um erro ao carregar os dados do contato: ${fetchError.message || 'Erro desconhecido.'}`);
-                    setInitialData(null);
+                    setError(`Ocorreu um erro ao carregar os dados do contato: ${contatoError.message || 'Erro desconhecido.'}`);
                 }
-            } else {
-                setInitialData(data);
+                setInitialData(null);
+                return; // Sai da função se o contato principal não for encontrado
             }
+
+            // 2. Buscar os telefones do contato separadamente
+            const { data: telefonesData, error: telefonesError } = await supabase
+                .from('telefones')
+                .select('*')
+                .eq('contato_id', contatoId);
+
+            if (telefonesError) {
+                console.error("Erro ao buscar telefones do contato:", telefonesError);
+                // Continua mesmo com erro, pois o telefone pode ser opcional ou o erro pode ser ignorado
+            }
+
+            // 3. Buscar os emails do contato separadamente
+            const { data: emailsData, error: emailsError } = await supabase
+                .from('emails')
+                .select('*')
+                .eq('contato_id', contatoId);
+
+            if (emailsError) {
+                console.error("Erro ao buscar emails do contato:", emailsError);
+                // Continua mesmo com erro, pois o email pode ser opcional ou o erro pode ser ignorado
+            }
+
+            // 4. Combinar todos os dados em um único objeto para passar ao ContatoForm
+            setInitialData({
+                ...contatoData,
+                telefones: telefonesData || [], // Garante que seja um array, mesmo que vazio
+                emails: emailsData || []      // Garante que seja um array, mesmo que vazio
+            });
+
         } catch (err) {
             console.error('Erro inesperado ao buscar dados do contato:', err);
             setError('Ocorreu um erro ao carregar os dados do contato. (Erro interno)');
