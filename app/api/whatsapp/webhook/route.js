@@ -22,7 +22,8 @@ async function sendTextMessage(supabase, config, to, contatoId, text) {
         if (!response.ok) { console.error("ERRO ao enviar mensagem de texto via WhatsApp:", responseData); return; }
         const messageId = responseData.messages?.[0]?.id;
         if (messageId) {
-            await supabase.from('whatsapp_messages').insert({ contato_id: contatoId, message_id: messageId, sender_id: config.whatsapp_phone_number_id, receiver_id: to, content: text, direction: 'outbound', status: 'sent', raw_payload: payload });
+            // CORRIGIDO: Adiciona sent_at com a data e hora atuais
+            await supabase.from('whatsapp_messages').insert({ contato_id: contatoId, message_id: messageId, sender_id: config.whatsapp_phone_number_id, receiver_id: to, content: text, direction: 'outbound', status: 'sent', raw_payload: payload, sent_at: new Date().toISOString() });
         }
     } catch (error) { console.error("ERRO de rede ao enviar mensagem de texto:", error); }
 }
@@ -37,7 +38,8 @@ async function sendMediaMessage(supabase, config, to, contatoId, publicUrl, file
         if (!response.ok) { console.error("ERRO ao enviar mídia via WhatsApp:", responseData); return; }
         const messageId = responseData.messages?.[0]?.id;
         if (messageId) {
-            await supabase.from('whatsapp_messages').insert({ contato_id: contatoId, message_id: messageId, sender_id: config.whatsapp_phone_number_id, receiver_id: to, content: caption, direction: 'outbound', status: 'sent', raw_payload: payload });
+            // CORRIGIDO: Adiciona sent_at com a data e hora atuais
+            await supabase.from('whatsapp_messages').insert({ contato_id: contatoId, message_id: messageId, sender_id: config.whatsapp_phone_number_id, receiver_id: to, content: caption, direction: 'outbound', status: 'sent', raw_payload: payload, sent_at: new Date().toISOString() });
         }
     } catch (error) { console.error("ERRO de rede ao enviar mídia:", error); }
 }
@@ -159,10 +161,10 @@ export async function POST(request) {
                     .from('contatos')
                     .insert({ 
                         nome: `Desconhecido (${contactPhoneNumber})`,
-                        tipo_contato: 'Lead', // Definido como 'Lead' para novos contatos
-                        is_awaiting_name_response: true // Define como TRUE para aguardar o nome
+                        tipo_contato: 'Lead',
+                        is_awaiting_name_response: true
                     })
-                    .select('*') // Seleciona todas as colunas para ter o objeto completo
+                    .select('*')
                     .single();
 
                 if (contactError) {
@@ -170,7 +172,7 @@ export async function POST(request) {
                     return NextResponse.json({ status: 'error', message: 'Falha ao criar contato provisório.' }, { status: 500 });
                 }
                 contatoId = newContact.id;
-                currentContato = newContact; // Define o contato recém-criado
+                currentContato = newContact;
                 console.log("[WEBHOOK MESSAGE] Novo contato provisório criado, ID:", contatoId);
 
                 const { error: phoneError } = await supabaseAdmin.from('telefones').insert({
@@ -228,6 +230,7 @@ export async function POST(request) {
             }
             // --- Fim da lógica de atualização do nome ---
             
+            // Insere a mensagem recebida no banco de dados
             const { error: messageInsertError } = await supabaseAdmin.from('whatsapp_messages').insert({
                 contato_id: contatoId,
                 message_id: messageEntry.id,
