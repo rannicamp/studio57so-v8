@@ -2,17 +2,12 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-// Removidos: imports relacionados ao GoogleGenerativeAI
 
 // --- INICIALIZAÇÃO DOS SERVIÇOS ---
 const getSupabaseAdmin = () => createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
-
-// Removidas: genAI, safetySettings, e todas as funções das ferramentas da IA
-// (getSystemInstruction, criar_atividade, buscar_em_documentos, enviar_anexo_cliente, processStellaLogic)
-// Removidas: funções auxiliares de contexto (getConversationContext, saveConversationContext)
 
 // --- FUNÇÕES DE COMUNICAÇÃO COM WHATSAPP (MANTIDAS) ---
 
@@ -66,6 +61,7 @@ function getTextContent(message) {
 function normalizeAndGeneratePhoneNumbers(rawPhone) {
     const digitsOnly = rawPhone.replace(/\D/g, '');
     let numbersToSearch = new Set([digitsOnly]);
+    // Adiciona o DDI do Brasil se não estiver presente e o tamanho for de um número brasileiro
     if (!digitsOnly.startsWith('55')) { numbersToSearch.add('55' + digitsOnly); }
     return Array.from(numbersToSearch);
 }
@@ -78,14 +74,15 @@ export async function GET(request) {
     const mode = searchParams.get('hub.mode');
     const token = searchParams.get('hub.verify_token');
     const challenge = searchParams.get('hub.challenge');
-    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
+    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN; // Certifique-se de que esta variável de ambiente está configurada
+
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
         return new NextResponse(challenge, { status: 200 });
     }
     return new NextResponse(null, { status: 403 });
 }
 
-// Rota POST para receber mensagens do webhook do WhatsApp
+// Rota POST para receber mensagens e status do webhook do WhatsApp
 export async function POST(request) {
     const supabaseAdmin = getSupabaseAdmin();
     try {
@@ -96,8 +93,8 @@ export async function POST(request) {
             return NextResponse.json({ status: 'error', message: 'Configuração do WhatsApp ausente.' }, { status: 500 });
         }
 
+        // --- Processa mensagens recebidas ---
         const messageEntry = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-
         if (messageEntry) {
             const messageContent = getTextContent(messageEntry);
             const contactPhoneNumber = messageEntry.from;
@@ -117,15 +114,45 @@ export async function POST(request) {
                 content: messageContent,
                 sent_at: new Date(parseInt(messageEntry.timestamp, 10) * 1000).toISOString(),
                 direction: 'inbound',
-                status: 'delivered',
-                raw_payload: messageEntry,
+                status: 'delivered', // Mensagens recebidas são consideradas 'delivered' inicialmente
+                raw_payload: messageEntry, // Salva o payload completo para depuração
             });
-            
-            // Removido: Chamada para a lógica da Stella (processStellaLogic)
-            // if (messageContent) {
-            //     await processStellaLogic(supabaseAdmin, whatsappConfig, messageContent, contactPhoneNumber, contactId);
-            // }
+            console.log(`[WHATSAPP WEBHOOK] Mensagem recebida e salva: ${messageEntry.id}`);
         }
+
+        // --- Processa atualizações de status (delivered, read) ---
+        const statuses = body.entry?.[0]?.changes?.[0]?.value?.statuses?.[0];
+        if (statuses) {
+            const messageId = statuses.id; // ID da mensagem do WhatsApp
+            let newStatus = statuses.status; // 'delivered', 'read'
+
+            // Mapeia os status do WhatsApp para os que você quer usar se necessário.
+            // Por exemplo, 'sent' no WhatsApp API é geralmente o status inicial antes de 'delivered'.
+            // Aqui, vamos direto para 'delivered' ou 'read'.
+            if (newStatus === 'sent') {
+                newStatus = 'sent'; // Ou manter como 'sent' se você quiser diferenciar
+            } else if (newStatus === 'delivered') {
+                newStatus = 'delivered';
+            } else if (newStatus === 'read') {
+                newStatus = 'read';
+            } else {
+                console.warn(`[WHATSAPP WEBHOOK] Status desconhecido: ${newStatus} para messageId: ${messageId}`);
+                newStatus = 'unknown'; // Para status não mapeados
+            }
+
+            // Atualiza o status da mensagem no banco de dados
+            const { error: updateError } = await supabaseAdmin
+                .from('whatsapp_messages')
+                .update({ status: newStatus })
+                .eq('message_id', messageId); // Usa o message_id do WhatsApp para encontrar a mensagem
+
+            if (updateError) {
+                console.error(`[WHATSAPP WEBHOOK] Erro ao atualizar status da mensagem ${messageId}:`, updateError);
+            } else {
+                console.log(`[WHATSAPP WEBHOOK] Status da mensagem ${messageId} atualizado para: ${newStatus}`);
+            }
+        }
+
         return NextResponse.json({ status: 'ok' });
 
     } catch (error) {

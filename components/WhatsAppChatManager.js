@@ -8,8 +8,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faPaperPlane, faSpinner, faUserCircle, faSearch, faAddressBook,
     faPaperclip, faFileAlt, faMicrophone, faTimes, faFileImage,
-    faTrash, faCheck
-    // faRobot foi removido daqui pois não é mais necessário
+    faTrash, faCheck,
+    faCheckDouble // Importa o ícone de dois vistos
 } from '@fortawesome/free-solid-svg-icons';
 import { sendWhatsAppMedia, sendWhatsAppText } from '../utils/whatsapp';
 
@@ -18,6 +18,9 @@ const MessageBubble = ({ message }) => {
     const isSentByUser = message.direction === 'outbound';
     const bubbleClasses = isSentByUser ? 'bg-blue-500 text-white self-end rounded-l-lg rounded-tr-lg' : 'bg-gray-200 text-gray-800 self-start rounded-r-lg rounded-tl-lg';
     
+    // --- DEBUGGING: Adiciona um console.log para ver o status da mensagem ---
+    // console.log(`Message ID: ${message.id}, Direction: ${message.direction}, Status: ${message.status}`);
+
     const renderContent = () => {
         // Assegura que raw_payload seja um objeto, caso venha como string JSON do banco de dados
         const payload = typeof message.raw_payload === 'string' ? JSON.parse(message.raw_payload) : message.raw_payload;
@@ -50,11 +53,31 @@ const MessageBubble = ({ message }) => {
         }
     }
 
+    // Função para renderizar os ícones de status (vistos)
+    const renderStatusIcons = () => {
+        if (!isSentByUser) {
+            return null; // Apenas exibe status para mensagens enviadas por você
+        }
+
+        const baseClasses = "text-xs ml-1";
+        switch (message.status) {
+            case 'sent': // Mensagem enviada para o servidor do WhatsApp (um visto)
+                return <FontAwesomeIcon icon={faCheck} className={`${baseClasses} text-gray-400`} />;
+            case 'delivered': // Mensagem entregue ao aparelho do destinatário (dois vistos cinzas)
+                return <FontAwesomeIcon icon={faCheckDouble} className={`${baseClasses} text-gray-400`} />;
+            case 'read': // Mensagem lida pelo destinatário (dois vistos azuis)
+                return <FontAwesomeIcon icon={faCheckDouble} className={`${baseClasses} text-blue-300`} />;
+            default:
+                return null; // Nenhum status ou status desconhecido
+        }
+    };
+
     return (
         <div className={`max-w-md w-fit p-3 ${bubbleClasses}`}>
             {renderContent()}
-            <p className="text-xs mt-1 text-right opacity-70">
+            <p className="text-xs mt-1 text-right opacity-70 flex items-center justify-end">
                 {new Date(message.sent_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                {renderStatusIcons()} {/* Adiciona os ícones de status aqui */}
             </p>
         </div>
     );
@@ -185,21 +208,28 @@ export default function WhatsAppChatManager({ contatos }) {
             .on(
                 'postgres_changes',
                 {
-                    event: 'INSERT', // Escuta apenas por novas inserções
+                    event: '*', // Escuta por INSERT, UPDATE e DELETE
                     schema: 'public',
                     table: 'whatsapp_messages',
                     filter: `contato_id=eq.${selectedContact.id}`
                 },
                 (payload) => {
                     console.log('Mudança em tempo real recebida!', payload);
-                    // Adiciona a nova mensagem diretamente ao estado 'messages'
-                    setMessages(prevMessages => {
-                        // Evita duplicatas se a mensagem já estiver na lista
-                        if (prevMessages.some(msg => msg.id === payload.new.id)) {
-                            return prevMessages;
-                        }
-                        return [...prevMessages, payload.new];
-                    });
+                    if (payload.eventType === 'INSERT') {
+                        setMessages(prevMessages => {
+                            // Evita duplicatas se a mensagem já estiver na lista
+                            if (prevMessages.some(msg => msg.id === payload.new.id)) {
+                                return prevMessages;
+                            }
+                            return [...prevMessages, payload.new];
+                        });
+                    } else if (payload.eventType === 'UPDATE') {
+                        setMessages(prevMessages => 
+                            prevMessages.map(msg => 
+                                msg.id === payload.old.id ? { ...msg, ...payload.new } : msg
+                            )
+                        );
+                    }
                     // Dispara a atualização da lista de contatos para reordená-los
                     setRefreshTrigger(prev => prev + 1);
                 }
@@ -556,10 +586,8 @@ export default function WhatsAppChatManager({ contatos }) {
             </div>
 
             {/* Coluna do Assistente de IA (Desativado) */}
-            {/* O componente AIChatAssistant e sua definição foram removidos */}
             <div className="p-4 space-y-4 bg-white border-l border-gray-200">
                 <h3 className="text-md font-bold text-gray-800 flex items-center gap-2">
-                    {/* Substituído o ícone faRobot por um texto simples ou outro ícone genérico se desejar */}
                     Assistente de IA (Desativado)
                 </h3>
                 <div className="bg-gray-50 p-3 rounded-md text-sm text-gray-700">
