@@ -151,9 +151,8 @@ export async function POST(request) {
                 const { data: newContact, error: contactError } = await supabaseAdmin
                     .from('contatos')
                     .insert({ 
-                        nome: `Desconhecido (${contactPhoneNumber})`, // ALTERADO: Nome inicial para "Desconhecido"
-                        tipo: 'Lead',
-                        is_unregistered: true 
+                        nome: `Desconhecido (${contactPhoneNumber})`,
+                        tipo_contato: 'Lead' // Definido como 'Lead' para novos contatos
                     })
                     .select('id')
                     .single();
@@ -175,6 +174,30 @@ export async function POST(request) {
                     console.error("ERRO ao associar telefone ao novo contato provisório:", phoneError); // DEBUG: Erro ao associar telefone
                 }
                 shouldSendAutoReply = true;
+
+                // --- INÍCIO DA LÓGICA DE CRIAÇÃO DE CARD NO CRM ---
+                // Suposição: Pegamos o primeiro funil e a primeira coluna para inserir o lead.
+                // Pode ser necessário ajustar a lógica para selecionar o funil e a coluna corretos para o seu CRM.
+                const { data: funnelData, error: funnelError } = await supabaseAdmin.from('funis').select('id').order('created_at').limit(1).single();
+                if (funnelError || !funnelData) {
+                    console.error('Erro ao buscar funil padrão para CRM:', funnelError);
+                    // Opcional: Decidir se falha a requisição ou continua sem criar o card no CRM
+                } else {
+                    const funilId = funnelData.id;
+                    const { data: columnData, error: columnError } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funilId).order('ordem').limit(1).single();
+                    if (columnError || !columnData) {
+                        console.error('Erro ao buscar coluna padrão do funil para CRM:', columnError);
+                    } else {
+                        const colunaId = columnData.id;
+                        const { error: crmInsertError } = await supabaseAdmin.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: colunaId });
+                        if (crmInsertError) {
+                            console.error('Erro ao criar card no CRM (contatos_no_funil):', crmInsertError);
+                        } else {
+                            console.log(`[WEBHOOK CRM] Card criado no CRM para contato ${contatoId} na coluna ${colunaId}.`);
+                        }
+                    }
+                }
+                // --- FIM DA LÓGICA DE CRIAÇÃO DE CARD NO CRM ---
             }
             
             const { error: messageInsertError } = await supabaseAdmin.from('whatsapp_messages').insert({
