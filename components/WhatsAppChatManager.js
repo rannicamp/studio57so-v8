@@ -19,11 +19,7 @@ const MessageBubble = ({ message }) => {
     const isSentByUser = message.direction === 'outbound';
     const bubbleClasses = isSentByUser ? 'bg-blue-500 text-white self-end rounded-l-lg rounded-tr-lg' : 'bg-gray-200 text-gray-800 self-start rounded-r-lg rounded-tl-lg';
     
-    // DEBUGGING: Adiciona um console.log para ver o status da mensagem
-    // console.log(`Message ID: ${message.id}, Direction: ${message.direction}, Status: ${message.status}`);
-
     const renderContent = () => {
-        // Assegura que raw_payload seja um objeto, caso venha como string JSON do banco de dados
         const payload = typeof message.raw_payload === 'string' ? JSON.parse(message.raw_payload) : message.raw_payload;
         const type = payload?.type;
 
@@ -54,7 +50,6 @@ const MessageBubble = ({ message }) => {
         }
     }
 
-    // Função para renderizar os ícones de status (vistos)
     const renderStatusIcons = () => {
         if (!isSentByUser) {
             return null; // Apenas exibe status para mensagens enviadas por você
@@ -78,7 +73,7 @@ const MessageBubble = ({ message }) => {
             {renderContent()}
             <p className="text-xs mt-1 text-right opacity-70 flex items-center justify-end">
                 {new Date(message.sent_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                {renderStatusIcons()} {/* Adiciona os ícones de status aqui */}
+                {renderStatusIcons()}
             </p>
         </div>
     );
@@ -114,36 +109,30 @@ export default function WhatsAppChatManager({ contatos }) {
             }
             setIsLoadingContacts(true);
             
-            // Busca mensagens para ordenar contatos
-            const { data: messagesData, error: messagesError } = await supabase.from('whatsapp_messages')
-                .select('contato_id, sent_at')
-                .not('contato_id', 'is', null)
-                .order('sent_at', { ascending: false });
+            // CORRIGIDO: Busca dados da tabela whatsapp_conversations para ordenação
+            const { data: conversationsData, error: conversationsError } = await supabase.from('whatsapp_conversations')
+                .select('phone_number, updated_at')
+                .order('updated_at', { ascending: false });
 
-            if (messagesError) { 
-                console.error("Erro ao buscar datas de últimas mensagens:", messagesError);
+            if (conversationsError) { 
+                console.error("Erro ao buscar datas de conversas:", conversationsError);
             }
 
             const datesMap = new Map();
-            if (messagesData) {
-                messagesData.forEach(msg => { 
-                    const contactIdStr = String(msg.contato_id); 
-                    if (!datesMap.has(contactIdStr)) { 
-                        datesMap.set(contactIdStr, new Date(msg.sent_at)); 
-                    } 
+            if (conversationsData) {
+                conversationsData.forEach(conv => { 
+                    datesMap.set(conv.phone_number, new Date(conv.updated_at)); 
                 });
             }
 
-            // Garante que a prop `contatos` já inclui `is_unregistered`
-            // Se `contatos` não vier com `is_unregistered`, você precisaria buscar aqui:
-            // const { data: fullContacts, error: contactsError } = await supabase.from('contatos').select('*, telefones(telefone), is_unregistered');
-            // const enrichedContacts = fullContacts.map(contact => ({ ...contact, lastMessageDate: datesMap.get(String(contact.id)) || null }));
-            // Por enquanto, assumimos que `contatos` já tem `is_unregistered`.
-
-            const enrichedContacts = contatos.map(contact => ({ 
-                ...contact, 
-                lastMessageDate: datesMap.get(String(contact.id)) || null 
-            }));
+            const enrichedContacts = contatos.map(contact => { 
+                // Assumimos que o primeiro telefone do contato é o principal para a conversa
+                const phoneNumber = contact.telefones?.[0]?.telefone; 
+                return { 
+                    ...contact, 
+                    lastMessageDate: phoneNumber ? datesMap.get(phoneNumber) || null : null 
+                }; 
+            });
 
             // Ordena por data da última mensagem (mais recente primeiro), depois por nome
             const sorted = enrichedContacts.sort((a, b) => { 
@@ -151,7 +140,7 @@ export default function WhatsAppChatManager({ contatos }) {
                 const dateB = b.lastMessageDate; 
                 if (dateA && dateB) return dateB.getTime() - dateA.getTime(); 
                 if (dateA) return -1; // Contatos com mensagens recentes vêm primeiro
-                if (dateB) return 1;  // Contatos sem mensagens recentes vêm depois
+                if (dateB) return 1;  // Contatos sem mensagens recentes vêm depois
                 const nameA = a.nome || a.razao_social || ''; 
                 const nameB = b.nome || b.razao_social || ''; 
                 return nameA.localeCompare(nameB); 
@@ -161,7 +150,7 @@ export default function WhatsAppChatManager({ contatos }) {
             setIsLoadingContacts(false);
         };
         organizeAndSortContacts();
-    }, [contatos, supabase, refreshTrigger]); // refreshTrigger é uma dependência para reordenar os contatos quando uma nova mensagem chega
+    }, [contatos, supabase, refreshTrigger]);
 
     // Filtra contatos com base no termo de busca
     const filteredContacts = useMemo(() => {
@@ -180,7 +169,7 @@ export default function WhatsAppChatManager({ contatos }) {
     const handleSelectContact = useCallback(async (contact) => {
         setSelectedContact(contact); 
         setLoadingMessages(true); 
-        setMessages([]); // Limpa as mensagens ao selecionar um novo contato
+        setMessages([]);
         setNewMessage(''); 
         setAttachment(null); 
         setAudioBlob(null); 
@@ -202,19 +191,18 @@ export default function WhatsAppChatManager({ contatos }) {
             setMessages(data || []); 
         }
         setLoadingMessages(false);
-    }, [supabase, isRecording]); // isRecording é uma dependência do useCallback
+    }, [supabase, isRecording]);
 
     // Efeito para o listener de tempo real do Supabase
     useEffect(() => {
         if (!selectedContact) return;
 
-        // Cria um nome único para o canal para o contato selecionado
         const channelName = `whatsapp_messages_for_${selectedContact.id}`;
         const channel = supabase.channel(channelName)
             .on(
                 'postgres_changes',
                 {
-                    event: '*', // Escuta por INSERT, UPDATE e DELETE
+                    event: '*',
                     schema: 'public',
                     table: 'whatsapp_messages',
                     filter: `contato_id=eq.${selectedContact.id}`
@@ -223,7 +211,6 @@ export default function WhatsAppChatManager({ contatos }) {
                     console.log('Mudança em tempo real recebida!', payload);
                     if (payload.eventType === 'INSERT') {
                         setMessages(prevMessages => {
-                            // Evita duplicatas se a mensagem já estiver na lista
                             if (prevMessages.some(msg => msg.id === payload.new.id)) {
                                 return prevMessages;
                             }
@@ -244,12 +231,11 @@ export default function WhatsAppChatManager({ contatos }) {
 
         console.log(`Inscrito no canal: ${channelName}`);
 
-        // Função de limpeza: remove o canal quando o componente é desmontado ou o contato selecionado muda
         return () => {
             supabase.removeChannel(channel);
             console.log(`Desinscrito do canal: ${channelName}`);
         };
-    }, [selectedContact, supabase, setMessages, setRefreshTrigger]); // Dependências do useEffect
+    }, [selectedContact, supabase, setMessages, setRefreshTrigger]);
 
     // Manipulador para seleção de arquivo
     const handleFileSelected = (event) => {
@@ -284,7 +270,6 @@ export default function WhatsAppChatManager({ contatos }) {
             console.log(`[ÁUDIO LOG] Áudio decodificado. Duração: ${audioBuffer.duration.toFixed(2)}s, Sample Rate: ${audioBuffer.sampleRate}, Canais: ${audioBuffer.numberOfChannels}`);
             
             let pcmData;
-            // Mixa áudio estéreo para mono se necessário
             if (audioBuffer.numberOfChannels === 2) {
                 console.log("[ÁUDIO LOG] Áudio estéreo detectado. Fazendo a mixagem para mono.");
                 const left = audioBuffer.getChannelData(0);
@@ -301,29 +286,26 @@ export default function WhatsAppChatManager({ contatos }) {
             console.log(`[ÁUDIO LOG] Convertendo ${pcmData.length} amostras de Float32 para Int16.`);
             const samples = new Int16Array(pcmData.length);
             for (let i = 0; i < pcmData.length; i++) {
-                // A conversão garante que o valor fique entre -1 e 1
                 const s = Math.max(-1, Math.min(1, pcmData[i]));
                 samples[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
             }
             console.log(`[ÁUDIO LOG] Conversão para Int16 concluída. Primeira amostra: ${samples[0]}`);
 
-            // Inicializa o encoder LAME MP3
-            const mp3Encoder = new lamejs.Mp3Encoder(1, audioBuffer.sampleRate, 128); // 1 canal, sampleRate, bitrate
+            const mp3Encoder = new lamejs.Mp3Encoder(1, audioBuffer.sampleRate, 128);
             const mp3Data = [];
-            const BATCH_SIZE = 1152; // Tamanho de lote recomendado pelo LAME
+            const BATCH_SIZE = 1152;
             
             console.log("[ÁUDIO LOG] Iniciando loop de codificação para MP3...");
-            // Processa amostras em lotes
             for (let i = 0; i < samples.length; i += BATCH_SIZE) {
                 const batch = samples.subarray(i, i + BATCH_SIZE);
                 const mp3buf = mp3Encoder.encodeBuffer(batch);
                 if (mp3buf.length > 0) {
-                    mp3Data.push(new Uint8Array(mp3buf)); // Armazena como Uint8Array
+                    mp3Data.push(new Uint8Array(mp3buf));
                 }
             }
             console.log("[ÁUDIO LOG] Loop de codificação finalizado.");
             
-            const end = mp3Encoder.flush(); // Finaliza a codificação e obtém os dados restantes
+            const end = mp3Encoder.flush();
             if (end.length > 0) {
                 console.log(`[ÁUDIO LOG] Finalizando com flush(). Tamanho do buffer final: ${end.length}`);
                 mp3Data.push(new Uint8Array(end));
@@ -346,32 +328,32 @@ export default function WhatsAppChatManager({ contatos }) {
 
     // Inicia a gravação de áudio
     const handleStartRecording = async () => {
-        setAttachment(null); // Limpa anexos existentes
+        setAttachment(null);
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             const options = { mimeType: 'audio/webm;codecs=opus' };
             if (!MediaRecorder.isTypeSupported(options.mimeType)) {
                 console.log("[ÁUDIO LOG] MimeType 'audio/webm;codecs=opus' não suportado. Usando o padrão do navegador.");
-                delete options.mimeType; // Remove a opção se não for suportada
+                delete options.mimeType;
             }
             mediaRecorderRef.current = new MediaRecorder(stream, options);
-            audioChunksRef.current = []; // Zera os chunks de áudio
-            mediaRecorderRef.current.ondataavailable = event => { audioChunksRef.current.push(event.data); }; // Adiciona chunks de dados
+            audioChunksRef.current = [];
+            mediaRecorderRef.current.ondataavailable = event => { audioChunksRef.current.push(event.data); };
             mediaRecorderRef.current.onstop = async () => {
-                stream.getTracks().forEach(track => track.stop()); // Para a trilha de mídia
+                stream.getTracks().forEach(track => track.stop());
                 const recordedBlob = new Blob(audioChunksRef.current, { type: mediaRecorderRef.current.mimeType });
                 try {
-                    const mp3Blob = await convertToMp3(recordedBlob); // Converte para MP3
-                    const audioUrl = URL.createObjectURL(mp3Blob); // Cria URL para preview
+                    const mp3Blob = await convertToMp3(recordedBlob);
+                    const audioUrl = URL.createObjectURL(mp3Blob);
                     setAudioBlob(mp3Blob);
                     setAudioUrl(audioUrl);
                 } catch (error) {
                     console.error("[ÁUDIO LOG] Erro no processo de conversão de áudio:", error);
                     alert(`Erro ao processar o áudio: ${error.message}`);
-                    handleCancelRecording(); // Cancela em caso de erro
+                    handleCancelRecording();
                 }
             };
-            mediaRecorderRef.current.start(); // Inicia a gravação
+            mediaRecorderRef.current.start();
             setIsRecording(true);
         } catch (err) {
             console.error("Erro ao acessar microfone:", err);
@@ -410,52 +392,45 @@ export default function WhatsAppChatManager({ contatos }) {
             if (!phoneNumber) throw new Error("O contato não possui um número de telefone válido.");
             
             let fileToSend = attachmentToSend;
-            // Se houver áudio gravado, cria um File object para upload
             if (audioToSend) {
                 if (audioToSend.size === 0) throw new Error("O áudio gravado está vazio e não pode ser enviado.");
                 fileToSend = new File([audioToSend], "audio_gravado.mp3", { type: 'audio/mpeg' }); 
             }
             
-            // Se houver arquivo para enviar (anexo ou áudio)
             if (fileToSend) {
                 const mediaType = getMediaType(fileToSend);
-                // Sanitiza o nome do arquivo para URL/path
                 const sanitizedFileName = fileToSend.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9.\-_]/g, '_');
                 const filePath = `${selectedContact.id}/${Date.now()}_${sanitizedFileName}`;
                 
-                // Faz o upload do arquivo para o Supabase Storage
                 const { error: uploadError } = await supabase.storage.from('whatsapp-media').upload(filePath, fileToSend);
                 if (uploadError) throw uploadError;
                 
-                // Obtém a URL pública do arquivo
                 const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
                 if (!urlData?.publicUrl) throw new Error("Não foi possível obter a URL pública do arquivo.");
                 
-                // Envia a mídia via WhatsApp
                 await sendWhatsAppMedia(phoneNumber, mediaType, urlData.publicUrl, textToSend, mediaType === 'document' ? fileToSend.name : undefined);
             } 
-            // Se não houver arquivo, envia apenas texto
             else if (textToSend) { 
                 await sendWhatsAppText(phoneNumber, textToSend); 
             }
         } catch (error) {
             console.error("Falha no processo de envio:", error); 
             alert(`Erro ao enviar: ${error.message}`);
-            // Restaura os dados da mensagem não enviada para que o usuário possa tentar novamente
             setNewMessage(textToSend); 
             setAttachment(attachmentToSend); 
             setAudioBlob(audioToSend);
-            if (audioToSend && audioUrl) setAudioUrl(URL.createObjectURL(audioToSend)); // Restaura a URL do áudio
+            if (audioToSend && audioUrl) setAudioUrl(URL.createObjectURL(audioToSend));
         } finally { 
-            setIsSending(false); // Finaliza o estado de envio
+            setIsSending(false);
         }
     };
 
     // Função para renderizar o avatar do contato
     const renderContactAvatar = (contact) => {
         const name = contact?.nome || contact?.razao_social;
-        const bgColor = contact?.is_unregistered ? 'bg-yellow-400' : 'bg-blue-200'; // Cor diferente para não registrados
-        const textColor = contact?.is_unregistered ? 'text-yellow-900' : 'text-blue-800'; // Cor diferente para não registrados
+        // CORRIGIDO: Usa is_awaiting_name_response para cores
+        const bgColor = contact?.is_awaiting_name_response ? 'bg-yellow-400' : 'bg-blue-200';
+        const textColor = contact?.is_awaiting_name_response ? 'text-yellow-900' : 'text-blue-800';
 
         if (name && name.trim().length > 0) {
             const firstLetter = name.trim().charAt(0).toUpperCase();
@@ -465,7 +440,6 @@ export default function WhatsAppChatManager({ contatos }) {
                 </div>
             );
         }
-        // Fallback para ícone genérico se não houver nome
         return <FontAwesomeIcon icon={faUserCircle} className="text-3xl text-gray-400" />;
     };
 
@@ -500,13 +474,15 @@ export default function WhatsAppChatManager({ contatos }) {
                             <li
                                 key={contact.id}
                                 onClick={() => handleSelectContact(contact)}
-                                className={`p-4 cursor-pointer hover:bg-gray-100 ${selectedContact?.id === contact.id ? 'bg-blue-100' : ''} ${contact.is_unregistered ? 'bg-yellow-50 border-l-4 border-yellow-500' : ''}`}
+                                // CORRIGIDO: Usa is_awaiting_name_response para classes CSS
+                                className={`p-4 cursor-pointer hover:bg-gray-100 ${selectedContact?.id === contact.id ? 'bg-blue-100' : ''} ${contact.is_awaiting_name_response ? 'bg-yellow-50 border-l-4 border-yellow-500' : ''}`}
                             >
                                 <div className="flex items-center gap-2">
-                                    {renderContactAvatar(contact)} {/* Avatar na lista de contatos */}
+                                    {renderContactAvatar(contact)}
                                     <div>
                                         <p className="font-semibold truncate">
-                                            {contact.is_unregistered ? (
+                                            {/* CORRIGIDO: Usa is_awaiting_name_response para texto de "Novo Contato" */}
+                                            {contact.is_awaiting_name_response ? (
                                                 <span className="text-yellow-800 flex items-center gap-1">
                                                     <FontAwesomeIcon icon={faUserPlus} className="text-sm" /> Novo Contato
                                                 </span>
@@ -535,10 +511,11 @@ export default function WhatsAppChatManager({ contatos }) {
                 {selectedContact ? (
                     <>
                         <div className="p-4 border-b flex items-center gap-3 bg-white">
-                            {renderContactAvatar(selectedContact)} {/* Avatar no cabeçalho do chat */}
+                            {renderContactAvatar(selectedContact)}
                             <div>
                                 <h3 className="font-bold">
-                                    {selectedContact.is_unregistered ? (
+                                    {/* CORRIGIDO: Usa is_awaiting_name_response para texto de "Novo Contato" no cabeçalho do chat */}
+                                    {selectedContact.is_awaiting_name_response ? (
                                         <span className="text-yellow-800 flex items-center gap-1">
                                             <FontAwesomeIcon icon={faUserPlus} className="text-lg" /> Novo Contato
                                         </span>
@@ -548,7 +525,8 @@ export default function WhatsAppChatManager({ contatos }) {
                                 </h3>
                                 <p className="text-sm text-gray-500">
                                     {selectedContact.telefones?.[0]?.telefone || 'Sem telefone'}
-                                    {selectedContact.is_unregistered && (
+                                    {/* CORRIGIDO: Usa is_awaiting_name_response para exibir "(Aguardando nome)" */}
+                                    {selectedContact.is_awaiting_name_response && (
                                         <span className="ml-2 text-yellow-700">(Aguardando nome)</span>
                                     )}
                                 </p>
