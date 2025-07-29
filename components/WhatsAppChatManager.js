@@ -7,8 +7,9 @@ import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faPaperPlane, faSpinner, faUserCircle, faSearch, faAddressBook,
-    faPaperclip, faFileAlt, faMicrophone, faStopCircle, faPlayCircle, faTimes, faFileImage,
+    faPaperclip, faFileAlt, faMicrophone, faTimes, faFileImage,
     faTrash, faCheck
+    // faRobot foi removido daqui pois não é mais necessário
 } from '@fortawesome/free-solid-svg-icons';
 import { sendWhatsAppMedia, sendWhatsAppText } from '../utils/whatsapp';
 
@@ -554,11 +555,12 @@ export default function WhatsAppChatManager({ contatos }) {
                 )}
             </div>
 
-            {/* Coluna do Assistente de IA (Removida) */}
+            {/* Coluna do Assistente de IA (Desativado) */}
             {/* O componente AIChatAssistant e sua definição foram removidos */}
             <div className="p-4 space-y-4 bg-white border-l border-gray-200">
                 <h3 className="text-md font-bold text-gray-800 flex items-center gap-2">
-                    <FontAwesomeIcon icon={faRobot} /> Assistente de IA (Desativado)
+                    {/* Substituído o ícone faRobot por um texto simples ou outro ícone genérico se desejar */}
+                    Assistente de IA (Desativado)
                 </h3>
                 <div className="bg-gray-50 p-3 rounded-md text-sm text-gray-700">
                     <p>O assistente de IA está temporariamente desativado para melhorias. Por favor, entre em contato com o suporte se precisar de ajuda adicional.</p>
