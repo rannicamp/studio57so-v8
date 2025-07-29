@@ -12,7 +12,7 @@ const getSupabaseAdmin = () => createClient(
 // --- FUNÇÕES DE COMUNICAÇÃO COM WHATSAPP (MANTIDAS) ---
 
 // Esta função envia uma mensagem de texto via WhatsApp
-async function sendTextMessage(supabase, config, to, contatoId, text) { // CORRIGIDO: contatoId
+async function sendTextMessage(supabase, config, to, contatoId, text) {
     if (!text || text.trim() === "") return;
     const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
     const payload = { messaging_product: "whatsapp", to: to, type: "text", text: { body: text } };
@@ -22,13 +22,13 @@ async function sendTextMessage(supabase, config, to, contatoId, text) { // CORRI
         if (!response.ok) { console.error("ERRO ao enviar mensagem de texto via WhatsApp:", responseData); return; }
         const messageId = responseData.messages?.[0]?.id;
         if (messageId) {
-            await supabase.from('whatsapp_messages').insert({ contato_id: contatoId, message_id: messageId, sender_id: config.whatsapp_phone_number_id, receiver_id: to, content: text, direction: 'outbound', status: 'sent', raw_payload: payload }); // CORRIGIDO: contato_id
+            await supabase.from('whatsapp_messages').insert({ contato_id: contatoId, message_id: messageId, sender_id: config.whatsapp_phone_number_id, receiver_id: to, content: text, direction: 'outbound', status: 'sent', raw_payload: payload });
         }
     } catch (error) { console.error("ERRO de rede ao enviar mensagem de texto:", error); }
 }
 
 // Esta função envia um arquivo de mídia (documento) via WhatsApp
-async function sendMediaMessage(supabase, config, to, contatoId, publicUrl, fileName, caption) { // CORRIGIDO: contatoId
+async function sendMediaMessage(supabase, config, to, contatoId, publicUrl, fileName, caption) {
     const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
     const payload = { messaging_product: "whatsapp", to: to, type: "document", document: { link: publicUrl, filename: fileName, caption: caption } };
     try {
@@ -37,7 +37,7 @@ async function sendMediaMessage(supabase, config, to, contatoId, publicUrl, file
         if (!response.ok) { console.error("ERRO ao enviar mídia via WhatsApp:", responseData); return; }
         const messageId = responseData.messages?.[0]?.id;
         if (messageId) {
-            await supabase.from('whatsapp_messages').insert({ contato_id: contatoId, message_id: messageId, sender_id: config.whatsapp_phone_number_id, receiver_id: to, content: caption, direction: 'outbound', status: 'sent', raw_payload: payload }); // CORRIGIDO: contato_id
+            await supabase.from('whatsapp_messages').insert({ contato_id: contatoId, message_id: messageId, sender_id: config.whatsapp_phone_number_id, receiver_id: to, content: caption, direction: 'outbound', status: 'sent', raw_payload: payload });
         }
     } catch (error) { console.error("ERRO de rede ao enviar mídia:", error); }
 }
@@ -88,6 +88,8 @@ export async function POST(request) {
     const supabaseAdmin = getSupabaseAdmin();
     try {
         const body = await request.json();
+        console.log("[WEBHOOK] Corpo da requisição recebido:", JSON.stringify(body, null, 2)); // DEBUG: Loga o corpo completo
+
         const { data: whatsappConfig } = await supabaseAdmin.from('configuracoes_whatsapp').select('*').limit(1).single();
         if (!whatsappConfig) {
             console.error("ERRO CRÍTICO: Configurações do WhatsApp não encontradas.");
@@ -100,16 +102,15 @@ export async function POST(request) {
             const messageId = statusEntry.id;
             const newStatus = statusEntry.status; // 'sent', 'delivered', 'read'
 
-            // Mapeia o status do WhatsApp para o status no seu banco de dados (se necessário)
             let dbStatus;
             switch (newStatus) {
                 case 'sent': dbStatus = 'sent'; break;
                 case 'delivered': dbStatus = 'delivered'; break;
                 case 'read': dbStatus = 'read'; break;
-                default: dbStatus = 'sent'; // Status padrão se for desconhecido
+                default: dbStatus = 'sent';
             }
 
-            console.log(`Atualização de status: message_id=${messageId}, status=${dbStatus}`);
+            console.log(`[WEBHOOK STATUS] Atualização de status: message_id=${messageId}, status=${dbStatus}`); // DEBUG: Loga a atualização de status
 
             const { error: updateError } = await supabaseAdmin
                 .from('whatsapp_messages')
@@ -117,64 +118,67 @@ export async function POST(request) {
                 .eq('message_id', messageId);
 
             if (updateError) {
-                console.error("Erro ao atualizar status da mensagem:", updateError);
+                console.error("[WEBHOOK STATUS] Erro ao atualizar status da mensagem:", updateError); // DEBUG: Loga erro na atualização
             }
-            return NextResponse.json({ status: 'ok' }); // Retorna para evitar processar como mensagem normal
+            return NextResponse.json({ status: 'ok' });
         }
 
 
         // Processa mensagens de entrada
         const messageEntry = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
         if (messageEntry) {
+            console.log("[WEBHOOK MESSAGE] Nova mensagem recebida:", JSON.stringify(messageEntry, null, 2)); // DEBUG: Loga a mensagem completa
+
             const messageContent = getTextContent(messageEntry);
             const contactPhoneNumber = messageEntry.from;
-            let contatoId = null; // CORRIGIDO: contatoId
-            let shouldSendAutoReply = false; // Flag para controlar a auto-resposta
+            let contatoId = null;
+            let shouldSendAutoReply = false;
 
-            // 1. Busca o ID do contato associado ao número de telefone
             const possiblePhones = normalizeAndGeneratePhoneNumbers(contactPhoneNumber);
-            const { data: matchingPhones } = await supabaseAdmin.from('telefones').select('contato_id').in('telefone', possiblePhones).limit(1);
-            if (matchingPhones?.length > 0) {
-                contatoId = matchingPhones[0].contato_id; // CORRIGIDO: contatoId
+            console.log("[WEBHOOK MESSAGE] Telefones normalizados para busca:", possiblePhones); // DEBUG: Loga telefones normalizados
+
+            const { data: matchingPhones, error: matchingPhonesError } = await supabaseAdmin.from('telefones').select('contato_id').in('telefone', possiblePhones).limit(1);
+            
+            if (matchingPhonesError) {
+                console.error("[WEBHOOK MESSAGE] Erro ao buscar telefone existente:", matchingPhonesError); // DEBUG: Loga erro na busca
+            } else if (matchingPhones?.length > 0) {
+                contatoId = matchingPhones[0].contato_id;
+                console.log("[WEBHOOK MESSAGE] Contato existente encontrado, ID:", contatoId); // DEBUG: Loga ID do contato existente
             }
             
-            // 2. Se o contato não foi encontrado, cria um novo contato provisório
-            if (!contatoId) { // CORRIGIDO: contatoId
-                console.log(`[Webhook] Novo contato detectado: ${contactPhoneNumber}. Criando registro provisório.`);
+            if (!contatoId) {
+                console.log(`[WEBHOOK MESSAGE] Contato não encontrado para ${contactPhoneNumber}. Tentando criar provisório.`); // DEBUG: Novo contato
                 const { data: newContact, error: contactError } = await supabaseAdmin
                     .from('contatos')
                     .insert({ 
-                        nome: `Novo Contato (${contactPhoneNumber})`, // Nome provisório
-                        tipo: 'Lead', // Ou um tipo padrão para contatos novos
-                        is_unregistered: true // Flag para indicar que é provisório
+                        nome: `Desconhecido (${contactPhoneNumber})`, // ALTERADO: Nome inicial para "Desconhecido"
+                        tipo: 'Lead',
+                        is_unregistered: true 
                     })
                     .select('id')
                     .single();
 
                 if (contactError) {
-                    console.error("ERRO ao criar novo contato provisório:", contactError);
-                    // Se não conseguir criar o contato, não prosseguir
+                    console.error("ERRO ao criar novo contato provisório:", contactError); // DEBUG: Erro ao criar
                     return NextResponse.json({ status: 'error', message: 'Falha ao criar contato provisório.' }, { status: 500 });
                 }
-                contatoId = newContact.id; // CORRIGIDO: contatoId
+                contatoId = newContact.id;
+                console.log("[WEBHOOK MESSAGE] Novo contato provisório criado, ID:", contatoId); // DEBUG: ID do novo contato
 
-                // Associa o telefone ao novo contato
                 const { error: phoneError } = await supabaseAdmin.from('telefones').insert({
-                    contato_id: contatoId, // CORRIGIDO: contato_id
+                    contato_id: contatoId,
                     telefone: contactPhoneNumber,
-                    tipo: 'celular' // Tipo padrão
+                    tipo: 'celular'
                 });
 
                 if (phoneError) {
-                    console.error("ERRO ao associar telefone ao novo contato:", phoneError);
-                    // Não é um erro crítico para parar, mas é importante logar
+                    console.error("ERRO ao associar telefone ao novo contato provisório:", phoneError); // DEBUG: Erro ao associar telefone
                 }
-                shouldSendAutoReply = true; // Define para enviar auto-resposta
+                shouldSendAutoReply = true;
             }
             
-            // 3. Salva a mensagem recebida no banco de dados, usando o contatoId (existente ou novo)
-            await supabaseAdmin.from('whatsapp_messages').insert({
-                contato_id: contatoId, // CORRIGIDO: contato_id
+            const { error: messageInsertError } = await supabaseAdmin.from('whatsapp_messages').insert({
+                contato_id: contatoId,
                 message_id: messageEntry.id,
                 sender_id: messageEntry.from,
                 receiver_id: whatsappConfig.whatsapp_phone_number_id,
@@ -185,17 +189,22 @@ export async function POST(request) {
                 raw_payload: messageEntry,
             });
 
-            // 4. Se for um novo contato, envia a mensagem automática pedindo o nome
+            if (messageInsertError) {
+                console.error("ERRO ao salvar mensagem recebida:", messageInsertError); // DEBUG: Erro ao salvar mensagem
+            } else {
+                console.log("[WEBHOOK MESSAGE] Mensagem recebida salva com sucesso no DB."); // DEBUG: Mensagem salva
+            }
+
             if (shouldSendAutoReply) {
                 const autoReplyText = "Olá! 👋 Sou um assistente virtual. Recebi sua mensagem de um número novo aqui. Para que eu possa te ajudar melhor, poderia me informar o seu nome?";
-                await sendTextMessage(supabaseAdmin, whatsappConfig, contactPhoneNumber, contatoId, autoReplyText); // CORRIGIDO: contatoId
-                console.log(`[Webhook] Mensagem automática enviada para novo contato ${contactPhoneNumber}.`);
+                await sendTextMessage(supabaseAdmin, whatsappConfig, contactPhoneNumber, contatoId, autoReplyText);
+                console.log(`[WEBHOOK MESSAGE] Mensagem automática enviada para novo contato ${contactPhoneNumber}.`); // DEBUG: Auto-resposta enviada
             }
         }
         return NextResponse.json({ status: 'ok' });
 
     } catch (error) {
-        console.error("ERRO INESPERADO no webhook:", error);
+        console.error("ERRO INESPERADO no webhook (catch final):", error); // DEBUG: Erro geral
         return NextResponse.json({ status: 'error', message: error.message }, { status: 500 });
     }
 }
