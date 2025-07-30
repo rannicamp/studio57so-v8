@@ -210,12 +210,74 @@ export default function CrmPage() {
     const fetchWhatsappData = useCallback(async () => {
         setLoadingWhatsapp(true);
         try {
-            const { data, error } = await supabase.from('contatos').select(`*, telefones (id, telefone, tipo)`);
-            if (error) throw error;
-            setContatosWhatsapp(data || []);
+            // Busca todos os contatos com seus telefones
+            const { data: contatosRaw, error: contatosError } = await supabase
+                .from('contatos')
+                .select(`id, nome, razao_social, created_at, is_awaiting_name_response, telefones (telefone, tipo)`);
+
+            if (contatosError) {
+                console.error("Erro ao buscar contatos iniciais para o WhatsApp:", contatosError.message);
+                throw contatosError;
+            }
+
+            // Busca todas as conversas do WhatsApp com a última data de atualização
+            // Mapeia telefones dos contatos para usar no filtro IN para whatsapp_conversations
+            const phoneNumbers = contatosRaw.flatMap(c => c.telefones?.map(t => t.telefone)).filter(Boolean);
+
+            let conversationsData = [];
+            if (phoneNumbers.length > 0) {
+                const { data, error } = await supabase.from('whatsapp_conversations')
+                    .select('phone_number, updated_at')
+                    .in('phone_number', phoneNumbers);
+                if (error) {
+                    console.error("Erro ao buscar datas de conversas para ordenação:", error);
+                    // Não precisa parar o fluxo, pode continuar com contatos sem data de conversa
+                } else {
+                    conversationsData = data;
+                }
+            }
+            
+            const conversationDatesMap = new Map();
+            if (conversationsData) {
+                conversationsData.forEach(conv => { 
+                    conversationDatesMap.set(conv.phone_number, new Date(conv.updated_at)); 
+                });
+            }
+
+            // Enriquecer os contatos com a data da última mensagem e ordenar
+            const enrichedAndSortedContacts = contatosRaw
+                .map(contact => { 
+                    // Encontra o número de telefone principal para o contato
+                    const primaryPhoneNumber = contact.telefones?.find(t => t.tipo === 'principal' || t.tipo === null)?.telefone || contact.telefones?.[0]?.telefone;
+                    
+                    return { 
+                        ...contact, 
+                        // Atribui a data da última mensagem da conversa correspondente
+                        lastMessageDate: primaryPhoneNumber ? conversationDatesMap.get(primaryPhoneNumber) || null : null 
+                    }; 
+                })
+                .sort((a, b) => { 
+                    const dateA = a.lastMessageDate; 
+                    const dateB = b.lastMessageDate; 
+                    
+                    // Ordena por data da última mensagem (mais recente primeiro)
+                    if (dateA && dateB) {
+                        return dateB.getTime() - dateA.getTime(); 
+                    }
+                    // Contatos com data vêm antes dos sem data
+                    if (dateA) return -1; 
+                    if (dateB) return 1; 
+                    
+                    // Fallback para ordenação por nome se não houver datas de mensagem
+                    const nameA = a.nome || a.razao_social || ''; 
+                    const nameB = b.nome || b.razao_social || ''; 
+                    return nameA.localeCompare(nameB); 
+                });
+            
+            setContatosWhatsapp(enrichedAndSortedContacts || []);
         } catch (error) {
-            console.error("Erro ao buscar contatos para o WhatsApp:", error.message);
-            toast.error('Erro ao carregar contatos do WhatsApp.');
+            console.error("Erro ao buscar e organizar contatos para o WhatsApp:", error.message);
+            toast.error('Erro ao carregar e organizar contatos do WhatsApp.');
         } finally {
             setLoadingWhatsapp(false);
         }

@@ -20,6 +20,7 @@ const MessageBubble = ({ message }) => {
     const bubbleClasses = isSentByUser ? 'bg-blue-500 text-white self-end rounded-l-lg rounded-tr-lg' : 'bg-gray-200 text-gray-800 self-start rounded-r-lg rounded-tl-lg';
     
     const renderContent = () => {
+        // Assegura que raw_payload seja um objeto, caso venha como string JSON do banco de dados
         const payload = typeof message.raw_payload === 'string' ? JSON.parse(message.raw_payload) : message.raw_payload;
         const type = payload?.type;
 
@@ -50,6 +51,7 @@ const MessageBubble = ({ message }) => {
         }
     }
 
+    // Função para renderizar os ícones de status (vistos)
     const renderStatusIcons = () => {
         if (!isSentByUser) {
             return null; // Apenas exibe status para mensagens enviadas por você
@@ -73,7 +75,7 @@ const MessageBubble = ({ message }) => {
             {renderContent()}
             <p className="text-xs mt-1 text-right opacity-70 flex items-center justify-end">
                 {new Date(message.sent_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                {renderStatusIcons()}
+                {renderStatusIcons()} {/* Adiciona os ícones de status aqui */}
             </p>
         </div>
     );
@@ -95,69 +97,38 @@ export default function WhatsAppChatManager({ contatos }) {
     const [attachment, setAttachment] = useState(null);
     const [isRecording, setIsRecording] = useState(false);
     const [audioBlob, setAudioBlob] = useState(null);
-    const [audioUrl, setAudioUrl] = useState(null);
+    const [audioUrl, setAudioUrl] = useState(null); 
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
 
     // Efeito para organizar e ordenar contatos com base na última mensagem
     useEffect(() => {
-        const organizeAndSortContacts = async () => {
-            if (!contatos || contatos.length === 0) { 
+        const organizeAndSortContacts = () => {
+            const safeContatos = Array.isArray(contatos) ? contatos : [];
+
+            if (safeContatos.length === 0) { 
                 setDisplayContacts([]); 
                 setIsLoadingContacts(false); 
                 return; 
             }
             setIsLoadingContacts(true);
             
-            // CORRIGIDO: Busca dados da tabela whatsapp_conversations para ordenação
-            const { data: conversationsData, error: conversationsError } = await supabase.from('whatsapp_conversations')
-                .select('phone_number, updated_at')
-                .order('updated_at', { ascending: false });
-
-            if (conversationsError) { 
-                console.error("Erro ao buscar datas de conversas:", conversationsError);
-            }
-
-            const datesMap = new Map();
-            if (conversationsData) {
-                conversationsData.forEach(conv => { 
-                    datesMap.set(conv.phone_number, new Date(conv.updated_at)); 
-                });
-            }
-
-            const enrichedContacts = contatos.map(contact => { 
-                // Assumimos que o primeiro telefone do contato é o principal para a conversa
-                const phoneNumber = contact.telefones?.[0]?.telefone; 
-                return { 
-                    ...contact, 
-                    lastMessageDate: phoneNumber ? datesMap.get(phoneNumber) || null : null 
-                }; 
-            });
-
-            // Ordena por data da última mensagem (mais recente primeiro), depois por nome
-            const sorted = enrichedContacts.sort((a, b) => { 
-                const dateA = a.lastMessageDate; 
-                const dateB = b.lastMessageDate; 
-                if (dateA && dateB) return dateB.getTime() - dateA.getTime(); 
-                if (dateA) return -1; // Contatos com mensagens recentes vêm primeiro
-                if (dateB) return 1;  // Contatos sem mensagens recentes vêm depois
-                const nameA = a.nome || a.razao_social || ''; 
-                const nameB = b.nome || b.razao_social || ''; 
-                return nameA.localeCompare(nameB); 
-            });
-            
-            setDisplayContacts(sorted); 
+            // Os contatos já vêm pré-ordenados pelo fetchWhatsappData em crm/page.js
+            // Agora apenas filtramos e atualizamos o estado local
+            setDisplayContacts(safeContatos); 
             setIsLoadingContacts(false);
         };
         organizeAndSortContacts();
-    }, [contatos, supabase, refreshTrigger]);
+    }, [contatos, refreshTrigger]);
 
     // Filtra contatos com base no termo de busca
     const filteredContacts = useMemo(() => {
         if (!searchTerm) { return displayContacts; }
         return displayContacts.filter(contact => { 
             const name = (contact.nome || contact.razao_social || '').toLowerCase(); 
-            const phone = (contact.telefones?.[0]?.telefone || '').toLowerCase(); 
+            // Tenta obter o telefone principal ou o primeiro disponível para a busca
+            const primaryPhoneNumber = contact.telefones?.find(t => t.tipo === 'principal' || t.tipo === null)?.telefone || contact.telefones?.[0]?.telefone || '';
+            const phone = primaryPhoneNumber.toLowerCase(); 
             return name.includes(searchTerm.toLowerCase()) || phone.includes(searchTerm.toLowerCase()); 
         });
     }, [displayContacts, searchTerm]);
@@ -270,6 +241,7 @@ export default function WhatsAppChatManager({ contatos }) {
             console.log(`[ÁUDIO LOG] Áudio decodificado. Duração: ${audioBuffer.duration.toFixed(2)}s, Sample Rate: ${audioBuffer.sampleRate}, Canais: ${audioBuffer.numberOfChannels}`);
             
             let pcmData;
+            // Mixa áudio estéreo para mono se necessário
             if (audioBuffer.numberOfChannels === 2) {
                 console.log("[ÁUDIO LOG] Áudio estéreo detectado. Fazendo a mixagem para mono.");
                 const left = audioBuffer.getChannelData(0);
@@ -286,26 +258,29 @@ export default function WhatsAppChatManager({ contatos }) {
             console.log(`[ÁUDIO LOG] Convertendo ${pcmData.length} amostras de Float32 para Int16.`);
             const samples = new Int16Array(pcmData.length);
             for (let i = 0; i < pcmData.length; i++) {
+                // A conversão garante que o valor fique entre -1 e 1
                 const s = Math.max(-1, Math.min(1, pcmData[i]));
                 samples[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
             }
             console.log(`[ÁUDIO LOG] Conversão para Int16 concluída. Primeira amostra: ${samples[0]}`);
 
-            const mp3Encoder = new lamejs.Mp3Encoder(1, audioBuffer.sampleRate, 128);
+            // Inicializa o encoder LAME MP3
+            const mp3Encoder = new lamejs.Mp3Encoder(1, audioBuffer.sampleRate, 128); // 1 canal, sampleRate, bitrate
             const mp3Data = [];
-            const BATCH_SIZE = 1152;
+            const BATCH_SIZE = 1152; // Tamanho de lote recomendado pelo LAME
             
             console.log("[ÁUDIO LOG] Iniciando loop de codificação para MP3...");
+            // Processa amostras em lotes
             for (let i = 0; i < samples.length; i += BATCH_SIZE) {
                 const batch = samples.subarray(i, i + BATCH_SIZE);
                 const mp3buf = mp3Encoder.encodeBuffer(batch);
                 if (mp3buf.length > 0) {
-                    mp3Data.push(new Uint8Array(mp3buf));
+                    mp3Data.push(new Uint8Array(mp3buf)); // Armazena como Uint8Array
                 }
             }
             console.log("[ÁUDIO LOG] Loop de codificação finalizado.");
             
-            const end = mp3Encoder.flush();
+            const end = mp3Encoder.flush(); // Finaliza a codificação e obtém os dados restantes
             if (end.length > 0) {
                 console.log(`[ÁUDIO LOG] Finalizando com flush(). Tamanho do buffer final: ${end.length}`);
                 mp3Data.push(new Uint8Array(end));
@@ -328,32 +303,32 @@ export default function WhatsAppChatManager({ contatos }) {
 
     // Inicia a gravação de áudio
     const handleStartRecording = async () => {
-        setAttachment(null);
+        setAttachment(null); // Limpa anexos existentes
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             const options = { mimeType: 'audio/webm;codecs=opus' };
             if (!MediaRecorder.isTypeSupported(options.mimeType)) {
                 console.log("[ÁUDIO LOG] MimeType 'audio/webm;codecs=opus' não suportado. Usando o padrão do navegador.");
-                delete options.mimeType;
+                delete options.mimeType; // Remove a opção se não for suportada
             }
             mediaRecorderRef.current = new MediaRecorder(stream, options);
-            audioChunksRef.current = [];
-            mediaRecorderRef.current.ondataavailable = event => { audioChunksRef.current.push(event.data); };
+            audioChunksRef.current = []; // Zera os chunks de áudio
+            mediaRecorderRef.current.ondataavailable = event => { audioChunksRef.current.push(event.data); }; // Adiciona chunks de dados
             mediaRecorderRef.current.onstop = async () => {
-                stream.getTracks().forEach(track => track.stop());
+                stream.getTracks().forEach(track => track.stop()); // Para a trilha de mídia
                 const recordedBlob = new Blob(audioChunksRef.current, { type: mediaRecorderRef.current.mimeType });
                 try {
-                    const mp3Blob = await convertToMp3(recordedBlob);
-                    const audioUrl = URL.createObjectURL(mp3Blob);
+                    const mp3Blob = await convertToMp3(recordedBlob); // Converte para MP3
+                    const audioUrl = URL.createObjectURL(mp3Blob); // Cria URL para preview
                     setAudioBlob(mp3Blob);
                     setAudioUrl(audioUrl);
                 } catch (error) {
                     console.error("[ÁUDIO LOG] Erro no processo de conversão de áudio:", error);
                     alert(`Erro ao processar o áudio: ${error.message}`);
-                    handleCancelRecording();
+                    handleCancelRecording(); // Cancela em caso de erro
                 }
             };
-            mediaRecorderRef.current.start();
+            mediaRecorderRef.current.start(); // Inicia a gravação
             setIsRecording(true);
         } catch (err) {
             console.error("Erro ao acessar microfone:", err);
@@ -392,36 +367,44 @@ export default function WhatsAppChatManager({ contatos }) {
             if (!phoneNumber) throw new Error("O contato não possui um número de telefone válido.");
             
             let fileToSend = attachmentToSend;
+            // Se houver áudio gravado, cria um File object para upload
             if (audioToSend) {
                 if (audioToSend.size === 0) throw new Error("O áudio gravado está vazio e não pode ser enviado.");
                 fileToSend = new File([audioToSend], "audio_gravado.mp3", { type: 'audio/mpeg' }); 
             }
             
+            // Se houver arquivo para enviar (anexo ou áudio)
             if (fileToSend) {
                 const mediaType = getMediaType(fileToSend);
+                // Sanitiza o nome do arquivo para URL/path
                 const sanitizedFileName = fileToSend.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9.\-_]/g, '_');
                 const filePath = `${selectedContact.id}/${Date.now()}_${sanitizedFileName}`;
                 
+                // Faz o upload do arquivo para o Supabase Storage
                 const { error: uploadError } = await supabase.storage.from('whatsapp-media').upload(filePath, fileToSend);
                 if (uploadError) throw uploadError;
                 
+                // Obtém a URL pública do arquivo
                 const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
                 if (!urlData?.publicUrl) throw new Error("Não foi possível obter a URL pública do arquivo.");
                 
+                // Envia a mídia via WhatsApp
                 await sendWhatsAppMedia(phoneNumber, mediaType, urlData.publicUrl, textToSend, mediaType === 'document' ? fileToSend.name : undefined);
             } 
+            // Se não houver arquivo, envia apenas texto
             else if (textToSend) { 
                 await sendWhatsAppText(phoneNumber, textToSend); 
             }
         } catch (error) {
             console.error("Falha no processo de envio:", error); 
             alert(`Erro ao enviar: ${error.message}`);
+            // Restaura os dados da mensagem não enviada para que o usuário possa tentar novamente
             setNewMessage(textToSend); 
             setAttachment(attachmentToSend); 
             setAudioBlob(audioToSend);
-            if (audioToSend && audioUrl) setAudioUrl(URL.createObjectURL(audioToSend));
+            if (audioToSend && audioUrl) setAudioUrl(URL.createObjectURL(audioToSend)); // Restaura a URL do áudio
         } finally { 
-            setIsSending(false);
+            setIsSending(false); // Finaliza o estado de envio
         }
     };
 
@@ -440,6 +423,7 @@ export default function WhatsAppChatManager({ contatos }) {
                 </div>
             );
         }
+        // Fallback para ícone genérico se não houver nome
         return <FontAwesomeIcon icon={faUserCircle} className="text-3xl text-gray-400" />;
     };
 
