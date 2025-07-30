@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheckCircle, faExclamationCircle, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
-
+import { faCheckCircle, faExclamationCircle, faInfoCircle, faUserEdit } from '@fortawesome/free-solid-svg-icons';
 
 // Componente de Notificação (Toast)
 const Toast = ({ message, type, onclose }) => {
@@ -40,8 +39,15 @@ export default function FolhaPonto({ employees }) {
     const [timesheetData, setTimesheetData] = useState({});
     const [holidays, setHolidays] = useState(new Set());
     const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
-    const [isProcessing, setIsProcessing] = useState(false); // Estado para controlar o processamento
+    const [isProcessing, setIsProcessing] = useState(false);
     const [editingCell, setEditingCell] = useState(null);
+    const [abonoTypes, setAbonoTypes] = useState([]);
+    const [abonosData, setAbonosData] = useState({});
+
+    // ***** INÍCIO DA MODIFICAÇÃO *****
+    // Estado para guardar os dados do usuário logado
+    const [currentUser, setCurrentUser] = useState(null);
+    // ***** FIM DA MODIFICAÇÃO *****
 
     const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
@@ -90,10 +96,44 @@ export default function FolhaPonto({ employees }) {
             showToast('Aviso: Não foi possível carregar a lista de feriados.', 'error');
         }
     }, []);
+    
+    const fetchAbonoTypes = useCallback(async () => {
+        const { data, error } = await supabase.from('abono_tipos').select('id, descricao');
+        if (error) {
+            showToast('Erro ao carregar tipos de abono.', 'error');
+        } else {
+            setAbonoTypes(data);
+        }
+    }, [supabase]);
+
+    // ***** INÍCIO DA MODIFICAÇÃO *****
+    // Função para buscar dados do usuário logado
+    const fetchCurrentUser = useCallback(async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data: userData, error } = await supabase
+                .from('usuarios')
+                .select('id, nome, sobrenome')
+                .eq('id', user.id)
+                .single();
+            
+            if (error) {
+                console.error("Erro ao buscar dados do usuário:", error);
+                showToast("Não foi possível identificar o usuário logado.", "error");
+            } else if (userData) {
+                setCurrentUser({
+                    id: userData.id,
+                    nome: `${userData.nome} ${userData.sobrenome}`.trim()
+                });
+            }
+        }
+    }, [supabase]);
+    // ***** FIM DA MODIFICAÇÃO *****
 
     const loadTimesheetData = useCallback(async () => {
         if (!selectedEmployeeId || !selectedMonth) {
             setTimesheetData({});
+            setAbonosData({});
             return;
         }
         setIsProcessing(true);
@@ -102,31 +142,76 @@ export default function FolhaPonto({ employees }) {
         const startDate = `${year}-${month}-01`;
         const endDate = new Date(year, month, 0).toISOString().split('T')[0];
         
-        const { data, error } = await supabase.from('pontos').select('*').eq('funcionario_id', selectedEmployeeId).gte('data_hora', `${startDate}T00:00:00`).lte('data_hora', `${endDate}T23:59:59`);
+        // ***** INÍCIO DA MODIFICAÇÃO: Consulta ao banco foi alterada *****
+        // A consulta agora busca as colunas novas e os dados do usuário que editou
+        const { data: pontosData, error: pontosError } = await supabase
+            .from('pontos')
+            .select('*, editado_por_usuario_id:usuarios(nome, sobrenome)') // Pega dados do usuário relacionado
+            .eq('funcionario_id', selectedEmployeeId)
+            .gte('data_hora', `${startDate}T00:00:00`)
+            .lte('data_hora', `${endDate}T23:59:59`);
+        // ***** FIM DA MODIFICAÇÃO *****
         
-        if (error) {
+        if (pontosError) {
             showToast("Erro ao carregar dados do ponto.", 'error');
             setIsProcessing(false);
             return;
         }
+        
+        const { data: abonosDoMes, error: abonosError } = await supabase.from('abonos').select('*').eq('funcionario_id', selectedEmployeeId).gte('data_abono', startDate).lte('data_abono', endDate);
 
+        if (abonosError) {
+            showToast("Erro ao carregar abonos.", 'error');
+        } else {
+            const processedAbonos = {};
+            abonosDoMes.forEach(abono => {
+                processedAbonos[abono.data_abono] = abono;
+            });
+            setAbonosData(processedAbonos);
+        }
+
+        // ***** INÍCIO DA MODIFICAÇÃO: Lógica de processamento de dados foi alterada *****
         const processedData = {};
-        data.forEach(ponto => {
+        pontosData.forEach(ponto => {
             if (!ponto.data_hora) return;
             const utcDate = new Date(ponto.data_hora.replace(' ', 'T') + 'Z');
             const localDateStringForGrouping = utcDate.toLocaleDateString('sv-SE');
             const localTimeStringForDisplay = utcDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
             if (!processedData[localDateStringForGrouping]) {
-                processedData[localDateStringForGrouping] = { dateString: localDateStringForGrouping };
+                processedData[localDateStringForGrouping] = { dateString: localDateStringForGrouping, observacoes: [] };
             }
             
             const fieldMap = { 'Entrada': 'entrada', 'Inicio_Intervalo': 'inicio_intervalo', 'Fim_Intervalo': 'fim_intervalo', 'Saida': 'saida' };
             const field = fieldMap[ponto.tipo_registro];
             if(field) {
                 processedData[localDateStringForGrouping][field] = localTimeStringForDisplay;
+                
+                // Guarda a informação se o campo foi editado manualmente
+                if (ponto.editado_manualmente && ponto.editado_por_usuario_id) {
+                    processedData[localDateStringForGrouping][`${field}_manual`] = true;
+                    const editorNome = `${ponto.editado_por_usuario_id.nome || ''} ${ponto.editado_por_usuario_id.sobrenome || ''}`.trim();
+                    const obsText = `Campo "${ponto.tipo_registro}" editado por ${editorNome}.`;
+                    // Evita duplicar a mesma observação de edição
+                    if (!processedData[localDateStringForGrouping].observacoes.includes(obsText)) {
+                        processedData[localDateStringForGrouping].observacoes.push(obsText);
+                    }
+                }
+            }
+            
+            // Adiciona a observação original do ponto, se houver
+            if(ponto.observacao) {
+                 if (!processedData[localDateStringForGrouping].observacoes.includes(ponto.observacao)) {
+                    processedData[localDateStringForGrouping].observacoes.push(ponto.observacao);
+                }
             }
         });
+
+        // Junta todas as observações em um único texto
+        Object.keys(processedData).forEach(date => {
+            processedData[date].observacao_final = processedData[date].observacoes.join(' | ');
+        });
+        // ***** FIM DA MODIFICAÇÃO *****
         
         setTimesheetData(processedData);
         await fetchHolidays(year);
@@ -134,6 +219,7 @@ export default function FolhaPonto({ employees }) {
 
     }, [selectedEmployeeId, selectedMonth, supabase, fetchHolidays]);
 
+    // Efeitos de carregamento inicial
     useEffect(() => { loadTimesheetData(); }, [selectedEmployeeId, selectedMonth, loadTimesheetData]);
 
     useEffect(() => {
@@ -143,8 +229,15 @@ export default function FolhaPonto({ employees }) {
         const currentDay = String(today.getDate()).padStart(2, '0');
         setSelectedMonth(`${currentYear}-${currentMonth}`);
         setSelectedDate(`${currentYear}-${currentMonth}-${currentDay}`);
-    }, []);
+        
+        fetchAbonoTypes();
+        // ***** INÍCIO DA MODIFICAÇÃO *****
+        // Busca os dados do usuário logado ao carregar a página
+        fetchCurrentUser();
+        // ***** FIM DA MODIFICAÇÃO *****
+    }, [fetchAbonoTypes, fetchCurrentUser]);
 
+    // Resumo mensal
     const monthlySummary = useMemo(() => {
         let totalDays = 0;
         let totalMinutesMonth = 0;
@@ -168,7 +261,7 @@ export default function FolhaPonto({ employees }) {
         return { totalDays, formattedTotalHours };
     }, [timesheetData, calculateTotalHours]);
 
-
+    // Ações de registro de ponto (botões)
     const handleAction = async (actionType) => {
         if (!selectedEmployeeId || !selectedDate) {
             showToast("Selecione um funcionário e uma data.", 'error');
@@ -182,32 +275,27 @@ export default function FolhaPonto({ employees }) {
         const timeString = now.toTimeString().split(' ')[0];
         const localDate = new Date(`${selectedDate}T${timeString}`);
 
+        // ***** INÍCIO DA MODIFICAÇÃO: Registro de ponto agora marca como não-manual *****
         const recordToSave = {
             funcionario_id: selectedEmployeeId,
             data_hora: localDate.toISOString(),
             tipo_registro: actionType,
-            observacao: `Registro via botão ${actionType}`
+            observacao: `Registro via botão`,
+            editado_manualmente: false, // Registros via botão não são manuais
+            editado_por_usuario_id: null
         };
+        // ***** FIM DA MODIFICAÇÃO *****
 
         const startOfDay = `${selectedDate}T00:00:00`;
         const endOfDay = `${selectedDate}T23:59:59.999`;
 
-        const { data: existing, error: findError } = await supabase.from('pontos').select('id').eq('funcionario_id', selectedEmployeeId).eq('tipo_registro', actionType).gte('data_hora', startOfDay).lte('data_hora', endOfDay);
-
-        if (findError) {
-            showToast(`Erro ao verificar registro: ${findError.message}`, 'error');
-            setIsProcessing(false);
-            return;
-        }
-
-        let error;
-        if (existing && existing.length > 0) {
-            const { error: updateError } = await supabase.from('pontos').update(recordToSave).eq('id', existing[0].id);
-            error = updateError;
-        } else {
-            const { error: insertError } = await supabase.from('pontos').insert(recordToSave);
-            error = insertError;
-        }
+        // Upsert para inserir ou atualizar o registro do dia para aquele tipo
+        const { error } = await supabase
+            .from('pontos')
+            .upsert(recordToSave, {
+                onConflict: 'funcionario_id, tipo_registro, date(data_hora)',
+                ignoreDuplicates: false
+            });
 
         if (error) {
             showToast(`Erro ao registrar: ${error.message}`, 'error');
@@ -223,55 +311,62 @@ export default function FolhaPonto({ employees }) {
         setEditingCell({ date, field });
     };
 
-    const handleSaveEdit = async (e) => {
+    // ***** INÍCIO DA MODIFICAÇÃO: Função de salvar foi refatorada *****
+    const handleSaveEdit = async (e, date, field) => {
         e.preventDefault();
-        const { date, field } = editingCell;
-        let newTime = e.target.elements.time_input.value;
+        if (!currentUser) {
+            showToast("Não foi possível identificar o usuário. A edição não foi salva.", "error");
+            return;
+        }
+
+        let newValue = e.target.elements[0].value;
         setEditingCell(null);
-        
         setIsProcessing(true);
 
-        const startOfDay = `${date}T00:00:00`;
-        const endOfDay = `${date}T23:59:59.999`;
+        // Lógica para salvar horários
         const tipo_registro = { 'entrada': 'Entrada', 'inicio_intervalo': 'Inicio_Intervalo', 'fim_intervalo': 'Fim_Intervalo', 'saida': 'Saida' }[field];
-        
-        if (!newTime) {
-            showToast('Deletando registro...', 'info');
-            const { error } = await supabase.from('pontos').delete().eq('funcionario_id', selectedEmployeeId).eq('tipo_registro', tipo_registro).gte('data_hora', startOfDay).lte('data_hora', endOfDay);
-            if (error) {
-                showToast(`Erro ao deletar: ${error.message}`, 'error');
-            } else {
-                showToast('Registro removido.', 'success');
-                await loadTimesheetData();
-            }
+
+        if (!tipo_registro) { // Se não for um campo de horário, como abono ou obs. (tratado separadamente se necessário)
             setIsProcessing(false);
             return;
         }
 
-        showToast('Salvando alteração...', 'info');
-        
-        const localDate = new Date(`${date}T${newTime}`);
-        const recordToUpdate = { data_hora: localDate.toISOString(), observacao: 'Editado Manualmente' };
-        const recordToInsert = { ...recordToUpdate, funcionario_id: selectedEmployeeId, tipo_registro: tipo_registro };
-        const { data: existing, error: findError } = await supabase.from('pontos').select('id').eq('funcionario_id', selectedEmployeeId).eq('tipo_registro', tipo_registro).gte('data_hora', startOfDay).lte('data_hora', endOfDay);
+        const startOfDay = `${date}T00:00:00`;
+        const endOfDay = `${date}T23:59:59.999`;
 
-        let error;
-        if (existing && existing.length > 0) {
-            const { error: updateError } = await supabase.from('pontos').update(recordToUpdate).eq('id', existing[0].id);
-            error = updateError;
-        } else {
-            const { error: insertError } = await supabase.from('pontos').insert(recordToInsert);
-            error = insertError;
+        if (!newValue) { // Deletar se o campo for limpo
+            const { error } = await supabase.from('pontos')
+                .delete()
+                .eq('funcionario_id', selectedEmployeeId)
+                .eq('tipo_registro', tipo_registro)
+                .gte('data_hora', startOfDay)
+                .lte('data_hora', endOfDay);
+            showToast(error ? `Erro: ${error.message}` : 'Registro removido.', error ? 'error' : 'success');
+        
+        } else { // Inserir ou atualizar o horário
+            const localDate = new Date(`${date}T${newValue}`);
+            const record = { 
+                funcionario_id: selectedEmployeeId, 
+                tipo_registro, 
+                data_hora: localDate.toISOString(), 
+                editado_manualmente: true, // Marca como editado
+                editado_por_usuario_id: currentUser.id // Guarda o ID do editor
+            };
+            
+            const { error } = await supabase
+                .from('pontos')
+                .upsert(record, { 
+                    onConflict: 'funcionario_id, tipo_registro, date(data_hora)',
+                    ignoreDuplicates: false 
+                });
+            showToast(error ? `Erro: ${error.message}` : 'Alteração salva!', error ? 'error' : 'success');
         }
         
-        if (error) {
-            showToast(`Erro ao salvar: ${error.message}`, 'error');
-        } else {
-            showToast('Alteração salva com sucesso!', 'success');
-            await loadTimesheetData();
-        }
+        await loadTimesheetData();
         setIsProcessing(false);
     };
+    // ***** FIM DA MODIFICAÇÃO *****
+
 
     return (
         <div className="space-y-6">
@@ -315,17 +410,19 @@ export default function FolhaPonto({ employees }) {
                             <th className="border p-2">Fim Int.</th>
                             <th className="border p-2">Saída</th>
                             <th className="border p-2">Total Horas</th>
-                            <th className="border p-2">Obs.</th>
+                            <th className="border p-2">Abono</th>
+                            <th className="border p-2">Observações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {(!selectedEmployeeId || !selectedMonth)
-                            ? (<tr><td colSpan="8" className="text-center p-4 text-gray-500">Selecione um funcionário e um mês para começar.</td></tr>)
+                            ? (<tr><td colSpan="9" className="text-center p-4 text-gray-500">Selecione um funcionário e um mês para começar.</td></tr>)
                             : Array.from({ length: new Date(selectedMonth.split('-')[0], selectedMonth.split('-')[1], 0).getDate() }, (_, i) => {
                                 const dayOfMonth = i + 1;
                                 const dateInMonth = new Date(Date.UTC(selectedMonth.split('-')[0], selectedMonth.split('-')[1] - 1, dayOfMonth));
                                 const dateString = dateInMonth.toISOString().split('T')[0];
                                 const dayData = timesheetData[dateString] || { dateString };
+                                const abonoDoDia = abonosData[dateString];
                                 const isHoliday = holidays.has(dateString);
                                 const rowClass = isHoliday ? 'bg-yellow-100' : (dateInMonth.getUTCDay() === 0 || dateInMonth.getUTCDay() === 6 ? 'bg-gray-50' : '');
 
@@ -333,17 +430,36 @@ export default function FolhaPonto({ employees }) {
                                     <tr key={dateString} className={rowClass}>
                                         <td className="border p-2 text-center">{new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</td>
                                         <td className="border p-2 text-center">{weekDays[dateInMonth.getUTCDay()]} {isHoliday && '(Feriado)'}</td>
+                                        
+                                        {/* ***** INÍCIO DA MODIFICAÇÃO: Lógica de exibição do horário e do marcador ***** */}
                                         {['entrada', 'inicio_intervalo', 'fim_intervalo', 'saida'].map(field => (
                                             <td key={field} onClick={() => handleCellEdit(dateString, field)} className="border p-2 text-center cursor-pointer hover:bg-blue-50">
                                                 {editingCell?.date === dateString && editingCell?.field === field ? (
-                                                    <form onSubmit={handleSaveEdit}>
+                                                    <form onSubmit={(e) => handleSaveEdit(e, dateString, field)}>
                                                         <input type="time" name="time_input" defaultValue={dayData[field] || ''} autoFocus onBlur={(e) => e.target.form.requestSubmit()} className="w-full text-center bg-blue-100"/>
                                                     </form>
-                                                ) : (dayData[field] || '--:--')}
+                                                ) : (
+                                                    <span className="flex items-center justify-center">
+                                                        {dayData[`${field}_manual`] && <FontAwesomeIcon icon={faUserEdit} title="Editado manualmente" className="text-blue-500 mr-2 h-3" />}
+                                                        {dayData[field] || '--:--'}
+                                                    </span>
+                                                )}
                                             </td>
                                         ))}
+                                        {/* ***** FIM DA MODIFICAÇÃO ***** */}
+
                                         <td className="border p-2 text-center font-semibold">{calculateTotalHours(dayData)}</td>
-                                        <td className="border p-2 text-center">{dayData.obs || ''}</td>
+                                        
+                                        {/* Célula de Abono (não foi modificada, mas mantida) */}
+                                        <td className="border p-2 text-center min-w-[150px]">
+                                             {abonoTypes.find(t => t.id === abonoDoDia?.tipo_abono_id)?.descricao || '--'}
+                                        </td>
+                                        
+                                        {/* ***** INÍCIO DA MODIFICAÇÃO: Exibição da observação final ***** */}
+                                        <td className="border p-2 text-left min-w-[250px] text-xs">
+                                            {dayData.observacao_final || '--'}
+                                        </td>
+                                        {/* ***** FIM DA MODIFICAÇÃO ***** */}
                                     </tr>
                                 );
                             })}
