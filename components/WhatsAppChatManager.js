@@ -102,33 +102,20 @@ export default function WhatsAppChatManager({ contatos }) {
     const audioChunksRef = useRef([]);
 
     // Efeito para organizar e ordenar contatos com base na última mensagem
+    // Agora o `contatos` já vem pré-ordenado e com a última mensagem
     useEffect(() => {
-        const organizeAndSortContacts = () => {
-            const safeContatos = Array.isArray(contatos) ? contatos : [];
-
-            if (safeContatos.length === 0) { 
-                setDisplayContacts([]); 
-                setIsLoadingContacts(false); 
-                return; 
-            }
-            setIsLoadingContacts(true);
-            
-            // Os contatos já vêm pré-ordenados pelo fetchWhatsappData em crm/page.js
-            // Agora apenas filtramos e atualizamos o estado local
-            setDisplayContacts(safeContatos); 
+        if (contatos) {
+            setDisplayContacts(contatos);
             setIsLoadingContacts(false);
-        };
-        organizeAndSortContacts();
-    }, [contatos, refreshTrigger]);
+        }
+    }, [contatos, refreshTrigger]); // Adicionado refreshTrigger aqui para re-renderizar quando uma nova mensagem chega
 
     // Filtra contatos com base no termo de busca
     const filteredContacts = useMemo(() => {
         if (!searchTerm) { return displayContacts; }
         return displayContacts.filter(contact => { 
             const name = (contact.nome || contact.razao_social || '').toLowerCase(); 
-            // Tenta obter o telefone principal ou o primeiro disponível para a busca
-            const primaryPhoneNumber = contact.telefones?.find(t => t.tipo === 'principal' || t.tipo === null)?.telefone || contact.telefones?.[0]?.telefone || '';
-            const phone = primaryPhoneNumber.toLowerCase(); 
+            const phone = (contact.telefones?.[0]?.telefone || '').toLowerCase(); 
             return name.includes(searchTerm.toLowerCase()) || phone.includes(searchTerm.toLowerCase()); 
         });
     }, [displayContacts, searchTerm]);
@@ -195,6 +182,8 @@ export default function WhatsAppChatManager({ contatos }) {
                         );
                     }
                     // Dispara a atualização da lista de contatos para reordená-los
+                    // Isso irá disparar o useEffect que depende de `contatos` e `refreshTrigger` no `page.js`
+                    // para rebuscar e reordenar, e então `WhatsAppChatManager` vai receber o `contatos` atualizado
                     setRefreshTrigger(prev => prev + 1);
                 }
             )
@@ -395,6 +384,8 @@ export default function WhatsAppChatManager({ contatos }) {
             else if (textToSend) { 
                 await sendWhatsAppText(phoneNumber, textToSend); 
             }
+            // Dispara a atualização da lista de contatos para reordená-los após o envio
+            setRefreshTrigger(prev => prev + 1);
         } catch (error) {
             console.error("Falha no processo de envio:", error); 
             alert(`Erro ao enviar: ${error.message}`);
@@ -479,9 +470,9 @@ export default function WhatsAppChatManager({ contatos }) {
                                         </p>
                                     </div>
                                 </div>
-                                {contact.lastMessageDate && (
+                                {contact.last_whatsapp_message_time && (
                                     <p className="text-xs text-gray-400 mt-1">
-                                        Última: {new Date(contact.lastMessageDate).toLocaleTimeString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                        Última: {new Date(contact.last_whatsapp_message_time).toLocaleTimeString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                                     </p>
                                 )}
                             </li>
