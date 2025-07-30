@@ -107,7 +107,7 @@ export default function PontoImporter({ employees, onImport, showToast }) {
     }
     
     setIsProcessing(true);
-    showToast(`Sobrescrevendo ${recordsToInsert.length} registros...`, 'info');
+    showToast(`Importando ${recordsToInsert.length} registros...`, 'info');
     
     const recordsForDb = recordsToInsert.map(rec => ({
       funcionario_id: rec.funcionario_id,
@@ -116,17 +116,18 @@ export default function PontoImporter({ employees, onImport, showToast }) {
       observacao: 'Importado via arquivo TXT'
     }));
 
-    // *** MUDANÇA PRINCIPAL AQUI ***
-    // Chama a nova função segura no banco de dados
-    const { error } = await supabase.rpc('sobrescrever_registros_ponto', {
+    // ***** INÍCIO DA MODIFICAÇÃO *****
+    // Chama a nova função segura no banco de dados que não sobrescreve dados
+    const { error } = await supabase.rpc('importar_registros_ponto_se_vazio', {
         novos_registros: recordsForDb
     });
+    // ***** FIM DA MODIFICAÇÃO *****
 
     if (error) {
-      showToast(`Erro ao sobrescrever os registros: ${error.message}`, 'error');
+      showToast(`Erro ao importar os registros: ${error.message}`, 'error');
       console.error(error);
     } else {
-      showToast(`${recordsToInsert.length} registros foram importados e sobrescritos com sucesso!`, 'success');
+      showToast(`${recordsToInsert.length} registros foram importados com sucesso! Campos já preenchidos foram ignorados.`, 'success');
       setFile(null);
       setProcessedRecords([]);
       setSummary({ ready: 0, errors: 0 });
@@ -138,10 +139,12 @@ export default function PontoImporter({ employees, onImport, showToast }) {
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Importar e Sobrescrever Ponto (.txt)</h2>
+        {/* ***** INÍCIO DA MODIFICAÇÃO: Textos atualizados ***** */}
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">Importar Ponto (.txt)</h2>
         <p className="text-sm text-gray-600 mb-4">
-          Selecione o arquivo de ponto. O sistema irá apagar os registros antigos dos dias e funcionários contidos no arquivo e inserir os novos.
+          Selecione o arquivo de ponto. O sistema irá adicionar as batidas de ponto apenas nos campos que estiverem vazios. <strong>Registros manuais ou já existentes não serão sobrescritos.</strong>
         </p>
+        {/* ***** FIM DA MODIFICAÇÃO ***** */}
         <input
           type="file"
           accept=".txt"
@@ -184,13 +187,15 @@ export default function PontoImporter({ employees, onImport, showToast }) {
             </table>
           </div>
           <div className="mt-6 text-right">
+            {/* ***** INÍCIO DA MODIFICAÇÃO: Textos atualizados ***** */}
             <button
               onClick={handleImport}
               disabled={isProcessing || summary.ready === 0}
               className="bg-green-600 text-white px-6 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {isProcessing ? 'Sobrescrevendo...' : `Confirmar e Sobrescrever ${summary.ready} Registros`}
+              {isProcessing ? 'Importando...' : `Confirmar e Importar ${summary.ready} Registros`}
             </button>
+            {/* ***** FIM DA MODIFICAÇÃO ***** */}
           </div>
         </div>
       )}
