@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileCsv, faSpinner, faArrowRight, faCogs, faMagic, faCheckCircle, faPlusCircle, faBan, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { faFileCsv, faSpinner, faArrowRight, faCogs, faMagic, faCheckCircle, faPlusCircle, faBan, faExclamationTriangle, faBuilding } from '@fortawesome/free-solid-svg-icons';
 import Papa from 'papaparse';
 
 // Componente para um único passo no assistente
@@ -37,6 +37,12 @@ export default function ImportacaoFinanceiraManager() {
     const supabase = createClient();
     const { user } = useAuth();
     const [step, setStep] = useState(1);
+    
+    // ***** INÍCIO DA MODIFICAÇÃO *****
+    const [empresas, setEmpresas] = useState([]);
+    const [selectedEmpresaId, setSelectedEmpresaId] = useState('');
+    // ***** FIM DA MODIFICAÇÃO *****
+
     const [file, setFile] = useState(null);
     const [fileHeaders, setFileHeaders] = useState([]);
     const [fileData, setFileData] = useState([]);
@@ -58,10 +64,7 @@ export default function ImportacaoFinanceiraManager() {
         { key: 'data_transacao', label: 'Data da Transação *' },
         { key: 'descricao', label: 'Descrição *' },
         { key: 'valor', label: 'Valor *' },
-        // ***** INÍCIO DA CORREÇÃO *****
-        // Adicionada a coluna 'tipo' para mapeamento
         { key: 'tipo', label: 'Tipo (Receita/Despesa) *' },
-        // ***** FIM DA CORREÇÃO *****
         { key: 'conta_nome', label: 'Conta (Nome) *' },
         { key: 'categoria_nome', label: 'Categoria (Nome)' },
         { key: 'contato_nome', label: 'Contato/Favorecido (Nome)' },
@@ -70,6 +73,24 @@ export default function ImportacaoFinanceiraManager() {
         { key: 'observacao', label: 'Observação' },
     ];
     
+    // ***** INÍCIO DA MODIFICAÇÃO *****
+    // Carrega a lista de empresas quando o componente é montado
+    useEffect(() => {
+        const fetchEmpresas = async () => {
+            const { data, error } = await supabase
+                .from('cadastro_empresa')
+                .select('id, nome_fantasia, razao_social');
+            if (error) {
+                console.error('Erro ao buscar empresas:', error);
+                setMessage('Erro ao carregar a lista de empresas.');
+            } else {
+                setEmpresas(data);
+            }
+        };
+        fetchEmpresas();
+    }, [supabase]);
+    // ***** FIM DA MODIFICAÇÃO *****
+
     const loadSystemData = useCallback(async () => {
         setIsProcessing(true);
         const [contasRes, categoriasRes, empreendimentosRes, contatosRes] = await Promise.all([
@@ -94,12 +115,16 @@ export default function ImportacaoFinanceiraManager() {
         if (selectedFile) {
             setFile(selectedFile);
             setMessage(`Arquivo "${selectedFile.name}" selecionado.`);
-            setStep(1);
         }
     };
 
     const processStep1 = () => {
+        // ***** INÍCIO DA MODIFICAÇÃO *****
+        // Adicionada verificação para garantir que uma empresa foi selecionada
+        if (!selectedEmpresaId) { setMessage("Por favor, selecione uma empresa para continuar."); return; }
+        // ***** FIM DA MODIFICAÇÃO *****
         if (!file) { setMessage("Por favor, selecione um arquivo CSV."); return; }
+        
         setIsProcessing(true);
         Papa.parse(file, {
             header: true, skipEmptyLines: true, delimiter: ";",
@@ -118,13 +143,10 @@ export default function ImportacaoFinanceiraManager() {
     };
 
     const processStep2 = () => {
-        // ***** INÍCIO DA CORREÇÃO *****
-        // Adicionada verificação para o campo 'tipo'
         if (!mappings.data_transacao || !mappings.descricao || !mappings.valor || !mappings.conta_nome || !mappings.tipo) {
             setMessage("Por favor, mapeie os campos obrigatórios: Data, Descrição, Valor, Conta e Tipo.");
             return;
         }
-        // ***** FIM DA CORREÇÃO *****
         setIsProcessing(true);
         const uniqueContas = new Set();
         const uniqueCategorias = new Map();
@@ -140,7 +162,6 @@ export default function ImportacaoFinanceiraManager() {
             if (categoriaNome) {
                 const trimmedNome = categoriaNome.trim();
                 if (!uniqueCategorias.has(trimmedNome)) {
-                    // Agora, o tipo vem diretamente da coluna mapeada
                     const tipo = row[mappings.tipo]?.toLowerCase().includes('receita') ? 'Receita' : 'Despesa';
                     uniqueCategorias.set(trimmedNome, tipo);
                 }
@@ -195,7 +216,11 @@ export default function ImportacaoFinanceiraManager() {
             setProgress({ current: 0, total: itemsToInsert.length });
             
             const tableName = type === 'contatos' ? 'contatos' : (type === 'empreendimentos' ? 'empreendimentos' : `${type}_financeiras`);
-            const { error } = await supabase.from(tableName).insert(itemsToInsert);
+            // ***** INÍCIO DA MODIFICAÇÃO *****
+            // Adiciona o ID da empresa ao criar novas contas ou contatos
+            const itemsWithEmpresaId = itemsToInsert.map(item => ({ ...item, empresa_id: selectedEmpresaId }));
+            const { error } = await supabase.from(tableName).insert(itemsWithEmpresaId);
+            // ***** FIM DA MODIFICAÇÃO *****
             
             setProgress({ current: itemsToInsert.length, total: itemsToInsert.length });
             if (error) {
@@ -300,10 +325,7 @@ export default function ImportacaoFinanceiraManager() {
             const { id: conta_id, error: contaError } = getItemId('contas', contaNome);
             if (contaError || !conta_id) { results.failed.push({ row, error: contaError || `Conta '${contaNome}' é obrigatória.` }); continue; }
             
-            // ***** INÍCIO DA CORREÇÃO *****
-            // Usa a coluna mapeada 'tipo' para determinar a natureza do lançamento
             const tipoLancamento = row[mappings.tipo]?.toLowerCase().includes('receita') ? 'Receita' : 'Despesa';
-            // ***** FIM DA CORREÇÃO *****
 
             const categoriaPath = row[mappings.categoria_nome]?.trim();
             const empreendimentoNome = row[mappings.empreendimento_nome]?.trim();
@@ -315,11 +337,15 @@ export default function ImportacaoFinanceiraManager() {
             const { id: favorecido_contato_id } = getItemId('contatos', contatoNome);
 
             lancamentosToInsert.push({
+                // ***** INÍCIO DA MODIFICAÇÃO *****
+                // Adiciona o ID da empresa selecionada em cada lançamento
+                empresa_id: selectedEmpresaId,
+                // ***** FIM DA MODIFICAÇÃO *****
                 criado_por_usuario_id: user.id,
                 data_transacao: dataTransacao, 
                 descricao: row[mappings.descricao], 
                 valor: Math.abs(valor),
-                tipo: tipoLancamento, // Utiliza a variável corrigida
+                tipo: tipoLancamento,
                 status: situacao.includes('pago') || situacao.includes('conciliado') ? 'Pago' : 'Pendente',
                 data_pagamento: situacao.includes('pago') || situacao.includes('conciliado') ? dataTransacao : null,
                 conciliado: situacao.includes('conciliado'), 
@@ -375,16 +401,60 @@ export default function ImportacaoFinanceiraManager() {
                 </div>
             )}
 
+            {/*// ***** INÍCIO DA MODIFICAÇÃO ***** */}
+            {/* Adicionado o seletor de empresa e alterada a estrutura do passo 1 */}
             {step === 1 && (
-                <div className="text-center space-y-4 p-8 border-dashed border-2 rounded-lg">
-                    <FontAwesomeIcon icon={faFileCsv} className="text-5xl text-gray-400"/>
-                    <h3 className="text-lg font-semibold">Selecione seu arquivo CSV</h3>
-                    <input type="file" accept=".csv" onChange={handleFileSelect} className="mx-auto block text-sm"/>
-                    <button onClick={processStep1} disabled={!file || isProcessing} className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
+                <div className="text-center space-y-6 p-8 border-dashed border-2 rounded-lg">
+                     <FontAwesomeIcon icon={faBuilding} className="text-5xl text-gray-400 mb-2"/>
+                    <h3 className="text-xl font-semibold">Iniciando a Importação Financeira</h3>
+                    <p className="text-sm text-gray-600">Siga os passos para importar seus lançamentos.</p>
+                    
+                    <div className="max-w-md mx-auto text-left">
+                        <label htmlFor="empresa-select" className="block text-sm font-medium text-gray-700 mb-1">
+                            1. Para qual empresa você está importando? <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                            id="empresa-select"
+                            value={selectedEmpresaId}
+                            onChange={(e) => setSelectedEmpresaId(e.target.value)}
+                            className="w-full p-2 border rounded-md shadow-sm"
+                        >
+                            <option value="">-- Escolha uma empresa --</option>
+                            {empresas.map(empresa => (
+                                <option key={empresa.id} value={empresa.id}>
+                                    {empresa.nome_fantasia || empresa.razao_social}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="max-w-md mx-auto text-left">
+                         <label htmlFor="file-input" className="block text-sm font-medium text-gray-700 mb-1">
+                            2. Selecione o arquivo CSV <span className="text-red-500">*</span>
+                         </label>
+                        <div className="flex items-center justify-center w-full">
+                            <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <FontAwesomeIcon icon={faFileCsv} className="w-8 h-8 mb-2 text-gray-500"/>
+                                    <p className="mb-1 text-sm text-gray-500">
+                                        <span className="font-semibold">{file ? file.name : 'Clique para selecionar'}</span>
+                                    </p>
+                                </div>
+                                <input id="file-input" type="file" className="hidden" accept=".csv" onChange={handleFileSelect}/>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <button 
+                        onClick={processStep1} 
+                        disabled={!file || !selectedEmpresaId || isProcessing} 
+                        className="bg-blue-600 text-white px-8 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all"
+                    >
                         {isProcessing ? <FontAwesomeIcon icon={faSpinner} spin /> : <>Avançar <FontAwesomeIcon icon={faArrowRight} /></>}
                     </button>
                 </div>
             )}
+            {/*// ***** FIM DA MODIFICAÇÃO ***** */}
             
             {step === 2 && (
                 <div className="space-y-4">

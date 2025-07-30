@@ -56,14 +56,12 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         .eq('data_entrega_prevista', rdoData.data_relatorio);
       setPedidosPrevistos(pedidosData || []);
 
-      // 1. Buscar todos os RDOs anteriores para este empreendimento
       const { data: pastRdos } = await supabase
         .from('diarios_obra')
         .select('status_atividades')
         .eq('empreendimento_id', empreendimentoId)
         .lt('data_relatorio', rdoData.data_relatorio);
 
-      // 2. Criar um conjunto (Set) com os IDs de todas as tarefas já concluídas
       const completedActivityIds = new Set();
       if (pastRdos) {
         pastRdos.forEach(rdo => {
@@ -75,13 +73,11 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         });
       }
 
-      // 3. Buscar todas as atividades do empreendimento
       const { data: activitiesData } = await supabase
         .from('activities')
         .select('id, nome, status, tipo_atividade')
         .eq('empreendimento_id', empreendimentoId);
 
-      // 4. Filtrar a lista de atividades para remover as já concluídas e as entregas de pedido
       const filteredActivities = (activitiesData || []).filter(act => 
         act.tipo_atividade !== 'Entrega de Pedido' && 
         !act.nome.startsWith('Entrega Pedido') && 
@@ -259,6 +255,33 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
     if (error) setMessage(`Erro: ${error.message}`);
     else setAllOccurrences(prev => prev.filter(occ => occ.id !== occurrenceId));
   };
+    
+  // ***** INÍCIO DA MODIFICAÇÃO *****
+  // Nova função para atualizar o texto de uma ocorrência no estado local
+  const handleOccurrenceChange = (occurrenceId, newDescription) => {
+    if (isRdoLocked) return;
+    setAllOccurrences(prev => prev.map(occ =>
+        occ.id === occurrenceId ? { ...occ, descricao: newDescription } : occ
+    ));
+  };
+
+  // Nova função para salvar a ocorrência editada no banco de dados
+  const handleSaveOccurrence = async (occurrenceId, description) => {
+    if (isRdoLocked) return;
+    setMessage('Salvando...');
+    const { error } = await supabase
+        .from('ocorrencias')
+        .update({ descricao: description })
+        .eq('id', occurrenceId);
+    
+    if (error) {
+        setMessage(`Erro ao atualizar ocorrência: ${error.message}`);
+    } else {
+        setMessage('Ocorrência salva!');
+        setTimeout(() => setMessage(''), 2000);
+    }
+  };
+  // ***** FIM DA MODIFICAÇÃO *****
 
   const handlePhotoFileSelect = (e) => {
     if (e.target.files?.[0]) setCurrentPhotoFile(e.target.files[0]);
@@ -444,16 +467,30 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
               <button type="button" onClick={handleAddOccurrence} disabled={isRdoLocked || !currentNewOccurrence.descricao.trim()} className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 disabled:bg-gray-400">Adicionar</button>
             </div>
           )}
+          {/*// ***** INÍCIO DA MODIFICAÇÃO ***** */}
+          {/* A lista de ocorrências agora tem um campo de texto editável */}
           <ul className="divide-y border rounded-md">
             {allOccurrences.map((occ) => (
-              <li key={occ.id} className="p-3 flex justify-between items-center text-sm">
-                <div><span className="font-semibold">{occ.tipo}:</span> {occ.descricao} <span className="text-xs text-gray-500">({new Date(occ.created_at).toLocaleString('pt-BR')})</span></div>
-                {hasPermission('rdo', 'pode_excluir') && (
-                  <button type="button" onClick={() => handleRemoveOccurrence(occ.id)} disabled={isRdoLocked} className="text-red-500 hover:text-red-700 disabled:opacity-50">&times;</button>
-                )}
-              </li>
+                <li key={occ.id} className="p-3 flex justify-between items-center gap-2 text-sm">
+                    <div className="flex-grow flex items-center gap-2">
+                        <span className="font-semibold">{occ.tipo}:</span>
+                        <input
+                            type="text"
+                            value={occ.descricao}
+                            onChange={(e) => handleOccurrenceChange(occ.id, e.target.value)}
+                            onBlur={(e) => handleSaveOccurrence(occ.id, e.target.value)}
+                            disabled={isRdoLocked}
+                            className="flex-grow p-1 border border-gray-300 rounded-md disabled:bg-gray-100 disabled:border-transparent w-full"
+                        />
+                        <span className="text-xs text-gray-500 whitespace-nowrap">({new Date(occ.created_at).toLocaleString('pt-BR')})</span>
+                    </div>
+                    {hasPermission('rdo', 'pode_excluir') && (
+                        <button type="button" onClick={() => handleRemoveOccurrence(occ.id)} disabled={isRdoLocked} className="text-red-500 hover:text-red-700 disabled:opacity-50 text-xl font-bold">&times;</button>
+                    )}
+                </li>
             ))}
           </ul>
+          {/*// ***** FIM DA MODIFICAÇÃO ***** */}
         </div>
 
         <div>
