@@ -19,9 +19,11 @@ export default function TransferenciaFinder() {
         const findTransfers = async () => {
             setLoading(true);
             setMessage('');
+            
+            // ***** CORREÇÃO ***** Adicionamos a sintaxe específica !conta_id para resolver a ambiguidade
             const { data, error } = await supabase
                 .from('lancamentos')
-                .select('*, conta:conta_id(nome)')
+                .select('*, conta:contas_financeiras!conta_id(nome)')
                 .in('tipo', ['Receita', 'Despesa'])
                 .order('data_transacao', { ascending: false });
 

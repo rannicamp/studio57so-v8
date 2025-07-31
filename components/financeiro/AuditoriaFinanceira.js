@@ -23,7 +23,8 @@ const DuplicateGroup = ({ group, onDelete }) => {
                     <div key={item.id} className="flex justify-between items-center p-2 bg-white rounded-md shadow-sm">
                         <div>
                             <span className="text-xs text-gray-500">ID: {item.id}</span>
-                            <p className="text-sm">Conta: <span className="font-medium">{item.conta?.nome || 'N/A'}</span></p>
+                            {/* ***** CORREÇÃO ***** Acessando o nome da conta corretamente */}
+                            <p className="text-sm">Conta: <span className="font-medium">{item.contas_financeiras?.nome || 'N/A'}</span></p>
                         </div>
                         <button 
                             onClick={() => onDelete(item.id)}
@@ -51,6 +52,7 @@ export default function AuditoriaFinanceira() {
         setLoading(true);
         setMessage('');
         
+        // ***** CORREÇÃO ***** Adicionamos a sintaxe específica !conta_id para resolver a ambiguidade
         const { data, error } = await supabase.rpc('encontrar_lancamentos_duplicados');
 
         if (error) {

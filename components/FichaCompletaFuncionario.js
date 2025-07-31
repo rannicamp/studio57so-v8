@@ -34,8 +34,8 @@ const CadastroChecklist = ({ employee }) => {
             { label: 'Comprovante de Residência', type: 'document', siglas: ['CRES'] },
             { label: 'ASO Admissional', type: 'document', siglas: ['AAD'] },
             { label: 'Contrato de Experiência', type: 'document', siglas: ['CTE'] },
-            { label: 'Recibo de Entrega de Uniforme', type: 'document', siglas: ['CRE'] },
-            { label: 'Controle de EPI', type: 'document', siglas: ['CRE'] },
+            { label: 'Recibo de Entrega de Uniforme', type: 'document', siglas: ['REU'] },
+            { label: 'Controle de EPI', type: 'document', siglas: ['EPI'] },
             { label: 'Termo de Vale Transporte (VT)', type: 'document', siglas: ['VT', 'TRN'] },
         ];
 
@@ -233,6 +233,7 @@ const FinanceiroSection = ({ lancamentos, onEditLancamento }) => {
                                 <tr key={lanc.id} onClick={() => onEditLancamento(lanc)} className="hover:bg-blue-50 cursor-pointer">
                                     <td className="px-4 py-3 text-sm">{formatDate(lanc.data_transacao)}</td>
                                     <td className="px-4 py-3 text-sm font-medium">{lanc.descricao}</td>
+                                    {/* ***** CORREÇÃO ***** Acessando o nome da conta corretamente */}
                                     <td className="px-4 py-3 text-sm text-gray-600">{lanc.conta?.nome || 'N/A'}</td>
                                     <td className={`px-4 py-3 text-sm text-right font-bold ${lanc.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>
                                         {formatCurrency(lanc.valor, lanc.tipo)}
@@ -258,11 +259,11 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
             setLancamentos([]);
             return;
         }
-        // ***** CORREÇÃO APLICADA AQUI *****
-        // A query agora busca os dados do favorecido junto com o lançamento
+        
+        // ***** CORREÇÃO ***** Adicionamos a sintaxe específica !conta_id para resolver a ambiguidade
         const { data: lancamentosData, error: lancamentosError } = await supabase
             .from('lancamentos')
-            .select('*, conta:conta_id(nome), favorecido:favorecido_contato_id(nome, razao_social)')
+            .select('*, conta:contas_financeiras!conta_id(nome), favorecido:favorecido_contato_id(nome, razao_social)')
             .eq('favorecido_contato_id', employee.contato_id)
             .order('data_transacao', { ascending: false });
     

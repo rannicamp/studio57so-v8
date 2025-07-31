@@ -80,10 +80,11 @@ export default function FinanceiroPage() {
             if (currentStartDate !== newStartDateStr || currentEndDate !== newEndDateStr) {
                 setFilters(prev => ({ ...prev, startDate: newStartDateStr, endDate: newEndDateStr }));
             }
-        } else if (currentStartDate || currentEndDate) {
-            setFilters(prev => ({ ...prev, startDate: '', endDate: '' }));
+        } else if (!month && (currentStartDate || currentEndDate)) {
+             // Se o ano for limpo mas o mês não, não limpa as datas
+             // para permitir filtro só por mês em todos os anos (se essa for a lógica desejada)
         }
-    }, [filters]);
+    }, [filters.month, filters.year]);
 
     const applyFiltersToQuery = useCallback((query, currentFilters) => {
         if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
@@ -115,11 +116,11 @@ export default function FinanceiroPage() {
         const to = from + itemsPerPage - 1;
 
         // ***** INÍCIO DA CORREÇÃO *****
-        // A sintaxe da consulta foi corrigida para usar o padrão "apelido:tabela_real(*)"
-        // que o banco de dados entende. Isso corrige os erros em cascata.
+        // A sintaxe da consulta foi corrigida para usar o padrão "apelido:tabela_real!coluna_fk(*)"
+        // para resolver a ambiguidade de qual relação usar, especialmente para 'contas_financeiras'.
         const selectString = `
             *,
-            conta:contas_financeiras(*, empresa:cadastro_empresa(id, nome_fantasia, razao_social)),
+            conta:contas_financeiras!conta_id(*, empresa:cadastro_empresa(id, nome_fantasia, razao_social)),
             categoria:categorias_financeiras(*),
             favorecido:contatos!favorecido_contato_id(*),
             empreendimento:empreendimentos(*, empresa:cadastro_empresa!empresa_proprietaria_id(id, nome_fantasia, razao_social)),
@@ -209,7 +210,7 @@ export default function FinanceiroPage() {
             supabase.from('cadastro_empresa').select('*').order('nome_fantasia'),
             supabase.from('contas_financeiras').select('*, empresa:empresa_id(*)').order('nome'),
             supabase.from('categorias_financeiras').select('*').order('nome'),
-            supabase.from('empreendimentos').select('*, empresa:empresa_proprietaria_id(nome_fantasia, razao_social)').order('nome'),
+            supabase.from('empreendimentos').select('*, empresa:cadastro_empresa!empresa_proprietaria_id(nome_fantasia, razao_social)').order('nome'),
             supabase.from('contatos').select('id, nome, razao_social').order('nome'),
             supabase.from('funcionarios').select('id, full_name').order('full_name')
         ]);
