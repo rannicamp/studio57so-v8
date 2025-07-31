@@ -1,3 +1,5 @@
+// V8 APP E COMPONENTS/components/sidebar.js
+
 "use client";
 
 import Link from 'next/link';
@@ -14,7 +16,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
     {
       title: 'Administrativo',
       items: [
-        { href: '/', label: 'Dashboard', icon: faTachometerAlt },
+        { href: '/', label: 'Painel', icon: faTachometerAlt }, // <<<< ALTERADO: Dashboard para Painel
         { href: '/financeiro', label: 'Financeiro', icon: faDollarSign },
         { href: '/funcionarios', label: 'Funcionários', icon: faUsers },
         { href: '/ponto', label: 'Controle de Ponto', icon: faClock },
@@ -41,12 +43,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
     }
   ];
 
-  // ***** INÍCIO DA ALTERAÇÃO *****
-  // Adicionado um array para o item de feedback que é sempre visível.
   const bottomNavAlwaysVisible = [
       { href: '/configuracoes/feedback/enviar', label: 'Enviar Feedback', icon: faInbox },
   ];
-  // ***** FIM DA ALTERAÇÃO *****
 
   const bottomNavItems = [
     isAdmin && { href: '/configuracoes', label: 'Configurações', icon: faCog },
@@ -96,8 +95,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
       </nav>
       <nav className="mt-auto mb-2 flex-shrink-0">
         <ul>
-          {/* ***** INÍCIO DA ALTERAÇÃO ***** */}
-          {/* Renderiza o link de feedback para todos os usuários */}
           {bottomNavAlwaysVisible.map((item) => (
             <li key={item.label}>
               <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
@@ -106,7 +103,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
               </Link>
             </li>
           ))}
-          {/* ***** FIM DA ALTERAÇÃO ***** */}
           
           {bottomNavItems.map((item) => (
             item && (
