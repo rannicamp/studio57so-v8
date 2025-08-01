@@ -77,15 +77,16 @@ export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, on
             className="relative bg-white p-3 rounded-md shadow border-l-4 border-blue-500 cursor-grab hover:shadow-lg transition-shadow duration-200 text-left"
         >
             <div className="flex justify-between items-start mb-1">
-                {/* Número do Card no canto superior esquerdo do cabeçalho */}
-                {cardNumber !== undefined && cardNumber !== null && (
-                    <span className="text-sm font-bold text-blue-600 mr-2">
-                        #{cardNumber}
-                    </span>
-                )}
-                {/* Nome do Cliente/Razão Social */}
-                <div className="font-semibold text-gray-800 text-sm flex-grow pr-10">
-                    {displayName}
+                {/* Cabeçalho do Card: Número e Nome */}
+                <div className="flex items-center flex-grow">
+                    {cardNumber !== undefined && cardNumber !== null && (
+                        <span className="text-sm font-bold text-blue-600 mr-2">
+                            #{cardNumber}
+                        </span>
+                    )}
+                    <div className="font-semibold text-gray-800 text-sm pr-10">
+                        {displayName}
+                    </div>
                 </div>
 
                 {/* Menu de três pontinhos no canto superior direito */}
