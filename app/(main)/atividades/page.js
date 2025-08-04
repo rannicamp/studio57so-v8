@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../../../utils/supabase/client';
+import { useRouter } from 'next/navigation'; // Importar useRouter
+import { useAuth } from '../../../contexts/AuthContext'; // Importar useAuth
 import AtividadeModal from '../../../components/AtividadeModal';
 import ActivityList from '../../../components/ActivityList';
 import GanttChart from '../../../components/GanttChart';
@@ -11,15 +13,23 @@ import KpiCard from '../../../components/KpiCard';
 import { useLayout } from '../../../contexts/LayoutContext';
 import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory } from '@fortawesome/free-solid-svg-icons';
+import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory, faLock, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import MultiSelectDropdown from '../../../components/financeiro/MultiSelectDropdown';
 
 
 export default function AtividadesPage() {
     const supabase = createClient();
+    const router = useRouter();
+    const { hasPermission, loading: authLoading } = useAuth();
     const { setPageTitle } = useLayout();
     const { selectedEmpreendimento, empreendimentos } = useEmpreendimento();
     
+    // Permissões
+    const canViewPage = hasPermission('atividades', 'pode_ver');
+    const canCreate = hasPermission('atividades', 'pode_criar');
+    const canEdit = hasPermission('atividades', 'pode_editar');
+    const canDelete = hasPermission('atividades', 'pode_excluir');
+
     const [allActivities, setAllActivities] = useState([]);
     const [filteredActivities, setFilteredActivities] = useState([]);
     
@@ -35,8 +45,6 @@ export default function AtividadesPage() {
 
     const [allEmpresas, setAllEmpresas] = useState([]);
 
-    // **INÍCIO DA CORREÇÃO DO ERRO #1**
-    // Inicializa o estado dos filtros com um valor padrão, sem acessar o localStorage.
     const [filters, setFilters] = useState({
         empresa: '',
         empreendimento: '',
@@ -45,7 +53,12 @@ export default function AtividadesPage() {
         selectedDate: '' 
     });
 
-    // Usa useEffect para carregar os filtros do localStorage de forma segura, apenas no lado do cliente.
+    useEffect(() => {
+        if (!authLoading && !canViewPage) {
+            router.push('/');
+        }
+    }, [authLoading, canViewPage, router]);
+
     useEffect(() => {
         try {
             const savedFilters = localStorage.getItem('atividadesFilters');
@@ -62,7 +75,6 @@ export default function AtividadesPage() {
         }
     }, []); 
 
-    // Salva os filtros no navegador sempre que eles são alterados.
     useEffect(() => {
         try {
             localStorage.setItem('atividadesFilters', JSON.stringify(filters));
@@ -70,7 +82,6 @@ export default function AtividadesPage() {
             console.error("Falha ao salvar filtros no localStorage", error);
         }
     }, [filters]);
-    // **FIM DA CORREÇÃO DO ERRO #1**
 
     const kpiData = useMemo(() => {
         const today = new Date();
@@ -106,9 +117,11 @@ export default function AtividadesPage() {
     }, [supabase]);
 
     useEffect(() => {
-        setPageTitle('Painel de Atividades');
-        fetchPageData();
-    }, [setPageTitle, fetchPageData]);
+        if (canViewPage) {
+            setPageTitle('Painel de Atividades');
+            fetchPageData();
+        }
+    }, [setPageTitle, fetchPageData, canViewPage]);
 
     const fetchAllActivities = useCallback(async () => {
         setLoading(true);
@@ -163,10 +176,10 @@ export default function AtividadesPage() {
 
 
     useEffect(() => {
-        if (selectedEmpreendimento !== null) {
+        if (canViewPage && selectedEmpreendimento !== null) {
             fetchAllActivities();
         }
-    }, [selectedEmpreendimento, fetchAllActivities]);
+    }, [selectedEmpreendimento, fetchAllActivities, canViewPage]);
 
     const handleEditClick = (activity) => { setEditingActivity(activity); setIsModalOpen(true); };
     const handleDeleteClick = async (activityId) => {
@@ -237,6 +250,19 @@ export default function AtividadesPage() {
         { id: 'Cancelado', text: 'Cancelado' }
     ];
 
+    if (authLoading || loading) {
+        return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando...</div>;
+    }
+
+    if (!canViewPage) {
+        return (
+            <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg">
+                <FontAwesomeIcon icon={faLock} size="3x" className="text-red-400 mb-4" />
+                <h2 className="text-2xl font-bold text-red-700">Acesso Negado</h2>
+                <p className="mt-2 text-red-600">Você não tem permissão para aceder a esta página.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -245,7 +271,9 @@ export default function AtividadesPage() {
                     <h2 className="text-xl font-semibold">
                         {selectedEmpreendimentoObj?.nome || 'Todas as Atividades'}
                     </h2>
-                    <button onClick={() => handleEditClick(null)} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 w-full md:w-auto mt-2 md:mt-0">+ Nova Atividade</button>
+                    {canCreate && (
+                        <button onClick={() => handleEditClick(null)} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 w-full md:w-auto mt-2 md:mt-0">+ Nova Atividade</button>
+                    )}
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 border-t pt-4">
@@ -304,8 +332,8 @@ export default function AtividadesPage() {
             <div className="mt-4">
                 {loading || selectedEmpreendimento === null ? <p className="text-center p-10">Carregando atividades...</p> : (
                     <>
-                        {activeTab === 'kanban' && <KanbanBoard activities={filteredActivities} onEditActivity={handleEditClick} onStatusChange={handleStatusChange} />}
-                        {activeTab === 'list' && <ActivityList activities={filteredActivities} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onStatusChange={handleStatusChange} />}
+                        {activeTab === 'kanban' && <KanbanBoard activities={filteredActivities} onEditActivity={handleEditClick} onStatusChange={handleStatusChange} canEdit={canEdit} />}
+                        {activeTab === 'list' && <ActivityList activities={filteredActivities} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} />}
                         {activeTab === 'gantt' && <GanttChart activities={filteredActivities} onEditActivity={handleEditClick} />}
                         {activeTab === 'calendar' && <ActivityCalendar activities={filteredActivities} onActivityClick={handleEditClick} />}
                     </>

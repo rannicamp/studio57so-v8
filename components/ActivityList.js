@@ -22,7 +22,7 @@ const formatDate = (dateStr) => {
     return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR');
 }
 
-export default function ActivityList({ activities, requestSort, sortConfig, onEditClick, onDeleteClick, onStatusChange }) {
+export default function ActivityList({ activities, requestSort, sortConfig, onEditClick, onDeleteClick, onStatusChange, canEdit, canDelete }) {
   const getSortIcon = (key) => {
     if (!sortConfig || sortConfig.key !== key) return <FontAwesomeIcon icon={faSort} className="text-gray-400" />;
     return sortConfig.direction === 'ascending' ? <FontAwesomeIcon icon={faSortUp} /> : <FontAwesomeIcon icon={faSortDown} />;
@@ -66,7 +66,13 @@ export default function ActivityList({ activities, requestSort, sortConfig, onEd
               <tr key={activity.id} className="hover:bg-gray-50">
                 <td className="px-4 py-4 whitespace-nowrap font-medium text-gray-900">{activity.nome}</td>
                 <td className="px-4 py-4 whitespace-nowrap">
-                  <select value={activity.status} onChange={(e) => onStatusChange(activity.id, e.target.value)} className={`w-full p-1 border rounded-md text-xs focus:ring-blue-500 focus:border-blue-500 ${statusColors[activity.status] || ''}`} onClick={(e) => e.stopPropagation()}>
+                  <select 
+                    value={activity.status} 
+                    onChange={(e) => onStatusChange(activity.id, e.target.value)} 
+                    disabled={!canEdit} // Desativa o select se não puder editar
+                    className={`w-full p-1 border rounded-md text-xs focus:ring-blue-500 focus:border-blue-500 ${statusColors[activity.status] || ''} ${!canEdit ? 'cursor-not-allowed' : ''}`} 
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <option>Não Iniciado</option><option>Em Andamento</option><option>Concluído</option><option>Pausado</option><option>Aguardando Material</option><option>Cancelado</option>
                   </select>
                 </td>
@@ -78,8 +84,12 @@ export default function ActivityList({ activities, requestSort, sortConfig, onEd
                   {isCompletedLate && <span className="block text-red-600 font-bold text-xs">({delayInDays} dias de atraso)</span>}
                 </td>
                 <td className="px-4 py-4 text-center space-x-2">
-                  <button onClick={() => onEditClick(activity)} className="bg-gray-200 text-gray-800 px-3 py-1 rounded-md text-xs font-medium hover:bg-gray-300">Editar</button>
-                  <button onClick={() => onDeleteClick(activity.id)} className="bg-red-500 text-white px-3 py-1 rounded-md text-xs font-medium hover:bg-red-600">Deletar</button>
+                  {canEdit && (
+                    <button onClick={() => onEditClick(activity)} className="bg-gray-200 text-gray-800 px-3 py-1 rounded-md text-xs font-medium hover:bg-gray-300">Editar</button>
+                  )}
+                  {canDelete && (
+                    <button onClick={() => onDeleteClick(activity.id)} className="bg-red-500 text-white px-3 py-1 rounded-md text-xs font-medium hover:bg-red-600">Deletar</button>
+                  )}
                 </td>
               </tr>
             );

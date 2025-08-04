@@ -12,7 +12,7 @@ import ConciliacaoManager from '../../../components/financeiro/ConciliacaoManage
 import LancamentoFormModal from '../../../components/financeiro/LancamentoFormModal';
 import KpiCard from '../../../components/KpiCard';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faCogs, faShieldAlt, faCalculator, faSpinner, faChartLine } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faCogs, faShieldAlt, faCalculator, faSpinner, faChartLine, faLock } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -38,6 +38,11 @@ export default function FinanceiroPage() {
     const { selectedEmpreendimento } = useEmpreendimento();
     const supabase = createClient();
     const router = useRouter();
+    const { hasPermission, loading: authLoading } = useAuth(); // <<< 1. Importar o hook de permissão
+
+    // Permissões
+    const canViewPage = hasPermission('financeiro', 'pode_ver');
+    const canCreate = hasPermission('financeiro', 'pode_criar');
 
     const [activeTab, setActiveTab] = useState('lancamentos');
     const [loading, setLoading] = useState(true);
@@ -69,6 +74,14 @@ export default function FinanceiroPage() {
     const [dashboardKpis, setDashboardKpis] = useState([]);
     const [loadingKpis, setLoadingKpis] = useState(true);
 
+    // <<< 2. Efeito para verificar permissão e redirecionar
+    useEffect(() => {
+        if (!authLoading && !canViewPage) {
+            router.push('/'); // Redireciona para o painel se não tiver permissão
+        }
+    }, [authLoading, canViewPage, router]);
+
+
     useEffect(() => {
         const { month, year, startDate: currentStartDate, endDate: currentEndDate } = filters;
         if (year) {
@@ -81,7 +94,6 @@ export default function FinanceiroPage() {
                 setFilters(prev => ({ ...prev, startDate: newStartDateStr, endDate: newEndDateStr }));
             }
         } else if (!month && (currentStartDate || currentEndDate)) {
-             // Lógica para limpar as datas se o ano for removido
         }
     }, [filters]);
 
@@ -194,7 +206,6 @@ export default function FinanceiroPage() {
     }, [selectedEmpreendimento, supabase]);
 
     const fetchInitialData = useCallback(async () => {
-        // ***** INÍCIO DA CORREÇÃO *****
         const [
             empresasRes, 
             contasRes, 
@@ -210,7 +221,6 @@ export default function FinanceiroPage() {
             supabase.from('contatos').select('id, nome, razao_social').order('nome'),
             supabase.from('funcionarios').select('id, full_name').order('full_name')
         ]);
-        // ***** FIM DA CORREÇÃO *****
         
         setEmpresas(empresasRes.data || []);
         setContas(contasRes.data || []);
@@ -221,18 +231,24 @@ export default function FinanceiroPage() {
     }, [supabase]);
     
     useEffect(() => {
-        setPageTitle('GESTÃO FINANCEIRA');
-        fetchInitialData();
-    }, [setPageTitle, fetchInitialData]);
+        if (!authLoading && canViewPage) {
+            setPageTitle('GESTÃO FINANCEIRA');
+            fetchInitialData();
+        }
+    }, [setPageTitle, fetchInitialData, authLoading, canViewPage]);
     
     useEffect(() => {
-        fetchLancamentos();
-        fetchAllLancamentosForKpi();
-    }, [fetchLancamentos, fetchAllLancamentosForKpi]);
+        if (canViewPage) {
+            fetchLancamentos();
+            fetchAllLancamentosForKpi();
+        }
+    }, [fetchLancamentos, fetchAllLancamentosForKpi, canViewPage]);
     
     useEffect(() => {
-        fetchDashboardKpis();
-    }, [selectedEmpreendimento, fetchDashboardKpis]);
+        if (canViewPage) {
+            fetchDashboardKpis();
+        }
+    }, [selectedEmpreendimento, fetchDashboardKpis, canViewPage]);
 
     const handleSuccess = () => {
         fetchLancamentos();
@@ -251,6 +267,22 @@ export default function FinanceiroPage() {
     const handleOpenEditModal = (lancamento) => { setEditingLancamento(lancamento); setIsFormModalOpen(true); };
     const TabButton = ({ tabName, label }) => ( <button onClick={() => setActiveTab(tabName)} className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm uppercase ${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}> {label} </button> );
 
+    // <<< 3. Se ainda estiver a carregar ou se não tiver permissão, mostrar uma mensagem
+    if (authLoading) {
+        return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando...</div>;
+    }
+
+    if (!canViewPage) {
+        return (
+            <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg">
+                <FontAwesomeIcon icon={faLock} size="3x" className="text-red-400 mb-4" />
+                <h2 className="text-2xl font-bold text-red-700">Acesso Negado</h2>
+                <p className="mt-2 text-red-600">Você não tem permissão para aceder a esta página.</p>
+            </div>
+        );
+    }
+
+    // O resto do return continua igual
     return (
         <div className="space-y-6">
             <LancamentoFormModal 
@@ -268,7 +300,10 @@ export default function FinanceiroPage() {
                          <Link href="/financeiro/transferencias" className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 flex items-center gap-2 uppercase">Identificar Transferências</Link>
                          <Link href="/financeiro/kpi-builder" className="bg-cyan-500 text-white px-4 py-2 rounded-md hover:bg-cyan-600 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faCalculator} /> KPIs</Link>
                          <Link href="/configuracoes/financeiro/importar" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faCogs} /> Assistente</Link>
-                         <button onClick={handleOpenAddModal} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faPlus} /> Novo Lançamento</button>
+                         {/* <<< 4. Ocultar o botão se não tiver permissão para criar */}
+                         {canCreate && (
+                            <button onClick={handleOpenAddModal} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faPlus} /> Novo Lançamento</button>
+                         )}
                     </div>
                 )}
             </div>

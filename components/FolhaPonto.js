@@ -5,7 +5,6 @@ import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheckCircle, faExclamationCircle, faInfoCircle, faUserEdit } from '@fortawesome/free-solid-svg-icons';
 
-// Componente de Notificação (Toast)
 const Toast = ({ message, type, onclose }) => {
   useEffect(() => {
     const timer = setTimeout(onclose, 4000);
@@ -29,10 +28,9 @@ const Toast = ({ message, type, onclose }) => {
 };
 
 
-export default function FolhaPonto({ employees }) {
+export default function FolhaPonto({ employees, canEdit }) { // <<< Recebe a nova propriedade 'canEdit'
     const supabase = createClient();
 
-    // Estados da aplicação
     const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
     const [selectedMonth, setSelectedMonth] = useState('');
     const [selectedDate, setSelectedDate] = useState('');
@@ -239,7 +237,6 @@ export default function FolhaPonto({ employees }) {
     }, [timesheetData, calculateTotalHours]);
 
     const handleAction = async (actionType) => {
-        // Esta função agora usa a mesma lógica manual de 'verificar e depois agir' para ser mais robusta
         setIsProcessing(true);
         showToast(`Registrando ${actionType}...`, 'info');
 
@@ -250,7 +247,6 @@ export default function FolhaPonto({ employees }) {
         const startOfDay = `${selectedDate}T00:00:00`;
         const endOfDay = `${selectedDate}T23:59:59.999`;
 
-        // 1. Verifica se já existe um registro
         const { data: existingRecord } = await supabase
             .from('pontos')
             .select('id')
@@ -271,11 +267,9 @@ export default function FolhaPonto({ employees }) {
         
         let error;
         if(existingRecord) {
-            // 2a. Se existe, atualiza
             const { error: updateError } = await supabase.from('pontos').update(recordToSave).eq('id', existingRecord.id);
             error = updateError;
         } else {
-            // 2b. Se não existe, insere
             const { error: insertError } = await supabase.from('pontos').insert(recordToSave);
             error = insertError;
         }
@@ -290,11 +284,10 @@ export default function FolhaPonto({ employees }) {
     };
 
     const handleCellEdit = (date, field) => {
-        if (isProcessing) return;
+        if (isProcessing || !canEdit) return; // <<< Bloqueia a edição se não tiver permissão
         setEditingCell({ date, field });
     };
 
-    // ***** INÍCIO DA MODIFICAÇÃO: Função de Salvar foi REESCRITA para não usar mais o UPSERT problemático *****
     const handleSaveEdit = async (e, date, field) => {
         e.preventDefault();
         if (!currentUser) {
@@ -306,7 +299,6 @@ export default function FolhaPonto({ employees }) {
         setEditingCell(null);
         setIsProcessing(true);
         
-        // Lógica para Abonos (mantida, pois o upsert aqui funciona)
         if (field === 'abono') {
             const abonoRecord = {
                 funcionario_id: selectedEmployeeId,
@@ -330,7 +322,6 @@ export default function FolhaPonto({ employees }) {
             }
             showToast(error ? `Erro: ${error.message}` : 'Abono salvo!', error ? 'error' : 'success');
 
-        // Lógica para Observações (mantida)
         } else if (field === 'observacao') {
             const { data: pontoEntrada } = await supabase.from('pontos').select('id').eq('funcionario_id', selectedEmployeeId).eq('tipo_registro', 'Entrada').like('data_hora', `${date}%`).limit(1).single();
             if (pontoEntrada) {
@@ -340,14 +331,12 @@ export default function FolhaPonto({ employees }) {
                 showToast('Não há registro de entrada para adicionar observação.', 'info');
             }
         
-        // NOVA LÓGICA MANUAL E SEGURA PARA HORÁRIOS
         } else {
             const tipo_registro = { 'entrada': 'Entrada', 'inicio_intervalo': 'Inicio_Intervalo', 'fim_intervalo': 'Fim_Intervalo', 'saida': 'Saida' }[field];
             const startOfDay = `${date}T00:00:00`;
             const endOfDay = `${date}T23:59:59.999`;
             let error;
 
-            // 1. Verifica se já existe um registro para este dia e tipo
             const { data: existingRecord } = await supabase
                 .from('pontos')
                 .select('id')
@@ -357,14 +346,12 @@ export default function FolhaPonto({ employees }) {
                 .lte('data_hora', endOfDay)
                 .maybeSingle();
 
-            // CASO 1: O campo foi limpo, então devemos DELETAR
             if (!newValue) {
                 if (existingRecord) {
                     const { error: deleteError } = await supabase.from('pontos').delete().eq('id', existingRecord.id);
                     error = deleteError;
                     showToast(error ? `Erro: ${error.message}` : 'Registro removido.', error ? 'error' : 'success');
                 }
-            // CASO 2: O campo tem um valor novo
             } else {
                 const localDate = new Date(`${date}T${newValue}`);
                 const recordData = { 
@@ -375,11 +362,9 @@ export default function FolhaPonto({ employees }) {
                     editado_por_usuario_id: currentUser.id
                 };
                 
-                // Se já existe um registro, ATUALIZA
                 if (existingRecord) {
                     const { error: updateError } = await supabase.from('pontos').update(recordData).eq('id', existingRecord.id);
                     error = updateError;
-                // Se não existe, INSERE
                 } else {
                     const { error: insertError } = await supabase.from('pontos').insert(recordData);
                     error = insertError;
@@ -391,7 +376,6 @@ export default function FolhaPonto({ employees }) {
         await loadTimesheetData();
         setIsProcessing(false);
     };
-    // ***** FIM DA MODIFICAÇÃO *****
 
 
     return (
@@ -411,19 +395,25 @@ export default function FolhaPonto({ employees }) {
                         <label htmlFor="month-select" className="block text-sm font-medium text-gray-700">Mês/Ano</label>
                         <input type="month" id="month-select" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
                     </div>
-                    <div>
-                        <label htmlFor="date-select" className="block text-sm font-medium text-gray-700">Data para Ações</label>
-                        <input type="date" id="date-select" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
-                    </div>
+                    {/* <<< Ações de lançamento manual só aparecem se tiver permissão */}
+                    {canEdit && (
+                        <div>
+                            <label htmlFor="date-select" className="block text-sm font-medium text-gray-700">Data para Ações</label>
+                            <input type="date" id="date-select" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                        </div>
+                    )}
                 </div>
             </section>
             
-            <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button onClick={() => handleAction('Entrada')} disabled={isProcessing || !selectedEmployeeId} className="p-3 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed">Entrada</button>
-                <button onClick={() => handleAction('Inicio_Intervalo')} disabled={isProcessing || !selectedEmployeeId} className="p-3 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed">Início Intervalo</button>
-                <button onClick={() => handleAction('Fim_Intervalo')} disabled={isProcessing || !selectedEmployeeId} className="p-3 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed">Fim Intervalo</button>
-                <button onClick={() => handleAction('Saida')} disabled={isProcessing || !selectedEmployeeId} className="p-3 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed">Saída</button>
-            </section>
+            {/* <<< Ações de lançamento manual só aparecem se tiver permissão */}
+            {canEdit && (
+                <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button onClick={() => handleAction('Entrada')} disabled={isProcessing || !selectedEmployeeId} className="p-3 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed">Entrada</button>
+                    <button onClick={() => handleAction('Inicio_Intervalo')} disabled={isProcessing || !selectedEmployeeId} className="p-3 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed">Início Intervalo</button>
+                    <button onClick={() => handleAction('Fim_Intervalo')} disabled={isProcessing || !selectedEmployeeId} className="p-3 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed">Fim Intervalo</button>
+                    <button onClick={() => handleAction('Saida')} disabled={isProcessing || !selectedEmployeeId} className="p-3 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed">Saída</button>
+                </section>
+            )}
 
             <section className="bg-white p-4 rounded-lg shadow-md overflow-x-auto">
                 <table className="min-w-full border-collapse">
@@ -458,7 +448,7 @@ export default function FolhaPonto({ employees }) {
                                         <td className="border p-2 text-center">{weekDays[dateInMonth.getUTCDay()]} {isHoliday && '(Feriado)'}</td>
                                         
                                         {['entrada', 'inicio_intervalo', 'fim_intervalo', 'saida'].map(field => (
-                                            <td key={field} onClick={() => handleCellEdit(dateString, field)} className="border p-2 text-center cursor-pointer hover:bg-blue-50">
+                                            <td key={field} onClick={() => handleCellEdit(dateString, field)} className={`border p-2 text-center ${canEdit ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'}`}>
                                                 {editingCell?.date === dateString && editingCell?.field === field ? (
                                                     <form onSubmit={(e) => handleSaveEdit(e, dateString, field)}>
                                                         <input type="time" name="time_input" defaultValue={dayData[field] || ''} autoFocus onBlur={(e) => e.target.form.requestSubmit()} className="w-full text-center bg-blue-100"/>
@@ -474,7 +464,7 @@ export default function FolhaPonto({ employees }) {
 
                                         <td className="border p-2 text-center font-semibold">{calculateTotalHours(dayData)}</td>
                                         
-                                        <td onClick={() => handleCellEdit(dateString, 'abono')} className="border p-2 text-center cursor-pointer hover:bg-blue-50 min-w-[200px]">
+                                        <td onClick={() => handleCellEdit(dateString, 'abono')} className={`border p-2 text-center min-w-[200px] ${canEdit ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'}`}>
                                             {editingCell?.date === dateString && editingCell?.field === 'abono' ? (
                                                 <form onSubmit={(e) => handleSaveEdit(e, dateString, 'abono')}>
                                                     <select name="abono_select" defaultValue={abonoDoDia?.tipo_abono_id || ''} autoFocus onBlur={(e) => e.target.form.requestSubmit()} className="w-full text-center bg-blue-100 p-1">
@@ -487,7 +477,7 @@ export default function FolhaPonto({ employees }) {
                                             ) : (abonoTypes.find(t => t.id === abonoDoDia?.tipo_abono_id)?.descricao || '--')}
                                         </td>
                                         
-                                        <td onClick={() => handleCellEdit(dateString, 'observacao')} className="border p-2 text-left cursor-pointer hover:bg-blue-50 min-w-[250px] text-xs">
+                                        <td onClick={() => handleCellEdit(dateString, 'observacao')} className={`border p-2 text-left min-w-[250px] text-xs ${canEdit ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'}`}>
                                              {editingCell?.date === dateString && editingCell?.field === 'observacao' ? (
                                                 <form onSubmit={(e) => handleSaveEdit(e, dateString, 'observacao')}>
                                                     <input type="text" name="obs_input" defaultValue={dayData.observacao_final || ''} autoFocus onBlur={(e) => e.target.form.requestSubmit()} className="w-full text-left bg-blue-100 p-1"/>

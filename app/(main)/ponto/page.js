@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../../utils/supabase/client';
+import { useRouter } from 'next/navigation'; // Importar useRouter
+import { useAuth } from '../../../contexts/AuthContext'; // Importar useAuth
 import FolhaPonto from '../../../components/FolhaPonto';
-import PontoImporter from '../../../components/PontoImporter'; // Novo componente de importação
-
-// Componente de Notificação (Toast)
+import PontoImporter from '../../../components/PontoImporter';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheckCircle, faExclamationCircle, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { faCheckCircle, faExclamationCircle, faInfoCircle, faSpinner, faLock } from '@fortawesome/free-solid-svg-icons';
 
 const Toast = ({ message, type, onclose }) => {
   useEffect(() => {
@@ -34,23 +34,37 @@ const Toast = ({ message, type, onclose }) => {
 
 export default function PontoPage() {
     const supabase = createClient();
+    const router = useRouter();
+    const { hasPermission, loading: authLoading } = useAuth();
+
+    // Permissões
+    const canViewPage = hasPermission('ponto', 'pode_ver');
+    const canCreate = hasPermission('ponto', 'pode_criar');
+    const canEdit = hasPermission('ponto', 'pode_editar');
+
     const [employees, setEmployees] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [activeTab, setActiveTab] = useState('importar'); // 'importar' ou 'folha'
-    const [folhaPontoKey, setFolhaPontoKey] = useState(Date.now()); // Chave para forçar a remontagem
+    const [activeTab, setActiveTab] = useState('importar');
+    const [folhaPontoKey, setFolhaPontoKey] = useState(Date.now());
     const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+
+    // Efeito para verificar a permissão e redirecionar se necessário
+    useEffect(() => {
+        if (!authLoading && !canViewPage) {
+            router.push('/');
+        }
+    }, [authLoading, canViewPage, router]);
 
     const showToast = (message, type = 'info') => {
       setToast({ show: true, message, type });
     };
 
-    // Busca os funcionários
     const fetchEmployees = useCallback(async () => {
         setIsLoading(true);
         const { data, error } = await supabase
             .from('funcionarios')
-            .select('id, full_name, numero_ponto') // Inclui o numero_ponto para a importação
+            .select('id, full_name, numero_ponto')
             .order('full_name');
 
         if (error) {
@@ -63,18 +77,31 @@ export default function PontoPage() {
     }, [supabase]);
 
     useEffect(() => {
-        fetchEmployees();
-    }, [fetchEmployees]);
+        if (canViewPage) { // Só busca os dados se tiver permissão de ver
+            fetchEmployees();
+        } else {
+            setIsLoading(false); // Para o carregamento se não tiver permissão
+        }
+    }, [fetchEmployees, canViewPage]);
     
-    // Função para ser chamada após a importação para recarregar a folha de ponto
     const handleSuccessfulImport = () => {
-        setFolhaPontoKey(Date.now()); // Muda a chave para forçar o componente a recarregar
+        setFolhaPontoKey(Date.now());
     };
 
-    if (isLoading) {
-        return <p className="text-center mt-10">Carregando dados dos funcionários...</p>;
+    if (authLoading || isLoading) {
+        return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando...</div>;
     }
 
+    if (!canViewPage) {
+        return (
+            <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg">
+                <FontAwesomeIcon icon={faLock} size="3x" className="text-red-400 mb-4" />
+                <h2 className="text-2xl font-bold text-red-700">Acesso Negado</h2>
+                <p className="mt-2 text-red-600">Você não tem permissão para aceder a esta página.</p>
+            </div>
+        );
+    }
+    
     if (error) {
         return <p className="text-center mt-10 text-red-500">{error}</p>;
     }
@@ -84,19 +111,21 @@ export default function PontoPage() {
             {toast.show && <Toast message={toast.message} type={toast.type} onclose={() => setToast({ ...toast, show: false })} />}
             <h1 className="text-3xl font-bold text-gray-900">Controle de Ponto</h1>
 
-            {/* Abas de Navegação */}
             <div className="border-b border-gray-200">
                 <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                    <button
-                        onClick={() => setActiveTab('importar')}
-                        className={`${
-                            activeTab === 'importar'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                    >
-                        Importar Registros
-                    </button>
+                    {/* O separador de importação só aparece se o utilizador pode criar */}
+                    {canCreate && (
+                        <button
+                            onClick={() => setActiveTab('importar')}
+                            className={`${
+                                activeTab === 'importar'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                        >
+                            Importar Registros
+                        </button>
+                    )}
                     <button
                         onClick={() => setActiveTab('folha')}
                         className={`${
@@ -110,16 +139,21 @@ export default function PontoPage() {
                 </nav>
             </div>
 
-            {/* Conteúdo da Aba */}
             <div>
-                {activeTab === 'importar' && (
+                {activeTab === 'importar' && canCreate && (
                   <PontoImporter 
                     employees={employees}
                     onImport={handleSuccessfulImport} 
                     showToast={showToast}
                   />
                 )}
-                {activeTab === 'folha' && <FolhaPonto key={folhaPontoKey} employees={employees} />}
+                {activeTab === 'folha' && (
+                  <FolhaPonto 
+                    key={folhaPontoKey} 
+                    employees={employees} 
+                    canEdit={canEdit || canCreate} // Passa a permissão para o componente filho
+                  />
+                )}
             </div>
         </div>
     );

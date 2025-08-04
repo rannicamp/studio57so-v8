@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useRef } from 'react'; // Adicionado useState e useRef
+import { useMemo, useState, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExclamationTriangle, faSync } from '@fortawesome/free-solid-svg-icons';
 
@@ -40,7 +40,7 @@ const TaskCard = ({ activity, onEditActivity }) => {
     );
 };
 
-export default function KanbanBoard({ activities, onEditActivity, onStatusChange }) {
+export default function KanbanBoard({ activities, onEditActivity, onStatusChange, canEdit }) {
     const statusColumns = useMemo(() => [
         { id: 'Não Iniciado', title: 'Não Iniciado' },
         { id: 'Em Andamento', title: 'Em Andamento' },
@@ -50,14 +50,12 @@ export default function KanbanBoard({ activities, onEditActivity, onStatusChange
         { id: 'Cancelado', title: 'Cancelado' },
     ], []);
 
-    // ***** INÍCIO DAS ALTERAÇÕES *****
     const scrollContainerRef = useRef(null);
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
     const [scrollLeft, setScrollLeft] = useState(0);
 
     const handleMouseDown = (e) => {
-        // Impede o início do arrasto do contêiner se o clique for em um card ou botão
         if (e.target.closest('.kanban-card') || e.target.closest('button')) {
             return;
         }
@@ -84,7 +82,6 @@ export default function KanbanBoard({ activities, onEditActivity, onStatusChange
         const walk = (x - startX); 
         container.scrollLeft = scrollLeft - walk;
     };
-    // ***** FIM DAS ALTERAÇÕES *****
 
     const groupedData = useMemo(() => {
         const groups = {};
@@ -94,8 +91,12 @@ export default function KanbanBoard({ activities, onEditActivity, onStatusChange
         return groups;
     }, [activities, statusColumns]);
 
-    const handleDragOver = (e) => e.preventDefault();
+    const handleDragOver = (e) => {
+        if (canEdit) e.preventDefault();
+    };
+    
     const handleDrop = (e, newStatus) => {
+        if (!canEdit) return;
         e.preventDefault();
         const activityId = parseInt(e.dataTransfer.getData('activityId'), 10);
         const currentStatus = activities.find(a => a.id === activityId)?.status;
@@ -105,17 +106,14 @@ export default function KanbanBoard({ activities, onEditActivity, onStatusChange
     };
 
     return (
-        // ***** INÍCIO DAS ALTERAÇÕES *****
-        // Adicionados os eventos de mouse e a ref ao contêiner principal
         <div 
             ref={scrollContainerRef}
-            className="flex gap-4 overflow-x-auto p-2 cursor-grab"
+            className={`flex gap-4 overflow-x-auto p-2 ${canEdit ? 'cursor-grab' : 'cursor-default'}`}
             onMouseDown={handleMouseDown}
             onMouseLeave={handleMouseLeaveOrUp}
             onMouseUp={handleMouseLeaveOrUp}
             onMouseMove={handleMouseMove}
         >
-        {/* ***** FIM DAS ALTERAÇÕES ***** */}
             {statusColumns.map(column => (
                 <div 
                     key={column.id} 
@@ -130,7 +128,7 @@ export default function KanbanBoard({ activities, onEditActivity, onStatusChange
                         {groupedData[column.id] && groupedData[column.id].map(activity => (
                              <div 
                                 key={activity.id}
-                                draggable="true" 
+                                draggable={canEdit} // Só pode arrastar se puder editar
                                 onDragStart={(e) => e.dataTransfer.setData('activityId', activity.id)}
                              >
                                 <TaskCard
