@@ -4,9 +4,9 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// ***** NOSSA ADIÇÃO: Ícone de 'varinha mágica' para o novo botão *****
-import { faBuilding, faRulerCombined, faBoxOpen, faFileLines, faUpload, faSpinner, faTrash, faEye, faSort, faSortUp, faSortDown, faVideo, faCloudUploadAlt, faMagicSparkles } from '@fortawesome/free-solid-svg-icons';
-import { createClient } from '@/utils/supabase/client'; // Usando o caminho com @ que já funciona
+// CORREÇÃO: O nome do ícone foi corrigido de faMagicSparkles para faWandMagicSparkles
+import { faBuilding, faRulerCombined, faBoxOpen, faFileLines, faUpload, faSpinner, faTrash, faEye, faSort, faSortUp, faSortDown, faVideo, faCloudUploadAlt, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
+import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 
 // --- SUB-COMPONENTES (Todos preservados) ---
@@ -133,7 +133,6 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
   const supabase = createClient();
   const router = useRouter();
 
-  // ***** INÍCIO DAS ADIÇÕES PARA O RESUMO COM IA *****
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [summary, setSummary] = useState('');
 
@@ -164,7 +163,6 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
         setIsGeneratingSummary(false);
     }
   };
-  // ***** FIM DAS ADIÇÕES PARA O RESUMO COM IA *****
 
   useEffect(() => { setAnexos(initialAnexos); }, [initialAnexos]);
 
@@ -224,14 +222,13 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
     <div className="p-6 bg-white shadow-md rounded-lg">
       <div className="flex justify-between items-start mb-6 gap-4">
         <h1 className="text-3xl font-bold text-gray-800">{empreendimento.nome}</h1>
-        {/* ***** ADIÇÃO DOS BOTÕES DE AÇÃO ***** */}
         <div className="flex items-center gap-2 flex-shrink-0">
             <button
                 onClick={handleGerarResumo}
                 disabled={isGeneratingSummary}
                 className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:bg-gray-400"
             >
-                <FontAwesomeIcon icon={isGeneratingSummary ? faSpinner : faMagicSparkles} className={`mr-2 ${isGeneratingSummary ? 'animate-spin' : ''}`} />
+                <FontAwesomeIcon icon={isGeneratingSummary ? faSpinner : faWandMagicSparkles} className={`mr-2 ${isGeneratingSummary ? 'animate-spin' : ''}`} />
                 {isGeneratingSummary ? 'Gerando...' : 'Gerar Resumo com IA'}
             </button>
             <Link href={`/empreendimentos/editar/${empreendimento.id}`} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
@@ -240,7 +237,6 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
         </div>
       </div>
       
-      {/* ***** ADIÇÃO DA ÁREA PARA MOSTRAR O RESUMO GERADO ***** */}
       {summary && (
         <div className="mb-6 p-4 border border-purple-200 bg-purple-50 rounded-lg animate-fade-in">
             <h3 className="text-lg font-semibold text-purple-800 mb-2">Resumo Gerado pela Stella</h3>

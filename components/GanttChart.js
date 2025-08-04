@@ -35,10 +35,7 @@ const GanttLegend = () => (
 // Componente Principal do Gráfico de Gantt
 export default function GanttChart({ activities }) {
     const [sortConfig, setSortConfig] = useState({ key: 'tipo_atividade', direction: 'ascending' });
-    // ***** INÍCIO DA ALTERAÇÃO *****
-    // Criamos uma referência para o container que tem a barra de rolagem.
     const scrollContainerRef = useRef(null);
-    // ***** FIM DA ALTERAÇÃO *****
 
     const requestSort = (key) => {
         let direction = 'ascending';
@@ -78,8 +75,8 @@ export default function GanttChart({ activities }) {
 
         const dates = [];
         let tempDate = new Date(minDate);
-        tempDate.setUTCDate(tempDate.getUTCDate() - 7); // Adiciona um buffer de 7 dias no início
-        maxDate.setUTCDate(maxDate.getUTCDate() + 7); // Adiciona um buffer de 7 dias no fim
+        tempDate.setUTCDate(tempDate.getUTCDate() - 7);
+        maxDate.setUTCDate(maxDate.getUTCDate() + 7);
         while (tempDate <= maxDate) {
             dates.push(new Date(tempDate));
             tempDate.setUTCDate(tempDate.getUTCDate() + 1);
@@ -97,39 +94,34 @@ export default function GanttChart({ activities }) {
 
         const entries = Object.entries(groups);
         if (sortConfig.key === 'tipo_atividade') {
-            entries.sort(([keyA], [keyB]) => sortConfig.direction === 'ascending' ? keyA.localeCompare(keyB) : keyB.localeCompare(keyA));
+            entries.sort(([keyA], [keyB]) => sortConfig.direction === 'ascending' ? keyA.localeCompare(keyB) : keyB.localeCompare(A));
         }
 
         return { sortedGroupEntries: entries, deliveryTasks, timelineDates: dates, totalDays: dates.length, todayMarkerPosition };
     }, [activities, sortConfig]);
-
-    // ***** INÍCIO DA ALTERAÇÃO *****
-    // Esta função rola a tela para a posição da linha "Hoje".
-    const scrollToToday = () => {
-        const container = scrollContainerRef.current;
-        if (container && todayMarkerPosition) {
-            const markerPos = parseFloat(todayMarkerPosition.replace('px', ''));
-            const containerWidth = container.offsetWidth;
-            // Calcula a posição para centralizar a linha do "Hoje"
-            const scrollPos = markerPos - (containerWidth / 2);
-            container.scrollTo({
-                left: scrollPos,
-                behavior: 'smooth'
-            });
-        }
-    };
-
-    // Este `useEffect` é a chave da solução. Ele executa a função `scrollToToday`
-    // sempre que o gráfico é exibido na tela, garantindo que ele comece no "Hoje".
+    
+    // CORREÇÃO: A função `scrollToToday` foi movida para dentro do `useEffect`
+    // e o `useEffect` agora tem as dependências corretas.
     useEffect(() => {
-        // Usamos um pequeno delay para garantir que o navegador já tenha renderizado tudo.
+        const scrollToToday = () => {
+            const container = scrollContainerRef.current;
+            if (container && todayMarkerPosition) {
+                const markerPos = parseFloat(todayMarkerPosition.replace('px', ''));
+                const containerWidth = container.offsetWidth;
+                const scrollPos = markerPos - (containerWidth / 2);
+                container.scrollTo({
+                    left: scrollPos,
+                    behavior: 'smooth'
+                });
+            }
+        };
+
         const timer = setTimeout(() => {
             scrollToToday();
         }, 100);
 
-        return () => clearTimeout(timer); // Limpa o timer ao desmontar
-    }, [todayMarkerPosition]); // Depende da posição do marcador para re-executar se necessário
-    // ***** FIM DA ALTERAÇÃO *****
+        return () => clearTimeout(timer);
+    }, [todayMarkerPosition]); // A dependência agora está correta.
 
 
     const daysSinceStart = (date) => {
@@ -179,18 +171,26 @@ export default function GanttChart({ activities }) {
 
     return (
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            {/* ***** INÍCIO DA ALTERAÇÃO ***** */}
-            {/* Botão para voltar para a data de hoje foi adicionado aqui */}
             <div className="p-4 border-b no-print">
                 <button 
-                    onClick={scrollToToday}
+                    onClick={() => {
+                        const container = scrollContainerRef.current;
+                        if (container && todayMarkerPosition) {
+                            const markerPos = parseFloat(todayMarkerPosition.replace('px', ''));
+                            const containerWidth = container.offsetWidth;
+                            const scrollPos = markerPos - (containerWidth / 2);
+                            container.scrollTo({
+                                left: scrollPos,
+                                behavior: 'smooth'
+                            });
+                        }
+                    }}
                     className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 flex items-center gap-2"
                 >
                     <FontAwesomeIcon icon={faCalendarDay} />
                     Voltar para Hoje
                 </button>
             </div>
-            {/* ***** FIM DA ALTERAÇÃO ***** */}
             <div className="flex">
                 <div className="w-80 flex-shrink-0 border-r border-gray-200 bg-white">
                     <div className="h-[61px] flex items-center p-4 border-b border-gray-200 sticky top-0 bg-gray-50 z-20">
@@ -226,10 +226,7 @@ export default function GanttChart({ activities }) {
                          )}
                     </div>
                 </div>
-                {/* ***** INÍCIO DA ALTERAÇÃO ***** */}
-                {/* Adicionamos a referência ao container da linha do tempo */}
                 <div className="flex-1 overflow-x-auto" ref={scrollContainerRef}>
-                {/* ***** FIM DA ALTERAÇÃO ***** */}
                     <div className="relative" style={{ width: `${totalDays * 80}px` }}>
                         <div className="flex sticky top-0 bg-white z-10 border-b border-gray-200">
                             {timelineDates.map(date => <DayColumn key={date.toISOString()} date={date} />)}

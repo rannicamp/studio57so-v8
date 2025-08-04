@@ -1,25 +1,25 @@
 // components/crm/CrmNotesModal.js
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react'; // Importar useCallback
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faPaperPlane, faSpinner, faStickyNote } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext'; // Para obter o ID do usuário logado
+import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function CrmNotesModal({ isOpen, onClose, contatoNoFunilId, contatoId }) {
-    const { user } = useAuth(); // Pega o usuário logado do AuthContext
+    const { user } = useAuth();
     const [notes, setNotes] = useState([]);
     const [newNoteContent, setNewNoteContent] = useState('');
     const [isLoadingNotes, setIsLoadingNotes] = useState(true);
     const [isSavingNote, setIsSavingNote] = useState(false);
 
-    // Função para buscar as notas
-    const fetchNotes = async () => {
+    // CORREÇÃO: A função foi envolvida em useCallback
+    const fetchNotes = useCallback(async () => {
         if (!contatoNoFunilId || !isOpen) {
-            setNotes([]); // Limpa as notas se não houver ID ou o modal estiver fechado
+            setNotes([]);
             setIsLoadingNotes(false);
             return;
         }
@@ -38,16 +38,15 @@ export default function CrmNotesModal({ isOpen, onClose, contatoNoFunilId, conta
         } finally {
             setIsLoadingNotes(false);
         }
-    };
+    }, [contatoNoFunilId, isOpen]); // Dependências do useCallback
 
-    // Efeito para carregar as notas quando o modal abre ou o contatoNoFunilId muda
+    // CORREÇÃO: Adicionada a dependência 'fetchNotes'
     useEffect(() => {
         fetchNotes();
-    }, [isOpen, contatoNoFunilId]); // Dependências: re-fetch quando o modal abre ou o ID do card muda
+    }, [isOpen, contatoNoFunilId, fetchNotes]);
 
-    // Função para adicionar uma nova nota
     const handleAddNote = async () => {
-        if (!newNoteContent.trim() || isSavingNote || !user?.id) return; // Garante que há conteúdo e usuário logado
+        if (!newNoteContent.trim() || isSavingNote || !user?.id) return;
 
         setIsSavingNote(true);
         try {
@@ -56,7 +55,7 @@ export default function CrmNotesModal({ isOpen, onClose, contatoNoFunilId, conta
                 contato_no_funil_id: contatoNoFunilId,
                 contato_id: contatoId,
                 conteudo: newNoteContent,
-                usuario_id: user.id // ID do usuário logado
+                usuario_id: user.id
             };
 
             const response = await fetch('/api/crm', {
@@ -70,9 +69,9 @@ export default function CrmNotesModal({ isOpen, onClose, contatoNoFunilId, conta
                 throw new Error(result.error || "Erro ao adicionar nota.");
             }
             
-            setNewNoteContent(''); // Limpa o campo de texto
+            setNewNoteContent('');
             toast.success('Nota adicionada com sucesso!');
-            fetchNotes(); // Recarrega as notas para mostrar a nova
+            fetchNotes();
         } catch (error) {
             console.error("Erro ao adicionar nota:", error);
             toast.error(`Não foi possível adicionar a nota. Detalhes: ${error.message}`);
@@ -93,7 +92,6 @@ export default function CrmNotesModal({ isOpen, onClose, contatoNoFunilId, conta
                     </button>
                 </div>
 
-                {/* Área para adicionar nova nota */}
                 <div className="mb-4">
                     <textarea
                         className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
@@ -119,7 +117,6 @@ export default function CrmNotesModal({ isOpen, onClose, contatoNoFunilId, conta
                     </div>
                 </div>
 
-                {/* Lista de notas existentes */}
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                     {isLoadingNotes ? (
                         <div className="flex justify-center items-center h-full">

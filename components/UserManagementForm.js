@@ -7,13 +7,14 @@ import { faPlus, faTrash, faSpinner, faTimes, faUserShield } from '@fortawesome/
 
 // --- Sub-componente para o Modal de Gestão de Funções ---
 const RolesManagerModal = ({ isOpen, onClose, initialRoles, onRolesUpdate }) => {
-    if (!isOpen) return null;
-
+    // CORREÇÃO: Os hooks foram movidos para o topo da função, antes de qualquer retorno.
     const supabase = createClient();
     const [roles, setRoles] = useState(initialRoles);
     const [newRoleName, setNewRoleName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    if (!isOpen) return null; // A verificação agora acontece DEPOIS dos hooks.
 
     const handleAddRole = async () => {
         if (!newRoleName.trim()) return;
@@ -31,7 +32,7 @@ const RolesManagerModal = ({ isOpen, onClose, initialRoles, onRolesUpdate }) => 
         } else {
             const updatedRoles = [...roles, data];
             setRoles(updatedRoles);
-            onRolesUpdate(updatedRoles); // Atualiza o estado no componente pai
+            onRolesUpdate(updatedRoles);
             setNewRoleName('');
         }
         setLoading(false);
@@ -47,7 +48,7 @@ const RolesManagerModal = ({ isOpen, onClose, initialRoles, onRolesUpdate }) => 
             } else {
                 const updatedRoles = roles.filter(r => r.id !== roleId);
                 setRoles(updatedRoles);
-                onRolesUpdate(updatedRoles); // Atualiza o estado no componente pai
+                onRolesUpdate(updatedRoles);
             }
             setLoading(false);
         }
@@ -99,11 +100,11 @@ const RolesManagerModal = ({ isOpen, onClose, initialRoles, onRolesUpdate }) => 
 export default function UserManagementForm({ initialUsers, allEmployees, allRoles }) {
   const supabase = createClient();
   const [users, setUsers] = useState(initialUsers);
-  const [roles, setRoles] = useState(allRoles); // Novo estado para as funções
+  const [roles, setRoles] = useState(allRoles);
   const [message, setMessage] = useState('');
   const [editingUserId, setEditingUserId] = useState(null);
   const [formData, setFormData] = useState({});
-  const [isRolesModalOpen, setIsRolesModalOpen] = useState(false); // Estado para o modal
+  const [isRolesModalOpen, setIsRolesModalOpen] = useState(false);
 
   const handleEditClick = (user) => {
     setEditingUserId(user.id);
@@ -159,7 +160,7 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
         isOpen={isRolesModalOpen}
         onClose={() => setIsRolesModalOpen(false)}
         initialRoles={roles}
-        onRolesUpdate={(updatedRoles) => setRoles(updatedRoles)} // Atualiza a lista de funções
+        onRolesUpdate={(updatedRoles) => setRoles(updatedRoles)}
       />
 
       <div className="flex justify-between items-center">
