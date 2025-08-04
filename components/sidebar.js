@@ -10,46 +10,50 @@ import {
   faAddressBook, faDollarSign, faShoppingCart, faUserCog,
   faSitemap, faBug, faInbox, faBullseye
 } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '../contexts/AuthContext'; // Importar o hook de autenticação
 
-export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
+export default function Sidebar({ isCollapsed, toggleSidebar }) {
+  const { hasPermission } = useAuth(); // Usar o hook para ter acesso às permissões
+
+  // Agora, cada item de menu tem uma propriedade 'recurso' que será usada para a verificação
   const navSections = [
     {
       title: 'Administrativo',
       items: [
-        { href: '/', label: 'Painel', icon: faTachometerAlt }, // <<<< ALTERADO: Dashboard para Painel
-        { href: '/financeiro', label: 'Financeiro', icon: faDollarSign },
-        { href: '/funcionarios', label: 'Funcionários', icon: faUsers },
-        { href: '/ponto', label: 'Controle de Ponto', icon: faClock },
-        { href: '/perfil', label: 'Meu Perfil', icon: faUserCog },
-        { href: '/atividades', label: 'Atividades', icon: faTasks },
-        { href: '/empresas', label: 'Empresas', icon: faBuilding },
+        { href: '/', label: 'Painel', icon: faTachometerAlt, recurso: 'painel' },
+        { href: '/financeiro', label: 'Financeiro', icon: faDollarSign, recurso: 'financeiro' },
+        { href: '/funcionarios', label: 'Funcionários', icon: faUsers, recurso: 'funcionarios' },
+        { href: '/ponto', label: 'Controle de Ponto', icon: faClock, recurso: 'ponto' },
+        { href: '/perfil', label: 'Meu Perfil', icon: faUserCog, recurso: 'perfil' },
+        { href: '/atividades', label: 'Atividades', icon: faTasks, recurso: 'atividades' },
+        { href: '/empresas', label: 'Empresas', icon: faBuilding, recurso: 'empresas' },
       ]
     },
     {
       title: 'Obras',
       items: [
-        { href: '/empreendimentos', label: 'Empreendimentos', icon: faProjectDiagram },
-        { href: '/orcamento', label: 'Orçamentária', icon: faDollarSign },
-        { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart },
-        { href: '/rdo/gerenciador', label: 'Diário de Obra', icon: faClipboardList },
+        { href: '/empreendimentos', label: 'Empreendimentos', icon: faProjectDiagram, recurso: 'empreendimentos' },
+        { href: '/orcamento', label: 'Orçamentária', icon: faDollarSign, recurso: 'orcamento' },
+        { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart, recurso: 'pedidos' },
+        { href: '/rdo/gerenciador', label: 'Diário de Obra', icon: faClipboardList, recurso: 'rdo' },
       ]
     },
     {
       title: 'Comercial',
       items: [
-        { href: '/crm', label: 'CRM', icon: faBullseye },
-        { href: '/contatos', label: 'Contatos', icon: faAddressBook },
+        { href: '/crm', label: 'CRM', icon: faBullseye, recurso: 'crm' },
+        { href: '/contatos', label: 'Contatos', icon: faAddressBook, recurso: 'contatos' },
       ]
     }
   ];
 
   const bottomNavAlwaysVisible = [
-      { href: '/configuracoes/feedback/enviar', label: 'Enviar Feedback', icon: faInbox },
+      { href: '/configuracoes/feedback/enviar', label: 'Enviar Feedback', icon: faInbox, recurso: 'feedback' },
   ];
 
   const bottomNavItems = [
-    isAdmin && { href: '/configuracoes', label: 'Configurações', icon: faCog },
-  ].filter(Boolean);
+    { href: '/configuracoes', label: 'Configurações', icon: faCog, recurso: 'configuracoes' },
+  ];
 
   const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE";
   const logoIconUrl = "/favicon.ico";
@@ -80,14 +84,20 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
                   </div>
               )}
               <ul>
-                {section.items.map((item) => (
-                  <li key={item.label}>
-                    <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
-                      <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
-                      {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
-                    </Link>
-                  </li>
-                ))}
+                {section.items.map((item) => {
+                  // Lógica para verificar a permissão antes de renderizar o link
+                  const canViewItem = hasPermission(item.recurso, 'pode_ver');
+                  if (!canViewItem) return null; // Se não tem permissão, não mostra o item
+
+                  return (
+                    <li key={item.label}>
+                      <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
+                        <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
+                        {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </li>
           ))}
@@ -104,16 +114,20 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isAdmin }) {
             </li>
           ))}
           
-          {bottomNavItems.map((item) => (
-            item && (
-              <li key={item.label}>
-                <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
-                  <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
-                  {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
-                </Link>
-              </li>
-            )
-          ))}
+          {bottomNavItems.map((item) => {
+              // Mesma lógica de verificação de permissão
+              const canViewItem = hasPermission(item.recurso, 'pode_ver');
+              if (!canViewItem) return null;
+
+              return (
+                <li key={item.label}>
+                  <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
+                    <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
+                    {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
+                  </Link>
+                </li>
+              );
+          })}
         </ul>
       </nav>
       <div className="border-t border-gray-200 p-2">

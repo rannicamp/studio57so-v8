@@ -50,15 +50,12 @@ const settingsOptions = [
     title: 'Treinamento da IA',
     description: 'Acompanhe o que a IA Stella já aprendeu e gerencie seu conhecimento.'
   },
-  // ***** INÍCIO DA ALTERAÇÃO *****
-  // Adicionamos o novo card para a Central de Feedback
   {
     href: '/configuracoes/feedback',
     icon: faInbox,
     title: 'Central de Feedback',
     description: 'Envie sugestões ou visualize os feedbacks recebidos dos usuários.'
   },
-  // ***** FIM DA ALTERAÇÃO *****
 ];
 
 export default async function ConfiguracoesPage() {

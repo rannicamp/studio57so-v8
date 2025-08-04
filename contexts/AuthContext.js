@@ -17,6 +17,9 @@ export function AuthProvider({ children }) {
   const fetchProfileAndPermissions = useCallback(async (currentUser) => {
     if (!currentUser) {
       setUserData(null);
+      setPermissions({});
+      setIsProprietario(false);
+      setCanViewSalaries(false);
       setLoading(false);
       return;
     }
@@ -34,29 +37,42 @@ export function AuthProvider({ children }) {
 
     if (error) {
       console.error("Erro ao buscar perfil do usuário:", error);
+      setUserData(null);
+      setPermissions({});
     } else if (profileData) {
       setUserData(profileData);
       
       const userRole = profileData?.funcoes;
       const isUserProprietario = userRole?.nome_funcao === 'Proprietário';
       setIsProprietario(isUserProprietario);
-      setCanViewSalaries(isUserProprietario || userRole?.nome_funcao === 'Administrativo');
+
+      // Define quem pode ver salários
+      const canSeeSalaries = isUserProprietario || userRole?.nome_funcao === 'Administrativo';
+      setCanViewSalaries(canSeeSalaries);
       
+      // Se for Proprietário, concede todas as permissões
       if (isUserProprietario) {
-          const allResources = ['empresas', 'empreendimentos', 'funcionarios', 'atividades', 'rdo', 'usuarios', 'permissoes'];
+          const allResources = ['empresas', 'empreendimentos', 'funcionarios', 'atividades', 'rdo', 'usuarios', 'permissoes', 'financeiro', 'ponto', 'orcamento', 'pedidos', 'crm', 'contatos'];
           const allPermissions = allResources.reduce((acc, resource) => {
               acc[resource] = { pode_criar: true, pode_excluir: true, pode_editar: true, pode_ver: true };
               return acc;
           }, {});
           setPermissions(allPermissions);
       } else if (userRole?.id) {
-          const { data: perms } = await supabase.from('permissoes').select('*').eq('funcao_id', userRole.id);
-          const userPermissions = (perms || []).reduce((acc, p) => {
-              acc[p.recurso] = { pode_criar: p.pode_criar, pode_excluir: p.pode_excluir, pode_editar: p.pode_editar, pode_ver: p.pode_ver };
-              return acc;
-          }, {});
-          setPermissions(userPermissions);
+          // Se não, busca as permissões específicas da função no banco
+          const { data: perms, error: permError } = await supabase.from('permissoes').select('*').eq('funcao_id', userRole.id);
+          if (permError) {
+              console.error("Erro ao buscar permissões:", permError);
+              setPermissions({});
+          } else {
+            const userPermissions = (perms || []).reduce((acc, p) => {
+                acc[p.recurso] = { pode_criar: p.pode_criar, pode_excluir: p.pode_excluir, pode_editar: p.pode_editar, pode_ver: p.pode_ver };
+                return acc;
+            }, {});
+            setPermissions(userPermissions);
+          }
       } else {
+          // Se não tiver função, não tem permissões
           setPermissions({});
       }
     }
@@ -64,25 +80,25 @@ export function AuthProvider({ children }) {
   }, [supabase]);
 
   useEffect(() => {
-    const sub = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const currentUser = session?.user;
       setUser(currentUser ?? null);
       fetchProfileAndPermissions(currentUser);
     });
 
     return () => {
-      sub.data.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
   }, [supabase, fetchProfileAndPermissions]);
 
   const hasPermission = (recurso, permissao) => {
-    if (isProprietario) return true;
+    if (isProprietario) return true; // Proprietário sempre tem permissão
     return permissions[recurso]?.[permissao] || false;
   };
 
   const value = { user, userData, loading, isProprietario, canViewSalaries, permissions, hasPermission };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

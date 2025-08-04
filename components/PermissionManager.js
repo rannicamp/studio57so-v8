@@ -8,12 +8,19 @@ export default function PermissionManager({ initialFuncoes }) {
   const [funcoes, setFuncoes] = useState(initialFuncoes);
   const [message, setMessage] = useState('');
 
+  // LISTA DE RECURSOS ATUALIZADA E COMPLETA
   const recursos = [
     { key: 'empresas', name: 'Empresas' },
     { key: 'empreendimentos', name: 'Empreendimentos' },
     { key: 'funcionarios', name: 'Funcionários' },
+    { key: 'ponto', name: 'Controle de Ponto' },
     { key: 'atividades', name: 'Atividades' },
     { key: 'rdo', name: 'Diário de Obra (RDO)' },
+    { key: 'orcamento', name: 'Orçamento' },
+    { key: 'pedidos', name: 'Pedidos de Compra' },
+    { key: 'contatos', name: 'Contatos' },
+    { key: 'crm', name: 'CRM (Funil/WhatsApp)' },
+    { key: 'financeiro', name: 'Financeiro' },
     { key: 'usuarios', name: 'Usuários' },
     { key: 'permissoes', name: 'Permissões' },
   ];
@@ -67,7 +74,7 @@ export default function PermissionManager({ initialFuncoes }) {
 
   return (
     <div className="space-y-4">
-      {message && <p className="text-center font-medium text-sm">{message}</p>}
+      {message && <p className="text-center font-medium text-sm p-2 bg-blue-50 text-blue-800 rounded-md">{message}</p>}
       <div className="overflow-x-auto border border-gray-200 rounded-lg">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
