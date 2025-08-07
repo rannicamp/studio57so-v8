@@ -3,7 +3,7 @@ import { createClient } from '../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faUsersCog, faKey, faFileAlt, faBusinessTime, faBox, faNetworkWired, faRobot, faInbox
+  faUsersCog, faKey, faFileAlt, faBusinessTime, faBox, faNetworkWired, faRobot, faInbox, faFileContract
 } from '@fortawesome/free-solid-svg-icons';
 
 // Opções de configuração que aparecerão na página
@@ -55,6 +55,13 @@ const settingsOptions = [
     icon: faInbox,
     title: 'Central de Feedback',
     description: 'Envie sugestões ou visualize os feedbacks recebidos dos usuários.'
+  },
+  // --- NOVO ITEM ADICIONADO AQUI ---
+  {
+    href: '/configuracoes/politicas',
+    icon: faFileContract,
+    title: 'Políticas de Uso',
+    description: 'Leia os Termos de Uso e a Política de Privacidade do sistema.'
   },
 ];
 

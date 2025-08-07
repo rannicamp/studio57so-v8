@@ -7,12 +7,12 @@ import { AuthProvider } from '../../contexts/AuthContext';
 import { LayoutProvider } from '../../contexts/LayoutContext';
 import { EmpreendimentoProvider } from '../../contexts/EmpreendimentoContext';
 import { useAuth } from '../../contexts/AuthContext';
-// Importa o SessionProvider para o Google
 import { SessionProvider } from 'next-auth/react';
 
-// Importa o CSS do FontAwesome. É importante que seja importado globalmente.
+// Importa o novo modal
+import PoliticasModal from '../../components/PoliticasModal';
+
 import '@fortawesome/fontawesome-svg-core/styles.css'; 
-// A configuração global para prevenir o FontAwesome de adicionar estilos automaticamente
 import { config } from '@fortawesome/fontawesome-svg-core';
 config.autoAddCss = false; 
 
@@ -28,6 +28,9 @@ function MainLayoutContent({ children }) {
   return (
     <LayoutProvider>
       <EmpreendimentoProvider>
+        {/* O Modal de Políticas é adicionado aqui */}
+        <PoliticasModal />
+        
         <div>
           <Sidebar
             isCollapsed={isCollapsed}
@@ -47,7 +50,6 @@ function MainLayoutContent({ children }) {
 export default function MainAppLayout({ children }) {
   return (
     <AuthProvider>
-      {/* O SessionProvider agora envolve o conteúdo principal */}
       <SessionProvider>
         <MainLayoutContent>{children}</MainLayoutContent>
       </SessionProvider>
