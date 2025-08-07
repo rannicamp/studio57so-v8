@@ -41,7 +41,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         descricao: '', valor: '', data_transacao: new Date().toISOString().split('T')[0],
         tipo: 'Despesa', form_type: 'simples', status: 'Pendente', conta_id: null, categoria_id: null,
         empreendimento_id: null, etapa_id: null, conta_destino_id: null, favorecido_contato_id: null,
-        empresa_id: null,
+        empresa_id: null, observacoes: '', // Alterado para 'observacoes' para corresponder ao campo do formulário
         numero_parcelas: 2, data_primeiro_vencimento: new Date().toISOString().split('T')[0],
         frequencia: 'Mensal', recorrencia_data_inicio: new Date().toISOString().split('T')[0], recorrencia_data_fim: null,
         novo_favorecido: null,
@@ -88,7 +88,9 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             setMessage('');
             if (isEditing) {
                 const anexoData = initialData.anexos && initialData.anexos[0] ? initialData.anexos[0] : null;
-                setFormData({ ...getInitialState(), ...initialData, anexo: { file: null, ...anexoData } });
+                // Garante que o campo observacoes seja preenchido a partir de observacao
+                const dataWithObs = { ...initialData, observacoes: initialData.observacao || '' };
+                setFormData({ ...getInitialState(), ...dataWithObs, anexo: { file: null, ...anexoData } });
             } else {
                 setFormData(getInitialState());
             }
@@ -158,8 +160,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         try {
             if (!user) { throw new Error("Usuário não autenticado. Por favor, faça login novamente."); }
 
-            // ***** INÍCIO DA CORREÇÃO *****
-            // Define o status como 'Pago' se for uma transferência
             const statusFinal = formData.tipo === 'Transferência' ? 'Pago' : formData.status;
 
             const dataToSave = {
@@ -168,15 +168,14 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 data_transacao: formData.data_transacao,
                 data_vencimento: formData.data_vencimento,
                 tipo: formData.tipo,
-                status: statusFinal, // <<< CORREÇÃO APLICADA AQUI
+                status: statusFinal,
                 conta_id: formData.conta_id,
                 categoria_id: formData.categoria_id,
                 empreendimento_id: formData.empreendimento_id,
                 etapa_id: formData.etapa_id,
                 empresa_id: formData.empresa_id,
-                observacoes: formData.observacoes,
+                observacao: formData.observacoes,
             };
-            // ***** FIM DA CORREÇÃO *****
 
             if (formData.novo_favorecido && formData.novo_favorecido.nome) {
                 const { data: novoContato, error: contatoError } = await supabase.from('contatos').insert({ nome: formData.novo_favorecido.nome, tipo_contato: 'Fornecedor' }).select().single();

@@ -271,7 +271,6 @@ export default function ImportacaoFinanceiraManager() {
         setIsProcessing(false);
     };
 
-    // ***** INÍCIO DA CORREÇÃO *****
     const processStep4 = async () => {
         if (!user) {
             setMessage('Erro: Usuário não autenticado. Por favor, faça login novamente.');
@@ -285,15 +284,11 @@ export default function ImportacaoFinanceiraManager() {
         
         const lancamentosParaInserir = [];
 
-        // Função auxiliar para encontrar o ID de um item (conta, categoria, etc.) pelo nome
         const getItemId = (type, name) => {
             if (!name) return null;
             const resolution = dataResolutions[type]?.[name.trim()];
-            // Se o usuário mapeou manualmente para um item existente
             if (resolution?.action === 'map' && resolution.mapToId) return resolution.mapToId;
-            // Se o usuário marcou para ignorar
             if (resolution?.action === 'ignore') return null;
-            // Busca o item no sistema (seja um que já existia ou um que acabou de ser criado)
             const existing = systemData[type].find(item => (item.nome || item.razao_social)?.toLowerCase() === name.trim().toLowerCase());
             return existing?.id || null;
         };
@@ -301,23 +296,19 @@ export default function ImportacaoFinanceiraManager() {
         for (const [index, row] of fileData.entries()) {
             setProgress(prev => ({...prev, current: prev.current + 1}));
 
-            // Validação de valor
             const valorStr = (row[mappings.valor] || '0').replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
             const valor = parseFloat(valorStr);
             if (isNaN(valor)) {
                 console.warn(`Linha ${index + 2}: Valor inválido "${row[mappings.valor]}", pulando.`);
-                continue; // Pula para a próxima linha
+                continue;
             }
             
-            // Validação e formatação de data
             const dateParts = (row[mappings.data_transacao] || '').split('/');
             let data_transacao = null;
             if (dateParts.length === 3) {
                 const [day, month, year] = dateParts;
-                // Garante que o ano tenha 4 dígitos
                 const fullYear = year.length === 2 ? `20${year}` : year;
                 data_transacao = `${fullYear}-${month}-${day}`;
-                // Validação final da data
                 if (isNaN(new Date(data_transacao))) {
                     console.warn(`Linha ${index + 2}: Data inválida "${row[mappings.data_transacao]}", pulando.`);
                     continue;
@@ -330,13 +321,11 @@ export default function ImportacaoFinanceiraManager() {
             const conta_id = getItemId('contas', row[mappings.conta_nome]);
             const conta_destino_id = getItemId('contas', row[mappings.conta_destino_nome]);
 
-            // Validação da conta principal
             if (!conta_id) {
                 console.warn(`Linha ${index + 2}: Conta principal "${row[mappings.conta_nome]}" não encontrada ou mapeada, pulando.`);
                 continue;
             }
 
-            // Determina o tipo do lançamento
             let tipoLancamento = 'Despesa';
             const tipoFromFile = (row[mappings.tipo] || '').toLowerCase();
             if (conta_destino_id) {
@@ -345,8 +334,7 @@ export default function ImportacaoFinanceiraManager() {
                 tipoLancamento = 'Receita';
             }
 
-            // Monta o objeto final para inserção
-            lancamentosParaInserir.push({
+            const lancamento = {
                 data_transacao,
                 descricao: row[mappings.descricao] || 'Sem descrição',
                 valor: Math.abs(valor),
@@ -359,14 +347,15 @@ export default function ImportacaoFinanceiraManager() {
                 empreendimento_id: getItemId('empreendimentos', row[mappings.empreendimento_nome]),
                 empresa_id: selectedEmpresaId,
                 criado_por_usuario_id: user.id,
-                observacoes: row[mappings.observacao]
-            });
+                observacao: row[mappings.observacao]
+            };
+
+            lancamentosParaInserir.push(lancamento);
         }
 
         setMessage(`Enviando ${lancamentosParaInserir.length} lançamentos para o sistema...`);
 
         if (lancamentosParaInserir.length > 0) {
-            // Insere os dados em lote
             const { data, error } = await supabase
                 .from('lancamentos')
                 .insert(lancamentosParaInserir)
@@ -390,7 +379,6 @@ export default function ImportacaoFinanceiraManager() {
         setIsProcessing(false);
         setStep(5);
     };
-    // ***** FIM DA CORREÇÃO *****
 
     const handleResolutionChange = (type, name, action, mapToId = null) => {
         setDataResolutions(prev => ({ ...prev, [type]: { ...prev[type], [name]: { action, mapToId } } }));
