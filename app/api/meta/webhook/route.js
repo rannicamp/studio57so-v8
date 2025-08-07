@@ -3,9 +3,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+const getSupabaseAdmin = () => createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
 // Função GET: Usada pelo Meta para verificar se a nossa URL é válida
 export async function GET(request) {
-    // Pega a senha diretamente do ambiente do servidor
     const META_VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
 
     const { searchParams } = new URL(request.url);
@@ -13,7 +17,6 @@ export async function GET(request) {
     const token = searchParams.get('hub.verify_token');
     const challenge = searchParams.get('hub.challenge');
 
-    // Compara o token que o Meta enviou com o que está salvo no nosso servidor
     if (mode === 'subscribe' && token === META_VERIFY_TOKEN) {
         console.log("SUCESSO: Webhook verificado com sucesso!");
         return new NextResponse(challenge, { status: 200 });
@@ -27,10 +30,7 @@ export async function GET(request) {
 
 // Função POST: Usada pelo Meta para nos enviar os dados de um novo lead
 export async function POST(request) {
-    const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
+    const supabase = getSupabaseAdmin();
     const body = await request.json();
 
     console.log('Recebido webhook do Meta:', JSON.stringify(body, null, 2));
@@ -70,7 +70,8 @@ export async function POST(request) {
             const contatoParaSalvar = {
                 nome: leadData.nome || 'Lead sem nome',
                 email: leadData.email,
-                origem: 'Meta Lead Ad',
+                // *** ALTERAÇÃO AQUI ***
+                origem: 'Meta Lead Ad', // Define a origem do lead
                 tipo_contato: 'Lead'
             };
 

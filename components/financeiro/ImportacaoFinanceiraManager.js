@@ -96,7 +96,6 @@ export default function ImportacaoFinanceiraManager() {
             supabase.from('contatos').select('id, nome, razao_social')
         ]);
         
-        // ***** INÍCIO DA MODIFICAÇÃO: Ordena os dados carregados *****
         const sortByName = (a, b) => (a.nome || a.razao_social).localeCompare(b.nome || b.razao_social);
         setSystemData({
             contas: (contasRes.data || []).sort(sortByName),
@@ -104,7 +103,6 @@ export default function ImportacaoFinanceiraManager() {
             empreendimentos: (empreendimentosRes.data || []).sort(sortByName),
             contatos: (contatosRes.data || []).sort(sortByName)
         });
-        // ***** FIM DA MODIFICAÇÃO *****
 
         setIsProcessing(false);
     }, [supabase]);
@@ -180,7 +178,6 @@ export default function ImportacaoFinanceiraManager() {
             }
         }
         
-        // ***** INÍCIO DA MODIFICAÇÃO: Lógica de auto-associação *****
         const autoResolve = (type, name) => {
             const existing = systemData[type].find(item => (item.nome || item.razao_social)?.toLowerCase() === name.toLowerCase());
             return existing ? { action: 'map', mapToId: existing.id } : { action: '', mapToId: null };
@@ -190,7 +187,6 @@ export default function ImportacaoFinanceiraManager() {
         unmappedData.contas.forEach(name => initialResolutions.contas[name] = autoResolve('contas', name));
         unmappedData.empreendimentos.forEach(name => initialResolutions.empreendimentos[name] = autoResolve('empreendimentos', name));
         unmappedData.contatos.forEach(name => initialResolutions.contatos[name] = autoResolve('contatos', name));
-        // ***** FIM DA MODIFICAÇÃO *****
 
         setUnmappedData({
             contas: filterNewItems(systemData.contas, uniqueContas),
@@ -198,7 +194,7 @@ export default function ImportacaoFinanceiraManager() {
             empreendimentos: filterNewItems(systemData.empreendimentos, uniqueEmpreendimentos),
             contatos: filterNewItems(systemData.contatos, uniqueContatos)
         });
-        setDataResolutions(initialResolutions); // Seta as resoluções automáticas
+        setDataResolutions(initialResolutions);
         setStep(3);
         setIsProcessing(false);
     };
@@ -306,14 +302,20 @@ export default function ImportacaoFinanceiraManager() {
             const [day, month, year] = (row[mappings.data_transacao] || '').split('/');
             const data_transacao = `${year}-${month}-${day}`;
 
-            let tipoLancamento = 'Despesa';
-            const tipoFromFile = (row[mappings.tipo] || '').toLowerCase();
-            if (['receita', 'credito', 'crédito', 'entrada'].some(term => tipoFromFile.includes(term))) {
-                tipoLancamento = 'Receita';
-            }
-
             const conta_id = getItemId('contas', row[mappings.conta_nome]?.trim());
             const conta_destino_id = getItemId('contas', row[mappings.conta_destino_nome]?.trim());
+
+            let tipoLancamento = 'Despesa';
+            const tipoFromFile = (row[mappings.tipo] || '').toLowerCase();
+
+            // ***** INÍCIO DA CORREÇÃO *****
+            // Lógica para identificar transferência
+            if (conta_id && conta_destino_id) {
+                tipoLancamento = 'Transferência';
+            } else if (['receita', 'credito', 'crédito', 'entrada'].some(term => tipoFromFile.includes(term))) {
+                tipoLancamento = 'Receita';
+            }
+            // ***** FIM DA CORREÇÃO *****
 
             lancamentosParaRpc.push({
                 data_transacao,

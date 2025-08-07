@@ -5,22 +5,19 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { IMaskInput } from 'react-imask';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; // CORRIGIDO: Importação correta para FontAwesomeIcon
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; 
 import { faSpinner, faTrashAlt, faPlusCircle } from '@fortawesome/free-solid-svg-icons';
-import { toast } from 'sonner'; // Importar toast
+import { toast } from 'sonner';
 
-// Países para o seletor de código de telefone
 const countries = [
     { name: "Brasil", code: "BR", dial_code: "+55", mask: "(00) 00000-0000" },
     { name: "Estados Unidos", code: "US", dial_code: "+1", mask: "(000) 000-0000" },
     { name: "Portugal", code: "PT", dial_code: "+351", mask: "000 000 000" },
-    // Adicione mais países conforme necessário
 ];
 
 const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }) => {
     const handleUpdate = (field, newValue) => onUpdate(index, field, newValue);
     if (isPhone) {
-        // Encontrar a máscara correta para o país selecionado
         const selectedCountry = countries.find(c => c.dial_code === item.country_code) || countries[0];
         const mask = selectedCountry.mask;
 
@@ -30,7 +27,7 @@ const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }
                     {countries.map(c => (<option key={c.code} value={c.dial_code}>{c.name} ({c.dial_code})</option>))}
                 </select>
                 <IMaskInput
-                    mask={mask} // Usar a máscara dinâmica
+                    mask={mask}
                     placeholder="(DDD) Telefone"
                     value={item.telefone || ''}
                     onAccept={(value) => handleUpdate('telefone', value)}
@@ -42,7 +39,6 @@ const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }
             </div>
         );
     }
-    // Bloco para emails - REATIVADO
     return (
         <div className="flex items-center gap-2">
             <input
@@ -75,13 +71,16 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         birth_date: '',
         estado_civil: '',
         nacionalidade: '',
-        personalidade_juridica: 'Pessoa Física', // Default
+        personalidade_juridica: 'Pessoa Física',
         data_fundacao: '',
         tipo_servico_produto: '',
         pessoa_contato: '',
         cargo: '',
-        empresa_id: null, // Certificar que é null se não selecionado
-        tipo_contato: 'Lead', // CORRIGIDO: Valor padrão 'Lead'
+        empresa_id: null,
+        tipo_contato: 'Lead',
+        // *** ALTERAÇÃO AQUI ***
+        origem: 'Manual', // Valor padrão para novos contatos
+        // *** FIM DA ALTERAÇÃO ***
         address_street: '',
         address_number: '',
         address_complement: '',
@@ -91,7 +90,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         neighborhood: '',
         observations: '',
         telefones: [{ telefone: '', country_code: '+55' }],
-        emails: [{ email: '' }], // REATIVADO: Inicialização de emails
+        emails: [{ email: '' }],
     }), []);
 
     const [formData, setFormData] = useState(getInitialState());
@@ -114,7 +113,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
 
     useEffect(() => {
         if (isEditing && contactToEdit) {
-            // Buscando telefones e emails separadamente para contatos existentes
             const fetchContactDetails = async () => {
                 const { data: phonesData, error: phonesError } = await supabase
                     .from('telefones')
@@ -132,9 +130,8 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                 setFormData({
                     ...contactToEdit,
                     empresa_id: contactToEdit.empresa_id || null,
-                    tipo_contato: contactToEdit.tipo_contato || 'Lead', // Garante um valor padrão válido
+                    tipo_contato: contactToEdit.tipo_contato || 'Lead',
                     observations: contactToEdit.observations || '',
-                    // REATIVADO E AJUSTADO: População de telefones e emails do banco de dados
                     telefones: phonesData?.length > 0 ? phonesData : [{ telefone: '', country_code: '+55' }],
                     emails: emailsData?.length > 0 ? emailsData : [{ email: '' }],
                     birth_date: contactToEdit.birth_date ? new Date(contactToEdit.birth_date).toISOString().split('T')[0] : '',
@@ -149,33 +146,19 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
+        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleDynamicInputChange = (listName, index, field, value) => {
-        setFormData(prev => ({
-            ...prev,
-            [listName]: prev[listName].map((item, i) =>
-                i === index ? { ...item, [field]: value } : item
-            )
-        }));
+        setFormData(prev => ({ ...prev, [listName]: prev[listName].map((item, i) => i === index ? { ...item, [field]: value } : item) }));
     };
 
     const handleAddDynamicInput = (listName, defaultValue) => {
-        setFormData(prev => ({
-            ...prev,
-            [listName]: [...prev[listName], defaultValue]
-        }));
+        setFormData(prev => ({ ...prev, [listName]: [...prev[listName], defaultValue] }));
     };
 
     const handleRemoveDynamicInput = (listName, index) => {
-        setFormData(prev => ({
-            ...prev,
-            [listName]: prev[listName].filter((_, i) => i !== index)
-        }));
+        setFormData(prev => ({ ...prev, [listName]: prev[listName].filter((_, i) => i !== index) }));
     };
 
     const handleCepChange = async (e) => {
@@ -209,46 +192,14 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsLoading(true);
-
-        // --- VALIDAÇÃO APRIMORADA (REMOVIDA A OBRIGATORIEDADE) ---
-        // Agora, todos os campos são opcionais por padrão, a menos que uma nova validação seja adicionada.
-        // A lógica de validação de campos obrigatórios foi removida para atender à sua solicitação.
-
-        const dataToSave = {
-            ...formData,
-            // Garantir que empresa_id seja null se vazio
-            empresa_id: formData.empresa_id ? parseInt(formData.empresa_id, 10) : null,
-            tipo_contato: formData.tipo_contato,
-            // Limpar dados irrelevantes para o tipo de personalidade e garantir null para campos de data vazios
-            cpf: formData.personalidade_juridica === 'Pessoa Física' && formData.cpf.trim() !== '' ? formData.cpf.replace(/\D/g, '') : null,
-            rg: formData.personalidade_juridica === 'Pessoa Física' && formData.rg.trim() !== '' ? formData.rg : null,
-            razao_social: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.razao_social.trim() !== '' ? formData.razao_social : null,
-            nome_fantasia: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.nome_fantasia.trim() !== '' ? formData.nome_fantasia : null,
-            cnpj: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.cnpj.trim() !== '' ? formData.cnpj.replace(/\D/g, '') : null,
-            inscricao_estadual: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.inscricao_estadual.trim() !== '' ? formData.inscricao_estadual : null,
-            inscricao_municipal: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.inscricao_municipal.trim() !== '' ? formData.inscricao_municipal : null,
-            responsavel_legal: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.responsavel_legal.trim() !== '' ? formData.responsavel_legal : null,
-            data_fundacao: (formData.personalidade_juridica === 'Pessoa Jurídica' && formData.data_fundacao.trim() !== '') ? formData.data_fundacao : null,
-            tipo_servico_produto: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.tipo_servico_produto.trim() !== '' ? formData.tipo_servico_produto : null,
-            pessoa_contato: formData.personalidade_juridica === 'Pessoa Jurídica' && formData.pessoa_contato.trim() !== '' ? formData.pessoa_contato : null,
-            cargo: formData.personalidade_juridica === 'Pessoa Física' && formData.cargo.trim() !== '' ? formData.cargo : null,
-            birth_date: (formData.personalidade_juridica === 'Pessoa Física' && formData.birth_date.trim() !== '') ? formData.birth_date : null,
-            estado_civil: formData.personalidade_juridica === 'Pessoa Física' && formData.estado_civil.trim() !== '' ? formData.estado_civil : null,
-            nacionalidade: formData.personalidade_juridica === 'Pessoa Física' && formData.nacionalidade.trim() !== '' ? formData.nacionalidade : null,
-            nome: formData.nome.trim() !== '' ? formData.nome : null,
-            observations: formData.observations.trim() !== '' ? formData.observations : null,
-            address_street: formData.address_street.trim() !== '' ? formData.address_street : null,
-            address_number: formData.address_number.trim() !== '' ? formData.address_number : null,
-            address_complement: formData.address_complement.trim() !== '' ? formData.address_complement : null,
-            cep: formData.cep.trim() !== '' ? formData.cep : null,
-            city: formData.city.trim() !== '' ? formData.city : null,
-            state: formData.state.trim() !== '' ? formData.state : null,
-            neighborhood: formData.neighborhood.trim() !== '' ? formData.neighborhood : null,
-        };
-
-        // Remover telefones e emails do objeto principal (já feito anteriormente)
-        delete dataToSave.telefones;
-        delete dataToSave.emails;
+        
+        // *** ALTERAÇÃO AQUI ***
+        // Remove 'origem' dos dados a serem salvos se for edição, para não sobrescrever
+        const { telefones, emails, ...dataToSave } = formData;
+        if (isEditing) {
+            delete dataToSave.origem;
+        }
+        // *** FIM DA ALTERAÇÃO ***
 
         const cleanedPhones = formData.telefones.filter(tel => tel.telefone.replace(/\D/g, '').length > 0).map(tel => ({
             telefone: tel.telefone.replace(/\D/g, ''),
@@ -287,7 +238,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
             return;
         }
 
-        // --- SALVAR TELEFONES E EMAILS ---
         if (contatoId) {
             await supabase.from('telefones').delete().eq('contato_id', contatoId);
             await supabase.from('emails').delete().eq('contato_id', contatoId);
@@ -312,10 +262,18 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         else router.push('/contatos');
     };
 
-
     return (
         <form onSubmit={handleSubmit} className="space-y-6 p-6 bg-white rounded-lg shadow-md">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">{isEditing ? 'Editar Contato' : 'Cadastrar Novo Contato'}</h2>
+            
+             {/* *** ALTERAÇÃO AQUI *** */}
+            {isEditing && formData.origem && (
+                <div className="p-3 bg-gray-100 rounded-md">
+                    <label className="block text-sm font-medium text-gray-500">Origem do Contato</label>
+                    <p className="text-md font-semibold text-gray-800">{formData.origem}</p>
+                </div>
+            )}
+            {/* *** FIM DA ALTERAÇÃO *** */}
 
             <fieldset className="border p-4 rounded-md">
                 <legend className="text-lg font-semibold text-gray-700">Tipo de Contato</legend>
@@ -373,8 +331,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                     )}
                 </div>
             </fieldset>
-
-            {/* CAMPO: Tipo de Contato */}
+            
             <fieldset className="border p-4 rounded-md">
                 <legend className="text-lg font-semibold text-gray-700">Classificação do Contato</legend>
                 <div className="mt-4">
@@ -389,7 +346,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                         <option value="Cliente">Cliente</option>
                         <option value="Fornecedor">Fornecedor</option>
                         <option value="Parceiro">Parceiro</option>
-                        {/* A opção "Outro" foi removida para evitar erros de enum */}
                     </select>
                 </div>
             </fieldset>
@@ -399,32 +355,14 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                 <div className="space-y-3 mt-4">
                     <h4 className="text-md font-medium">Telefones</h4>
                     {formData.telefones.map((tel, index) => (
-                        <DynamicInputRow
-                            key={index}
-                            item={tel}
-                            index={index}
-                            onUpdate={(i, field, value) => handleDynamicInputChange('telefones', i, field, value)}
-                            onRemove={() => handleRemoveDynamicInput('telefones', index)}
-                            isPhone={true}
-                            countries={countries}
-                        />
+                        <DynamicInputRow key={index} item={tel} index={index} onUpdate={(i, field, value) => handleDynamicInputChange('telefones', i, field, value)} onRemove={() => handleRemoveDynamicInput('telefones', index)} isPhone={true} countries={countries}/>
                     ))}
                     <button type="button" onClick={() => handleAddDynamicInput('telefones', { telefone: '', country_code: '+55' })} className="text-blue-600 hover:text-blue-800 flex items-center gap-2 text-sm">
                         <FontAwesomeIcon icon={faPlusCircle} /> Adicionar Telefone
                     </button>
-
-                    {/* Bloco de E-mails */}
                     <h4 className="text-md font-medium mt-6">E-mails</h4>
                     {formData.emails.map((mail, index) => (
-                        <DynamicInputRow
-                            key={index}
-                            item={mail}
-                            index={index}
-                            onUpdate={(i, field, value) => handleDynamicInputChange('emails', i, field, value)}
-                            onRemove={() => handleRemoveDynamicInput('emails', index)}
-                            isPhone={false}
-                            countries={countries}
-                        />
+                        <DynamicInputRow key={index} item={mail} index={index} onUpdate={(i, field, value) => handleDynamicInputChange('emails', i, field, value)} onRemove={() => handleRemoveDynamicInput('emails', index)} isPhone={false} countries={countries} />
                     ))}
                     <button type="button" onClick={() => handleAddDynamicInput('emails', { email: '' })} className="text-blue-600 hover:text-blue-800 flex items-center gap-2 text-sm">
                         <FontAwesomeIcon icon={faPlusCircle} /> Adicionar E-mail
@@ -435,15 +373,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
             <fieldset className="border p-4 rounded-md">
                 <legend className="text-lg font-semibold text-gray-700">Informações Adicionais</legend>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div>
-                        <label className="block text-sm font-medium">Empresa Associada</label>
-                        <select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="w-full p-2 border rounded-md">
-                            <option value="">Nenhuma</option>
-                            {companies.map(company => (
-                                <option key={company.id} value={company.id}>{company.razao_social}</option>
-                            ))}
-                        </select>
-                    </div>
+                    <div><label className="block text-sm font-medium">Empresa Associada</label><select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="w-full p-2 border rounded-md"><option value="">Nenhuma</option>{companies.map(company => (<option key={company.id} value={company.id}>{company.razao_social}</option>))}</select></div>
                     <div><label className="block text-sm font-medium">Observações</label><textarea name="observations" value={formData.observations || ''} onChange={handleChange} rows="3" className="w-full p-2 border rounded-md"></textarea></div>
                 </div>
             </fieldset>
@@ -451,18 +381,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
             <fieldset className="border p-4 rounded-md">
                 <legend className="text-lg font-semibold text-gray-700">Endereço</legend>
                 <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mt-4">
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium">CEP</label>
-                        <IMaskInput
-                            mask="00000-000"
-                            name="cep"
-                            value={formData.cep || ''}
-                            onAccept={(value) => setFormData(prev => ({ ...prev, cep: value }))}
-                            onBlur={handleCepChange}
-                            className="w-full p-2 border rounded-md"
-                        />
-                        {isApiLoading && <p className="text-xs text-gray-500">Buscando CEP...</p>}
-                    </div>
+                    <div className="md:col-span-2"><label className="block text-sm font-medium">CEP</label><IMaskInput mask="00000-000" name="cep" value={formData.cep || ''} onAccept={(value) => setFormData(prev => ({ ...prev, cep: value }))} onBlur={handleCepChange} className="w-full p-2 border rounded-md"/>{isApiLoading && <p className="text-xs text-gray-500">Buscando CEP...</p>}</div>
                     <div className="md:col-span-4"><label className="block text-sm font-medium">Logradouro</label><input name="address_street" value={formData.address_street || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                     <div className="md:col-span-1"><label className="block text-sm font-medium">Número</label><input name="address_number" value={formData.address_number || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                     <div className="md:col-span-3"><label className="block text-sm font-medium">Complemento</label><input name="address_complement" value={formData.address_complement || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>

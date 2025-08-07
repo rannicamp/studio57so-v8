@@ -52,10 +52,8 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     
-    // ***** INÍCIO DAS NOVAS ALTERAÇÕES *****
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiFile, setAiFile] = useState(null);
-    // ***** FIM DAS NOVAS ALTERAÇÕES *****
 
     const [contas, setContas] = useState([]);
     const [categorias, setCategorias] = useState([]);
@@ -97,11 +95,10 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             setFavorecidoSearchTerm('');
             setFavorecidoSearchResults([]);
             setSearchAttempted(false);
-            setAiFile(null); // Limpa o ficheiro da IA ao abrir/fechar
+            setAiFile(null);
         }
     }, [isOpen, isEditing, initialData, supabase]);
 
-    // ***** INÍCIO DAS NOVAS FUNÇÕES *****
     const handleAiFileChange = (e) => {
         if (e.target.files && e.target.files[0]) {
             setAiFile(e.target.files[0]);
@@ -132,7 +129,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
 
             const result = await response.json();
 
-            // Preenche o formulário com os dados extraídos
             setFormData(prev => ({
                 ...prev,
                 descricao: result.descricao || prev.descricao,
@@ -140,7 +136,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 data_transacao: result.data_transacao || prev.data_transacao,
             }));
 
-            // Coloca o nome do fornecedor no campo de busca para o utilizador confirmar
             if (result.nome_fornecedor) {
                 setFavorecidoSearchTerm(result.nome_fornecedor);
             }
@@ -154,8 +149,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             setIsAnalyzing(false);
         }
     };
-    // ***** FIM DAS NOVAS FUNÇÕES *****
-
+    
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -164,13 +158,17 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         try {
             if (!user) { throw new Error("Usuário não autenticado. Por favor, faça login novamente."); }
 
+            // ***** INÍCIO DA CORREÇÃO *****
+            // Define o status como 'Pago' se for uma transferência
+            const statusFinal = formData.tipo === 'Transferência' ? 'Pago' : formData.status;
+
             const dataToSave = {
                 descricao: formData.descricao,
                 valor: parseFloat(String(formData.valor || '0').replace(/[^0-9,.]/g, '').replace('.', '').replace(',', '.')) || 0,
                 data_transacao: formData.data_transacao,
                 data_vencimento: formData.data_vencimento,
                 tipo: formData.tipo,
-                status: formData.status,
+                status: statusFinal, // <<< CORREÇÃO APLICADA AQUI
                 conta_id: formData.conta_id,
                 categoria_id: formData.categoria_id,
                 empreendimento_id: formData.empreendimento_id,
@@ -178,6 +176,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 empresa_id: formData.empresa_id,
                 observacoes: formData.observacoes,
             };
+            // ***** FIM DA CORREÇÃO *****
 
             if (formData.novo_favorecido && formData.novo_favorecido.nome) {
                 const { data: novoContato, error: contatoError } = await supabase.from('contatos').insert({ nome: formData.novo_favorecido.nome, tipo_contato: 'Fornecedor' }).select().single();
@@ -235,7 +234,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         }
     };
     
-    // Demais funções (Handlers de UI)
     const handleChange = (e) => { const { name, value, type, checked } = e.target; const newValue = type === 'checkbox' ? checked : (value === '' ? null : value); let newFormData = { ...formData, [name]: newValue }; if (name === 'tipo' && newValue === 'Transferência') newFormData.form_type = 'simples'; if (name === 'form_type' && newValue !== 'simples') newFormData.tipo = formData.tipo === 'Transferência' ? 'Despesa' : formData.tipo; if (name === 'empreendimento_id') { if (newValue) { const emp = empreendimentos.find(e => e.id == newValue); newFormData.empresa_id = emp?.empresa_id || null; } else { newFormData.empresa_id = null; } newFormData.etapa_id = null; } setFormData(newFormData); };
     const handleFavorecidoSearch = async (e) => { const term = e.target.value; setFavorecidoSearchTerm(term); setSearchAttempted(false); if (term.length < 3) { setFavorecidoSearchResults([]); return; } setIsSearchingFavorecido(true); const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term }); setFavorecidoSearchResults(data || []); setIsSearchingFavorecido(false); setSearchAttempted(true); };
     const handleSelectFavorecido = (contato) => { setFormData(prev => ({ ...prev, favorecido_contato_id: contato.id, novo_favorecido: null })); setFavorecidoSearchTerm(contato.nome_exibicao); setFavorecidoSearchResults([]); };
@@ -256,7 +254,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 <h3 className="text-xl font-bold mb-4 text-center">{isEditing ? 'Editar Lançamento' : 'Novo Lançamento'}</h3>
                 {message && <p className={`text-center p-3 rounded-md text-sm font-semibold mb-4 ${message.includes('ERRO') ? 'bg-red-100 text-red-800' : 'bg-blue-50 text-blue-800'}`}>{message}</p>}
                 
-                {/* ***** INÍCIO DO NOVO BLOCO DE IA ***** */}
                 <div className="p-4 border-2 border-dashed border-purple-300 bg-purple-50 rounded-lg mb-6">
                     <h4 className="font-bold text-purple-800 flex items-center gap-2 mb-2"><FontAwesomeIcon icon={faRobot} /> Assistente de IA</h4>
                     <p className="text-xs text-purple-700 mb-3">Envie uma foto ou PDF do seu recibo ou nota fiscal e a IA tentará preencher o formulário para si.</p>
@@ -277,7 +274,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                         </button>
                     </div>
                 </div>
-                {/* ***** FIM DO NOVO BLOCO DE IA ***** */}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                      {!isEditing && (

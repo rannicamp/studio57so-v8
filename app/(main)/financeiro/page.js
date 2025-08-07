@@ -38,9 +38,8 @@ export default function FinanceiroPage() {
     const { selectedEmpreendimento } = useEmpreendimento();
     const supabase = createClient();
     const router = useRouter();
-    const { hasPermission, loading: authLoading } = useAuth(); // <<< 1. Importar o hook de permissão
+    const { hasPermission, loading: authLoading } = useAuth();
 
-    // Permissões
     const canViewPage = hasPermission('financeiro', 'pode_ver');
     const canCreate = hasPermission('financeiro', 'pode_criar');
 
@@ -74,10 +73,9 @@ export default function FinanceiroPage() {
     const [dashboardKpis, setDashboardKpis] = useState([]);
     const [loadingKpis, setLoadingKpis] = useState(true);
 
-    // <<< 2. Efeito para verificar permissão e redirecionar
     useEffect(() => {
         if (!authLoading && !canViewPage) {
-            router.push('/'); // Redireciona para o painel se não tiver permissão
+            router.push('/');
         }
     }, [authLoading, canViewPage, router]);
 
@@ -126,14 +124,18 @@ export default function FinanceiroPage() {
         const from = (currentPage - 1) * itemsPerPage;
         const to = from + itemsPerPage - 1;
 
+        // ***** INÍCIO DA CORREÇÃO *****
+        // Adicionado 'conta_destino' para buscar os dados da conta de destino nas transferências.
         const selectString = `
             *,
             conta:contas_financeiras!conta_id(*, empresa:cadastro_empresa!empresa_id(id, nome_fantasia, razao_social)),
+            conta_destino:contas_financeiras!conta_destino_id(id, nome),
             categoria:categorias_financeiras(*),
             favorecido:contatos!favorecido_contato_id(*),
             empreendimento:empreendimentos(*, empresa:cadastro_empresa!empresa_proprietaria_id(id, nome_fantasia, razao_social)),
             anexos:lancamentos_anexos(*)
         `;
+        // ***** FIM DA CORREÇÃO *****
 
         let query = supabase
             .from('lancamentos')
@@ -267,7 +269,6 @@ export default function FinanceiroPage() {
     const handleOpenEditModal = (lancamento) => { setEditingLancamento(lancamento); setIsFormModalOpen(true); };
     const TabButton = ({ tabName, label }) => ( <button onClick={() => setActiveTab(tabName)} className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm uppercase ${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}> {label} </button> );
 
-    // <<< 3. Se ainda estiver a carregar ou se não tiver permissão, mostrar uma mensagem
     if (authLoading) {
         return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando...</div>;
     }
@@ -282,7 +283,6 @@ export default function FinanceiroPage() {
         );
     }
 
-    // O resto do return continua igual
     return (
         <div className="space-y-6">
             <LancamentoFormModal 
@@ -300,7 +300,6 @@ export default function FinanceiroPage() {
                          <Link href="/financeiro/transferencias" className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 flex items-center gap-2 uppercase">Identificar Transferências</Link>
                          <Link href="/financeiro/kpi-builder" className="bg-cyan-500 text-white px-4 py-2 rounded-md hover:bg-cyan-600 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faCalculator} /> KPIs</Link>
                          <Link href="/configuracoes/financeiro/importar" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faCogs} /> Assistente</Link>
-                         {/* <<< 4. Ocultar o botão se não tiver permissão para criar */}
                          {canCreate && (
                             <button onClick={handleOpenAddModal} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faPlus} /> Novo Lançamento</button>
                          )}

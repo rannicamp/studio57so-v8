@@ -1,5 +1,3 @@
-// components/financeiro/LancamentosManager.js
-
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -8,7 +6,9 @@ import {
     faSpinner, faFilter, faTimes, faPenToSquare, faTrash, faSort, faSortUp, faSortDown, faLayerGroup, faSave, faStar as faStarSolid, faEllipsisV,
     faChevronUp, faChevronDown, faArrowUp, faArrowDown, faBalanceScale, faCalendarDay, faCalendarWeek, faCalendarAlt, faSyncAlt,
     faChevronLeft, faChevronRight,
-    faRobot
+    faRobot,
+    faCheckCircle,
+    faDollarSign
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
@@ -64,6 +64,41 @@ export default function LancamentosManager({
     const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
     const [analysisResult, setAnalysisResult] = useState('');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [editingCell, setEditingCell] = useState(null);
+
+    const lancamentosParaExibir = useMemo(() => {
+        const listaExibicao = [];
+        lancamentos.forEach(item => {
+            if (item.tipo === 'Transferência') {
+                listaExibicao.push({
+                    ...item,
+                    tipo_exibicao: 'Despesa',
+                    descricao_exibicao: `Transferência para: ${item.conta_destino?.nome || 'N/A'}`,
+                    conta_exibicao: item.conta,
+                    is_transfer_part: true,
+                    unique_key: `${item.id}_saida`
+                });
+                listaExibicao.push({
+                    ...item,
+                    tipo_exibicao: 'Receita',
+                    descricao_exibicao: `Transferência de: ${item.conta?.nome || 'N/A'}`,
+                    conta_exibicao: item.conta_destino,
+                    is_transfer_part: true,
+                    unique_key: `${item.id}_entrada`
+                });
+            } else {
+                listaExibicao.push({
+                    ...item,
+                    tipo_exibicao: item.tipo,
+                    descricao_exibicao: item.descricao,
+                    conta_exibicao: item.conta,
+                    is_transfer_part: false,
+                    unique_key: item.id
+                });
+            }
+        });
+        return listaExibicao;
+    }, [lancamentos]);
 
     const kpiData = useMemo(() => {
         let totalReceitas = 0; let totalDespesas = 0;
@@ -111,6 +146,24 @@ export default function LancamentosManager({
         const tree = []; const map = {}; const allCategories = JSON.parse(JSON.stringify(categorias || [])); allCategories.forEach(cat => { map[cat.id] = { ...cat, children: [] }; }); allCategories.forEach(cat => { if (cat.parent_id && map[cat.parent_id]) { map[cat.parent_id].children.push(map[cat.id]); } else { tree.push(map[cat.id]); } }); return tree;
     }, [categorias]);
 
+    const handleStatusUpdate = async (lancamentoId, newStatus) => {
+        setEditingCell(null);
+        const updateData = { status: newStatus };
+        if (newStatus === 'Pago') {
+            updateData.data_pagamento = new Date().toISOString();
+        }
+        const { error } = await supabase.from('lancamentos').update(updateData).eq('id', lancamentoId);
+        if (error) {
+            alert("Erro ao atualizar status: " + error.message);
+        } else {
+            if (onUpdate) onUpdate();
+        }
+    };
+
+    const handleMarkAsPaid = async (lancamentoId) => {
+        await handleStatusUpdate(lancamentoId, 'Pago');
+    };
+
     const handleFilterChange = (name, value) => { setFilters(prev => ({...prev, [name]: value})); if(name !== 'startDate' && name !== 'endDate') setActivePeriodFilter(''); setCurrentPage(1); };
     const handleNatureFilterClick = (nature) => { setFilters(prev => { const currentTipo = prev.tipo || []; const newTipo = currentTipo.includes(nature) ? currentTipo.filter(t => t !== nature) : [...currentTipo, nature]; return { ...prev, tipo: newTipo }; }); setCurrentPage(1); };
     const setDateRange = (period) => { const today = new Date(); let startDate, endDate; if (period === 'today') { startDate = endDate = today; } else if (period === 'week') { const firstDayOfWeek = today.getDate() - today.getDay(); startDate = new Date(today.setDate(firstDayOfWeek)); endDate = new Date(startDate); endDate.setDate(endDate.getDate() + 6); } else if (period === 'month') { startDate = new Date(today.getFullYear(), today.getMonth(), 1); endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); } setFilters(prev => ({ ...prev, startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0], month: '', year: '' })); setActivePeriodFilter(period); setCurrentPage(1); };
@@ -123,6 +176,20 @@ export default function LancamentosManager({
     const requestSort = (key) => { let direction = 'descending'; if (sortConfig.key === key && sortConfig.direction === 'descending') direction = 'ascending'; setSortConfig({ key, direction }); setCurrentPage(1); };
     const handleSelectAll = (e) => setSelectedIds(e.target.checked ? new Set(lancamentos.map(l => l.id)) : new Set());
     const handleSelectOne = (id) => { const newSelection = new Set(selectedIds); if (newSelection.has(id)) newSelection.delete(id); else newSelection.add(id); setSelectedIds(newSelection); };
+    
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0 || !window.confirm(`Tem certeza que deseja EXCLUIR ${selectedIds.size} lançamento(s)? Esta ação não pode ser desfeita.`)) return;
+        const { error } = await supabase.from('lancamentos').delete().in('id', Array.from(selectedIds));
+        if (error) {
+            alert("Erro ao excluir: " + error.message);
+        } else {
+            alert(`${selectedIds.size} lançamentos excluídos com sucesso!`);
+            setSelectedIds(new Set());
+            if (onUpdate) onUpdate();
+        }
+        setIsBatchActionsOpen(false);
+    };
+
     const handleBulkUpdate = async (updateObject) => { if (!window.confirm(`Tem certeza que deseja aplicar esta alteração a ${selectedIds.size} lançamento(s)?`)) return; const { error } = await supabase.from('lancamentos').update(updateObject).in('id', Array.from(selectedIds)); if (error) { alert("Erro ao atualizar: " + error.message); } else { alert('Lançamentos atualizados com sucesso!'); if (onUpdate) onUpdate(); } };
     
     const batchUpdateFields = [
@@ -143,11 +210,21 @@ export default function LancamentosManager({
         contas,
         etapas,
         contatos: allContacts,
-        funcionarios: funcionarios?.map(f => ({ ...f, nome: f.full_name })), // Garante que o campo 'nome' exista
+        funcionarios: funcionarios?.map(f => ({ ...f, nome: f.full_name })),
     };
 
     const handleBatchUpdateField = (field, value) => { setIsBatchUpdateModalOpen(false); if(!field || !value) { alert("Por favor, selecione um campo e um valor."); return; } const updateObject = { [field]: value }; if(field === 'status' && value === 'Pago'){ updateObject.data_pagamento = new Date().toISOString(); } handleBulkUpdate(updateObject); };
-    const getPaymentStatus = (item) => { if (item.status === 'Pago' || item.conciliado) return { text: 'Paga', className: 'bg-green-100 text-green-800' }; const today = new Date(); today.setHours(0, 0, 0, 0); const dueDate = new Date((item.data_vencimento || item.data_transacao) + 'T00:00:00Z'); if (dueDate < today) return { text: 'Atrasada', className: 'bg-red-100 text-red-800' }; return { text: 'A Pagar', className: 'bg-yellow-100 text-yellow-800' }; };
+    
+    const getPaymentStatus = (item) => {
+        if (item.tipo === 'Transferência') return { text: 'Realizada', className: 'bg-blue-100 text-blue-800' };
+        if (item.status === 'Pago' || item.conciliado) return { text: 'Paga', className: 'bg-green-100 text-green-800' };
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dueDate = new Date((item.data_vencimento || item.data_transacao) + 'T00:00:00Z');
+        if (dueDate < today) return { text: 'Atrasada', className: 'bg-red-100 text-red-800' };
+        return { text: 'A Pagar', className: 'bg-yellow-100 text-yellow-800' };
+    };
+
     const formatCurrency = (value, tipo) => { const signal = tipo === 'Receita' ? '+' : (tipo === 'Despesa' ? '-' : ''); return `${signal} ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(value || 0))}`; };
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A';
     const statusOptions = [{ id: 'Pago', text: 'Paga' }, { id: 'Pendente', text: 'A Pagar' }, { id: 'Atrasada', text: 'Atrasada' }].map(s => ({...s, nome: s.text}));
@@ -184,7 +261,7 @@ export default function LancamentosManager({
             </div>
 
             <div className="flex justify-between items-center bg-white p-4 border rounded-lg shadow-sm">
-                <span className="text-sm text-gray-700"> Mostrando <strong>{lancamentos.length}</strong> de <strong>{totalCount}</strong> lançamentos </span>
+                <span className="text-sm text-gray-700"> Mostrando <strong>{lancamentosParaExibir.length}</strong> de <strong>{totalCount}</strong> lançamentos </span>
                 <div className="flex items-center gap-2">
                     <button onClick={handleAnalyzeClick} disabled={loading || isAnalyzing} className="bg-purple-600 text-white px-4 py-2 rounded-md flex items-center gap-2 text-sm disabled:bg-gray-400">
                         <FontAwesomeIcon icon={isAnalyzing ? faSpinner : faRobot} spin={isAnalyzing} />
@@ -198,7 +275,22 @@ export default function LancamentosManager({
                 </div>
             </div>
 
-            {selectedIds.size > 0 && ( <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in"> <span className="text-sm font-semibold text-blue-800 uppercase">{selectedIds.size} selecionado(s)</span> <div className="relative" ref={batchActionsRef}> <button onClick={() => setIsBatchActionsOpen(prev => !prev)} className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm font-bold hover:bg-blue-700 uppercase flex items-center gap-2"> <FontAwesomeIcon icon={faLayerGroup} /> Ações em Lote <FontAwesomeIcon icon={faChevronDown} className="text-xs"/> </button> {isBatchActionsOpen && ( <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-10 border"> <a onClick={() => { setIsBatchUpdateModalOpen(true); setIsBatchActionsOpen(false); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">Alterar Campo...</a> </div> )} </div> </div> )}
+            {selectedIds.size > 0 && ( 
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in"> 
+                    <span className="text-sm font-semibold text-blue-800 uppercase">{selectedIds.size} selecionado(s)</span> 
+                    <div className="relative" ref={batchActionsRef}> 
+                        <button onClick={() => setIsBatchActionsOpen(prev => !prev)} className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm font-bold hover:bg-blue-700 uppercase flex items-center gap-2"> 
+                            <FontAwesomeIcon icon={faLayerGroup} /> Ações em Lote <FontAwesomeIcon icon={faChevronDown} className="text-xs"/> 
+                        </button> 
+                        {isBatchActionsOpen && ( 
+                            <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-10 border"> 
+                                <a onClick={() => { setIsBatchUpdateModalOpen(true); setIsBatchActionsOpen(false); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">Alterar Campo...</a> 
+                                <a onClick={() => { handleBulkDelete(); setIsBatchActionsOpen(false); }} className="block px-4 py-2 text-sm text-red-700 hover:bg-red-50 cursor-pointer">Excluir Selecionados</a>
+                            </div> 
+                        )} 
+                    </div> 
+                </div> 
+            )}
             
             {loading ? ( <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div> ) : (
                  <div className="overflow-x-auto border rounded-lg">
@@ -207,34 +299,70 @@ export default function LancamentosManager({
                             <tr>
                                 <th className="p-4 w-4"><input type="checkbox" onChange={handleSelectAll} checked={lancamentos.length > 0 && selectedIds.size === lancamentos.length} /></th>
                                 <SortableHeader label="Data" sortKey="data_transacao" sortConfig={sortConfig} requestSort={requestSort} />
-                                <th className="px-4 py-3 text-left text-xs font-bold uppercase w-1/4">Descrição</th>
-                                <SortableHeader label="Favorecido" sortKey="favorecido" sortConfig={sortConfig} requestSort={requestSort} />
-                                <SortableHeader label="Categoria" sortKey="categoria" sortConfig={sortConfig} requestSort={requestSort} />
-                                <SortableHeader label="Empresa" sortKey="empresa" sortConfig={sortConfig} requestSort={requestSort} />
-                                <SortableHeader label="Empreendimento" sortKey="empreendimento" sortConfig={sortConfig} requestSort={requestSort} />
+                                <th className="px-4 py-3 text-left text-xs font-bold uppercase w-1/3">Descrição</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold uppercase">Conta</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold uppercase">Empresa</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold uppercase">Categoria</th>
+                                <th className="px-4 py-3 text-center text-xs font-bold uppercase">Conc.</th>
                                 <th className="px-4 py-3 text-right text-xs font-bold uppercase">Valor</th>
                                 <th className="px-4 py-3 text-center text-xs font-bold uppercase">Status</th>
                                 <th className="px-4 py-3 text-center text-xs font-bold uppercase">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {lancamentos.length > 0 ? lancamentos.map(item => {
+                            {lancamentosParaExibir.length > 0 ? lancamentosParaExibir.map(item => {
                                 const statusInfo = getPaymentStatus(item);
-                                const nomeEmpresa = item.empreendimento?.empresa?.nome_fantasia || item.empreendimento?.empresa?.razao_social || item.conta?.empresa?.nome_fantasia || item.conta?.empresa?.razao_social || 'N/A';
+                                const isPending = item.status === 'Pendente' && !item.conciliado;
+                                const isTransfer = item.tipo === 'Transferência';
+                                const isTransferEntry = item.unique_key?.toString().includes('_entrada');
+                                const nomeEmpresa = item.conta_exibicao?.empresa?.nome_fantasia || item.conta_exibicao?.empresa?.razao_social || 'N/A';
+
                                 return (
-                                    <tr key={item.id} className={`${selectedIds.has(item.id) ? 'bg-blue-100' : 'hover:bg-gray-50'}`}>
-                                        <td className="p-4"><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} /></td>
+                                    <tr key={item.unique_key} className={`${selectedIds.has(item.id) ? 'bg-blue-100' : ''} ${isTransferEntry ? 'bg-gray-50' : 'hover:bg-gray-50'}`}>
+                                        <td className="p-4">
+                                            <input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} />
+                                        </td>
                                         <td className="px-4 py-2">{formatDate(item.data_transacao)}</td>
-                                        <td className="px-4 py-2 font-medium">{item.descricao}</td>
-                                        <td className="px-4 py-2">{item.favorecido?.nome || item.favorecido?.razao_social || 'N/A'}</td>
-                                        <td className="px-4 py-2">{item.categoria?.nome || 'N/A'}</td>
-                                        <td className="px-4 py-2"><span className="uppercase">{nomeEmpresa}</span></td>
-                                        <td className="px-4 py-2">{item.empreendimento?.nome || 'N/A'}</td>
-                                        <td className={`px-4 py-2 text-right font-bold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(item.valor, item.tipo)}</td>
-                                        <td className="px-4 py-2 text-center text-xs"><span className={`px-2 py-1 font-semibold leading-tight rounded-full ${statusInfo.className}`}>{statusInfo.text.toUpperCase()}</span></td>
+                                        <td className="px-4 py-2 font-medium">{item.descricao_exibicao}</td>
+                                        <td className="px-4 py-2 text-gray-600">{item.conta_exibicao?.nome || 'N/A'}</td>
+                                        <td className="px-4 py-2 text-gray-600 uppercase">{nomeEmpresa}</td>
+                                        <td className="px-4 py-2 text-gray-600">{item.categoria?.nome || 'N/A'}</td>
+                                        <td className="px-4 py-2 text-center text-green-500">
+                                            {item.conciliado && <FontAwesomeIcon icon={faCheckCircle} title="Conciliado com o extrato bancário" />}
+                                        </td>
+                                        <td className={`px-4 py-2 text-right font-bold ${item.tipo_exibicao === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>
+                                            {formatCurrency(item.valor, item.tipo_exibicao)}
+                                        </td>
+                                        <td className="px-4 py-2 text-center text-xs">
+                                            {editingCell === item.unique_key && !isTransfer ? (
+                                                <select
+                                                    defaultValue={item.status}
+                                                    onBlur={(e) => handleStatusUpdate(item.id, e.target.value)}
+                                                    onChange={(e) => handleStatusUpdate(item.id, e.target.value)}
+                                                    autoFocus
+                                                    className="p-1 border rounded-md text-xs"
+                                                >
+                                                    <option value="Pendente">Pendente</option>
+                                                    <option value="Pago">Pago</option>
+                                                </select>
+                                            ) : (
+                                                <span onClick={() => !isTransfer && setEditingCell(item.unique_key)} className={`px-2 py-1 font-semibold leading-tight rounded-full ${statusInfo.className} ${!isTransfer ? 'cursor-pointer hover:ring-2 hover:ring-blue-300' : ''}`}>
+                                                    {statusInfo.text.toUpperCase()}
+                                                </span>
+                                            )}
+                                        </td>
                                         <td className="px-4 py-2 text-center">
-                                            <button onClick={() => onEdit(item)} className="text-blue-500 hover:text-blue-700 mr-3" title="Editar Completo"><FontAwesomeIcon icon={faPenToSquare} /></button>
-                                            <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
+                                            {!isTransferEntry && (
+                                                <div className="flex items-center justify-center gap-3">
+                                                    {isPending && (
+                                                        <button onClick={() => handleMarkAsPaid(item.id)} className="text-green-500 hover:text-green-700" title="Marcar como Pago">
+                                                            <FontAwesomeIcon icon={faDollarSign} />
+                                                        </button>
+                                                    )}
+                                                    <button onClick={() => onEdit(item)} className="text-blue-500 hover:text-blue-700" title="Editar Completo"><FontAwesomeIcon icon={faPenToSquare} /></button>
+                                                    <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 );

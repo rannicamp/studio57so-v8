@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisV, faStickyNote } from '@fortawesome/free-solid-svg-icons';
+import { faEllipsisV, faStickyNote, faBullhorn } from '@fortawesome/free-solid-svg-icons'; // Importar ícone novo
 
 export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, onMoveToColumn, onOpenNotesModal }) {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -31,6 +31,11 @@ export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, on
     const contato = funilEntry.contatos;
     const cardNumber = funilEntry.numero_card;
     const currentColumnId = funilEntry.coluna_id;
+
+    // *** INÍCIO DA ALTERAÇÃO ***
+    // Verifica se o lead veio do Meta
+    const isMetaLead = contato.origem === 'Meta Lead Ad';
+    // *** FIM DA ALTERAÇÃO ***
 
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
@@ -128,6 +133,18 @@ export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, on
             </div>
 
             <p className="text-xs text-gray-600 mb-1">{displayContactInfo}</p>
+            
+            {/* *** INÍCIO DA ALTERAÇÃO *** */}
+            {/* Mostra o ícone se for um lead do Meta */}
+            {isMetaLead && (
+                <div className="mt-2">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <FontAwesomeIcon icon={faBullhorn} />
+                        Meta Lead
+                    </span>
+                </div>
+            )}
+            {/* *** FIM DA ALTERAÇÃO *** */}
 
             <div className="text-xs text-gray-500 mt-2">
                 {contato.created_at && (
