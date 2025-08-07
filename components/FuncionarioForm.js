@@ -46,7 +46,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     foto_url: null,
     numero_ponto: null,
     jornada_id: null,
-    contato_id: null, // Garantir que o campo existe no estado inicial
+    contato_id: null,
   });
 
   const [formData, setFormData] = useState(initialData || getInitialState());
@@ -98,19 +98,16 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     let finalFotoPath = formData.foto_url;
     let finalContatoId = formData.contato_id;
 
+    // ***** INÍCIO DA CORREÇÃO *****
     // 1. Criar ou atualizar o contato correspondente
-    // Apenas se for um novo funcionário ou um funcionário existente que ainda não tem um contato_id
     if (!isEditing || !finalContatoId) {
         const contatoData = {
             nome: formData.full_name,
             cpf: formData.cpf,
-            cnpj: null, // Funcionário é sempre PF para o contato
             personalidade_juridica: 'Pessoa Física',
-            tipo_contato: 'Fornecedor', // Funcionários são considerados fornecedores de serviço
-            email: formData.email,
+            tipo_contato: 'Fornecedor',
         };
         
-        // Verifica se já existe um contato com este CPF para evitar duplicatas
         const { data: existingContact } = await supabase.from('contatos').select('id').eq('cpf', formData.cpf).single();
 
         if (existingContact) {
@@ -123,8 +120,27 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
                 return;
             }
             finalContatoId = newContact.id;
+
+            // Salva o email na tabela de emails
+            if (formData.email) {
+                await supabase.from('emails').insert({
+                    contato_id: finalContatoId,
+                    email: formData.email,
+                    tipo: 'Principal'
+                });
+            }
+
+            // Salva o telefone na tabela de telefones
+            if (formData.phone) {
+                await supabase.from('telefones').insert({
+                    contato_id: finalContatoId,
+                    telefone: formData.phone.replace(/\D/g, ''),
+                    tipo: 'Celular'
+                });
+            }
         }
     }
+    // ***** FIM DA CORREÇÃO *****
 
     // 2. Lógica de Upload da Foto (continua a mesma)
     if (newPhotoFile) {
@@ -145,7 +161,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     const { id, created_at, cadastro_empresa, empreendimentos, documentos_funcionarios, ...dbData } = { 
         ...formData, 
         foto_url: finalFotoPath,
-        contato_id: finalContatoId // A "PONTE" SENDO CONSTRUÍDA!
+        contato_id: finalContatoId
     };
 
     if (isEditing) {
