@@ -33,7 +33,8 @@ export default function PoliticasDeUsoPage() {
           <p>O software, design, layout e todos os componentes do sistema são propriedade intelectual do Studio 57 e protegidos por leis de direitos autorais.</p>
 
           <h3 className="!font-semibold">5. Limitação de Responsabilidade</h3>
-          <p>O sistema é fornecido 'como está'. O Studio 57 não se responsabiliza por perdas de dados ou danos resultantes do uso (ou da incapacidade de uso) da plataforma.</p>
+          {/* CORREÇÃO APLICADA AQUI */}
+          <p>O sistema é fornecido &apos;como está&apos;. O Studio 57 não se responsabiliza por perdas de dados ou danos resultantes do uso (ou da incapacidade de uso) da plataforma.</p>
 
           <hr className="my-10" />
 
@@ -59,7 +60,8 @@ export default function PoliticasDeUsoPage() {
           <p>Implementamos medidas de segurança como controle de acesso baseado em funções e criptografia para proteger suas informações contra acesso, alteração ou divulgação não autorizada.</p>
 
           <h3 className="!font-semibold">5. Seus Direitos</h3>
-          <p>Você tem o direito de acessar e corrigir suas informações pessoais através da página 'Meu Perfil'. Para exclusão de dados, entre em contato com a administração, sujeito às políticas de retenção de dados da empresa.</p>
+          {/* CORREÇÃO APLICADA AQUI */}
+          <p>Você tem o direito de acessar e corrigir suas informações pessoais através da página &apos;Meu Perfil&apos;. Para exclusão de dados, entre em contato com a administração, sujeito às políticas de retenção de dados da empresa.</p>
 
         </div>
       </div>

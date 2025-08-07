@@ -89,7 +89,8 @@ export default function PoliticasModal() {
           <p>O software, design, layout e todos os componentes do sistema são propriedade intelectual do Studio 57 e protegidos por leis de direitos autorais.</p>
 
           <h3>5. Limitação de Responsabilidade</h3>
-          <p>O sistema é fornecido 'como está'. O Studio 57 não se responsabiliza por perdas de dados ou danos resultantes do uso (ou da incapacidade de uso) da plataforma.</p>
+          {/* CORREÇÃO APLICADA AQUI */}
+          <p>O sistema é fornecido &apos;como está&apos;. O Studio 57 não se responsabiliza por perdas de dados ou danos resultantes do uso (ou da incapacidade de uso) da plataforma.</p>
 
           <hr />
 
