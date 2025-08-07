@@ -8,13 +8,17 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata = {
   title: 'Studio 57',
   description: 'Sistema de Gestão Integrada',
+  manifest: '/manifest.json', // Adiciona o manifesto ao metadata
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-br">
+      <head>
+        {/* Adiciona a cor do tema para a barra de status em celulares */}
+        <meta name="theme-color" content="#0288d1" />
+      </head>
       <body className={inter.className}>
-        {/* CORREÇÃO: Carregando o script de uma fonte externa confiável (CDN) */}
         <Script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" strategy="beforeInteractive" />
         
         {children}

@@ -1,20 +1,15 @@
-// Caminho do arquivo: next.config.mjs
-
 /** @type {import('next').NextConfig} */
+import withPWA from 'next-pwa';
+
 const nextConfig = {
-  // AQUI ESTÁ A CONFIGURAÇÃO NECESSÁRIA:
-  // Estamos dizendo ao sistema que ele tem permissão para otimizar
-  // e carregar imagens que vêm do seu banco de dados da Supabase.
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'vhuvnutzklhskkwbpxdz.supabase.co',
-        port: '',
-        pathname: '/storage/v1/object/public/**',
-      },
-    ],
-  },
+  // Suas outras configurações do Next.js podem vir aqui
 };
 
-export default nextConfig;
+const pwaConfig = withPWA({
+  dest: 'public',
+  register: true,
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === 'development', // Desativa o PWA em modo de desenvolvimento para evitar problemas de cache
+});
+
+export default pwaConfig(nextConfig);
