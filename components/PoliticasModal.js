@@ -53,10 +53,7 @@ export default function PoliticasModal() {
   }
 
   return (
-    // O fundo escuro que cobre a tela inteira
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[100] p-4">
-      
-      {/* O container do modal com altura máxima e layout flexível */}
       <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-4xl max-h-[90vh] flex flex-col">
         
         {hasRejected && (
@@ -73,8 +70,6 @@ export default function PoliticasModal() {
 
         <h1 className="text-2xl font-bold text-gray-900 text-center mb-4 flex-shrink-0">Políticas de Uso e Privacidade</h1>
         
-        {/* ***** CORREÇÃO APLICADA AQUI ***** */}
-        {/* A classe 'flex-1' foi removida e uma altura máxima explícita 'max-h-[65vh]' foi adicionada */}
         <div className="prose max-w-none overflow-y-auto pr-4 border-y py-4 max-h-[65vh]">
           
           <h2>Termos de Uso do Sistema Studio 57</h2>
@@ -94,8 +89,7 @@ export default function PoliticasModal() {
           <p>O software, design, layout e todos os componentes do sistema são propriedade intelectual do Studio 57 e protegidos por leis de direitos autorais.</p>
 
           <h3>5. Limitação de Responsabilidade</h3>
-          <p>O sistema é fornecido "como está". O Studio 57 não se responsabiliza por perdas de dados ou danos resultantes do uso (ou da incapacidade de uso) da plataforma.</p>
-
+          <p>O sistema é fornecido 'como está'. O Studio 57 não se responsabiliza por perdas de dados ou danos resultantes do uso (ou da incapacidade de uso) da plataforma.</p>
 
           <hr />
 
