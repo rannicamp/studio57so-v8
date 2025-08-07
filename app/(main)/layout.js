@@ -1,4 +1,3 @@
-// app/layout.js
 "use client";
 
 import { useState } from 'react';
@@ -8,6 +7,9 @@ import { AuthProvider } from '../../contexts/AuthContext';
 import { LayoutProvider } from '../../contexts/LayoutContext';
 import { EmpreendimentoProvider } from '../../contexts/EmpreendimentoContext';
 import { useAuth } from '../../contexts/AuthContext';
+// Importa o SessionProvider para o Google
+import { SessionProvider } from 'next-auth/react';
+
 // Importa o CSS do FontAwesome. É importante que seja importado globalmente.
 import '@fortawesome/fontawesome-svg-core/styles.css'; 
 // A configuração global para prevenir o FontAwesome de adicionar estilos automaticamente
@@ -45,7 +47,10 @@ function MainLayoutContent({ children }) {
 export default function MainAppLayout({ children }) {
   return (
     <AuthProvider>
-      <MainLayoutContent>{children}</MainLayoutContent>
+      {/* O SessionProvider agora envolve o conteúdo principal */}
+      <SessionProvider>
+        <MainLayoutContent>{children}</MainLayoutContent>
+      </SessionProvider>
     </AuthProvider>
   );
 }

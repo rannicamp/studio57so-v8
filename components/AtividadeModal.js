@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHistory } from '@fortawesome/free-solid-svg-icons';
-import { useEmpreendimento } from '@/contexts/EmpreendimentoContext'; // Adicionado para consumir o contexto
+import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
+import { toast } from 'sonner';
 
 function addBusinessDays(startDate, days) {
     if (!startDate || isNaN(days)) return startDate || '';
@@ -24,23 +25,12 @@ function addBusinessDays(startDate, days) {
     return currentDate.toISOString().split('T')[0];
 }
 
-// Assinatura do componente original foi mantida, mas `allEmpreendimentos` vindo das props não será mais usado.
 export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activityToEdit, selectedEmpreendimento, funcionarios, allEmpresas }) {
     const supabase = createClient();
-    
-    // **INÍCIO DA CORREÇÃO**
-    // Busca os empreendimentos e o status de carregamento diretamente do contexto.
     const { empreendimentos: allEmpreendimentos, loading: empreendimentosLoading } = useEmpreendimento();
-    // **FIM DA CORREÇÃO**
-
     const [etapas, setEtapas] = useState([]);
-    const [message, setMessage] = useState('');
     const [currentUserId, setCurrentUserId] = useState(null);
     const isEditing = Boolean(activityToEdit);
-
-    const [isReprogramming, setIsReprogramming] = useState(false);
-    const [reprogramData, setReprogramData] = useState({ newEndDate: '', reason: '' });
-
     const [type, setType] = useState('atividade');
 
     const getInitialState = useCallback(() => ({
@@ -85,8 +75,6 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 setFormData(getInitialState());
                 setType('atividade');
             }
-            setIsReprogramming(false);
-            setReprogramData({ newEndDate: '', reason: '' });
         }
     }, [isOpen, isEditing, activityToEdit, getInitialState, supabase]);
     
@@ -108,19 +96,9 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
     
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-
-        let finalValue;
-        if (type === 'checkbox') {
-            finalValue = checked;
-        } else if (name === 'empresa_id' && value) {
-            finalValue = parseInt(value, 10);
-        } else {
-            finalValue = value;
-        }
-
+        let finalValue = type === 'checkbox' ? checked : (name === 'empresa_id' && value ? parseInt(value, 10) : value);
         setFormData(prevState => {
             const newState = { ...prevState, [name]: finalValue };
-            
             if (name === 'empresa_id') {
                 newState.empreendimento_id = null;
                 newState.etapa_id = '';
@@ -129,104 +107,121 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         });
     };
 
-    const handleReprogramChange = (e) => {
-        const { name, value } = e.target;
-        setReprogramData(prev => ({ ...prev, [name]: value }));
-    }
+    // Função para sincronizar com o Google Calendar
+    const syncWithGoogleCalendar = async (activityData) => {
+        try {
+            const response = await fetch('/api/google-calendar/create-event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(activityData),
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                if (response.status === 401) {
+                    toast.error("Atividade salva, mas falha ao sincronizar. Conecte sua conta Google.");
+                } else {
+                    throw new Error(result.error || 'Erro desconhecido');
+                }
+            } else {
+                toast.success('Atividade sincronizada com sua agenda Google!');
+            }
+        } catch (error) {
+            console.error("Erro na sincronização com Google Calendar:", error);
+            toast.error(`Atividade salva, mas falha ao sincronizar: ${error.message}`);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!currentUserId) {
-            setMessage("Erro: Usuário não autenticado.");
+            toast.error("Erro: Usuário não autenticado.");
             return;
         }
-        setMessage('Salvando...');
-    
-        const selectedFuncionario = funcionarios.find(f => f.id == formData.funcionario_id);
-        const responsavelNome = selectedFuncionario ? selectedFuncionario.full_name : null;
-        
-        const etapaSelecionada = etapas.find(etapa => etapa.id == formData.etapa_id);
-        
-        const dadosParaSalvar = {
-            nome: formData.nome,
-            descricao: formData.descricao,
-            status: formData.status,
-            is_recorrente: formData.is_recorrente,
-            responsavel_texto: responsavelNome,
-            funcionario_id: formData.funcionario_id || null,
-            etapa_id: formData.etapa_id || null,
-            tipo_atividade: etapaSelecionada ? etapaSelecionada.nome_etapa : 'Atividade Interna',
-            empreendimento_id: formData.empreendimento_id || null,
-        };
 
-        if (dadosParaSalvar.empreendimento_id) {
-            const emp = allEmpreendimentos.find(e => e.id == dadosParaSalvar.empreendimento_id);
-            dadosParaSalvar.empresa_id = emp?.empresa_proprietaria_id || null;
-        } else {
-            dadosParaSalvar.empresa_id = formData.empresa_id || null;
-        }
+        const promise = new Promise(async (resolve, reject) => {
+            const selectedFuncionario = funcionarios.find(f => f.id == formData.funcionario_id);
+            const responsavelNome = selectedFuncionario ? selectedFuncionario.full_name : null;
+            const etapaSelecionada = etapas.find(etapa => etapa.id == formData.etapa_id);
+            
+            const dadosParaSalvar = {
+                nome: formData.nome,
+                descricao: formData.descricao,
+                status: formData.status,
+                is_recorrente: formData.is_recorrente,
+                responsavel_texto: responsavelNome,
+                funcionario_id: formData.funcionario_id || null,
+                etapa_id: formData.etapa_id || null,
+                tipo_atividade: etapaSelecionada ? etapaSelecionada.nome_etapa : 'Atividade Interna',
+                empreendimento_id: formData.empreendimento_id || null,
+            };
 
-        if (type === 'atividade') {
-            dadosParaSalvar.data_inicio_prevista = formData.data_inicio_prevista;
-            dadosParaSalvar.duracao_dias = formData.duracao_dias;
-            dadosParaSalvar.data_fim_prevista = dataFimPrevistaCalculada;
-            dadosParaSalvar.hora_inicio = null;
-            dadosParaSalvar.duracao_horas = null;
-        } else { // Evento
-            dadosParaSalvar.data_inicio_prevista = formData.data_inicio_prevista;
-            dadosParaSalvar.data_fim_prevista = formData.data_inicio_prevista; // Data fim é a mesma
-            dadosParaSalvar.hora_inicio = formData.hora_inicio || null;
-            dadosParaSalvar.duracao_horas = formData.duracao_horas ? parseFloat(formData.duracao_horas) : null;
-            dadosParaSalvar.duracao_dias = 0;
-        }
+            if (dadosParaSalvar.empreendimento_id) {
+                const emp = allEmpreendimentos.find(e => e.id == dadosParaSalvar.empreendimento_id);
+                dadosParaSalvar.empresa_id = emp?.empresa_proprietaria_id || null;
+            } else {
+                dadosParaSalvar.empresa_id = formData.empresa_id || null;
+            }
 
-        if (formData.is_recorrente) {
-            dadosParaSalvar.recorrencia_tipo = formData.recorrencia_tipo;
-            dadosParaSalvar.recorrencia_intervalo = formData.recorrencia_intervalo;
-            dadosParaSalvar.recorrencia_fim = formData.recorrencia_fim || null;
-        } else {
-            dadosParaSalvar.recorrencia_tipo = null;
-            dadosParaSalvar.recorrencia_intervalo = null;
-            dadosParaSalvar.recorrencia_fim = null;
-        }
+            if (type === 'atividade') {
+                dadosParaSalvar.data_inicio_prevista = formData.data_inicio_prevista;
+                dadosParaSalvar.duracao_dias = formData.duracao_dias;
+                dadosParaSalvar.data_fim_prevista = dataFimPrevistaCalculada;
+                dadosParaSalvar.hora_inicio = null;
+                dadosParaSalvar.duracao_horas = null;
+            } else { // Evento
+                dadosParaSalvar.data_inicio_prevista = formData.data_inicio_prevista;
+                dadosParaSalvar.data_fim_prevista = formData.data_inicio_prevista;
+                dadosParaSalvar.hora_inicio = formData.hora_inicio || null;
+                dadosParaSalvar.duracao_horas = formData.duracao_horas ? parseFloat(formData.duracao_horas) : null;
+                dadosParaSalvar.duracao_dias = 0;
+            }
+            
+            if (formData.is_recorrente) {
+                dadosParaSalvar.recorrencia_tipo = formData.recorrencia_tipo;
+                dadosParaSalvar.recorrencia_intervalo = formData.recorrencia_intervalo;
+                dadosParaSalvar.recorrencia_fim = formData.recorrencia_fim || null;
+            } else {
+                dadosParaSalvar.recorrencia_tipo = null;
+                dadosParaSalvar.recorrencia_intervalo = null;
+                dadosParaSalvar.recorrencia_fim = null;
+            }
 
-        if (isReprogramming && reprogramData.newEndDate && reprogramData.reason) {
-            dadosParaSalvar.data_fim_original = formData.data_fim_prevista;
-            dadosParaSalvar.data_fim_prevista = reprogramData.newEndDate;
-            dadosParaSalvar.motivo_adiamento = reprogramData.reason;
-        }
+            let error;
+            if (isEditing) {
+                const { error: updateError } = await supabase.from('activities').update(dadosParaSalvar).eq('id', activityToEdit.id);
+                error = updateError;
+            } else {
+                const dadosParaCriar = { ...dadosParaSalvar, criado_por_usuario_id: currentUserId };
+                const { error: insertError } = await supabase.from('activities').insert([dadosParaCriar]);
+                error = insertError;
+            }
 
-        let error;
-        if (isEditing) {
-            const { error: updateError } = await supabase
-                .from('activities')
-                .update(dadosParaSalvar)
-                .eq('id', activityToEdit.id);
-            error = updateError;
-        } else {
-            const dadosParaCriar = { ...dadosParaSalvar, criado_por_usuario_id: currentUserId };
-            const { error: insertError } = await supabase.from('activities').insert([dadosParaCriar]);
-            error = insertError;
-        }
+            if (error) {
+                reject(error);
+            } else {
+                if (!isEditing && type === 'atividade' && dadosParaSalvar.data_inicio_prevista && dadosParaSalvar.data_fim_prevista) {
+                    await syncWithGoogleCalendar(dadosParaSalvar);
+                }
+                resolve();
+            }
+        });
 
-        if (error) {
-            setMessage(`Erro ao salvar: ${error.message}`);
-            console.error("Erro no handleSubmit:", error);
-        } else {
-            setMessage(`Atividade ${isEditing ? 'atualizada' : 'salva'} com sucesso!`);
-            onActivityAdded();
-            setTimeout(onClose, 1500);
-        }
+        toast.promise(promise, {
+            loading: 'Salvando atividade...',
+            success: () => {
+                onActivityAdded();
+                onClose();
+                return `Atividade ${isEditing ? 'atualizada' : 'criada'} com sucesso!`;
+            },
+            error: (err) => `Erro ao salvar: ${err.message}`,
+        });
     };
     
-    // **INÍCIO DA CORREÇÃO**
-    // A lista de empreendimentos filtrados agora usa `allEmpreendimentos` do contexto.
     const filteredEmpreendimentos = useMemo(() => {
         if (!formData.empresa_id || !allEmpreendimentos) return [];
         return allEmpreendimentos.filter(e => e.empresa_proprietaria_id === formData.empresa_id);
     }, [formData.empresa_id, allEmpreendimentos]);
-    // **FIM DA CORREÇÃO**
-
 
     if (!isOpen) return null;
 
@@ -264,8 +259,6 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                         </div>
                         <div>
                             <label className="block text-sm font-medium">Empreendimento</label>
-                            {/* **INÍCIO DA CORREÇÃO** */}
-                            {/* O select agora mostra um estado de carregamento */}
                             <select 
                                 name="empreendimento_id" 
                                 value={formData.empreendimento_id || ''} 
@@ -284,7 +277,6 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                                     </>
                                 )}
                             </select>
-                             {/* **FIM DA CORREÇÃO** */}
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium">Descrição</label>
@@ -339,16 +331,10 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                         </div>
                     </fieldset>
                     
-                    {isEditing && (
-                        <div className="border-t pt-4">
-                            {/* Lógica de reprogramação aqui, se houver */}
-                        </div>
-                    )}
                     <div className="flex justify-end gap-4 pt-4 border-t">
                         <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
                         <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Salvar</button>
                     </div>
-                    {message && <p className="text-center mt-2">{message}</p>}
                 </form>
             </div>
         </div>
