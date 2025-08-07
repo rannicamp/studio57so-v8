@@ -271,6 +271,7 @@ export default function ImportacaoFinanceiraManager() {
         setIsProcessing(false);
     };
 
+    // ***** INÍCIO DA CORREÇÃO *****
     const processStep4 = async () => {
         if (!user) {
             setMessage('Erro: Usuário não autenticado. Por favor, faça login novamente.');
@@ -282,84 +283,114 @@ export default function ImportacaoFinanceiraManager() {
         setMessage(`Preparando ${fileData.length} linhas para importação...`);
         setProgress({ current: 0, total: fileData.length });
         
-        const lancamentosParaRpc = [];
+        const lancamentosParaInserir = [];
 
+        // Função auxiliar para encontrar o ID de um item (conta, categoria, etc.) pelo nome
         const getItemId = (type, name) => {
             if (!name) return null;
-            const resolution = dataResolutions[type]?.[name];
-            if (resolution?.action === 'map') return resolution.mapToId;
+            const resolution = dataResolutions[type]?.[name.trim()];
+            // Se o usuário mapeou manualmente para um item existente
+            if (resolution?.action === 'map' && resolution.mapToId) return resolution.mapToId;
+            // Se o usuário marcou para ignorar
             if (resolution?.action === 'ignore') return null;
-            const existing = systemData[type].find(item => (item.nome || item.razao_social)?.toLowerCase() === name.toLowerCase());
+            // Busca o item no sistema (seja um que já existia ou um que acabou de ser criado)
+            const existing = systemData[type].find(item => (item.nome || item.razao_social)?.toLowerCase() === name.trim().toLowerCase());
             return existing?.id || null;
         };
         
-        for (const row of fileData) {
+        for (const [index, row] of fileData.entries()) {
             setProgress(prev => ({...prev, current: prev.current + 1}));
-            const valorStr = (row[mappings.valor] || '0').replace('R$', '').replace('.', '').replace(',', '.').trim();
+
+            // Validação de valor
+            const valorStr = (row[mappings.valor] || '0').replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
             const valor = parseFloat(valorStr);
-            if (isNaN(valor)) continue;
+            if (isNaN(valor)) {
+                console.warn(`Linha ${index + 2}: Valor inválido "${row[mappings.valor]}", pulando.`);
+                continue; // Pula para a próxima linha
+            }
             
-            const [day, month, year] = (row[mappings.data_transacao] || '').split('/');
-            const data_transacao = `${year}-${month}-${day}`;
+            // Validação e formatação de data
+            const dateParts = (row[mappings.data_transacao] || '').split('/');
+            let data_transacao = null;
+            if (dateParts.length === 3) {
+                const [day, month, year] = dateParts;
+                // Garante que o ano tenha 4 dígitos
+                const fullYear = year.length === 2 ? `20${year}` : year;
+                data_transacao = `${fullYear}-${month}-${day}`;
+                // Validação final da data
+                if (isNaN(new Date(data_transacao))) {
+                    console.warn(`Linha ${index + 2}: Data inválida "${row[mappings.data_transacao]}", pulando.`);
+                    continue;
+                }
+            } else {
+                 console.warn(`Linha ${index + 2}: Formato de data inválido "${row[mappings.data_transacao]}", pulando.`);
+                 continue;
+            }
 
-            const conta_id = getItemId('contas', row[mappings.conta_nome]?.trim());
-            const conta_destino_id = getItemId('contas', row[mappings.conta_destino_nome]?.trim());
+            const conta_id = getItemId('contas', row[mappings.conta_nome]);
+            const conta_destino_id = getItemId('contas', row[mappings.conta_destino_nome]);
 
+            // Validação da conta principal
+            if (!conta_id) {
+                console.warn(`Linha ${index + 2}: Conta principal "${row[mappings.conta_nome]}" não encontrada ou mapeada, pulando.`);
+                continue;
+            }
+
+            // Determina o tipo do lançamento
             let tipoLancamento = 'Despesa';
             const tipoFromFile = (row[mappings.tipo] || '').toLowerCase();
-
-            // ***** INÍCIO DA CORREÇÃO *****
-            // Lógica para identificar transferência
-            if (conta_id && conta_destino_id) {
+            if (conta_destino_id) {
                 tipoLancamento = 'Transferência';
             } else if (['receita', 'credito', 'crédito', 'entrada'].some(term => tipoFromFile.includes(term))) {
                 tipoLancamento = 'Receita';
             }
-            // ***** FIM DA CORREÇÃO *****
 
-            lancamentosParaRpc.push({
+            // Monta o objeto final para inserção
+            lancamentosParaInserir.push({
                 data_transacao,
-                descricao: row[mappings.descricao],
+                descricao: row[mappings.descricao] || 'Sem descrição',
                 valor: Math.abs(valor),
                 tipo: tipoLancamento,
-                conta_id,
-                conta_destino_id,
-                categoria_id: getItemId('categorias', row[mappings.categoria_nome]?.trim()),
-                favorecido_contato_id: getItemId('contatos', row[mappings.contato_nome]?.trim()),
-                empreendimento_id: getItemId('empreendimentos', row[mappings.empreendimento_nome]?.trim()),
+                status: (row[mappings.status] || 'Pendente').charAt(0).toUpperCase() + (row[mappings.status] || 'Pendente').slice(1).toLowerCase(),
+                conta_id: conta_id,
+                conta_destino_id: conta_destino_id,
+                categoria_id: getItemId('categorias', row[mappings.categoria_nome]),
+                favorecido_contato_id: getItemId('contatos', row[mappings.contato_nome]),
+                empreendimento_id: getItemId('empreendimentos', row[mappings.empreendimento_nome]),
+                empresa_id: selectedEmpresaId,
+                criado_por_usuario_id: user.id,
+                observacoes: row[mappings.observacao]
             });
         }
 
-        setMessage(`Enviando ${lancamentosParaRpc.length} lançamentos para o sistema...`);
+        setMessage(`Enviando ${lancamentosParaInserir.length} lançamentos para o sistema...`);
 
-        const { data: results, error } = await supabase.rpc('importar_lancamentos_financeiros_com_transferencias', {
-            p_novos_lancamentos: lancamentosParaRpc,
-            p_empresa_id: selectedEmpresaId,
-            p_usuario_id: user.id
-        });
+        if (lancamentosParaInserir.length > 0) {
+            // Insere os dados em lote
+            const { data, error } = await supabase
+                .from('lancamentos')
+                .insert(lancamentosParaInserir)
+                .select();
 
-        if (error) {
-            setMessage(`Erro crítico na importação: ${error.message}`);
-            setIsProcessing(false);
-            return;
+            if (error) {
+                setMessage(`Erro crítico na importação: ${error.message}`);
+                setImportResults({ success: [], failed: lancamentosParaInserir.map(row => ({ row, error: error.message })), ignored: [] });
+            } else {
+                setImportResults({
+                    success: data.map(row => ({ row, details: 'Importado com sucesso' })),
+                    failed: [],
+                    ignored: []
+                });
+                setMessage(`${data.length} lançamentos foram importados com sucesso!`);
+            }
+        } else {
+            setMessage('Nenhum lançamento válido para importar após a validação.');
         }
 
-        const finalResults = { success: [], failed: [], ignored: [] };
-        results.forEach(res => {
-            if (res.import_status.includes('Sucesso')) {
-                finalResults.success.push({ row: { descricao: res.original_descricao }, details: res.details });
-            } else if (res.import_status.includes('Ignorado')) {
-                finalResults.ignored.push({ row: { descricao: res.original_descricao }, details: res.details });
-            } else {
-                finalResults.failed.push({ row: { descricao: res.original_descricao }, error: res.details });
-            }
-        });
-
-        setImportResults(finalResults);
-        setMessage(`${finalResults.success.length} lançamentos importados, ${finalResults.ignored.length} ignorados (duplicados).`);
         setIsProcessing(false);
         setStep(5);
     };
+    // ***** FIM DA CORREÇÃO *****
 
     const handleResolutionChange = (type, name, action, mapToId = null) => {
         setDataResolutions(prev => ({ ...prev, [type]: { ...prev[type], [name]: { action, mapToId } } }));
