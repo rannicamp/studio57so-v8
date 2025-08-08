@@ -3,23 +3,17 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Função para criar um cliente Supabase com permissões de administrador (service_role)
+// Função para criar um cliente Supabase (continua igual)
 const getSupabaseAdmin = () => {
-    // LOG DE VERIFICAÇÃO DAS CHAVES DO SUPABASE
     console.log("LOG: Tentando criar cliente Supabase. URL existe:", !!process.env.NEXT_PUBLIC_SUPABASE_URL, "Service Key existe:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-    
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
         console.error("LOG: ERRO CRÍTICO - Variáveis de ambiente do Supabase não encontradas!");
         return null;
     }
-
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
+    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 };
 
-// Rota GET para a verificação inicial do webhook (continua igual)
+// Rota GET para verificação (continua igual)
 export async function GET(request) {
     console.log("LOG: Recebida requisição GET para verificação do webhook.");
     const META_VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
@@ -37,9 +31,9 @@ export async function GET(request) {
     }
 }
 
-// Rota POST para receber os leads (AGORA COM LÓGICA DO BANCO ATUALIZADA)
+// Rota POST para receber os leads (AGORA SALVANDO OS NOVOS CAMPOS)
 export async function POST(request) {
-    console.log("LOG: [INÍCIO] Requisição POST recebida no webhook da Meta (API de Conversões).");
+    console.log("LOG: [INÍCIO] Requisição POST recebida no webhook da Meta.");
     
     const supabase = getSupabaseAdmin();
     if (!supabase) {
@@ -48,42 +42,35 @@ export async function POST(request) {
     
     try {
         const body = await request.json();
-        console.log('LOG: Corpo da requisição (API de Conversões):', JSON.stringify(body, null, 2));
+        console.log('LOG: Corpo da requisição completo:', JSON.stringify(body, null, 2));
 
-        const eventData = body.data?.[0];
-        const eventName = eventData?.event_name;
-        
-        if (eventName !== 'Lead') {
-            console.log(`LOG: Ignorando evento, não é 'Lead'. Evento recebido: ${eventName}`);
-            return NextResponse.json({ status: 'not_a_lead_event' }, { status: 200 });
+        // Analisando a estrutura para encontrar os dados do lead
+        const change = body.entry?.[0]?.changes?.[0];
+
+        if (change?.field !== 'leadgen') {
+            console.log(`LOG: Ignorando evento, não é 'leadgen'. Campo recebido: ${change?.field}`);
+            return NextResponse.json({ status: 'not_a_leadgen_event' }, { status: 200 });
         }
         
-        const leadId = eventData?.user_data?.lead_id;
+        // Extraindo todos os dados da seção "value"
+        const leadValue = change.value;
+        const leadId = leadValue.leadgen_id;
 
         if (!leadId) {
-             console.error("LOG: ERRO CRÍTICO - O evento de Lead não continha um 'lead_id'.");
-             throw new Error("O evento de Lead recebido não continha a identificação do lead (lead_id).");
+             console.error("LOG: ERRO CRÍTICO - O evento de Lead não continha um 'leadgen_id'.");
+             throw new Error("O evento de Lead recebido não continha a identificação do lead (leadgen_id).");
         }
 
-        // --- LÓGICA DE CRIAÇÃO E ATUALIZAÇÃO ATUALIZADA ---
+        // Verificando se este lead já foi processado
         console.log(`LOG: Buscando no DB por contato com meta_lead_id: ${leadId}`);
-        const { data: existingLead, error: existingLeadError } = await supabase
-            .from('contatos')
-            .select('id')
-            .eq('meta_lead_id', leadId)
-            .single();
-
-        if (existingLeadError && existingLeadError.code !== 'PGRST116') { // Ignora erro 'PGRST116' (nenhum resultado)
-            console.error("LOG: Erro ao buscar lead existente no DB:", existingLeadError);
-            throw existingLeadError;
-        }
+        const { data: existingLead } = await supabase.from('contatos').select('id').eq('meta_lead_id', leadId).single();
 
         if (existingLead) {
             console.log(`LOG: Lead com ID ${leadId} já existe no DB. Nenhuma ação necessária.`);
             return NextResponse.json({ status: 'lead_already_exists' }, { status: 200 });
         }
         
-        console.log(`LOG: Lead ID ${leadId} é novo. Processando...`);
+        console.log(`LOG: Lead ID ${leadId} é novo. Buscando detalhes na API da Meta...`);
         const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
 
         if (!PAGE_ACCESS_TOKEN) {
@@ -91,7 +78,6 @@ export async function POST(request) {
             throw new Error("Token de Acesso à Página não configurado no servidor.");
         }
 
-        console.log(`LOG: Buscando detalhes do lead ID: ${leadId} na API da Meta.`);
         const leadDetailsResponse = await fetch(`https://graph.facebook.com/v20.0/${leadId}?access_token=${PAGE_ACCESS_TOKEN}`);
         const leadDetails = await leadDetailsResponse.json();
 
@@ -100,27 +86,33 @@ export async function POST(request) {
             throw new Error(leadDetails.error?.message || "Falha ao buscar dados do lead no Meta.");
         }
 
-        console.log("LOG: Detalhes do lead recebidos com sucesso:", JSON.stringify(leadDetails, null, 2));
+        console.log("LOG: Detalhes do lead recebidos com sucesso.");
         const leadData = {};
         leadDetails.field_data.forEach(field => {
             leadData[field.name] = field.values[0];
         });
         
-        console.log("LOG: Dados do lead formatados:", leadData);
-
         const nomeCompleto = leadData.full_name || `Lead Meta (${new Date().toLocaleDateString()})`;
         const email = leadData.email;
         const telefoneLimpo = leadData.phone_number?.replace(/\D/g, '');
 
-        console.log("LOG: Criando novo contato no DB...");
+        console.log("LOG: Criando novo contato no DB com todos os metadados...");
         const { data: newContact, error: contactError } = await supabase
             .from('contatos')
             .insert({
+                // Dados do cliente
                 nome: nomeCompleto,
                 origem: 'Meta Lead Ad',
                 tipo_contato: 'Lead',
                 personalidade_juridica: 'Pessoa Física',
-                meta_lead_id: leadId // <-- SALVANDO O ID DO LEAD AQUI
+                
+                // --- NOVOS CAMPOS SENDO SALVOS ---
+                meta_lead_id: leadId, // O "CPF" do lead
+                meta_ad_id: leadValue.ad_id,
+                meta_adgroup_id: leadValue.adgroup_id,
+                meta_form_id: leadValue.form_id,
+                meta_page_id: leadValue.page_id,
+                meta_created_time: new Date(leadValue.created_time * 1000).toISOString() // Convertendo para formato de data
             })
             .select('id')
             .single();
