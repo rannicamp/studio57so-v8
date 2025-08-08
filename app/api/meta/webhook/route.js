@@ -3,174 +3,122 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Função para criar um cliente Supabase com permissões de administrador (service_role)
-// Isso é seguro para ser usado no backend (rotas de API)
 const getSupabaseAdmin = () => createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-/**
- * Rota GET: Verificação do Webhook (Handshake)
- * A Meta envia uma requisição GET para esta URL quando você a configura no painel do app.
- * Isso serve apenas para confirmar que a URL é válida e pertence a você.
- */
 export async function GET(request) {
+    console.log("LOG: Recebida requisição GET para verificação do webhook.");
     const META_VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get('hub.mode');
     const token = searchParams.get('hub.verify_token');
     const challenge = searchParams.get('hub.challenge');
 
-    // Verifica se o modo é 'subscribe' e se o token de verificação bate com o que está no .env
     if (mode === 'subscribe' && token === META_VERIFY_TOKEN) {
-        console.log("SUCESSO: Webhook verificado pela Meta.");
+        console.log("LOG: Verificação do webhook BEM-SUCEDIDA.");
         return new NextResponse(challenge, { status: 200 });
     } else {
-        console.error("FALHA: A verificação do webhook falhou. Verifique se o META_VERIFY_TOKEN está correto.");
-        return new NextResponse(null, { status: 403 }); // Retorna 'Forbidden' se a verificação falhar
+        console.error("LOG: FALHA na verificação do webhook. Token recebido:", token, "Token esperado:", META_VERIFY_TOKEN);
+        return new NextResponse(null, { status: 403 });
     }
 }
 
-/**
- * Rota POST: Recebimento de Notificações de Leads
- * Esta é a rota principal que a Meta usará para te notificar sobre cada novo lead gerado.
- */
 export async function POST(request) {
+    console.log("LOG: [INÍCIO] Requisição POST recebida no webhook da Meta.");
     const supabase = getSupabaseAdmin();
-    const body = await request.json();
-    console.log('Webhook do Meta recebido:', JSON.stringify(body, null, 2));
-
+    
     try {
+        const body = await request.json();
+        console.log('LOG: Corpo da requisição:', JSON.stringify(body, null, 2));
+
         const entry = body.entry?.[0];
         const change = entry?.changes?.[0];
 
-        // 1. Validação: Ignora qualquer notificação que não seja de 'leadgen'
         if (change?.field !== 'leadgen') {
-            console.log("Ignorando notificação (não é um leadgen):", change?.field);
+            console.log("LOG: Ignorando evento, não é 'leadgen'. Campo recebido:", change?.field);
             return NextResponse.json({ status: 'not_a_leadgen_event' }, { status: 200 });
         }
         
-        // Extrai os IDs necessários do payload da Meta
+        console.log("LOG: Evento de leadgen detectado. Processando...");
         const leadgenId = change.value.leadgen_id;
-        const formId = change.value.form_id;
-        const pageId = change.value.page_id;
-        
-        // 2. Busca o Token de Acesso à Página do ambiente
         const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
+
         if (!PAGE_ACCESS_TOKEN) {
-            console.error("ERRO CRÍTICO: META_PAGE_ACCESS_TOKEN não está configurado no ambiente.");
+            console.error("LOG: ERRO CRÍTICO - Variável de ambiente META_PAGE_ACCESS_TOKEN não encontrada.");
             throw new Error("Token de Acesso à Página não configurado no servidor.");
         }
 
-        // 3. Busca os detalhes do Lead na API de Marketing da Meta
-        console.log(`Buscando detalhes do lead ID: ${leadgenId}`);
+        console.log(`LOG: Buscando detalhes do lead ID: ${leadgenId} na API da Meta.`);
         const leadDetailsResponse = await fetch(`https://graph.facebook.com/v20.0/${leadgenId}?access_token=${PAGE_ACCESS_TOKEN}`);
         const leadDetails = await leadDetailsResponse.json();
 
         if (!leadDetailsResponse.ok) {
-            console.error("Erro ao buscar detalhes do lead na API do Meta:", leadDetails);
+            console.error("LOG: ERRO na API da Meta:", leadDetails);
             throw new Error(leadDetails.error?.message || "Falha ao buscar dados do lead no Meta.");
         }
 
-        // 4. Extrai os dados do formulário (nome, email, telefone)
+        console.log("LOG: Detalhes do lead recebidos com sucesso:", JSON.stringify(leadDetails, null, 2));
         const leadData = {};
         leadDetails.field_data.forEach(field => {
-            const fieldName = field.name;
-            const fieldValue = field.values[0];
-            if (fieldName === 'full_name') leadData.nome = fieldValue;
-            if (fieldName === 'email') leadData.email = fieldValue;
-            if (fieldName === 'phone_number') leadData.telefone = fieldValue;
+            leadData[field.name] = field.values[0];
         });
         
-        console.log("Dados do lead extraídos:", leadData);
+        console.log("LOG: Dados do lead formatados:", leadData);
 
-        let contatoId = null;
-        // Limpa o número de telefone, removendo caracteres não numéricos
-        const telefoneLimpo = leadData.telefone?.replace(/\D/g, '');
+        const nomeCompleto = leadData.full_name || `Lead Meta (${new Date().toLocaleDateString()})`;
+        const email = leadData.email;
+        const telefoneLimpo = leadData.phone_number?.replace(/\D/g, '');
 
-        // 5. Verifica se o contato já existe no banco de dados pelo telefone
-        if (telefoneLimpo) {
-            const { data: existingPhone, error: phoneError } = await supabase
-                .from('telefones')
-                .select('contato_id')
-                .eq('telefone', telefoneLimpo)
-                .limit(1)
-                .single();
-            
-            if (phoneError && phoneError.code !== 'PGRST116') { // Ignora o erro 'PGRST116' que significa "nenhuma linha encontrada"
-                console.error("Erro ao buscar telefone existente:", phoneError);
-            } else if (existingPhone) {
-                contatoId = existingPhone.contato_id;
-                console.log(`Contato já existente encontrado pelo telefone. ID: ${contatoId}`);
-            }
-        }
-        
-        // 6. Se o contato não existe, cria um novo
-        if (!contatoId) {
-            console.log("Nenhum contato encontrado. Criando um novo...");
+        console.log(`LOG: Buscando contato no DB com telefone: ${telefoneLimpo}`);
+        const { data: existingPhone } = await supabase.from('telefones').select('contato_id').eq('telefone', telefoneLimpo).limit(1).single();
+
+        let contatoId;
+        if (existingPhone) {
+            contatoId = existingPhone.contato_id;
+            console.log(`LOG: Contato existente encontrado. ID: ${contatoId}`);
+        } else {
+            console.log("LOG: Contato não encontrado. Criando um novo...");
             const { data: newContact, error: contactError } = await supabase
                 .from('contatos')
-                .insert({
-                    nome: leadData.nome || `Lead Meta (${new Date().toLocaleDateString()})`,
-                    origem: 'Meta Lead Ad', // Define a origem do lead
-                    tipo_contato: 'Lead',
-                    personalidade_juridica: 'Pessoa Física'
-                })
+                .insert({ nome: nomeCompleto, origem: 'Meta Lead Ad', tipo_contato: 'Lead', personalidade_juridica: 'Pessoa Física' })
                 .select('id')
                 .single();
 
-            if (contactError) throw new Error(`Erro ao salvar novo contato: ${contactError.message}`);
+            if (contactError) throw new Error(`Erro ao criar novo contato no DB: ${contactError.message}`);
             
             contatoId = newContact.id;
-            console.log(`Novo contato criado com ID: ${contatoId}`);
+            console.log(`LOG: Novo contato criado com ID: ${contatoId}`);
 
-            // Associa email e telefone ao novo contato criado
-            if (leadData.email) {
-                await supabase.from('emails').insert({ contato_id: contatoId, email: leadData.email, tipo: 'Principal' });
-            }
-            if (telefoneLimpo) {
-                await supabase.from('telefones').insert({ contato_id: contatoId, telefone: telefoneLimpo, tipo: 'Celular' });
-            }
+            if (email) await supabase.from('emails').insert({ contato_id: contatoId, email: email, tipo: 'Principal' });
+            if (telefoneLimpo) await supabase.from('telefones').insert({ contato_id: contatoId, telefone: telefoneLimpo, tipo: 'Celular' });
+            console.log("LOG: Email e telefone associados ao novo contato.");
         }
 
-        // 7. Adiciona o contato ao Funil de Vendas (se ele ainda não estiver lá)
-        if (contatoId) {
-            const { data: existingFunnelEntry } = await supabase.from('contatos_no_funil').select('id').eq('contato_id', contatoId).limit(1).single();
+        console.log(`LOG: Verificando se o contato ${contatoId} já está no funil.`);
+        const { data: existingFunnelEntry } = await supabase.from('contatos_no_funil').select('id').eq('contato_id', contatoId).limit(1).single();
 
-            if (!existingFunnelEntry) {
-                console.log(`Contato ID ${contatoId} não está no funil. Adicionando...`);
-                
-                // Busca o primeiro funil disponível
-                const { data: funil } = await supabase.from('funis').select('id').order('created_at').limit(1).single();
-                if (funil) {
-                    // Busca a primeira coluna (etapa) desse funil
-                    const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem', { ascending: true }).limit(1).single();
-                    if (primeiraColuna) {
-                        const { error: funilError } = await supabase.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: primeiraColuna.id });
-                        if (funilError) {
-                            console.error('Erro ao adicionar contato ao funil do CRM:', funilError);
-                        } else {
-                            console.log('SUCESSO: Contato adicionado à primeira coluna do funil!');
-                        }
-                    } else {
-                         console.error("Nenhuma coluna encontrada para o funil ID:", funil.id);
-                    }
-                } else {
-                    console.error("Nenhum funil encontrado no sistema para adicionar o lead.");
-                }
-            } else {
-                console.log(`Contato ID ${contatoId} já está no funil. Nenhuma ação necessária.`);
-            }
+        if (!existingFunnelEntry) {
+            console.log(`LOG: Contato ${contatoId} não está no funil. Adicionando...`);
+            const { data: funil } = await supabase.from('funis').select('id').order('created_at').limit(1).single();
+            if (funil) {
+                const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem', { ascending: true }).limit(1).single();
+                if (primeiraColuna) {
+                    const { error: funilError } = await supabase.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: primeiraColuna.id });
+                    if (funilError) console.error('LOG: ERRO ao adicionar contato ao funil:', funilError);
+                    else console.log('LOG: SUCESSO! Contato adicionado ao funil!');
+                } else console.error("LOG: ERRO - Nenhuma coluna encontrada para o funil ID:", funil.id);
+            } else console.error("LOG: ERRO - Nenhum funil encontrado no sistema.");
+        } else {
+            console.log(`LOG: Contato ${contatoId} já estava no funil.`);
         }
 
-        // 8. Responde à Meta com status 200 (OK) para confirmar o recebimento
+        console.log("LOG: [FIM] Processamento do webhook concluído com sucesso.");
         return NextResponse.json({ status: 'success' }, { status: 200 });
 
     } catch (e) {
-        console.error('Erro geral no processamento do webhook:', e);
-        // É importante retornar 200 mesmo em caso de erro para que a Meta não desative o webhook.
-        // O erro já foi logado no servidor para análise.
-        return NextResponse.json({ status: 'error', message: e.message }, { status: 200 });
+        console.error('LOG: [ERRO GERAL] Ocorreu um erro no processamento do webhook:', e);
+        return NextResponse.json({ status: 'error', message: e.message }, { status: 200 }); // Responde 200 para a Meta não desativar.
     }
 }
