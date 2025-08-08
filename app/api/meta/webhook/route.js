@@ -66,36 +66,53 @@ export async function POST(request) {
             
             console.log("Dados do lead extraídos:", leadData);
 
-            // Prepara os dados para salvar no CRM
-            const contatoParaSalvar = {
-                nome: leadData.nome || 'Lead sem nome',
-                email: leadData.email,
-                // *** ALTERAÇÃO AQUI ***
-                origem: 'Meta Lead Ad', // Define a origem do lead
-                tipo_contato: 'Lead'
-            };
-
+            // 1. Salva o lead na tabela principal de contatos
             const { data: newContact, error: contactError } = await supabase
                 .from('contatos')
-                .insert(contatoParaSalvar)
+                .insert({
+                    nome: leadData.nome || 'Lead sem nome',
+                    origem: 'Meta Lead Ad',
+                    tipo_contato: 'Lead'
+                })
                 .select('id')
                 .single();
 
             if (contactError) {
-                console.error('Erro ao salvar lead no banco de dados:', contactError);
-                return NextResponse.json({ status: 'error', message: 'Falha ao salvar no DB.' }, { status: 200 });
+                console.error('Erro ao salvar lead na tabela de contatos:', contactError);
+                return NextResponse.json({ status: 'error', message: 'Falha ao salvar o contato.' }, { status: 200 });
             }
             
-            // Se tiver telefone, salva na tabela de telefones
+            const newContactId = newContact.id;
+            console.log('Novo contato salvo com sucesso! ID:', newContactId);
+
+            // 2. Salva o email e o telefone nas tabelas relacionadas
+            if (leadData.email) {
+                await supabase.from('emails').insert({ contato_id: newContactId, email: leadData.email, tipo: 'Principal' });
+            }
             if (leadData.telefone) {
                 await supabase.from('telefones').insert({
-                    contato_id: newContact.id,
-                    telefone: leadData.telefone.replace(/\D/g, ''), // Salva só os números
+                    contato_id: newContactId,
+                    telefone: leadData.telefone.replace(/\D/g, ''),
                     tipo: 'Celular'
                 });
             }
 
-            console.log('Novo lead salvo com sucesso no CRM! ID:', newContact.id);
+            // 3. Adiciona o contato ao funil do CRM (PASSO QUE FALTAVA)
+            const { data: funil } = await supabase.from('funis').select('id').eq('nome', 'Funil de Vendas').single();
+            if (funil) {
+                const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem', { ascending: true }).limit(1).single();
+                if (primeiraColuna) {
+                    const { error: funilError } = await supabase.from('contatos_no_funil').insert({
+                        contato_id: newContactId,
+                        coluna_id: primeiraColuna.id
+                    });
+                    if (funilError) {
+                        console.error('Erro ao adicionar o contato ao funil do CRM:', funilError);
+                    } else {
+                        console.log('Contato adicionado com sucesso à primeira coluna do funil!');
+                    }
+                }
+            }
         }
 
         return NextResponse.json({ status: 'success' }, { status: 200 });
