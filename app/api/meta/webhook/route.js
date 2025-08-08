@@ -3,10 +3,21 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const getSupabaseAdmin = () => createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Função para criar um cliente Supabase com permissões de administrador (service_role)
+const getSupabaseAdmin = () => {
+    // LOG DE VERIFICAÇÃO DAS CHAVES DO SUPABASE
+    console.log("LOG: Tentando criar cliente Supabase. URL existe:", !!process.env.NEXT_PUBLIC_SUPABASE_URL, "Service Key existe:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+    
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        console.error("LOG: ERRO CRÍTICO - Variáveis de ambiente do Supabase não encontradas!");
+        return null;
+    }
+
+    return createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+};
 
 export async function GET(request) {
     console.log("LOG: Recebida requisição GET para verificação do webhook.");
@@ -27,7 +38,12 @@ export async function GET(request) {
 
 export async function POST(request) {
     console.log("LOG: [INÍCIO] Requisição POST recebida no webhook da Meta.");
+    
     const supabase = getSupabaseAdmin();
+    if (!supabase) {
+        // Se o Supabase não pôde ser inicializado, retorna um erro.
+        return NextResponse.json({ status: 'error', message: 'Configuração do Supabase no servidor está incompleta.' }, { status: 500 });
+    }
     
     try {
         const body = await request.json();
