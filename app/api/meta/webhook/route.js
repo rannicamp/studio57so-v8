@@ -8,7 +8,7 @@ const getSupabaseAdmin = () => createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Rota GET para verificação do webhook
+// Rota GET para verificação do webhook (sem alterações)
 export async function GET(request) {
     const META_VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
     const { searchParams } = new URL(request.url);
@@ -25,7 +25,7 @@ export async function GET(request) {
     }
 }
 
-// Rota POST para receber os leads
+// Rota POST para receber os leads (COM A LÓGICA CORRIGIDA)
 export async function POST(request) {
     const supabase = getSupabaseAdmin();
     const body = await request.json();
@@ -71,6 +71,7 @@ export async function POST(request) {
         let contatoId = null;
         const telefoneLimpo = leadData.telefone?.replace(/\D/g, '');
 
+        // ETAPA 1: Tenta encontrar um contato existente pelo telefone
         if (telefoneLimpo) {
             const { data: existingPhone } = await supabase.from('telefones').select('contato_id').eq('telefone', telefoneLimpo).single();
             if (existingPhone) {
@@ -79,6 +80,7 @@ export async function POST(request) {
             }
         }
         
+        // ETAPA 2: Se não encontrou, cria um novo contato
         if (!contatoId) {
             console.log("Nenhum contato encontrado. Criando um novo...");
             const { data: newContact, error: contactError } = await supabase
@@ -97,6 +99,7 @@ export async function POST(request) {
             contatoId = newContact.id;
             console.log(`Novo contato criado com ID: ${contatoId}`);
 
+            // Associa email e telefone ao novo contato
             if (leadData.email) {
                 await supabase.from('emails').insert({ contato_id: contatoId, email: leadData.email, tipo: 'Principal' });
             }
@@ -105,36 +108,42 @@ export async function POST(request) {
             }
         }
 
-        // Agora, com o ID do contato (novo ou existente), verifica se ele já está no funil
-        const { data: existingFunnelEntry } = await supabase.from('contatos_no_funil').select('id').eq('contato_id', contatoId).single();
+        // --- LÓGICA CORRIGIDA E MOVIDA PARA FORA DO BLOCO DE CRIAÇÃO ---
+        // ETAPA 3: Agora que temos um ID de contato (seja novo ou existente), verificamos se ele já está no funil.
+        
+        if (contatoId) {
+            const { data: existingFunnelEntry } = await supabase.from('contatos_no_funil').select('id').eq('contato_id', contatoId).single();
 
-        if (!existingFunnelEntry) {
-            console.log(`Contato ID ${contatoId} não está no funil. Adicionando...`);
-            const { data: funil } = await supabase.from('funis').select('id').order('created_at').limit(1).single();
-            if (funil) {
-                const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem', { ascending: true }).limit(1).single();
-                if (primeiraColuna) {
-                    const { error: funilError } = await supabase.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: primeiraColuna.id });
-                    if (funilError) {
-                        console.error('Erro ao adicionar contato ao funil do CRM:', funilError);
+            if (!existingFunnelEntry) {
+                console.log(`Contato ID ${contatoId} não está no funil. Adicionando...`);
+                // Busca o funil e a primeira coluna para adicionar o card
+                const { data: funil } = await supabase.from('funis').select('id').order('created_at').limit(1).single();
+                if (funil) {
+                    const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem', { ascending: true }).limit(1).single();
+                    if (primeiraColuna) {
+                        const { error: funilError } = await supabase.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: primeiraColuna.id });
+                        if (funilError) {
+                            console.error('Erro ao adicionar contato ao funil do CRM:', funilError);
+                        } else {
+                            console.log('SUCESSO: Contato adicionado à primeira coluna do funil!');
+                        }
                     } else {
-                        console.log('SUCESSO: Contato adicionado à primeira coluna do funil!');
+                         console.error("Nenhuma coluna encontrada para o funil ID:", funil.id);
                     }
                 } else {
-                     console.error("Nenhuma coluna encontrada para o funil ID:", funil.id);
+                    console.error("Nenhum funil encontrado no sistema para adicionar o lead.");
                 }
             } else {
-                console.error("Nenhum funil encontrado no sistema para adicionar o lead.");
+                console.log(`Contato ID ${contatoId} já está no funil. Nenhuma ação necessária.`);
             }
-        } else {
-            console.log(`Contato ID ${contatoId} já está no funil. Nenhuma ação necessária.`);
         }
+        // --- FIM DA CORREÇÃO ---
 
         return NextResponse.json({ status: 'success' }, { status: 200 });
 
     } catch (e) {
         console.error('Erro geral no processamento do webhook:', e);
-        // Retornamos 200 para o Meta não ficar reenviando, mas logamos o erro.
+        // Retornamos 200 para o Meta não ficar reenviando, mas logamos o erro para nossa análise.
         return NextResponse.json({ status: 'error', message: e.message }, { status: 200 });
     }
 }
