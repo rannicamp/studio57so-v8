@@ -6,7 +6,7 @@ import ContatoCardCRM from './ContatoCardCRM';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
 
-// O componente para adicionar uma nova ETAPA foi movido para dentro deste arquivo para simplificar
+// Componente AddColumn (sem alterações)
 const AddColumn = ({ onCreate }) => {
     const [isCreating, setIsCreating] = useState(false);
     const [newColumnName, setNewColumnName] = useState("");
@@ -53,14 +53,28 @@ const AddColumn = ({ onCreate }) => {
 };
 
 
-export default function FunilKanban({ contatos, statusColumns, onStatusChange, onCreateColumn, onAddContact, onEditColumn, onDeleteColumn, onReorderColumns, onOpenNotesModal }) { 
+// --- INÍCIO DA MODIFICAÇÃO ---
+// Adicionadas 'availableProducts' e 'onAssociateProduct' à lista de props
+export default function FunilKanban({ 
+    contatos, 
+    statusColumns, 
+    onStatusChange, 
+    onCreateColumn, 
+    onAddContact, 
+    onEditColumn, 
+    onDeleteColumn, 
+    onReorderColumns, 
+    onOpenNotesModal,
+    availableProducts,
+    onAssociateProduct 
+}) { 
+// --- FIM DA MODIFICAÇÃO ---
     
     const [editingColumnId, setEditingColumnId] = useState(null);
     const [editedColumnName, setEditedColumnName] = useState("");
 
     const handleDragStart = (e, contatoNoFunilId) => {
         e.dataTransfer.setData("contatoNoFunilId", contatoNoFunilId);
-        // Não adicione e.stopPropagation() aqui, pois o ContatoCardCRM já o faz.
     };
 
     const handleDragOver = (e) => {
@@ -71,33 +85,27 @@ export default function FunilKanban({ contatos, statusColumns, onStatusChange, o
         e.preventDefault();
         const contatoNoFunilId = e.dataTransfer.getData("contatoNoFunilId");
         if (contatoNoFunilId) {
-            console.log(`FunilKanban: Drag-and-Drop - Dropping card ${contatoNoFunilId} into column ${colunaDestinoId}`);
-            onStatusChange(contatoNoFunilId, colunaDestinoId);
+            onStatusChange(parseInt(contatoNoFunilId, 10), colunaDestinoId);
         }
     };
 
-    // Funções de Drag-and-Drop para COLUNAS
     const handleDragStartColumn = (e, columnId) => {
         e.dataTransfer.setData("draggedColumnId", columnId);
     };
 
     const handleDropColumn = (e, targetColumnId) => {
         e.preventDefault();
-        const draggedColumnId = e.dataTransfer.getData("draggedColumnId");
+        const draggedColumnId = parseInt(e.dataTransfer.getData("draggedColumnId"), 10);
         if (!draggedColumnId || draggedColumnId === targetColumnId) return;
 
-        // Encontra o índice da coluna arrastada e da coluna de destino
         const draggedIndex = statusColumns.findIndex(col => col.id === draggedColumnId);
         const targetIndex = statusColumns.findIndex(col => col.id === targetColumnId);
-
         if (draggedIndex === -1 || targetIndex === -1) return;
 
-        // Cria uma cópia das colunas para não modificar o estado diretamente
         const newColumns = Array.from(statusColumns);
         const [draggedColumn] = newColumns.splice(draggedIndex, 1);
         newColumns.splice(targetIndex, 0, draggedColumn);
 
-        // Atribui novas ordens baseadas na nova posição no array
         const reorderedWithNewOrder = newColumns.map((col, index) => ({
             ...col,
             ordem: index
@@ -129,9 +137,7 @@ export default function FunilKanban({ contatos, statusColumns, onStatusChange, o
         }
     };
 
-    // Nova função para mover o card de contato através do dropdown
     const handleMoveCardFromDropdown = (contatoNoFunilId, newColumnId) => {
-        console.log(`FunilKanban: handleMoveCardFromDropdown - Mover contato ${contatoNoFunilId} para coluna ${newColumnId}`);
         onStatusChange(contatoNoFunilId, newColumnId);
     };
 
@@ -205,12 +211,17 @@ export default function FunilKanban({ contatos, statusColumns, onStatusChange, o
                                 allColumns={statusColumns}
                                 onMoveToColumn={handleMoveCardFromDropdown}
                                 onOpenNotesModal={onOpenNotesModal}
+                                // --- INÍCIO DA MODIFICAÇÃO ---
+                                // Passando as novas props para o card
+                                availableProducts={availableProducts}
+                                onAssociateProduct={onAssociateProduct}
+                                // --- FIM DA MODIFICAÇÃO ---
                             />
                         ))}
                     </div>
                     <div className="p-2 border-t mt-auto">
                         <button 
-                            onClick={() => onAddContact(coluna.id)}
+                            onClick={() => onAddContact()}
                             className="w-full text-center text-sm p-2 rounded-md text-gray-600 hover:bg-gray-300 hover:text-gray-800 transition-colors"
                         >
                             <FontAwesomeIcon icon={faPlus} className="mr-2"/> Adicionar Contato

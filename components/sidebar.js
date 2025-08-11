@@ -8,14 +8,13 @@ import {
   faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
   faClipboardList, faCog, faChevronLeft, faChevronRight, faClock,
   faAddressBook, faDollarSign, faShoppingCart, faUserCog,
-  faSitemap, faBug, faInbox, faBullseye
+  faSitemap, faBug, faInbox, faBullseye, faFileSignature // Ícone para Contratos
 } from '@fortawesome/free-solid-svg-icons';
-import { useAuth } from '../contexts/AuthContext'; // Importar o hook de autenticação
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Sidebar({ isCollapsed, toggleSidebar }) {
-  const { hasPermission } = useAuth(); // Usar o hook para ter acesso às permissões
+  const { hasPermission } = useAuth();
 
-  // Agora, cada item de menu tem uma propriedade 'recurso' que será usada para a verificação
   const navSections = [
     {
       title: 'Administrativo',
@@ -27,6 +26,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         { href: '/perfil', label: 'Meu Perfil', icon: faUserCog, recurso: 'perfil' },
         { href: '/atividades', label: 'Atividades', icon: faTasks, recurso: 'atividades' },
         { href: '/empresas', label: 'Empresas', icon: faBuilding, recurso: 'empresas' },
+        // --- INÍCIO DA MODIFICAÇÃO ---
+        { href: '/contratos', label: 'Contratos', icon: faFileSignature, recurso: 'contratos' },
+        // --- FIM DA MODIFICAÇÃO ---
       ]
     },
     {
@@ -85,9 +87,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
               )}
               <ul>
                 {section.items.map((item) => {
-                  // Lógica para verificar a permissão antes de renderizar o link
                   const canViewItem = hasPermission(item.recurso, 'pode_ver');
-                  if (!canViewItem) return null; // Se não tem permissão, não mostra o item
+                  if (!canViewItem) return null;
 
                   return (
                     <li key={item.label}>
@@ -115,7 +116,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
           ))}
           
           {bottomNavItems.map((item) => {
-              // Mesma lógica de verificação de permissão
               const canViewItem = hasPermission(item.recurso, 'pode_ver');
               if (!canViewItem) return null;
 

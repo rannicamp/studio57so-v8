@@ -5,13 +5,25 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisV, faStickyNote, faBullhorn } from '@fortawesome/free-solid-svg-icons'; // Importar ícone novo
+import { faEllipsisV, faStickyNote, faBullhorn, faHome } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'sonner';
 
-export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, onMoveToColumn, onOpenNotesModal }) {
+// --- INÍCIO DA MODIFICAÇÃO ---
+// Adicionadas 'availableProducts' e 'onAssociateProduct' à lista de props
+export default function ContatoCardCRM({ 
+    funilEntry, 
+    onDragStart, 
+    allColumns, 
+    onMoveToColumn, 
+    onOpenNotesModal,
+    availableProducts,
+    onAssociateProduct
+}) {
+// --- FIM DA MODIFICAÇÃO ---
+
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
 
-    // Mover os hooks para antes do return condicional
     useEffect(() => {
         function handleClickOutside(event) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -31,18 +43,21 @@ export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, on
     const contato = funilEntry.contatos;
     const cardNumber = funilEntry.numero_card;
     const currentColumnId = funilEntry.coluna_id;
-
-    // *** INÍCIO DA ALTERAÇÃO ***
-    // Verifica se o lead veio do Meta
     const isMetaLead = contato.origem === 'Meta Lead Ad';
-    // *** FIM DA ALTERAÇÃO ***
+    
+    // --- INÍCIO DA MODIFICAÇÃO ---
+    // Nova função para lidar com a seleção de um produto
+    const handleProductSelection = (e) => {
+        const selectedProductId = e.target.value ? parseInt(e.target.value, 10) : null;
+        onAssociateProduct(funilEntry.id, selectedProductId);
+    };
+    // --- FIM DA MODIFICAÇÃO ---
 
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
         try {
             return format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: ptBR });
         } catch (e) {
-            console.error("Erro ao formatar data:", dateString, e);
             return 'Formato inválido';
         }
     };
@@ -56,9 +71,6 @@ export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, on
     };
 
     const displayName = contato.razao_social || contato.nome || 'Nome Indisponível';
-    const displayContactInfo = (contato.telefones && contato.telefones.length > 0)
-        ? contato.telefones[0].telefone
-        : contato.email || 'Contato indisponível';
 
     const handleMoveClick = (columnId) => {
         onMoveToColumn(funilEntry.id, columnId);
@@ -82,25 +94,14 @@ export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, on
             className="relative bg-white p-3 rounded-md shadow border-l-4 border-blue-500 cursor-grab hover:shadow-lg transition-shadow duration-200 text-left"
         >
             <div className="flex justify-between items-start mb-1">
-                {/* Cabeçalho do Card: Número e Nome */}
-                <div className="flex items-center flex-grow">
-                    {cardNumber !== undefined && cardNumber !== null && (
-                        <span className="text-sm font-bold text-blue-600 mr-2">
-                            #{cardNumber}
-                        </span>
-                    )}
-                    <div className="font-semibold text-gray-800 text-sm pr-10">
-                        {displayName}
-                    </div>
+                <div className="flex-grow pr-8">
+                    <p className="font-semibold text-gray-800 text-sm leading-tight">
+                        <span className="text-blue-600 font-bold">#{cardNumber}</span> {displayName}
+                    </p>
                 </div>
-
-                {/* Menu de três pontinhos no canto superior direito */}
                 <div className="absolute top-2 right-3 z-10" ref={dropdownRef}>
                     <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setIsDropdownOpen(!isDropdownOpen);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(!isDropdownOpen); }}
                         className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-200 transition-colors"
                     >
                         <FontAwesomeIcon icon={faEllipsisV} size="sm" />
@@ -119,7 +120,6 @@ export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, on
                                         {column.nome}
                                     </button>
                                 ))}
-                            {/* Novo item para Notas */}
                             <div className="border-t border-gray-200 my-1"></div>
                             <button
                                 onClick={handleOpenNotes}
@@ -132,10 +132,36 @@ export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, on
                 </div>
             </div>
 
-            <p className="text-xs text-gray-600 mb-1">{displayContactInfo}</p>
-            
-            {/* *** INÍCIO DA ALTERAÇÃO *** */}
-            {/* Mostra o ícone se for um lead do Meta */}
+            {/* --- INÍCIO DA MODIFICAÇÃO --- */}
+            {/* Nova seção para associar produto */}
+            <div className="mt-2">
+                <label className="flex items-center text-xs text-gray-500 font-medium mb-1">
+                    <FontAwesomeIcon icon={faHome} className="mr-2" />
+                    Produto de Interesse:
+                </label>
+                <select 
+                    value={funilEntry.produto_id || ''}
+                    onChange={handleProductSelection}
+                    onClick={(e) => e.stopPropagation()} // Impede que o clique no select propague para o card
+                    className="w-full p-1.5 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                >
+                    <option value="">-- Nenhum --</option>
+                    {/* Se o produto atual já estiver associado, mas não estiver na lista (ex: foi vendido), o mostramos como uma opção desabilitada */}
+                    {funilEntry.produto && !availableProducts.some(p => p.id === funilEntry.produto.id) && (
+                        <option key={funilEntry.produto.id} value={funilEntry.produto.id} disabled>
+                            {funilEntry.produto.unidade} ({funilEntry.produto.tipo})
+                        </option>
+                    )}
+                    {/* Lista de produtos disponíveis */}
+                    {availableProducts.map(product => (
+                        <option key={product.id} value={product.id}>
+                            {product.unidade} ({product.tipo})
+                        </option>
+                    ))}
+                </select>
+            </div>
+            {/* --- FIM DA MODIFICAÇÃO --- */}
+
             {isMetaLead && (
                 <div className="mt-2">
                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -144,21 +170,15 @@ export default function ContatoCardCRM({ funilEntry, onDragStart, allColumns, on
                     </span>
                 </div>
             )}
-            {/* *** FIM DA ALTERAÇÃO *** */}
 
-            <div className="text-xs text-gray-500 mt-2">
-                {contato.created_at && (
+            <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
+                {contato.last_whatsapp_message ? (
+                    <p className="text-gray-700">
+                        Última msg: <span className="font-medium">{truncateMessage(contato.last_whatsapp_message)}</span>
+                        {contato.last_whatsapp_message_time && ` (${formatDate(contato.last_whatsapp_message_time)})`}
+                    </p>
+                ) : (
                     <p>Criado em: {formatDate(contato.created_at)}</p>
-                )}
-
-                {contato.last_whatsapp_message && (
-                    <>
-                        <div className="border-t border-gray-200 my-2"></div>
-                        <p className="text-gray-700">
-                            Última mensagem: <span className="font-medium">{truncateMessage(contato.last_whatsapp_message)}</span>
-                            {contato.last_whatsapp_message_time && ` (${formatDate(contato.last_whatsapp_message_time)})`}
-                        </p>
-                    </>
                 )}
             </div>
         </div>

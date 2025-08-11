@@ -22,7 +22,7 @@ export default function TesteFinalPage() {
             setApiResponse({
                 sucesso: false,
                 etapa: "Conexão com a API",
-                mensagem: "Falha crítica. A API retornou uma resposta vazia ou inválida, provavelmente por um erro fatal no servidor. Verifique os logs da Vercel.",
+                mensagem: "Falha crítica. A API retornou uma resposta vazia ou inválida, provavelmente por um erro fatal no servidor. Verifique os logs da Netlify.",
                 detalhe_tecnico: error.toString()
             });
         } finally {
