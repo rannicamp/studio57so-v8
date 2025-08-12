@@ -8,12 +8,10 @@ import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faSave, faCalculator, faPlus, faTimes } from '@fortawesome/free-solid-svg-icons';
 
-// --- INÍCIO DA CORREÇÃO: Função que estava faltando ---
 const formatCurrency = (value) => {
     if (value == null || isNaN(value)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
-// --- FIM DA CORREÇÃO ---
 
 // Componente de Seleção de Contatos (sem biblioteca externa)
 const ContatoSelector = ({ onSelect, initialValue }) => {
@@ -102,7 +100,7 @@ const ContatoSelector = ({ onSelect, initialValue }) => {
                             {results.length === 0 && searchTerm.length > 1 && (
                                 <li className="p-2">
                                     <button type="button" onClick={handleCreate} className="w-full text-left text-blue-600 font-semibold flex items-center gap-2 p-2 hover:bg-blue-50 rounded-md">
-                                        <FontAwesomeIcon icon={faPlus} /> Criar novo contato: "{searchTerm}"
+                                        <FontAwesomeIcon icon={faPlus} /> Criar novo contato: &quot;{searchTerm}&quot;
                                     </button>
                                 </li>
                             )}
@@ -149,9 +147,9 @@ export default function SimuladorVendas() {
             const { data: produtosData, error } = await productQuery.order('unidade');
             
             if(error){
-                 toast.error("Erro ao carregar produtos: " + error.message);
+                    toast.error("Erro ao carregar produtos: " + error.message);
             } else {
-                setProdutos(produtosData || []);
+                    setProdutos(produtosData || []);
             }
             setLoading(false);
         };
