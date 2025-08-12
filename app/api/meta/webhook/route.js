@@ -3,17 +3,19 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Função para criar um cliente Supabase (continua igual)
+// Função para criar um cliente Supabase
 const getSupabaseAdmin = () => {
-    console.log("LOG: Tentando criar cliente Supabase. URL existe:", !!process.env.NEXT_PUBLIC_SUPABASE_URL, "Service Key existe:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    // --- CORREÇÃO APLICADA AQUI ---
+    // Agora, o código procura pela variável SUPABASE_SECRET_KEY que você configurou.
+    console.log("LOG: Tentando criar cliente Supabase. URL existe:", !!process.env.NEXT_PUBLIC_SUPABASE_URL, "Service Key existe:", !!process.env.SUPABASE_SECRET_KEY);
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
         console.error("LOG: ERRO CRÍTICO - Variáveis de ambiente do Supabase não encontradas!");
         return null;
     }
-    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
 };
 
-// Rota GET para verificação (continua igual)
+// Rota GET para verificação (sem alterações)
 export async function GET(request) {
     console.log("LOG: Recebida requisição GET para verificação do webhook.");
     const META_VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
@@ -31,7 +33,7 @@ export async function GET(request) {
     }
 }
 
-// Rota POST para receber os leads (AGORA SALVANDO OS NOVOS CAMPOS)
+// Rota POST para receber os leads (lógica interna sem alterações)
 export async function POST(request) {
     console.log("LOG: [INÍCIO] Requisição POST recebida no webhook da Meta.");
     
@@ -44,7 +46,6 @@ export async function POST(request) {
         const body = await request.json();
         console.log('LOG: Corpo da requisição completo:', JSON.stringify(body, null, 2));
 
-        // Analisando a estrutura para encontrar os dados do lead
         const change = body.entry?.[0]?.changes?.[0];
 
         if (change?.field !== 'leadgen') {
@@ -52,7 +53,6 @@ export async function POST(request) {
             return NextResponse.json({ status: 'not_a_leadgen_event' }, { status: 200 });
         }
         
-        // Extraindo todos os dados da seção "value"
         const leadValue = change.value;
         const leadId = leadValue.leadgen_id;
 
@@ -61,7 +61,6 @@ export async function POST(request) {
              throw new Error("O evento de Lead recebido não continha a identificação do lead (leadgen_id).");
         }
 
-        // Verificando se este lead já foi processado
         console.log(`LOG: Buscando no DB por contato com meta_lead_id: ${leadId}`);
         const { data: existingLead } = await supabase.from('contatos').select('id').eq('meta_lead_id', leadId).single();
 
@@ -100,19 +99,16 @@ export async function POST(request) {
         const { data: newContact, error: contactError } = await supabase
             .from('contatos')
             .insert({
-                // Dados do cliente
                 nome: nomeCompleto,
                 origem: 'Meta Lead Ad',
                 tipo_contato: 'Lead',
                 personalidade_juridica: 'Pessoa Física',
-                
-                // --- NOVOS CAMPOS SENDO SALVOS ---
-                meta_lead_id: leadId, // O "CPF" do lead
+                meta_lead_id: leadId,
                 meta_ad_id: leadValue.ad_id,
                 meta_adgroup_id: leadValue.adgroup_id,
                 meta_form_id: leadValue.form_id,
                 meta_page_id: leadValue.page_id,
-                meta_created_time: new Date(leadValue.created_time * 1000).toISOString() // Convertendo para formato de data
+                meta_created_time: new Date(leadValue.created_time * 1000).toISOString()
             })
             .select('id')
             .single();
