@@ -1,15 +1,16 @@
+// app/(main)/ponto/page.js
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
+import FolhaPonto from '../../../components/FolhaPonto';
 import PontoImporter from '../../../components/PontoImporter';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faLock, faFileImport, faTimes, faPrint } from '@fortawesome/free-solid-svg-icons';
-import RelatorioPonto from '../../../components/RelatorioPonto'; // Importando nosso novo componente
+import { faSpinner, faLock, faFileImport, faTimes } from '@fortawesome/free-solid-svg-icons';
 
-// Modal de Importação (semelhante ao anterior)
 const ImporterModal = ({ isOpen, onClose, children }) => {
     if (!isOpen) return null;
     return (
@@ -40,12 +41,13 @@ export default function PontoPage() {
     const canEdit = hasPermission('ponto', 'pode_editar');
 
     const [employees, setEmployees] = useState([]);
-    const [selectedEmployee, setSelectedEmployee] = useState(null);
+    const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+    const [selectedMonth, setSelectedMonth] = useState('');
+    
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isImporterOpen, setIsImporterOpen] = useState(false);
     
-    const [selectedMonth, setSelectedMonth] = useState('');
      useEffect(() => {
         const today = new Date();
         const currentYear = today.getFullYear();
@@ -73,41 +75,6 @@ export default function PontoPage() {
         }
         setIsLoading(false);
     }, [supabase]);
-    
-    const fetchSelectedEmployeeData = useCallback(async (employeeId, month) => {
-        if (!employeeId || !month) {
-            setSelectedEmployee(null);
-            return;
-        }
-        setIsLoading(true);
-        const [year, monthNum] = month.split('-');
-        const startDate = `${year}-${monthNum}-01`;
-        const endDate = new Date(year, monthNum, 0).toISOString().split('T')[0];
-
-        const { data: employeeData, error: empError } = await supabase
-            .from('funcionarios')
-            .select('*, jornada:jornadas(*, detalhes:jornada_detalhes(*))')
-            .eq('id', employeeId)
-            .single();
-            
-        if (empError) {
-             setError('Erro ao buscar dados do funcionário.');
-             setIsLoading(false);
-             return;
-        }
-
-        const { data: pontosData } = await supabase.from('pontos').select('*').eq('funcionario_id', employeeId).gte('data_hora', `${startDate}T00:00:00`).lte('data_hora', `${endDate}T23:59:59`);
-        const { data: abonosData } = await supabase.from('abonos').select('*').eq('funcionario_id', employeeId).gte('data_abono', startDate).lte('data_abono', endDate);
-        
-        setSelectedEmployee({
-            ...employeeData,
-            pontosDoMes: pontosData || [],
-            abonosDoMes: abonosData || [],
-        });
-        
-        setIsLoading(false);
-
-    }, [supabase]);
 
     useEffect(() => {
         if (canViewPage) {
@@ -117,22 +84,13 @@ export default function PontoPage() {
         }
     }, [fetchEmployees, canViewPage]);
 
-    const handleEmployeeChange = (employeeId) => {
-        fetchSelectedEmployeeData(employeeId, selectedMonth);
-    };
-
-    const handleMonthChange = (month) => {
-        setSelectedMonth(month);
-        if (selectedEmployee) {
-            fetchSelectedEmployeeData(selectedEmployee.id, month);
-        }
-    };
-    
     const handleSuccessfulImport = () => {
         setIsImporterOpen(false);
-        if(selectedEmployee) {
-            fetchSelectedEmployeeData(selectedEmployee.id, selectedMonth);
-        }
+        // A FolhaPonto irá recarregar seus próprios dados quando necessário
+        // Forçamos uma recarga limpando e setando o ID do funcionário
+        const currentId = selectedEmployeeId;
+        setSelectedEmployeeId('');
+        setTimeout(() => setSelectedEmployeeId(currentId), 100);
     };
 
     if (authLoading) {
@@ -165,7 +123,7 @@ export default function PontoPage() {
                 {canCreate && (
                     <button onClick={() => setIsImporterOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center gap-2">
                         <FontAwesomeIcon icon={faFileImport} />
-                        Importar Registros
+                        Importar
                     </button>
                 )}
             </div>
@@ -174,37 +132,29 @@ export default function PontoPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                     <div>
                         <label htmlFor="employee-select" className="block text-sm font-medium text-gray-700">Funcionário</label>
-                        <select id="employee-select" onChange={(e) => handleEmployeeChange(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        <select id="employee-select" value={selectedEmployeeId} onChange={(e) => setSelectedEmployeeId(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
                             <option value="">-- Selecione um funcionário --</option>
                             {employees.map(emp => (<option key={emp.id} value={emp.id}>{emp.full_name}</option>))}
                         </select>
                     </div>
                     <div>
                         <label htmlFor="month-select" className="block text-sm font-medium text-gray-700">Mês/Ano</label>
-                        <input type="month" id="month-select" value={selectedMonth} onChange={(e) => handleMonthChange(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                        <input type="month" id="month-select" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
                     </div>
                 </div>
             </div>
             
-            {isLoading && selectedEmployee && (
-                 <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando relatório...</div>
-            )}
-            
-            {!isLoading && selectedEmployee && (
-                <RelatorioPonto 
-                    key={selectedEmployee.id + selectedMonth}
-                    employee={selectedEmployee}
-                    pontosDoMes={selectedEmployee.pontosDoMes}
-                    abonosDoMes={selectedEmployee.abonosDoMes}
-                    selectedMonth={selectedMonth}
+            {selectedEmployeeId && selectedMonth ? (
+                <FolhaPonto
+                    key={`${selectedEmployeeId}-${selectedMonth}`}
+                    employeeId={selectedEmployeeId}
+                    month={selectedMonth}
                     canEdit={canEdit || canCreate}
-                    onDataChange={() => fetchSelectedEmployeeData(selectedEmployee.id, selectedMonth)}
+                    allEmployees={employees}
                 />
-            )}
-            
-            {!selectedEmployee && !isLoading && (
+            ) : (
                  <div className="text-center p-10 bg-gray-50 rounded-lg no-print">
-                    <p className="text-gray-600">Selecione um funcionário para visualizar a folha de ponto.</p>
+                    <p className="text-gray-600">Selecione um funcionário e um mês para visualizar a folha de ponto.</p>
                  </div>
             )}
         </div>

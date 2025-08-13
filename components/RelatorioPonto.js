@@ -4,8 +4,19 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserCircle, faSpinner, faPrint, faUserEdit, faCalendarCheck, faBusinessTime, faCalendarXmark } from '@fortawesome/free-solid-svg-icons';
-import KpiCard from './KpiCard';
+import { faUserCircle, faSpinner, faPrint, faUserEdit, faCalendarCheck, faBusinessTime, faCalendarXmark, faCheckCircle, faTimesCircle, faFilePdf, faFileImage, faFileWord, faFile, faUpload, faEye, faTrash, faFileLines } from '@fortawesome/free-solid-svg-icons';
+
+// Componente de KPI Compacto
+const KpiCompacto = ({ title, value, icon, colorClass = 'text-gray-700' }) => (
+    <div className="flex items-center p-3 bg-gray-50 border rounded-lg">
+        <FontAwesomeIcon icon={icon} className={`w-6 h-6 mr-3 ${colorClass}`} />
+        <div>
+            <p className="text-xs text-gray-500 font-semibold">{title}</p>
+            <p className="text-lg font-bold text-gray-800">{value}</p>
+        </div>
+    </div>
+);
+
 
 export default function RelatorioPonto({ employee, pontosDoMes, abonosDoMes, selectedMonth, canEdit, onDataChange }) {
     const supabase = createClient();
@@ -65,7 +76,6 @@ export default function RelatorioPonto({ employee, pontosDoMes, abonosDoMes, sel
         const saida = parseTime(dayData.saida, dateBase);
         const inicio_intervalo = parseTime(dayData.inicio_intervalo, dateBase);
         const fim_intervalo = parseTime(dayData.fim_intervalo, dateBase);
-
         if (!entrada || !saida) return '--:--';
         let totalMillis = saida.getTime() - entrada.getTime();
         if (inicio_intervalo && fim_intervalo && fim_intervalo.getTime() > inicio_intervalo.getTime()) {
@@ -156,18 +166,33 @@ export default function RelatorioPonto({ employee, pontosDoMes, abonosDoMes, sel
     }, [timesheetData, selectedMonth, employee.jornada, holidays, calculateTotalHours]);
 
     return (
-        <div className="printable-area bg-white p-6 rounded-lg shadow-md space-y-6">
+        <div className="printable-area bg-white p-6 rounded-lg shadow-md space-y-4">
+            {/* ***** INÍCIO DA CORREÇÃO FINAL ***** */}
             <style jsx global>{`
                 @media print {
+                    @page {
+                        size: A4 portrait;
+                        margin: 1cm;
+                    }
                     body * { visibility: hidden; }
                     .printable-area, .printable-area * { visibility: visible; }
-                    .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
+                    .printable-area {
+                        position: absolute; left: 0; top: 0; width: 100%;
+                        padding: 0 !important; margin: 0 !important;
+                        border: none !important; box-shadow: none !important;
+                    }
                     .no-print { display: none !important; }
-                    .kpi-card-print { border: 1px solid #eee; padding: 8px; text-align: center; }
-                    table { font-size: 9pt; width: 100%; border-collapse: collapse !important; }
-                    th, td { border: 1px solid #ccc !important; padding: 4px !important; text-align: center; }
+                    .print-header-name { font-size: 1rem !important; font-weight: bold; }
+                    .kpi-container-print { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.5rem !important; }
+                    .kpi-compacto-print { border: 1px solid #eee; padding: 4px; }
+                    .kpi-compacto-print p { font-size: 0.7rem !important; }
+                    .kpi-compacto-print .text-lg { font-size: 1rem !important; }
+                    table { font-size: 8pt; width: 100%; border-collapse: collapse !important; }
+                    th, td { border: 1px solid #ccc !important; padding: 2px !important; text-align: center; }
+                    .signature-section { margin-top: 1rem !important; page-break-inside: avoid; }
                 }
             `}</style>
+            {/* ***** FIM DA CORREÇÃO FINAL ***** */}
             
             <div className="flex justify-between items-center no-print">
                 <h2 className="text-xl font-bold">Relatório de Ponto</h2>
@@ -184,30 +209,27 @@ export default function RelatorioPonto({ employee, pontosDoMes, abonosDoMes, sel
                 </div>
             </div>
 
-            {/* Cabeçalho que aparece na tela e na impressão */}
-            <div className="flex flex-col md:flex-row gap-6 items-center border-b pb-6">
-                {employee.foto_url ? ( <img src={employee.foto_url} alt="Foto" className="w-24 h-24 rounded-full object-cover" /> ) : ( <FontAwesomeIcon icon={faUserCircle} className="w-24 h-24 text-gray-300" /> )}
-                <div className="flex-grow text-center md:text-left">
-                    <h3 className="text-2xl font-bold">{employee.full_name}</h3>
+            <div className="flex flex-row gap-6 items-center border-b pb-4">
+                {employee.foto_url ? ( <img src={employee.foto_url} alt="Foto" className="w-20 h-20 rounded-full object-cover" /> ) : ( <FontAwesomeIcon icon={faUserCircle} className="w-20 h-20 text-gray-300" /> )}
+                <div className="flex-grow text-left">
+                    <h3 className="text-2xl font-bold print-header-name">{employee.full_name}</h3>
                     <p className="text-gray-600">{employee.contract_role}</p>
                     <p className="text-sm text-gray-500">Mês de Referência: {new Date(selectedMonth + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
                 </div>
             </div>
             
-            {/* KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="kpi-card-print">
-                    <KpiCard title="Dias (Trab. / Úteis)" value={kpiData.dias} icon={faCalendarCheck} color="blue" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 kpi-container-print">
+                <div className="kpi-compacto-print">
+                    <KpiCompacto title="Dias (Trab. / Úteis)" value={kpiData.dias} icon={faCalendarCheck} colorClass="text-blue-500" />
                 </div>
-                <div className="kpi-card-print">
-                    <KpiCard title="Horas (Trab. / Prev.)" value={kpiData.horas} icon={faBusinessTime} color="green" />
+                <div className="kpi-compacto-print">
+                    <KpiCompacto title="Horas (Trab. / Prev.)" value={kpiData.horas} icon={faBusinessTime} colorClass="text-green-500" />
                 </div>
-                <div className="kpi-card-print">
-                    <KpiCard title="Faltas (no período)" value={kpiData.faltas} icon={faCalendarXmark} color="red" />
+                <div className="kpi-compacto-print">
+                    <KpiCompacto title="Faltas (no período)" value={kpiData.faltas} icon={faCalendarXmark} colorClass="text-red-500" />
                 </div>
             </div>
 
-            {/* Tabela de Ponto */}
             <div className="overflow-x-auto">
                 <table className="min-w-full">
                     <thead className="bg-gray-100">
@@ -243,19 +265,10 @@ export default function RelatorioPonto({ employee, pontosDoMes, abonosDoMes, sel
                 </table>
             </div>
 
-            {/* Assinaturas (Aparece na impressão) */}
-            <div className="hidden print:block mt-20 pt-10 text-center">
+            <div className="signature-section hidden print:block mt-8 pt-8 text-center">
                 <div className="flex justify-around items-start">
-                    <div className="w-2/5">
-                        <div className="border-t border-black w-full mx-auto"></div>
-                        <p className="mt-2 text-sm font-semibold">{selectedEmployeeName}</p>
-                        <p className="text-xs">Assinatura do Funcionário</p>
-                    </div>
-                    <div className="w-2/5">
-                        <div className="border-t border-black w-full mx-auto"></div>
-                        <p className="mt-2 text-sm font-semibold">{selectedSignatoryName}</p>
-                        <p className="text-xs">Assinatura do Responsável</p>
-                    </div>
+                    <div className="w-2/5"><div className="border-t border-black w-full mx-auto"></div><p className="mt-2 text-sm font-semibold">{selectedEmployeeName}</p><p className="text-xs">Assinatura do Funcionário</p></div>
+                    <div className="w-2/5"><div className="border-t border-black w-full mx-auto"></div><p className="mt-2 text-sm font-semibold">{selectedSignatoryName}</p><p className="text-xs">Assinatura do Responsável</p></div>
                 </div>
                 <p className="text-xs text-gray-500 mt-8">Documento gerado por: {geradoPor} em {new Date().toLocaleString('pt-BR')}</p>
             </div>
