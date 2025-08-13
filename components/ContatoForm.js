@@ -78,9 +78,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         cargo: '',
         empresa_id: null,
         tipo_contato: 'Lead',
-        // *** ALTERAÇÃO AQUI ***
-        origem: 'Manual', // Valor padrão para novos contatos
-        // *** FIM DA ALTERAÇÃO ***
+        origem: 'Manual',
         address_street: '',
         address_number: '',
         address_complement: '',
@@ -174,7 +172,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                 } else {
                     setFormData(prev => ({
                         ...prev,
-                        address_street: data.logradouro,
+                        address_street: data.logouro,
                         neighborhood: data.bairro,
                         city: data.localidade,
                         state: data.uf,
@@ -193,13 +191,20 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         e.preventDefault();
         setIsLoading(true);
         
-        // *** ALTERAÇÃO AQUI ***
-        // Remove 'origem' dos dados a serem salvos se for edição, para não sobrescrever
         const { telefones, emails, ...dataToSave } = formData;
         if (isEditing) {
             delete dataToSave.origem;
         }
-        // *** FIM DA ALTERAÇÃO ***
+
+        // CORREÇÃO APLICADA AQUI
+        // Garante que campos de data vazios sejam enviados como nulos para o banco
+        if (dataToSave.birth_date === '') {
+            dataToSave.birth_date = null;
+        }
+        if (dataToSave.data_fundacao === '') {
+            dataToSave.data_fundacao = null;
+        }
+        // FIM DA CORREÇÃO
 
         const cleanedPhones = formData.telefones.filter(tel => tel.telefone.replace(/\D/g, '').length > 0).map(tel => ({
             telefone: tel.telefone.replace(/\D/g, ''),
@@ -266,14 +271,12 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         <form onSubmit={handleSubmit} className="space-y-6 p-6 bg-white rounded-lg shadow-md">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">{isEditing ? 'Editar Contato' : 'Cadastrar Novo Contato'}</h2>
             
-             {/* *** ALTERAÇÃO AQUI *** */}
             {isEditing && formData.origem && (
                 <div className="p-3 bg-gray-100 rounded-md">
                     <label className="block text-sm font-medium text-gray-500">Origem do Contato</label>
                     <p className="text-md font-semibold text-gray-800">{formData.origem}</p>
                 </div>
             )}
-            {/* *** FIM DA ALTERAÇÃO *** */}
 
             <fieldset className="border p-4 rounded-md">
                 <legend className="text-lg font-semibold text-gray-700">Tipo de Contato</legend>
