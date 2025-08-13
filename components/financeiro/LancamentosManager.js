@@ -66,27 +66,33 @@ export default function LancamentosManager({
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [editingCell, setEditingCell] = useState(null);
 
+    // ***** INÍCIO DA CORREÇÃO PRINCIPAL *****
+    // Esta nova lógica transforma a lista de lançamentos para exibição.
     const lancamentosParaExibir = useMemo(() => {
         const listaExibicao = [];
         lancamentos.forEach(item => {
+            // Se o lançamento é uma transferência...
             if (item.tipo === 'Transferência') {
+                // ...cria uma linha virtual de SAÍDA (despesa)
                 listaExibicao.push({
                     ...item,
                     tipo_exibicao: 'Despesa',
                     descricao_exibicao: `Transferência para: ${item.conta_destino?.nome || 'N/A'}`,
-                    conta_exibicao: item.conta,
+                    conta_exibicao: item.conta, // Conta de Origem
                     is_transfer_part: true,
-                    unique_key: `${item.id}_saida`
+                    unique_key: `${item.id}_saida` // Chave única para React
                 });
+                // ...e cria uma linha virtual de ENTRADA (receita)
                 listaExibicao.push({
                     ...item,
                     tipo_exibicao: 'Receita',
                     descricao_exibicao: `Transferência de: ${item.conta?.nome || 'N/A'}`,
-                    conta_exibicao: item.conta_destino,
+                    conta_exibicao: item.conta_destino, // Conta de Destino
                     is_transfer_part: true,
-                    unique_key: `${item.id}_entrada`
+                    unique_key: `${item.id}_entrada` // Chave única para React
                 });
             } else {
+                // Se for um lançamento normal, apenas adiciona à lista
                 listaExibicao.push({
                     ...item,
                     tipo_exibicao: item.tipo,
@@ -99,6 +105,7 @@ export default function LancamentosManager({
         });
         return listaExibicao;
     }, [lancamentos]);
+    // ***** FIM DA CORREÇÃO PRINCIPAL *****
 
     const kpiData = useMemo(() => {
         let totalReceitas = 0; let totalDespesas = 0;
@@ -310,6 +317,7 @@ export default function LancamentosManager({
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
+                            {/* ***** A RENDERIZAÇÃO DA TABELA AGORA USA A NOVA LISTA ***** */}
                             {lancamentosParaExibir.length > 0 ? lancamentosParaExibir.map(item => {
                                 const statusInfo = getPaymentStatus(item);
                                 const isPending = item.status === 'Pendente' && !item.conciliado;

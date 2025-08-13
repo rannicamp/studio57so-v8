@@ -25,7 +25,7 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
             const saldoInicial = parseFloat(conta.saldo_inicial) || 0;
             
             const totalLancamentos = (allLancamentos || [])
-                .filter(l => (l.conta_id === conta.id || l.conta_destino_id === conta.id) && (l.status === 'Pago' || l.conciliado))
+                .filter(l => (l.conta_id === conta.id || l.conta_destino_id === conta.id))
                 .reduce((acc, lancamento) => {
                     const valor = parseFloat(lancamento.valor) || 0;
                     
@@ -60,12 +60,8 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
             let error;
             if (isEditing) {
                 const { id, ...updateData } = dataToSave;
-                
-                // --- CORREÇÃO APLICADA AQUI ---
-                // Remove propriedades que são apenas para exibição e não existem na tabela.
                 delete updateData.empresa;
-                delete updateData.saldo_atual; // <-- NOVA CORREÇÃO
-
+                delete updateData.saldo_atual;
                 const { error: updateError } = await supabase.from('contas_financeiras').update(updateData).eq('id', id);
                 error = updateError;
             } else {
@@ -94,7 +90,6 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
     };
 
     const handleDeleteConta = async (contaId) => {
-        // Use um modal customizado em vez de window.confirm em produção
         if (!window.confirm("Tem certeza que deseja excluir esta conta? Todas as transações associadas também serão perdidas.")) return;
         
         const { error } = await supabase.from('contas_financeiras').delete().eq('id', contaId);

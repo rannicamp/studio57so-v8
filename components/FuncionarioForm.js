@@ -7,7 +7,7 @@ import { IMaskInput } from 'react-imask';
 import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserCircle, faSpinner, faClock } from '@fortawesome/free-solid-svg-icons';
-import { toast } from 'sonner'; // Adicionado para notificações
+import { toast } from 'sonner';
 
 export default function FuncionarioForm({ companies, empreendimentos, initialData, jornadas }) {
   const supabase = createClient();
@@ -53,7 +53,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
   const [formData, setFormData] = useState(initialData || getInitialState());
   const [newPhotoFile, setNewPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(initialData?.foto_url || null);
-  const [isUploading, setIsUploading] = useState(false); // Mantido para o ícone de spinner
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const getSignedUrlForPhoto = async () => {
@@ -91,54 +91,48 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     }
   };
 
+  // ***** INÍCIO DA CORREÇÃO *****
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setIsUploading(true); // Ativa o estado de carregamento para o botão
+    setIsUploading(true);
 
     const promise = new Promise(async (resolve, reject) => {
         let finalFotoPath = formData.foto_url;
         let finalContatoId = formData.contato_id;
 
-        // ***** INÍCIO DA CORREÇÃO *****
-        // 1. Criar ou atualizar o contato correspondente
-        if (!isEditing || !finalContatoId) {
+        // 1. Criar ou encontrar o contato correspondente ANTES de salvar o funcionário
+        if (formData.cpf) { // Apenas executa se houver CPF
             const contatoData = {
                 nome: formData.full_name,
                 cpf: formData.cpf,
                 personalidade_juridica: 'Pessoa Física',
-                tipo_contato: 'Fornecedor',
+                tipo_contato: 'Fornecedor', // Funcionários são tratados como um tipo de fornecedor interno
             };
             
+            // Verifica se já existe um contato com este CPF
             const { data: existingContact } = await supabase.from('contatos').select('id').eq('cpf', formData.cpf).single();
 
             if (existingContact) {
                 finalContatoId = existingContact.id;
             } else {
+                // Se não existe, cria um novo
                 const { data: newContact, error: contactError } = await supabase.from('contatos').insert(contatoData).select('id').single();
                 if (contactError) {
                     return reject(new Error(`Erro ao criar o 'Contato' para o funcionário: ${contactError.message}`));
                 }
                 finalContatoId = newContact.id;
 
+                // Adiciona e-mail e telefone ao novo contato
                 if (formData.email) {
-                    await supabase.from('emails').insert({
-                        contato_id: finalContatoId,
-                        email: formData.email,
-                        tipo: 'Principal'
-                    });
+                    await supabase.from('emails').insert({ contato_id: finalContatoId, email: formData.email, tipo: 'Principal' });
                 }
-
                 if (formData.phone) {
-                    await supabase.from('telefones').insert({
-                        contato_id: finalContatoId,
-                        telefone: formData.phone.replace(/\D/g, ''),
-                        tipo: 'Celular'
-                    });
+                    await supabase.from('telefones').insert({ contato_id: finalContatoId, telefone: formData.phone.replace(/\D/g, ''), tipo: 'Celular' });
                 }
             }
         }
-        // ***** FIM DA CORREÇÃO *****
 
+        // 2. Lida com o upload da foto (se houver)
         if (newPhotoFile) {
             const fileExtension = newPhotoFile.name.split('.').pop();
             const employeeIdForPath = formData.id || 'novo_funcionario';
@@ -151,11 +145,9 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
             finalFotoPath = uploadData.path;
         }
 
-        // 3. Preparar e Salvar os dados do Funcionário
+        // 3. Prepara e Salva os dados do Funcionário
         const dataToSave = { ...formData };
         
-        // ** CORREÇÃO DA DATA **
-        // Garante que campos de data vazios sejam nulos antes de salvar
         if (dataToSave.birth_date === '') dataToSave.birth_date = null;
         if (dataToSave.admission_date === '') dataToSave.admission_date = null;
         if (dataToSave.demission_date === '') dataToSave.demission_date = null;
@@ -163,7 +155,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
         const { id, created_at, cadastro_empresa, empreendimentos, documentos_funcionarios, ...dbData } = { 
             ...dataToSave, 
             foto_url: finalFotoPath,
-            contato_id: finalContatoId
+            contato_id: finalContatoId // Garante que o ID do contato seja salvo
         };
 
         if (isEditing) {
@@ -174,7 +166,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
             if (error) return reject(error);
         }
         
-        resolve(); // Resolve a promessa em caso de sucesso
+        resolve();
     });
 
     toast.promise(promise, {
@@ -193,6 +185,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
         },
     });
   };
+  // ***** FIM DA CORREÇÃO *****
   
   const handleCepBlur = async (cep) => {
     const cepLimpo = cep.replace(/\D/g, '');
