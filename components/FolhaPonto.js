@@ -52,10 +52,13 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     
     const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     
-    const selectedSignatoryName = useMemo(() => {
-        if (!selectedSignatoryId || proprietarios.length === 0) return 'N/A';
+    const selectedSignatory = useMemo(() => {
+        if (!selectedSignatoryId || proprietarios.length === 0) return { name: 'N/A', cpf: 'N/A' };
         const signatory = proprietarios.find(p => p.id === selectedSignatoryId);
-        return signatory ? `${signatory.nome || ''} ${signatory.sobrenome || ''}`.trim() : 'N/A';
+        // CORREÇÃO: Busca o CPF do funcionário associado ao usuário
+        return signatory 
+            ? { name: `${signatory.nome || ''} ${signatory.sobrenome || ''}`.trim(), cpf: signatory.funcionario?.cpf || 'N/A' }
+            : { name: 'N/A', cpf: 'N/A' };
     }, [selectedSignatoryId, proprietarios]);
 
     const showToast = (message, type = 'info') => setToast({ show: true, message, type });
@@ -92,11 +95,24 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         const [year, monthNum] = month.split('-');
         const startDate = `${year}-${monthNum}-01`;
         const endDate = new Date(year, monthNum, 0).toISOString().split('T')[0];
-        const { data: employeeData, error: empError } = await supabase.from('funcionarios').select('*, foto_url, jornada:jornadas(*, detalhes:jornada_detalhes(*))').eq('id', employeeId).single();
+        
+        let { data: employeeData, error: empError } = await supabase.from('funcionarios').select('*, jornada:jornadas(*, detalhes:jornada_detalhes(*))').eq('id', employeeId).single();
         if (empError) { showToast('Erro ao buscar dados do funcionário.', 'error'); setIsProcessing(false); return; }
+
+        if (employeeData.foto_url) {
+            const { data: urlData, error: urlError } = await supabase.storage.from('funcionarios-documentos').createSignedUrl(employeeData.foto_url, 3600);
+            if (!urlError) {
+                employeeData.foto_url = urlData.signedUrl;
+            } else {
+                console.error("Erro ao gerar URL da foto:", urlError);
+                employeeData.foto_url = null;
+            }
+        }
         setEmployee(employeeData);
+
         const { data: pontosData } = await supabase.from('pontos').select('*, editado_por_usuario_id:usuarios(nome, sobrenome)').eq('funcionario_id', employeeId).gte('data_hora', `${startDate}T00:00:00`).lte('data_hora', `${endDate}T23:59:59`);
         const { data: abonosDoMes } = await supabase.from('abonos').select('*, criado_por_usuario_id:usuarios(nome, sobrenome)').eq('funcionario_id', employeeId).gte('data_abono', startDate).lte('data_abono', endDate);
+        
         const processedAbonos = {}; (abonosDoMes || []).forEach(abono => { processedAbonos[abono.data_abono] = abono; }); setAbonosData(processedAbonos);
         const processedData = {};
         (pontosData || []).forEach(ponto => {
@@ -132,8 +148,14 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 const { data: userDataFromDb } = await supabase.from('usuarios').select('id, nome, sobrenome').eq('id', authUser.id).single();
                 if (userDataFromDb) setCurrentUser({ id: userDataFromDb.id, nome: `${userDataFromDb.nome} ${userDataFromDb.sobrenome}`.trim() });
             }
-            const { data: proprietariosData } = await supabase.from('usuarios').select('id, nome, sobrenome, funcoes!inner(nome_funcao)').eq('funcoes.nome_funcao', 'Proprietário');
+            
+            // CORREÇÃO: A query agora busca o funcionário associado para pegar o CPF
+            const { data: proprietariosData } = await supabase
+                .from('usuarios')
+                .select('id, nome, sobrenome, funcoes!inner(nome_funcao), funcionario:funcionarios(cpf)')
+                .eq('funcoes.nome_funcao', 'Proprietário');
             setProprietarios(proprietariosData || []);
+            
             if (isUserProprietario && user) { setSelectedSignatoryId(user.id); } 
             else if (proprietariosData?.length > 0) { setSelectedSignatoryId(proprietariosData[0].id); }
             if (userData) { setGeradoPor(`${userData.nome} ${userData.sobrenome}`); }
@@ -214,7 +236,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 @media print {
                     @page {
                         size: A4 portrait;
-                        margin: 0.8cm; /* Margens menores */
+                        margin: 0.8cm;
                     }
                     body * {
                         visibility: hidden;
@@ -242,17 +264,17 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                         display: grid !important;
                         grid-template-columns: repeat(3, 1fr);
                         gap: 0.5rem;
-                        margin-top: 0.5rem; /* Menos espaço */
-                        font-size: 8pt; /* Fonte menor */
+                        margin-top: 0.5rem;
+                        font-size: 8pt;
                         border: 1px solid #eee;
                         padding: 4px;
                         border-radius: 6px;
                     }
                     table {
-                        font-size: 7.5pt !important; /* Fonte da tabela ainda menor */
+                        font-size: 7.5pt !important;
                         width: 100%;
                         border-collapse: collapse !important;
-                        margin-top: 0.5rem; /* Menos espaço */
+                        margin-top: 0.5rem;
                     }
                     th, td {
                         border: 1px solid #ccc !important;
@@ -260,7 +282,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                         text-align: center;
                     }
                     .signature-section {
-                        margin-top: 1.5cm !important; /* Espaçamento ajustado */
+                        margin-top: 1.5cm !important;
                         page-break-inside: avoid;
                     }
                 }
@@ -352,8 +374,16 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             
             <section className="hidden print:block signature-section text-center">
                 <div className="flex justify-around items-start">
-                    <div className="w-2/5"><div className="border-t border-black w-full mx-auto"></div><p className="mt-2 text-sm font-semibold">{employee.full_name}</p><p className="text-xs">Assinatura do Funcionário</p></div>
-                    <div className="w-2/5"><div className="border-t border-black w-full mx-auto"></div><p className="mt-2 text-sm font-semibold">{selectedSignatoryName}</p><p className="text-xs">Assinatura do Responsável</p></div>
+                    <div className="w-2/5">
+                        <div className="border-t border-black w-full mx-auto"></div>
+                        <p className="mt-2 text-sm font-semibold">{employee.full_name}</p>
+                        <p className="text-xs">CPF: {employee.cpf || 'N/A'}</p>
+                    </div>
+                    <div className="w-2/5">
+                        <div className="border-t border-black w-full mx-auto"></div>
+                        <p className="mt-2 text-sm font-semibold">{selectedSignatory.name}</p>
+                        <p className="text-xs">CPF: {selectedSignatory.cpf || 'N/A'}</p>
+                    </div>
                 </div>
                 <p className="text-xs text-gray-500 mt-8">Documento gerado por: {geradoPor} em {new Date().toLocaleString('pt-BR')}</p>
             </section>
