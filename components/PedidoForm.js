@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTrash, faPlus, faPencilAlt, faSave, faTimes, faClock, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom } from '@fortawesome/free-solid-svg-icons'; // Adicionado faBroom
+import { faSpinner, faTrash, faPlus, faPencilAlt, faSave, faTimes, faClock, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom } from '@fortawesome/free-solid-svg-icons';
 import PedidoItemModal from './PedidoItemModal';
 import KpiCard from './KpiCard';
 
@@ -194,7 +194,7 @@ export default function PedidoForm({ pedidoId }) {
             const isEditing = Boolean(itemData.id);
             let finalMaterialId = itemData.material_id;
 
-            if (!finalMaterialId) {
+            if (!finalMaterialId && itemData.descricao_item) {
                 const { data: newMaterial, error: materialError } = await supabase.from('materiais').insert({ descricao: itemData.descricao_item, unidade_medida: itemData.unidade_medida, Origem: 'Manual' }).select().single();
                 if (materialError) return reject(new Error('Erro ao criar o novo material: ' + materialError.message));
                 finalMaterialId = newMaterial.id;
@@ -206,22 +206,20 @@ export default function PedidoForm({ pedidoId }) {
                 pedido_compra_id: pedidoId, 
                 quantidade_solicitada: parseInt(itemData.quantidade_solicitada) || 0, 
                 preco_unitario_real: itemData.preco_unitario_real === '' || itemData.preco_unitario_real === null ? null : parseFloat(itemData.preco_unitario_real),
-                
-                // Conversão de IDs para null se forem string vazia, antes de enviar ao Supabase
                 etapa_id: itemData.etapa_id === '' ? null : parseInt(itemData.etapa_id) || null,
                 fornecedor_id: itemData.fornecedor_id === '' ? null : parseInt(itemData.fornecedor_id) || null,
-                // material_id já é tratado acima
             };
             
-            // LÓGICA CORRIGIDA PARA CUSTO_TOTAL_REAL
+            // ***** INÍCIO DA CORREÇÃO *****
             if (itemData.tipo_operacao === 'Aluguel') {
                 dataToUpsert.custo_total_real = 
                     (dataToUpsert.quantidade_solicitada || 0) * (dataToUpsert.preco_unitario_real || 0) * (parseInt(itemData.dias_aluguel) || 0); 
             } else {
                 dataToUpsert.custo_total_real = (dataToUpsert.preco_unitario_real || 0) * (dataToUpsert.quantidade_solicitada || 0);
             }
+            // ***** FIM DA CORREÇÃO *****
             
-            delete dataToUpsert.fornecedor_nome; // Garante que este campo de UI não seja enviado
+            delete dataToUpsert.fornecedor_nome;
 
             if(isEditing) {
                 const { error } = await supabase.from('pedidos_compra_itens').update(dataToUpsert).eq('id', itemData.id);
@@ -231,15 +229,16 @@ export default function PedidoForm({ pedidoId }) {
                 const { error } = await supabase.from('pedidos_compra_itens').insert(dataToUpsert);
                 if(error) return reject(error);
             }
-            resolve(`Item ${isEditing ? 'atualizado' : 'adicionado'} com sucesso!`);
+            resolve({ success: true, message: `Item ${isEditing ? 'atualizado' : 'adicionado'} com sucesso!` });
         });
 
         toast.promise(promise, {
             loading: 'Salvando item...',
-            success: (msg) => { fetchData(); return msg; },
+            success: (result) => { fetchData(); return result.message; },
             error: (err) => `Falha ao salvar o item: ${err.message}`,
         });
         
+        // Retorna um booleano para o modal saber se deve fechar
         return promise.then(() => true).catch(() => false);
     };
 
@@ -255,7 +254,7 @@ export default function PedidoForm({ pedidoId }) {
         );
     };
 
-    // NOVA FUNÇÃO: Esvaziar Itens do Pedido
+    // ***** INÍCIO DA NOVA FUNÇÃO *****
     const handleEmptyItemList = async () => {
         if (!window.confirm('ATENÇÃO: Tem certeza que deseja REMOVER TODOS OS ITENS deste pedido? Esta ação é irreversível!')) return;
 
@@ -275,14 +274,15 @@ export default function PedidoForm({ pedidoId }) {
             {
                 loading: 'Esvaziando lista de itens...',
                 success: (msg) => { 
-                    fetchData(); // Recarrega os dados do pedido para mostrar a lista vazia
-                    setSelectedItems(new Set()); // Limpa a seleção
+                    fetchData();
+                    setSelectedItems(new Set());
                     return msg; 
                 },
                 error: (err) => err.message,
             }
         );
     };
+    // ***** FIM DA NOVA FUNÇÃO *****
 
     const handleRegistrarPagamento = async (contaId, dataPagamento) => {
         setIsPagamentoModalOpen(false);
@@ -349,7 +349,7 @@ export default function PedidoForm({ pedidoId }) {
                     <div className="flex justify-between items-center mb-2">
                         <h3 className="text-lg font-semibold">Itens do Pedido</h3>
                         <div className="flex items-center gap-2">
-                            {/* NOVO BOTÃO: Esvaziar Lista (Visível apenas se o status for Cancelado) */}
+                            {/* ***** INÍCIO DO NOVO BOTÃO ***** */}
                             {pedido.status === 'Cancelado' && itens.length > 0 && (
                                 <button
                                     onClick={handleEmptyItemList}
@@ -359,6 +359,7 @@ export default function PedidoForm({ pedidoId }) {
                                     <FontAwesomeIcon icon={faBroom} /> Esvaziar Itens
                                 </button>
                             )}
+                            {/* ***** FIM DO NOVO BOTÃO ***** */}
                             <button onClick={() => { setEditingItem(null); setIsItemModalOpen(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center justify-center gap-2 text-sm">
                                 <FontAwesomeIcon icon={faPlus} /> Adicionar Item
                             </button>

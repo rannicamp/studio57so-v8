@@ -15,13 +15,18 @@ const InfoField = ({ label, value, fullWidth = false }) => (
     </div>
 );
 
+// ***** INÍCIO DA CORREÇÃO DEFINITIVA *****
 const CadastroChecklist = ({ employee }) => {
     const checklistItems = useMemo(() => {
         const items = [];
+        
+        // Pega as siglas dos documentos que já foram enviados para o funcionário
+        // Ex: ['RG', 'CTPS', 'AAD']
         const uploadedSiglas = (employee.documentos_funcionarios || [])
             .map(doc => doc.tipo?.sigla?.toUpperCase())
-            .filter(Boolean);
+            .filter(Boolean); // Remove valores nulos ou vazios
 
+        // Define os itens do checklist e quais siglas correspondem a cada um
         const requiredItems = [
             { label: 'Nome Completo', type: 'field', key: 'full_name' },
             { label: 'CPF', type: 'field', key: 'cpf' },
@@ -32,11 +37,11 @@ const CadastroChecklist = ({ employee }) => {
             { label: 'Documento de Identidade', type: 'document', siglas: ['RG', 'CNH'] },
             { label: 'Carteira de Trabalho', type: 'document', siglas: ['CTPS'] },
             { label: 'Comprovante de Residência', type: 'document', siglas: ['CRES'] },
-            { label: 'ASO Admissional', type: 'document', siglas: ['AAD'] },
+            { label: 'ASO Admissional', type: 'document', siglas: ['AAD', 'ASO'] },
             { label: 'Contrato de Experiência', type: 'document', siglas: ['CTE'] },
-            { label: 'Recibo de Entrega de Uniforme', type: 'document', siglas: ['REU'] },
-            { label: 'Controle de EPI', type: 'document', siglas: ['EPI'] },
-            { label: 'Termo de Vale Transporte (VT)', type: 'document', siglas: ['VT', 'TRN'] },
+            { label: 'Recebimento de Uniforme', type: 'document', siglas: ['REU', 'CRE'] },
+            { label: 'Controle de EPI', type: 'document', siglas: ['EPI', 'CIE'] },
+            { label: 'Termo de Vale Transporte (VT)', type: 'document', siglas: ['VT', 'TRN', 'VTN'] },
         ];
 
         requiredItems.forEach(item => {
@@ -44,6 +49,7 @@ const CadastroChecklist = ({ employee }) => {
             if (item.type === 'field') {
                 isCompleted = !!employee[item.key];
             } else if (item.type === 'document') {
+                // Verifica se ALGUMA das siglas do checklist (item.siglas) existe na lista de siglas já enviadas (uploadedSiglas)
                 isCompleted = item.siglas.some(requiredSigla => uploadedSiglas.includes(requiredSigla.toUpperCase()));
             }
             items.push({ label: item.label, isCompleted });
@@ -66,6 +72,7 @@ const CadastroChecklist = ({ employee }) => {
         </div>
     );
 };
+// ***** FIM DA CORREÇÃO DEFINITIVA *****
 
 
 const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) => {
@@ -108,7 +115,7 @@ const DocumentosSection = ({ documentos, employeeId, employeeName, onUpdate }) =
         const nomeFuncionario = sanitizeString(employeeName);
         const descricaoSanitizada = sanitizeString(descricao);
         const newFileName = `${sigla}_${nomeFuncionario}_${descricaoSanitizada}.${fileExtension}`;
-        const filePath = `${employeeId}/${newFileName}`;
+        const filePath = `documentos/${employeeId}/${newFileName}`;
         const { error: uploadError } = await supabase.storage.from('funcionarios-documentos').upload(filePath, file, { upsert: true });
         if (uploadError) {
             setMessage(`Erro no upload: ${uploadError.message}`);
@@ -233,7 +240,6 @@ const FinanceiroSection = ({ lancamentos, onEditLancamento }) => {
                                 <tr key={lanc.id} onClick={() => onEditLancamento(lanc)} className="hover:bg-blue-50 cursor-pointer">
                                     <td className="px-4 py-3 text-sm">{formatDate(lanc.data_transacao)}</td>
                                     <td className="px-4 py-3 text-sm font-medium">{lanc.descricao}</td>
-                                    {/* ***** CORREÇÃO ***** Acessando o nome da conta corretamente */}
                                     <td className="px-4 py-3 text-sm text-gray-600">{lanc.conta?.nome || 'N/A'}</td>
                                     <td className={`px-4 py-3 text-sm text-right font-bold ${lanc.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>
                                         {formatCurrency(lanc.valor, lanc.tipo)}
@@ -260,7 +266,6 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
             return;
         }
         
-        // ***** CORREÇÃO ***** Adicionamos a sintaxe específica !conta_id para resolver a ambiguidade
         const { data: lancamentosData, error: lancamentosError } = await supabase
             .from('lancamentos')
             .select('*, conta:contas_financeiras!conta_id(nome), favorecido:favorecido_contato_id(nome, razao_social)')
