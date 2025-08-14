@@ -1,7 +1,7 @@
 // app/(main)/ponto/page.js
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -9,15 +9,14 @@ import FolhaPonto from '../../../components/FolhaPonto';
 import PontoImporter from '../../../components/PontoImporter';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faLock, faFileImport, faTimes, faCheckCircle, faExclamationCircle, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { useQuery } from '@tanstack/react-query';
 
-// ***** INÍCIO DA CORREÇÃO 1: Adicionar o componente de Toast *****
 const Toast = ({ message, type, onclose }) => {
     useEffect(() => { const timer = setTimeout(onclose, 4000); return () => clearTimeout(timer); }, [onclose]);
     const styles = { success: { bg: 'bg-green-500', icon: faCheckCircle }, error: { bg: 'bg-red-500', icon: faExclamationCircle }, info: { bg: 'bg-blue-500', icon: faInfoCircle } };
     const currentStyle = styles[type] || styles.info;
     return ( <div className={`fixed bottom-5 right-5 flex items-center p-4 rounded-lg shadow-lg text-white ${currentStyle.bg} animate-fade-in-up z-50 no-print`}> <FontAwesomeIcon icon={currentStyle.icon} className="mr-3 text-xl" /> <span>{message}</span> </div> );
 };
-// ***** FIM DA CORREÇÃO 1 *****
 
 const ImporterModal = ({ isOpen, onClose, children }) => {
     if (!isOpen) return null;
@@ -38,9 +37,20 @@ const ImporterModal = ({ isOpen, onClose, children }) => {
     );
 };
 
+const fetchAllEmployees = async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+        .from('funcionarios')
+        .select('id, full_name, numero_ponto')
+        .order('full_name');
+    
+    if (error) {
+        throw new Error('Não foi possível carregar a lista de funcionários.');
+    }
+    return data || [];
+};
 
 export default function PontoPage() {
-    const supabase = createClient();
     const router = useRouter();
     const { hasPermission, loading: authLoading } = useAuth();
 
@@ -48,20 +58,18 @@ export default function PontoPage() {
     const canCreate = hasPermission('ponto', 'pode_criar');
     const canEdit = hasPermission('ponto', 'pode_editar');
 
-    const [employees, setEmployees] = useState([]);
+    const { data: employees = [], isLoading, error } = useQuery({
+        queryKey: ['employees'],
+        queryFn: fetchAllEmployees
+    });
+
     const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
     const [selectedMonth, setSelectedMonth] = useState('');
-    
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(null);
     const [isImporterOpen, setIsImporterOpen] = useState(false);
-    
-    // ***** INÍCIO DA CORREÇÃO 2: Adicionar estado e função para o Toast *****
     const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
     const showToast = (message, type = 'info') => setToast({ show: true, message, type });
-    // ***** FIM DA CORREÇÃO 2 *****
 
-     useEffect(() => {
+    useEffect(() => {
         const today = new Date();
         const currentYear = today.getFullYear();
         const currentMonth = String(today.getMonth() + 1).padStart(2, '0');
@@ -74,34 +82,28 @@ export default function PontoPage() {
         }
     }, [authLoading, canViewPage, router]);
 
-    const fetchEmployees = useCallback(async () => {
-        setIsLoading(true);
-        const { data, error } = await supabase
-            .from('funcionarios')
-            .select('id, full_name, numero_ponto')
-            .order('full_name');
-
-        if (error) {
-            setError('Não foi possível carregar a lista de funcionários.');
-        } else {
-            setEmployees(data || []);
-            // Tenta pré-selecionar o funcionário que veio do dashboard
+    // ***** INÍCIO DA ALTERAÇÃO 1 *****
+    // Este useEffect agora lê a "anotação" do localStorage e define o funcionário
+    // sem apagar a anotação depois.
+    useEffect(() => {
+        if (!isLoading && employees.length > 0) {
             const preSelectedId = localStorage.getItem('selectedEmployeeIdForPonto');
-            if (preSelectedId && data.some(emp => emp.id.toString() === preSelectedId)) {
+            if (preSelectedId && employees.some(emp => emp.id.toString() === preSelectedId)) {
                 setSelectedEmployeeId(preSelectedId);
             }
-            localStorage.removeItem('selectedEmployeeIdForPonto'); // Limpa após o uso
         }
-        setIsLoading(false);
-    }, [supabase]);
+    }, [isLoading, employees]);
 
-    useEffect(() => {
-        if (canViewPage) {
-            fetchEmployees();
+    // Esta nova função atualiza o estado E salva a "anotação" no localStorage
+    const handleEmployeeChange = (employeeId) => {
+        setSelectedEmployeeId(employeeId);
+        if (employeeId) {
+            localStorage.setItem('selectedEmployeeIdForPonto', employeeId);
         } else {
-            setIsLoading(false);
+            localStorage.removeItem('selectedEmployeeIdForPonto');
         }
-    }, [fetchEmployees, canViewPage]);
+    };
+    // ***** FIM DA ALTERAÇÃO 1 *****
 
     const handleSuccessfulImport = () => {
         setIsImporterOpen(false);
@@ -110,9 +112,10 @@ export default function PontoPage() {
         setTimeout(() => setSelectedEmployeeId(currentId), 100);
     };
 
-    if (authLoading) {
+    if (authLoading || isLoading) {
         return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando...</div>;
     }
+
     if (!canViewPage) {
         return (
             <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg">
@@ -122,8 +125,9 @@ export default function PontoPage() {
             </div>
         );
     }
+    
     if (error) {
-        return <p className="text-center mt-10 text-red-500">{error}</p>;
+        return <p className="text-center mt-10 text-red-500">{error.message}</p>;
     }
 
     return (
@@ -131,13 +135,11 @@ export default function PontoPage() {
             {toast.show && <Toast message={toast.message} type={toast.type} onclose={() => setToast({ ...toast, show: false })} />}
             
             <ImporterModal isOpen={isImporterOpen} onClose={() => setIsImporterOpen(false)}>
-                {/* ***** INÍCIO DA CORREÇÃO 3: Passar a função showToast para o PontoImporter ***** */}
                 <PontoImporter 
                     employees={employees}
                     onImport={handleSuccessfulImport}
                     showToast={showToast}
                 />
-                {/* ***** FIM DA CORREÇÃO 3 ***** */}
             </ImporterModal>
 
             <div className="flex justify-between items-center no-print">
@@ -154,10 +156,13 @@ export default function PontoPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                     <div>
                         <label htmlFor="employee-select" className="block text-sm font-medium text-gray-700">Funcionário</label>
-                        <select id="employee-select" value={selectedEmployeeId} onChange={(e) => setSelectedEmployeeId(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        {/* ***** INÍCIO DA ALTERAÇÃO 2 ***** */}
+                        {/* O select agora usa a nova função handleEmployeeChange */}
+                        <select id="employee-select" value={selectedEmployeeId} onChange={(e) => handleEmployeeChange(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
                             <option value="">-- Selecione um funcionário --</option>
                             {employees.map(emp => (<option key={emp.id} value={emp.id}>{emp.full_name}</option>))}
                         </select>
+                        {/* ***** FIM DA ALTERAÇÃO 2 ***** */}
                     </div>
                     <div>
                         <label htmlFor="month-select" className="block text-sm font-medium text-gray-700">Mês/Ano</label>

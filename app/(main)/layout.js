@@ -1,3 +1,4 @@
+// app/(main)/layout.js
 "use client";
 
 import { useState } from 'react';
@@ -8,14 +9,13 @@ import { LayoutProvider } from '../../contexts/LayoutContext';
 import { EmpreendimentoProvider } from '../../contexts/EmpreendimentoContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { SessionProvider } from 'next-auth/react';
-
-// Importa o novo modal
 import PoliticasModal from '../../components/PoliticasModal';
+// ***** CORREÇÃO APLICADA AQUI *****
+import QueryProvider from '../QueryProvider'; // Caminho corrigido de '../../' para '../'
 
 import '@fortawesome/fontawesome-svg-core/styles.css'; 
 import { config } from '@fortawesome/fontawesome-svg-core';
 config.autoAddCss = false; 
-
 
 function MainLayoutContent({ children }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -28,7 +28,6 @@ function MainLayoutContent({ children }) {
   return (
     <LayoutProvider>
       <EmpreendimentoProvider>
-        {/* O Modal de Políticas é adicionado aqui */}
         <PoliticasModal />
         
         <div>
@@ -51,7 +50,9 @@ export default function MainAppLayout({ children }) {
   return (
     <AuthProvider>
       <SessionProvider>
-        <MainLayoutContent>{children}</MainLayoutContent>
+        <QueryProvider>
+          <MainLayoutContent>{children}</MainLayoutContent>
+        </QueryProvider>
       </SessionProvider>
     </AuthProvider>
   );

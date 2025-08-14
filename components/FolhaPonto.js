@@ -72,7 +72,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         const [year, monthNum] = month.split('-');
         const startDate = `${year}-${monthNum}-01`;
         const endDate = new Date(year, monthNum, 0).toISOString().split('T')[0];
-        let { data: employeeData, error: empError } = await supabase.from('funcionarios').select('*, cpf, foto_url, jornada:jornadas(*, detalhes:jornada_detalhes(*))').eq('id', employeeId).single();
+        let { data: employeeData, error: empError } = await supabase.from('funcionarios').select('*, admission_date, demission_date, cpf, foto_url, jornada:jornadas(*, detalhes:jornada_detalhes(*))').eq('id', employeeId).single();
         if (empError) { showToast('Erro ao buscar dados do funcionário.', 'error'); setIsProcessing(false); return; }
         if (employeeData.foto_url) {
             const { data: urlData } = await supabase.storage.from('funcionarios-documentos').createSignedUrl(employeeData.foto_url, 3600);
@@ -133,12 +133,25 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         const currentMonth = today.getMonth();
         const currentYear = today.getFullYear();
         
+        // ***** INÍCIO DA ALTERAÇÃO 1 *****
+        const admissionDate = employee.admission_date ? new Date(employee.admission_date + 'T00:00:00Z') : null;
+        const demissionDate = employee.demission_date ? new Date(employee.demission_date + 'T00:00:00Z') : null;
+        // ***** FIM DA ALTERAÇÃO 1 *****
+
         let diasUteisAteHoje = 0;
         let cargaHorariaEsperadaMinutos = 0;
         const jornadaDetalhes = employee.jornada?.detalhes || [];
 
         if (jornadaDetalhes.length > 0) {
             for (let d = new Date(firstDayOfMonth); d <= today; d.setDate(d.getDate() + 1)) {
+                
+                // ***** INÍCIO DA ALTERAÇÃO 2 *****
+                // Normaliza a data do loop para comparação segura
+                const currentDate = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+                if (admissionDate && currentDate < admissionDate) continue;
+                if (demissionDate && currentDate > demissionDate) continue;
+                // ***** FIM DA ALTERAÇÃO 2 *****
+
                 const dayOfWeek = d.getDay();
                 const dateString = d.toISOString().split('T')[0];
                 if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.has(dateString)) {
@@ -191,7 +204,19 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         const firstDayOfMonth = new Date(year, monthNum - 1, 1);
         const pending = [];
         
+        // ***** INÍCIO DA ALTERAÇÃO 3 *****
+        const admissionDate = employee.admission_date ? new Date(employee.admission_date + 'T00:00:00Z') : null;
+        const demissionDate = employee.demission_date ? new Date(employee.demission_date + 'T00:00:00Z') : null;
+        // ***** FIM DA ALTERAÇÃO 3 *****
+        
         for (let d = new Date(firstDayOfMonth); d <= todayAtUTCMidnight; d.setDate(d.getDate() + 1)) {
+
+            // ***** INÍCIO DA ALTERAÇÃO 4 *****
+            const currentDate = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+            if (admissionDate && currentDate < admissionDate) continue;
+            if (demissionDate && currentDate > demissionDate) continue;
+            // ***** FIM DA ALTERAÇÃO 4 *****
+
             const dateString = d.toISOString().split('T')[0];
             const dayOfWeek = d.getDay();
 
@@ -254,68 +279,21 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
     return (
         <div className="printable-area space-y-4">
-             {/* INÍCIO DO CSS PARA IMPRESSÃO */}
-             <style jsx global>{`
+            <style jsx global>{`
                 @media print {
-                    @page {
-                        size: A4 portrait;
-                        margin: 0.8cm;
-                    }
-                    body * {
-                        visibility: hidden;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-                    .printable-area, .printable-area * {
-                        visibility: visible;
-                    }
-                    .printable-area {
-                        position: absolute; 
-                        left: 0; 
-                        top: 0; 
-                        width: 100%;
-                        padding: 0 !important; 
-                        margin: 0 !important;
-                        border: none !important; 
-                        box-shadow: none !important;
-                    }
-                    .no-print {
-                        display: none !important;
-                    }
-                    .print-header {
-                        display: block !important;
-                    }
-                    .print-header-info h3 {
-                        font-size: 1.1rem !important;
-                    }
-                    .kpi-container-on-print {
-                        display: grid !important;
-                        grid-template-columns: repeat(3, 1fr);
-                        gap: 0.5rem;
-                        margin-top: 0.5rem;
-                        font-size: 8pt;
-                        border: 1px solid #eee;
-                        padding: 4px;
-                        border-radius: 6px;
-                    }
-                    table {
-                        font-size: 7.5pt !important;
-                        width: 100%;
-                        border-collapse: collapse !important;
-                        margin-top: 0.5rem;
-                    }
-                    th, td {
-                        border: 1px solid #ccc !important;
-                        padding: 2px !important;
-                        text-align: center;
-                    }
-                    .signature-section {
-                        margin-top: 1.5cm !important;
-                        page-break-inside: avoid;
-                    }
+                    @page { size: A4 portrait; margin: 0.8cm; }
+                    body * { visibility: hidden; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .printable-area, .printable-area * { visibility: visible; }
+                    .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
+                    .no-print { display: none !important; }
+                    .print-header { display: block !important; }
+                    .print-header-info h3 { font-size: 1.1rem !important; }
+                    .kpi-container-on-print { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.5rem; font-size: 8pt; border: 1px solid #eee; padding: 4px; border-radius: 6px; }
+                    table { font-size: 7.5pt !important; width: 100%; border-collapse: collapse !important; margin-top: 0.5rem; }
+                    th, td { border: 1px solid #ccc !important; padding: 2px !important; text-align: center; }
+                    .signature-section { margin-top: 1.5cm !important; page-break-inside: avoid; }
                 }
             `}</style>
-            {/* FIM DO CSS PARA IMPRESSÃO */}
             
             {toast.show && <Toast message={toast.message} type={toast.type} onclose={() => setToast({ ...toast, show: false })} />}
             
@@ -331,14 +309,9 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 </div>
             )}
 
-            {/* INÍCIO DO HTML PARA IMPRESSÃO */}
             <div className="print-header hidden">
                 <div className="flex flex-row gap-4 items-center border-b pb-2 mb-2">
-                    {employee.foto_url ? ( 
-                        <img src={employee.foto_url} alt="Foto" className="w-16 h-16 rounded-full object-cover" /> 
-                    ) : ( 
-                        <FontAwesomeIcon icon={faUserCircle} className="w-16 h-16 text-gray-300" /> 
-                    )}
+                    {employee.foto_url ? ( <img src={employee.foto_url} alt="Foto" className="w-16 h-16 rounded-full object-cover" /> ) : ( <FontAwesomeIcon icon={faUserCircle} className="w-16 h-16 text-gray-300" /> )}
                     <div className="flex-grow text-left print-header-info">
                         <h3 className="font-bold">{employee.full_name}</h3>
                         <p className="text-sm">{employee.contract_role}</p>
@@ -404,7 +377,6 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                                         const jornadaDoDia = employee.jornada?.detalhes.find(j => j.dia_semana === dateInMonth.getUTCDay());
                                         const isWorkdayCheck = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_entrada.trim() !== '' && jornadaDoDia.horario_saida && jornadaDoDia.horario_saida.trim() !== '';
                                         
-                                        // ***** LÓGICA CORRIGIDA E DEFINITIVA *****
                                         let isMissing = false;
                                         if (isPending && isWorkdayCheck) {
                                             const punchExists = dayData[field] && dayData[field].trim() !== '';
