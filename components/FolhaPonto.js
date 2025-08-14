@@ -57,12 +57,28 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
     const calculateTotalHours = useCallback((dayData) => {
         const dateBase = new Date(dayData.dateString + 'T00:00:00Z');
-        const entrada = parseTime(dayData.entrada, dateBase); const saida = parseTime(dayData.saida, dateBase);
-        const inicio_intervalo = parseTime(dayData.inicio_intervalo, dateBase); const fim_intervalo = parseTime(dayData.fim_intervalo, dateBase);
-        if (!entrada || !saida) return '--:--'; let totalMillis = saida.getTime() - entrada.getTime();
-        if (inicio_intervalo && fim_intervalo && fim_intervalo.getTime() > inicio_intervalo.getTime()) { totalMillis -= (fim_intervalo.getTime() - inicio_intervalo.getTime()); }
+        const entrada = parseTime(dayData.entrada, dateBase);
+        const saida = parseTime(dayData.saida, dateBase);
+        const inicio_intervalo = parseTime(dayData.inicio_intervalo, dateBase);
+        const fim_intervalo = parseTime(dayData.fim_intervalo, dateBase);
+        let manhaMillis = 0;
+        let tardeMillis = 0;
+        if (entrada && inicio_intervalo) {
+            manhaMillis = inicio_intervalo.getTime() - entrada.getTime();
+        }
+        if (fim_intervalo && saida) {
+            tardeMillis = saida.getTime() - fim_intervalo.getTime();
+        }
+        let totalMillis = manhaMillis + tardeMillis;
+        if (totalMillis <= 0 && entrada && saida) {
+            totalMillis = saida.getTime() - entrada.getTime();
+        }
+        if (totalMillis <= 0) {
+            return '--:--';
+        }
         if (totalMillis < 0) totalMillis = 0;
-        const totalHours = Math.floor(totalMillis / (1000 * 60 * 60)); const totalMinutes = Math.floor((totalMillis % (1000 * 60 * 60)) / (1000 * 60));
+        const totalHours = Math.floor(totalMillis / (1000 * 60 * 60));
+        const totalMinutes = Math.floor((totalMillis % (1000 * 60 * 60)) / (1000 * 60));
         return `${String(totalHours).padStart(2, '0')}:${String(totalMinutes).padStart(2, '0')}`;
     }, []);
     
@@ -128,34 +144,32 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
     const kpiData = useMemo(() => {
         if (!month || !employee) return { dias: '0 / 0', horas: '00:00h / 00:00h', faltas: 0 };
-        const today = new Date();
-        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const currentMonth = today.getMonth();
-        const currentYear = today.getFullYear();
         
         // ***** INÍCIO DA ALTERAÇÃO 1 *****
+        const [year, monthNum] = month.split('-').map(Number);
+        const today = new Date();
+        const isCurrentMonth = today.getFullYear() === year && today.getMonth() === monthNum - 1;
+        
+        const firstDayOfMonth = new Date(Date.UTC(year, monthNum - 1, 1));
+        const lastDayOfMonth = isCurrentMonth ? new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) : new Date(Date.UTC(year, monthNum, 0));
+        
         const admissionDate = employee.admission_date ? new Date(employee.admission_date + 'T00:00:00Z') : null;
         const demissionDate = employee.demission_date ? new Date(employee.demission_date + 'T00:00:00Z') : null;
-        // ***** FIM DA ALTERAÇÃO 1 *****
 
-        let diasUteisAteHoje = 0;
+        let diasUteisNoPeriodo = 0;
         let cargaHorariaEsperadaMinutos = 0;
         const jornadaDetalhes = employee.jornada?.detalhes || [];
 
         if (jornadaDetalhes.length > 0) {
-            for (let d = new Date(firstDayOfMonth); d <= today; d.setDate(d.getDate() + 1)) {
-                
-                // ***** INÍCIO DA ALTERAÇÃO 2 *****
-                // Normaliza a data do loop para comparação segura
-                const currentDate = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-                if (admissionDate && currentDate < admissionDate) continue;
-                if (demissionDate && currentDate > demissionDate) continue;
-                // ***** FIM DA ALTERAÇÃO 2 *****
+            for (let d = new Date(firstDayOfMonth); d <= lastDayOfMonth; d.setUTCDate(d.getUTCDate() + 1)) {
+                if (admissionDate && d < admissionDate) continue;
+                if (demissionDate && d > demissionDate) continue;
 
-                const dayOfWeek = d.getDay();
+                const dayOfWeek = d.getUTCDay();
                 const dateString = d.toISOString().split('T')[0];
+
                 if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.has(dateString)) {
-                    diasUteisAteHoje++;
+                    diasUteisNoPeriodo++;
                     const jornadaDoDia = jornadaDetalhes.find(j => j.dia_semana === dayOfWeek);
                     if (jornadaDoDia) {
                         const entrada = jornadaDoDia.horario_entrada ? jornadaDoDia.horario_entrada.split(':').map(Number) : [0,0];
@@ -173,14 +187,9 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         }
         const cargaHorariaEsperadaFormatada = `${Math.floor(cargaHorariaEsperadaMinutos / 60)}:${String(cargaHorariaEsperadaMinutos % 60).padStart(2, '0')}h`;
         
-        const pontosDoMes = Object.values(timesheetData).filter(p => {
-            const pontoDate = new Date(p.dateString);
-            return pontoDate.getMonth() === currentMonth && pontoDate.getFullYear() === currentYear;
-        });
-
-        const diasTrabalhados = pontosDoMes.length;
+        const diasTrabalhados = Object.keys(timesheetData).length;
         let totalMinutosTrabalhados = 0;
-        pontosDoMes.forEach(dayData => {
+        Object.values(timesheetData).forEach(dayData => {
             const totalDayStr = calculateTotalHours(dayData);
             if (totalDayStr !== '--:--') {
                 const [hours, minutes] = totalDayStr.split(':').map(Number);
@@ -189,40 +198,35 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         });
 
         const horasTrabalhadasFormatada = `${Math.floor(totalMinutosTrabalhados / 60)}:${String(Math.round(totalMinutosTrabalhados % 60)).padStart(2, '0')}h`;
-        const faltas = Math.max(0, diasUteisAteHoje - diasTrabalhados);
+        const faltas = Math.max(0, diasUteisNoPeriodo - diasTrabalhados);
+        // ***** FIM DA ALTERAÇÃO 1 *****
 
-        return { dias: `${diasTrabalhados} / ${diasUteisAteHoje}`, horas: `${horasTrabalhadasFormatada} / ${cargaHorariaEsperadaFormatada}`, faltas };
+        return { dias: `${diasTrabalhados} / ${diasUteisNoPeriodo}`, horas: `${horasTrabalhadasFormatada} / ${cargaHorariaEsperadaFormatada}`, faltas };
     }, [timesheetData, month, employee, holidays, calculateTotalHours]);
 
     useEffect(() => {
         if (!employee?.jornada?.detalhes || isProcessing) return;
         
-        const localToday = new Date();
-        const todayAtUTCMidnight = new Date(Date.UTC(localToday.getFullYear(), localToday.getMonth(), localToday.getDate()));
-        
+        // ***** INÍCIO DA ALTERAÇÃO 2 *****
         const [year, monthNum] = month.split('-').map(Number);
-        const firstDayOfMonth = new Date(year, monthNum - 1, 1);
+        const today = new Date();
+        const isCurrentMonth = today.getFullYear() === year && today.getMonth() === monthNum - 1;
+        const lastDayToCheck = isCurrentMonth ? new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) : new Date(Date.UTC(year, monthNum, 0));
+
+        const firstDayOfMonth = new Date(Date.UTC(year, monthNum - 1, 1));
         const pending = [];
         
-        // ***** INÍCIO DA ALTERAÇÃO 3 *****
         const admissionDate = employee.admission_date ? new Date(employee.admission_date + 'T00:00:00Z') : null;
         const demissionDate = employee.demission_date ? new Date(employee.demission_date + 'T00:00:00Z') : null;
-        // ***** FIM DA ALTERAÇÃO 3 *****
         
-        for (let d = new Date(firstDayOfMonth); d <= todayAtUTCMidnight; d.setDate(d.getDate() + 1)) {
-
-            // ***** INÍCIO DA ALTERAÇÃO 4 *****
-            const currentDate = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-            if (admissionDate && currentDate < admissionDate) continue;
-            if (demissionDate && currentDate > demissionDate) continue;
-            // ***** FIM DA ALTERAÇÃO 4 *****
+        for (let d = new Date(firstDayOfMonth); d <= lastDayToCheck; d.setUTCDate(d.getUTCDate() + 1)) {
+            if (admissionDate && d < admissionDate) continue;
+            if (demissionDate && d > demissionDate) continue;
 
             const dateString = d.toISOString().split('T')[0];
-            const dayOfWeek = d.getDay();
+            const dayOfWeek = d.getUTCDay();
 
-            if (dayOfWeek === 0 || dayOfWeek === 6) {
-                continue;
-            }
+            if (dayOfWeek === 0 || dayOfWeek === 6) continue;
 
             const jornadaDoDia = employee.jornada.detalhes.find(j => j.dia_semana === dayOfWeek);
             const isWorkdayCheck = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_entrada.trim() !== '' && jornadaDoDia.horario_saida && jornadaDoDia.horario_saida.trim() !== '';
@@ -230,9 +234,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             if (isWorkdayCheck && !holidays.has(dateString)) {
                 const dayData = timesheetData[dateString];
                 const abonoDoDia = abonosData[dateString];
-                
                 const breakIsRequired = jornadaDoDia.horario_saida_intervalo && jornadaDoDia.horario_volta_intervalo;
-                
                 const hasRequiredPunches = dayData && dayData.entrada && dayData.saida && (!breakIsRequired || (dayData.inicio_intervalo && dayData.fim_intervalo));
 
                 if (!abonoDoDia && !hasRequiredPunches) {
@@ -241,6 +243,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             }
         }
         setPendingDays(pending);
+        // ***** FIM DA ALTERAÇÃO 2 *****
     }, [timesheetData, employee, holidays, month, isProcessing, abonosData]);
 
     const handleCellEdit = (date, field) => { if (isProcessing || !canEdit) return; setEditingCell({ date, field }); };
@@ -279,21 +282,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
     return (
         <div className="printable-area space-y-4">
-            <style jsx global>{`
-                @media print {
-                    @page { size: A4 portrait; margin: 0.8cm; }
-                    body * { visibility: hidden; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                    .printable-area, .printable-area * { visibility: visible; }
-                    .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
-                    .no-print { display: none !important; }
-                    .print-header { display: block !important; }
-                    .print-header-info h3 { font-size: 1.1rem !important; }
-                    .kpi-container-on-print { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.5rem; font-size: 8pt; border: 1px solid #eee; padding: 4px; border-radius: 6px; }
-                    table { font-size: 7.5pt !important; width: 100%; border-collapse: collapse !important; margin-top: 0.5rem; }
-                    th, td { border: 1px solid #ccc !important; padding: 2px !important; text-align: center; }
-                    .signature-section { margin-top: 1.5cm !important; page-break-inside: avoid; }
-                }
-            `}</style>
+            <style jsx global>{`@media print { @page { size: A4 portrait; margin: 0.8cm; } body * { visibility: hidden; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } .printable-area, .printable-area * { visibility: visible; } .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; } .no-print { display: none !important; } .print-header { display: block !important; } .print-header-info h3 { font-size: 1.1rem !important; } .kpi-container-on-print { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.5rem; font-size: 8pt; border: 1px solid #eee; padding: 4px; border-radius: 6px; } table { font-size: 7.5pt !important; width: 100%; border-collapse: collapse !important; margin-top: 0.5rem; } th, td { border: 1px solid #ccc !important; padding: 2px !important; text-align: center; } .signature-section { margin-top: 1.5cm !important; page-break-inside: avoid; } }`}</style>
             
             {toast.show && <Toast message={toast.message} type={toast.type} onclose={() => setToast({ ...toast, show: false })} />}
             
