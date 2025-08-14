@@ -22,6 +22,7 @@ const Toast = ({ message, type, onclose }) => {
 export default function FolhaPonto({ employeeId, month, canEdit }) {
     const supabase = createClient();
     const { user, userData } = useAuth();
+    
     const [employee, setEmployee] = useState(null);
     const [timesheetData, setTimesheetData] = useState({});
     const [holidays, setHolidays] = useState(new Set());
@@ -132,41 +133,22 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
     useEffect(() => {
         if (!employee?.jornada?.detalhes || isProcessing) return;
-        
-        // ***** INÍCIO DA CORREÇÃO 1: LÓGICA DE DATAS *****
-        // Garante que a data de "hoje" seja comparada de forma correta, sem influência de fuso horário.
         const localToday = new Date();
         const todayAtUTCMidnight = new Date(Date.UTC(localToday.getFullYear(), localToday.getMonth(), localToday.getDate()));
-        
         const [year, monthNum] = month.split('-').map(Number);
         const firstDayOfMonth = new Date(year, monthNum - 1, 1);
         const pending = [];
-        
-        // O loop agora compara com o "hoje" corrigido
         for (let d = new Date(firstDayOfMonth); d < todayAtUTCMidnight; d.setDate(d.getDate() + 1)) {
             const dateString = d.toISOString().split('T')[0];
             const dayOfWeek = d.getDay();
-
-            // ***** INÍCIO DA CORREÇÃO 2: LÓGICA DE FINS DE SEMANA *****
-            // Se for Sábado (6) ou Domingo (0), pula para o próximo dia e não faz nenhuma verificação.
-            if (dayOfWeek === 0 || dayOfWeek === 6) {
-                continue;
-            }
-
+            if (dayOfWeek === 0 || dayOfWeek === 6) continue;
             const jornadaDoDia = employee.jornada.detalhes.find(j => j.dia_semana === dayOfWeek);
             const isWorkdayCheck = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_entrada.trim() !== '' && jornadaDoDia.horario_saida && jornadaDoDia.horario_saida.trim() !== '';
-            
             if (isWorkdayCheck && !holidays.has(dateString)) {
                 const dayData = timesheetData[dateString];
                 const abonoDoDia = abonosData[dateString];
-                
-                // ***** INÍCIO DA CORREÇÃO 3: LÓGICA DE INTERVALO OPCIONAL *****
-                // Verifica se a jornada do dia exige um intervalo
                 const breakIsRequired = jornadaDoDia.horario_saida_intervalo && jornadaDoDia.horario_volta_intervalo;
-                
-                // Verifica se os pontos obrigatórios foram batidos
                 const hasRequiredPunches = dayData && dayData.entrada && dayData.saida && (!breakIsRequired || (dayData.inicio_intervalo && dayData.fim_intervalo));
-
                 if (!abonoDoDia && !hasRequiredPunches) {
                     pending.push(dateString);
                 }
@@ -192,12 +174,10 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             else { showToast('Não há registro de entrada para adicionar observação.', 'info'); }
         } else {
             const tipo_registro = { 'entrada': 'Entrada', 'inicio_intervalo': 'Inicio_Intervalo', 'fim_intervalo': 'Fim_Intervalo', 'saida': 'Saida' }[field];
-            const startOfDay = `${date}T00:00:00`; const endOfDay = `${date}T23:59:59.999`; let error;
-            const { data: existingRecord } = await supabase.from('pontos').select('id').eq('funcionario_id', employeeId).eq('tipo_registro', tipo_registro).gte('data_hora', startOfDay).lte('data_hora', endOfDay).maybeSingle();
+            const { data: existingRecord } = await supabase.from('pontos').select('id').eq('funcionario_id', employeeId).eq('tipo_registro', tipo_registro).like('data_hora', `${date}%`).maybeSingle();
             if (!newValue) { if (existingRecord) { ({ error } = await supabase.from('pontos').delete().eq('id', existingRecord.id)); showToast(error ? `Erro: ${error.message}` : 'Registro removido.', error ? 'error' : 'success'); } } 
             else {
-                const localDate = new Date(`${date}T${newValue}`);
-                const recordData = { funcionario_id: employeeId, tipo_registro, data_hora: localDate.toISOString(), editado_manualmente: true, editado_por_usuario_id: currentUser.id };
+                const recordData = { funcionario_id: employeeId, tipo_registro, data_hora: new Date(`${date}T${newValue}`).toISOString(), editado_manualmente: true, editado_por_usuario_id: currentUser.id };
                 if (existingRecord) { ({ error } = await supabase.from('pontos').update(recordData).eq('id', existingRecord.id)); } 
                 else { ({ error } = await supabase.from('pontos').insert(recordData)); }
                 showToast(error ? `Erro: ${error.message}` : 'Alteração salva!', error ? 'error' : 'success');
@@ -211,7 +191,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
     return (
         <div className="printable-area space-y-4">
-            <style jsx global>{`/* ... Estilos de impressão ... */`}</style>
+            <style jsx global>{`/* Estilos de impressão... */`}</style>
             
             {toast.show && <Toast message={toast.message} type={toast.type} onclose={() => setToast({ ...toast, show: false })} />}
             
@@ -227,7 +207,9 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 </div>
             )}
             
-            {/* Seções de cabeçalho e KPIs (sem alterações na estrutura) */}
+            <div className="print-header hidden">{/* ... */}</div>
+            <section className="bg-gray-100 p-4 rounded-lg shadow-inner no-print">{/* ... */}</section>
+            <div className='no-print flex justify-end items-center gap-2'>{/* ... */}</div>
 
             <div className="overflow-x-auto">
                 <table className="min-w-full border-collapse">
@@ -252,23 +234,25 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
                             return (
                                 <tr key={dateString} className={rowClass}>
-                                    <td className="border p-2 text-center">{new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</td>
+                                    <td className="border p-2 text-center">{new Date(dateString + 'T00:00:00Z').toLocaleDateString('pt-BR')}</td>
                                     <td className="border p-2 text-center">{weekDays[dateInMonth.getUTCDay()]} {isHoliday && '(Feriado)'}</td>
                                     {['entrada', 'inicio_intervalo', 'fim_intervalo', 'saida'].map(field => {
-                                        const jornadaDoDia = employee.jornada?.detalhes.find(j => j.dia_semana === dateInMonth.getDay());
-                                        const isWorkdayCheck = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_saida;
+                                        const jornadaDoDia = employee.jornada?.detalhes.find(j => j.dia_semana === dateInMonth.getUTCDay());
                                         
-                                        // ***** LÓGICA DE CÉLULA FALTANTE ATUALIZADA *****
+                                        // ***** INÍCIO DA CORREÇÃO FINAL *****
+                                        // Esta é a nova lógica que decide se a célula deve ser vermelha
                                         let isMissing = false;
-                                        if (isPending && isWorkdayCheck) {
+                                        if (isPending) {
+                                            const punchExists = dayData[field] && dayData[field].trim() !== '';
                                             if (field === 'entrada' || field === 'saida') {
-                                                isMissing = !dayData[field];
+                                                isMissing = !punchExists;
                                             } else if (field === 'inicio_intervalo' || field === 'fim_intervalo') {
-                                                const breakIsRequired = jornadaDoDia.horario_saida_intervalo && jornadaDoDia.horario_volta_intervalo;
-                                                isMissing = breakIsRequired && !dayData[field];
+                                                const breakIsRequired = jornadaDoDia && jornadaDoDia.horario_saida_intervalo && jornadaDoDia.horario_volta_intervalo;
+                                                isMissing = breakIsRequired && !punchExists;
                                             }
                                         }
                                         const cellClass = `border p-2 text-center ${canEdit ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'} ${isMissing ? 'bg-red-100 border-2 border-red-400' : ''}`;
+                                        // ***** FIM DA CORREÇÃO FINAL *****
                                         
                                         return (
                                             <td key={field} onClick={() => handleCellEdit(dateString, field)} className={cellClass}>
