@@ -1,5 +1,4 @@
 // app/(main)/ponto/page.js
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -9,7 +8,16 @@ import { useAuth } from '../../../contexts/AuthContext';
 import FolhaPonto from '../../../components/FolhaPonto';
 import PontoImporter from '../../../components/PontoImporter';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faLock, faFileImport, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faLock, faFileImport, faTimes, faCheckCircle, faExclamationCircle, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+
+// ***** INÍCIO DA CORREÇÃO 1: Adicionar o componente de Toast *****
+const Toast = ({ message, type, onclose }) => {
+    useEffect(() => { const timer = setTimeout(onclose, 4000); return () => clearTimeout(timer); }, [onclose]);
+    const styles = { success: { bg: 'bg-green-500', icon: faCheckCircle }, error: { bg: 'bg-red-500', icon: faExclamationCircle }, info: { bg: 'bg-blue-500', icon: faInfoCircle } };
+    const currentStyle = styles[type] || styles.info;
+    return ( <div className={`fixed bottom-5 right-5 flex items-center p-4 rounded-lg shadow-lg text-white ${currentStyle.bg} animate-fade-in-up z-50 no-print`}> <FontAwesomeIcon icon={currentStyle.icon} className="mr-3 text-xl" /> <span>{message}</span> </div> );
+};
+// ***** FIM DA CORREÇÃO 1 *****
 
 const ImporterModal = ({ isOpen, onClose, children }) => {
     if (!isOpen) return null;
@@ -48,6 +56,11 @@ export default function PontoPage() {
     const [error, setError] = useState(null);
     const [isImporterOpen, setIsImporterOpen] = useState(false);
     
+    // ***** INÍCIO DA CORREÇÃO 2: Adicionar estado e função para o Toast *****
+    const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+    const showToast = (message, type = 'info') => setToast({ show: true, message, type });
+    // ***** FIM DA CORREÇÃO 2 *****
+
      useEffect(() => {
         const today = new Date();
         const currentYear = today.getFullYear();
@@ -72,6 +85,12 @@ export default function PontoPage() {
             setError('Não foi possível carregar a lista de funcionários.');
         } else {
             setEmployees(data || []);
+            // Tenta pré-selecionar o funcionário que veio do dashboard
+            const preSelectedId = localStorage.getItem('selectedEmployeeIdForPonto');
+            if (preSelectedId && data.some(emp => emp.id.toString() === preSelectedId)) {
+                setSelectedEmployeeId(preSelectedId);
+            }
+            localStorage.removeItem('selectedEmployeeIdForPonto'); // Limpa após o uso
         }
         setIsLoading(false);
     }, [supabase]);
@@ -86,8 +105,6 @@ export default function PontoPage() {
 
     const handleSuccessfulImport = () => {
         setIsImporterOpen(false);
-        // A FolhaPonto irá recarregar seus próprios dados quando necessário
-        // Forçamos uma recarga limpando e setando o ID do funcionário
         const currentId = selectedEmployeeId;
         setSelectedEmployeeId('');
         setTimeout(() => setSelectedEmployeeId(currentId), 100);
@@ -111,11 +128,16 @@ export default function PontoPage() {
 
     return (
         <div className="space-y-6">
+            {toast.show && <Toast message={toast.message} type={toast.type} onclose={() => setToast({ ...toast, show: false })} />}
+            
             <ImporterModal isOpen={isImporterOpen} onClose={() => setIsImporterOpen(false)}>
+                {/* ***** INÍCIO DA CORREÇÃO 3: Passar a função showToast para o PontoImporter ***** */}
                 <PontoImporter 
                     employees={employees}
-                    onImport={handleSuccessfulImport} 
+                    onImport={handleSuccessfulImport}
+                    showToast={showToast}
                 />
+                {/* ***** FIM DA CORREÇÃO 3 ***** */}
             </ImporterModal>
 
             <div className="flex justify-between items-center no-print">
@@ -150,7 +172,6 @@ export default function PontoPage() {
                     employeeId={selectedEmployeeId}
                     month={selectedMonth}
                     canEdit={canEdit || canCreate}
-                    allEmployees={employees}
                 />
             ) : (
                  <div className="text-center p-10 bg-gray-50 rounded-lg no-print">
