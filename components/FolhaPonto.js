@@ -22,7 +22,6 @@ const Toast = ({ message, type, onclose }) => {
 export default function FolhaPonto({ employeeId, month, canEdit }) {
     const supabase = createClient();
     const { user, userData } = useAuth();
-    
     const [employee, setEmployee] = useState(null);
     const [timesheetData, setTimesheetData] = useState({});
     const [holidays, setHolidays] = useState(new Set());
@@ -87,7 +86,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         (pontosData || []).forEach(ponto => {
             if (!ponto.data_hora) return;
             const utcDate = new Date(ponto.data_hora.replace(' ', 'T') + 'Z');
-            const dateStr = utcDate.toLocaleDateString('sv-SE');
+            const dateStr = [utcDate.getUTCFullYear(), String(utcDate.getUTCMonth() + 1).padStart(2, '0'), String(utcDate.getUTCDate()).padStart(2, '0')].join('-');
             if (!processedData[dateStr]) { processedData[dateStr] = { dateString: dateStr, observacoes: [] }; }
             const fieldMap = { 'Entrada': 'entrada', 'Inicio_Intervalo': 'inicio_intervalo', 'Fim_Intervalo': 'fim_intervalo', 'Saida': 'saida' };
             const field = fieldMap[ponto.tipo_registro];
@@ -128,27 +127,89 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     }, [loadTimesheetData, supabase, user, userData, isUserProprietario]);
 
     const kpiData = useMemo(() => {
-        // Lógica de KPIs... (sem alterações)
+        if (!month || !employee) return { dias: '0 / 0', horas: '00:00h / 00:00h', faltas: 0 };
+        const today = new Date();
+        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        
+        let diasUteisAteHoje = 0;
+        let cargaHorariaEsperadaMinutos = 0;
+        const jornadaDetalhes = employee.jornada?.detalhes || [];
+
+        if (jornadaDetalhes.length > 0) {
+            for (let d = new Date(firstDayOfMonth); d <= today; d.setDate(d.getDate() + 1)) {
+                const dayOfWeek = d.getDay();
+                const dateString = d.toISOString().split('T')[0];
+                if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.has(dateString)) {
+                    diasUteisAteHoje++;
+                    const jornadaDoDia = jornadaDetalhes.find(j => j.dia_semana === dayOfWeek);
+                    if (jornadaDoDia) {
+                        const entrada = jornadaDoDia.horario_entrada ? jornadaDoDia.horario_entrada.split(':').map(Number) : [0,0];
+                        const saida = jornadaDoDia.horario_saida ? jornadaDoDia.horario_saida.split(':').map(Number) : [0,0];
+                        const inicioIntervalo = jornadaDoDia.horario_saida_intervalo ? jornadaDoDia.horario_saida_intervalo.split(':').map(Number) : [0,0];
+                        const fimIntervalo = jornadaDoDia.horario_volta_intervalo ? jornadaDoDia.horario_volta_intervalo.split(':').map(Number) : [0,0];
+                        
+                        const minutosTrabalho = (saida[0]*60 + saida[1]) - (entrada[0]*60 + entrada[1]);
+                        const minutosIntervalo = (fimIntervalo[0]*60 + fimIntervalo[1]) - (inicioIntervalo[0]*60 + inicioIntervalo[1]);
+                        
+                        cargaHorariaEsperadaMinutos += minutosTrabalho - (minutosIntervalo > 0 ? minutosIntervalo : 0);
+                    }
+                }
+            }
+        }
+        const cargaHorariaEsperadaFormatada = `${Math.floor(cargaHorariaEsperadaMinutos / 60)}:${String(cargaHorariaEsperadaMinutos % 60).padStart(2, '0')}h`;
+        
+        const pontosDoMes = Object.values(timesheetData).filter(p => {
+            const pontoDate = new Date(p.dateString);
+            return pontoDate.getMonth() === currentMonth && pontoDate.getFullYear() === currentYear;
+        });
+
+        const diasTrabalhados = pontosDoMes.length;
+        let totalMinutosTrabalhados = 0;
+        pontosDoMes.forEach(dayData => {
+            const totalDayStr = calculateTotalHours(dayData);
+            if (totalDayStr !== '--:--') {
+                const [hours, minutes] = totalDayStr.split(':').map(Number);
+                totalMinutosTrabalhados += (hours * 60) + minutes;
+            }
+        });
+
+        const horasTrabalhadasFormatada = `${Math.floor(totalMinutosTrabalhados / 60)}:${String(Math.round(totalMinutosTrabalhados % 60)).padStart(2, '0')}h`;
+        const faltas = Math.max(0, diasUteisAteHoje - diasTrabalhados);
+
+        return { dias: `${diasTrabalhados} / ${diasUteisAteHoje}`, horas: `${horasTrabalhadasFormatada} / ${cargaHorariaEsperadaFormatada}`, faltas };
     }, [timesheetData, month, employee, holidays, calculateTotalHours]);
 
     useEffect(() => {
         if (!employee?.jornada?.detalhes || isProcessing) return;
+        
         const localToday = new Date();
         const todayAtUTCMidnight = new Date(Date.UTC(localToday.getFullYear(), localToday.getMonth(), localToday.getDate()));
+        
         const [year, monthNum] = month.split('-').map(Number);
         const firstDayOfMonth = new Date(year, monthNum - 1, 1);
         const pending = [];
-        for (let d = new Date(firstDayOfMonth); d < todayAtUTCMidnight; d.setDate(d.getDate() + 1)) {
+        
+        for (let d = new Date(firstDayOfMonth); d <= todayAtUTCMidnight; d.setDate(d.getDate() + 1)) {
             const dateString = d.toISOString().split('T')[0];
             const dayOfWeek = d.getDay();
-            if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+                continue;
+            }
+
             const jornadaDoDia = employee.jornada.detalhes.find(j => j.dia_semana === dayOfWeek);
             const isWorkdayCheck = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_entrada.trim() !== '' && jornadaDoDia.horario_saida && jornadaDoDia.horario_saida.trim() !== '';
+            
             if (isWorkdayCheck && !holidays.has(dateString)) {
                 const dayData = timesheetData[dateString];
                 const abonoDoDia = abonosData[dateString];
+                
                 const breakIsRequired = jornadaDoDia.horario_saida_intervalo && jornadaDoDia.horario_volta_intervalo;
+                
                 const hasRequiredPunches = dayData && dayData.entrada && dayData.saida && (!breakIsRequired || (dayData.inicio_intervalo && dayData.fim_intervalo));
+
                 if (!abonoDoDia && !hasRequiredPunches) {
                     pending.push(dateString);
                 }
@@ -174,10 +235,12 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             else { showToast('Não há registro de entrada para adicionar observação.', 'info'); }
         } else {
             const tipo_registro = { 'entrada': 'Entrada', 'inicio_intervalo': 'Inicio_Intervalo', 'fim_intervalo': 'Fim_Intervalo', 'saida': 'Saida' }[field];
-            const { data: existingRecord } = await supabase.from('pontos').select('id').eq('funcionario_id', employeeId).eq('tipo_registro', tipo_registro).like('data_hora', `${date}%`).maybeSingle();
+            const startOfDay = `${date}T00:00:00`; const endOfDay = `${date}T23:59:59.999`; let error;
+            const { data: existingRecord } = await supabase.from('pontos').select('id').eq('funcionario_id', employeeId).eq('tipo_registro', tipo_registro).gte('data_hora', startOfDay).lte('data_hora', endOfDay).maybeSingle();
             if (!newValue) { if (existingRecord) { ({ error } = await supabase.from('pontos').delete().eq('id', existingRecord.id)); showToast(error ? `Erro: ${error.message}` : 'Registro removido.', error ? 'error' : 'success'); } } 
             else {
-                const recordData = { funcionario_id: employeeId, tipo_registro, data_hora: new Date(`${date}T${newValue}`).toISOString(), editado_manualmente: true, editado_por_usuario_id: currentUser.id };
+                const localDate = new Date(`${date}T${newValue}`);
+                const recordData = { funcionario_id: employeeId, tipo_registro, data_hora: localDate.toISOString(), editado_manualmente: true, editado_por_usuario_id: currentUser.id };
                 if (existingRecord) { ({ error } = await supabase.from('pontos').update(recordData).eq('id', existingRecord.id)); } 
                 else { ({ error } = await supabase.from('pontos').insert(recordData)); }
                 showToast(error ? `Erro: ${error.message}` : 'Alteração salva!', error ? 'error' : 'success');
@@ -191,7 +254,68 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
     return (
         <div className="printable-area space-y-4">
-            <style jsx global>{`/* Estilos de impressão... */`}</style>
+             {/* INÍCIO DO CSS PARA IMPRESSÃO */}
+             <style jsx global>{`
+                @media print {
+                    @page {
+                        size: A4 portrait;
+                        margin: 0.8cm;
+                    }
+                    body * {
+                        visibility: hidden;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    .printable-area, .printable-area * {
+                        visibility: visible;
+                    }
+                    .printable-area {
+                        position: absolute; 
+                        left: 0; 
+                        top: 0; 
+                        width: 100%;
+                        padding: 0 !important; 
+                        margin: 0 !important;
+                        border: none !important; 
+                        box-shadow: none !important;
+                    }
+                    .no-print {
+                        display: none !important;
+                    }
+                    .print-header {
+                        display: block !important;
+                    }
+                    .print-header-info h3 {
+                        font-size: 1.1rem !important;
+                    }
+                    .kpi-container-on-print {
+                        display: grid !important;
+                        grid-template-columns: repeat(3, 1fr);
+                        gap: 0.5rem;
+                        margin-top: 0.5rem;
+                        font-size: 8pt;
+                        border: 1px solid #eee;
+                        padding: 4px;
+                        border-radius: 6px;
+                    }
+                    table {
+                        font-size: 7.5pt !important;
+                        width: 100%;
+                        border-collapse: collapse !important;
+                        margin-top: 0.5rem;
+                    }
+                    th, td {
+                        border: 1px solid #ccc !important;
+                        padding: 2px !important;
+                        text-align: center;
+                    }
+                    .signature-section {
+                        margin-top: 1.5cm !important;
+                        page-break-inside: avoid;
+                    }
+                }
+            `}</style>
+            {/* FIM DO CSS PARA IMPRESSÃO */}
             
             {toast.show && <Toast message={toast.message} type={toast.type} onclose={() => setToast({ ...toast, show: false })} />}
             
@@ -206,10 +330,50 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                     </div>
                 </div>
             )}
+
+            {/* INÍCIO DO HTML PARA IMPRESSÃO */}
+            <div className="print-header hidden">
+                <div className="flex flex-row gap-4 items-center border-b pb-2 mb-2">
+                    {employee.foto_url ? ( 
+                        <img src={employee.foto_url} alt="Foto" className="w-16 h-16 rounded-full object-cover" /> 
+                    ) : ( 
+                        <FontAwesomeIcon icon={faUserCircle} className="w-16 h-16 text-gray-300" /> 
+                    )}
+                    <div className="flex-grow text-left print-header-info">
+                        <h3 className="font-bold">{employee.full_name}</h3>
+                        <p className="text-sm">{employee.contract_role}</p>
+                        <p className="text-xs text-gray-600">Mês de Referência: {new Date(month + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
+                    </div>
+                </div>
+                <div className="kpi-container-on-print">
+                    <div><p className="font-semibold">Dias (Trab. / Úteis):</p><p>{kpiData.dias}</p></div>
+                    <div><p className="font-semibold">Horas (Trab. / Prev.):</p><p>{kpiData.horas}</p></div>
+                    <div><p className="font-semibold">Faltas (no período):</p><p>{kpiData.faltas}</p></div>
+                </div>
+            </div>
             
-            <div className="print-header hidden">{/* ... */}</div>
-            <section className="bg-gray-100 p-4 rounded-lg shadow-inner no-print">{/* ... */}</section>
-            <div className='no-print flex justify-end items-center gap-2'>{/* ... */}</div>
+            <div className="flex justify-between items-start no-print">
+                <div className="flex items-center gap-6">
+                    {employee.foto_url ? ( <img src={employee.foto_url} alt="Foto" className="w-24 h-24 rounded-full object-cover" /> ) : ( <FontAwesomeIcon icon={faUserCircle} className="w-24 h-24 text-gray-300" /> )}
+                    <div>
+                        <h3 className="text-3xl font-bold">{employee.full_name}</h3>
+                        <p className="text-gray-600">{employee.contract_role}</p>
+                    </div>
+                </div>
+                <div className="flex flex-col items-end">
+                    <select value={selectedSignatoryId} onChange={(e) => setSelectedSignatoryId(e.target.value)} className="p-2 border rounded-md text-sm">
+                        <option value="">Assinatura do Responsável</option>
+                        {proprietarios.map(p => <option key={p.id} value={p.id}>{p.nome} {p.sobrenome}</option>)}
+                    </select>
+                    <button onClick={() => window.print()} className="mt-2 bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-800"><FontAwesomeIcon icon={faPrint} /> Imprimir</button>
+                </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 no-print">
+                <KpiCard title="Dias (Trab. / Úteis)" value={kpiData.dias} icon={faCalendarCheck} color="blue" />
+                <KpiCard title="Horas (Trab. / Prev.)" value={kpiData.horas} icon={faBusinessTime} color="green" />
+                <KpiCard title="Faltas (no período)" value={kpiData.faltas} icon={faCalendarXmark} color="red" />
+            </div>
 
             <div className="overflow-x-auto">
                 <table className="min-w-full border-collapse">
@@ -234,25 +398,26 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
                             return (
                                 <tr key={dateString} className={rowClass}>
-                                    <td className="border p-2 text-center">{new Date(dateString + 'T00:00:00Z').toLocaleDateString('pt-BR')}</td>
+                                    <td className="border p-2 text-center">{new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</td>
                                     <td className="border p-2 text-center">{weekDays[dateInMonth.getUTCDay()]} {isHoliday && '(Feriado)'}</td>
                                     {['entrada', 'inicio_intervalo', 'fim_intervalo', 'saida'].map(field => {
                                         const jornadaDoDia = employee.jornada?.detalhes.find(j => j.dia_semana === dateInMonth.getUTCDay());
+                                        const isWorkdayCheck = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_entrada.trim() !== '' && jornadaDoDia.horario_saida && jornadaDoDia.horario_saida.trim() !== '';
                                         
-                                        // ***** INÍCIO DA CORREÇÃO FINAL *****
-                                        // Esta é a nova lógica que decide se a célula deve ser vermelha
+                                        // ***** LÓGICA CORRIGIDA E DEFINITIVA *****
                                         let isMissing = false;
-                                        if (isPending) {
+                                        if (isPending && isWorkdayCheck) {
                                             const punchExists = dayData[field] && dayData[field].trim() !== '';
+
                                             if (field === 'entrada' || field === 'saida') {
                                                 isMissing = !punchExists;
-                                            } else if (field === 'inicio_intervalo' || field === 'fim_intervalo') {
-                                                const breakIsRequired = jornadaDoDia && jornadaDoDia.horario_saida_intervalo && jornadaDoDia.horario_volta_intervalo;
+                                            } 
+                                            else if (field === 'inicio_intervalo' || field === 'fim_intervalo') {
+                                                const breakIsRequired = jornadaDoDia.horario_saida_intervalo && jornadaDoDia.horario_saida_intervalo.trim() !== '' && jornadaDoDia.horario_volta_intervalo && jornadaDoDia.horario_volta_intervalo.trim() !== '';
                                                 isMissing = breakIsRequired && !punchExists;
                                             }
                                         }
                                         const cellClass = `border p-2 text-center ${canEdit ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'} ${isMissing ? 'bg-red-100 border-2 border-red-400' : ''}`;
-                                        // ***** FIM DA CORREÇÃO FINAL *****
                                         
                                         return (
                                             <td key={field} onClick={() => handleCellEdit(dateString, field)} className={cellClass}>
@@ -280,7 +445,21 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 </table>
             </div>
             
-            <section className="hidden print:block signature-section text-center">{/* Seção de Assinaturas */}</section>
+            <section className="hidden print:block signature-section text-center">
+                <div className="flex justify-around items-start">
+                    <div className="w-2/5">
+                        <div className="border-t border-black w-full mx-auto"></div>
+                        <p className="mt-2 text-sm font-semibold">{employee.full_name}</p>
+                        <p className="text-xs">CPF: {employee.cpf || 'N/A'}</p>
+                    </div>
+                    <div className="w-2/5">
+                        <div className="border-t border-black w-full mx-auto"></div>
+                        <p className="mt-2 text-sm font-semibold">{selectedSignatory.name}</p>
+                        <p className="text-xs">CPF: {selectedSignatory.cpf || 'N/A'}</p>
+                    </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-8">Documento gerado por: {geradoPor} em {new Date().toLocaleString('pt-BR')}</p>
+            </section>
         </div>
     );
 }
