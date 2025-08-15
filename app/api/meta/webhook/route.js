@@ -6,13 +6,13 @@ import { createClient } from '@supabase/supabase-js';
 // Função para criar um cliente Supabase
 const getSupabaseAdmin = () => {
     // --- CORREÇÃO APLICADA AQUI ---
-    // Agora, o código procura pela variável SUPABASE_SECRET_KEY que você configurou.
-    console.log("LOG: Tentando criar cliente Supabase. URL existe:", !!process.env.NEXT_PUBLIC_SUPABASE_URL, "Service Key existe:", !!process.env.SUPABASE_SECRET_KEY);
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
+    // Padronizando para usar a SERVICE_ROLE_KEY, que é mais segura e apropriada para o servidor.
+    console.log("LOG: Tentando criar cliente Supabase. URL existe:", !!process.env.NEXT_PUBLIC_SUPABASE_URL, "Service Key existe:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
         console.error("LOG: ERRO CRÍTICO - Variáveis de ambiente do Supabase não encontradas!");
         return null;
     }
-    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
+    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 };
 
 // Rota GET para verificação (sem alterações)
