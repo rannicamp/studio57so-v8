@@ -89,7 +89,10 @@ export default function CrmPage() {
     const fetchAvailableProducts = useCallback(async () => {
         let query = supabase
             .from('produtos_empreendimento')
-            .select('id, unidade, tipo, empreendimento_id')
+            // --- CORREÇÃO APLICADA AQUI ---
+            // O campo 'valor_venda_calculado' foi adicionado à consulta.
+            .select('id, unidade, tipo, valor_venda_calculado, empreendimento_id')
+            // --- FIM DA CORREÇÃO ---
             .eq('status', 'Disponível');
             
         if (selectedEmpreendimento && selectedEmpreendimento !== 'all') {

@@ -6,7 +6,7 @@ import { createClient } from '../../../../utils/supabase/client';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
-import ContratoManager from '../../../../components/contratos/ContratoManager'; // Vamos criar este componente a seguir
+import ContratoManager from '../../../../components/contratos/ContratoManager';
 
 export default function ContratoPage() {
     const params = useParams();
@@ -25,9 +25,12 @@ export default function ContratoPage() {
             .from('contratos')
             .select(`
                 *,
-                contato:contato_id (*, telefones(telefone), emails(email)),
+                plano_pagamento, 
+                contato:contato_id (*),
                 produto:produto_id (*),
-                empreendimento:empreendimento_id (nome)
+                empreendimento:empreendimento_id (nome),
+                contrato_parcelas (*),
+                contrato_permutas (*)
             `)
             .eq('id', params.id)
             .single();
@@ -36,6 +39,9 @@ export default function ContratoPage() {
             console.error("Erro ao buscar dados do contrato:", error);
             setError('Não foi possível carregar os dados do contrato.');
         } else {
+            if (data.contrato_parcelas) {
+                data.contrato_parcelas.sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
+            }
             setContrato(data);
         }
         setLoading(false);
@@ -60,13 +66,13 @@ export default function ContratoPage() {
 
     return (
         <div className="space-y-6">
-            <Link href="/crm" className="text-blue-600 hover:text-blue-800 flex items-center gap-2 mb-2 font-semibold">
+            <Link href="/contratos" className="text-blue-600 hover:text-blue-800 flex items-center gap-2 mb-2 font-semibold">
                 <FontAwesomeIcon icon={faArrowLeft} />
-                Voltar para o Funil
+                Voltar para Lista de Contratos
             </Link>
             
             {contrato ? (
-                <ContratoManager initialContratoData={contrato} />
+                <ContratoManager initialContratoData={contrato} onUpdate={fetchContratoData} />
             ) : (
                 <p>Contrato não encontrado.</p>
             )}

@@ -54,8 +54,10 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
             const fileExtension = file.name.split('.').pop();
             const newFileName = `contrato_${contratoId}/${tipoDocumento.replace(/ /g, '_')}_${Date.now()}.${fileExtension}`;
 
+            // --- CORREÇÃO APLICADA AQUI ---
+            // O nome do bucket foi corrigido de 'documentos-contratos' para 'empreendimento-anexos'
             const { error: uploadError } = await supabase.storage
-                .from('documentos-contratos') // Bucket dedicado para contratos
+                .from('empreendimento-anexos')
                 .upload(newFileName, file);
             
             if (uploadError) return reject(uploadError);
@@ -95,7 +97,9 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
         
         toast.promise(
             new Promise(async (resolve, reject) => {
-                await supabase.storage.from('documentos-contratos').remove([anexo.caminho_arquivo]);
+                // --- CORREÇÃO APLICADA AQUI ---
+                // O nome do bucket também foi corrigido aqui para a exclusão
+                await supabase.storage.from('empreendimento-anexos').remove([anexo.caminho_arquivo]);
                 const { error } = await supabase.from('contrato_anexos').delete().eq('id', anexo.id);
                 if (error) return reject(error);
                 setAnexos(prev => prev.filter(a => a.id !== anexo.id));
@@ -110,7 +114,9 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
     };
 
     const handleView = async (caminho) => {
-        const { data } = await supabase.storage.from('documentos-contratos').createSignedUrl(caminho, 60); // URL válida por 1 minuto
+        // --- CORREÇÃO APLICADA AQUI ---
+        // E finalmente, aqui, para a visualização
+        const { data } = await supabase.storage.from('empreendimento-anexos').createSignedUrl(caminho, 60); // URL válida por 1 minuto
         if (data?.signedUrl) {
             window.open(data.signedUrl, '_blank');
         } else {
