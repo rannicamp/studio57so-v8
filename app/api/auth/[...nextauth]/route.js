@@ -1,8 +1,11 @@
 import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
+// Adicionamos o Provedor do Facebook aqui
+import FacebookProvider from 'next-auth/providers/facebook';
 
 export const authOptions = {
   providers: [
+    // O provedor do Google continua aqui, não vamos removê-lo
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -11,16 +14,26 @@ export const authOptions = {
           prompt: 'consent',
           access_type: 'offline',
           response_type: 'code',
-          // Escopo para ler e escrever eventos no calendário
           scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
         },
       },
     }),
+    // --- NOVO TRECHO ADICIONADO ---
+    // Este é o novo provedor para o Facebook/Meta
+    FacebookProvider({
+      clientId: process.env.FACEBOOK_CLIENT_ID,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+      authorization: {
+        params: {
+          scope: 'email,pages_show_list,leads_retrieval,pages_manage_ads,business_management',
+        },
+      },
+    }),
+    // --- FIM DO NOVO TRECHO ---
   ],
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async jwt({ token, account }) {
-      // Salva o access_token e refresh_token no token JWT após o login
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
@@ -29,7 +42,6 @@ export const authOptions = {
       return token;
     },
     async session({ session, token }) {
-      // Disponibiliza o access_token para a sessão do cliente
       session.accessToken = token.accessToken;
       session.error = token.error;
       return session;

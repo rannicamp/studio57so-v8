@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faKey, faSave, faLink, faUnlink } from '@fortawesome/free-solid-svg-icons';
-import { faGoogle } from '@fortawesome/free-brands-svg-icons';
+// Trocamos o ícone do Google pelo do Facebook
+import { faFacebook } from '@fortawesome/free-brands-svg-icons';
+// Importamos as funções de login/logout do NextAuth
 import { useSession, signIn, signOut } from 'next-auth/react';
 
 export default function IntegrationsManager({ empresas, initialConfigs }) {
@@ -15,7 +17,7 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
 
-    // Hook do NextAuth para verificar a sessão do Google
+    // Hook do NextAuth para verificar a sessão do Facebook/Meta
     const { data: session, status } = useSession();
 
     useEffect(() => {
@@ -86,7 +88,6 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
                     </div>
                     {selectedEmpresaId && (
                         <div className="space-y-4 pt-4 border-t animate-fade-in">
-                            {/* Campos do WhatsApp */}
                             <div>
                                 <label className="block text-sm font-medium">ID do Número de Telefone (Phone Number ID)</label>
                                 <input type="text" name="whatsapp_phone_number_id" value={formData.whatsapp_phone_number_id || ''} onChange={handleFormChange} className="mt-1 w-full p-2 border rounded-md" required />
@@ -113,14 +114,14 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
                 </form>
             </div>
 
-            {/* --- NOVA SEÇÃO DO GOOGLE CALENDAR --- */}
+            {/* --- SEÇÃO DA META/FACEBOOK ATUALIZADA --- */}
             <div className="border-t pt-6 mt-6">
                 <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                    <FontAwesomeIcon icon={faGoogle} className="text-red-500" />
-                    Integração com Google Calendar
+                    <FontAwesomeIcon icon={faFacebook} className="text-blue-600" />
+                    Integração com Leads da Meta (Facebook/Instagram)
                 </h2>
                 <p className="text-sm text-gray-600 mt-2 mb-4">
-                    Conecte sua conta Google para permitir que o sistema crie eventos na sua agenda principal automaticamente quando novas atividades forem criadas.
+                    Conecte sua conta da Meta para que o sistema capture automaticamente os leads gerados pelos seus anúncios de formulário.
                 </p>
 
                 {status === 'loading' && (
@@ -147,11 +148,12 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
                 {status === 'unauthenticated' && (
                     <div className="bg-gray-50 p-4 rounded-lg flex items-center justify-between border">
                         <span className="text-sm font-medium text-gray-700">
-                            Nenhuma conta Google conectada.
+                            Nenhuma conta da Meta conectada.
                         </span>
-                        <button onClick={() => signIn('google')} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2">
-                            <FontAwesomeIcon icon={faGoogle} />
-                            Conectar com Google
+                        {/* O botão agora chama signIn('facebook') */}
+                        <button onClick={() => signIn('facebook')} className="bg-blue-800 text-white px-4 py-2 rounded-md hover:bg-blue-900 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faFacebook} />
+                            Conectar com Facebook
                         </button>
                     </div>
                 )}
