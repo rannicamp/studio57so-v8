@@ -1,11 +1,9 @@
 import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-// Adicionamos o Provedor do Facebook aqui
 import FacebookProvider from 'next-auth/providers/facebook';
 
 export const authOptions = {
   providers: [
-    // O provedor do Google continua aqui, não vamos removê-lo
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -18,8 +16,6 @@ export const authOptions = {
         },
       },
     }),
-    // --- NOVO TRECHO ADICIONADO ---
-    // Este é o novo provedor para o Facebook/Meta
     FacebookProvider({
       clientId: process.env.FACEBOOK_CLIENT_ID,
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
@@ -29,9 +25,17 @@ export const authOptions = {
         },
       },
     }),
-    // --- FIM DO NOVO TRECHO ---
   ],
   secret: process.env.NEXTAUTH_SECRET,
+  
+  // --- ALTERAÇÃO AQUI ---
+  // Adicionamos este bloco para controlar as páginas de redirecionamento.
+  pages: {
+    signIn: '/', // Se precisar de login, volta para o painel
+    error: '/',  // Se ocorrer um erro (como cancelar), volta para o painel
+  },
+  // --- FIM DA ALTERAÇÃO ---
+
   callbacks: {
     async jwt({ token, account }) {
       if (account) {
