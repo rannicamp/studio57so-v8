@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useLayout } from '@/contexts/LayoutContext';
 import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
-import { useRouter } from 'next/navigation'; // Adicionado para o redirecionamento
+import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTimes, faSearch, faBell, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
@@ -13,9 +13,38 @@ import FunilKanban from '@/components/crm/FunilKanban';
 import WhatsAppChatManager from '@/components/WhatsAppChatManager';
 import CrmNotesModal from '@/components/crm/CrmNotesModal';
 
-// --- Componente da Janela de Busca (sem alterações) ---
+// --- NOVO COMPONENTE DE DESTAQUE ---
+const HighlightedText = ({ text = '', highlight = '' }) => {
+    if (!highlight.trim() || !text) {
+        return <span>{text}</span>;
+    }
+    const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+    return (
+        <span>
+            {parts.map((part, i) =>
+                regex.test(part) ? (
+                    <mark key={i} className="bg-yellow-200 px-0 rounded">
+                        {part}
+                    </mark>
+                ) : (
+                    <span key={i}>{part}</span>
+                )
+            )}
+        </span>
+    );
+};
+
+// --- MODAL DE ADICIONAR CONTATO ATUALIZADO ---
 const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, existingContactIds }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    
+    const handleInputChange = (e) => {
+        const term = e.target.value;
+        setSearchTerm(term);
+        onSearch(term); // Chama a busca a cada letra digitada
+    };
+
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
@@ -24,24 +53,25 @@ const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, exi
                     <h3 className="text-lg font-bold">Adicionar Contato ao Funil</h3>
                     <button onClick={onClose}><FontAwesomeIcon icon={faTimes} /></button>
                 </div>
-                <div className="flex gap-2 mb-4">
+                <div className="relative mb-4">
+                    <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                         type="text"
-                        placeholder="Pesquisar por nome, CPF ou CNPJ..."
-                        className="flex-grow p-2 border rounded-md"
+                        placeholder="Pesquisar por nome, empresa, CPF ou CNPJ..."
+                        className="w-full p-2 pl-10 border rounded-md"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={handleInputChange}
+                        autoFocus
                     />
-                    <button onClick={() => onSearch(searchTerm)} className="px-4 py-2 bg-blue-600 text-white rounded-md">
-                        <FontAwesomeIcon icon={faSearch} />
-                    </button>
                 </div>
                 <div className="max-h-64 overflow-y-auto">
                     {results.map(contact => {
                         const isAlreadyInFunnel = existingContactIds.includes(contact.id);
                         return (
                             <div key={contact.id} className="flex justify-between items-center p-2 border-b">
-                                <span>{contact.nome || contact.razao_social}</span>
+                                <span>
+                                    <HighlightedText text={contact.nome || contact.razao_social} highlight={searchTerm} />
+                                </span>
                                 <button
                                     onClick={() => onAddContact(contact.id)}
                                     className={`px-3 py-1 text-sm rounded-md ${isAlreadyInFunnel ? 'bg-gray-300' : 'bg-green-500 hover:bg-green-600 text-white'}`}
@@ -89,10 +119,7 @@ export default function CrmPage() {
     const fetchAvailableProducts = useCallback(async () => {
         let query = supabase
             .from('produtos_empreendimento')
-            // --- CORREÇÃO APLICADA AQUI ---
-            // O campo 'valor_venda_calculado' foi adicionado à consulta.
             .select('id, unidade, tipo, valor_venda_calculado, empreendimento_id')
-            // --- FIM DA CORREÇÃO ---
             .eq('status', 'Disponível');
             
         if (selectedEmpreendimento && selectedEmpreendimento !== 'all') {
@@ -334,15 +361,21 @@ export default function CrmPage() {
         setIsAddContactModalOpen(true); 
     };
 
-    const handleSearch = async (term) => {
-        if (!term.trim()) {
+    const handleSearch = useCallback(async (term) => {
+        if (!term.trim() || term.length < 2) {
             setSearchResults([]);
             return;
         }
-        const { data, error } = await supabase.from('contatos').select('*').or(`nome.ilike.%${term}%,cpf.ilike.%${term}%,cnpj.ilike.%${term}%`).limit(10);
-        if (error) console.error("Erro na busca:", error);
+        const { data, error } = await supabase.rpc('buscar_contatos_geral', {
+            p_search_term: term
+        });
+            
+        if (error) {
+            console.error("Erro na busca via RPC:", error);
+            toast.error("Erro ao buscar contatos.");
+        }
         setSearchResults(data || []);
-    };
+    }, [supabase]);
 
     const handleAddContactToFunnel = async (contactId) => {
         try {
@@ -385,7 +418,6 @@ export default function CrmPage() {
 
         if (!novaColuna || !contatoMovido) return;
 
-        // SE A COLUNA DE DESTINO FOR "Vendido"
         if (novaColuna.nome === 'Vendido') {
             if (!contatoMovido.produto_id) {
                 toast.error("Para mover para 'Vendido', primeiro associe um produto de interesse ao card.");
@@ -425,7 +457,6 @@ export default function CrmPage() {
             router.push(`/contratos/${novoContrato.id}`);
 
         } else {
-            // LÓGICA ANTIGA PARA MOVER PARA QUALQUER OUTRA COLUNA
             const originalContatos = [...contatosNoFunil];
             setContatosNoFunil(prev => prev.map(c => c.id === contatoNoFunilId ? { ...c, coluna_id: novaColunaId } : c));
             try {
@@ -441,30 +472,47 @@ export default function CrmPage() {
         }
     };
     
-    // Demais funções (sem alterações)
     const handleCreateColumn = async (columnName) => { try { const response = await fetch('/api/crm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ funilId: funilId, nomeColuna: columnName }), }); const result = await response.json(); if (!response.ok) throw new Error(result.error); toast.success('Etapa criada!'); fetchFunilData(); } catch (e) { toast.error(`Erro: ${e.message}`); }};
     const handleEditColumn = async (columnId, newName) => { try { const response = await fetch('/api/crm', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ columnId: columnId, newName: newName }), }); const result = await response.json(); if (!response.ok) throw new Error(result.error); toast.success('Etapa atualizada!'); fetchFunilData(); } catch (e) { toast.error(`Erro: ${e.message}`); }};
     const handleDeleteColumn = async (columnId) => { try { const response = await fetch(`/api/crm?columnId=${columnId}`, { method: 'DELETE' }); const result = await response.json(); if (!response.ok) throw new Error(result.error); toast.success('Etapa deletada!'); fetchFunilData(); } catch (e) { toast.error(`Erro: ${e.message}`); }};
-    const handleReorderColumns = async (reorderedColumns) => { setColunasDoFunil(reorderedColumns); try { const response = await fetch('/api/crm', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reorderColumns: reorderedColumns, funilId: funilId }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error); toast.success('Ordem atualizada!'); fetchFunilData(); } catch (e) { toast.error(`Erro: ${e.message}`); fetchFunilData(); }};
+    const handleReorderColumns = async (reorderedColumns) => { setColunasDoFunil(reorderedColumns); try { const response = await fetch('/api/crm', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reorderColumns: reorderedColumns, funilId: funilId }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error); toast.success('Ordem atualizada!'); fetchFunilData(); } catch (e) { toast.error(`Erro: ${e.message}`); }};
     const handleOpenNotesModal = (funilEntryId, contatoGeneralId) => { setCurrentContactFunilIdForNotes(funilEntryId); setCurrentContactIdForNotes(contatoGeneralId); setIsNotesModalOpen(true); };
 
-    const tabStyle = "px-6 py-2 font-semibold rounded-t-lg transition-colors duration-200 focus:outline-none";
-    const activeTabStyle = "bg-white text-blue-600 shadow-sm";
-    const inactiveTabStyle = "bg-gray-200 text-gray-600 hover:bg-gray-300";
+    const tabStyle = "px-6 py-3 text-sm font-semibold transition-colors duration-200 focus:outline-none";
+    const activeTabStyle = "bg-white text-blue-600 border-b-2 border-blue-500";
+    const inactiveTabStyle = "text-gray-600 hover:text-gray-800";
     
     return (
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col bg-gray-100">
             <audio ref={notificationSoundRef} src="/sounds/notification.mp3" preload="auto" />
-            <div className="flex border-b border-gray-200 bg-gray-100 px-4">
-                <button onClick={() => setActiveTab('funil')} className={`${tabStyle} ${activeTab === 'funil' ? activeTabStyle : inactiveTabStyle}`}>Funil de Vendas</button>
-                <button onClick={() => setActiveTab('whatsapp')} className={`${tabStyle} ${activeTab === 'whatsapp' ? activeTabStyle : inactiveTabStyle}`}>
-                    <div className="flex items-center gap-2">
-                        <span>WhatsApp</span>
-                        {contatosWhatsapp.some(c => c.unread_count > 0) && (<span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>)}
+            
+            <div className="flex-shrink-0 bg-white shadow-sm">
+                <div className="flex justify-between items-center p-4">
+                    <h1 className="text-xl font-bold text-gray-800">Funil de Vendas e Atendimento</h1>
+                    {activeTab === 'funil' && (
+                        <button 
+                            onClick={openAddContactModal}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center gap-2"
+                        >
+                            <FontAwesomeIcon icon={faPlus} />
+                            Adicionar Contato
+                        </button>
+                    )}
+                </div>
+                <div className="px-4">
+                    <div className="flex border-b">
+                        <button onClick={() => setActiveTab('funil')} className={`${tabStyle} ${activeTab === 'funil' ? activeTabStyle : inactiveTabStyle}`}>Funil de Vendas</button>
+                        <button onClick={() => setActiveTab('whatsapp')} className={`${tabStyle} ${activeTab === 'whatsapp' ? activeTabStyle : inactiveTabStyle}`}>
+                            <div className="flex items-center gap-2">
+                                <span>WhatsApp</span>
+                                {contatosWhatsapp.some(c => c.unread_count > 0) && (<span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>)}
+                            </div>
+                        </button>
                     </div>
-                </button>
+                </div>
             </div>
-            <div className="flex-grow overflow-y-auto">
+
+            <div className="flex-grow overflow-hidden">
                 {activeTab === 'funil' && (
                     loadingFunil ? (
                         <div className="flex justify-center items-center h-full"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>

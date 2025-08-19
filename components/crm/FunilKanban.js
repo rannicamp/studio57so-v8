@@ -53,8 +53,6 @@ const AddColumn = ({ onCreate }) => {
 };
 
 
-// --- INÍCIO DA MODIFICAÇÃO ---
-// Adicionadas 'availableProducts' e 'onAssociateProduct' à lista de props
 export default function FunilKanban({ 
     contatos, 
     statusColumns, 
@@ -68,50 +66,56 @@ export default function FunilKanban({
     availableProducts,
     onAssociateProduct 
 }) { 
-// --- FIM DA MODIFICAÇÃO ---
     
     const [editingColumnId, setEditingColumnId] = useState(null);
     const [editedColumnName, setEditedColumnName] = useState("");
+    const [draggedItem, setDraggedItem] = useState(null); // Estado para saber o que está sendo arrastado
 
-    const handleDragStart = (e, contatoNoFunilId) => {
-        e.dataTransfer.setData("contatoNoFunilId", contatoNoFunilId);
+    const handleDragStart = (e, item, type) => {
+        e.stopPropagation();
+        setDraggedItem({ item, type });
+        if (type === 'card') {
+            e.dataTransfer.setData("contatoNoFunilId", item.id);
+        } else if (type === 'column') {
+            e.dataTransfer.setData("draggedColumnId", item.id);
+        }
     };
 
     const handleDragOver = (e) => {
         e.preventDefault();
     };
 
-    const handleDrop = (e, colunaDestinoId) => {
+    // --- LÓGICA DE SOLTAR (DROP) CORRIGIDA E CENTRALIZADA ---
+    const handleDrop = (e, targetColumn) => {
         e.preventDefault();
-        const contatoNoFunilId = e.dataTransfer.getData("contatoNoFunilId");
-        if (contatoNoFunilId) {
-            onStatusChange(parseInt(contatoNoFunilId, 10), colunaDestinoId);
+        e.stopPropagation();
+
+        if (!draggedItem) return;
+
+        // Caso 1: Reordenando uma coluna
+        if (draggedItem.type === 'column' && draggedItem.item.id !== targetColumn.id) {
+            const draggedColumnId = draggedItem.item.id;
+            const targetColumnId = targetColumn.id;
+
+            const draggedIndex = statusColumns.findIndex(col => col.id === draggedColumnId);
+            const targetIndex = statusColumns.findIndex(col => col.id === targetColumnId);
+
+            if (draggedIndex === -1 || targetIndex === -1) return;
+
+            const newColumns = Array.from(statusColumns);
+            const [draggedColumn] = newColumns.splice(draggedIndex, 1);
+            newColumns.splice(targetIndex, 0, draggedColumn);
+
+            const reorderedWithNewOrder = newColumns.map((col, index) => ({ ...col, ordem: index }));
+            onReorderColumns(reorderedWithNewOrder);
         }
-    };
-
-    const handleDragStartColumn = (e, columnId) => {
-        e.dataTransfer.setData("draggedColumnId", columnId);
-    };
-
-    const handleDropColumn = (e, targetColumnId) => {
-        e.preventDefault();
-        const draggedColumnId = parseInt(e.dataTransfer.getData("draggedColumnId"), 10);
-        if (!draggedColumnId || draggedColumnId === targetColumnId) return;
-
-        const draggedIndex = statusColumns.findIndex(col => col.id === draggedColumnId);
-        const targetIndex = statusColumns.findIndex(col => col.id === targetColumnId);
-        if (draggedIndex === -1 || targetIndex === -1) return;
-
-        const newColumns = Array.from(statusColumns);
-        const [draggedColumn] = newColumns.splice(draggedIndex, 1);
-        newColumns.splice(targetIndex, 0, draggedColumn);
-
-        const reorderedWithNewOrder = newColumns.map((col, index) => ({
-            ...col,
-            ordem: index
-        }));
         
-        onReorderColumns(reorderedWithNewOrder);
+        // Caso 2: Movendo um card para uma nova coluna
+        if (draggedItem.type === 'card' && draggedItem.item.coluna_id !== targetColumn.id) {
+            onStatusChange(draggedItem.item.id, targetColumn.id);
+        }
+
+        setDraggedItem(null); // Limpa o item arrastado
     };
 
     const handleEditClick = (coluna) => {
@@ -132,7 +136,7 @@ export default function FunilKanban({
     };
 
     const handleDeleteClick = (columnId, columnName) => {
-        if (window.confirm(`Tem certeza que deseja deletar a etapa "${columnName}"? Todos os contatos nela serão perdidos desta etapa.`)) {
+        if (window.confirm(`Tem certeza que deseja deletar a etapa "${columnName}"? Todos os contatos nela serão movidos para a primeira etapa.`)) {
             onDeleteColumn(columnId);
         }
     };
@@ -159,15 +163,14 @@ export default function FunilKanban({
                 <div
                     key={coluna.id}
                     className="w-80 flex-shrink-0 bg-gray-200 rounded-lg shadow-sm flex flex-col"
-                    draggable 
-                    onDragStart={(e) => handleDragStartColumn(e, coluna.id)} 
-                    onDragOver={(e) => e.preventDefault()} 
-                    onDrop={(e) => handleDropColumn(e, coluna.id)}
+                    onDragOver={handleDragOver} 
+                    onDrop={(e) => handleDrop(e, coluna)}
                 >
                     <div
-                        className="p-3 text-sm font-semibold text-gray-700 border-b bg-gray-50 rounded-t-lg flex justify-between items-center"
-                        onDragOver={(e) => e.preventDefault()} 
-                        onDrop={(e) => handleDropColumn(e, coluna.id)} 
+                        className="p-3 text-sm font-semibold text-gray-700 border-b bg-gray-50 rounded-t-lg flex justify-between items-center cursor-move"
+                        draggable 
+                        onDragStart={(e) => handleDragStart(e, coluna, 'column')} 
+                        onDragEnd={() => setDraggedItem(null)}
                     >
                         {editingColumnId === coluna.id ? (
                             <div className="flex w-full items-center gap-2">
@@ -198,24 +201,18 @@ export default function FunilKanban({
                             </>
                         )}
                     </div>
-                    <div 
-                        className="p-2 space-y-3 overflow-y-auto flex-1"
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, coluna.id)}
-                    >
+                    <div className="p-2 space-y-3 overflow-y-auto flex-1">
                         {(contatosPorColuna[coluna.id] || []).map((contato) => (
                             <ContatoCardCRM
                                 key={contato.id}
                                 funilEntry={contato}
-                                onDragStart={(e) => handleDragStart(e, contato.id)}
+                                onDragStart={(e) => handleDragStart(e, contato, 'card')}
+                                onDragEnd={() => setDraggedItem(null)}
                                 allColumns={statusColumns}
                                 onMoveToColumn={handleMoveCardFromDropdown}
                                 onOpenNotesModal={onOpenNotesModal}
-                                // --- INÍCIO DA MODIFICAÇÃO ---
-                                // Passando as novas props para o card
                                 availableProducts={availableProducts}
                                 onAssociateProduct={onAssociateProduct}
-                                // --- FIM DA MODIFICAÇÃO ---
                             />
                         ))}
                     </div>

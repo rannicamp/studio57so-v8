@@ -191,12 +191,13 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         e.preventDefault();
         setIsLoading(true);
         
-        const { telefones, emails, ...dataToSave } = formData;
+        // --- CORREÇÃO APLICADA AQUI ---
+        // A variável 'id' é separada do restante dos dados que serão enviados para o banco.
+        const { id, telefones, emails, ...dataToSave } = formData;
         if (isEditing) {
             delete dataToSave.origem;
         }
 
-        // CORREÇÃO APLICADA AQUI
         // Garante que campos de data vazios sejam enviados como nulos para o banco
         if (dataToSave.birth_date === '') {
             dataToSave.birth_date = null;
