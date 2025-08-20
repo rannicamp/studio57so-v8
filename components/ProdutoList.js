@@ -2,13 +2,16 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
+import { useRouter } from 'next/navigation'; // Importar o useRouter
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faSpinner, faCopy, faSort, faSortUp, faSortDown, faSave } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faSpinner, faCopy, faSort, faSortUp, faSortDown, faSave, faDollarSign } from '@fortawesome/free-solid-svg-icons';
 import ProdutoFormModal from './ProdutoFormModal';
 import { IMaskInput } from 'react-imask';
+import { toast } from 'sonner'; // Importar o toast
 
 export default function ProdutoList({ initialProdutos, empreendimentoId, initialConfig, onUpdate }) {
     const supabase = createClient();
+    const router = useRouter(); // Inicializar o router
     const [produtos, setProdutos] = useState(initialProdutos || []);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
@@ -25,6 +28,57 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
         }
     }, [initialProdutos, initialConfig]);
     
+    // --- INÍCIO DA NOVA FUNÇÃO ---
+    const handleSellProduct = async (produto) => {
+        if (!window.confirm(`Você está iniciando a venda da Unidade ${produto.unidade}. Um novo contrato será criado. Deseja continuar?`)) {
+            return;
+        }
+
+        const promise = new Promise(async (resolve, reject) => {
+            // Passo 1: Criar o contrato incompleto
+            const { data: newContract, error: contractError } = await supabase
+                .from('contratos')
+                .insert({
+                    empreendimento_id: empreendimentoId,
+                    produto_id: produto.id,
+                    valor_final_venda: produto.valor_venda_calculado, // Valor inicial, pode ser alterado depois
+                    status_contrato: 'Em assinatura' // Status inicial
+                })
+                .select('id')
+                .single();
+
+            if (contractError) {
+                return reject(new Error(`Erro ao criar o contrato: ${contractError.message}`));
+            }
+
+            // Passo 2: Atualizar o status do produto para "Vendido"
+            const { error: productError } = await supabase
+                .from('produtos_empreendimento')
+                .update({ status: 'Vendido' })
+                .eq('id', produto.id);
+
+            if (productError) {
+                // Tenta reverter a criação do contrato se a atualização do produto falhar
+                await supabase.from('contratos').delete().eq('id', newContract.id);
+                return reject(new Error(`Erro ao atualizar o produto para "Vendido": ${productError.message}`));
+            }
+            
+            // Se tudo deu certo, retorna o ID do novo contrato
+            resolve(newContract.id);
+        });
+
+        toast.promise(promise, {
+            loading: 'Iniciando processo de venda...',
+            success: (newContractId) => {
+                onUpdate(); // Atualiza a lista de produtos na tela
+                router.push(`/contratos/${newContractId}`); // Redireciona para a página do contrato
+                return `Venda iniciada! Contrato #${newContractId} criado.`;
+            },
+            error: (err) => err.message,
+        });
+    };
+    // --- FIM DA NOVA FUNÇÃO ---
+
     const requestSort = (key) => { let d = 'ascending'; if (sortConfig.key === key && sortConfig.direction === 'ascending') d = 'descending'; setSortConfig({ key, d }); };
     const sortedProdutos = useMemo(() => { const i = Array.isArray(produtos) ? [...produtos] : []; if (sortConfig.key) { i.sort((a, b) => { const vA = a[sortConfig.key], vB = b[sortConfig.key]; if (vA == null) return 1; if (vB == null) return -1; if (typeof vA === 'number') return sortConfig.direction === 'ascending' ? vA - vB : vB - vA; return sortConfig.direction === 'ascending' ? String(vA).localeCompare(String(vB)) : String(vB).localeCompare(String(vA)); }); } return i; }, [produtos, sortConfig]);
     const handleOpenModal = (produto = null) => { setEditingProduto(produto); setIsModalOpen(true); };
@@ -148,7 +202,7 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
                         {loading ? ( <tr><td colSpan="7" className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></td></tr>
                         ) : sortedProdutos.length > 0 ? (
                             sortedProdutos.map(produto => (
-                                <tr key={produto.id} className="hover:bg-gray-50">
+                                <tr key={produto.id} className={`hover:bg-gray-50 ${produto.status === 'Vendido' ? 'bg-red-50' : produto.status === 'Reservado' ? 'bg-yellow-50' : ''}`}>
                                     <td className="px-4 py-2 font-semibold">{produto.unidade}</td>
                                     <td className="px-4 py-2">{produto.tipo}</td>
                                     <td className="px-4 py-2 text-right text-gray-600">{formatCurrency(produto.valor_base)}</td>
@@ -156,9 +210,16 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
                                     <td className="px-4 py-2 text-right font-semibold bg-gray-50">{renderEditableCell(produto, 'valor_venda_calculado', formatCurrency)}</td>
                                     <td className="px-4 py-2 text-center">{renderEditableCell(produto, 'status')}</td>
                                     <td className="px-4 py-2 text-center space-x-2">
+                                        {/* --- INÍCIO DA MODIFICAÇÃO NOS BOTÕES --- */}
+                                        {produto.status === 'Disponível' && (
+                                            <button onClick={() => handleSellProduct(produto)} title="Vender esta Unidade" className="text-green-600 hover:text-green-800">
+                                                <FontAwesomeIcon icon={faDollarSign} />
+                                            </button>
+                                        )}
                                         <button onClick={() => handleOpenModal(produto)} title="Editar no Modal" className="text-blue-500 hover:text-blue-700"><FontAwesomeIcon icon={faEdit} /></button>
                                         <button onClick={() => handleDuplicate(produto)} title="Duplicar" className="text-gray-500 hover:text-gray-700"><FontAwesomeIcon icon={faCopy} /></button>
                                         <button onClick={() => handleDelete(produto.id)} title="Excluir" className="text-red-500 hover:text-red-700"><FontAwesomeIcon icon={faTrash} /></button>
+                                        {/* --- FIM DA MODIFICAÇÃO NOS BOTÕES --- */}
                                     </td>
                                 </tr>
                             ))
