@@ -77,10 +77,21 @@ export default function FinanceiroPage() {
         }
     }, [filters]);
 
+    // ***** INÍCIO DA CORREÇÃO *****
     const applyFiltersToQuery = useCallback((query, currentFilters) => {
         if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
-        if (currentFilters.startDate) query = query.or(`data_transacao.gte.${currentFilters.startDate},data_vencimento.gte.${currentFilters.startDate}`);
-        if (currentFilters.endDate) query = query.or(`data_transacao.lte.${currentFilters.endDate},data_vencimento.lte.${currentFilters.endDate}`);
+        
+        // Lógica de data corrigida
+        if (currentFilters.startDate && currentFilters.endDate) {
+            const transacaoInRange = `and(data_transacao.gte.${currentFilters.startDate},data_transacao.lte.${currentFilters.endDate})`;
+            const vencimentoInRange = `and(data_vencimento.gte.${currentFilters.startDate},data_vencimento.lte.${currentFilters.endDate})`;
+            query = query.or(`${transacaoInRange},${vencimentoInRange}`);
+        } else if (currentFilters.startDate) {
+            query = query.or(`data_transacao.gte.${currentFilters.startDate},data_vencimento.gte.${currentFilters.startDate}`);
+        } else if (currentFilters.endDate) {
+            query = query.or(`data_transacao.lte.${currentFilters.endDate},data_vencimento.lte.${currentFilters.endDate}`);
+        }
+
         if (currentFilters.empresaIds?.length > 0) query = query.in('empresa_id', currentFilters.empresaIds);
         if (currentFilters.contaIds?.length > 0) { query = query.or(`conta_id.in.(${currentFilters.contaIds.join(',')}),conta_destino_id.in.(${currentFilters.contaIds.join(',')})`); }
         if (currentFilters.categoriaIds?.length > 0) query = query.in('categoria_id', currentFilters.categoriaIds);
@@ -98,6 +109,7 @@ export default function FinanceiroPage() {
         if (currentFilters.tipo?.length > 0) { query = query.in('tipo', currentFilters.tipo); }
         return query;
     }, []);
+    // ***** FIM DA CORREÇÃO *****
 
     const fetchLancamentos = useCallback(async () => {
         setLoading(true);
@@ -120,22 +132,17 @@ export default function FinanceiroPage() {
         else { setLancamentosFiltradosKpi(data || []); }
     }, [filters, supabase, applyFiltersToQuery]);
     
-    // ***** INÍCIO DA CORREÇÃO *****
-    // A função agora depende da lista de contas para buscar os lançamentos corretos.
     const fetchTodosLancamentosParaSaldos = useCallback(async (listaDeContas) => {
         if (!listaDeContas || listaDeContas.length === 0) {
             setTodosLancamentosParaSaldos([]);
             return;
         }
-        // Pega os IDs de todas as empresas associadas às contas visíveis
         const empresaIds = [...new Set(listaDeContas.map(c => c.empresa_id).filter(Boolean))];
-        
         let query = supabase
             .from('lancamentos')
             .select('valor, tipo, status, conciliado, conta_id, conta_destino_id')
             .or('status.eq.Pago,conciliado.eq.true');
             
-        // Se houver empresas, filtra os lançamentos por elas.
         if (empresaIds.length > 0) {
             query = query.in('empresa_id', empresaIds);
         }
@@ -144,9 +151,14 @@ export default function FinanceiroPage() {
         if (error) { console.error("Erro ao buscar dados para Saldos:", error); }
         else { setTodosLancamentosParaSaldos(data || []); }
     }, [supabase]);
-    // ***** FIM DA CORREÇÃO *****
 
-    const fetchDashboardKpis = useCallback(async () => { /* ... (código sem alterações) ... */ }, [selectedEmpreendimento, supabase]);
+    const fetchDashboardKpis = useCallback(async () => {
+        setLoadingKpis(true);
+        const { data, error } = await supabase.rpc('calcular_kpis_visiveis_dashboard', { p_empreendimento_id: selectedEmpreendimento === 'all' ? null : selectedEmpreendimento });
+        if (error) { console.error("Erro ao calcular KPIs:", error); }
+        else { setDashboardKpis(data || []); }
+        setLoadingKpis(false);
+    }, [selectedEmpreendimento, supabase]);
 
     const fetchInitialData = useCallback(async () => {
         const [empresasRes, contasRes, categoriasRes, empreendimentosRes, contatosRes, funcionariosRes] = await Promise.all([
@@ -163,12 +175,7 @@ export default function FinanceiroPage() {
         setEmpreendimentos(empreendimentosRes.data || []); 
         setAllContacts(contatosRes.data || []); 
         setFuncionarios(funcionariosRes.data || []);
-        
-        // ***** INÍCIO DA CORREÇÃO *****
-        // Chama a busca de lançamentos para saldo LOGO APÓS ter a lista de contas
         await fetchTodosLancamentosParaSaldos(contasRes.data || []);
-        // ***** FIM DA CORREÇÃO *****
-
     }, [supabase, fetchTodosLancamentosParaSaldos]);
     
     useEffect(() => {

@@ -66,33 +66,27 @@ export default function LancamentosManager({
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [editingCell, setEditingCell] = useState(null);
 
-    // ***** INÍCIO DA CORREÇÃO PRINCIPAL *****
-    // Esta nova lógica transforma a lista de lançamentos para exibição.
     const lancamentosParaExibir = useMemo(() => {
         const listaExibicao = [];
         lancamentos.forEach(item => {
-            // Se o lançamento é uma transferência...
             if (item.tipo === 'Transferência') {
-                // ...cria uma linha virtual de SAÍDA (despesa)
                 listaExibicao.push({
                     ...item,
                     tipo_exibicao: 'Despesa',
                     descricao_exibicao: `Transferência para: ${item.conta_destino?.nome || 'N/A'}`,
-                    conta_exibicao: item.conta, // Conta de Origem
+                    conta_exibicao: item.conta,
                     is_transfer_part: true,
-                    unique_key: `${item.id}_saida` // Chave única para React
+                    unique_key: `${item.id}_saida`
                 });
-                // ...e cria uma linha virtual de ENTRADA (receita)
                 listaExibicao.push({
                     ...item,
                     tipo_exibicao: 'Receita',
                     descricao_exibicao: `Transferência de: ${item.conta?.nome || 'N/A'}`,
-                    conta_exibicao: item.conta_destino, // Conta de Destino
+                    conta_exibicao: item.conta_destino,
                     is_transfer_part: true,
-                    unique_key: `${item.id}_entrada` // Chave única para React
+                    unique_key: `${item.id}_entrada`
                 });
             } else {
-                // Se for um lançamento normal, apenas adiciona à lista
                 listaExibicao.push({
                     ...item,
                     tipo_exibicao: item.tipo,
@@ -105,7 +99,6 @@ export default function LancamentosManager({
         });
         return listaExibicao;
     }, [lancamentos]);
-    // ***** FIM DA CORREÇÃO PRINCIPAL *****
 
     const kpiData = useMemo(() => {
         let totalReceitas = 0; let totalDespesas = 0;
@@ -317,7 +310,6 @@ export default function LancamentosManager({
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {/* ***** A RENDERIZAÇÃO DA TABELA AGORA USA A NOVA LISTA ***** */}
                             {lancamentosParaExibir.length > 0 ? lancamentosParaExibir.map(item => {
                                 const statusInfo = getPaymentStatus(item);
                                 const isPending = item.status === 'Pendente' && !item.conciliado;
@@ -325,12 +317,33 @@ export default function LancamentosManager({
                                 const isTransferEntry = item.unique_key?.toString().includes('_entrada');
                                 const nomeEmpresa = item.conta_exibicao?.empresa?.nome_fantasia || item.conta_exibicao?.empresa?.razao_social || 'N/A';
 
+                                // --- INÍCIO DA CORREÇÃO ---
+                                let displayDate = item.data_transacao;
+                                let dateLabel = 'Data da Transação';
+                                let dateClass = '';
+
+                                if (statusInfo.text === 'Paga' && item.data_pagamento) {
+                                    displayDate = item.data_pagamento;
+                                    dateLabel = 'Data do Pagamento';
+                                } else if ((statusInfo.text === 'A Pagar' || statusInfo.text === 'Atrasada') && item.data_vencimento) {
+                                    displayDate = item.data_vencimento;
+                                    dateLabel = 'Data de Vencimento';
+                                    if (statusInfo.text === 'Atrasada') {
+                                        dateClass = 'text-red-600 font-bold';
+                                    }
+                                }
+                                // --- FIM DA CORREÇÃO ---
+
                                 return (
                                     <tr key={item.unique_key} className={`${selectedIds.has(item.id) ? 'bg-blue-100' : ''} ${isTransferEntry ? 'bg-gray-50' : 'hover:bg-gray-50'}`}>
                                         <td className="p-4">
                                             <input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} />
                                         </td>
-                                        <td className="px-4 py-2">{formatDate(item.data_transacao)}</td>
+                                        {/* --- CORREÇÃO APLICADA AQUI --- */}
+                                        <td className={`px-4 py-2 whitespace-nowrap ${dateClass}`} title={dateLabel}>
+                                            {formatDate(displayDate)}
+                                        </td>
+                                        {/* --- FIM DA CORREÇÃO APLICADA --- */}
                                         <td className="px-4 py-2 font-medium">{item.descricao_exibicao}</td>
                                         <td className="px-4 py-2 text-gray-600">{item.conta_exibicao?.nome || 'N/A'}</td>
                                         <td className="px-4 py-2 text-gray-600 uppercase">{nomeEmpresa}</td>
