@@ -1,16 +1,15 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { createClient } from '../../../../utils/supabase/client';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
-import ContratoManager from '../../../../components/contratos/ContratoManager';
+import FichaContrato from '../../../../components/contratos/FichaContrato'; // <<< MUDANÇA IMPORTANTE AQUI
 
 export default function ContratoPage() {
     const params = useParams();
-    const router = useRouter();
     const supabase = createClient();
     
     const [contrato, setContrato] = useState(null);
@@ -25,7 +24,6 @@ export default function ContratoPage() {
             .from('contratos')
             .select(`
                 *,
-                plano_pagamento, 
                 contato:contato_id (*),
                 produto:produto_id (*),
                 empreendimento:empreendimento_id (nome),
@@ -33,15 +31,14 @@ export default function ContratoPage() {
                 contrato_permutas (*)
             `)
             .eq('id', params.id)
-            .single();
+            .maybeSingle();
 
         if (error) {
             console.error("Erro ao buscar dados do contrato:", error);
             setError('Não foi possível carregar os dados do contrato.');
+        } else if (!data) {
+            setError('Contrato não encontrado.');
         } else {
-            if (data.contrato_parcelas) {
-                data.contrato_parcelas.sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
-            }
             setContrato(data);
         }
         setLoading(false);
@@ -60,8 +57,8 @@ export default function ContratoPage() {
         );
     }
 
-    if (error) {
-        return <p className="text-center text-red-500 p-10">{error}</p>;
+    if (error || !contrato) {
+        return <p className="text-center text-red-500 p-10">{error || 'Contrato não encontrado.'}</p>;
     }
 
     return (
@@ -71,11 +68,7 @@ export default function ContratoPage() {
                 Voltar para Lista de Contratos
             </Link>
             
-            {contrato ? (
-                <ContratoManager initialContratoData={contrato} onUpdate={fetchContratoData} />
-            ) : (
-                <p>Contrato não encontrado.</p>
-            )}
+            <FichaContrato initialContratoData={contrato} onUpdate={fetchContratoData} />
         </div>
     );
 }

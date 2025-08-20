@@ -4,33 +4,30 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-    faFileInvoiceDollar, faFileSignature, faIdCard, faSpinner, faPlus,
+import { 
+    faFileInvoiceDollar, faFileSignature, faIdCard, faSpinner, faPlus, 
     faTrash, faSave, faCalculator, faPen, faTimes, faExclamationTriangle,
     faSyncAlt, faHandshake, faUserTie, faDollarSign, faCalendarCheck
 } from '@fortawesome/free-solid-svg-icons';
 import ContratoAnexos from './ContratoAnexos';
 import CronogramaFinanceiro from './CronogramaFinanceiro';
-import KpiCard from '../KpiCard'; // Importando o KpiCard
+import KpiCard from '../KpiCard';
 
-// --- COMPONENTE PRINCIPAL (MANAGER) ---
 export default function ContratoManager({ initialContratoData, onUpdate }) {
     const supabase = createClient();
     const [contrato, setContrato] = useState(initialContratoData);
     const [activeTab, setActiveTab] = useState('resumo');
     const [loading, setLoading] = useState(false);
 
-    // Estado para o campo de corretor
     const [corretores, setCorretores] = useState([]);
     const [selectedCorretorId, setSelectedCorretorId] = useState(initialContratoData.corretor_id || '');
 
-    // Carrega a lista de contatos que podem ser corretores
     useEffect(() => {
         const fetchCorretores = async () => {
             const { data, error } = await supabase
                 .from('contatos')
                 .select('id, nome, razao_social')
-                .in('tipo_contato', ['Parceiro', 'Fornecedor']) // Ajuste os tipos conforme necessário
+                .in('tipo_contato', ['Parceiro', 'Fornecedor', 'Corretor']) // Adicionado 'Corretor' para garantir
                 .order('nome');
             
             if (error) {
@@ -47,7 +44,6 @@ export default function ContratoManager({ initialContratoData, onUpdate }) {
         setSelectedCorretorId(initialContratoData.corretor_id || '');
     }, [initialContratoData]);
     
-    // --- KPIs Calculados ---
     const kpiData = useMemo(() => {
         const valorTotal = parseFloat(contrato.valor_final_venda) || 0;
         const parcelasPagas = (contrato.contrato_parcelas || []).filter(p => p.status_pagamento === 'Pago');
@@ -95,16 +91,19 @@ export default function ContratoManager({ initialContratoData, onUpdate }) {
 
     return (
         <div className="space-y-8">
-            {/* CABEÇALHO DA FICHA */}
             <div className="bg-white p-6 rounded-lg shadow-md border">
                 <div className="flex justify-between items-start">
                     <div>
                         <h2 className="text-2xl font-bold text-gray-900 mb-2">Contrato #{contrato.id}</h2>
                         <p className="text-gray-600">
-                            <strong>Cliente:</strong> {contrato.contato.nome || contrato.contato.razao_social}
+                            <strong>Cliente:</strong> 
+                            {/* --- CORREÇÃO APLICADA AQUI --- */}
+                            <span className={contrato.contato ? 'font-semibold text-gray-800' : 'font-semibold text-red-500'}>
+                                {contrato.contato?.nome || contrato.contato?.razao_social || 'NÃO DEFINIDO'}
+                            </span>
                         </p>
                         <p className="text-gray-600">
-                            <strong>Produto:</strong> Unidade {contrato.produto.unidade} ({contrato.empreendimento.nome})
+                            <strong>Produto:</strong> Unidade {contrato.produto?.unidade} ({contrato.empreendimento?.nome})
                         </p>
                     </div>
                     <div>
@@ -119,7 +118,6 @@ export default function ContratoManager({ initialContratoData, onUpdate }) {
                 </div>
             </div>
 
-            {/* SEÇÃO DE KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <KpiCard title="Valor do Contrato" value={kpiData.valorTotal} icon={faFileSignature} color="blue" />
                 <KpiCard title="Total Pago" value={kpiData.totalPago} icon={faCheckCircle} color="green" />
@@ -127,7 +125,6 @@ export default function ContratoManager({ initialContratoData, onUpdate }) {
                 <KpiCard title="Próxima Parcela" value={kpiData.proximaParcela} icon={faCalendarCheck} color="purple" />
             </div>
 
-            {/* SISTEMA DE ABAS */}
             <div className="border-b border-gray-200">
                 <nav className="flex gap-4">
                     <TabButton tabId="resumo" label="Resumo da Venda" icon={faHandshake} />
@@ -136,7 +133,6 @@ export default function ContratoManager({ initialContratoData, onUpdate }) {
                 </nav>
             </div>
 
-            {/* CONTEÚDO DAS ABAS */}
             <div>
                 {activeTab === 'resumo' && (
                     <div className="bg-white p-6 rounded-lg shadow-md border animate-fade-in space-y-4">
@@ -155,7 +151,7 @@ export default function ContratoManager({ initialContratoData, onUpdate }) {
                                 <div className="flex items-center gap-2 mt-1">
                                     <select 
                                         id="corretor"
-                                        value={selectedCorretorId}
+                                        value={selectedCorretorId || ''}
                                         onChange={(e) => setSelectedCorretorId(e.target.value)}
                                         className="w-full p-2 border rounded-md"
                                     >

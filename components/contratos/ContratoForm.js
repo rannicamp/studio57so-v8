@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '../../../utils/supabase/client';
+import { createClient } from '../../utils/supabase/client'; // <<< CORREÇÃO APLICADA AQUI
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -103,7 +103,7 @@ export default function ContratoForm() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!selectedProdutoId || !formData.contato_id) {
-            toast.error("Selecione o Produto, Comprador e Corretor antes de salvar.");
+            toast.error("Selecione o Produto e o Comprador antes de salvar.");
             return;
         }
         setIsSaving(true);
