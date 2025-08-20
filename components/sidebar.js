@@ -77,7 +77,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 </li>
                 {empreendimentos.map(emp => (
                   <li key={emp.id}>
-                    <Link href={`/empreendimentos/${emp.id}/produtos`} className="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-200 text-sm group">
+                    <Link href={`/empreendimentos/${emp.id}`} className="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-200 text-sm group">
                       <FontAwesomeIcon icon={faBoxOpen} className="w-6 text-center text-gray-400 group-hover:text-blue-500" /> {emp.nome}
                     </Link>
                   </li>
