@@ -7,12 +7,10 @@ import { useRouter } from 'next/navigation';
 import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext';
 import LancamentosManager from '../../../components/financeiro/LancamentosManager';
 import ContasManager from '../../../components/financeiro/ContasManager';
-import CategoriasManager from '../../../components/financeiro/CategoriasManager';
-import ConciliacaoManager from '../../../components/financeiro/ConciliacaoManager';
 import LancamentoFormModal from '../../../components/financeiro/LancamentoFormModal';
 import KpiCard from '../../../components/KpiCard';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faCogs, faShieldAlt, faCalculator, faSpinner, faChartLine, faLock, faArrowDown, faArrowUp, faBalanceScale } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faCogs, faShieldAlt, faCalculator, faSpinner, faLock, faArrowDown, faArrowUp, faBalanceScale, faSitemap, faHandshake } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toast } from 'sonner';
@@ -46,9 +44,7 @@ export default function FinanceiroPage() {
     const [totalCount, setTotalCount] = useState(0);
     const [filters, setFilters] = useState({ searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [], etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', });
     const [sortConfig, setSortConfig] = useState({ key: 'data_transacao', direction: 'descending' });
-    const [dashboardKpis, setDashboardKpis] = useState([]);
-    const [loadingKpis, setLoadingKpis] = useState(true);
-
+    
     useEffect(() => { if (!authLoading && !canViewPage) { router.push('/'); } }, [authLoading, canViewPage, router]);
 
     useEffect(() => {
@@ -157,12 +153,6 @@ export default function FinanceiroPage() {
         else { setTodosLancamentosParaSaldos(data || []); }
     }, [supabase]);
 
-    const fetchDashboardKpis = useCallback(async () => {
-        setLoadingKpis(true);
-        setDashboardKpis([]);
-        setLoadingKpis(false);
-    }, [selectedEmpreendimento, supabase]);
-
     const fetchInitialData = useCallback(async () => {
         const [empresasRes, contasRes, categoriasRes, empreendimentosRes, contatosRes, funcionariosRes] = await Promise.all([
             supabase.from('cadastro_empresa').select('*').order('nome_fantasia'),
@@ -186,8 +176,7 @@ export default function FinanceiroPage() {
     }, [setPageTitle, fetchInitialData, authLoading, canViewPage]);
     
     useEffect(() => { if (canViewPage) { fetchLancamentos(); fetchLancamentosFiltradosParaKpi(); } }, [fetchLancamentos, fetchLancamentosFiltradosParaKpi, canViewPage]);
-    useEffect(() => { if (canViewPage) { fetchDashboardKpis(); } }, [selectedEmpreendimento, fetchDashboardKpis, canViewPage]);
-
+    
     const handleSuccess = () => { fetchLancamentos(); fetchLancamentosFiltradosParaKpi(); fetchInitialData(); };
     const handleDeleteLancamento = async (id) => { if (!window.confirm("Tem certeza?")) return; const { error } = await supabase.from('lancamentos').delete().eq('id', id); if(error) {setMessage('Erro: ' + error.message);} else { setMessage('Lançamento excluído.'); handleSuccess(); }};
     const handleOpenAddModal = () => { setEditingLancamento(null); setIsFormModalOpen(true); };
@@ -202,17 +191,26 @@ export default function FinanceiroPage() {
             <LancamentoFormModal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} onSuccess={handleSuccess} initialData={editingLancamento} empresas={empresas} />
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900 uppercase">Painel Financeiro</h1>
-                {activeTab === 'lancamentos' && (<div className="flex items-center gap-2"> <Link href="/financeiro/auditoria" title="Painel de Auditoria" className="text-gray-400 hover:text-orange-500"><FontAwesomeIcon icon={faShieldAlt} /></Link> <Link href="/financeiro/transferencias" className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 flex items-center gap-2 uppercase">Identificar Transferências</Link> <Link href="/financeiro/kpi-builder" className="bg-cyan-500 text-white px-4 py-2 rounded-md hover:bg-cyan-600 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faCalculator} /> KPIs</Link> <Link href="/configuracoes/financeiro/importar" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faCogs} /> Assistente</Link> {canCreate && (<button onClick={handleOpenAddModal} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faPlus} /> Novo Lançamento</button>)}</div>)}
+                <div className="flex items-center gap-2"> 
+                    <Link href="/financeiro/categorias" className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faSitemap} /> Categorias</Link>
+                    <Link href="/financeiro/conciliacao" className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faHandshake} /> Conciliação</Link>
+                    <Link href="/financeiro/auditoria" title="Painel de Auditoria" className="text-gray-400 hover:text-orange-500"><FontAwesomeIcon icon={faShieldAlt} /></Link> 
+                    <Link href="/financeiro/transferencias" className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 flex items-center gap-2 uppercase text-xs">Identificar Transferências</Link> 
+                    <Link href="/financeiro/kpi-builder" className="bg-cyan-500 text-white px-4 py-2 rounded-md hover:bg-cyan-600 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faCalculator} /> KPIs</Link> 
+                    <Link href="/configuracoes/financeiro/importar" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faCogs} /> Assistente</Link> 
+                    {canCreate && (<button onClick={handleOpenAddModal} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faPlus} /> Novo Lançamento</button>)}
+                </div>
             </div>
             
-            {/* ***** INÍCIO DA CORREÇÃO ***** */}
-            {/* Bloco de KPIs duplicado removido daqui */}
-            {/* ***** FIM DA CORREÇÃO ***** */}
-
             <div className="border-b border-gray-200 bg-white shadow-sm rounded-t-lg">
-                <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs"><TabButton tabName="lancamentos" label="Lançamentos" /><TabButton tabName="conciliacao" label="Conciliação Bancária" /><TabButton tabName="contas" label="Contas" /><TabButton tabName="categorias" label="Categorias" /></nav>
+                <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">
+                    <TabButton tabName="lancamentos" label="Lançamentos" />
+                    <TabButton tabName="contas" label="Contas" />
+                </nav>
             </div>
+
             {message && <p className={`text-center p-2 rounded-md text-sm uppercase font-semibold ${message.includes('ERRO') || message.includes('Falha') ? 'bg-red-100 text-red-800' : 'bg-blue-50 text-blue-800'}`}>{message}</p>}
+            
             <div className="mt-4">
                 {activeTab === 'lancamentos' && (
                     <LancamentosManager 
@@ -239,9 +237,7 @@ export default function FinanceiroPage() {
                         onUpdate={fetchLancamentos}
                     />
                 )}
-                {activeTab === 'conciliacao' && <ConciliacaoManager contas={contas} />}
                 {activeTab === 'contas' && <ContasManager initialContas={contas} allLancamentos={todosLancamentosParaSaldos} onUpdate={fetchInitialData} empresas={empresas} />}
-                {activeTab === 'categorias' && <CategoriasManager />}
             </div>
         </div>
     );
