@@ -233,7 +233,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         }
     };
     
-    const handleChange = (e) => { const { name, value, type, checked } = e.target; const newValue = type === 'checkbox' ? checked : (value === '' ? null : value); let newFormData = { ...formData, [name]: newValue }; if (name === 'tipo' && newValue === 'Transferência') newFormData.form_type = 'simples'; if (name === 'form_type' && newValue !== 'simples') newFormData.tipo = formData.tipo === 'Transferência' ? 'Despesa' : formData.tipo; if (name === 'empreendimento_id') { if (newValue) { const emp = empreendimentos.find(e => e.id == newValue); newFormData.empresa_id = emp?.empresa_id || null; } else { newFormData.empresa_id = null; } newFormData.etapa_id = null; } setFormData(newFormData); };
+    const handleChange = (e) => { const { name, value, type, checked } = e.target; const newValue = type === 'checkbox' ? checked : (value === '' ? null : value); let newFormData = { ...formData, [name]: newValue }; if (name === 'tipo' && newValue === 'Transferência') newFormData.form_type = 'simples'; if (name === 'form_type' && newValue !== 'simples') newFormData.tipo = formData.tipo === 'Transferência' ? 'Despesa' : formData.tipo; if (name === 'empreendimento_id') { if (newValue) { const emp = empreendimentos.find(e => e.id == newValue); newFormData.empresa_id = emp?.empresa_id || null; } else { newFormData.empresa_id = null; } newFormData.etapa_id = ''; } setFormData(newFormData); };
     const handleFavorecidoSearch = async (e) => { const term = e.target.value; setFavorecidoSearchTerm(term); setSearchAttempted(false); if (term.length < 3) { setFavorecidoSearchResults([]); return; } setIsSearchingFavorecido(true); const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term }); setFavorecidoSearchResults(data || []); setIsSearchingFavorecido(false); setSearchAttempted(true); };
     const handleSelectFavorecido = (contato) => { setFormData(prev => ({ ...prev, favorecido_contato_id: contato.id, novo_favorecido: null })); setFavorecidoSearchTerm(contato.nome_exibicao); setFavorecidoSearchResults([]); };
     const handleClearFavorecido = () => { setFormData(prev => ({...prev, favorecido_contato_id: null, novo_favorecido: null})); setFavorecidoSearchTerm(''); setFavorecidoSearchResults([]); setSearchAttempted(false); };
@@ -275,16 +275,17 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                     {!isEditing && (
-                        <div className="flex flex-col md:flex-row gap-6 p-2 bg-gray-100 rounded-lg">
-                            <div className="flex-1 space-y-2">
-                                <label className="text-sm font-semibold text-center text-gray-600 block">Natureza</label>
-                                <div className="flex gap-2">
-                                    <TipoToggleButton label="Despesa" icon={faArrowDown} isActive={formData.tipo === 'Despesa'} onClick={() => handleChange({ target: { name: 'tipo', value: 'Despesa' }})} colorClass="bg-red-500 hover:bg-red-600" />
-                                    <TipoToggleButton label="Receita" icon={faArrowUp} isActive={formData.tipo === 'Receita'} onClick={() => handleChange({ target: { name: 'tipo', value: 'Receita' }})} colorClass="bg-green-500 hover:bg-green-600" />
-                                    <TipoToggleButton label="Transferência" icon={faExchangeAlt} isActive={formData.tipo === 'Transferência'} onClick={() => handleChange({ target: { name: 'tipo', value: 'Transferência' }})} colorClass="bg-yellow-500 hover:bg-yellow-600 text-gray-800" />
-                                </div>
+                     {/* ***** INÍCIO DA ALTERAÇÃO ***** */}
+                    <div className="flex flex-col md:flex-row gap-6 p-2 bg-gray-100 rounded-lg">
+                        <div className="flex-1 space-y-2">
+                            <label className="text-sm font-semibold text-center text-gray-600 block">Natureza</label>
+                            <div className="flex gap-2">
+                                <TipoToggleButton label="Despesa" icon={faArrowDown} isActive={formData.tipo === 'Despesa'} onClick={() => handleChange({ target: { name: 'tipo', value: 'Despesa' }})} colorClass="bg-red-500 hover:bg-red-600" />
+                                <TipoToggleButton label="Receita" icon={faArrowUp} isActive={formData.tipo === 'Receita'} onClick={() => handleChange({ target: { name: 'tipo', value: 'Receita' }})} colorClass="bg-green-500 hover:bg-green-600" />
+                                <TipoToggleButton label="Transferência" icon={faExchangeAlt} isActive={formData.tipo === 'Transferência'} onClick={() => handleChange({ target: { name: 'tipo', value: 'Transferência' }})} colorClass="bg-yellow-500 hover:bg-yellow-600 text-gray-800" />
                             </div>
+                        </div>
+                        {!isEditing && (
                             <div className="flex-1 space-y-2">
                                 <label className="text-sm font-semibold text-center text-gray-600 block">Estrutura</label>
                                 <div className="flex gap-2">
@@ -293,8 +294,10 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                                     <TipoToggleButton label="Recorrente" icon={faRetweet} isActive={formData.form_type === 'recorrente'} onClick={() => handleChange({ target: { name: 'form_type', value: 'recorrente' }})} />
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
+                    {/* ***** FIM DA ALTERAÇÃO ***** */}
+
                     <div className="space-y-4 pt-4 border-t">
                         <input type="text" name="descricao" value={formData.descricao || ''} onChange={handleChange} required placeholder="Descrição do Lançamento *" className="w-full p-2 border rounded-md" />
                         {formData.form_type === 'parcelado' && !isEditing && (
