@@ -1,9 +1,15 @@
 // app/layout.js
-
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'sonner';
-import Script from 'next/script'; // Importamos a ferramenta de Script do Next.js
+import Script from 'next/script';
+
+// --- INÍCIO DA CORREÇÃO ---
+// Importamos os "gerentes" que antes estavam no outro arquivo
+import { AuthProvider } from '../contexts/AuthContext';
+import { SessionProvider } from 'next-auth/react';
+import QueryProvider from './QueryProvider';
+// --- FIM DA CORREÇÃO ---
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -21,22 +27,19 @@ export default function RootLayout({ children }) {
       </head>
       <body className={inter.className}>
         
-        {/* Adicionamos este bloco para carregar o SDK do Facebook */}
         <div id="fb-root"></div>
         <Script
           async
           defer
           crossOrigin="anonymous"
-          src="https://connect.facebook.net/pt_BR/sdk.js" // Alterado para Português (pt_BR)
+          src="https://connect.facebook.net/pt_BR/sdk.js"
           strategy="afterInteractive"
         />
-
-        {/* Este é o script de inicialização que você enviou, adaptado para o Next.js */}
         <Script id="facebook-sdk-init" strategy="afterInteractive">
           {`
             window.fbAsyncInit = function() {
               FB.init({
-                appId      : '1518358099511142', // <-- SUBSTITUA PELO SEU APP ID
+                appId      : '1518358099511142',
                 cookie     : true,
                 xfbml      : true,
                 version    : 'v20.0'
@@ -44,14 +47,21 @@ export default function RootLayout({ children }) {
               
               FB.AppEvents.logPageView();   
             };
-
-            // O restante do código de carregamento é gerenciado pelo <Script> acima
           `}
         </Script>
-        
         <Script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" strategy="beforeInteractive" />
         
-        {children}
+        {/* --- INÍCIO DA CORREÇÃO --- */}
+        {/* Agora, os provedores envolvem TODA a aplicação, garantindo que o login funcione em qualquer página */}
+        <AuthProvider>
+          <SessionProvider>
+            <QueryProvider>
+              {children}
+            </QueryProvider>
+          </SessionProvider>
+        </AuthProvider>
+        {/* --- FIM DA CORREÇÃO --- */}
+        
         <Toaster richColors position="top-right" />
       </body>
     </html>
