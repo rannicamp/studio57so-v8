@@ -4,9 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faKey, faSave, faLink, faUnlink } from '@fortawesome/free-solid-svg-icons';
-// Trocamos o ícone do Google pelo do Facebook
 import { faFacebook } from '@fortawesome/free-brands-svg-icons';
-// Importamos as funções de login/logout do NextAuth
 import { useSession, signIn, signOut } from 'next-auth/react';
 
 export default function IntegrationsManager({ empresas, initialConfigs }) {
@@ -18,7 +16,7 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
     const [message, setMessage] = useState('');
 
     // Hook do NextAuth para verificar a sessão do Facebook/Meta
-    const { data: session, status } = useSession();
+    const { data: session, status } = useSession(); // 'status' pode ser 'loading', 'authenticated', ou 'unauthenticated'
 
     useEffect(() => {
         if (empresas && empresas.length === 1) {
@@ -124,13 +122,16 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
                     Conecte sua conta da Meta para que o sistema capture automaticamente os leads gerados pelos seus anúncios de formulário.
                 </p>
 
+                {/* --- CORREÇÃO APLICADA AQUI --- */}
+                {/* Agora o componente lida com os 3 estados possíveis: carregando, autenticado e não autenticado */}
+                
                 {status === 'loading' && (
                     <div className="text-center p-4">
-                        <FontAwesomeIcon icon={faSpinner} spin /> Verificando status...
+                        <FontAwesomeIcon icon={faSpinner} spin /> Verificando status da conexão...
                     </div>
                 )}
 
-                {session && (
+                {status === 'authenticated' && session && (
                     <div className="bg-green-50 p-4 rounded-lg flex items-center justify-between border border-green-200">
                         <div className="flex items-center gap-3">
                             <FontAwesomeIcon icon={faLink} className="text-green-600" />
@@ -150,13 +151,13 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
                         <span className="text-sm font-medium text-gray-700">
                             Nenhuma conta da Meta conectada.
                         </span>
-                        {/* O botão agora chama signIn('facebook') */}
                         <button onClick={() => signIn('facebook')} className="bg-blue-800 text-white px-4 py-2 rounded-md hover:bg-blue-900 flex items-center gap-2">
                             <FontAwesomeIcon icon={faFacebook} />
                             Conectar com Facebook
                         </button>
                     </div>
                 )}
+                {/* --- FIM DA CORREÇÃO --- */}
             </div>
         </div>
     );

@@ -171,7 +171,13 @@ export default function ContratoManager({ initialContratoData, onUpdate }) {
                             <label className="block text-sm font-medium">Desconto (R$)</label>
                             <IMaskInput
                                 mask="R$ num"
-                                blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',' }}}
+                                blocks={{ num: { 
+                                    mask: Number,
+                                    scale: 2, 
+                                    padFractionalZeros: true, 
+                                    radix: ',',
+                                    mapToRadix: ['.'] 
+                                }}}
                                 name="desconto_valor"
                                 value={String(plano.desconto_valor || '')}
                                 onAccept={(value, mask) => handlePlanoChange('desconto_valor', mask.number)}
@@ -189,7 +195,13 @@ export default function ContratoManager({ initialContratoData, onUpdate }) {
                             <label className="block text-sm font-medium">Entrada (R$)</label>
                             <IMaskInput
                                 mask="R$ num"
-                                blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',' }}}
+                                blocks={{ num: { 
+                                    mask: Number,
+                                    scale: 2, 
+                                    padFractionalZeros: true, 
+                                    radix: ',',
+                                    mapToRadix: ['.'] 
+                                }}}
                                 name="entrada_valor"
                                 value={String(plano.entrada_valor || '')}
                                 onAccept={(value, mask) => handlePlanoChange('entrada_valor', mask.number)}
@@ -209,7 +221,13 @@ export default function ContratoManager({ initialContratoData, onUpdate }) {
                             <label className="block text-sm font-medium">Obra (R$)</label>
                             <IMaskInput
                                 mask="R$ num"
-                                blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',' }}}
+                                blocks={{ num: { 
+                                    mask: Number,
+                                    scale: 2, 
+                                    padFractionalZeros: true, 
+                                    radix: ',',
+                                    mapToRadix: ['.'] 
+                                }}}
                                 name="parcelas_obra_valor"
                                 value={String(plano.parcelas_obra_valor || '')}
                                 onAccept={(value, mask) => handlePlanoChange('parcelas_obra_valor', mask.number)}
