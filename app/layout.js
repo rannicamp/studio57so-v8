@@ -1,15 +1,13 @@
 // app/layout.js
+
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'sonner';
 import Script from 'next/script';
-
-// --- INÍCIO DA CORREÇÃO ---
-// Importamos os "gerentes" que antes estavam no outro arquivo
-import { AuthProvider } from '../contexts/AuthContext';
-import { SessionProvider } from 'next-auth/react';
-import QueryProvider from './QueryProvider';
-// --- FIM DA CORREÇÃO ---
+// --- INÍCIO DA ALTERAÇÃO ---
+// Importamos nosso novo componente "invólucro"
+import { Providers } from './providers';
+// --- FIM DA ALTERAÇÃO ---
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -51,16 +49,12 @@ export default function RootLayout({ children }) {
         </Script>
         <Script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" strategy="beforeInteractive" />
         
-        {/* --- INÍCIO DA CORREÇÃO --- */}
-        {/* Agora, os provedores envolvem TODA a aplicação, garantindo que o login funcione em qualquer página */}
-        <AuthProvider>
-          <SessionProvider>
-            <QueryProvider>
-              {children}
-            </QueryProvider>
-          </SessionProvider>
-        </AuthProvider>
-        {/* --- FIM DA CORREÇÃO --- */}
+        {/* --- INÍCIO DA ALTERAÇÃO --- */}
+        {/* Agora, usamos o componente <Providers> para envolver o conteúdo */}
+        <Providers>
+          {children}
+        </Providers>
+        {/* --- FIM DA ALTERAÇÃO --- */}
         
         <Toaster richColors position="top-right" />
       </body>
