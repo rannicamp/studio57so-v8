@@ -4,20 +4,17 @@ import { useState, useMemo, useEffect } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faTrash, faSpinner, faSave, faFileInvoiceDollar, faExclamationTriangle, faPen, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faTrash, faSpinner, faSave, faFileInvoiceDollar, faExclamationTriangle, faPen, faTimes, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 
 // Funções de formatação (ajudam a exibir os dados de forma legível)
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 const formatDateForInput = (dateStr) => {
     if (!dateStr) return '';
-    // Garante que a data seja tratada como UTC para evitar problemas de fuso horário
     return new Date(dateStr + 'T00:00:00Z').toISOString().split('T')[0];
 };
-// ***** FUNÇÃO CORRIGIDA *****
 const formatDateForDisplay = (dateStr) => {
     if (!dateStr) return 'N/A';
-    // Adicionado timeZone: 'UTC' para evitar a conversão de fuso horário
     return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 };
 
@@ -30,16 +27,13 @@ export default function CronogramaFinanceiro({ contratoId, parcelas, valorTotalC
     const [editingData, setEditingData] = useState({});
     const [loading, setLoading] = useState(false);
 
-    // Atualiza o estado local sempre que as parcelas do contrato principal mudarem
     useEffect(() => {
         setLocalParcelas(parcelas || []);
     }, [parcelas]);
 
-    // Calcula o valor total das parcelas listadas e a diferença para o valor total do contrato
     const totalParcelas = useMemo(() => localParcelas.reduce((sum, p) => sum + parseFloat(p.valor_parcela || 0), 0), [localParcelas]);
     const diferenca = valorTotalContrato - totalParcelas;
 
-    // Função para adicionar uma nova parcela manualmente
     const handleAddParcela = async () => {
         if (!newParcela.descricao || !newParcela.data_vencimento || !newParcela.valor_parcela) {
             toast.error("Preencha Descrição, Vencimento e Valor para adicionar a parcela.");
@@ -58,7 +52,6 @@ export default function CronogramaFinanceiro({ contratoId, parcelas, valorTotalC
         setLoading(false);
     };
 
-    // Função para excluir uma parcela
     const handleDeleteParcela = async (parcelaId) => {
         if (!window.confirm("Tem certeza que deseja excluir esta parcela?")) return;
         setLoading(true);
@@ -67,13 +60,40 @@ export default function CronogramaFinanceiro({ contratoId, parcelas, valorTotalC
         else { toast.success("Parcela excluída."); onUpdate(); }
         setLoading(false);
     };
+    
+    // ***** FUNÇÃO DE DUPLICAR CORRIGIDA *****
+    const handleDuplicateParcela = async (parcelaId) => {
+        if (!window.confirm("Deseja criar uma cópia desta parcela? A data de vencimento da cópia será 30 dias após a original.")) return;
+        
+        const promise = new Promise(async (resolve, reject) => {
+            const { data, error } = await supabase.rpc('duplicar_parcela_contrato', { p_parcela_id: parcelaId });
 
-    // Funções para controlar a edição em linha
+            if (error) {
+                return reject(new Error(error.message));
+            }
+            
+            // Agora verificamos a resposta JSON da função
+            if (data && data.success) {
+                resolve(data.message);
+            } else {
+                reject(new Error(data.message || 'Ocorreu um erro desconhecido no banco de dados.'));
+            }
+        });
+
+        toast.promise(promise, {
+            loading: 'Duplicando parcela...',
+            success: (message) => {
+                onUpdate(); // Atualiza a lista para mostrar a nova parcela
+                return message;
+            },
+            error: (err) => `Erro ao duplicar: ${err.message}`
+        });
+    };
+
     const handleStartEditing = (parcela) => { setEditingRowId(parcela.id); setEditingData(parcela); };
     const handleCancelEditing = () => { setEditingRowId(null); setEditingData({}); };
     const handleEditingChange = (field, value) => setEditingData(prev => ({ ...prev, [field]: value }));
     
-    // Função para salvar a edição em linha
     const handleSaveEditing = async (parcelaId) => {
         setLoading(true);
         const { id, ...updateData } = editingData;
@@ -91,7 +111,6 @@ export default function CronogramaFinanceiro({ contratoId, parcelas, valorTotalC
              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                 <FontAwesomeIcon icon={faFileInvoiceDollar} /> Parcelas Geradas
             </h3>
-            {/* Aviso de diferença de valores */}
             {Math.abs(diferenca) > 0.01 && (
                 <div className="p-3 bg-yellow-100 text-yellow-800 rounded-md flex items-center gap-3 text-sm">
                     <FontAwesomeIcon icon={faExclamationTriangle} />
@@ -113,20 +132,12 @@ export default function CronogramaFinanceiro({ contratoId, parcelas, valorTotalC
                     <tbody className="bg-white divide-y">
                         {localParcelas.map(p => (
                             editingRowId === p.id ? (
-                                // LINHA DE EDIÇÃO
                                 <tr key={p.id} className="bg-yellow-50">
                                     <td className="px-4 py-2"><input type="text" value={editingData.descricao} onChange={e => handleEditingChange('descricao', e.target.value)} className="p-1 border rounded w-full"/></td>
                                     <td className="px-4 py-2">{p.tipo}</td>
                                     <td className="px-4 py-2"><input type="date" value={formatDateForInput(editingData.data_vencimento)} onChange={e => handleEditingChange('data_vencimento', e.target.value)} className="p-1 border rounded w-full"/></td>
                                     <td className="px-4 py-2">
-                                        <IMaskInput
-                                            mask="R$ num"
-                                            blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}}
-                                            unmask={true}
-                                            value={String(editingData.valor_parcela)}
-                                            onAccept={(value) => handleEditingChange('valor_parcela', value)}
-                                            className="p-1 border rounded w-full text-right"
-                                        />
+                                        <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}} unmask={true} value={String(editingData.valor_parcela)} onAccept={(value) => handleEditingChange('valor_parcela', value)} className="p-1 border rounded w-full text-right"/>
                                     </td>
                                     <td className="px-4 py-2 text-center">{p.status_pagamento}</td>
                                     <td className="px-4 py-2 text-center">
@@ -137,7 +148,6 @@ export default function CronogramaFinanceiro({ contratoId, parcelas, valorTotalC
                                     </td>
                                 </tr>
                             ) : (
-                                // LINHA DE VISUALIZAÇÃO
                                 <tr key={p.id}>
                                     <td className="px-4 py-2">{p.descricao}</td>
                                     <td className="px-4 py-2">{p.tipo}</td>
@@ -145,28 +155,21 @@ export default function CronogramaFinanceiro({ contratoId, parcelas, valorTotalC
                                     <td className="px-4 py-2 text-right font-medium">{formatCurrency(p.valor_parcela)}</td>
                                     <td className="px-4 py-2 text-center"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${p.status_pagamento === 'Pago' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.status_pagamento}</span></td>
                                     <td className="px-4 py-2 text-center">
-                                        <div className="flex justify-center items-center gap-2">
-                                            {p.status_pagamento === 'Pendente' && <button onClick={() => handleStartEditing(p)} className="text-blue-600"><FontAwesomeIcon icon={faPen} /></button>}
-                                            <button onClick={() => handleDeleteParcela(p.id)} disabled={loading} className="text-red-500"><FontAwesomeIcon icon={faTrash} /></button>
+                                        <div className="flex justify-center items-center gap-3">
+                                            <button onClick={() => handleDuplicateParcela(p.id)} disabled={loading} className="text-gray-500 hover:text-gray-700" title="Duplicar Parcela"><FontAwesomeIcon icon={faCopy} /></button>
+                                            {p.status_pagamento === 'Pendente' && <button onClick={() => handleStartEditing(p)} className="text-blue-600 hover:text-blue-800" title="Editar Parcela"><FontAwesomeIcon icon={faPen} /></button>}
+                                            <button onClick={() => handleDeleteParcela(p.id)} disabled={loading} className="text-red-500 hover:text-red-700" title="Excluir Parcela"><FontAwesomeIcon icon={faTrash} /></button>
                                         </div>
                                     </td>
                                 </tr>
                             )
                         ))}
-                        {/* Linha para adicionar nova parcela */}
                         <tr className="bg-gray-50">
                             <td className="px-4 py-2"><input type="text" placeholder="Nova Parcela Adicional" value={newParcela.descricao} onChange={e => setNewParcela({...newParcela, descricao: e.target.value})} className="p-1 border rounded w-full"/></td>
                             <td className="px-4 py-2 text-gray-500">Adicional</td>
                             <td className="px-4 py-2"><input type="date" value={newParcela.data_vencimento} onChange={e => setNewParcela({...newParcela, data_vencimento: e.target.value})} className="p-1 border rounded w-full"/></td>
                             <td className="px-4 py-2">
-                                <IMaskInput
-                                    mask="R$ num"
-                                    blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}}
-                                    unmask={true}
-                                    value={newParcela.valor_parcela}
-                                    onAccept={(value) => setNewParcela({...newParcela, valor_parcela: value})}
-                                    className="p-1 border rounded w-full text-right"
-                                />
+                                <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}} unmask={true} value={newParcela.valor_parcela} onAccept={(value) => setNewParcela({...newParcela, valor_parcela: value})} className="p-1 border rounded w-full text-right"/>
                             </td>
                             <td className="px-4 py-2 text-center text-gray-500">Pendente</td>
                             <td className="px-4 py-2 text-center">

@@ -2,19 +2,20 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '../../utils/supabase/client'; // Importa o Supabase client
-import { toast } from 'sonner'; // Importa o toast para notificações
+import { createClient } from '../../utils/supabase/client';
+import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEye, faTrash } from '@fortawesome/free-solid-svg-icons'; // Importa o ícone de lixeira
+// Ícone de "copiar" foi adicionado
+import { faEye, faTrash, faCopy } from '@fortawesome/free-solid-svg-icons';
 
 export default function ContratoList({ initialContratos }) {
-    const [contratos, setContratos] = useState(initialContratos); // Adiciona estado para a lista
+    const [contratos, setContratos] = useState(initialContratos);
     const [searchTerm, setSearchTerm] = useState('');
     const router = useRouter();
-    const supabase = createClient(); // Cria a instância do Supabase
+    const supabase = createClient();
 
     const filteredContratos = useMemo(() => {
-        return contratos.filter(c => { // Filtra a partir do estado local
+        return contratos.filter(c => {
             const cliente = c.contato?.nome || c.contato?.razao_social || '';
             const produto = c.produto?.unidade || '';
             const empreendimento = c.empreendimento?.nome || '';
@@ -32,9 +33,37 @@ export default function ContratoList({ initialContratos }) {
     };
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-    // Nova função para lidar com a exclusão
+    // --- INÍCIO DA NOVA FUNÇÃO ---
+    // Nova função para lidar com a duplicação
+    const handleDuplicate = async (e, contratoParaDuplicar) => {
+        e.stopPropagation();
+
+        if (!window.confirm(`Deseja criar uma cópia do contrato da Unidade ${contratoParaDuplicar.produto?.unidade}? Um novo contrato será criado como rascunho.`)) {
+            return;
+        }
+        
+        const promise = supabase.rpc('duplicar_contrato_e_detalhes', {
+            p_contrato_id: contratoParaDuplicar.id
+        });
+
+        toast.promise(promise, {
+            loading: 'Duplicando contrato...',
+            success: (response) => {
+                // Para atualizar a lista, buscamos os dados novamente
+                supabase.from('contratos')
+                    .select(`*, contato:contato_id ( nome, razao_social ), produto:produto_id ( unidade, tipo ), empreendimento:empreendimento_id ( nome )`)
+                    .order('created_at', { ascending: false })
+                    .then(({ data }) => setContratos(data || []));
+                
+                return response.message; // Mensagem de sucesso da função do banco
+            },
+            error: (err) => `Erro ao duplicar: ${err.message}`
+        });
+    };
+    // --- FIM DA NOVA FUNÇÃO ---
+
     const handleDelete = async (e, contratoParaExcluir) => {
-        e.stopPropagation(); // Impede que o clique navegue para a página de detalhes
+        e.stopPropagation();
 
         if (!window.confirm(`Tem certeza que deseja excluir o contrato para a Unidade ${contratoParaExcluir.produto?.unidade}? Esta ação não pode ser desfeita.`)) {
             return;
@@ -47,9 +76,8 @@ export default function ContratoList({ initialContratos }) {
         toast.promise(promise, {
             loading: 'Excluindo contrato...',
             success: (data) => {
-                // Remove o contrato da lista na tela para um feedback visual imediato
                 setContratos(prevContratos => prevContratos.filter(c => c.id !== contratoParaExcluir.id));
-                return data; // Mensagem de sucesso da função do banco
+                return data;
             },
             error: (err) => `Erro ao excluir: ${err.message}`
         });
@@ -90,6 +118,10 @@ export default function ContratoList({ initialContratos }) {
                                     <div className="flex items-center justify-center gap-4">
                                         <button onClick={() => router.push(`/contratos/${contrato.id}`)} className="text-blue-600 hover:text-blue-800" title="Visualizar/Editar Contrato">
                                             <FontAwesomeIcon icon={faEye} />
+                                        </button>
+                                        {/* --- BOTÃO DE DUPLICAR ADICIONADO --- */}
+                                        <button onClick={(e) => handleDuplicate(e, contrato)} className="text-gray-500 hover:text-gray-700" title="Duplicar Contrato">
+                                            <FontAwesomeIcon icon={faCopy} />
                                         </button>
                                         <button onClick={(e) => handleDelete(e, contrato)} className="text-red-600 hover:text-red-800" title="Excluir Contrato">
                                             <FontAwesomeIcon icon={faTrash} />
