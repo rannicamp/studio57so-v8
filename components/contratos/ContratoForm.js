@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '../../utils/supabase/client'; // <<< CORREÇÃO APLICADA AQUI
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { createClient } from '../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -21,25 +21,21 @@ export default function ContratoForm() {
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
-    // Dados para os dropdowns
     const [empreendimentos, setEmpreendimentos] = useState([]);
     const [produtosDisponiveis, setProdutosDisponiveis] = useState([]);
     
-    // Estado do formulário
-    const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState('');
-    const [selectedProdutoId, setSelectedProdutoId] = useState('');
     const [formData, setFormData] = useState({
+        empreendimento_id: '',
+        produto_id: '',
         data_venda: new Date().toISOString().split('T')[0],
         valor_final_venda: '',
         contato_id: null,
         corretor_id: null,
     });
 
-    // Estados para busca de contatos (comprador e corretor)
     const [searchTerms, setSearchTerms] = useState({ comprador: '', corretor: '' });
     const [searchResults, setSearchResults] = useState({ comprador: [], corretor: [] });
     
-    // Carrega dados iniciais
     useEffect(() => {
         const fetchInitialData = async () => {
             setLoading(true);
@@ -50,35 +46,38 @@ export default function ContratoForm() {
         fetchInitialData();
     }, [supabase]);
 
-    // Busca produtos quando um empreendimento é selecionado
+    const handleFormChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({...prev, [name]: value}));
+    };
+
     useEffect(() => {
         const fetchProdutos = async () => {
-            if (!selectedEmpreendimentoId) {
+            if (!formData.empreendimento_id) {
                 setProdutosDisponiveis([]);
+                setFormData(prev => ({ ...prev, produto_id: '' }));
                 return;
             }
             const { data } = await supabase
                 .from('produtos_empreendimento')
                 .select('id, unidade, tipo, valor_venda_calculado')
-                .eq('empreendimento_id', selectedEmpreendimentoId)
+                .eq('empreendimento_id', formData.empreendimento_id)
                 .eq('status', 'Disponível')
                 .order('unidade');
             setProdutosDisponiveis(data || []);
         };
         fetchProdutos();
-    }, [selectedEmpreendimentoId, supabase]);
+    }, [formData.empreendimento_id, supabase]);
 
-    // Atualiza o valor de venda quando um produto é selecionado
     useEffect(() => {
-        if (selectedProdutoId) {
-            const produto = produtosDisponiveis.find(p => p.id.toString() === selectedProdutoId);
+        if (formData.produto_id) {
+            const produto = produtosDisponiveis.find(p => p.id.toString() === formData.produto_id);
             setFormData(prev => ({ ...prev, valor_final_venda: produto?.valor_venda_calculado || '' }));
         } else {
             setFormData(prev => ({ ...prev, valor_final_venda: '' }));
         }
-    }, [selectedProdutoId, produtosDisponiveis]);
+    }, [formData.produto_id, produtosDisponiveis]);
 
-    // Busca de contatos (comprador/corretor)
     const handleSearchContato = useCallback(async (type, term) => {
         setSearchTerms(prev => ({ ...prev, [type]: term }));
         if (term.length < 2) {
@@ -89,20 +88,28 @@ export default function ContratoForm() {
         setSearchResults(prev => ({ ...prev, [type]: data || [] }));
     }, [supabase]);
 
+    // --- FUNÇÃO CORRIGIDA ---
     const handleSelectContato = (type, contato) => {
-        setFormData(prev => ({ ...prev, [`${type}_id`]: contato.id }));
+        // Se o tipo for 'comprador', o nome do campo é 'contato_id'.
+        // Se for 'corretor', o nome do campo é 'corretor_id'.
+        const fieldName = type === 'comprador' ? 'contato_id' : 'corretor_id';
+        
+        setFormData(prev => ({ ...prev, [fieldName]: contato.id }));
         setSearchTerms(prev => ({ ...prev, [type]: contato.nome || contato.razao_social }));
         setSearchResults(prev => ({ ...prev, [type]: [] }));
     };
 
+    // --- FUNÇÃO CORRIGIDA ---
     const handleClearContato = (type) => {
-        setFormData(prev => ({ ...prev, [`${type}_id`]: null }));
+        const fieldName = type === 'comprador' ? 'contato_id' : 'corretor_id';
+        setFormData(prev => ({ ...prev, [fieldName]: null }));
         setSearchTerms(prev => ({ ...prev, [type]: '' }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!selectedProdutoId || !formData.contato_id) {
+        
+        if (!formData.produto_id || !formData.contato_id) {
             toast.error("Selecione o Produto e o Comprador antes de salvar.");
             return;
         }
@@ -112,8 +119,8 @@ export default function ContratoForm() {
             const { data: newContract, error: contractError } = await supabase
                 .from('contratos')
                 .insert({
-                    empreendimento_id: selectedEmpreendimentoId,
-                    produto_id: selectedProdutoId,
+                    empreendimento_id: formData.empreendimento_id,
+                    produto_id: formData.produto_id,
                     contato_id: formData.contato_id,
                     corretor_id: formData.corretor_id,
                     data_venda: formData.data_venda,
@@ -128,10 +135,10 @@ export default function ContratoForm() {
             const { error: productError } = await supabase
                 .from('produtos_empreendimento')
                 .update({ status: 'Vendido' })
-                .eq('id', selectedProdutoId);
+                .eq('id', formData.produto_id);
 
             if (productError) {
-                await supabase.from('contratos').delete().eq('id', newContract.id); // Reverte
+                await supabase.from('contratos').delete().eq('id', newContract.id);
                 return reject(productError);
             }
             resolve(newContract.id);
@@ -149,7 +156,9 @@ export default function ContratoForm() {
     };
 
     const renderContatoSearch = (type, label) => {
-        const contatoId = formData[`${type}_id`];
+        // --- LÓGICA CORRIGIDA ---
+        const fieldName = type === 'comprador' ? 'contato_id' : 'corretor_id';
+        const contatoId = formData[fieldName];
         const searchTerm = searchTerms[type];
         const results = searchResults[type];
         
@@ -164,13 +173,12 @@ export default function ContratoForm() {
                 ) : (
                     <>
                         <div className="relative">
-                            <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input
                                 type="text"
                                 value={searchTerm}
                                 onChange={(e) => handleSearchContato(type, e.target.value)}
                                 placeholder="Digite para buscar..."
-                                className="mt-1 w-full p-2 pl-10 border rounded-md"
+                                className="mt-1 w-full p-2 border rounded-md"
                             />
                         </div>
                         {results.length > 0 && (
@@ -200,8 +208,9 @@ export default function ContratoForm() {
                 <div>
                     <label className="block text-sm font-medium">1. Selecione o Empreendimento *</label>
                     <select
-                        value={selectedEmpreendimentoId}
-                        onChange={(e) => { setSelectedEmpreendimentoId(e.target.value); setSelectedProdutoId(''); }}
+                        name="empreendimento_id"
+                        value={formData.empreendimento_id}
+                        onChange={handleFormChange}
                         required
                         className="mt-1 w-full p-2 border rounded-md"
                     >
@@ -212,10 +221,11 @@ export default function ContratoForm() {
                 <div>
                     <label className="block text-sm font-medium">2. Selecione a Unidade *</label>
                     <select
-                        value={selectedProdutoId}
-                        onChange={(e) => setSelectedProdutoId(e.target.value)}
+                        name="produto_id"
+                        value={formData.produto_id}
+                        onChange={handleFormChange}
                         required
-                        disabled={!selectedEmpreendimentoId}
+                        disabled={!formData.empreendimento_id}
                         className="mt-1 w-full p-2 border rounded-md"
                     >
                         <option value="">-- Escolha --</option>
@@ -234,8 +244,9 @@ export default function ContratoForm() {
                     <label className="block text-sm font-medium">5. Data da Venda *</label>
                     <input
                         type="date"
+                        name="data_venda"
                         value={formData.data_venda}
-                        onChange={(e) => setFormData(prev => ({...prev, data_venda: e.target.value}))}
+                        onChange={handleFormChange}
                         required
                         className="mt-1 w-full p-2 border rounded-md"
                     />
@@ -245,8 +256,9 @@ export default function ContratoForm() {
                     <input
                         type="number"
                         step="0.01"
+                        name="valor_final_venda"
                         value={formData.valor_final_venda}
-                        onChange={(e) => setFormData(prev => ({...prev, valor_final_venda: e.target.value}))}
+                        onChange={handleFormChange}
                         required
                         className="mt-1 w-full p-2 border rounded-md"
                     />

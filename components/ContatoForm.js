@@ -89,6 +89,8 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         observations: '',
         telefones: [{ telefone: '', country_code: '+55' }],
         emails: [{ email: '' }],
+        regime_bens: '',
+        dados_conjuge: { nome: '', cpf: '', rg: '' }
     }), []);
 
     const [formData, setFormData] = useState(getInitialState());
@@ -112,28 +114,15 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
     useEffect(() => {
         if (isEditing && contactToEdit) {
             const fetchContactDetails = async () => {
-                const { data: phonesData, error: phonesError } = await supabase
-                    .from('telefones')
-                    .select('*')
-                    .eq('contato_id', contactToEdit.id);
-
-                const { data: emailsData, error: emailsError } = await supabase
-                    .from('emails')
-                    .select('*')
-                    .eq('contato_id', contactToEdit.id);
-
-                if (phonesError) console.error("Erro ao buscar telefones do contato:", phonesError);
-                if (emailsError) console.error("Erro ao buscar emails do contato:", emailsError);
-
+                const { data: phonesData } = await supabase.from('telefones').select('*').eq('contato_id', contactToEdit.id);
+                const { data: emailsData } = await supabase.from('emails').select('*').eq('contato_id', contactToEdit.id);
+                
                 setFormData({
+                    ...getInitialState(),
                     ...contactToEdit,
-                    empresa_id: contactToEdit.empresa_id || null,
-                    tipo_contato: contactToEdit.tipo_contato || 'Lead',
-                    observations: contactToEdit.observations || '',
                     telefones: phonesData?.length > 0 ? phonesData : [{ telefone: '', country_code: '+55' }],
                     emails: emailsData?.length > 0 ? emailsData : [{ email: '' }],
-                    birth_date: contactToEdit.birth_date ? new Date(contactToEdit.birth_date).toISOString().split('T')[0] : '',
-                    data_fundacao: contactToEdit.data_fundacao ? new Date(contactToEdit.data_fundacao).toISOString().split('T')[0] : '',
+                    dados_conjuge: contactToEdit.dados_conjuge || { nome: '', cpf: '', rg: '' }
                 });
             };
             fetchContactDetails();
@@ -145,6 +134,17 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+    
+    const handleConjugeChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            dados_conjuge: {
+                ...prev.dados_conjuge,
+                [name]: value
+            }
+        }));
     };
 
     const handleDynamicInputChange = (listName, index, field, value) => {
@@ -172,14 +172,13 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                 } else {
                     setFormData(prev => ({
                         ...prev,
-                        address_street: data.logouro,
+                        address_street: data.logradouro,
                         neighborhood: data.bairro,
                         city: data.localidade,
                         state: data.uf,
                     }));
                 }
             } catch (error) {
-                console.error("Erro ao buscar CEP:", error);
                 toast.error("Erro ao buscar CEP.");
             } finally {
                 setIsApiLoading(false);
@@ -191,21 +190,10 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         e.preventDefault();
         setIsLoading(true);
         
-        // --- CORREÇÃO APLICADA AQUI ---
-        // A variável 'id' é separada do restante dos dados que serão enviados para o banco.
         const { id, telefones, emails, ...dataToSave } = formData;
-        if (isEditing) {
-            delete dataToSave.origem;
-        }
-
-        // Garante que campos de data vazios sejam enviados como nulos para o banco
-        if (dataToSave.birth_date === '') {
-            dataToSave.birth_date = null;
-        }
-        if (dataToSave.data_fundacao === '') {
-            dataToSave.data_fundacao = null;
-        }
-        // FIM DA CORREÇÃO
+        if (isEditing) delete dataToSave.origem;
+        if (dataToSave.birth_date === '') dataToSave.birth_date = null;
+        if (dataToSave.data_fundacao === '') dataToSave.data_fundacao = null;
 
         const cleanedPhones = formData.telefones.filter(tel => tel.telefone.replace(/\D/g, '').length > 0).map(tel => ({
             telefone: tel.telefone.replace(/\D/g, ''),
@@ -219,26 +207,16 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         let error = null;
 
         if (isEditing) {
-            const { data, error: updateError } = await supabase
-                .from('contatos')
-                .update(dataToSave)
-                .eq('id', contactToEdit.id)
-                .select('id')
-                .single();
-            if (updateError) error = updateError;
+            const { data, error: updateError } = await supabase.from('contatos').update(dataToSave).eq('id', contactToEdit.id).select('id').single();
+            error = updateError;
             contatoId = data?.id;
         } else {
-            const { data, error: insertError } = await supabase
-                .from('contatos')
-                .insert(dataToSave)
-                .select('id')
-                .single();
-            if (insertError) error = insertError;
+            const { data, error: insertError } = await supabase.from('contatos').insert(dataToSave).select('id').single();
+            error = insertError;
             contatoId = data?.id;
         }
 
         if (error) {
-            console.error("Erro ao salvar contato (principal):", error);
             toast.error(`Erro ao salvar contato: ${error.message}`);
             setIsLoading(false);
             return;
@@ -249,15 +227,10 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
             await supabase.from('emails').delete().eq('contato_id', contatoId);
 
             if (cleanedPhones.length > 0) {
-                const phonesWithContactId = cleanedPhones.map(tel => ({ ...tel, contato_id: contatoId, tipo: 'Celular' }));
-                const { error: phoneError } = await supabase.from('telefones').insert(phonesWithContactId);
-                if (phoneError) console.error("Erro ao salvar telefones:", phoneError);
+                await supabase.from('telefones').insert(cleanedPhones.map(tel => ({ ...tel, contato_id: contatoId, tipo: 'Celular' })));
             }
-
             if (cleanedEmails.length > 0) {
-                const emailsWithContactId = cleanedEmails.map(mail => ({ ...mail, contato_id: contatoId, tipo: 'Pessoal' }));
-                const { error: emailError } = await supabase.from('emails').insert(emailsWithContactId);
-                if (emailError) console.error("Erro ao salvar emails:", emailError);
+                await supabase.from('emails').insert(cleanedEmails.map(mail => ({ ...mail, contato_id: contatoId, tipo: 'Pessoal' })));
             }
         }
 
@@ -283,25 +256,11 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                 <legend className="text-lg font-semibold text-gray-700">Tipo de Contato</legend>
                 <div className="mt-2 flex gap-4">
                     <label className="inline-flex items-center">
-                        <input
-                            type="radio"
-                            name="personalidade_juridica"
-                            value="Pessoa Física"
-                            checked={formData.personalidade_juridica === 'Pessoa Física'}
-                            onChange={handleChange}
-                            className="form-radio"
-                        />
+                        <input type="radio" name="personalidade_juridica" value="Pessoa Física" checked={formData.personalidade_juridica === 'Pessoa Física'} onChange={handleChange} className="form-radio" />
                         <span className="ml-2">Pessoa Física</span>
                     </label>
                     <label className="inline-flex items-center">
-                        <input
-                            type="radio"
-                            name="personalidade_juridica"
-                            value="Pessoa Jurídica"
-                            checked={formData.personalidade_juridica === 'Pessoa Jurídica'}
-                            onChange={handleChange}
-                            className="form-radio"
-                        />
+                        <input type="radio" name="personalidade_juridica" value="Pessoa Jurídica" checked={formData.personalidade_juridica === 'Pessoa Jurídica'} onChange={handleChange} className="form-radio" />
                         <span className="ml-2">Pessoa Jurídica</span>
                     </label>
                 </div>
@@ -316,7 +275,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                             <div><label className="block text-sm font-medium">CPF</label><IMaskInput mask="000.000.000-00" name="cpf" value={formData.cpf || ''} onAccept={(value) => setFormData(prev => ({ ...prev, cpf: value }))} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">RG</label><input name="rg" value={formData.rg || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">Data de Nascimento</label><input type="date" name="birth_date" value={formData.birth_date || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
-                            <div><label className="block text-sm font-medium">Estado Civil</label><input name="estado_civil" value={formData.estado_civil || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">Nacionalidade</label><input name="nacionalidade" value={formData.nacionalidade || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">Cargo</label><input name="cargo" value={formData.cargo || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                         </>
@@ -336,49 +294,56 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                 </div>
             </fieldset>
             
-            <fieldset className="border p-4 rounded-md">
-                <legend className="text-lg font-semibold text-gray-700">Classificação do Contato</legend>
-                <div className="mt-4">
-                    <label className="block text-sm font-medium">Tipo de Contato</label>
-                    <select
-                        name="tipo_contato"
-                        value={formData.tipo_contato || 'Lead'}
-                        onChange={handleChange}
-                        className="w-full p-2 border rounded-md"
-                    >
-                        <option value="Lead">Lead</option>
-                        <option value="Cliente">Cliente</option>
-                        <option value="Fornecedor">Fornecedor</option>
-                        <option value="Parceiro">Parceiro</option>
-                    </select>
-                </div>
-            </fieldset>
+            {formData.personalidade_juridica === 'Pessoa Física' && (
+                <fieldset className="border p-4 rounded-md">
+                    <legend className="text-lg font-semibold text-gray-700">Dados Civis e Cônjuge</legend>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label className="block text-sm font-medium">Estado Civil</label>
+                            <select name="estado_civil" value={formData.estado_civil || ''} onChange={handleChange} className="w-full p-2 border rounded-md">
+                                <option value="">Selecione...</option>
+                                <option>Solteiro(a)</option>
+                                <option>Casado(a)</option>
+                                <option>Divorciado(a)</option>
+                                <option>Viúvo(a)</option>
+                                <option>União Estável</option>
+                            </select>
+                        </div>
+                        {['Casado(a)', 'União Estável'].includes(formData.estado_civil) && (
+                           <div>
+                                <label className="block text-sm font-medium">Regime de Bens</label>
+                                <input name="regime_bens" value={formData.regime_bens || ''} onChange={handleChange} className="w-full p-2 border rounded-md" />
+                            </div>
+                        )}
+                    </div>
+                    {['Casado(a)', 'União Estável'].includes(formData.estado_civil) && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 border-t pt-4">
+                            <h4 className="text-md font-medium md:col-span-2">Informações do Cônjuge / Companheiro(a)</h4>
+                            <div><label className="block text-sm font-medium">Nome Completo</label><input name="nome" value={formData.dados_conjuge.nome || ''} onChange={handleConjugeChange} className="w-full p-2 border rounded-md" /></div>
+                            <div><label className="block text-sm font-medium">CPF</label><IMaskInput mask="000.000.000-00" name="cpf" value={formData.dados_conjuge.cpf || ''} onAccept={(value) => handleConjugeChange({ target: { name: 'cpf', value } })} className="w-full p-2 border rounded-md" /></div>
+                            <div><label className="block text-sm font-medium">RG</label><input name="rg" value={formData.dados_conjuge.rg || ''} onChange={handleConjugeChange} className="w-full p-2 border rounded-md" /></div>
+                        </div>
+                    )}
+                </fieldset>
+            )}
 
             <fieldset className="border p-4 rounded-md">
-                <legend className="text-lg font-semibold text-gray-700">Contatos</legend>
+                <legend className="text-lg font-semibold text-gray-700">Classificação e Contato</legend>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label className="block text-sm font-medium">Tipo de Contato</label>
+                        <select name="tipo_contato" value={formData.tipo_contato || 'Lead'} onChange={handleChange} className="w-full p-2 border rounded-md">
+                            <option value="Lead">Lead</option> <option value="Cliente">Cliente</option> <option value="Fornecedor">Fornecedor</option> <option value="Parceiro">Parceiro</option>
+                        </select>
+                    </div>
+                </div>
                 <div className="space-y-3 mt-4">
                     <h4 className="text-md font-medium">Telefones</h4>
-                    {formData.telefones.map((tel, index) => (
-                        <DynamicInputRow key={index} item={tel} index={index} onUpdate={(i, field, value) => handleDynamicInputChange('telefones', i, field, value)} onRemove={() => handleRemoveDynamicInput('telefones', index)} isPhone={true} countries={countries}/>
-                    ))}
-                    <button type="button" onClick={() => handleAddDynamicInput('telefones', { telefone: '', country_code: '+55' })} className="text-blue-600 hover:text-blue-800 flex items-center gap-2 text-sm">
-                        <FontAwesomeIcon icon={faPlusCircle} /> Adicionar Telefone
-                    </button>
+                    {formData.telefones.map((tel, index) => (<DynamicInputRow key={index} item={tel} index={index} onUpdate={(i, field, value) => handleDynamicInputChange('telefones', i, field, value)} onRemove={() => handleRemoveDynamicInput('telefones', index)} isPhone={true} countries={countries}/>))}
+                    <button type="button" onClick={() => handleAddDynamicInput('telefones', { telefone: '', country_code: '+55' })} className="text-blue-600 hover:text-blue-800 flex items-center gap-2 text-sm"><FontAwesomeIcon icon={faPlusCircle} /> Adicionar Telefone</button>
                     <h4 className="text-md font-medium mt-6">E-mails</h4>
-                    {formData.emails.map((mail, index) => (
-                        <DynamicInputRow key={index} item={mail} index={index} onUpdate={(i, field, value) => handleDynamicInputChange('emails', i, field, value)} onRemove={() => handleRemoveDynamicInput('emails', index)} isPhone={false} countries={countries} />
-                    ))}
-                    <button type="button" onClick={() => handleAddDynamicInput('emails', { email: '' })} className="text-blue-600 hover:text-blue-800 flex items-center gap-2 text-sm">
-                        <FontAwesomeIcon icon={faPlusCircle} /> Adicionar E-mail
-                    </button>
-                </div>
-            </fieldset>
-
-            <fieldset className="border p-4 rounded-md">
-                <legend className="text-lg font-semibold text-gray-700">Informações Adicionais</legend>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div><label className="block text-sm font-medium">Empresa Associada</label><select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="w-full p-2 border rounded-md"><option value="">Nenhuma</option>{companies.map(company => (<option key={company.id} value={company.id}>{company.razao_social}</option>))}</select></div>
-                    <div><label className="block text-sm font-medium">Observações</label><textarea name="observations" value={formData.observations || ''} onChange={handleChange} rows="3" className="w-full p-2 border rounded-md"></textarea></div>
+                    {formData.emails.map((mail, index) => (<DynamicInputRow key={index} item={mail} index={index} onUpdate={(i, field, value) => handleDynamicInputChange('emails', i, field, value)} onRemove={() => handleRemoveDynamicInput('emails', index)} isPhone={false} countries={countries} />))}
+                    <button type="button" onClick={() => handleAddDynamicInput('emails', { email: '' })} className="text-blue-600 hover:text-blue-800 flex items-center gap-2 text-sm"><FontAwesomeIcon icon={faPlusCircle} /> Adicionar E-mail</button>
                 </div>
             </fieldset>
 
@@ -392,6 +357,14 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                     <div className="md:col-span-2"><label className="block text-sm font-medium">Bairro</label><input name="neighborhood" value={formData.neighborhood || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                     <div className="md:col-span-4"><label className="block text-sm font-medium">Cidade</label><input name="city" value={formData.city || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                     <div className="md:col-span-2"><label className="block text-sm font-medium">Estado (UF)</label><input name="state" value={formData.state || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                </div>
+            </fieldset>
+
+             <fieldset className="border p-4 rounded-md">
+                <legend className="text-lg font-semibold text-gray-700">Informações Adicionais</legend>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div><label className="block text-sm font-medium">Empresa Associada</label><select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="w-full p-2 border rounded-md"><option value="">Nenhuma</option>{companies.map(company => (<option key={company.id} value={company.id}>{company.razao_social}</option>))}</select></div>
+                    <div><label className="block text-sm font-medium">Observações</label><textarea name="observations" value={formData.observations || ''} onChange={handleChange} rows="3" className="w-full p-2 border rounded-md"></textarea></div>
                 </div>
             </fieldset>
 

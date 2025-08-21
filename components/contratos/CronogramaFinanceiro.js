@@ -1,3 +1,4 @@
+// components/contratos/CronogramaFinanceiro.js
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -5,12 +6,16 @@ import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 // --- CORREÇÃO APLICADA AQUI ---
-import { faPlus, faTrash, faSpinner, faSave, faFileInvoiceDollar, faExclamationTriangle, faPen, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faPlus, faTrash, faSpinner, faSave, faFileInvoiceDollar, 
+    faExclamationTriangle, faPen, faTimes 
+} from '@fortawesome/free-solid-svg-icons';
 
 // Funções auxiliares de formatação
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 const formatDateForInput = (dateStr) => {
     if (!dateStr) return '';
+    // Garante que a data seja tratada como UTC para evitar problemas de fuso horário
     return new Date(dateStr + 'T00:00:00Z').toISOString().split('T')[0];
 };
 
@@ -47,7 +52,7 @@ export default function CronogramaFinanceiro({ contratoId, initialParcelas, valo
             toast.success("Parcela adicionada com sucesso!");
             setParcelas(prev => [...prev, data]);
             setNewParcela({ descricao: '', tipo: 'Adicional', data_vencimento: '', valor_parcela: '' });
-            onUpdate();
+            onUpdate(); // Atualiza o componente pai
         }
         setLoading(false);
     };
@@ -111,6 +116,7 @@ export default function CronogramaFinanceiro({ contratoId, initialParcelas, valo
                     <tbody className="bg-white divide-y">
                         {parcelas.map(p => (
                             editingRowId === p.id ? (
+                                // Linha em modo de edição
                                 <tr key={p.id} className="bg-yellow-50">
                                     <td className="p-2"><input type="text" value={editingData.descricao} onChange={e => setEditingData({...editingData, descricao: e.target.value})} className="w-full p-1 border rounded" /></td>
                                     <td className="p-2"><input type="text" value={editingData.tipo} onChange={e => setEditingData({...editingData, tipo: e.target.value})} className="w-full p-1 border rounded" /></td>
@@ -128,6 +134,7 @@ export default function CronogramaFinanceiro({ contratoId, initialParcelas, valo
                                     </td>
                                 </tr>
                             ) : (
+                                // Linha em modo de visualização
                                 <tr key={p.id}>
                                     <td className="px-4 py-2">{p.descricao}</td>
                                     <td className="px-4 py-2">{p.tipo}</td>
@@ -141,6 +148,7 @@ export default function CronogramaFinanceiro({ contratoId, initialParcelas, valo
                                 </tr>
                             )
                         ))}
+                        {/* Linha para adicionar nova parcela */}
                         <tr>
                             <td className="p-2"><input type="text" placeholder="Descrição" value={newParcela.descricao} onChange={e => setNewParcela({...newParcela, descricao: e.target.value})} className="w-full p-1 border rounded"/></td>
                             <td className="p-2">
