@@ -17,7 +17,6 @@ import ContratoAnexos from './ContratoAnexos';
 
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
-// Componente de Destaque de Texto (sem alterações)
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
     const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -25,7 +24,6 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     return (<span>{parts.map((part, i) => regex.test(part) ? <mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark> : <span key={i}>{part}</span>)}</span>);
 };
 
-// Componente de Busca de Contato (sem alterações)
 const ContatoSearch = ({ label, tipo, contatosList, selectedId, onSelect, onSave, onClear }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -202,7 +200,6 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                             <ContatoSearch label="Corretor" tipo="corretor" contatosList={allContatos} selectedId={contrato.corretor_id} onSelect={(tipo, id) => handleInputChange('corretor_id', id)} onSave={handleFieldUpdate} onClear={() => handleInputChange('corretor_id', null)} />
                         </div>
                         
-                        {/* --- INÍCIO DA MODIFICAÇÃO --- */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t">
                              <div>
                                 <label className="block text-sm font-medium text-gray-600">Valor Efetivo da Venda</label>
@@ -216,16 +213,16 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                                     className="mt-1 w-full p-2 border rounded-md font-semibold"
                                 />
                             </div>
+                            {/* --- CAMPO DE DATA DE CELEBRAÇÃO REMOVIDO E DATA DA VENDA ADICIONADO --- */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-600">Data de Celebração</label>
-                                <input type="date" value={contrato.data_celebracao || ''} onChange={(e) => handleInputChange('data_celebracao', e.target.value)} onBlur={() => handleFieldUpdate('data_celebracao', contrato.data_celebracao)} className="mt-1 w-full p-2 border rounded-md" />
+                                <label className="block text-sm font-medium text-gray-600">Data da Venda</label>
+                                <input type="date" value={contrato.data_venda || ''} onChange={(e) => handleInputChange('data_venda', e.target.value)} onBlur={() => handleFieldUpdate('data_venda', contrato.data_venda)} className="mt-1 w-full p-2 border rounded-md" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-600">Índice de Reajuste</label>
                                 <input type="text" value={contrato.indice_reajuste || ''} onChange={(e) => handleInputChange('indice_reajuste', e.target.value)} onBlur={() => handleFieldUpdate('indice_reajuste', contrato.indice_reajuste)} className="mt-1 w-full p-2 border rounded-md" placeholder="Ex: INCC"/>
                             </div>
                         </div>
-                        {/* --- FIM DA MODIFICAÇÃO --- */}
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t">
                              <div>

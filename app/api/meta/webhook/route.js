@@ -3,17 +3,72 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Função para criar um cliente Supabase
 const getSupabaseAdmin = () => {
-    // --- CORREÇÃO APLICADA AQUI ---
-    // Padronizando para usar a SERVICE_ROLE_KEY, que é mais segura e apropriada para o servidor.
-    console.log("LOG: Tentando criar cliente Supabase. URL existe:", !!process.env.NEXT_PUBLIC_SUPABASE_URL, "Service Key existe:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
         console.error("LOG: ERRO CRÍTICO - Variáveis de ambiente do Supabase não encontradas!");
         return null;
     }
     return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 };
+
+// --- INÍCIO DA NOVA LÓGICA INTELIGENTE ---
+// Esta função garante que o funil e a primeira coluna existam, criando-os se necessário.
+async function ensureFunilAndFirstColumn(supabase) {
+    // 1. Tenta encontrar o funil de vendas padrão.
+    let { data: funil, error: funilFindError } = await supabase
+        .from('funis')
+        .select('id')
+        .eq('nome', 'Funil de Vendas')
+        .single();
+
+    if (funilFindError && funilFindError.code !== 'PGRST116') { // PGRST116 = not found, o que é ok
+        throw new Error(`Erro ao buscar funil: ${funilFindError.message}`);
+    }
+
+    // 2. Se o funil não existir, cria um novo.
+    if (!funil) {
+        console.log("LOG: Funil de Vendas não encontrado. Criando um novo...");
+        const { data: newFunil, error: funilCreateError } = await supabase
+            .from('funis')
+            .insert({ nome: 'Funil de Vendas' })
+            .select('id')
+            .single();
+        if (funilCreateError) throw new Error(`Erro ao criar funil: ${funilCreateError.message}`);
+        funil = newFunil;
+        console.log(`LOG: Funil criado com ID: ${funil.id}`);
+    }
+
+    // 3. Tenta encontrar a primeira coluna do funil.
+    let { data: primeiraColuna, error: colunaFindError } = await supabase
+        .from('colunas_funil')
+        .select('id')
+        .eq('funil_id', funil.id)
+        .order('ordem', { ascending: true })
+        .limit(1)
+        .single();
+
+    if (colunaFindError && colunaFindError.code !== 'PGRST116') {
+        throw new Error(`Erro ao buscar coluna: ${colunaFindError.message}`);
+    }
+
+    // 4. Se a coluna não existir, cria uma nova chamada "Novos Leads".
+    if (!primeiraColuna) {
+        console.log("LOG: Primeira coluna do funil não encontrada. Criando 'Novos Leads'...");
+        const { data: newColuna, error: colunaCreateError } = await supabase
+            .from('colunas_funil')
+            .insert({ funil_id: funil.id, nome: 'Novos Leads', ordem: 0 })
+            .select('id')
+            .single();
+        if (colunaCreateError) throw new Error(`Erro ao criar coluna: ${colunaCreateError.message}`);
+        primeiraColuna = newColuna;
+        console.log(`LOG: Coluna criada com ID: ${primeiraColuna.id}`);
+    }
+
+    // 5. Retorna o ID da coluna que garantidamente existe.
+    return primeiraColuna.id;
+}
+// --- FIM DA NOVA LÓGICA INTELIGENTE ---
+
 
 // Rota GET para verificação (sem alterações)
 export async function GET(request) {
@@ -33,7 +88,7 @@ export async function GET(request) {
     }
 }
 
-// Rota POST para receber os leads (lógica interna sem alterações)
+// Rota POST para receber os leads (lógica principal atualizada)
 export async function POST(request) {
     console.log("LOG: [INÍCIO] Requisição POST recebida no webhook da Meta.");
     
@@ -125,16 +180,21 @@ export async function POST(request) {
         if (telefoneLimpo) await supabase.from('telefones').insert({ contato_id: contatoId, telefone: telefoneLimpo, tipo: 'Celular' });
         console.log("LOG: Email e telefone associados ao novo contato.");
         
-        console.log(`LOG: Adicionando contato ${contatoId} ao funil.`);
-        const { data: funil } = await supabase.from('funis').select('id').order('created_at').limit(1).single();
-        if (funil) {
-            const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem', { ascending: true }).limit(1).single();
-            if (primeiraColuna) {
-                const { error: funilError } = await supabase.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: primeiraColuna.id });
-                if (funilError) console.error('LOG: ERRO ao adicionar contato ao funil:', funilError);
-                else console.log('LOG: SUCESSO! Contato adicionado ao funil!');
-            } else console.error("LOG: ERRO - Nenhuma coluna encontrada para o funil ID:", funil.id);
-        } else console.error("LOG: ERRO - Nenhum funil encontrado no sistema.");
+        // --- LÓGICA ATUALIZADA AQUI ---
+        // Agora, usamos a função inteligente para garantir que o funil e a coluna existam
+        console.log(`LOG: Garantindo a existência do funil e da coluna para adicionar o contato ${contatoId}...`);
+        const primeiraColunaId = await ensureFunilAndFirstColumn(supabase);
+        
+        const { error: funilError } = await supabase
+            .from('contatos_no_funil')
+            .insert({ contato_id: contatoId, coluna_id: primeiraColunaId });
+            
+        if (funilError) {
+            console.error('LOG: ERRO ao adicionar contato ao funil:', funilError);
+        } else {
+            console.log('LOG: SUCESSO! Contato adicionado ao funil!');
+        }
+        // --- FIM DA LÓGICA ATUALIZADA ---
 
         console.log("LOG: [FIM] Processamento do webhook concluído com sucesso.");
         return NextResponse.json({ status: 'success' }, { status: 200 });
