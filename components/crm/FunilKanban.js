@@ -6,7 +6,6 @@ import ContatoCardCRM from './ContatoCardCRM';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
 
-// Componente AddColumn (sem alterações)
 const AddColumn = ({ onCreate }) => {
     const [isCreating, setIsCreating] = useState(false);
     const [newColumnName, setNewColumnName] = useState("");
@@ -64,12 +63,14 @@ export default function FunilKanban({
     onReorderColumns, 
     onOpenNotesModal,
     availableProducts,
-    onAssociateProduct 
+    onAssociateProduct,
+    onCardClick,
+    onAddActivity
 }) { 
     
     const [editingColumnId, setEditingColumnId] = useState(null);
     const [editedColumnName, setEditedColumnName] = useState("");
-    const [draggedItem, setDraggedItem] = useState(null); // Estado para saber o que está sendo arrastado
+    const [draggedItem, setDraggedItem] = useState(null);
 
     const handleDragStart = (e, item, type) => {
         e.stopPropagation();
@@ -85,14 +86,12 @@ export default function FunilKanban({
         e.preventDefault();
     };
 
-    // --- LÓGICA DE SOLTAR (DROP) CORRIGIDA E CENTRALIZADA ---
     const handleDrop = (e, targetColumn) => {
         e.preventDefault();
         e.stopPropagation();
 
         if (!draggedItem) return;
 
-        // Caso 1: Reordenando uma coluna
         if (draggedItem.type === 'column' && draggedItem.item.id !== targetColumn.id) {
             const draggedColumnId = draggedItem.item.id;
             const targetColumnId = targetColumn.id;
@@ -110,12 +109,11 @@ export default function FunilKanban({
             onReorderColumns(reorderedWithNewOrder);
         }
         
-        // Caso 2: Movendo um card para uma nova coluna
         if (draggedItem.type === 'card' && draggedItem.item.coluna_id !== targetColumn.id) {
             onStatusChange(draggedItem.item.id, targetColumn.id);
         }
 
-        setDraggedItem(null); // Limpa o item arrastado
+        setDraggedItem(null);
     };
 
     const handleEditClick = (coluna) => {
@@ -213,6 +211,8 @@ export default function FunilKanban({
                                 onOpenNotesModal={onOpenNotesModal}
                                 availableProducts={availableProducts}
                                 onAssociateProduct={onAssociateProduct}
+                                onCardClick={onCardClick}
+                                onAddActivity={onAddActivity}
                             />
                         ))}
                     </div>

@@ -12,8 +12,10 @@ import { toast } from 'sonner';
 import FunilKanban from '@/components/crm/FunilKanban';
 import WhatsAppChatManager from '@/components/WhatsAppChatManager';
 import CrmNotesModal from '@/components/crm/CrmNotesModal';
+import CrmDetalhesSidebar from '@/components/crm/CrmDetalhesSidebar';
+import AtividadeModal from '@/components/AtividadeModal';
 
-// --- NOVO COMPONENTE DE DESTAQUE ---
+
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) {
         return <span>{text}</span>;
@@ -35,14 +37,13 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     );
 };
 
-// --- MODAL DE ADICIONAR CONTATO ATUALIZADO ---
 const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, existingContactIds }) => {
     const [searchTerm, setSearchTerm] = useState('');
     
     const handleInputChange = (e) => {
         const term = e.target.value;
         setSearchTerm(term);
-        onSearch(term); // Chama a busca a cada letra digitada
+        onSearch(term);
     };
 
     if (!isOpen) return null;
@@ -116,6 +117,25 @@ export default function CrmPage() {
 
     const [availableProducts, setAvailableProducts] = useState([]);
     
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [selectedContactForSidebar, setSelectedContactForSidebar] = useState(null);
+    const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+    const [contactForNewActivity, setContactForNewActivity] = useState(null);
+    const [funcionarios, setFuncionarios] = useState([]);
+    const [empresas, setEmpresas] = useState([]);
+    const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
+
+    const fetchActivityModalData = useCallback(async () => {
+        const { data: funcData } = await supabase.from('funcionarios').select('id, full_name').order('full_name');
+        setFuncionarios(funcData || []);
+        const { data: empresasData } = await supabase.from('cadastro_empresa').select('id, razao_social').order('razao_social');
+        setEmpresas(empresasData || []);
+    }, [supabase]);
+
+    useEffect(() => {
+        fetchActivityModalData();
+    }, [fetchActivityModalData]);
+    
     const fetchAvailableProducts = useCallback(async () => {
         let query = supabase
             .from('produtos_empreendimento')
@@ -153,10 +173,9 @@ export default function CrmPage() {
             
             let currentFunilId = funilData?.id;
             if (!currentFunilId) {
-                const response = await fetch('/api/crm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ empreendimentoId: 'default' }) });
-                const newFunnel = await response.json();
-                if (!response.ok) throw new Error(`Falha ao criar funil padrão: ${newFunnel.error || 'Erro desconhecido'}`);
-                currentFunilId = newFunnel.id;
+                const { data: newFunil, error: createError } = await supabase.from('funis').insert({ nome: 'Funil de Vendas' }).select().single();
+                if(createError) throw createError;
+                currentFunilId = newFunil.id;
             }
             setFunilId(currentFunilId);
 
@@ -172,7 +191,7 @@ export default function CrmPage() {
                     .select(`
                         id, coluna_id, numero_card, produto_id, 
                         produto:produto_id(id, unidade, tipo, valor_venda_calculado, empreendimento_id),
-                        contatos:contato_id (id, nome, razao_social, created_at, origem, telefones ( telefone, tipo ), whatsapp_messages (content, sent_at, direction))
+                        contatos:contato_id ( *, telefones ( telefone, tipo ), emails(email, tipo), whatsapp_messages (content, sent_at, direction))
                     `)
                     .in('coluna_id', colunaIds);
 
@@ -271,51 +290,30 @@ export default function CrmPage() {
         const channel = supabase.channel('whatsapp_messages_global_listener')
             .on(
                 'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'whatsapp_messages',
-                    filter: 'direction=eq.inbound'
-                },
+                { event: 'INSERT', schema: 'public', table: 'whatsapp_messages', filter: 'direction=eq.inbound' },
                 (payload) => {
                     const newMessage = payload.new;
                     const contactId = newMessage.contato_id;
-
-                    if (contactId === currentlyOpenContactId) {
-                        return;
-                    }
-
+                    if (contactId === currentlyOpenContactId) return;
                     notificationSoundRef.current?.play().catch(e => console.error("Erro ao tocar som:", e));
-                    
                     setContatosWhatsapp(prevContatos => {
                         let contactExists = false;
                         const updatedContatos = prevContatos.map(c => {
                             if (c.id === contactId) {
                                 contactExists = true;
-                                return {
-                                    ...c,
-                                    unread_count: (c.unread_count || 0) + 1,
-                                    last_whatsapp_message: newMessage.content,
-                                    last_whatsapp_message_time: newMessage.sent_at,
-                                };
+                                return { ...c, unread_count: (c.unread_count || 0) + 1, last_whatsapp_message: newMessage.content, last_whatsapp_message_time: newMessage.sent_at };
                             }
                             return c;
                         });
-                        
-                        if (!contactExists) {
-                           fetchWhatsappData();
-                        }
-
+                        if (!contactExists) fetchWhatsappData();
                         return updatedContatos.sort((a, b) => {
                             const dateA = a.last_whatsapp_message_time ? new Date(a.last_whatsapp_message_time).getTime() : 0;
                             const dateB = b.last_whatsapp_message_time ? new Date(b.last_whatsapp_message_time).getTime() : 0;
                             return dateB - dateA;
                         });
                     });
-
                     const contact = contatosWhatsapp.find(c => c.id === contactId);
                     const contactName = contact?.nome || contact?.razao_social || `Contato ${contactId}`;
-                    
                     toast.info(
                         <div className="flex items-center gap-3">
                             <FontAwesomeIcon icon={faBell} className="text-blue-500" />
@@ -337,17 +335,8 @@ export default function CrmPage() {
 
     const handleMarkAsRead = useCallback(async (contactId) => {
         setCurrentlyOpenContactId(contactId);
-
-        setContatosWhatsapp(prev =>
-            prev.map(c => c.id === contactId ? { ...c, unread_count: 0 } : c)
-        );
-
-        const { error } = await supabase
-            .from('whatsapp_messages')
-            .update({ is_read: true })
-            .eq('contato_id', contactId)
-            .eq('is_read', false);
-
+        setContatosWhatsapp(prev => prev.map(c => c.id === contactId ? { ...c, unread_count: 0 } : c));
+        const { error } = await supabase.from('whatsapp_messages').update({ is_read: true }).eq('contato_id', contactId).eq('is_read', false);
         if (error) {
             console.error("Erro ao marcar mensagens como lidas:", error);
             toast.error("Não foi possível marcar as mensagens como lidas.");
@@ -355,33 +344,24 @@ export default function CrmPage() {
         }
     }, [supabase, fetchWhatsappData]);
     
-
     const openAddContactModal = () => {
         setSearchResults([]);
         setIsAddContactModalOpen(true); 
     };
 
     const handleSearch = useCallback(async (term) => {
-        if (!term.trim() || term.length < 2) {
-            setSearchResults([]);
-            return;
-        }
-        const { data, error } = await supabase.rpc('buscar_contatos_geral', {
-            p_search_term: term
-        });
-            
-        if (error) {
-            console.error("Erro na busca via RPC:", error);
-            toast.error("Erro ao buscar contatos.");
-        }
+        if (!term.trim() || term.length < 2) { setSearchResults([]); return; }
+        const { data, error } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term });
+        if (error) { console.error("Erro na busca via RPC:", error); toast.error("Erro ao buscar contatos."); }
         setSearchResults(data || []);
     }, [supabase]);
 
     const handleAddContactToFunnel = async (contactId) => {
         try {
-            const response = await fetch('/api/crm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contatoIdParaFunil: contactId, funilId: funilId }), });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || "Erro desconhecido ao adicionar contato ao funil.");
+            const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).order('ordem').limit(1).single();
+            if (!primeiraColuna) throw new Error("Coluna inicial não encontrada.");
+            const { error } = await supabase.from('contatos_no_funil').insert({ contato_id: contactId, coluna_id: primeiraColuna.id });
+            if (error) throw new Error(error.message);
             setIsAddContactModalOpen(false); 
             toast.success('Contato adicionado ao funil com sucesso!');
             fetchFunilData();
@@ -392,24 +372,10 @@ export default function CrmPage() {
     };
     
     const handleAssociateProduct = async (contatoNoFunilId, produtoId) => {
-        setContatosNoFunil(prev =>
-            prev.map(c =>
-                c.id === contatoNoFunilId ? { ...c, produto_id: produtoId, produto: availableProducts.find(p => p.id === produtoId) } : c
-            )
-        );
-
-        const { error } = await supabase
-            .from('contatos_no_funil')
-            .update({ produto_id: produtoId })
-            .eq('id', contatoNoFunilId);
-
-        if (error) {
-            toast.error("Falha ao associar produto. Revertendo...");
-            console.error(error);
-            fetchFunilData();
-        } else {
-            toast.success("Produto associado com sucesso!");
-        }
+        setContatosNoFunil(prev => prev.map(c => c.id === contatoNoFunilId ? { ...c, produto_id: produtoId, produto: availableProducts.find(p => p.id === produtoId) } : c));
+        const { error } = await supabase.from('contatos_no_funil').update({ produto_id: produtoId }).eq('id', contatoNoFunilId);
+        if (error) { toast.error("Falha ao associar produto. Revertendo..."); console.error(error); fetchFunilData(); }
+        else { toast.success("Produto associado com sucesso!"); }
     };
 
     const handleStatusChange = async (contatoNoFunilId, novaColunaId) => {
@@ -478,6 +444,26 @@ export default function CrmPage() {
     const handleReorderColumns = async (reorderedColumns) => { setColunasDoFunil(reorderedColumns); try { const response = await fetch('/api/crm', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reorderColumns: reorderedColumns, funilId: funilId }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error); toast.success('Ordem atualizada!'); fetchFunilData(); } catch (e) { toast.error(`Erro: ${e.message}`); }};
     const handleOpenNotesModal = (funilEntryId, contatoGeneralId) => { setCurrentContactFunilIdForNotes(funilEntryId); setCurrentContactIdForNotes(contatoGeneralId); setIsNotesModalOpen(true); };
 
+    const handleCardClick = (contato) => {
+        setSelectedContactForSidebar(contato);
+        setIsSidebarOpen(true);
+    };
+
+    const handleCloseSidebar = () => {
+        setIsSidebarOpen(false);
+        setSelectedContactForSidebar(null);
+    };
+
+    const handleOpenActivityModal = (contato) => {
+        setContactForNewActivity(contato);
+        setIsActivityModalOpen(true);
+    };
+
+    const handleCloseActivityModal = () => {
+        setIsActivityModalOpen(false);
+        setContactForNewActivity(null);
+    };
+    
     const tabStyle = "px-6 py-3 text-sm font-semibold transition-colors duration-200 focus:outline-none";
     const activeTabStyle = "bg-white text-blue-600 border-b-2 border-blue-500";
     const inactiveTabStyle = "text-gray-600 hover:text-gray-800";
@@ -485,6 +471,31 @@ export default function CrmPage() {
     return (
         <div className="h-full flex flex-col bg-gray-100">
             <audio ref={notificationSoundRef} src="/sounds/notification.mp3" preload="auto" />
+            
+            <CrmDetalhesSidebar 
+                open={isSidebarOpen}
+                onClose={handleCloseSidebar}
+                contato={selectedContactForSidebar}
+                onAddActivity={handleOpenActivityModal}
+                refreshKey={sidebarRefreshKey}
+            />
+
+            {isActivityModalOpen && (
+                <AtividadeModal
+                    isOpen={isActivityModalOpen}
+                    onClose={handleCloseActivityModal}
+                    onActivityAdded={() => {
+                        toast.success("Atividade adicionada!");
+                        if (isSidebarOpen) {
+                            setSidebarRefreshKey(prev => prev + 1);
+                        }
+                    }}
+                    activityToEdit={null}
+                    initialContatoId={contactForNewActivity?.id}
+                    funcionarios={funcionarios}
+                    allEmpresas={empresas}
+                />
+            )}
             
             <div className="flex-shrink-0 bg-white shadow-sm">
                 <div className="flex justify-between items-center p-4">
@@ -529,6 +540,8 @@ export default function CrmPage() {
                             onOpenNotesModal={handleOpenNotesModal}
                             availableProducts={availableProducts}
                             onAssociateProduct={handleAssociateProduct}
+                            onCardClick={handleCardClick}
+                            onAddActivity={handleOpenActivityModal}
                         />
                     )
                 )}
