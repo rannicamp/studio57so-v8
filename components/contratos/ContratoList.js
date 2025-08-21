@@ -26,10 +26,12 @@ export default function ContratoList({ initialContratos }) {
         });
     }, [contratos, searchTerm]);
     
-    const formatDate = (dateString) => new Date(dateString).toLocaleDateString('pt-BR');
+    const formatDate = (dateString) => {
+      if (!dateString) return 'N/A';
+      return new Date(dateString + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    };
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-    // --- INÍCIO DA CORREÇÃO ---
     // Nova função para lidar com a exclusão
     const handleDelete = async (e, contratoParaExcluir) => {
         e.stopPropagation(); // Impede que o clique navegue para a página de detalhes
@@ -52,7 +54,6 @@ export default function ContratoList({ initialContratos }) {
             error: (err) => `Erro ao excluir: ${err.message}`
         });
     };
-    // --- FIM DA CORREÇÃO ---
 
     return (
         <div className="space-y-4">
@@ -86,7 +87,6 @@ export default function ContratoList({ initialContratos }) {
                                 <td className="px-6 py-4 whitespace-nowrap">{formatDate(contrato.data_venda)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right font-semibold">{formatCurrency(contrato.valor_final_venda)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-center">
-                                    {/* --- INÍCIO DA CORREÇÃO --- */}
                                     <div className="flex items-center justify-center gap-4">
                                         <button onClick={() => router.push(`/contratos/${contrato.id}`)} className="text-blue-600 hover:text-blue-800" title="Visualizar/Editar Contrato">
                                             <FontAwesomeIcon icon={faEye} />
@@ -95,7 +95,6 @@ export default function ContratoList({ initialContratos }) {
                                             <FontAwesomeIcon icon={faTrash} />
                                         </button>
                                     </div>
-                                    {/* --- FIM DA CORREÇÃO --- */}
                                 </td>
                             </tr>
                         ))}

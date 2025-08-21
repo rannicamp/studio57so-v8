@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '../../../../utils/supabase/client';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
-import FichaContrato from '../../../../components/contratos/FichaContrato'; // <<< MUDANÇA IMPORTANTE AQUI
+import FichaContrato from '../../../../components/contratos/FichaContrato';
 
 export default function ContratoPage() {
     const params = useParams();
+    const router = useRouter();
     const supabase = createClient();
     
     const [contrato, setContrato] = useState(null);
@@ -20,6 +21,7 @@ export default function ContratoPage() {
         if (!params.id) return;
         setLoading(true);
         
+        // --- CONSULTA ATUALIZADA PARA INCLUIR A SIMULAÇÃO ---
         const { data, error } = await supabase
             .from('contratos')
             .select(`
@@ -28,7 +30,8 @@ export default function ContratoPage() {
                 produto:produto_id (*),
                 empreendimento:empreendimento_id (nome),
                 contrato_parcelas (*),
-                contrato_permutas (*)
+                contrato_permutas (*),
+                simulacao:simulacao_id (*) 
             `)
             .eq('id', params.id)
             .maybeSingle();
@@ -39,6 +42,9 @@ export default function ContratoPage() {
         } else if (!data) {
             setError('Contrato não encontrado.');
         } else {
+            if (data.contrato_parcelas) {
+                data.contrato_parcelas.sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
+            }
             setContrato(data);
         }
         setLoading(false);
