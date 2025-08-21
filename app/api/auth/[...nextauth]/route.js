@@ -21,21 +21,18 @@ export const authOptions = {
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
       authorization: {
         params: {
-          scope: 'email,pages_show_list,leads_retrieval,pages_manage_ads,business_management',
+          // --- CORREÇÃO APLICADA AQUI ---
+          // Adicionamos a nova permissão 'pages_read_engagement' à lista
+          scope: 'email,pages_show_list,leads_retrieval,pages_manage_ads,business_management,pages_read_engagement',
         },
       },
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
-  
-  // --- ALTERAÇÃO AQUI ---
-  // Adicionamos este bloco para controlar as páginas de redirecionamento.
   pages: {
-    signIn: '/', // Se precisar de login, volta para o painel
-    error: '/',  // Se ocorrer um erro (como cancelar), volta para o painel
+    signIn: '/',
+    error: '/',
   },
-  // --- FIM DA ALTERAÇÃO ---
-
   callbacks: {
     async jwt({ token, account }) {
       if (account) {
