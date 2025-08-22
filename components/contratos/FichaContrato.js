@@ -7,16 +7,17 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faFileInvoiceDollar, faFileSignature, faSpinner, faSave, 
     faFileLines, faHandshake, faTimes, faCashRegister, faBuilding,
-    faPlusCircle, faBalanceScale, faHome
+    faPlusCircle, faBalanceScale, faCheckCircle, faCalendarCheck, faDollarSign,
+    faCalculator
 } from '@fortawesome/free-solid-svg-icons';
-import { IMaskInput } from 'react-imask'; // Importando o componente de máscara
+import { IMaskInput } from 'react-imask';
 
-import CronogramaFinanceiro from './CronogramaFinanceiro';
 import ContratoAnexos from './ContratoAnexos';
+import CronogramaFinanceiro from './CronogramaFinanceiro';
 import PlanoPagamentoContrato from './PlanoPagamentoContrato';
 import KpiCard from '../KpiCard';
 
-// Componente de busca de contato (reutilizado internamente)
+// Componente para destacar texto
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
     const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -24,7 +25,7 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     return (<span>{parts.map((part, i) => regex.test(part) ? <mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark> : <span key={i}>{part}</span>)}</span>);
 };
 
-// Componente genérico para campos de busca com opção de limpar
+// Componente para campos de busca
 const SearchableField = ({ label, selectedName, onClear, children }) => {
     return (
         <div>
@@ -49,7 +50,6 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
     const [parcelas, setParcelas] = useState(initialContratoData.contrato_parcelas || []);
     const [activeTab, setActiveTab] = useState('resumo');
     
-    const [allContatos, setAllContatos] = useState([]);
     const [produtosDisponiveis, setProdutosDisponiveis] = useState([]);
     const [loading, setLoading] = useState({});
 
@@ -61,9 +61,6 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
 
     useEffect(() => {
         const fetchRelatedData = async () => {
-            const { data: contatosData } = await supabase.from('contatos').select('id, nome, razao_social').order('nome');
-            setAllContatos(contatosData || []);
-
             if (contrato.empreendimento_id) {
                 const { data: produtosData } = await supabase.from('produtos_empreendimento').select('id, unidade, tipo, valor_venda_calculado').eq('empreendimento_id', contrato.empreendimento_id).eq('status', 'Disponível');
                 setProdutosDisponiveis(produtosData || []);
@@ -86,7 +83,7 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
         const somaTotalParcelas = totalEntrada + totalParcelasObra + totalAdicionais;
         const saldoRemanescente = valorTotal - somaTotalParcelas;
         return { valorTotalContrato: formatCurrency(valorTotal), totalEntrada: formatCurrency(totalEntrada), totalParcelasObra: formatCurrency(totalParcelasObra), totalAdicionais: formatCurrency(totalAdicionais), saldoRemanescente: formatCurrency(saldoRemanescente) };
-    }, [contrato]);
+    }, [contrato, formatCurrency]);
 
     const handleFieldUpdate = async (fieldName, value) => {
         setLoading(prev => ({...prev, [fieldName]: true}));
@@ -99,7 +96,7 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
     const handleProductChange = async (newProductId) => {
         const originalProductId = contrato.produto_id;
         const newProduct = produtosDisponiveis.find(p => p.id.toString() === newProductId);
-        if (!newProduct || !originalProductId) return;
+        if (!newProduct || !originalProductId || newProductId == originalProductId) return;
 
         toast.promise(
             new Promise(async (resolve, reject) => {
@@ -124,11 +121,20 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
         setSearchResults(prev => ({ ...prev, [type]: data || [] }));
     }, [supabase]);
 
+    // --- INÍCIO DA CORREÇÃO ---
     const handleSelectContato = (type, contato) => {
         const fieldName = type === 'comprador' ? 'contato_id' : 'corretor_id';
+        // Apenas inicia o salvamento e limpa a lista de resultados.
+        // O nome no campo será atualizado pela recarga de dados do `onUpdate`.
         handleFieldUpdate(fieldName, contato.id);
-        setSearchTerms(prev => ({ ...prev, [type]: '' }));
         setSearchResults(prev => ({ ...prev, [type]: [] }));
+        setSearchTerms(prev => ({ ...prev, [type]: '' }));
+    };
+    // --- FIM DA CORREÇÃO ---
+
+     const handleClearContato = (type) => {
+        const fieldName = type === 'comprador' ? 'contato_id' : 'corretor_id';
+        handleFieldUpdate(fieldName, null);
     };
 
     const TabButton = ({ tabId, label, icon }) => (
@@ -146,21 +152,25 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                         <p className="text-gray-600"><strong>Cliente:</strong> <span className={contrato.contato ? 'font-semibold text-gray-800' : 'font-semibold text-red-500'}>{contrato.contato?.nome || contrato.contato?.razao_social || 'NÃO DEFINIDO'}</span></p>
                         <p className="text-gray-600"><strong>Produto:</strong> Unidade {contrato.produto?.unidade} ({contrato.empreendimento?.nome})</p>
                     </div>
+                     <div>
+                         <span className={`px-3 py-1 text-sm font-semibold rounded-full ${contrato.status_contrato === 'Rascunho' ? 'bg-gray-100 text-gray-800' : contrato.status_contrato === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                            {contrato.status_contrato}
+                        </span>
+                    </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <KpiCard title="Valor do Contrato" value={kpiData.valorTotalContrato} icon={faFileSignature} color="blue" />
-                <KpiCard title="Total Entrada" value={kpiData.totalEntrada} icon={faCashRegister} color="green" />
-                <KpiCard title="Total Parcelas (Obra)" value={kpiData.totalParcelasObra} icon={faBuilding} color="yellow" />
-                <KpiCard title="Total Adicionais" value={kpiData.totalAdicionais} icon={faPlusCircle} color="purple" />
-                <KpiCard title="Saldo Remanescente" value={kpiData.saldoRemanescente} icon={faBalanceScale} color="red" />
+                <KpiCard title="Total Pago" value={kpiData.totalPago} icon={faCheckCircle} color="green" />
+                <KpiCard title="Saldo Devedor" value={kpiData.saldoDevedor} icon={faDollarSign} color="yellow" />
+                <KpiCard title="Próxima Parcela" value={kpiData.proximaParcela} icon={faCalendarCheck} color="purple" />
             </div>
 
             <div className="border-b border-gray-200">
                 <nav className="flex gap-4">
                     <TabButton tabId="resumo" label="Resumo da Venda" icon={faHandshake} />
-                    <TabButton tabId="cronograma" label="Cronograma Financeiro" icon={faFileInvoiceDollar} />
+                    <TabButton tabId="cronograma" label="Plano e Cronograma" icon={faFileInvoiceDollar} />
                     <TabButton tabId="documentos" label="Documentos" icon={faFileLines} />
                 </nav>
             </div>
@@ -171,14 +181,22 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                         <h3 className="text-xl font-bold text-gray-800">Detalhes da Venda</h3>
                         
                         <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                             <SearchableField label="Cliente / Comprador" selectedName={contrato.contato?.nome || contrato.contato?.razao_social} onClear={() => handleFieldUpdate('contato_id', null)}>
+                             <SearchableField 
+                                label="Cliente / Comprador" 
+                                selectedName={contrato.contato?.nome || contrato.contato?.razao_social} 
+                                onClear={() => handleClearContato('comprador')}
+                             >
                                 <div className="relative">
                                     <input type="text" value={searchTerms.comprador} onChange={(e) => handleSearchContato('comprador', e.target.value)} placeholder="Buscar cliente..." className="w-full p-2 border rounded-md" />
                                     {searchResults.comprador.length > 0 && <ul className="absolute z-20 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto">{searchResults.comprador.map(c => <li key={c.id} onClick={() => handleSelectContato('comprador', c)} className="p-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={c.nome || c.razao_social} highlight={searchTerms.comprador} /></li>)}</ul>}
                                 </div>
                             </SearchableField>
 
-                            <SearchableField label="Corretor Responsável" selectedName={allContatos.find(c => c.id === contrato.corretor_id)?.nome} onClear={() => handleFieldUpdate('corretor_id', null)}>
+                            <SearchableField 
+                                label="Corretor Responsável" 
+                                selectedName={contrato.corretor?.nome || contrato.corretor?.razao_social} 
+                                onClear={() => handleClearContato('corretor')}
+                            >
                                <div className="relative">
                                     <input type="text" value={searchTerms.corretor} onChange={(e) => handleSearchContato('corretor', e.target.value)} placeholder="Buscar corretor..." className="w-full p-2 border rounded-md" />
                                     {searchResults.corretor.length > 0 && <ul className="absolute z-20 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto">{searchResults.corretor.map(c => <li key={c.id} onClick={() => handleSelectContato('corretor', c)} className="p-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={c.nome || c.razao_social} highlight={searchTerms.corretor} /></li>)}</ul>}
@@ -206,7 +224,6 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                              <div>
                                 <label className="block text-sm font-medium text-gray-600">Valor Efetivo da Venda</label>
                                 <div className="relative">
-                                     {/* ***** INÍCIO DA CORREÇÃO ***** */}
                                      <IMaskInput
                                         mask="R$ num"
                                         blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}}
@@ -217,7 +234,6 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                                         disabled={loading['valor_final_venda']}
                                         className="mt-1 w-full p-2 border rounded-md"
                                     />
-                                     {/* ***** FIM DA CORREÇÃO ***** */}
                                     {loading['valor_final_venda'] && <FontAwesomeIcon icon={faSpinner} spin className="absolute right-3 top-3 text-gray-400"/>}
                                 </div>
                             </div>

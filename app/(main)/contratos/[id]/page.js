@@ -21,12 +21,14 @@ export default function ContratoPage() {
         if (!params.id) return;
         setLoading(true);
         
-        // --- CONSULTA ATUALIZADA PARA INCLUIR A SIMULAÇÃO ---
+        // --- ALTERAÇÃO AQUI ---
+        // Adicionamos a busca pelos dados do corretor.
         const { data, error } = await supabase
             .from('contratos')
             .select(`
                 *,
                 contato:contato_id (*),
+                corretor:corretor_id (*), 
                 produto:produto_id (*),
                 empreendimento:empreendimento_id (nome),
                 contrato_parcelas (*),
