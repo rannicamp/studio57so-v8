@@ -121,6 +121,7 @@ export default function CrmPage() {
     const [selectedContactForSidebar, setSelectedContactForSidebar] = useState(null);
     const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
     const [contactForNewActivity, setContactForNewActivity] = useState(null);
+    const [activityToEdit, setActivityToEdit] = useState(null); // Novo estado para edição
     const [funcionarios, setFuncionarios] = useState([]);
     const [empresas, setEmpresas] = useState([]);
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
@@ -456,12 +457,20 @@ export default function CrmPage() {
 
     const handleOpenActivityModal = (contato) => {
         setContactForNewActivity(contato);
+        setActivityToEdit(null); // Garante que é uma nova atividade
+        setIsActivityModalOpen(true);
+    };
+    
+    const handleEditActivity = (activity) => {
+        setActivityToEdit(activity);
+        setContactForNewActivity(null); // Garante que não está criando uma nova
         setIsActivityModalOpen(true);
     };
 
     const handleCloseActivityModal = () => {
         setIsActivityModalOpen(false);
         setContactForNewActivity(null);
+        setActivityToEdit(null);
     };
     
     const tabStyle = "px-6 py-3 text-sm font-semibold transition-colors duration-200 focus:outline-none";
@@ -478,6 +487,7 @@ export default function CrmPage() {
                 contato={selectedContactForSidebar?.contatos}
                 contatoNoFunilId={selectedContactForSidebar?.id}
                 onAddActivity={handleOpenActivityModal}
+                onEditActivity={handleEditActivity}
             />
 
             {isActivityModalOpen && (
@@ -485,12 +495,12 @@ export default function CrmPage() {
                     isOpen={isActivityModalOpen}
                     onClose={handleCloseActivityModal}
                     onActivityAdded={() => {
-                        toast.success("Atividade adicionada!");
+                        toast.success(`Atividade ${activityToEdit ? 'atualizada' : 'adicionada'}!`);
                         if (isSidebarOpen) {
                             setSidebarRefreshKey(prev => prev + 1);
                         }
                     }}
-                    activityToEdit={null}
+                    activityToEdit={activityToEdit}
                     initialContatoId={contactForNewActivity?.id}
                     funcionarios={funcionarios}
                     allEmpresas={empresas}

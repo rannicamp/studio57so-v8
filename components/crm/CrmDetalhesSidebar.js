@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faStickyNote, faTasks, faSpinner, faPlus, faPhone, faEnvelope, faIdCard, faGlobe } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faStickyNote, faTasks, faSpinner, faPlus, faPhone, faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
@@ -21,7 +21,7 @@ const InfoField = ({ label, value, icon }) => (
     </div>
 );
 
-export default function CrmDetalhesSidebar({ open, onClose, contato, contatoNoFunilId, onAddActivity }) {
+export default function CrmDetalhesSidebar({ open, onClose, contato, contatoNoFunilId, onAddActivity, onEditActivity }) {
     const supabase = createClient();
     const { user } = useAuth();
     const [notes, setNotes] = useState([]);
@@ -85,6 +85,33 @@ export default function CrmDetalhesSidebar({ open, onClose, contato, contatoNoFu
         }
         setSavingNote(false);
     };
+    
+    // --- NOVAS FUNÇÕES ---
+    const handleCompleteActivity = async (activityId) => {
+        const { error } = await supabase
+            .from('activities')
+            .update({ status: 'Concluído', data_fim_real: new Date().toISOString() })
+            .eq('id', activityId);
+        if (error) {
+            toast.error("Erro ao concluir atividade.");
+        } else {
+            toast.success("Atividade concluída!");
+            fetchData(); // Atualiza a lista
+        }
+    };
+
+    const handleDeleteActivity = async (activityId) => {
+        if (window.confirm("Tem certeza que deseja excluir esta atividade?")) {
+            const { error } = await supabase.from('activities').delete().eq('id', activityId);
+            if (error) {
+                toast.error("Erro ao excluir atividade.");
+            } else {
+                toast.success("Atividade excluída.");
+                fetchData(); // Atualiza a lista
+            }
+        }
+    };
+    // --- FIM DAS NOVAS FUNÇÕES ---
 
     if (!open || !contato) return null;
 
@@ -122,9 +149,21 @@ export default function CrmDetalhesSidebar({ open, onClose, contato, contatoNoFu
                                 <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2 bg-gray-50">
                                     {activities.length > 0 ? (
                                         activities.map(act => (
-                                            <div key={act.id} className="p-2 bg-white rounded-md text-sm border">
+                                            <div key={act.id} className="p-2 bg-white rounded-md text-sm border group">
                                                 <p className="font-semibold">{act.nome}</p>
                                                 <p className="text-xs text-gray-500">Prazo: {format(new Date(act.data_fim_prevista), 'dd/MM/yy', { locale: ptBR })} - Status: {act.status}</p>
+                                                {/* --- NOVOS BOTÕES DE AÇÃO --- */}
+                                                <div className="flex items-center justify-end gap-3 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => handleCompleteActivity(act.id)} title="Marcar como Concluída" className="text-green-500 hover:text-green-700 disabled:text-gray-400" disabled={act.status === 'Concluído'}>
+                                                        <FontAwesomeIcon icon={faCheckCircle} />
+                                                    </button>
+                                                    <button onClick={() => onEditActivity(act)} title="Editar Atividade" className="text-blue-500 hover:text-blue-700">
+                                                        <FontAwesomeIcon icon={faPen} />
+                                                    </button>
+                                                    <button onClick={() => handleDeleteActivity(act.id)} title="Excluir Atividade" className="text-red-500 hover:text-red-700">
+                                                        <FontAwesomeIcon icon={faTrash} />
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))
                                     ) : <p className="text-xs text-gray-500 text-center py-4">Nenhuma atividade agendada.</p>}
