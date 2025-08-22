@@ -444,8 +444,8 @@ export default function CrmPage() {
     const handleReorderColumns = async (reorderedColumns) => { setColunasDoFunil(reorderedColumns); try { const response = await fetch('/api/crm', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reorderColumns: reorderedColumns, funilId: funilId }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error); toast.success('Ordem atualizada!'); fetchFunilData(); } catch (e) { toast.error(`Erro: ${e.message}`); }};
     const handleOpenNotesModal = (funilEntryId, contatoGeneralId) => { setCurrentContactFunilIdForNotes(funilEntryId); setCurrentContactIdForNotes(contatoGeneralId); setIsNotesModalOpen(true); };
 
-    const handleCardClick = (contato) => {
-        setSelectedContactForSidebar(contato);
+    const handleCardClick = (funilEntry) => {
+        setSelectedContactForSidebar(funilEntry);
         setIsSidebarOpen(true);
     };
 
@@ -475,9 +475,9 @@ export default function CrmPage() {
             <CrmDetalhesSidebar 
                 open={isSidebarOpen}
                 onClose={handleCloseSidebar}
-                contato={selectedContactForSidebar}
+                contato={selectedContactForSidebar?.contatos}
+                contatoNoFunilId={selectedContactForSidebar?.id}
                 onAddActivity={handleOpenActivityModal}
-                refreshKey={sidebarRefreshKey}
             />
 
             {isActivityModalOpen && (

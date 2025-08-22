@@ -93,7 +93,7 @@ export default function ContatoCardCRM({
         <div
             draggable
             onDragStart={handleCardDragStart}
-            onClick={() => onCardClick(contato)}
+            onClick={() => onCardClick(funilEntry)}
             className="relative bg-white p-3 rounded-md shadow border-l-4 border-blue-500 cursor-pointer hover:shadow-lg transition-shadow duration-200 text-left"
         >
             <div className="flex justify-between items-start mb-2">

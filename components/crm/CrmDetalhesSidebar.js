@@ -21,7 +21,7 @@ const InfoField = ({ label, value, icon }) => (
     </div>
 );
 
-export default function CrmDetalhesSidebar({ open, onClose, contato, onAddActivity }) {
+export default function CrmDetalhesSidebar({ open, onClose, contato, contatoNoFunilId, onAddActivity }) {
     const supabase = createClient();
     const { user } = useAuth();
     const [notes, setNotes] = useState([]);
@@ -63,17 +63,21 @@ export default function CrmDetalhesSidebar({ open, onClose, contato, onAddActivi
     }, [open, fetchData]);
 
     const handleAddNote = async () => {
-        if (!newNoteContent.trim() || !user?.id) return;
+        if (!newNoteContent.trim() || !user?.id || !contatoNoFunilId) {
+            toast.warning("Não é possível adicionar a nota. A referência do funil não foi encontrada.");
+            return;
+        }
         setSavingNote(true);
         
         const { error } = await supabase.from('crm_notas').insert({
             contato_id: contato.id,
             conteudo: newNoteContent,
-            usuario_id: user.id
+            usuario_id: user.id,
+            contato_no_funil_id: contatoNoFunilId
         });
 
         if (error) {
-            toast.error("Falha ao adicionar nota.");
+            toast.error(`Falha ao adicionar nota: ${error.message}`);
         } else {
             toast.success("Nota adicionada.");
             setNewNoteContent('');

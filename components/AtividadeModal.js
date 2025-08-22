@@ -25,7 +25,7 @@ function addBusinessDays(startDate, days) {
     return currentDate.toISOString().split('T')[0];
 }
 
-export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activityToEdit, selectedEmpreendimento, funcionarios, allEmpresas }) {
+export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activityToEdit, selectedEmpreendimento, funcionarios, allEmpresas, initialContatoId }) {
     const supabase = createClient();
     const { empreendimentos: allEmpreendimentos, loading: empreendimentosLoading } = useEmpreendimento();
     const [etapas, setEtapas] = useState([]);
@@ -52,6 +52,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         recorrencia_tipo: 'diaria',
         recorrencia_intervalo: 1,
         recorrencia_fim: null,
+        contato_id: null, // Campo adicionado
     }), [selectedEmpreendimento]);
 
     const [formData, setFormData] = useState(getInitialState());
@@ -72,11 +73,15 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                     setType('atividade');
                 }
             } else {
-                setFormData(getInitialState());
+                const initialState = getInitialState();
+                if (initialContatoId) {
+                    initialState.contato_id = initialContatoId;
+                }
+                setFormData(initialState);
                 setType('atividade');
             }
         }
-    }, [isOpen, isEditing, activityToEdit, getInitialState, supabase]);
+    }, [isOpen, isEditing, activityToEdit, getInitialState, supabase, initialContatoId]);
     
     useEffect(() => {
         const fetchEtapas = async () => {
@@ -154,6 +159,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 etapa_id: formData.etapa_id || null,
                 tipo_atividade: etapaSelecionada ? etapaSelecionada.nome_etapa : 'Atividade Interna',
                 empreendimento_id: formData.empreendimento_id || null,
+                contato_id: formData.contato_id, // Passando o ID do contato
             };
 
             if (dadosParaSalvar.empreendimento_id) {
