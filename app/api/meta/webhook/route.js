@@ -11,7 +11,6 @@ const getSupabaseAdmin = () => {
     return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 };
 
-// --- INÍCIO DA NOVA LÓGICA INTELIGENTE ---
 // Esta função garante que o funil e a primeira coluna existam, criando-os se necessário.
 async function ensureFunilAndFirstColumn(supabase) {
     // 1. Tenta encontrar o funil de vendas padrão.
@@ -67,7 +66,6 @@ async function ensureFunilAndFirstColumn(supabase) {
     // 5. Retorna o ID da coluna que garantidamente existe.
     return primeiraColuna.id;
 }
-// --- FIM DA NOVA LÓGICA INTELIGENTE ---
 
 
 // Rota GET para verificação (sem alterações)
@@ -180,8 +178,6 @@ export async function POST(request) {
         if (telefoneLimpo) await supabase.from('telefones').insert({ contato_id: contatoId, telefone: telefoneLimpo, tipo: 'Celular' });
         console.log("LOG: Email e telefone associados ao novo contato.");
         
-        // --- LÓGICA ATUALIZADA AQUI ---
-        // Agora, usamos a função inteligente para garantir que o funil e a coluna existam
         console.log(`LOG: Garantindo a existência do funil e da coluna para adicionar o contato ${contatoId}...`);
         const primeiraColunaId = await ensureFunilAndFirstColumn(supabase);
         
@@ -192,9 +188,24 @@ export async function POST(request) {
         if (funilError) {
             console.error('LOG: ERRO ao adicionar contato ao funil:', funilError);
         } else {
-            console.log('LOG: SUCESSO! Contato adicionado ao funil!');
+            console.log('LOG: SUCESSO! Contato adicionado ao funil! Disparando notificação...');
+
+            // --- INÍCIO DO CÓDIGO DE NOTIFICAÇÃO ---
+            const notificationPayload = {
+                title: '🎉 Novo Lead Recebido!',
+                body: `Um novo lead (${nomeCompleto}) chegou através da campanha da Meta.`,
+            };
+
+            // Dispara a notificação para todos os usuários inscritos
+            // Usamos 'fetch' para chamar nossa própria API de envio.
+            // O 'request.nextUrl.origin' garante que o endereço esteja correto.
+            await fetch(`${request.nextUrl.origin}/api/notifications/send`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(notificationPayload),
+            });
+            // --- FIM DO CÓDIGO DE NOTIFICAÇÃO ---
         }
-        // --- FIM DA LÓGICA ATUALIZADA ---
 
         console.log("LOG: [FIM] Processamento do webhook concluído com sucesso.");
         return NextResponse.json({ status: 'success' }, { status: 200 });
