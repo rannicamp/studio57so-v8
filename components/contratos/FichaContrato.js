@@ -76,13 +76,19 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
 
     const kpiData = useMemo(() => {
         const valorTotal = parseFloat(contrato.valor_final_venda) || 0;
-        const todasAsParcelas = contrato.contrato_parcelas || [];
-        const totalEntrada = todasAsParcelas.filter(p => p.tipo === 'Entrada').reduce((sum, p) => sum + parseFloat(p.valor_parcela || 0), 0);
-        const totalParcelasObra = todasAsParcelas.filter(p => p.tipo === 'Parcela Obra' || p.tipo === 'Obra').reduce((sum, p) => sum + parseFloat(p.valor_parcela || 0), 0);
-        const totalAdicionais = todasAsParcelas.filter(p => p.tipo === 'Adicional').reduce((sum, p) => sum + parseFloat(p.valor_parcela || 0), 0);
-        const somaTotalParcelas = totalEntrada + totalParcelasObra + totalAdicionais;
-        const saldoRemanescente = valorTotal - somaTotalParcelas;
-        return { valorTotalContrato: formatCurrency(valorTotal), totalEntrada: formatCurrency(totalEntrada), totalParcelasObra: formatCurrency(totalParcelasObra), totalAdicionais: formatCurrency(totalAdicionais), saldoRemanescente: formatCurrency(saldoRemanescente) };
+        const parcelasPagas = (contrato.contrato_parcelas || []).filter(p => p.status_pagamento === 'Pago');
+        const totalPago = parcelasPagas.reduce((sum, p) => sum + parseFloat(p.valor_parcela || 0), 0);
+        const saldoDevedor = valorTotal - totalPago;
+        const proximaParcela = (contrato.contrato_parcelas || [])
+            .filter(p => p.status_pagamento === 'Pendente')
+            .sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento))[0];
+
+        return {
+            valorTotal: formatCurrency(valorTotal),
+            totalPago: formatCurrency(totalPago),
+            saldoDevedor: formatCurrency(saldoDevedor),
+            proximaParcela: proximaParcela ? `${formatCurrency(proximaParcela.valor_parcela)} em ${new Date(proximaParcela.data_vencimento + 'T00:00:00Z').toLocaleDateString('pt-BR')}` : 'Nenhuma'
+        };
     }, [contrato, formatCurrency]);
 
     const handleFieldUpdate = async (fieldName, value) => {
@@ -121,16 +127,12 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
         setSearchResults(prev => ({ ...prev, [type]: data || [] }));
     }, [supabase]);
 
-    // --- INÍCIO DA CORREÇÃO ---
     const handleSelectContato = (type, contato) => {
         const fieldName = type === 'comprador' ? 'contato_id' : 'corretor_id';
-        // Apenas inicia o salvamento e limpa a lista de resultados.
-        // O nome no campo será atualizado pela recarga de dados do `onUpdate`.
         handleFieldUpdate(fieldName, contato.id);
         setSearchResults(prev => ({ ...prev, [type]: [] }));
         setSearchTerms(prev => ({ ...prev, [type]: '' }));
     };
-    // --- FIM DA CORREÇÃO ---
 
      const handleClearContato = (type) => {
         const fieldName = type === 'comprador' ? 'contato_id' : 'corretor_id';
@@ -161,7 +163,7 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <KpiCard title="Valor do Contrato" value={kpiData.valorTotalContrato} icon={faFileSignature} color="blue" />
+                <KpiCard title="Valor do Contrato" value={kpiData.valorTotal} icon={faFileSignature} color="blue" />
                 <KpiCard title="Total Pago" value={kpiData.totalPago} icon={faCheckCircle} color="green" />
                 <KpiCard title="Saldo Devedor" value={kpiData.saldoDevedor} icon={faDollarSign} color="yellow" />
                 <KpiCard title="Próxima Parcela" value={kpiData.proximaParcela} icon={faCalendarCheck} color="purple" />
@@ -170,6 +172,7 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
             <div className="border-b border-gray-200">
                 <nav className="flex gap-4">
                     <TabButton tabId="resumo" label="Resumo da Venda" icon={faHandshake} />
+                    {/* --- ALTERAÇÃO AQUI: Unificamos as abas --- */}
                     <TabButton tabId="cronograma" label="Plano e Cronograma" icon={faFileInvoiceDollar} />
                     <TabButton tabId="documentos" label="Documentos" icon={faFileLines} />
                 </nav>
@@ -243,7 +246,13 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                 {activeTab === 'cronograma' && (
                     <div className="animate-fade-in space-y-6">
                         <PlanoPagamentoContrato contrato={contrato} onRecalculateSuccess={onUpdate} />
-                        <CronogramaFinanceiro contratoId={contrato.id} parcelas={parcelas} valorTotalContrato={contrato.valor_final_venda} onUpdate={onUpdate} />
+                        <CronogramaFinanceiro
+                            contratoId={contrato.id}
+                            parcelas={parcelas}
+                            permutas={contrato.contrato_permutas || []} 
+                            valorTotalContrato={contrato.valor_final_venda}
+                            onUpdate={onUpdate}
+                        />
                     </div>
                 )}
                 {activeTab === 'documentos' && (

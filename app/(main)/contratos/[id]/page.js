@@ -22,7 +22,7 @@ export default function ContratoPage() {
         setLoading(true);
         
         // --- ALTERAÇÃO AQUI ---
-        // Adicionamos a busca pelos dados do corretor.
+        // Adicionamos a busca pelos dados do corretor e das permutas.
         const { data, error } = await supabase
             .from('contratos')
             .select(`

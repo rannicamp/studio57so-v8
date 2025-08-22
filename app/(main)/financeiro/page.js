@@ -7,10 +7,11 @@ import { useRouter } from 'next/navigation';
 import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext';
 import LancamentosManager from '../../../components/financeiro/LancamentosManager';
 import ContasManager from '../../../components/financeiro/ContasManager';
+import AtivosManager from '../../../components/financeiro/AtivosManager';
 import LancamentoFormModal from '../../../components/financeiro/LancamentoFormModal';
 import KpiCard from '../../../components/KpiCard';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faCogs, faShieldAlt, faCalculator, faSpinner, faLock, faArrowDown, faArrowUp, faBalanceScale, faSitemap, faHandshake } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faCogs, faShieldAlt, faCalculator, faSpinner, faLock, faArrowDown, faArrowUp, faBalanceScale, faSitemap, faHandshake, faLandmark, faBuilding } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toast } from 'sonner';
@@ -181,7 +182,13 @@ export default function FinanceiroPage() {
     const handleDeleteLancamento = async (id) => { if (!window.confirm("Tem certeza?")) return; const { error } = await supabase.from('lancamentos').delete().eq('id', id); if(error) {setMessage('Erro: ' + error.message);} else { setMessage('Lançamento excluído.'); handleSuccess(); }};
     const handleOpenAddModal = () => { setEditingLancamento(null); setIsFormModalOpen(true); };
     const handleOpenEditModal = (lancamento) => { setEditingLancamento(lancamento); setIsFormModalOpen(true); };
-    const TabButton = ({ tabName, label }) => ( <button onClick={() => setActiveTab(tabName)} className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm uppercase ${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}> {label} </button> );
+    
+    // --- CORREÇÃO AQUI: A função TabButton voltou a ter o parâmetro 'icon' ---
+    const TabButton = ({ tabName, label, icon }) => ( 
+        <button onClick={() => setActiveTab(tabName)} className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm uppercase flex items-center gap-2 ${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
+            <FontAwesomeIcon icon={icon} /> {label}
+        </button> 
+    );
 
     if (authLoading) { return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando...</div>; }
     if (!canViewPage) { return ( <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg"> <FontAwesomeIcon icon={faLock} size="3x" className="text-red-400 mb-4" /> <h2 className="text-2xl font-bold text-red-700">Acesso Negado</h2> <p className="mt-2 text-red-600">Você não tem permissão para aceder a esta página.</p> </div> ); }
@@ -204,8 +211,10 @@ export default function FinanceiroPage() {
             
             <div className="border-b border-gray-200 bg-white shadow-sm rounded-t-lg">
                 <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">
-                    <TabButton tabName="lancamentos" label="Lançamentos" />
-                    <TabButton tabName="contas" label="Contas" />
+                    {/* --- CORREÇÃO AQUI: Adicionamos os ícones de volta e a nova aba --- */}
+                    <TabButton tabName="lancamentos" label="Lançamentos" icon={faBalanceScale} />
+                    <TabButton tabName="contas" label="Contas" icon={faBuilding} />
+                    <TabButton tabName="ativos" label="Ativos" icon={faLandmark} />
                 </nav>
             </div>
 
@@ -238,6 +247,7 @@ export default function FinanceiroPage() {
                     />
                 )}
                 {activeTab === 'contas' && <ContasManager initialContas={contas} allLancamentos={todosLancamentosParaSaldos} onUpdate={fetchInitialData} empresas={empresas} />}
+                {activeTab === 'ativos' && <AtivosManager />}
             </div>
         </div>
     );
