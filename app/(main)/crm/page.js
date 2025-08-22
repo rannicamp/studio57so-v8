@@ -121,7 +121,7 @@ export default function CrmPage() {
     const [selectedContactForSidebar, setSelectedContactForSidebar] = useState(null);
     const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
     const [contactForNewActivity, setContactForNewActivity] = useState(null);
-    const [activityToEdit, setActivityToEdit] = useState(null); // Novo estado para edição
+    const [activityToEdit, setActivityToEdit] = useState(null);
     const [funcionarios, setFuncionarios] = useState([]);
     const [empresas, setEmpresas] = useState([]);
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
@@ -457,13 +457,13 @@ export default function CrmPage() {
 
     const handleOpenActivityModal = (contato) => {
         setContactForNewActivity(contato);
-        setActivityToEdit(null); // Garante que é uma nova atividade
+        setActivityToEdit(null);
         setIsActivityModalOpen(true);
     };
     
     const handleEditActivity = (activity) => {
         setActivityToEdit(activity);
-        setContactForNewActivity(null); // Garante que não está criando uma nova
+        setContactForNewActivity(null);
         setIsActivityModalOpen(true);
     };
 
@@ -488,6 +488,11 @@ export default function CrmPage() {
                 contatoNoFunilId={selectedContactForSidebar?.id}
                 onAddActivity={handleOpenActivityModal}
                 onEditActivity={handleEditActivity}
+                onContactUpdate={() => {
+                    fetchFunilData();
+                    fetchWhatsappData();
+                }}
+                refreshKey={sidebarRefreshKey}
             />
 
             {isActivityModalOpen && (
