@@ -3,6 +3,9 @@ import GoogleProvider from 'next-auth/providers/google';
 import FacebookProvider from 'next-auth/providers/facebook';
 
 export const authOptions = {
+  // ##### INÍCIO DA ALTERAÇÃO #####
+  strategy: 'jwt', // Adicionamos esta linha para garantir o método de sessão
+  // ##### FIM DA ALTERAÇÃO #####
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -21,10 +24,7 @@ export const authOptions = {
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
       authorization: {
         params: {
-          // --- INÍCIO DA CORREÇÃO ---
-          // Adicionamos as novas permissões para ler e gerenciar mensagens do Instagram e WhatsApp
           scope: 'email,pages_show_list,leads_retrieval,pages_manage_ads,business_management,pages_read_engagement,instagram_manage_messages,pages_messaging',
-          // --- FIM DA CORREÇÃO ---
         },
       },
     }),
