@@ -11,6 +11,7 @@ import {
   faChevronDown,
   faBoxOpen
 } from '@fortawesome/free-solid-svg-icons';
+import { faMeta } from '@fortawesome/free-brands-svg-icons'; // Importa o ícone da Meta
 import { useAuth } from '../contexts/AuthContext';
 import { createClient } from '../utils/supabase/client';
 
@@ -101,17 +102,18 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         );
       }
     },
-    // ##### INÍCIO DA ALTERAÇÃO #####
     {
       title: 'Comercial',
       items: [
         { href: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: faInbox, recurso: 'caixa_de_entrada' },
         { href: '/crm', label: 'Funil de Vendas', icon: faBullseye, recurso: 'crm' },
+        // ##### INÍCIO DA ALTERAÇÃO #####
+        { href: '/comercial/anuncios', label: 'Anúncios', icon: faMeta, recurso: 'anuncios' },
+        // ##### FIM DA ALTERAÇÃO #####
         { href: '/contatos', label: 'Contatos', icon: faAddressBook, recurso: 'contatos' },
         { href: '/comercial/simulador', label: 'Simulador', icon: faCalculator, recurso: 'simulador' },
       ]
     }
-    // ##### FIM DA ALTERAÇÃO #####
   ];
 
   const bottomNavAlwaysVisible = [
@@ -154,7 +156,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
               {section.items ? (
                 <ul>
                   {section.items.map((item) => {
-                    const canViewItem = hasPermission(item.recurso, 'pode_ver') || item.recurso === 'caixa_de_entrada' || item.recurso === 'painel' || item.recurso === 'perfil';
+                    const canViewItem = hasPermission(item.recurso, 'pode_ver') || item.recurso === 'caixa_de_entrada' || item.recurso === 'painel' || item.recurso === 'perfil' || item.recurso === 'anuncios';
                     if (!canViewItem) return null;
                     return (
                       <li key={item.label}>
