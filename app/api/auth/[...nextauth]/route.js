@@ -21,9 +21,10 @@ export const authOptions = {
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
       authorization: {
         params: {
-          // --- CORREÇÃO APLICADA AQUI ---
-          // Adicionamos a nova permissão 'pages_read_engagement' à lista
-          scope: 'email,pages_show_list,leads_retrieval,pages_manage_ads,business_management,pages_read_engagement',
+          // --- INÍCIO DA CORREÇÃO ---
+          // Adicionamos as novas permissões para ler e gerenciar mensagens do Instagram e WhatsApp
+          scope: 'email,pages_show_list,leads_retrieval,pages_manage_ads,business_management,pages_read_engagement,instagram_manage_messages,pages_messaging',
+          // --- FIM DA CORREÇÃO ---
         },
       },
     }),
