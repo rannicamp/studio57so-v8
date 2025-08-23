@@ -101,14 +101,17 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         );
       }
     },
+    // ##### INÍCIO DA ALTERAÇÃO #####
     {
       title: 'Comercial',
       items: [
-        { href: '/crm', label: 'CRM', icon: faBullseye, recurso: 'crm' },
+        { href: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: faInbox, recurso: 'caixa_de_entrada' },
+        { href: '/crm', label: 'Funil de Vendas', icon: faBullseye, recurso: 'crm' },
         { href: '/contatos', label: 'Contatos', icon: faAddressBook, recurso: 'contatos' },
         { href: '/comercial/simulador', label: 'Simulador', icon: faCalculator, recurso: 'simulador' },
       ]
     }
+    // ##### FIM DA ALTERAÇÃO #####
   ];
 
   const bottomNavAlwaysVisible = [
@@ -151,7 +154,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
               {section.items ? (
                 <ul>
                   {section.items.map((item) => {
-                    const canViewItem = hasPermission(item.recurso, 'pode_ver');
+                    const canViewItem = hasPermission(item.recurso, 'pode_ver') || item.recurso === 'caixa_de_entrada' || item.recurso === 'painel' || item.recurso === 'perfil';
                     if (!canViewItem) return null;
                     return (
                       <li key={item.label}>
