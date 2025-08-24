@@ -11,7 +11,7 @@ const getSupabaseAdmin = () => {
     return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 };
 
-// Esta função garante que o funil e a primeira coluna existam, criando-os se necessário.
+// Função para garantir que o funil e a primeira coluna existam, criando-os se necessário.
 async function ensureFunilAndFirstColumn(supabase) {
     // 1. Tenta encontrar o funil de vendas padrão.
     let { data: funil, error: funilFindError } = await supabase
@@ -139,14 +139,17 @@ export async function POST(request) {
         }
 
         console.log("LOG: Detalhes do lead recebidos com sucesso.");
-        const leadData = {};
+        
+        // ***** INÍCIO DA ALTERAÇÃO *****
+        // Agora, guardamos todos os campos do formulário em um objeto
+        const allLeadData = {};
         leadDetails.field_data.forEach(field => {
-            leadData[field.name] = field.values[0];
+            allLeadData[field.name] = field.values[0];
         });
         
-        const nomeCompleto = leadData.full_name || `Lead Meta (${new Date().toLocaleDateString()})`;
-        const email = leadData.email;
-        const telefoneLimpo = leadData.phone_number?.replace(/\D/g, '');
+        const nomeCompleto = allLeadData.full_name || `Lead Meta (${new Date().toLocaleDateString()})`;
+        const email = allLeadData.email;
+        const telefoneLimpo = allLeadData.phone_number?.replace(/\D/g, '');
 
         console.log("LOG: Criando novo contato no DB com todos os metadados...");
         const { data: newContact, error: contactError } = await supabase
@@ -161,8 +164,11 @@ export async function POST(request) {
                 meta_adgroup_id: leadValue.adgroup_id,
                 meta_form_id: leadValue.form_id,
                 meta_page_id: leadValue.page_id,
-                meta_created_time: new Date(leadValue.created_time * 1000).toISOString()
+                meta_created_time: new Date(leadValue.created_time * 1000).toISOString(),
+                // Salvando o objeto completo com todos os campos na nova coluna
+                meta_form_data: allLeadData 
             })
+            // ***** FIM DA ALTERAÇÃO *****
             .select('id')
             .single();
 
