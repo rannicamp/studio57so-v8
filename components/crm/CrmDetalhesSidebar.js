@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faStickyNote, faTasks, faSpinner, faPlus, faPhone, faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, faSave } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faStickyNote, faTasks, faSpinner, faPlus, faPhone, faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, faSave, faBullhorn } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
@@ -37,6 +37,41 @@ const InfoField = ({ label, value, icon }) => (
         <dd className="mt-1 text-sm text-gray-900">{value || 'N/A'}</dd>
     </div>
 );
+
+// ***** NOVO COMPONENTE *****
+// Componente para exibir os dados do formulário da Meta
+const MetaFormData = ({ data }) => {
+    if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
+        return null;
+    }
+
+    // Remove campos que já são exibidos em outros locais para não duplicar
+    const filteredData = { ...data };
+    delete filteredData.full_name;
+    delete filteredData.email;
+    delete filteredData.phone_number;
+
+    return (
+        <section>
+            <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <FontAwesomeIcon icon={faBullhorn} />
+                Dados do Formulário Meta
+            </h4>
+            <div className="space-y-3 p-3 bg-gray-50 border rounded-md">
+                {Object.entries(filteredData).map(([key, value]) => (
+                    <div key={key}>
+                        <dt className="text-xs font-medium text-gray-500 capitalize">
+                            {key.replace(/_/g, ' ')}
+                        </dt>
+                        <dd className="text-sm text-gray-800 font-medium">{value}</dd>
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+};
+// ***** FIM DO NOVO COMPONENTE *****
+
 
 export default function CrmDetalhesSidebar({ open, onClose, contato, contatoNoFunilId, onAddActivity, onEditActivity, onContactUpdate, refreshKey }) {
     const supabase = createClient();
@@ -227,6 +262,10 @@ export default function CrmDetalhesSidebar({ open, onClose, contato, contatoNoFu
                                     )}
                                 </dl>
                             </section>
+                            
+                            {/* ***** SEÇÃO ADICIONADA ***** */}
+                            <MetaFormData data={contato.meta_form_data} />
+                            {/* ***** FIM DA SEÇÃO ADICIONADA ***** */}
 
                             <section>
                                 <div className="flex justify-between items-center mb-2">
