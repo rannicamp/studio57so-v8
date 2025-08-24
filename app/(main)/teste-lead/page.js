@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useLayout } from '../../../../contexts/LayoutContext';
+import { useLayout } from '@/contexts/LayoutContext'; // CAMINHO CORRIGIDO AQUI
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faVial, faSpinner, faPlayCircle } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';

@@ -122,26 +122,32 @@ export async function POST(request) {
             return NextResponse.json({ status: 'lead_already_exists' }, { status: 200 });
         }
         
-        console.log(`LOG: Lead ID ${leadId} é novo. Buscando detalhes na API da Meta...`);
-        const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
-
-        if (!PAGE_ACCESS_TOKEN) {
-            console.error("LOG: ERRO CRÍTICO - Variável de ambiente META_PAGE_ACCESS_TOKEN não encontrada.");
-            throw new Error("Token de Acesso à Página não configurado no servidor.");
+        let leadDetails;
+        // ***** INÍCIO DA ALTERAÇÃO INTELIGENTE *****
+        // Verifica se é um lead de teste para não chamar a API da Meta
+        if (leadId.startsWith('TEST_')) {
+            console.log("LOG: [TESTE] Lead de simulação detectado. Usando dados fictícios.");
+            leadDetails = {
+                field_data: [
+                    { name: "full_name", values: ["João da Silva (Teste)"] },
+                    { name: "email", values: [`teste_${Date.now()}@studio57.com.br`] },
+                    { name: "phone_number", values: ["+5533999998888"] },
+                    { name: "objetivo", values: ["Quero investir em um imóvel para alugar."] }
+                ]
+            };
+        } else {
+            console.log(`LOG: Lead real ID ${leadId}. Buscando detalhes na API da Meta...`);
+            const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
+            if (!PAGE_ACCESS_TOKEN) throw new Error("Token de Acesso à Página não configurado no servidor.");
+            const leadDetailsResponse = await fetch(`https://graph.facebook.com/v20.0/${leadId}?access_token=${PAGE_ACCESS_TOKEN}`);
+            const apiResult = await leadDetailsResponse.json();
+            if (!leadDetailsResponse.ok) throw new Error(apiResult.error?.message || "Falha ao buscar dados do lead no Meta.");
+            leadDetails = apiResult;
         }
-
-        const leadDetailsResponse = await fetch(`https://graph.facebook.com/v20.0/${leadId}?access_token=${PAGE_ACCESS_TOKEN}`);
-        const leadDetails = await leadDetailsResponse.json();
-
-        if (!leadDetailsResponse.ok) {
-            console.error("LOG: ERRO na API da Meta:", leadDetails);
-            throw new Error(leadDetails.error?.message || "Falha ao buscar dados do lead no Meta.");
-        }
+        // ***** FIM DA ALTERAÇÃO INTELIGENTE *****
 
         console.log("LOG: Detalhes do lead recebidos com sucesso.");
         
-        // ***** INÍCIO DA ALTERAÇÃO *****
-        // Agora, guardamos todos os campos do formulário em um objeto
         const allLeadData = {};
         leadDetails.field_data.forEach(field => {
             allLeadData[field.name] = field.values[0];
@@ -165,10 +171,8 @@ export async function POST(request) {
                 meta_form_id: leadValue.form_id,
                 meta_page_id: leadValue.page_id,
                 meta_created_time: new Date(leadValue.created_time * 1000).toISOString(),
-                // Salvando o objeto completo com todos os campos na nova coluna
                 meta_form_data: allLeadData 
             })
-            // ***** FIM DA ALTERAÇÃO *****
             .select('id')
             .single();
 
@@ -196,21 +200,16 @@ export async function POST(request) {
         } else {
             console.log('LOG: SUCESSO! Contato adicionado ao funil! Disparando notificação...');
 
-            // --- INÍCIO DO CÓDIGO DE NOTIFICAÇÃO ---
             const notificationPayload = {
                 title: '🎉 Novo Lead Recebido!',
                 body: `Um novo lead (${nomeCompleto}) chegou através da campanha da Meta.`,
             };
 
-            // Dispara a notificação para todos os usuários inscritos
-            // Usamos 'fetch' para chamar nossa própria API de envio.
-            // O 'request.nextUrl.origin' garante que o endereço esteja correto.
             await fetch(`${request.nextUrl.origin}/api/notifications/send`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(notificationPayload),
             });
-            // --- FIM DO CÓDIGO DE NOTIFICAÇÃO ---
         }
 
         console.log("LOG: [FIM] Processamento do webhook concluído com sucesso.");
