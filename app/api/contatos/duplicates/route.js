@@ -12,7 +12,8 @@ export async function GET(request) {
 
   try {
     // ***** CORREÇÃO APLICADA AQUI *****
-    // Removemos o filtro restritivo. Agora a busca é feita em TODOS os contatos.
+    // Removemos o filtro restritivo que limitava a busca ao funil. 
+    // Agora a busca é feita em TODOS os contatos.
     const { data: contatos, error } = await supabase
       .from('contatos')
       .select('*, telefones(telefone), emails(email)');
