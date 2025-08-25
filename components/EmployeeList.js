@@ -25,7 +25,7 @@ const ProgressCircle = ({ score }) => {
     );
 };
 
-// ***** INÍCIO DA LÓGICA CORRIGIDA *****
+// ##### INÍCIO DA LÓGICA CORRIGIDA E MELHORADA #####
 
 // 1. Lista de documentos obrigatórios atualizada e com nomes mais simples para verificação.
 const identityDocsKeywords = ['identidade', 'rg', 'cnh'];
@@ -81,7 +81,7 @@ const calculateScore = (employee) => {
 
     return (score / totalPossibleScore) * 100;
 };
-// ***** FIM DA LÓGICA CORRIGIDA *****
+// ##### FIM DA LÓGICA CORRIGIDA E MELHORADA #####
 
 
 const EmployeeTable = ({ employees, onDismissClick, requestSort, sortConfig }) => {
