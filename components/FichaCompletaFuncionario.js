@@ -3,8 +3,14 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile, faAddressCard, faFileContract, faFileMedical, faClock, faHourglassHalf, faPlus, faExclamationTriangle, faFileLines, faCheckCircle, faTimesCircle, faDollarSign, faCalendarCheck, faCalendarXmark, faBusinessTime, faPenToSquare, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile, 
+    faAddressCard, faFileContract, faFileLines, faCheckCircle, faTimesCircle, faDollarSign, 
+    faCalendarCheck, faCalendarXmark, faBusinessTime, faPenToSquare, faSort, faSortUp, faSortDown,
+    faFileInvoiceDollar, faPrint, faTimes
+} from '@fortawesome/free-solid-svg-icons';
 import KpiCard from './KpiCard';
+import { toast } from 'sonner';
 
 // --- SUB-COMPONENTES ---
 
@@ -274,6 +280,184 @@ const FinanceiroSection = ({ lancamentos, onEditLancamento }) => {
     );
 };
 
+// ***** INÍCIO DA ALTERAÇÃO INTELIGENTE *****
+// Novo componente para o Modal de Confirmação de Impressão
+const PrintConfirmationModal = ({ isOpen, onClose, onConfirmComBonus, onConfirmSemBonus }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] p-4 no-print">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md text-center">
+                <h3 className="text-xl font-bold mb-4">Opções de Impressão</h3>
+                <p className="text-gray-600 mb-6">Como você deseja imprimir o contracheque?</p>
+                <div className="flex flex-col sm:flex-row justify-center gap-4">
+                    <button 
+                        onClick={onConfirmSemBonus}
+                        className="px-6 py-3 bg-gray-600 text-white font-semibold rounded-md hover:bg-gray-700 transition-colors w-full"
+                    >
+                        Versão Oficial (Sem Bônus)
+                    </button>
+                    <button 
+                        onClick={onConfirmComBonus}
+                        className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-colors w-full"
+                    >
+                        Versão Completa (Com Bônus)
+                    </button>
+                </div>
+                <button 
+                    onClick={onClose}
+                    className="mt-6 text-sm text-gray-500 hover:text-gray-700"
+                >
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const ContrachequeSection = ({ employee }) => {
+    const supabase = createClient();
+    const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [contracheque, setContracheque] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [printView, setPrintView] = useState(null);
+    const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+
+    const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    
+    const valorLiquidoOficial = useMemo(() => {
+        if (!contracheque) return 0;
+        return (contracheque.salario_base || 0) - (contracheque.desconto_inss || 0);
+    }, [contracheque]);
+
+    const fetchContracheque = useCallback(async (month) => {
+        if (!employee || !month) return;
+        setLoading(true);
+
+        const { data, error } = await supabase.rpc('gerar_ou_atualizar_contracheque', {
+            p_funcionario_id: employee.id,
+            p_mes_referencia: month
+        });
+        
+        if (error) {
+            toast.error(`Erro ao gerar contracheque: ${error.message}`);
+            setContracheque(null);
+        } else {
+            setContracheque(data[0]);
+        }
+        setLoading(false);
+    }, [supabase, employee]);
+
+    useEffect(() => {
+        fetchContracheque(selectedMonth);
+    }, [selectedMonth, fetchContracheque]);
+
+    useEffect(() => {
+        if (printView) {
+            const timer = setTimeout(() => {
+                window.print();
+                setPrintView(null);
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [printView]);
+    
+    const handleUpdate = async (field, value) => {
+        if (!contracheque) return;
+        const { error } = await supabase
+            .from('contracheques')
+            .update({ [field]: value })
+            .eq('id', contracheque.id);
+
+        if (error) {
+            toast.error(`Erro ao salvar: ${error.message}`);
+        } else {
+            toast.success("Alteração salva!");
+            fetchContracheque(selectedMonth);
+        }
+    };
+
+    const handlePrintRequest = () => {
+        setIsPrintModalOpen(true);
+    };
+
+    const handleConfirmComBonus = () => {
+        setPrintView('comBonus');
+        setIsPrintModalOpen(false);
+    };
+
+    const handleConfirmSemBonus = () => {
+        setPrintView('semBonus');
+        setIsPrintModalOpen(false);
+    };
+
+    return (
+        <div className={`printable-contracheque ${printView === 'semBonus' ? 'print-sem-bonus' : ''}`}>
+            <PrintConfirmationModal 
+                isOpen={isPrintModalOpen}
+                onClose={() => setIsPrintModalOpen(false)}
+                onConfirmComBonus={handleConfirmComBonus}
+                onConfirmSemBonus={handleConfirmSemBonus}
+            />
+            <div className="space-y-4">
+                <div className="flex items-center justify-between no-print">
+                    <div className="flex items-center gap-4">
+                        <label className="font-semibold">Mês de Referência:</label>
+                        <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-2 border rounded-md" />
+                    </div>
+                    <button onClick={handlePrintRequest} className="bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-800 flex items-center gap-2">
+                        <FontAwesomeIcon icon={faPrint} /> Imprimir
+                    </button>
+                </div>
+
+                {loading ? (
+                    <div className="text-center p-8"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
+                ) : !contracheque ? (
+                    <p className="text-center p-8 text-gray-500">Não foi possível carregar os dados do contracheque para este mês.</p>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                            <h4 className="font-semibold text-lg border-b pb-2">Detalhes do Cálculo</h4>
+                            <InfoField label="Salário Base (no mês)" value={formatCurrency(contracheque.salario_base)} />
+                            <InfoField label="Dias Trabalhados" value={contracheque.dias_trabalhados} />
+                            <InfoField label="Valor por Diária (no mês)" value={formatCurrency(contracheque.valor_diaria_base)} />
+                            <InfoField label="Total Diárias" value={formatCurrency(contracheque.valor_total_diarias)} />
+                            <div className="print-bonus-item">
+                                <InfoField label="Bônus (Diárias - Salário Base)" value={formatCurrency(contracheque.bonus)} />
+                            </div>
+                            <div className="no-print">
+                                <label className="block text-sm font-medium">Adicionais (R$)</label>
+                                <input type="number" step="0.01" defaultValue={contracheque.adicionais} onBlur={(e) => handleUpdate('adicionais', e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
+                            </div>
+                            <div className="no-print">
+                                <label className="block text-sm font-medium">Outros Descontos (R$)</label>
+                                <input type="number" step="0.01" defaultValue={contracheque.outros_descontos} onBlur={(e) => handleUpdate('outros_descontos', e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
+                            </div>
+                        </div>
+                        <div className="p-6 bg-gray-100 rounded-lg space-y-3 shadow-inner">
+                            <h4 className="font-semibold text-lg border-b pb-2 mb-4">Resumo do Contracheque</h4>
+                            
+                            <div className="flex justify-between items-center text-md"><span className="text-gray-600">Salário Base:</span> <span className="font-semibold">{formatCurrency(contracheque.salario_base)}</span></div>
+                            <div className="flex justify-between items-center text-md print-bonus-item"><span className="text-gray-600">Bônus (Ref. Diárias):</span> <span className="font-semibold text-green-600">{formatCurrency(contracheque.bonus)}</span></div>
+                            <div className="flex justify-between items-center text-md print-bonus-item"><span className="text-gray-600">Adicionais:</span> <span className="font-semibold text-green-600">{formatCurrency(contracheque.adicionais)}</span></div>
+
+                            <div className="flex justify-between items-center text-md pt-3 border-t mt-3"><span className="text-gray-600">Desconto INSS ({contracheque.faixa_inss}%):</span> <span className="font-semibold text-red-600">-{formatCurrency(contracheque.desconto_inss)}</span></div>
+                            <div className="flex justify-between items-center text-md print-bonus-item"><span className="text-gray-600">Outros Descontos:</span> <span className="font-semibold text-red-600">-{formatCurrency(contracheque.outros_descontos)}</span></div>
+                            
+                            <div className="flex justify-between items-center text-xl font-bold border-t pt-4 mt-4 print-bonus-item"><span className="text-gray-800">Valor Líquido a Pagar:</span> <span className="text-blue-700">{formatCurrency(contracheque.valor_liquido)}</span></div>
+                            <div className="hidden print-sem-bonus-only text-xl font-bold border-t pt-4 mt-4">
+                               <div className="flex justify-between items-center"><span className="text-gray-800">Valor Líquido a Pagar:</span> <span className="text-blue-700">{formatCurrency(valorLiquidoOficial)}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+// ***** FIM DA ALTERAÇÃO INTELIGENTE *****
+
+
 // Componente Principal
 export default function FichaCompletaFuncionario({ employee, allDocuments, allPontos, allAbonos, onUpdate, onEditLancamento }) {
     const [activeTab, setActiveTab] = useState('pessoal');
@@ -294,8 +478,6 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
         fetchHolidaysForYear();
     }, []);
     
-    // ***** INÍCIO DA ALTERAÇÃO INTELIGENTE *****
-    // O cálculo dos KPIs agora é mais robusto e inclui o novo "Valor a Pagar".
     const kpiData = useMemo(() => {
         const today = new Date();
         const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -355,8 +537,8 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
         const horasTrabalhadasFormatada = `${Math.floor(totalMinutosTrabalhados / 60)}:${String(Math.round(totalMinutosTrabalhados % 60)).padStart(2, '0')}h`;
         const faltas = Math.max(0, diasUteisAteHoje - diasTrabalhados);
         
-        // Novo cálculo: Valor a Pagar
-        const valorDiaria = parseFloat(employee.daily_value) || 0;
+        const valorDiariaStr = String(employee.daily_value || '0').replace('R$', '').trim().replace(/\./g, '').replace(',', '.');
+        const valorDiaria = parseFloat(valorDiariaStr) || 0;
         const valorAPagar = diasTrabalhados * valorDiaria;
 
         return {
@@ -367,7 +549,6 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
         };
 
     }, [employee, allPontos, holidays]);
-    // ***** FIM DA ALTERAÇÃO INTELIGENTE *****
     
     const fetchLancamentos = useCallback(async () => {
         if (!employee.contato_id) {
@@ -384,11 +565,43 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
     }, [employee, supabase]);
 
     useEffect(() => { if (activeTab === 'financeiro') { fetchLancamentos(); } }, [activeTab, fetchLancamentos]);
-    const TabButton = ({ tabName, label, icon }) => ( <button onClick={() => setActiveTab(tabName)} className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${activeTab === tabName ? 'bg-blue-500 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}> <FontAwesomeIcon icon={icon} /> {label} </button> );
+    
+    const TabButton = ({ tabName, label, icon }) => ( 
+        <button onClick={() => setActiveTab(tabName)} className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${activeTab === tabName ? 'bg-blue-500 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}>
+            <FontAwesomeIcon icon={icon} /> {label} 
+        </button> 
+    );
     
     return (
         <div className="space-y-8">
-            <div className="flex flex-col md:flex-row gap-6 items-start">
+            <style jsx global>{`
+                @media print {
+                    body * {
+                        visibility: hidden;
+                    }
+                    .printable-contracheque, .printable-contracheque * {
+                        visibility: visible;
+                    }
+                    .printable-contracheque {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        padding: 20px;
+                    }
+                    .no-print {
+                        display: none;
+                    }
+                    .print-sem-bonus .print-bonus-item {
+                        display: none;
+                    }
+                    .print-sem-bonus .print-sem-bonus-only {
+                        display: block !important;
+                    }
+                }
+            `}</style>
+
+            <div className="flex flex-col md:flex-row gap-6 items-start no-print">
                 {employee.foto_url ? ( <img src={employee.foto_url} alt="Foto do Funcionário" className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg" /> ) : ( <FontAwesomeIcon icon={faUserCircle} className="w-28 h-28 text-gray-300" /> )}
                 <div className="flex-grow">
                     <h2 className="text-3xl font-bold text-gray-900">{employee.full_name}</h2>
@@ -397,8 +610,7 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                 </div>
             </div>
             
-            {/* O grid de KPIs agora tem 4 colunas para acomodar o novo card */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 no-print">
                 <KpiCard title="Valor a Pagar (Mês)" value={kpiData.valorAPagar} icon={faDollarSign} color="purple" />
                 <KpiCard title="Dias (Trab. / Úteis)" value={kpiData.dias} icon={faCalendarCheck} color="blue" />
                 <KpiCard title="Horas (Trab. / Prev.)" value={kpiData.horas} icon={faBusinessTime} color="green" />
@@ -406,9 +618,10 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
             </div>
 
             <div className="border-t pt-6">
-                <div className="flex items-center border-b mb-6">
+                <div className="flex items-center border-b mb-6 no-print">
                     <nav className="flex space-x-2" aria-label="Tabs">
                         <TabButton tabName="pessoal" label="Dados Pessoais" icon={faAddressCard} />
+                        <TabButton tabName="contracheque" label="Contracheque" icon={faFileInvoiceDollar} />
                         <TabButton tabName="documentos" label="Documentos" icon={faFileLines} />
                         <TabButton tabName="financeiro" label="Financeiro" icon={faDollarSign} />
                         <TabButton tabName="checklist" label="Checklist" icon={faCheckCircle} />
@@ -431,6 +644,7 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                             <InfoField label="Observações" value={employee.observations} fullWidth={true} />
                         </dl>
                     )}
+                    {activeTab === 'contracheque' && <ContrachequeSection employee={employee} />}
                     {activeTab === 'documentos' && ( <DocumentosSection documentos={allDocuments} employeeId={employee.id} employeeName={employee.full_name} onUpdate={onUpdate} /> )}
                     {activeTab === 'financeiro' && ( <FinanceiroSection lancamentos={lancamentos} onEditLancamento={onEditLancamento} /> )}
                     {activeTab === 'checklist' && ( <CadastroChecklist employee={employee} /> )}
