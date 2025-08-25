@@ -7,7 +7,8 @@ import { faPlus, faTrash, faSpinner, faTimes, faUserShield } from '@fortawesome/
 
 // --- Sub-componente para o Modal de Gestão de Funções ---
 const RolesManagerModal = ({ isOpen, onClose, initialRoles, onRolesUpdate }) => {
-    // CORREÇÃO: Os hooks foram movidos para o topo da função, antes de qualquer retorno.
+    // ##### INÍCIO DA CORREÇÃO #####
+    // Os hooks foram movidos para o topo da função, antes de qualquer retorno.
     const supabase = createClient();
     const [roles, setRoles] = useState(initialRoles);
     const [newRoleName, setNewRoleName] = useState('');
@@ -15,6 +16,7 @@ const RolesManagerModal = ({ isOpen, onClose, initialRoles, onRolesUpdate }) => 
     const [error, setError] = useState('');
 
     if (!isOpen) return null; // A verificação agora acontece DEPOIS dos hooks.
+    // ##### FIM DA CORREÇÃO #####
 
     const handleAddRole = async () => {
         if (!newRoleName.trim()) return;
