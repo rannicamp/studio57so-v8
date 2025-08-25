@@ -3,10 +3,10 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile, faAddressCard, faFileContract, faFileMedical, faClock, faHourglassHalf, faPlus, faExclamationTriangle, faFileLines, faCheckCircle, faTimesCircle, faDollarSign, faCalendarCheck, faCalendarXmark, faBusinessTime } from '@fortawesome/free-solid-svg-icons';
+import { faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile, faAddressCard, faFileContract, faFileMedical, faClock, faHourglassHalf, faPlus, faExclamationTriangle, faFileLines, faCheckCircle, faTimesCircle, faDollarSign, faCalendarCheck, faCalendarXmark, faBusinessTime, faPenToSquare, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
 import KpiCard from './KpiCard';
 
-// --- SUB-COMPONENTES (SEM ALTERAÇÕES SIGNIFICATIVAS) ---
+// --- SUB-COMPONENTES ---
 
 const InfoField = ({ label, value, fullWidth = false }) => (
     <div className={fullWidth ? "md:col-span-2" : ""}>
@@ -51,7 +51,6 @@ const CadastroChecklist = ({ employee }) => {
     );
 };
 
-// ##### INÍCIO DA SEÇÃO CORRIGIDA #####
 const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeName, onUpdate }) => {
     const supabase = createClient();
     const [documentos, setDocumentos] = useState(initialDocuments || []);
@@ -62,7 +61,6 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
     const [loading, setLoading] = useState(true);
     const fileInputRef = useRef(null);
 
-    // ESTE É O HOOK QUE CORRIGE O PROBLEMA
     useEffect(() => {
         setDocumentos(initialDocuments || []);
     }, [initialDocuments]);
@@ -78,6 +76,7 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
     }, [supabase]);
 
     const getFileIcon = (fileName) => {
+        if (!fileName) return faFile;
         const extension = fileName.split('.').pop().toLowerCase();
         if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) return faFileImage;
         if (extension === 'pdf') return faFilePdf;
@@ -111,7 +110,7 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
             setNewFile(null);
             setNewFileType('');
             if (fileInputRef.current) fileInputRef.current.value = "";
-            onUpdate(); // Notifica o componente pai para recarregar os dados
+            onUpdate();
         }
         setIsUploading(false);
     };
@@ -173,9 +172,111 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
         </div>
     );
 };
-// ##### FIM DA SEÇÃO CORRIGIDA #####
 
-const FinanceiroSection = ({ lancamentos, onEditLancamento }) => { /* ... (código existente sem alterações, mantido para a funcionalidade completa do componente) ... */ };
+const FinanceiroSection = ({ lancamentos, onEditLancamento }) => {
+    // ##### INÍCIO DA CORREÇÃO #####
+    const [sortConfig, setSortConfig] = useState({ key: 'data_vencimento', direction: 'descending' });
+
+    const sortedLancamentos = useMemo(() => {
+        let sortableItems = [...lancamentos].map(lanc => ({
+            ...lanc,
+            // Cria um campo de data unificado para a ordenação
+            data_ordenacao: lanc.status === 'Pago' ? lanc.data_pagamento : lanc.data_vencimento || lanc.data_transacao
+        }));
+
+        if (sortConfig.key) {
+            sortableItems.sort((a, b) => {
+                let valA, valB;
+                // Lógica de ordenação especial para a coluna de data
+                if (['data_vencimento', 'data_pagamento'].includes(sortConfig.key)) {
+                    valA = new Date(a.data_ordenacao);
+                    valB = new Date(b.data_ordenacao);
+                } else if (sortConfig.key === 'categoria.nome') {
+                    valA = a.categoria?.nome || '';
+                    valB = b.categoria?.nome || '';
+                } else {
+                    valA = a[sortConfig.key] || '';
+                    valB = b[sortConfig.key] || '';
+                }
+
+                if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [lancamentos, sortConfig]);
+
+    const requestSort = (key) => {
+        let direction = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortIcon = (key) => {
+        if (sortConfig.key !== key) return faSort;
+        return sortConfig.direction === 'ascending' ? faSortUp : faSortDown;
+    };
+
+    const SortableHeader = ({ label, sortKey, className = '' }) => (
+        <th className={`px-4 py-2 text-left text-xs font-bold uppercase ${className}`}>
+            <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2">
+                {label}
+                <FontAwesomeIcon icon={getSortIcon(sortKey)} className="text-gray-400" />
+            </button>
+        </th>
+    );
+
+    const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    const formatDate = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR') : 'N/A';
+
+    if (lancamentos.length === 0) {
+        return <p className="text-center text-gray-500 py-4">Nenhum lançamento financeiro encontrado para este funcionário.</p>;
+    }
+
+    return (
+        <div className="overflow-x-auto border rounded-lg">
+            <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-100">
+                    <tr>
+                        <SortableHeader label="Data" sortKey="data_vencimento" />
+                        <SortableHeader label="Descrição" sortKey="descricao" />
+                        <SortableHeader label="Categoria" sortKey="categoria.nome" />
+                        <SortableHeader label="Valor" sortKey="valor" />
+                        <th className="px-4 py-2 text-center text-xs font-bold uppercase">Status</th>
+                        <th className="px-4 py-2 text-center text-xs font-bold uppercase">Ações</th>
+                    </tr>
+                </thead>
+                <tbody className="bg-white divide-y">
+                    {sortedLancamentos.map(lanc => {
+                        const dataExibida = lanc.status === 'Pago' ? lanc.data_pagamento : lanc.data_vencimento || lanc.data_transacao;
+                        return (
+                            <tr key={lanc.id}>
+                                <td className="px-4 py-2 whitespace-nowrap">{formatDate(dataExibida)}</td>
+                                <td className="px-4 py-2">{lanc.descricao}</td>
+                                <td className="px-4 py-2">{lanc.categoria?.nome || 'N/A'}</td>
+                                <td className={`px-4 py-2 text-right font-semibold ${lanc.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(lanc.valor)}</td>
+                                <td className="px-4 py-2 text-center">
+                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${lanc.status === 'Pago' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                        {lanc.status}
+                                    </span>
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                    <button onClick={() => onEditLancamento(lanc)} title="Editar Lançamento" className="text-blue-600 hover:text-blue-800">
+                                        <FontAwesomeIcon icon={faPenToSquare} />
+                                    </button>
+                                </td>
+                            </tr>
+                        )
+                    })}
+                </tbody>
+            </table>
+        </div>
+    );
+};
+// ##### FIM DA SEÇÃO COM CLASSIFICAÇÃO #####
 
 // Componente Principal
 export default function FichaCompletaFuncionario({ employee, allDocuments, allPontos, allAbonos, onUpdate, onEditLancamento }) {
@@ -264,12 +365,17 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
 
     }, [employee, allPontos, holidays]);
     
-    const fetchLancamentos = useCallback(async () => { 
+    const fetchLancamentos = useCallback(async () => {
         if (!employee.contato_id) {
             setLancamentos([]);
             return;
         }
-        const { data } = await supabase.from('lancamentos').select('*, categoria:categorias_financeiras(nome)').eq('favorecido_contato_id', employee.contato_id).order('data_vencimento', { ascending: false });
+        const { data } = await supabase
+            .from('lancamentos')
+            .select('*, categoria:categorias_financeiras(nome)')
+            .eq('favorecido_contato_id', employee.contato_id)
+            .order('data_vencimento', { ascending: false }); 
+        
         setLancamentos(data || []);
     }, [employee, supabase]);
 
