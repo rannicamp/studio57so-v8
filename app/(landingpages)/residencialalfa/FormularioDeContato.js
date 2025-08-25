@@ -11,6 +11,10 @@ export default function FormularioDeContato() {
     <form action={salvarLead} className="bg-white p-8 rounded-lg shadow-2xl space-y-5 max-w-lg mx-auto">
         <h3 className="text-3xl font-bold text-center text-gray-800">Fale com um consultor</h3>
         <p className="text-center text-gray-600">Receba a tabela de vendas e condições especiais de lançamento.</p>
+        
+        {/* ***** CAMPO OCULTO ADICIONADO AQUI ***** */}
+        <input type="hidden" name="origem" value="Landing Page - Residencial Alfa" />
+
         <div>
             <label htmlFor="nome" className="block text-sm font-medium text-gray-700">Nome completo</label>
             <input type="text" name="nome" id="nome" required className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"/>
