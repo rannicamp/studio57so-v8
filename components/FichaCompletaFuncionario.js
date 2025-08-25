@@ -174,20 +174,17 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
 };
 
 const FinanceiroSection = ({ lancamentos, onEditLancamento }) => {
-    // ##### INÍCIO DA CORREÇÃO #####
     const [sortConfig, setSortConfig] = useState({ key: 'data_vencimento', direction: 'descending' });
 
     const sortedLancamentos = useMemo(() => {
         let sortableItems = [...lancamentos].map(lanc => ({
             ...lanc,
-            // Cria um campo de data unificado para a ordenação
             data_ordenacao: lanc.status === 'Pago' ? lanc.data_pagamento : lanc.data_vencimento || lanc.data_transacao
         }));
 
         if (sortConfig.key) {
             sortableItems.sort((a, b) => {
                 let valA, valB;
-                // Lógica de ordenação especial para a coluna de data
                 if (['data_vencimento', 'data_pagamento'].includes(sortConfig.key)) {
                     valA = new Date(a.data_ordenacao);
                     valB = new Date(b.data_ordenacao);
@@ -276,7 +273,6 @@ const FinanceiroSection = ({ lancamentos, onEditLancamento }) => {
         </div>
     );
 };
-// ##### FIM DA SEÇÃO COM CLASSIFICAÇÃO #####
 
 // Componente Principal
 export default function FichaCompletaFuncionario({ employee, allDocuments, allPontos, allAbonos, onUpdate, onEditLancamento }) {
@@ -298,6 +294,8 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
         fetchHolidaysForYear();
     }, []);
     
+    // ***** INÍCIO DA ALTERAÇÃO INTELIGENTE *****
+    // O cálculo dos KPIs agora é mais robusto e inclui o novo "Valor a Pagar".
     const kpiData = useMemo(() => {
         const today = new Date();
         const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -356,14 +354,20 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
         }
         const horasTrabalhadasFormatada = `${Math.floor(totalMinutosTrabalhados / 60)}:${String(Math.round(totalMinutosTrabalhados % 60)).padStart(2, '0')}h`;
         const faltas = Math.max(0, diasUteisAteHoje - diasTrabalhados);
+        
+        // Novo cálculo: Valor a Pagar
+        const valorDiaria = parseFloat(employee.daily_value) || 0;
+        const valorAPagar = diasTrabalhados * valorDiaria;
 
         return {
             dias: `${diasTrabalhados} / ${diasUteisAteHoje}`,
             horas: `${horasTrabalhadasFormatada} / ${cargaHorariaEsperadaFormatada}`,
-            faltas: faltas
+            faltas: faltas,
+            valorAPagar: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorAPagar),
         };
 
     }, [employee, allPontos, holidays]);
+    // ***** FIM DA ALTERAÇÃO INTELIGENTE *****
     
     const fetchLancamentos = useCallback(async () => {
         if (!employee.contato_id) {
@@ -393,7 +397,9 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                 </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* O grid de KPIs agora tem 4 colunas para acomodar o novo card */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <KpiCard title="Valor a Pagar (Mês)" value={kpiData.valorAPagar} icon={faDollarSign} color="purple" />
                 <KpiCard title="Dias (Trab. / Úteis)" value={kpiData.dias} icon={faCalendarCheck} color="blue" />
                 <KpiCard title="Horas (Trab. / Prev.)" value={kpiData.horas} icon={faBusinessTime} color="green" />
                 <KpiCard title="Faltas (no período)" value={kpiData.faltas} icon={faCalendarXmark} color="red" />
@@ -419,7 +425,7 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                             <InfoField label="Email" value={employee.email} />
                             <InfoField label="Empresa Contratante" value={employee.cadastro_empresa?.razao_social} />
                             <InfoField label="Empreendimento Atual" value={employee.empreendimentos?.nome} />
-                            <InfoField label="Data de Admissão" value={employee.admission_date ? new Date(employee.admission_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'} />
+                            <InfoField label="Data de Admissão" value={employee.admission_date ? new Date(employee.admission_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}/>
                             <InfoField label="Salário Base" value={employee.base_salary} />
                             <InfoField label="Endereço" value={`${employee.address_street || ''}, ${employee.address_number || ''} - ${employee.neighborhood || ''}, ${employee.city || ''}`} fullWidth={true}/>
                             <InfoField label="Observações" value={employee.observations} fullWidth={true} />

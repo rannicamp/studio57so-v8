@@ -8,7 +8,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faCheckCircle, faExclamationCircle, faInfoCircle, faUserEdit, 
     faCalendarCheck, faBusinessTime, faCalendarXmark, faPrint, 
-    faSpinner, faUserCircle, faExclamationTriangle 
+    faSpinner, faUserCircle, faExclamationTriangle, faDollarSign 
 } from '@fortawesome/free-solid-svg-icons';
 import KpiCard from './KpiCard';
 
@@ -57,30 +57,38 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
     const calculateTotalHours = useCallback((dayData) => {
         const dateBase = new Date(dayData.dateString + 'T00:00:00Z');
-        const entrada = parseTime(dayData.entrada, dateBase);
-        const saida = parseTime(dayData.saida, dateBase);
-        const inicio_intervalo = parseTime(dayData.inicio_intervalo, dateBase);
-        const fim_intervalo = parseTime(dayData.fim_intervalo, dateBase);
-        let manhaMillis = 0;
-        let tardeMillis = 0;
-        if (entrada && inicio_intervalo) {
-            manhaMillis = inicio_intervalo.getTime() - entrada.getTime();
-        }
-        if (fim_intervalo && saida) {
-            tardeMillis = saida.getTime() - fim_intervalo.getTime();
-        }
+        const dayOfWeek = dateBase.getUTCDay();
+        const jornadaDoDia = employee?.jornada?.detalhes?.find(j => j.dia_semana === dayOfWeek);
+        const tolerancia = employee?.jornada?.tolerancia_minutos || 0;
+        const adjustTime = (actualTimeStr, scheduledTimeStr) => {
+            if (!actualTimeStr || !scheduledTimeStr || tolerancia === 0) { return actualTimeStr; }
+            const baseDate = '1970-01-01T';
+            const actualDate = new Date(`${baseDate}${actualTimeStr}:00Z`);
+            const scheduledDate = new Date(`${baseDate}${scheduledTimeStr}Z`);
+            if (isNaN(actualDate.getTime()) || isNaN(scheduledDate.getTime())) { return actualTimeStr; }
+            const diffMinutes = (actualDate.getTime() - scheduledDate.getTime()) / 60000;
+            if (Math.abs(diffMinutes) <= tolerancia) { return scheduledTimeStr; }
+            return actualTimeStr;
+        };
+        const entradaAjustada = adjustTime(dayData.entrada, jornadaDoDia?.horario_entrada);
+        const inicioIntervaloAjustado = adjustTime(dayData.inicio_intervalo, jornadaDoDia?.horario_saida_intervalo);
+        const fimIntervaloAjustado = adjustTime(dayData.fim_intervalo, jornadaDoDia?.horario_volta_intervalo);
+        const saidaAjustada = adjustTime(dayData.saida, jornadaDoDia?.horario_saida);
+        const entrada = parseTime(entradaAjustada, dateBase);
+        const saida = parseTime(saidaAjustada, dateBase);
+        const inicio_intervalo = parseTime(inicioIntervaloAjustado, dateBase);
+        const fim_intervalo = parseTime(fimIntervaloAjustado, dateBase);
+        let manhaMillis = 0; let tardeMillis = 0;
+        if (entrada && inicio_intervalo) { manhaMillis = inicio_intervalo.getTime() - entrada.getTime(); }
+        if (fim_intervalo && saida) { tardeMillis = saida.getTime() - fim_intervalo.getTime(); }
         let totalMillis = manhaMillis + tardeMillis;
-        if (totalMillis <= 0 && entrada && saida) {
-            totalMillis = saida.getTime() - entrada.getTime();
-        }
-        if (totalMillis <= 0) {
-            return '--:--';
-        }
+        if (totalMillis <= 0 && entrada && saida) { totalMillis = saida.getTime() - entrada.getTime(); }
+        if (totalMillis <= 0) { return '--:--'; }
         if (totalMillis < 0) totalMillis = 0;
         const totalHours = Math.floor(totalMillis / (1000 * 60 * 60));
         const totalMinutes = Math.floor((totalMillis % (1000 * 60 * 60)) / (1000 * 60));
         return `${String(totalHours).padStart(2, '0')}:${String(totalMinutes).padStart(2, '0')}`;
-    }, []);
+    }, [employee, parseTime]);
     
     const loadTimesheetData = useCallback(async () => {
         if (!employeeId || !month) return;
@@ -88,7 +96,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         const [year, monthNum] = month.split('-');
         const startDate = `${year}-${monthNum}-01`;
         const endDate = new Date(year, monthNum, 0).toISOString().split('T')[0];
-        let { data: employeeData, error: empError } = await supabase.from('funcionarios').select('*, admission_date, demission_date, cpf, foto_url, jornada:jornadas(*, detalhes:jornada_detalhes(*))').eq('id', employeeId).single();
+        let { data: employeeData, error: empError } = await supabase.from('funcionarios').select('*, daily_value, admission_date, demission_date, cpf, foto_url, jornada:jornadas(*, detalhes:jornada_detalhes(*))').eq('id', employeeId).single();
         if (empError) { showToast('Erro ao buscar dados do funcionário.', 'error'); setIsProcessing(false); return; }
         if (employeeData.foto_url) {
             const { data: urlData } = await supabase.storage.from('funcionarios-documentos').createSignedUrl(employeeData.foto_url, 3600);
@@ -143,31 +151,23 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     }, [loadTimesheetData, supabase, user, userData, isUserProprietario]);
 
     const kpiData = useMemo(() => {
-        if (!month || !employee) return { dias: '0 / 0', horas: '00:00h / 00:00h', faltas: 0 };
-        
-        // ***** INÍCIO DA ALTERAÇÃO 1 *****
+        if (!month || !employee) return { dias: '0 / 0', horas: '00:00h / 00:00h', faltas: 0, valorAPagar: 'R$ 0,00' };
         const [year, monthNum] = month.split('-').map(Number);
         const today = new Date();
         const isCurrentMonth = today.getFullYear() === year && today.getMonth() === monthNum - 1;
-        
-        const firstDayOfMonth = new Date(Date.UTC(year, monthNum - 1, 1));
         const lastDayOfMonth = isCurrentMonth ? new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) : new Date(Date.UTC(year, monthNum, 0));
-        
+        const firstDayOfMonth = new Date(Date.UTC(year, monthNum - 1, 1));
         const admissionDate = employee.admission_date ? new Date(employee.admission_date + 'T00:00:00Z') : null;
         const demissionDate = employee.demission_date ? new Date(employee.demission_date + 'T00:00:00Z') : null;
-
         let diasUteisNoPeriodo = 0;
         let cargaHorariaEsperadaMinutos = 0;
         const jornadaDetalhes = employee.jornada?.detalhes || [];
-
         if (jornadaDetalhes.length > 0) {
             for (let d = new Date(firstDayOfMonth); d <= lastDayOfMonth; d.setUTCDate(d.getUTCDate() + 1)) {
                 if (admissionDate && d < admissionDate) continue;
                 if (demissionDate && d > demissionDate) continue;
-
                 const dayOfWeek = d.getUTCDay();
                 const dateString = d.toISOString().split('T')[0];
-
                 if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.has(dateString)) {
                     diasUteisNoPeriodo++;
                     const jornadaDoDia = jornadaDetalhes.find(j => j.dia_semana === dayOfWeek);
@@ -176,17 +176,14 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                         const saida = jornadaDoDia.horario_saida ? jornadaDoDia.horario_saida.split(':').map(Number) : [0,0];
                         const inicioIntervalo = jornadaDoDia.horario_saida_intervalo ? jornadaDoDia.horario_saida_intervalo.split(':').map(Number) : [0,0];
                         const fimIntervalo = jornadaDoDia.horario_volta_intervalo ? jornadaDoDia.horario_volta_intervalo.split(':').map(Number) : [0,0];
-                        
                         const minutosTrabalho = (saida[0]*60 + saida[1]) - (entrada[0]*60 + entrada[1]);
                         const minutosIntervalo = (fimIntervalo[0]*60 + fimIntervalo[1]) - (inicioIntervalo[0]*60 + inicioIntervalo[1]);
-                        
                         cargaHorariaEsperadaMinutos += minutosTrabalho - (minutosIntervalo > 0 ? minutosIntervalo : 0);
                     }
                 }
             }
         }
         const cargaHorariaEsperadaFormatada = `${Math.floor(cargaHorariaEsperadaMinutos / 60)}:${String(cargaHorariaEsperadaMinutos % 60).padStart(2, '0')}h`;
-        
         const diasTrabalhados = Object.keys(timesheetData).length;
         let totalMinutosTrabalhados = 0;
         Object.values(timesheetData).forEach(dayData => {
@@ -196,54 +193,53 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 totalMinutosTrabalhados += (hours * 60) + minutes;
             }
         });
-
         const horasTrabalhadasFormatada = `${Math.floor(totalMinutosTrabalhados / 60)}:${String(Math.round(totalMinutosTrabalhados % 60)).padStart(2, '0')}h`;
         const faltas = Math.max(0, diasUteisNoPeriodo - diasTrabalhados);
-        // ***** FIM DA ALTERAÇÃO 1 *****
-
-        return { dias: `${diasTrabalhados} / ${diasUteisNoPeriodo}`, horas: `${horasTrabalhadasFormatada} / ${cargaHorariaEsperadaFormatada}`, faltas };
+        
+        // ***** INÍCIO DA ALTERAÇÃO INTELIGENTE (CORREÇÃO DA LÓGICA) *****
+        // Converte o valor da diária de texto para número de forma segura, tratando R$, ponto e vírgula.
+        const valorDiariaStr = String(employee.daily_value || '0').replace('R$', '').trim().replace(/\./g, '').replace(',', '.');
+        const valorDiaria = parseFloat(valorDiariaStr) || 0;
+        const valorAPagar = diasTrabalhados * valorDiaria;
+        // ***** FIM DA ALTERAÇÃO INTELIGENTE *****
+        
+        return { 
+            dias: `${diasTrabalhados} / ${diasUteisNoPeriodo}`, 
+            horas: `${horasTrabalhadasFormatada} / ${cargaHorariaEsperadaFormatada}`, 
+            faltas,
+            valorAPagar: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorAPagar)
+        };
     }, [timesheetData, month, employee, holidays, calculateTotalHours]);
 
     useEffect(() => {
         if (!employee?.jornada?.detalhes || isProcessing) return;
-        
-        // ***** INÍCIO DA ALTERAÇÃO 2 *****
         const [year, monthNum] = month.split('-').map(Number);
         const today = new Date();
         const isCurrentMonth = today.getFullYear() === year && today.getMonth() === monthNum - 1;
         const lastDayToCheck = isCurrentMonth ? new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) : new Date(Date.UTC(year, monthNum, 0));
-
         const firstDayOfMonth = new Date(Date.UTC(year, monthNum - 1, 1));
         const pending = [];
-        
         const admissionDate = employee.admission_date ? new Date(employee.admission_date + 'T00:00:00Z') : null;
         const demissionDate = employee.demission_date ? new Date(employee.demission_date + 'T00:00:00Z') : null;
-        
         for (let d = new Date(firstDayOfMonth); d <= lastDayToCheck; d.setUTCDate(d.getUTCDate() + 1)) {
             if (admissionDate && d < admissionDate) continue;
             if (demissionDate && d > demissionDate) continue;
-
             const dateString = d.toISOString().split('T')[0];
             const dayOfWeek = d.getUTCDay();
-
             if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-
             const jornadaDoDia = employee.jornada.detalhes.find(j => j.dia_semana === dayOfWeek);
             const isWorkdayCheck = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_entrada.trim() !== '' && jornadaDoDia.horario_saida && jornadaDoDia.horario_saida.trim() !== '';
-            
             if (isWorkdayCheck && !holidays.has(dateString)) {
                 const dayData = timesheetData[dateString];
                 const abonoDoDia = abonosData[dateString];
                 const breakIsRequired = jornadaDoDia.horario_saida_intervalo && jornadaDoDia.horario_volta_intervalo;
                 const hasRequiredPunches = dayData && dayData.entrada && dayData.saida && (!breakIsRequired || (dayData.inicio_intervalo && dayData.fim_intervalo));
-
                 if (!abonoDoDia && !hasRequiredPunches) {
                     pending.push(dateString);
                 }
             }
         }
         setPendingDays(pending);
-        // ***** FIM DA ALTERAÇÃO 2 *****
     }, [timesheetData, employee, holidays, month, isProcessing, abonosData]);
 
     const handleCellEdit = (date, field) => { if (isProcessing || !canEdit) return; setEditingCell({ date, field }); };
@@ -331,12 +327,13 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 no-print">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 no-print">
+                <KpiCard title="Valor a Pagar (Mês)" value={kpiData.valorAPagar} icon={faDollarSign} color="purple" />
                 <KpiCard title="Dias (Trab. / Úteis)" value={kpiData.dias} icon={faCalendarCheck} color="blue" />
                 <KpiCard title="Horas (Trab. / Prev.)" value={kpiData.horas} icon={faBusinessTime} color="green" />
                 <KpiCard title="Faltas (no período)" value={kpiData.faltas} icon={faCalendarXmark} color="red" />
             </div>
-
+            
             <div className="overflow-x-auto">
                 <table className="min-w-full border-collapse">
                     <thead className="bg-gray-100">

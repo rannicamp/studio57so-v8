@@ -58,8 +58,8 @@ export default function PontoPage() {
     const canCreate = hasPermission('ponto', 'pode_criar');
     const canEdit = hasPermission('ponto', 'pode_editar');
 
-    const { data: employees = [], isLoading, error } = useQuery({
-        queryKey: ['employees'],
+    const { data: employees = [], isLoading, error, refetch: refetchEmployees } = useQuery({
+        queryKey: ['employeesPonto'],
         queryFn: fetchAllEmployees
     });
 
@@ -82,9 +82,6 @@ export default function PontoPage() {
         }
     }, [authLoading, canViewPage, router]);
 
-    // ***** INÍCIO DA ALTERAÇÃO 1 *****
-    // Este useEffect agora lê a "anotação" do localStorage e define o funcionário
-    // sem apagar a anotação depois.
     useEffect(() => {
         if (!isLoading && employees.length > 0) {
             const preSelectedId = localStorage.getItem('selectedEmployeeIdForPonto');
@@ -94,7 +91,6 @@ export default function PontoPage() {
         }
     }, [isLoading, employees]);
 
-    // Esta nova função atualiza o estado E salva a "anotação" no localStorage
     const handleEmployeeChange = (employeeId) => {
         setSelectedEmployeeId(employeeId);
         if (employeeId) {
@@ -103,10 +99,10 @@ export default function PontoPage() {
             localStorage.removeItem('selectedEmployeeIdForPonto');
         }
     };
-    // ***** FIM DA ALTERAÇÃO 1 *****
 
     const handleSuccessfulImport = () => {
         setIsImporterOpen(false);
+        refetchEmployees();
         const currentId = selectedEmployeeId;
         setSelectedEmployeeId('');
         setTimeout(() => setSelectedEmployeeId(currentId), 100);
@@ -156,13 +152,10 @@ export default function PontoPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                     <div>
                         <label htmlFor="employee-select" className="block text-sm font-medium text-gray-700">Funcionário</label>
-                        {/* ***** INÍCIO DA ALTERAÇÃO 2 ***** */}
-                        {/* O select agora usa a nova função handleEmployeeChange */}
                         <select id="employee-select" value={selectedEmployeeId} onChange={(e) => handleEmployeeChange(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
                             <option value="">-- Selecione um funcionário --</option>
                             {employees.map(emp => (<option key={emp.id} value={emp.id}>{emp.full_name}</option>))}
                         </select>
-                        {/* ***** FIM DA ALTERAÇÃO 2 ***** */}
                     </div>
                     <div>
                         <label htmlFor="month-select" className="block text-sm font-medium text-gray-700">Mês/Ano</label>
