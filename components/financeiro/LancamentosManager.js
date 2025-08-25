@@ -317,7 +317,7 @@ export default function LancamentosManager({
                                 const isTransferEntry = item.unique_key?.toString().includes('_entrada');
                                 const nomeEmpresa = item.conta_exibicao?.empresa?.nome_fantasia || item.conta_exibicao?.empresa?.razao_social || 'N/A';
 
-                                // --- INÍCIO DA CORREÇÃO ---
+                                // ##### INÍCIO DA CORREÇÃO #####
                                 let displayDate = item.data_transacao;
                                 let dateLabel = 'Data da Transação';
                                 let dateClass = '';
@@ -332,18 +332,18 @@ export default function LancamentosManager({
                                         dateClass = 'text-red-600 font-bold';
                                     }
                                 }
-                                // --- FIM DA CORREÇÃO ---
+                                // ##### FIM DA CORREÇÃO #####
 
                                 return (
                                     <tr key={item.unique_key} className={`${selectedIds.has(item.id) ? 'bg-blue-100' : ''} ${isTransferEntry ? 'bg-gray-50' : 'hover:bg-gray-50'}`}>
                                         <td className="p-4">
                                             <input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} />
                                         </td>
-                                        {/* --- CORREÇÃO APLICADA AQUI --- */}
+                                        {/* ##### CORREÇÃO APLICADA AQUI ##### */}
                                         <td className={`px-4 py-2 whitespace-nowrap ${dateClass}`} title={dateLabel}>
                                             {formatDate(displayDate)}
                                         </td>
-                                        {/* --- FIM DA CORREÇÃO APLICADA --- */}
+                                        {/* ##### FIM DA CORREÇÃO APLICADA ##### */}
                                         <td className="px-4 py-2 font-medium">{item.descricao_exibicao}</td>
                                         <td className="px-4 py-2 text-gray-600">{item.conta_exibicao?.nome || 'N/A'}</td>
                                         <td className="px-4 py-2 text-gray-600 uppercase">{nomeEmpresa}</td>
