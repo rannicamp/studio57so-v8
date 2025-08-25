@@ -161,22 +161,41 @@ export default function CrmPage() {
 
             if (colunasData && colunasData.length > 0) {
                 const colunaIds = colunasData.map(col => col.id);
-                const { data: contatosNoFunilRaw, error: contatosError } = await supabase.from('contatos_no_funil').select(`id, coluna_id, numero_card, produto_id, produto:produto_id(id, unidade, tipo, valor_venda_calculado, empreendimento_id), contatos:contato_id ( *, telefones ( telefone, tipo ), emails(email, tipo), whatsapp_messages (content, sent_at, direction))`).in('coluna_id', colunaIds);
+                // CORREÇÃO: A query foi otimizada para buscar apenas a última mensagem, em vez de todas.
+                const { data: contatosNoFunilRaw, error: contatosError } = await supabase
+                    .from('contatos_no_funil')
+                    .select(`
+                        id, coluna_id, numero_card, produto_id, 
+                        produto:produto_id(id, unidade, tipo, valor_venda_calculado, empreendimento_id), 
+                        contatos:contato_id ( *, telefones ( telefone, tipo ), emails(email, tipo))
+                    `)
+                    .in('coluna_id', colunaIds);
                 if (contatosError) throw contatosError;
 
                 const contatosParaEstado = (contatosNoFunilRaw || []).map(item => {
                     if (!item.contatos || !item.contatos.id) return { ...item, contatos: null };
-                    const contato = item.contatos;
-                    let lastWhatsappMessage = null;
-                    let lastWhatsappMessageTime = null;
-                    if (contato.whatsapp_messages && contato.whatsapp_messages.length > 0) {
-                        const sortedMessages = [...contato.whatsapp_messages].sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
-                        lastWhatsappMessage = sortedMessages[0]?.content;
-                        lastWhatsappMessageTime = sortedMessages[0]?.sent_at;
-                    }
-                    return { ...item, contatos: { ...contato, last_whatsapp_message: lastWhatsappMessage, last_whatsapp_message_time: lastWhatsappMessageTime } };
+                    return item;
                 }).filter(item => item.contatos !== null);
-                setContatosNoFunil(contatosParaEstado);
+
+                // Busca a última mensagem separadamente para otimizar
+                const contatoIds = contatosParaEstado.map(c => c.contatos.id);
+                const { data: lastMessagesData } = await supabase.rpc('get_last_messages_for_contacts', { p_contact_ids: contatoIds });
+
+                const lastMessagesMap = (lastMessagesData || []).reduce((map, msg) => {
+                    map[msg.contato_id] = { content: msg.content, sent_at: msg.sent_at };
+                    return map;
+                }, {});
+
+                const contatosComMensagens = contatosParaEstado.map(item => ({
+                    ...item,
+                    contatos: {
+                        ...item.contatos,
+                        last_whatsapp_message: lastMessagesMap[item.contatos.id]?.content || null,
+                        last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null,
+                    }
+                }));
+
+                setContatosNoFunil(contatosComMensagens);
             } else {
                 setContatosNoFunil([]);
             }
@@ -192,7 +211,33 @@ export default function CrmPage() {
     }, [setPageTitle, fetchFunilData]);
     
     const openAddContactModal = () => { setSearchResults([]); setIsAddContactModalOpen(true); };
-    const handleSearch = useCallback(async (term) => { if (!term.trim() || term.length < 2) { setSearchResults([]); return; } const { data, error } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term }); if (error) { toast.error("Erro ao buscar contatos."); } setSearchResults(data || []); }, [supabase]);
+
+    // ##### INÍCIO DA CORREÇÃO (DEBOUNCE) #####
+    // Armazena o ID do timeout para podermos cancelá-lo
+    const debounceTimeoutRef = useRef(null);
+
+    const handleSearch = useCallback((term) => {
+        // Cancela a busca anterior se o usuário ainda estiver digitando
+        if (debounceTimeoutRef.current) {
+            clearTimeout(debounceTimeoutRef.current);
+        }
+
+        if (!term.trim() || term.length < 2) {
+            setSearchResults([]);
+            return;
+        }
+
+        // Agenda uma nova busca para daqui a 300ms
+        debounceTimeoutRef.current = setTimeout(async () => {
+            const { data, error } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term });
+            if (error) {
+                toast.error("Erro ao buscar contatos.");
+            }
+            setSearchResults(data || []);
+        }, 300); // 300 milissegundos de espera
+    }, [supabase]);
+    // ##### FIM DA CORREÇÃO (DEBOUNCE) #####
+
     const handleAddContactToFunnel = async (contactId) => { try { const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).order('ordem').limit(1).single(); if (!primeiraColuna) throw new Error("Coluna inicial não encontrada."); const { error } = await supabase.from('contatos_no_funil').insert({ contato_id: contactId, coluna_id: primeiraColuna.id }); if (error) throw new Error(error.message); setIsAddContactModalOpen(false); toast.success('Contato adicionado ao funil!'); fetchFunilData(); } catch (error) { toast.error(`Erro: ${error.message}`); }};
     const handleAssociateProduct = async (contatoNoFunilId, produtoId) => { setContatosNoFunil(prev => prev.map(c => c.id === contatoNoFunilId ? { ...c, produto_id: produtoId, produto: availableProducts.find(p => p.id === produtoId) } : c)); const { error } = await supabase.from('contatos_no_funil').update({ produto_id: produtoId }).eq('id', contatoNoFunilId); if (error) { toast.error("Falha ao associar produto."); fetchFunilData(); } else { toast.success("Produto associado!"); }};
     const handleStatusChange = async (contatoNoFunilId, novaColunaId) => { const novaColuna = colunasDoFunil.find(c => c.id === novaColunaId); const contatoMovido = contatosNoFunil.find(c => c.id === contatoNoFunilId); if (!novaColuna || !contatoMovido) return; if (novaColuna.nome === 'Vendido') { if (!contatoMovido.produto_id) { toast.error("Associe um produto de interesse ao card."); return; } if (!window.confirm(`Isso irá criar um novo contrato para o produto "${contatoMovido.produto.unidade}". Continuar?`)) return; setLoadingFunil(true); toast.info("Criando contrato..."); const { data: novoContrato, error: contratoError } = await supabase.from('contratos').insert({ contato_id: contatoMovido.contatos.id, produto_id: contatoMovido.produto_id, empreendimento_id: contatoMovido.produto.empreendimento_id, valor_final_venda: contatoMovido.produto.valor_venda_calculado || 0, status_contrato: 'Em assinatura' }).select('id').single(); if (contratoError) { toast.error(`Erro: ${contratoError.message}`); setLoadingFunil(false); return; } await supabase.rpc('mover_contato_e_atualizar_produto', { p_contato_no_funil_id: contatoNoFunilId, p_nova_coluna_id: novaColunaId }); toast.success("Contrato criado! Redirecionando..."); router.push(`/contratos/${novoContrato.id}`); } else { const originalContatos = [...contatosNoFunil]; setContatosNoFunil(prev => prev.map(c => c.id === contatoNoFunilId ? { ...c, coluna_id: novaColunaId } : c)); try { const payload = { contatoId: contatoNoFunilId, novaColunaId: novaColunaId }; const response = await fetch('/api/crm', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!response.ok) { const result = await response.json(); throw new Error(result.error); } toast.success('Contato movido!'); fetchFunilData(); } catch (error) { toast.error(`Erro: ${error.message}`); setContatosNoFunil(originalContatos); }}};
