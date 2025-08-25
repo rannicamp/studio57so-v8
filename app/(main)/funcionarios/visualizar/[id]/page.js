@@ -27,19 +27,20 @@ export default function VisualizarFuncionarioPage() {
     const getEmployeeData = useCallback(async () => {
         setLoading(true);
         
-        // ***** INÍCIO DA CORREÇÃO *****
-        // A busca agora inclui os detalhes da jornada de trabalho do funcionário
+        // ***** INÍCIO DA ALTERAÇÃO INTELIGENTE *****
+        // A busca de 'cadastro_empresa' agora traz todas as colunas (*)
+        // em vez de apenas a razão social.
         const { data: employeeData, error } = await supabase
             .from('funcionarios')
             .select(`
                 *, 
-                cadastro_empresa(razao_social), 
+                cadastro_empresa(*), 
                 empreendimentos(nome),
                 jornada:jornadas(*, detalhes:jornada_detalhes(*))
             `)
             .eq('id', employeeId)
             .single();
-        // ***** FIM DA CORREÇÃO *****
+        // ***** FIM DA ALTERAÇÃO INTELIGENTE *****
 
         if (error || !employeeData) {
             setLoading(false);

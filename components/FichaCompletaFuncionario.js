@@ -7,12 +7,12 @@ import {
     faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile, 
     faAddressCard, faFileContract, faFileLines, faCheckCircle, faTimesCircle, faDollarSign, 
     faCalendarCheck, faCalendarXmark, faBusinessTime, faPenToSquare, faSort, faSortUp, faSortDown,
-    faFileInvoiceDollar, faPrint, faTimes
+    faFileInvoiceDollar, faPrint
 } from '@fortawesome/free-solid-svg-icons';
 import KpiCard from './KpiCard';
 import { toast } from 'sonner';
 
-// --- SUB-COMPONENTES ---
+// --- SUB-COMPONENTES (sem alterações, mantidos para a funcionalidade da página) ---
 
 const InfoField = ({ label, value, fullWidth = false }) => (
     <div className={fullWidth ? "md:col-span-2" : ""}>
@@ -280,8 +280,6 @@ const FinanceiroSection = ({ lancamentos, onEditLancamento }) => {
     );
 };
 
-// ***** INÍCIO DA ALTERAÇÃO INTELIGENTE *****
-// Novo componente para o Modal de Confirmação de Impressão
 const PrintConfirmationModal = ({ isOpen, onClose, onConfirmComBonus, onConfirmSemBonus }) => {
     if (!isOpen) return null;
 
@@ -325,10 +323,13 @@ const ContrachequeSection = ({ employee }) => {
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     
+    // ***** INÍCIO DA ALTERAÇÃO INTELIGENTE *****
+    // O cálculo do valor líquido oficial agora considera apenas o salário base e o INSS.
     const valorLiquidoOficial = useMemo(() => {
         if (!contracheque) return 0;
         return (contracheque.salario_base || 0) - (contracheque.desconto_inss || 0);
     }, [contracheque]);
+    // ***** FIM DA ALTERAÇÃO INTELIGENTE *****
 
     const fetchContracheque = useCallback(async (month) => {
         if (!employee || !month) return;
@@ -415,38 +416,71 @@ const ContrachequeSection = ({ employee }) => {
                 ) : !contracheque ? (
                     <p className="text-center p-8 text-gray-500">Não foi possível carregar os dados do contracheque para este mês.</p>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                            <h4 className="font-semibold text-lg border-b pb-2">Detalhes do Cálculo</h4>
-                            <InfoField label="Salário Base (no mês)" value={formatCurrency(contracheque.salario_base)} />
-                            <InfoField label="Dias Trabalhados" value={contracheque.dias_trabalhados} />
-                            <InfoField label="Valor por Diária (no mês)" value={formatCurrency(contracheque.valor_diaria_base)} />
-                            <InfoField label="Total Diárias" value={formatCurrency(contracheque.valor_total_diarias)} />
-                            <div className="print-bonus-item">
-                                <InfoField label="Bônus (Diárias - Salário Base)" value={formatCurrency(contracheque.bonus)} />
+                    <div className="border rounded-lg p-4 md:p-8 bg-white shadow-lg contracheque-body">
+                        <div className="print-header">
+                            <div className="flex justify-between items-start border-b pb-4">
+                                <div>
+                                    <h4 className="font-bold text-lg">{employee.cadastro_empresa?.razao_social || 'Empresa não definida'}</h4>
+                                    <p className="text-sm">{employee.cadastro_empresa?.address_street}, {employee.cadastro_empresa?.address_number}</p>
+                                    <p className="text-sm">CNPJ: {employee.cadastro_empresa?.cnpj}</p>
+                                </div>
+                                <div className="text-center">
+                                    <h5 className="font-bold">Demonstrativo de Pagamento de Salário</h5>
+                                    <p className="text-sm">Período: 01/{selectedMonth.slice(5, 7)}/{selectedMonth.slice(0, 4)} a {new Date(selectedMonth.slice(0, 4), selectedMonth.slice(5, 7), 0).getDate()}/{selectedMonth.slice(5, 7)}/{selectedMonth.slice(0, 4)}</p>
+                                </div>
                             </div>
-                            <div className="no-print">
-                                <label className="block text-sm font-medium">Adicionais (R$)</label>
-                                <input type="number" step="0.01" defaultValue={contracheque.adicionais} onBlur={(e) => handleUpdate('adicionais', e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
-                            </div>
-                            <div className="no-print">
-                                <label className="block text-sm font-medium">Outros Descontos (R$)</label>
-                                <input type="number" step="0.01" defaultValue={contracheque.outros_descontos} onBlur={(e) => handleUpdate('outros_descontos', e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
+                            <div className="flex justify-between items-start border-b py-2">
+                                <div>
+                                    <p className="text-sm"><span className="font-bold">Cód. {employee.id}</span> - {employee.full_name}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm">Cargo: {employee.contract_role}</p>
+                                </div>
                             </div>
                         </div>
-                        <div className="p-6 bg-gray-100 rounded-lg space-y-3 shadow-inner">
-                            <h4 className="font-semibold text-lg border-b pb-2 mb-4">Resumo do Contracheque</h4>
-                            
-                            <div className="flex justify-between items-center text-md"><span className="text-gray-600">Salário Base:</span> <span className="font-semibold">{formatCurrency(contracheque.salario_base)}</span></div>
-                            <div className="flex justify-between items-center text-md print-bonus-item"><span className="text-gray-600">Bônus (Ref. Diárias):</span> <span className="font-semibold text-green-600">{formatCurrency(contracheque.bonus)}</span></div>
-                            <div className="flex justify-between items-center text-md print-bonus-item"><span className="text-gray-600">Adicionais:</span> <span className="font-semibold text-green-600">{formatCurrency(contracheque.adicionais)}</span></div>
-
-                            <div className="flex justify-between items-center text-md pt-3 border-t mt-3"><span className="text-gray-600">Desconto INSS ({contracheque.faixa_inss}%):</span> <span className="font-semibold text-red-600">-{formatCurrency(contracheque.desconto_inss)}</span></div>
-                            <div className="flex justify-between items-center text-md print-bonus-item"><span className="text-gray-600">Outros Descontos:</span> <span className="font-semibold text-red-600">-{formatCurrency(contracheque.outros_descontos)}</span></div>
-                            
-                            <div className="flex justify-between items-center text-xl font-bold border-t pt-4 mt-4 print-bonus-item"><span className="text-gray-800">Valor Líquido a Pagar:</span> <span className="text-blue-700">{formatCurrency(contracheque.valor_liquido)}</span></div>
-                            <div className="hidden print-sem-bonus-only text-xl font-bold border-t pt-4 mt-4">
-                               <div className="flex justify-between items-center"><span className="text-gray-800">Valor Líquido a Pagar:</span> <span className="text-blue-700">{formatCurrency(valorLiquidoOficial)}</span></div>
+                        <table className="w-full mt-4 text-sm">
+                            <thead><tr className="border-b"><th className="text-left font-semibold p-2">Cód.</th><th className="text-left font-semibold p-2 w-1/2">Descrição</th><th className="text-center font-semibold p-2">Referência</th><th className="text-right font-semibold p-2">Vencimentos</th><th className="text-right font-semibold p-2">Descontos</th></tr></thead>
+                            <tbody>
+                                <tr className="border-b"><td className="p-2">001</td><td className="p-2">Salário Base</td><td className="text-center p-2">220:00</td><td className="text-right p-2">{formatCurrency(contracheque.salario_base)}</td><td className="text-right p-2"></td></tr>
+                                <tr className="border-b print-bonus-item"><td className="p-2">002</td><td className="p-2">Bônus (Ref. Diárias)</td><td className="text-center p-2">{contracheque.dias_trabalhados} dias</td><td className="text-right p-2">{formatCurrency(contracheque.bonus)}</td><td className="text-right p-2"></td></tr>
+                                <tr className="border-b print-bonus-item"><td className="p-2">003</td><td className="p-2">Adicionais</td><td className="text-center p-2">--</td><td className="text-right p-2">{formatCurrency(contracheque.adicionais)}</td><td className="text-right p-2"></td></tr>
+                                {/* ***** INÍCIO DA ALTERAÇÃO INTELIGENTE ***** */}
+                                {/* A classe 'print-bonus-item' foi adicionada aqui para ocultar na impressão oficial */}
+                                <tr className="border-b print-bonus-item"><td className="p-2">606</td><td className="p-2">Adiantamento / Outros Descontos</td><td className="text-center p-2">--</td><td className="text-right p-2"></td><td className="text-right p-2">{formatCurrency(contracheque.outros_descontos)}</td></tr>
+                                {/* ***** FIM DA ALTERAÇÃO INTELIGENTE ***** */}
+                                <tr className="border-b"><td className="p-2">903</td><td className="p-2">INSS Folha</td><td className="text-center p-2">{contracheque.faixa_inss}%</td><td className="text-right p-2"></td><td className="text-right p-2">{formatCurrency(contracheque.desconto_inss)}</td></tr>
+                            </tbody>
+                            <tfoot>
+                                {/* Total Completo - Visível na tela e na impressão com bônus */}
+                                <tr className="font-bold print-bonus-item">
+                                    <td colSpan="3" className="text-right p-2">Totais:</td>
+                                    <td className="text-right p-2">{formatCurrency((contracheque.salario_base || 0) + (contracheque.bonus || 0) + (contracheque.adicionais || 0))}</td>
+                                    <td className="text-right p-2">{formatCurrency((contracheque.desconto_inss || 0) + (contracheque.outros_descontos || 0))}</td>
+                                </tr>
+                                {/* Total Oficial - Visível APENAS na impressão sem bônus */}
+                                <tr className="font-bold hidden print-sem-bonus-only">
+                                    <td colSpan="3" className="text-right p-2">Totais:</td>
+                                    <td className="text-right p-2">{formatCurrency(contracheque.salario_base)}</td>
+                                    <td className="text-right p-2">{formatCurrency(contracheque.desconto_inss)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                        <div className="mt-6 flex justify-between items-end">
+                            <table className="w-full text-xs">
+                                <thead><tr className="border-t border-b"><th className="p-1 text-left font-semibold">Salário Base</th><th className="p-1 text-left font-semibold">Base Cálc. INSS</th><th className="p-1 text-left font-semibold">Base Cálc. FGTS</th><th className="p-1 text-left font-semibold">F.G.T.S do mês</th><th className="p-1 text-left font-semibold">Base Cálc. IRRF</th></tr></thead>
+                                <tbody><tr><td className="p-1">{formatCurrency(contracheque.salario_base)}</td><td className="p-1">{formatCurrency(contracheque.salario_base)}</td><td className="p-1">{formatCurrency(contracheque.base_calculo_fgts)}</td><td className="p-1">{formatCurrency(contracheque.valor_fgts)}</td><td className="p-1">{formatCurrency(contracheque.base_calculo_irrf)}</td></tr></tbody>
+                            </table>
+                            <div className="text-right pl-4">
+                                <p className="text-sm">Valor Líquido</p>
+                                <p className="font-bold text-lg print-bonus-item">{formatCurrency(contracheque.valor_liquido)}</p>
+                                <p className="font-bold text-lg hidden print-sem-bonus-only">{formatCurrency(valorLiquidoOficial)}</p>
+                            </div>
+                        </div>
+                         <div className="hidden print:block mt-24">
+                            <p className="text-center text-sm">DECLARO TER RECEBIDO A IMPORTÂNCIA LÍQUIDA DISCRIMINADA NESTE RECIBO</p>
+                            <div className="flex justify-around mt-16">
+                                <div className="text-center"><p className="border-t border-black pt-1 px-16">{employee.full_name}</p><p className="text-xs">ASSINATURA DO FUNCIONÁRIO</p></div>
+                                <div className="text-center"><p className="border-t border-black pt-1 px-16">{new Date(selectedMonth + '-10').toLocaleDateString('pt-BR')}</p><p className="text-xs">DATA</p></div>
                             </div>
                         </div>
                     </div>
@@ -455,7 +489,6 @@ const ContrachequeSection = ({ employee }) => {
         </div>
     );
 };
-// ***** FIM DA ALTERAÇÃO INTELIGENTE *****
 
 
 // Componente Principal
