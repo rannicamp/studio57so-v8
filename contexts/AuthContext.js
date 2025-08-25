@@ -65,11 +65,11 @@ export function AuthProvider({ children }) {
               console.error("Erro ao buscar permissões:", permError);
               setPermissions({});
           } else {
-            const userPermissions = (perms || []).reduce((acc, p) => {
-                acc[p.recurso] = { pode_criar: p.pode_criar, pode_excluir: p.pode_excluir, pode_editar: p.pode_editar, pode_ver: p.pode_ver };
-                return acc;
-            }, {});
-            setPermissions(userPermissions);
+              const userPermissions = (perms || []).reduce((acc, p) => {
+                  acc[p.recurso] = { pode_criar: p.pode_criar, pode_excluir: p.pode_excluir, pode_editar: p.pode_editar, pode_ver: p.pode_ver };
+                  return acc;
+              }, {});
+              setPermissions(userPermissions);
           }
       } else {
           // Se não tiver função, não tem permissões
@@ -98,7 +98,11 @@ export function AuthProvider({ children }) {
 
   const value = { user, userData, loading, isProprietario, canViewSalaries, permissions, hasPermission };
 
-  return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
+  // ##### CORREÇÃO APLICADA AQUI #####
+  // Removemos a condição '!loading &&'. Agora o AuthProvider SEMPRE renderiza
+  // os 'children', e cada página individualmente decidirá se exibe um 'loading'
+  // ou o conteúdo, com base no hook useAuth.
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

@@ -11,8 +11,10 @@ export default function QueryProvider({ children }) {
       queries: {
         // Guarda os dados em memória por 5 minutos antes de considerá-los "velhos".
         staleTime: 5 * 60 * 1000, 
-        // Permite que a página verifique silenciosamente por atualizações quando você volta para a aba.
-        refetchOnWindowFocus: true, 
+        
+        // ##### CORREÇÃO APLICADA AQUI #####
+        // Impede que a página busque dados novos apenas por ganhar foco (mudar de aba).
+        refetchOnWindowFocus: false, 
       },
     },
   }));

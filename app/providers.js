@@ -1,19 +1,19 @@
 // app/providers.js
 "use client";
 
-// --- CORREÇÃO APLICADA AQUI ---
-// O caminho foi corrigido de './contexts/...' para '../contexts/...'
-// para "subir" um nível de pasta antes de procurar por 'contexts'.
 import { AuthProvider } from '../contexts/AuthContext'; 
-// --- FIM DA CORREÇÃO ---
-
 import { SessionProvider } from 'next-auth/react';
 import QueryProvider from './QueryProvider';
 
 export function Providers({ children }) {
   return (
     <AuthProvider>
-      <SessionProvider>
+      {/* ##### CORREÇÃO APLICADA AQUI #####
+        Adicionamos refetchOnWindowFocus={false} ao SessionProvider.
+        Isso impede que a sessão do usuário seja revalidada apenas por
+        mudar de aba, que era a causa do recarregamento da página.
+      */}
+      <SessionProvider refetchOnWindowFocus={false}>
         <QueryProvider>
           {children}
         </QueryProvider>

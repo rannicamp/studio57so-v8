@@ -210,14 +210,12 @@ export default function PedidoForm({ pedidoId }) {
                 fornecedor_id: itemData.fornecedor_id === '' ? null : parseInt(itemData.fornecedor_id) || null,
             };
             
-            // ***** INÍCIO DA CORREÇÃO *****
             if (itemData.tipo_operacao === 'Aluguel') {
                 dataToUpsert.custo_total_real = 
                     (dataToUpsert.quantidade_solicitada || 0) * (dataToUpsert.preco_unitario_real || 0) * (parseInt(itemData.dias_aluguel) || 0); 
             } else {
                 dataToUpsert.custo_total_real = (dataToUpsert.preco_unitario_real || 0) * (dataToUpsert.quantidade_solicitada || 0);
             }
-            // ***** FIM DA CORREÇÃO *****
             
             delete dataToUpsert.fornecedor_nome;
 
@@ -238,7 +236,6 @@ export default function PedidoForm({ pedidoId }) {
             error: (err) => `Falha ao salvar o item: ${err.message}`,
         });
         
-        // Retorna um booleano para o modal saber se deve fechar
         return promise.then(() => true).catch(() => false);
     };
 
@@ -254,7 +251,7 @@ export default function PedidoForm({ pedidoId }) {
         );
     };
 
-    // ***** INÍCIO DA NOVA FUNÇÃO *****
+    // ##### INÍCIO DA NOVA FUNÇÃO #####
     const handleEmptyItemList = async () => {
         if (!window.confirm('ATENÇÃO: Tem certeza que deseja REMOVER TODOS OS ITENS deste pedido? Esta ação é irreversível!')) return;
 
@@ -282,7 +279,7 @@ export default function PedidoForm({ pedidoId }) {
             }
         );
     };
-    // ***** FIM DA NOVA FUNÇÃO *****
+    // ##### FIM DA NOVA FUNÇÃO #####
 
     const handleRegistrarPagamento = async (contaId, dataPagamento) => {
         setIsPagamentoModalOpen(false);
@@ -349,7 +346,7 @@ export default function PedidoForm({ pedidoId }) {
                     <div className="flex justify-between items-center mb-2">
                         <h3 className="text-lg font-semibold">Itens do Pedido</h3>
                         <div className="flex items-center gap-2">
-                            {/* ***** INÍCIO DO NOVO BOTÃO ***** */}
+                            {/* ##### INÍCIO DO NOVO BOTÃO ##### */}
                             {pedido.status === 'Cancelado' && itens.length > 0 && (
                                 <button
                                     onClick={handleEmptyItemList}
@@ -359,7 +356,7 @@ export default function PedidoForm({ pedidoId }) {
                                     <FontAwesomeIcon icon={faBroom} /> Esvaziar Itens
                                 </button>
                             )}
-                            {/* ***** FIM DO NOVO BOTÃO ***** */}
+                            {/* ##### FIM DO NOVO BOTÃO ##### */}
                             <button onClick={() => { setEditingItem(null); setIsItemModalOpen(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center justify-center gap-2 text-sm">
                                 <FontAwesomeIcon icon={faPlus} /> Adicionar Item
                             </button>
