@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react'; // <--- CORREÇÃO AQUI
 import { createClient } from '@/utils/supabase/client';
 import { useLayout } from '@/contexts/LayoutContext';
 import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
@@ -161,7 +161,6 @@ export default function CrmPage() {
 
             if (colunasData && colunasData.length > 0) {
                 const colunaIds = colunasData.map(col => col.id);
-                // CORREÇÃO: A query foi otimizada para buscar apenas a última mensagem, em vez de todas.
                 const { data: contatosNoFunilRaw, error: contatosError } = await supabase
                     .from('contatos_no_funil')
                     .select(`
@@ -177,7 +176,6 @@ export default function CrmPage() {
                     return item;
                 }).filter(item => item.contatos !== null);
 
-                // Busca a última mensagem separadamente para otimizar
                 const contatoIds = contatosParaEstado.map(c => c.contatos.id);
                 const { data: lastMessagesData } = await supabase.rpc('get_last_messages_for_contacts', { p_contact_ids: contatoIds });
 
@@ -212,12 +210,9 @@ export default function CrmPage() {
     
     const openAddContactModal = () => { setSearchResults([]); setIsAddContactModalOpen(true); };
 
-    // ##### INÍCIO DA CORREÇÃO (DEBOUNCE) #####
-    // Armazena o ID do timeout para podermos cancelá-lo
     const debounceTimeoutRef = useRef(null);
 
     const handleSearch = useCallback((term) => {
-        // Cancela a busca anterior se o usuário ainda estiver digitando
         if (debounceTimeoutRef.current) {
             clearTimeout(debounceTimeoutRef.current);
         }
@@ -227,16 +222,14 @@ export default function CrmPage() {
             return;
         }
 
-        // Agenda uma nova busca para daqui a 300ms
         debounceTimeoutRef.current = setTimeout(async () => {
             const { data, error } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term });
             if (error) {
                 toast.error("Erro ao buscar contatos.");
             }
             setSearchResults(data || []);
-        }, 300); // 300 milissegundos de espera
+        }, 300);
     }, [supabase]);
-    // ##### FIM DA CORREÇÃO (DEBOUNCE) #####
 
     const handleAddContactToFunnel = async (contactId) => { try { const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).order('ordem').limit(1).single(); if (!primeiraColuna) throw new Error("Coluna inicial não encontrada."); const { error } = await supabase.from('contatos_no_funil').insert({ contato_id: contactId, coluna_id: primeiraColuna.id }); if (error) throw new Error(error.message); setIsAddContactModalOpen(false); toast.success('Contato adicionado ao funil!'); fetchFunilData(); } catch (error) { toast.error(`Erro: ${error.message}`); }};
     const handleAssociateProduct = async (contatoNoFunilId, produtoId) => { setContatosNoFunil(prev => prev.map(c => c.id === contatoNoFunilId ? { ...c, produto_id: produtoId, produto: availableProducts.find(p => p.id === produtoId) } : c)); const { error } = await supabase.from('contatos_no_funil').update({ produto_id: produtoId }).eq('id', contatoNoFunilId); if (error) { toast.error("Falha ao associar produto."); fetchFunilData(); } else { toast.success("Produto associado!"); }};
