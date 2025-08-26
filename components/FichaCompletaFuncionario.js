@@ -12,7 +12,7 @@ import {
 import KpiCard from './KpiCard';
 import { toast } from 'sonner';
 
-// --- SUB-COMPONENTES (sem alterações, mantidos para a funcionalidade da página) ---
+// --- SUB-COMPONENTES ---
 
 const InfoField = ({ label, value, fullWidth = false }) => (
     <div className={fullWidth ? "md:col-span-2" : ""}>
@@ -323,74 +323,43 @@ const ContrachequeSection = ({ employee }) => {
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     
-    // ***** INÍCIO DA ALTERAÇÃO INTELIGENTE *****
-    // O cálculo do valor líquido oficial agora considera apenas o salário base e o INSS.
     const valorLiquidoOficial = useMemo(() => {
         if (!contracheque) return 0;
         return (contracheque.salario_base || 0) - (contracheque.desconto_inss || 0);
     }, [contracheque]);
-    // ***** FIM DA ALTERAÇÃO INTELIGENTE *****
+
+    const custoTotalEmpresa = useMemo(() => {
+        if (!contracheque) return 0;
+        return (
+            (contracheque.custo_inss_patronal || 0) +
+            (contracheque.custo_rat || 0) +
+            (contracheque.custo_terceiros || 0) +
+            (contracheque.valor_fgts || 0)
+        );
+    }, [contracheque]);
 
     const fetchContracheque = useCallback(async (month) => {
         if (!employee || !month) return;
         setLoading(true);
-
-        const { data, error } = await supabase.rpc('gerar_ou_atualizar_contracheque', {
-            p_funcionario_id: employee.id,
-            p_mes_referencia: month
-        });
-        
-        if (error) {
-            toast.error(`Erro ao gerar contracheque: ${error.message}`);
-            setContracheque(null);
-        } else {
-            setContracheque(data[0]);
-        }
+        const { data, error } = await supabase.rpc('gerar_ou_atualizar_contracheque', { p_funcionario_id: employee.id, p_mes_referencia: month });
+        if (error) { toast.error(`Erro ao gerar contracheque: ${error.message}`); setContracheque(null); } 
+        else { setContracheque(data[0]); }
         setLoading(false);
     }, [supabase, employee]);
 
-    useEffect(() => {
-        fetchContracheque(selectedMonth);
-    }, [selectedMonth, fetchContracheque]);
-
-    useEffect(() => {
-        if (printView) {
-            const timer = setTimeout(() => {
-                window.print();
-                setPrintView(null);
-            }, 100);
-            return () => clearTimeout(timer);
-        }
-    }, [printView]);
+    useEffect(() => { fetchContracheque(selectedMonth); }, [selectedMonth, fetchContracheque]);
+    useEffect(() => { if (printView) { const timer = setTimeout(() => { window.print(); setPrintView(null); }, 100); return () => clearTimeout(timer); } }, [printView]);
     
     const handleUpdate = async (field, value) => {
         if (!contracheque) return;
-        const { error } = await supabase
-            .from('contracheques')
-            .update({ [field]: value })
-            .eq('id', contracheque.id);
-
-        if (error) {
-            toast.error(`Erro ao salvar: ${error.message}`);
-        } else {
-            toast.success("Alteração salva!");
-            fetchContracheque(selectedMonth);
-        }
+        const { error } = await supabase.from('contracheques').update({ [field]: value }).eq('id', contracheque.id);
+        if (error) { toast.error(`Erro ao salvar: ${error.message}`); } 
+        else { toast.success("Alteração salva!"); fetchContracheque(selectedMonth); }
     };
 
-    const handlePrintRequest = () => {
-        setIsPrintModalOpen(true);
-    };
-
-    const handleConfirmComBonus = () => {
-        setPrintView('comBonus');
-        setIsPrintModalOpen(false);
-    };
-
-    const handleConfirmSemBonus = () => {
-        setPrintView('semBonus');
-        setIsPrintModalOpen(false);
-    };
+    const handlePrintRequest = () => setIsPrintModalOpen(true);
+    const handleConfirmComBonus = () => { setPrintView('comBonus'); setIsPrintModalOpen(false); };
+    const handleConfirmSemBonus = () => { setPrintView('semBonus'); setIsPrintModalOpen(false); };
 
     return (
         <div className={`printable-contracheque ${printView === 'semBonus' ? 'print-sem-bonus' : ''}`}>
@@ -402,85 +371,56 @@ const ContrachequeSection = ({ employee }) => {
             />
             <div className="space-y-4">
                 <div className="flex items-center justify-between no-print">
-                    <div className="flex items-center gap-4">
-                        <label className="font-semibold">Mês de Referência:</label>
-                        <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-2 border rounded-md" />
-                    </div>
-                    <button onClick={handlePrintRequest} className="bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-800 flex items-center gap-2">
-                        <FontAwesomeIcon icon={faPrint} /> Imprimir
-                    </button>
+                    <div className="flex items-center gap-4"><label className="font-semibold">Mês:</label><input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="p-2 border rounded-md" /></div>
+                    <button onClick={handlePrintRequest} className="bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-800 flex items-center gap-2"><FontAwesomeIcon icon={faPrint} /> Imprimir</button>
                 </div>
 
-                {loading ? (
-                    <div className="text-center p-8"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
-                ) : !contracheque ? (
-                    <p className="text-center p-8 text-gray-500">Não foi possível carregar os dados do contracheque para este mês.</p>
-                ) : (
-                    <div className="border rounded-lg p-4 md:p-8 bg-white shadow-lg contracheque-body">
-                        <div className="print-header">
-                            <div className="flex justify-between items-start border-b pb-4">
-                                <div>
-                                    <h4 className="font-bold text-lg">{employee.cadastro_empresa?.razao_social || 'Empresa não definida'}</h4>
-                                    <p className="text-sm">{employee.cadastro_empresa?.address_street}, {employee.cadastro_empresa?.address_number}</p>
-                                    <p className="text-sm">CNPJ: {employee.cadastro_empresa?.cnpj}</p>
-                                </div>
-                                <div className="text-center">
-                                    <h5 className="font-bold">Demonstrativo de Pagamento de Salário</h5>
-                                    <p className="text-sm">Período: 01/{selectedMonth.slice(5, 7)}/{selectedMonth.slice(0, 4)} a {new Date(selectedMonth.slice(0, 4), selectedMonth.slice(5, 7), 0).getDate()}/{selectedMonth.slice(5, 7)}/{selectedMonth.slice(0, 4)}</p>
-                                </div>
+                {loading ? ( <div className="text-center p-8"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div> ) : !contracheque ? ( <p className="text-center p-8 text-gray-500">Dados não disponíveis.</p> ) : (
+                    <div className="space-y-6">
+                        <div className="border rounded-lg p-4 md:p-8 bg-white shadow-lg contracheque-body">
+                            <div className="print-header">
+                                <div className="flex justify-between items-start border-b pb-4"><h4 className="font-bold text-lg">{employee.cadastro_empresa?.razao_social}</h4><div className="text-center"><h5 className="font-bold">Demonstrativo de Pagamento</h5><p className="text-sm">Período: 01/{selectedMonth.slice(5, 7)}/{selectedMonth.slice(0, 4)} a {new Date(selectedMonth.slice(0, 4), selectedMonth.slice(5, 7), 0).getDate()}/{selectedMonth.slice(5, 7)}/{selectedMonth.slice(0, 4)}</p></div></div>
+                                <div className="flex justify-between items-start border-b py-2"><p className="text-sm"><span className="font-bold">Cód. {employee.id}</span> - {employee.full_name}</p><p className="text-sm">Cargo: {employee.contract_role}</p></div>
                             </div>
-                            <div className="flex justify-between items-start border-b py-2">
-                                <div>
-                                    <p className="text-sm"><span className="font-bold">Cód. {employee.id}</span> - {employee.full_name}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm">Cargo: {employee.contract_role}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <table className="w-full mt-4 text-sm">
-                            <thead><tr className="border-b"><th className="text-left font-semibold p-2">Cód.</th><th className="text-left font-semibold p-2 w-1/2">Descrição</th><th className="text-center font-semibold p-2">Referência</th><th className="text-right font-semibold p-2">Vencimentos</th><th className="text-right font-semibold p-2">Descontos</th></tr></thead>
-                            <tbody>
-                                <tr className="border-b"><td className="p-2">001</td><td className="p-2">Salário Base</td><td className="text-center p-2">220:00</td><td className="text-right p-2">{formatCurrency(contracheque.salario_base)}</td><td className="text-right p-2"></td></tr>
-                                <tr className="border-b print-bonus-item"><td className="p-2">002</td><td className="p-2">Bônus (Ref. Diárias)</td><td className="text-center p-2">{contracheque.dias_trabalhados} dias</td><td className="text-right p-2">{formatCurrency(contracheque.bonus)}</td><td className="text-right p-2"></td></tr>
-                                <tr className="border-b print-bonus-item"><td className="p-2">003</td><td className="p-2">Adicionais</td><td className="text-center p-2">--</td><td className="text-right p-2">{formatCurrency(contracheque.adicionais)}</td><td className="text-right p-2"></td></tr>
-                                {/* ***** INÍCIO DA ALTERAÇÃO INTELIGENTE ***** */}
-                                {/* A classe 'print-bonus-item' foi adicionada aqui para ocultar na impressão oficial */}
-                                <tr className="border-b print-bonus-item"><td className="p-2">606</td><td className="p-2">Adiantamento / Outros Descontos</td><td className="text-center p-2">--</td><td className="text-right p-2"></td><td className="text-right p-2">{formatCurrency(contracheque.outros_descontos)}</td></tr>
-                                {/* ***** FIM DA ALTERAÇÃO INTELIGENTE ***** */}
-                                <tr className="border-b"><td className="p-2">903</td><td className="p-2">INSS Folha</td><td className="text-center p-2">{contracheque.faixa_inss}%</td><td className="text-right p-2"></td><td className="text-right p-2">{formatCurrency(contracheque.desconto_inss)}</td></tr>
-                            </tbody>
-                            <tfoot>
-                                {/* Total Completo - Visível na tela e na impressão com bônus */}
-                                <tr className="font-bold print-bonus-item">
-                                    <td colSpan="3" className="text-right p-2">Totais:</td>
-                                    <td className="text-right p-2">{formatCurrency((contracheque.salario_base || 0) + (contracheque.bonus || 0) + (contracheque.adicionais || 0))}</td>
-                                    <td className="text-right p-2">{formatCurrency((contracheque.desconto_inss || 0) + (contracheque.outros_descontos || 0))}</td>
-                                </tr>
-                                {/* Total Oficial - Visível APENAS na impressão sem bônus */}
-                                <tr className="font-bold hidden print-sem-bonus-only">
-                                    <td colSpan="3" className="text-right p-2">Totais:</td>
-                                    <td className="text-right p-2">{formatCurrency(contracheque.salario_base)}</td>
-                                    <td className="text-right p-2">{formatCurrency(contracheque.desconto_inss)}</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                        <div className="mt-6 flex justify-between items-end">
-                            <table className="w-full text-xs">
-                                <thead><tr className="border-t border-b"><th className="p-1 text-left font-semibold">Salário Base</th><th className="p-1 text-left font-semibold">Base Cálc. INSS</th><th className="p-1 text-left font-semibold">Base Cálc. FGTS</th><th className="p-1 text-left font-semibold">F.G.T.S do mês</th><th className="p-1 text-left font-semibold">Base Cálc. IRRF</th></tr></thead>
-                                <tbody><tr><td className="p-1">{formatCurrency(contracheque.salario_base)}</td><td className="p-1">{formatCurrency(contracheque.salario_base)}</td><td className="p-1">{formatCurrency(contracheque.base_calculo_fgts)}</td><td className="p-1">{formatCurrency(contracheque.valor_fgts)}</td><td className="p-1">{formatCurrency(contracheque.base_calculo_irrf)}</td></tr></tbody>
+                            <table className="w-full mt-4 text-sm">
+                                <thead><tr className="border-b"><th className="text-left font-semibold p-2">Cód.</th><th className="text-left font-semibold p-2 w-1/2">Descrição</th><th className="text-center font-semibold p-2">Referência</th><th className="text-right font-semibold p-2">Vencimentos</th><th className="text-right font-semibold p-2">Descontos</th></tr></thead>
+                                <tbody>
+                                    <tr className="border-b"><td className="p-2">001</td><td className="p-2">Salário Base</td><td className="text-center p-2">220:00</td><td className="text-right p-2">{formatCurrency(contracheque.salario_base)}</td><td className="text-right p-2"></td></tr>
+                                    <tr className="border-b print-bonus-item"><td className="p-2">002</td><td className="p-2">Bônus (Ref. Diárias)</td><td className="text-center p-2">{contracheque.dias_trabalhados} dias</td><td className="text-right p-2">{formatCurrency(contracheque.bonus)}</td><td className="text-right p-2"></td></tr>
+                                    <tr className="border-b print-bonus-item"><td className="p-2">003</td><td className="p-2">Adicionais</td><td className="text-center p-2">--</td><td className="text-right p-2">{formatCurrency(contracheque.adicionais)}</td><td className="text-right p-2"></td></tr>
+                                    <tr className="border-b print-bonus-item"><td className="p-2">606</td><td className="p-2">Adiantamento / Outros Descontos</td><td className="text-center p-2">--</td><td className="text-right p-2"></td><td className="text-right p-2">{formatCurrency(contracheque.outros_descontos)}</td></tr>
+                                    <tr className="border-b"><td className="p-2">903</td><td className="p-2">INSS Folha</td><td className="text-center p-2">{contracheque.faixa_inss}%</td><td className="text-right p-2"></td><td className="text-right p-2">{formatCurrency(contracheque.desconto_inss)}</td></tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr className="font-bold print-bonus-item"><td colSpan="3" className="text-right p-2">Totais:</td><td className="text-right p-2">{formatCurrency(contracheque.salario_bruto + contracheque.adicionais)}</td><td className="text-right p-2">{formatCurrency(contracheque.desconto_inss + contracheque.outros_descontos)}</td></tr>
+                                    <tr className="font-bold hidden print-sem-bonus-only"><td colSpan="3" className="text-right p-2">Totais:</td><td className="text-right p-2">{formatCurrency(contracheque.salario_base)}</td><td className="text-right p-2">{formatCurrency(contracheque.desconto_inss)}</td></tr>
+                                </tfoot>
                             </table>
-                            <div className="text-right pl-4">
-                                <p className="text-sm">Valor Líquido</p>
-                                <p className="font-bold text-lg print-bonus-item">{formatCurrency(contracheque.valor_liquido)}</p>
-                                <p className="font-bold text-lg hidden print-sem-bonus-only">{formatCurrency(valorLiquidoOficial)}</p>
+                            <div className="mt-6 flex justify-between items-end">
+                                <table className="w-full text-xs">
+                                    <thead><tr className="border-t border-b"><th className="p-1 text-left font-semibold">Salário Base</th><th className="p-1 text-left font-semibold">Base Cálc. INSS</th><th className="p-1 text-left font-semibold print-bonus-item">Base Cálc. FGTS</th><th className="p-1 text-left font-semibold">F.G.T.S do mês</th><th className="p-1 text-left font-semibold">Base Cálc. IRRF</th></tr></thead>
+                                    <tbody><tr><td className="p-1">{formatCurrency(contracheque.salario_base)}</td><td className="p-1">{formatCurrency(contracheque.salario_base)}</td><td className="p-1 print-bonus-item">{formatCurrency(contracheque.base_calculo_fgts)}</td><td className="p-1">{formatCurrency(contracheque.valor_fgts)}</td><td className="p-1">{formatCurrency(contracheque.base_calculo_irrf)}</td></tr></tbody>
+                                </table>
+                                <div className="text-right pl-4">
+                                    <p className="text-sm">Valor Líquido</p>
+                                    <p className="font-bold text-lg print-bonus-item">{formatCurrency(contracheque.valor_liquido)}</p>
+                                    <p className="font-bold text-lg hidden print-sem-bonus-only">{formatCurrency(valorLiquidoOficial)}</p>
+                                </div>
                             </div>
+                            <div className="hidden print:block mt-24">{/* ...assinatura... */}</div>
                         </div>
-                         <div className="hidden print:block mt-24">
-                            <p className="text-center text-sm">DECLARO TER RECEBIDO A IMPORTÂNCIA LÍQUIDA DISCRIMINADA NESTE RECIBO</p>
-                            <div className="flex justify-around mt-16">
-                                <div className="text-center"><p className="border-t border-black pt-1 px-16">{employee.full_name}</p><p className="text-xs">ASSINATURA DO FUNCIONÁRIO</p></div>
-                                <div className="text-center"><p className="border-t border-black pt-1 px-16">{new Date(selectedMonth + '-10').toLocaleDateString('pt-BR')}</p><p className="text-xs">DATA</p></div>
+                        
+                        <div className="no-print border rounded-lg p-4 bg-gray-50 shadow-md">
+                            <h4 className="font-semibold text-lg text-gray-800 mb-3 border-b pb-2">Custo Total da Empresa</h4>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between"><span className="text-gray-600">INSS Patronal (20%):</span> <span className="font-medium">{formatCurrency(contracheque.custo_inss_patronal)}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-600">RAT (3%):</span> <span className="font-medium">{formatCurrency(contracheque.custo_rat)}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-600">Terceiros (5.8%):</span> <span className="font-medium">{formatCurrency(contracheque.custo_terceiros)}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-600">FGTS (8%):</span> <span className="font-medium">{formatCurrency(contracheque.valor_fgts)}</span></div>
+                                <div className="flex justify-between font-bold text-base border-t pt-2 mt-2">
+                                    <span className="text-gray-800">Custo Total (Encargos):</span>
+                                    <span className="text-blue-700">{formatCurrency(custoTotalEmpresa)}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -609,28 +549,12 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
         <div className="space-y-8">
             <style jsx global>{`
                 @media print {
-                    body * {
-                        visibility: hidden;
-                    }
-                    .printable-contracheque, .printable-contracheque * {
-                        visibility: visible;
-                    }
-                    .printable-contracheque {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 100%;
-                        padding: 20px;
-                    }
-                    .no-print {
-                        display: none;
-                    }
-                    .print-sem-bonus .print-bonus-item {
-                        display: none;
-                    }
-                    .print-sem-bonus .print-sem-bonus-only {
-                        display: block !important;
-                    }
+                    body * { visibility: hidden; }
+                    .printable-contracheque, .printable-contracheque * { visibility: visible; }
+                    .printable-contracheque { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+                    .no-print { display: none !important; }
+                    .print-sem-bonus .print-bonus-item { display: none; }
+                    .print-sem-bonus .print-sem-bonus-only { display: block !important; }
                 }
             `}</style>
 
