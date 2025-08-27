@@ -1,3 +1,4 @@
+// components/sidebar.js
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -11,7 +12,7 @@ import {
   faChevronDown,
   faBoxOpen
 } from '@fortawesome/free-solid-svg-icons';
-import { faMeta } from '@fortawesome/free-brands-svg-icons'; // Importa o ícone da Meta
+import { faMeta } from '@fortawesome/free-brands-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { createClient } from '../utils/supabase/client';
 
@@ -45,10 +46,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         { href: '/financeiro', label: 'Financeiro', icon: faDollarSign, recurso: 'financeiro' },
         { href: '/funcionarios', label: 'Funcionários', icon: faUsers, recurso: 'funcionarios' },
         { href: '/ponto', label: 'Controle de Ponto', icon: faClock, recurso: 'ponto' },
-        { href: '/perfil', label: 'Meu Perfil', icon: faUserCog, recurso: 'perfil' },
-        { href: '/atividades', label: 'Atividades', icon: faTasks, recurso: 'atividades' },
         { href: '/empresas', label: 'Empresas', icon: faBuilding, recurso: 'empresas' },
         { href: '/contratos', label: 'Contratos', icon: faFileSignature, recurso: 'contratos' },
+        { href: '/atividades', label: 'Atividades', icon: faTasks, recurso: 'atividades' },
       ]
     },
     {
@@ -71,17 +71,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             </button>
             {(!isCollapsed && isMenuOpen) && (
               <ul className="bg-gray-50 border-l-4 border-gray-200 ml-6 pl-2">
-                <li>
-                  <Link href="/empreendimentos" className="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-200 text-sm">
-                    <span className="w-6 text-center">-</span> Ver Todos
-                  </Link>
-                </li>
+                <li><Link href="/empreendimentos" className="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-200 text-sm"><span className="w-6 text-center">-</span> Ver Todos</Link></li>
                 {empreendimentos.map(emp => (
-                  <li key={emp.id}>
-                    <Link href={`/empreendimentos/${emp.id}`} className="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-200 text-sm group">
-                      <FontAwesomeIcon icon={faBoxOpen} className="w-6 text-center text-gray-400 group-hover:text-blue-500" /> {emp.nome}
-                    </Link>
-                  </li>
+                  <li key={emp.id}><Link href={`/empreendimentos/${emp.id}`} className="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-200 text-sm group"><FontAwesomeIcon icon={faBoxOpen} className="w-6 text-center text-gray-400 group-hover:text-blue-500" /> {emp.nome}</Link></li>
                 ))}
               </ul>
             )}
@@ -107,9 +99,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
       items: [
         { href: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: faInbox, recurso: 'caixa_de_entrada' },
         { href: '/crm', label: 'Funil de Vendas', icon: faBullseye, recurso: 'crm' },
-        // ##### INÍCIO DA ALTERAÇÃO #####
         { href: '/comercial/anuncios', label: 'Anúncios', icon: faMeta, recurso: 'anuncios' },
-        // ##### FIM DA ALTERAÇÃO #####
         { href: '/contatos', label: 'Contatos', icon: faAddressBook, recurso: 'contatos' },
         { href: '/comercial/simulador', label: 'Simulador', icon: faCalculator, recurso: 'simulador' },
       ]
@@ -121,6 +111,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
   ];
 
   const bottomNavItems = [
+    { href: '/perfil', label: 'Meu Perfil', icon: faUserCog, recurso: 'perfil' },
     { href: '/configuracoes', label: 'Configurações', icon: faCog, recurso: 'configuracoes' },
   ];
 
@@ -131,33 +122,22 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
     <aside className={`bg-white shadow-lg h-full fixed left-0 top-0 z-40 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
       <div className="flex items-center justify-center h-[65px] border-b border-gray-200 flex-shrink-0">
         <Link href="/">
-          <img
-            src={isCollapsed ? logoIconUrl : logoUrl}
-            alt="Logo Studio 57"
-            className={`transition-all duration-300 ${isCollapsed ? 'h-8' : 'h-10'} w-auto`}
-          />
+          <img src={isCollapsed ? logoIconUrl : logoUrl} alt="Logo Studio 57" className={`transition-all duration-300 ${isCollapsed ? 'h-8' : 'h-10'} w-auto`} />
         </Link>
       </div>
       <nav className="mt-4 flex-grow overflow-y-auto">
         <ul>
           {navSections.map((section) => (
             <li key={section.title} className="mb-2">
-              {!isCollapsed && section.title !== 'Obras' && (
-                <h3 className="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider my-2">
-                  {section.title}
-                </h3>
-              )}
-              {isCollapsed && section.title !== 'Obras' && (
-                  <div className="flex justify-center my-4">
-                     <div className="w-8 border-t border-gray-200"></div>
-                  </div>
-              )}
+              {!isCollapsed && section.title !== 'Obras' && ( <h3 className="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider my-2">{section.title}</h3> )}
+              {isCollapsed && section.title !== 'Obras' && ( <div className="flex justify-center my-4"><div className="w-8 border-t border-gray-200"></div></div> )}
               
               {section.items ? (
                 <ul>
                   {section.items.map((item) => {
-                    const canViewItem = hasPermission(item.recurso, 'pode_ver') || item.recurso === 'caixa_de_entrada' || item.recurso === 'painel' || item.recurso === 'perfil' || item.recurso === 'anuncios';
+                    const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['caixa_de_entrada', 'painel', 'perfil', 'anuncios'].includes(item.recurso);
                     if (!canViewItem) return null;
+
                     return (
                       <li key={item.label}>
                         <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
@@ -168,36 +148,15 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                     );
                   })}
                 </ul>
-              ) : (
-                section.render(isCollapsed, isObrasOpen, setIsObrasOpen)
-              )}
+              ) : ( section.render(isCollapsed, isObrasOpen, setIsObrasOpen) )}
             </li>
           ))}
         </ul>
       </nav>
       <nav className="mt-auto mb-2 flex-shrink-0">
         <ul>
-          {bottomNavAlwaysVisible.map((item) => (
-            <li key={item.label}>
-              <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
-                <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
-                {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
-              </Link>
-            </li>
-          ))}
-          
-          {bottomNavItems.map((item) => {
-              const canViewItem = hasPermission(item.recurso, 'pode_ver');
-              if (!canViewItem) return null;
-              return (
-                <li key={item.label}>
-                  <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
-                    <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
-                    {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
-                  </Link>
-                </li>
-              );
-          })}
+          {bottomNavAlwaysVisible.map((item) => ( <li key={item.label}><Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}><FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />{!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}</Link></li> ))}
+          {bottomNavItems.map((item) => { const canViewItem = hasPermission(item.recurso, 'pode_ver'); if (!canViewItem) return null; return ( <li key={item.label}><Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}><FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />{!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}</Link></li> ); })}
         </ul>
       </nav>
       <div className="border-t border-gray-200 p-2">
