@@ -9,9 +9,10 @@ import {
     faCheckCircle, faExclamationCircle, faInfoCircle, faUserEdit, 
     faCalendarCheck, faBusinessTime, faCalendarXmark, faPrint, 
     faSpinner, faUserCircle, faExclamationTriangle, faDollarSign,
-    faHistory
+    faHistory, faCalculator
 } from '@fortawesome/free-solid-svg-icons';
 import KpiCard from './KpiCard';
+import AjusteSaldoModal from './rh/AjusteSaldoModal';
 
 const Toast = ({ message, type, onclose }) => {
     useEffect(() => { const timer = setTimeout(onclose, 4000); return () => clearTimeout(timer); }, [onclose]);
@@ -48,6 +49,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     const isUserProprietario = userData?.funcoes?.nome_funcao === 'Proprietário';
     const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     const [saldoAnterior, setSaldoAnterior] = useState({ minutos: 0, loading: true });
+    const [isAjusteModalOpen, setIsAjusteModalOpen] = useState(false);
 
     const selectedSignatory = useMemo(() => {
         if (!selectedSignatoryId || proprietarios.length === 0) return { name: 'N/A', cpf: 'N/A' };
@@ -185,11 +187,11 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             
             if (d > today) {
                 saldoFinalDoDia = 0;
-            } else if (isHoliday || dayOfWeek === 0 || dayOfWeek === 6) { // Sábado, Domingo ou Feriado
+            } else if (isHoliday || dayOfWeek === 0 || dayOfWeek === 6) {
                 if (totalWorkedMinutes > 0) {
                     saldoFinalDoDia = totalWorkedMinutes * 1.5;
                 }
-            } else { // Dia de semana normal
+            } else {
                 const jornadaDoDia = jornadaDetalhes.find(j => j.dia_semana === dayOfWeek);
                 const isWorkday = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_saida;
                 let minutosPrevistos = 0;
@@ -203,13 +205,18 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                     minutosPrevistos = minutosTrabalhoPrev - (minutosIntervaloPrev > 0 ? minutosIntervaloPrev : 0);
                 }
 
-                if (abonoDoDia) {
-                    saldoFinalDoDia = 0;
-                } else if (totalWorkedMinutes > 0) {
+                // ***** INÍCIO DA CORREÇÃO *****
+                if (totalWorkedMinutes > 0) {
+                    // Se trabalhou, calcula o saldo normal, ignorando o abono para o cálculo do saldo.
                     saldoFinalDoDia = totalWorkedMinutes - minutosPrevistos;
+                } else if (abonoDoDia) {
+                    // Se não trabalhou E tem abono, o saldo é zero (falta justificada).
+                    saldoFinalDoDia = 0;
                 } else {
+                    // Se não trabalhou E NÃO tem abono, o saldo é negativo (falta).
                     saldoFinalDoDia = -minutosPrevistos;
                 }
+                // ***** FIM DA CORREÇÃO *****
             }
 
             dailyBalances[dateString] = Math.round(saldoFinalDoDia);
@@ -382,11 +389,21 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
     if (isProcessing) { return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando dados...</div>; }
     if (!employee) return null;
+    
+    const saldoTotalFinal = saldoAnterior.minutos + monthlyBalance.total;
 
     return (
         <div className="printable-area space-y-4">
             <style jsx global>{`@media print { @page { size: A4 portrait; margin: 0.8cm; } body * { visibility: hidden; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } .printable-area, .printable-area * { visibility: visible; } .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; } .no-print { display: none !important; } .print-header { display: block !important; } .print-header-info h3 { font-size: 1.1rem !important; } .kpi-container-on-print { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 0.5rem; font-size: 8pt; border: 1px solid #eee; padding: 4px; border-radius: 6px; } table { font-size: 7.5pt !important; width: 100%; border-collapse: collapse !important; margin-top: 0.5rem; } th, td { border: 1px solid #ccc !important; padding: 2px !important; text-align: center; } .signature-section { margin-top: 1.5cm !important; page-break-inside: avoid; } }`}</style>
             
+            <AjusteSaldoModal
+                isOpen={isAjusteModalOpen}
+                onClose={() => setIsAjusteModalOpen(false)}
+                employee={employee}
+                saldoTotalMinutos={saldoTotalFinal}
+                onSaveSuccess={loadTimesheetData}
+            />
+
             {toast.show && <Toast message={toast.message} type={toast.type} onclose={() => setToast({ ...toast, show: false })} />}
             
             {pendingDays.length > 0 && (
@@ -462,12 +479,9 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                             const abonoDoDia = abonosData[dateString];
                             const isHoliday = holidays.has(dateString);
                             
-                            // ***** INÍCIO DA CORREÇÃO *****
-                            // A variável agora é definida aqui para ser usada na célula de saldo
                             const totalWorkedStr = calculateTotalHours(dayData);
                             const [h, m] = totalWorkedStr.split(':').map(Number);
                             const totalWorkedMinutes = isNaN(h) ? 0 : (h * 60) + m;
-                            // ***** FIM DA CORREÇÃO *****
 
                             const saldoFinalDoDia = monthlyBalance.dailyBalances[dateString];
                             
@@ -502,7 +516,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                                         )
                                     })}
                                     <td className="border p-2 text-center font-semibold">{totalWorkedStr}</td>
-                                    <td className={`border p-2 text-center font-bold ${abonoDoDia && saldoFinalDoDia === 0 ? 'text-gray-600' : saldoFinalDoDia > 0 ? 'text-green-600' : (saldoFinalDoDia < 0 ? 'text-red-600' : 'text-gray-600')}`}>
+                                    <td className={`border p-2 text-center font-bold ${abonoDoDia && totalWorkedMinutes === 0 ? 'text-gray-600' : saldoFinalDoDia > 0 ? 'text-green-600' : (saldoFinalDoDia < 0 ? 'text-red-600' : 'text-gray-600')}`}>
                                         {abonoDoDia && totalWorkedMinutes === 0 ? 'Abonado' : formatMinutesToHours(saldoFinalDoDia)}
                                     </td>
                                     <td onClick={() => handleCellEdit(dateString, 'abono')} className={`border p-2 text-center min-w-[150px] ${canEdit ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'}`}>
@@ -530,9 +544,16 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                         <tr className="bg-gray-800 font-bold text-white">
                             <td colSpan="7" className="text-right px-4 py-2 uppercase text-sm">Saldo Acumulado Total:</td>
                             <td className={`text-center px-4 py-2 text-xl ${(saldoAnterior.minutos + monthlyBalance.total) >= 0 ? 'text-green-300' : 'text-red-300'}`}>
-                                {saldoAnterior.loading ? <FontAwesomeIcon icon={faSpinner} spin /> : formatMinutesToHours(saldoAnterior.minutos + monthlyBalance.total)}
+                                {saldoAnterior.loading ? <FontAwesomeIcon icon={faSpinner} spin /> : formatMinutesToHours(saldoTotalFinal)}
                             </td>
-                            <td colSpan="2"></td>
+                            <td colSpan="2" className="text-center">
+                                {canEdit && saldoTotalFinal !== 0 && !saldoAnterior.loading && (
+                                    <button onClick={() => setIsAjusteModalOpen(true)} className="bg-yellow-500 text-yellow-900 px-3 py-1 rounded-md text-xs font-semibold hover:bg-yellow-600">
+                                        <FontAwesomeIcon icon={faCalculator} className="mr-1" />
+                                        Ajustar Saldo
+                                    </button>
+                                )}
+                            </td>
                         </tr>
                     </tfoot>
                 </table>
