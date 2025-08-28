@@ -12,7 +12,7 @@ import {
 import KpiCard from './KpiCard';
 import { toast } from 'sonner';
 
-// --- SUB-COMPONENTES ---
+// --- SUB-COMPONENTES (Originais mantidos) ---
 
 const InfoField = ({ label, value, fullWidth = false }) => (
     <div className={fullWidth ? "md:col-span-2" : ""}>
@@ -313,7 +313,7 @@ const PrintConfirmationModal = ({ isOpen, onClose, onConfirmComBonus, onConfirmS
     );
 };
 
-const ContrachequeSection = ({ employee }) => {
+const ContrachequeSection = ({ employee, salarioAtual }) => {
     const supabase = createClient();
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
     const [contracheque, setContracheque] = useState(null);
@@ -324,19 +324,15 @@ const ContrachequeSection = ({ employee }) => {
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     
     const valorLiquidoOficial = useMemo(() => {
-        if (!contracheque) return 0;
-        return (contracheque.salario_base || 0) - (contracheque.desconto_inss || 0);
-    }, [contracheque]);
+        if (!contracheque || !salarioAtual) return 0;
+        return (salarioAtual.salario_base || 0) - (contracheque.desconto_inss || 0);
+    }, [contracheque, salarioAtual]);
 
     const custoTotalEmpresa = useMemo(() => {
-        if (!contracheque) return 0;
-        return (
-            (contracheque.custo_inss_patronal || 0) +
-            (contracheque.custo_rat || 0) +
-            (contracheque.custo_terceiros || 0) +
-            (contracheque.valor_fgts || 0)
-        );
-    }, [contracheque]);
+        if (!contracheque || !salarioAtual) return 0;
+        const baseCalculo = salarioAtual.salario_base || 0;
+        return (baseCalculo * 0.20) + (baseCalculo * 0.03) + (baseCalculo * 0.058) + (contracheque.valor_fgts || 0);
+    }, [contracheque, salarioAtual]);
 
     const fetchContracheque = useCallback(async (month) => {
         if (!employee || !month) return;
@@ -350,13 +346,6 @@ const ContrachequeSection = ({ employee }) => {
     useEffect(() => { fetchContracheque(selectedMonth); }, [selectedMonth, fetchContracheque]);
     useEffect(() => { if (printView) { const timer = setTimeout(() => { window.print(); setPrintView(null); }, 100); return () => clearTimeout(timer); } }, [printView]);
     
-    const handleUpdate = async (field, value) => {
-        if (!contracheque) return;
-        const { error } = await supabase.from('contracheques').update({ [field]: value }).eq('id', contracheque.id);
-        if (error) { toast.error(`Erro ao salvar: ${error.message}`); } 
-        else { toast.success("Alteração salva!"); fetchContracheque(selectedMonth); }
-    };
-
     const handlePrintRequest = () => setIsPrintModalOpen(true);
     const handleConfirmComBonus = () => { setPrintView('comBonus'); setIsPrintModalOpen(false); };
     const handleConfirmSemBonus = () => { setPrintView('semBonus'); setIsPrintModalOpen(false); };
@@ -385,21 +374,21 @@ const ContrachequeSection = ({ employee }) => {
                             <table className="w-full mt-4 text-sm">
                                 <thead><tr className="border-b"><th className="text-left font-semibold p-2">Cód.</th><th className="text-left font-semibold p-2 w-1/2">Descrição</th><th className="text-center font-semibold p-2">Referência</th><th className="text-right font-semibold p-2">Vencimentos</th><th className="text-right font-semibold p-2">Descontos</th></tr></thead>
                                 <tbody>
-                                    <tr className="border-b"><td className="p-2">001</td><td className="p-2">Salário Base</td><td className="text-center p-2">220:00</td><td className="text-right p-2">{formatCurrency(contracheque.salario_base)}</td><td className="text-right p-2"></td></tr>
+                                    <tr className="border-b"><td className="p-2">001</td><td className="p-2">Salário Base</td><td className="text-center p-2">220:00</td><td className="text-right p-2">{formatCurrency(salarioAtual.salario_base)}</td><td className="text-right p-2"></td></tr>
                                     <tr className="border-b print-bonus-item"><td className="p-2">002</td><td className="p-2">Bônus (Ref. Diárias)</td><td className="text-center p-2">{contracheque.dias_trabalhados} dias</td><td className="text-right p-2">{formatCurrency(contracheque.bonus)}</td><td className="text-right p-2"></td></tr>
                                     <tr className="border-b print-bonus-item"><td className="p-2">003</td><td className="p-2">Adicionais</td><td className="text-center p-2">--</td><td className="text-right p-2">{formatCurrency(contracheque.adicionais)}</td><td className="text-right p-2"></td></tr>
                                     <tr className="border-b print-bonus-item"><td className="p-2">606</td><td className="p-2">Adiantamento / Outros Descontos</td><td className="text-center p-2">--</td><td className="text-right p-2"></td><td className="text-right p-2">{formatCurrency(contracheque.outros_descontos)}</td></tr>
                                     <tr className="border-b"><td className="p-2">903</td><td className="p-2">INSS Folha</td><td className="text-center p-2">{contracheque.faixa_inss}%</td><td className="text-right p-2"></td><td className="text-right p-2">{formatCurrency(contracheque.desconto_inss)}</td></tr>
                                 </tbody>
                                 <tfoot>
-                                    <tr className="font-bold print-bonus-item"><td colSpan="3" className="text-right p-2">Totais:</td><td className="text-right p-2">{formatCurrency(contracheque.salario_bruto + contracheque.adicionais)}</td><td className="text-right p-2">{formatCurrency(contracheque.desconto_inss + contracheque.outros_descontos)}</td></tr>
-                                    <tr className="font-bold hidden print-sem-bonus-only"><td colSpan="3" className="text-right p-2">Totais:</td><td className="text-right p-2">{formatCurrency(contracheque.salario_base)}</td><td className="text-right p-2">{formatCurrency(contracheque.desconto_inss)}</td></tr>
+                                    <tr className="font-bold print-bonus-item"><td colSpan="3" className="text-right p-2">Totais:</td><td className="text-right p-2">{formatCurrency((salarioAtual.salario_base || 0) + (contracheque.bonus || 0) + (contracheque.adicionais || 0))}</td><td className="text-right p-2">{formatCurrency((contracheque.desconto_inss || 0) + (contracheque.outros_descontos || 0))}</td></tr>
+                                    <tr className="font-bold hidden print-sem-bonus-only"><td colSpan="3" className="text-right p-2">Totais:</td><td className="text-right p-2">{formatCurrency(salarioAtual.salario_base)}</td><td className="text-right p-2">{formatCurrency(contracheque.desconto_inss)}</td></tr>
                                 </tfoot>
                             </table>
                             <div className="mt-6 flex justify-between items-end">
                                 <table className="w-full text-xs">
                                     <thead><tr className="border-t border-b"><th className="p-1 text-left font-semibold">Salário Base</th><th className="p-1 text-left font-semibold">Base Cálc. INSS</th><th className="p-1 text-left font-semibold print-bonus-item">Base Cálc. FGTS</th><th className="p-1 text-left font-semibold">F.G.T.S do mês</th><th className="p-1 text-left font-semibold">Base Cálc. IRRF</th></tr></thead>
-                                    <tbody><tr><td className="p-1">{formatCurrency(contracheque.salario_base)}</td><td className="p-1">{formatCurrency(contracheque.salario_base)}</td><td className="p-1 print-bonus-item">{formatCurrency(contracheque.base_calculo_fgts)}</td><td className="p-1">{formatCurrency(contracheque.valor_fgts)}</td><td className="p-1">{formatCurrency(contracheque.base_calculo_irrf)}</td></tr></tbody>
+                                    <tbody><tr><td className="p-1">{formatCurrency(salarioAtual.salario_base)}</td><td className="p-1">{formatCurrency(salarioAtual.salario_base)}</td><td className="p-1 print-bonus-item">{formatCurrency(contracheque.base_calculo_fgts)}</td><td className="p-1">{formatCurrency(contracheque.valor_fgts)}</td><td className="p-1">{formatCurrency(contracheque.base_calculo_irrf)}</td></tr></tbody>
                                 </table>
                                 <div className="text-right pl-4">
                                     <p className="text-sm">Valor Líquido</p>
@@ -413,9 +402,9 @@ const ContrachequeSection = ({ employee }) => {
                         <div className="no-print border rounded-lg p-4 bg-gray-50 shadow-md">
                             <h4 className="font-semibold text-lg text-gray-800 mb-3 border-b pb-2">Custo Total da Empresa</h4>
                             <div className="space-y-2 text-sm">
-                                <div className="flex justify-between"><span className="text-gray-600">INSS Patronal (20%):</span> <span className="font-medium">{formatCurrency(contracheque.custo_inss_patronal)}</span></div>
-                                <div className="flex justify-between"><span className="text-gray-600">RAT (3%):</span> <span className="font-medium">{formatCurrency(contracheque.custo_rat)}</span></div>
-                                <div className="flex justify-between"><span className="text-gray-600">Terceiros (5.8%):</span> <span className="font-medium">{formatCurrency(contracheque.custo_terceiros)}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-600">INSS Patronal (20%):</span> <span className="font-medium">{formatCurrency((salarioAtual.salario_base || 0) * 0.20)}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-600">RAT (3%):</span> <span className="font-medium">{formatCurrency((salarioAtual.salario_base || 0) * 0.03)}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-600">Terceiros (5.8%):</span> <span className="font-medium">{formatCurrency((salarioAtual.salario_base || 0) * 0.058)}</span></div>
                                 <div className="flex justify-between"><span className="text-gray-600">FGTS (8%):</span> <span className="font-medium">{formatCurrency(contracheque.valor_fgts)}</span></div>
                                 <div className="flex justify-between font-bold text-base border-t pt-2 mt-2">
                                     <span className="text-gray-800">Custo Total (Encargos):</span>
@@ -437,6 +426,37 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
     const [lancamentos, setLancamentos] = useState([]);
     const [holidays, setHolidays] = useState(new Set());
     const supabase = createClient();
+    
+    const [loadingSalario, setLoadingSalario] = useState(true);
+    const [salarioAtual, setSalarioAtual] = useState({ salario_base: null, valor_diaria: null });
+    
+    useEffect(() => {
+        const fetchSalarioAtual = async () => {
+            if (employee?.id) {
+                setLoadingSalario(true);
+                // ##### CORREÇÃO APLICADA AQUI #####
+                // A busca agora é feita diretamente na tabela 'historico_salarial',
+                // ordenando pela data de vigência de forma decrescente e pegando apenas o primeiro.
+                const { data, error } = await supabase
+                    .from('historico_salarial')
+                    .select('salario_base, valor_diaria')
+                    .eq('funcionario_id', employee.id)
+                    .order('data_inicio_vigencia', { ascending: false })
+                    .limit(1)
+                    .single();
+                
+                if (error && error.code !== 'PGRST116') { // Ignora erro se não encontrar nenhuma linha
+                    toast.error("Erro ao buscar o salário atual do funcionário.");
+                    console.error("Erro ao buscar salário:", error);
+                    setSalarioAtual({ salario_base: 0, valor_diaria: 0 });
+                } else if (data) {
+                    setSalarioAtual(data);
+                }
+                setLoadingSalario(false);
+            }
+        };
+        fetchSalarioAtual();
+    }, [employee, supabase, onUpdate]);
 
     useEffect(() => {
         const fetchHolidaysForYear = async () => {
@@ -452,6 +472,9 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
     }, []);
     
     const kpiData = useMemo(() => {
+        const valorDiariaStr = String(salarioAtual.valor_diaria || '0').replace('R$', '').trim().replace(/\./g, '').replace(',', '.');
+        const valorDiaria = parseFloat(valorDiariaStr) || 0;
+
         const today = new Date();
         const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
         const currentMonth = today.getMonth();
@@ -484,8 +507,8 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
         }
         const cargaHorariaEsperadaFormatada = `${Math.floor(cargaHorariaEsperadaMinutos / 60)}:${String(cargaHorariaEsperadaMinutos % 60).padStart(2, '0')}h`;
 
-        const pontosDoMes = allPontos.filter(p => {
-            const pontoDate = new Date(p.data_hora);
+        const pontosDoMes = allPontos.filter(ponto => {
+            const pontoDate = new Date(ponto.data_hora);
             return pontoDate.getMonth() === currentMonth && pontoDate.getFullYear() === currentYear;
         });
         
@@ -510,8 +533,6 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
         const horasTrabalhadasFormatada = `${Math.floor(totalMinutosTrabalhados / 60)}:${String(Math.round(totalMinutosTrabalhados % 60)).padStart(2, '0')}h`;
         const faltas = Math.max(0, diasUteisAteHoje - diasTrabalhados);
         
-        const valorDiariaStr = String(employee.daily_value || '0').replace('R$', '').trim().replace(/\./g, '').replace(',', '.');
-        const valorDiaria = parseFloat(valorDiariaStr) || 0;
         const valorAPagar = diasTrabalhados * valorDiaria;
 
         return {
@@ -521,7 +542,7 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
             valorAPagar: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorAPagar),
         };
 
-    }, [employee, allPontos, holidays]);
+    }, [employee, allPontos, holidays, salarioAtual]);
     
     const fetchLancamentos = useCallback(async () => {
         if (!employee.contato_id) {
@@ -544,6 +565,8 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
             <FontAwesomeIcon icon={icon} /> {label} 
         </button> 
     );
+    
+    const formatCurrency = (value) => value != null ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value) : 'N/A';
     
     return (
         <div className="space-y-8">
@@ -587,6 +610,8 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                 <div className="p-4 bg-gray-50 rounded-lg">
                     {activeTab === 'pessoal' && (
                         <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                            <InfoField label="Salário Base" value={loadingSalario ? '...' : formatCurrency(salarioAtual.salario_base)} />
+                            <InfoField label="Valor Diária" value={loadingSalario ? '...' : formatCurrency(salarioAtual.valor_diaria)} />
                             <InfoField label="CPF" value={employee.cpf} />
                             <InfoField label="RG" value={employee.rg} />
                             <InfoField label="Data de Nascimento" value={employee.birth_date ? new Date(employee.birth_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'} />
@@ -596,12 +621,11 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                             <InfoField label="Empresa Contratante" value={employee.cadastro_empresa?.razao_social} />
                             <InfoField label="Empreendimento Atual" value={employee.empreendimentos?.nome} />
                             <InfoField label="Data de Admissão" value={employee.admission_date ? new Date(employee.admission_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}/>
-                            <InfoField label="Salário Base" value={employee.base_salary} />
                             <InfoField label="Endereço" value={`${employee.address_street || ''}, ${employee.address_number || ''} - ${employee.neighborhood || ''}, ${employee.city || ''}`} fullWidth={true}/>
                             <InfoField label="Observações" value={employee.observations} fullWidth={true} />
                         </dl>
                     )}
-                    {activeTab === 'contracheque' && <ContrachequeSection employee={employee} />}
+                    {activeTab === 'contracheque' && <ContrachequeSection employee={employee} salarioAtual={salarioAtual} />}
                     {activeTab === 'documentos' && ( <DocumentosSection documentos={allDocuments} employeeId={employee.id} employeeName={employee.full_name} onUpdate={onUpdate} /> )}
                     {activeTab === 'financeiro' && ( <FinanceiroSection lancamentos={lancamentos} onEditLancamento={onEditLancamento} /> )}
                     {activeTab === 'checklist' && ( <CadastroChecklist employee={employee} /> )}
