@@ -5,14 +5,18 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-    faCheckCircle, faExclamationCircle, faInfoCircle, faUserEdit, 
-    faCalendarCheck, faBusinessTime, faCalendarXmark, faPrint, 
+import {
+    faCheckCircle, faExclamationCircle, faInfoCircle, faUserEdit,
+    faCalendarCheck, faBusinessTime, faCalendarXmark, faPrint,
     faSpinner, faUserCircle, faExclamationTriangle, faDollarSign,
-    faHistory, faCalculator
+    faHistory, faCalculator, faBoxArchive, faHandHoldingDollar,
+    faHourglassHalf, faUmbrellaBeach
 } from '@fortawesome/free-solid-svg-icons';
 import KpiCard from './KpiCard';
 import AjusteSaldoModal from './rh/AjusteSaldoModal';
+import { toast } from 'sonner';
+
+const supabase = createClient();
 
 const Toast = ({ message, type, onclose }) => {
     useEffect(() => { const timer = setTimeout(onclose, 4000); return () => clearTimeout(timer); }, [onclose]);
@@ -30,8 +34,50 @@ const formatMinutesToHours = (totalMinutes) => {
     return `${sign}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 };
 
+const parseTime = (timeString, baseDate) => {
+    if (!timeString || timeString === '--:--' || typeof timeString !== 'string') return null;
+    const [hours, minutes] = timeString.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return null;
+    const date = new Date(baseDate); date.setUTCHours(hours, minutes, 0, 0); return date;
+};
+
+const calculateTotalHoursForEmployee = (dayData, employee) => {
+    if (!employee) return '--:--';
+    const dateBase = new Date(dayData.dateString + 'T00:00:00Z');
+    const dayOfWeek = dateBase.getUTCDay();
+    const jornadaDoDia = employee.jornada?.detalhes?.find(j => j.dia_semana === dayOfWeek);
+    const tolerancia = employee.jornada?.tolerancia_minutos || 0;
+    const adjustTime = (actualTimeStr, scheduledTimeStr) => {
+        if (!actualTimeStr || !scheduledTimeStr || tolerancia === 0) { return actualTimeStr; }
+        const baseDate = '1970-01-01T';
+        const actualDate = new Date(`${baseDate}${actualTimeStr}:00Z`);
+        const scheduledDate = new Date(`${baseDate}${scheduledTimeStr}Z`);
+        if (isNaN(actualDate.getTime()) || isNaN(scheduledDate.getTime())) { return actualTimeStr; }
+        const diffMinutes = (actualDate.getTime() - scheduledDate.getTime()) / 60000;
+        if (Math.abs(diffMinutes) <= tolerancia) { return scheduledTimeStr; }
+        return actualTimeStr;
+    };
+    const entradaAjustada = adjustTime(dayData.entrada, jornadaDoDia?.horario_entrada);
+    const inicioIntervaloAjustado = adjustTime(dayData.inicio_intervalo, jornadaDoDia?.horario_saida_intervalo);
+    const fimIntervaloAjustado = adjustTime(dayData.fim_intervalo, jornadaDoDia?.horario_volta_intervalo);
+    const saidaAjustada = adjustTime(dayData.saida, jornadaDoDia?.horario_saida);
+    const entrada = parseTime(entradaAjustada, dateBase);
+    const saida = parseTime(saidaAjustada, dateBase);
+    const inicio_intervalo = parseTime(inicioIntervaloAjustado, dateBase);
+    const fim_intervalo = parseTime(fimIntervaloAjustado, dateBase);
+    let manhaMillis = 0; let tardeMillis = 0;
+    if (entrada && inicio_intervalo) { manhaMillis = inicio_intervalo.getTime() - entrada.getTime(); }
+    if (fim_intervalo && saida) { tardeMillis = saida.getTime() - fim_intervalo.getTime(); }
+    let totalMillis = manhaMillis + tardeMillis;
+    if (totalMillis <= 0 && entrada && saida) { totalMillis = saida.getTime() - entrada.getTime(); }
+    if (totalMillis <= 0) { return '--:--'; }
+    if (totalMillis < 0) totalMillis = 0;
+    const totalHours = Math.floor(totalMillis / (1000 * 60 * 60));
+    const totalMinutes = Math.floor((totalMillis % (1000 * 60 * 60)) / (1000 * 60));
+    return `${String(totalHours).padStart(2, '0')}:${String(totalMinutes).padStart(2, '0')}`;
+};
+
 export default function FolhaPonto({ employeeId, month, canEdit }) {
-    const supabase = createClient();
     const { user, userData } = useAuth();
     const [employee, setEmployee] = useState(null);
     const [timesheetData, setTimesheetData] = useState({});
@@ -48,8 +94,12 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     const [geradoPor, setGeradoPor] = useState('');
     const isUserProprietario = userData?.funcoes?.nome_funcao === 'Proprietário';
     const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-    const [saldoAnterior, setSaldoAnterior] = useState({ minutos: 0, loading: true });
     const [isAjusteModalOpen, setIsAjusteModalOpen] = useState(false);
+    const [historicoSalarial, setHistoricoSalarial] = useState([]);
+    const [isMonthClosed, setIsMonthClosed] = useState(false);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [saldoBancoHoras, setSaldoBancoHoras] = useState(0);
+    const [feriasGozadas, setFeriasGozadas] = useState(0);
 
     const selectedSignatory = useMemo(() => {
         if (!selectedSignatoryId || proprietarios.length === 0) return { name: 'N/A', cpf: 'N/A' };
@@ -61,170 +111,88 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
     const showToast = (message, type = 'info') => setToast({ show: true, message, type });
 
-    const parseTime = (timeString, baseDate) => {
-        if (!timeString || timeString === '--:--' || typeof timeString !== 'string') return null;
-        const [hours, minutes] = timeString.split(':').map(Number);
-        if (isNaN(hours) || isNaN(minutes)) return null;
-        const date = new Date(baseDate); date.setUTCHours(hours, minutes, 0, 0); return date;
-    };
-
     const calculateTotalHours = useCallback((dayData) => {
-        const dateBase = new Date(dayData.dateString + 'T00:00:00Z');
-        const dayOfWeek = dateBase.getUTCDay();
-        const jornadaDoDia = employee?.jornada?.detalhes?.find(j => j.dia_semana === dayOfWeek);
-        const tolerancia = employee?.jornada?.tolerancia_minutos || 0;
-        const adjustTime = (actualTimeStr, scheduledTimeStr) => {
-            if (!actualTimeStr || !scheduledTimeStr || tolerancia === 0) { return actualTimeStr; }
-            const baseDate = '1970-01-01T';
-            const actualDate = new Date(`${baseDate}${actualTimeStr}:00Z`);
-            const scheduledDate = new Date(`${baseDate}${scheduledTimeStr}Z`);
-            if (isNaN(actualDate.getTime()) || isNaN(scheduledDate.getTime())) { return actualTimeStr; }
-            const diffMinutes = (actualDate.getTime() - scheduledDate.getTime()) / 60000;
-            if (Math.abs(diffMinutes) <= tolerancia) { return scheduledTimeStr; }
-            return actualTimeStr;
-        };
-        const entradaAjustada = adjustTime(dayData.entrada, jornadaDoDia?.horario_entrada);
-        const inicioIntervaloAjustado = adjustTime(dayData.inicio_intervalo, jornadaDoDia?.horario_saida_intervalo);
-        const fimIntervaloAjustado = adjustTime(dayData.fim_intervalo, jornadaDoDia?.horario_volta_intervalo);
-        const saidaAjustada = adjustTime(dayData.saida, jornadaDoDia?.horario_saida);
-        const entrada = parseTime(entradaAjustada, dateBase);
-        const saida = parseTime(saidaAjustada, dateBase);
-        const inicio_intervalo = parseTime(inicioIntervaloAjustado, dateBase);
-        const fim_intervalo = parseTime(fimIntervaloAjustado, dateBase);
-        let manhaMillis = 0; let tardeMillis = 0;
-        if (entrada && inicio_intervalo) { manhaMillis = inicio_intervalo.getTime() - entrada.getTime(); }
-        if (fim_intervalo && saida) { tardeMillis = saida.getTime() - fim_intervalo.getTime(); }
-        let totalMillis = manhaMillis + tardeMillis;
-        if (totalMillis <= 0 && entrada && saida) { totalMillis = saida.getTime() - entrada.getTime(); }
-        if (totalMillis <= 0) { return '--:--'; }
-        if (totalMillis < 0) totalMillis = 0;
-        const totalHours = Math.floor(totalMillis / (1000 * 60 * 60));
-        const totalMinutes = Math.floor((totalMillis % (1000 * 60 * 60)) / (1000 * 60));
-        return `${String(totalHours).padStart(2, '0')}:${String(totalMinutes).padStart(2, '0')}`;
-    }, [employee, parseTime]);
-    
-    const loadTimesheetData = useCallback(async () => {
-        if (!employeeId || !month) return;
-        setIsProcessing(true);
-        setSaldoAnterior({ minutos: 0, loading: true });
+        return calculateTotalHoursForEmployee(dayData, employee);
+    }, [employee]);
 
-        const { data: saldoData, error: saldoError } = await supabase.rpc('get_saldo_banco_horas_ate_mes_anterior', {
-            p_funcionario_id: employeeId,
-            p_mes_referencia: month
-        });
-        if (saldoError) { showToast('Erro ao calcular saldo anterior.', 'error'); console.error(saldoError);
-        } else { setSaldoAnterior({ minutos: saldoData || 0, loading: false }); }
-        
-        const [year, monthNum] = month.split('-');
-        const startDate = `${year}-${monthNum}-01`;
-        const endDate = new Date(year, monthNum, 0).toISOString().split('T')[0];
-        let { data: employeeData, error: empError } = await supabase.from('funcionarios').select('*, daily_value, admission_date, demission_date, cpf, foto_url, jornada:jornadas(*, detalhes:jornada_detalhes(*))').eq('id', employeeId).single();
-        if (empError) { showToast('Erro ao buscar dados do funcionário.', 'error'); setIsProcessing(false); return; }
-        if (employeeData.foto_url) {
-            const { data: urlData } = await supabase.storage.from('funcionarios-documentos').createSignedUrl(employeeData.foto_url, 3600);
-            employeeData.foto_url = urlData?.signedUrl;
-        }
-        setEmployee(employeeData);
-        const { data: pontosData } = await supabase.from('pontos').select('*, editado_por_usuario_id:usuarios(nome, sobrenome)').eq('funcionario_id', employeeId).gte('data_hora', `${startDate}T00:00:00`).lte('data_hora', `${endDate}T23:59:59`);
-        const { data: abonosDoMes } = await supabase.from('abonos').select('*, criado_por_usuario_id:usuarios(nome, sobrenome)').eq('funcionario_id', employeeId).gte('data_abono', startDate).lte('data_abono', endDate);
-        const processedAbonos = {}; (abonosDoMes || []).forEach(abono => { processedAbonos[abono.data_abono] = abono; }); setAbonosData(processedAbonos);
-        const processedData = {};
-        (pontosData || []).forEach(ponto => {
-            if (!ponto.data_hora) return;
-            const utcDate = new Date(ponto.data_hora.replace(' ', 'T') + 'Z');
-            const dateStr = [utcDate.getUTCFullYear(), String(utcDate.getUTCMonth() + 1).padStart(2, '0'), String(utcDate.getUTCDate()).padStart(2, '0')].join('-');
-            if (!processedData[dateStr]) { processedData[dateStr] = { dateString: dateStr, observacoes: [] }; }
-            const fieldMap = { 'Entrada': 'entrada', 'Inicio_Intervalo': 'inicio_intervalo', 'Fim_Intervalo': 'fim_intervalo', 'Saida': 'saida' };
-            const field = fieldMap[ponto.tipo_registro];
-            if (field) {
-                processedData[dateStr][field] = utcDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                if (ponto.editado_manualmente && ponto.editado_por_usuario_id) {
-                    processedData[dateStr][`${field}_manual`] = true;
-                    const editorNome = `${ponto.editado_por_usuario_id.nome || ''} ${ponto.editado_por_usuario_id.sobrenome || ''}`.trim();
-                    const obsText = `Campo "${ponto.tipo_registro}" editado por ${editorNome}.`;
-                    if (!processedData[dateStr].observacoes.includes(obsText)) processedData[dateStr].observacoes.push(obsText);
-                }
+    const loadTimesheetData = useCallback(async () => {
+        if (!employeeId || !month) { setIsProcessing(false); return; }
+        setIsProcessing(true);
+        try {
+            const [year, monthNum] = month.split('-');
+            const firstDayOfMonth = `${year}-${monthNum}-01`;
+            const lastDayOfMonth = new Date(year, monthNum, 0).toISOString().split('T')[0];
+
+            const [
+                { data: employeeData, error: empError },
+                { data: pontosData },
+                { data: abonosDoMes },
+                { data: historicoData },
+                { data: allHolidays },
+                { data: fechamentoData },
+                { data: saldoBancoData, error: saldoError },
+                { data: feriasData, error: feriasError }
+            ] = await Promise.all([
+                supabase.from('funcionarios').select('*, admission_date, demission_date, cpf, foto_url, jornada:jornadas(*, detalhes:jornada_detalhes(*))').eq('id', employeeId).single(),
+                supabase.from('pontos').select('*, editado_por_usuario_id:usuarios(nome, sobrenome)').eq('funcionario_id', employeeId).gte('data_hora', `${firstDayOfMonth}T00:00:00`).lte('data_hora', `${lastDayOfMonth}T23:59:59`),
+                supabase.from('abonos').select('*, criado_por_usuario_id:usuarios(nome, sobrenome)').eq('funcionario_id', employeeId).gte('data_abono', firstDayOfMonth).lte('data_abono', lastDayOfMonth),
+                supabase.from('historico_salarial').select('*').eq('funcionario_id', employeeId).order('data_inicio_vigencia', { ascending: true }),
+                supabase.from('feriados').select('data_feriado'),
+                supabase.from('banco_de_horas').select('*').eq('funcionario_id', employeeId).eq('mes_referencia', firstDayOfMonth).maybeSingle(),
+                supabase.rpc('get_saldo_banco_horas', { p_funcionario_id: employeeId }),
+                supabase.rpc('get_dias_ferias_gozados_ano', { p_funcionario_id: employeeId, p_ano: parseInt(year) })
+            ]);
+
+            if (empError) throw new Error(`Erro ao buscar dados do funcionário: ${empError.message}`);
+            if (saldoError) throw new Error(`Erro ao buscar saldo do banco de horas: ${saldoError.message}`);
+            if (feriasError) throw new Error(`Erro ao buscar saldo de férias: ${feriasError.message}`);
+            
+            setSaldoBancoHoras(saldoBancoData || 0);
+            setFeriasGozadas(feriasData || 0);
+            setEmployee(employeeData);
+            setHistoricoSalarial(historicoData || []);
+            setHolidays(new Set((allHolidays || []).map(h => h.data_feriado)));
+            setIsMonthClosed(!!fechamentoData);
+
+            if (employeeData.foto_url) {
+                const { data: urlData } = await supabase.storage.from('funcionarios-documentos').createSignedUrl(employeeData.foto_url, 3600);
+                employeeData.foto_url = urlData?.signedUrl;
             }
-            if (ponto.observacao && !processedData[dateStr].observacoes.includes(ponto.observacao)) processedData[dateStr].observacoes.push(ponto.observacao);
-        });
-        Object.keys(processedData).forEach(date => { processedData[date].observacao_final = processedData[date].observacoes.join(' | '); });
-        setTimesheetData(processedData);
-        try { const response = await fetch(`https://brasilapi.com.br/api/feriados/v1/${year}`); const data = await response.json(); setHolidays(new Set(data.map(h => h.date))); } catch (e) { showToast('Aviso: Não foi possível carregar feriados.', 'error'); }
-        setIsProcessing(false);
+            
+            const processedAbonos = {}; (abonosDoMes || []).forEach(abono => { processedAbonos[abono.data_abono] = abono; }); setAbonosData(processedAbonos);
+            const processedData = {};
+            (pontosData || []).forEach(ponto => {
+                if (!ponto.data_hora) return;
+                const utcDate = new Date(ponto.data_hora.replace(' ', 'T') + 'Z');
+                const dateStr = [utcDate.getUTCFullYear(), String(utcDate.getUTCMonth() + 1).padStart(2, '0'), String(utcDate.getUTCDate()).padStart(2, '0')].join('-');
+                if (!processedData[dateStr]) { processedData[dateStr] = { dateString: dateStr, observacoes: [] }; }
+                const fieldMap = { 'Entrada': 'entrada', 'Inicio_Intervalo': 'inicio_intervalo', 'Fim_Intervalo': 'fim_intervalo', 'Saida': 'saida' };
+                const field = fieldMap[ponto.tipo_registro];
+                if (field) {
+                    processedData[dateStr][field] = utcDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    if (ponto.editado_manualmente && ponto.editado_por_usuario_id) {
+                        processedData[dateStr][`${field}_manual`] = true;
+                        const editorNome = `${ponto.editado_por_usuario_id.nome || ''} ${ponto.editado_por_usuario_id.sobrenome || ''}`.trim();
+                        const obsText = `Campo "${ponto.tipo_registro}" editado por ${editorNome}.`;
+                        if (!processedData[dateStr].observacoes.includes(obsText)) processedData[dateStr].observacoes.push(obsText);
+                    }
+                }
+                if (ponto.observacao && !processedData[dateStr].observacoes.includes(ponto.observacao)) processedData[dateStr].observacoes.push(ponto.observacao);
+            });
+            Object.keys(processedData).forEach(date => { processedData[date].observacao_final = processedData[date].observacoes.join(' | '); });
+            setTimesheetData(processedData);
+
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setIsProcessing(false);
+        }
     }, [employeeId, month, supabase]);
 
-    const monthlyBalance = useMemo(() => {
-        const dailyBalances = {};
-        let total = 0;
-        if (!month || !employee || isProcessing) return { dailyBalances, total };
-
-        const [year, monthNum] = month.split('-').map(Number);
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        const lastDayOfMonth = new Date(Date.UTC(year, monthNum, 0));
-        const firstDayOfMonth = new Date(Date.UTC(year, monthNum - 1, 1));
-        const admissionDate = employee.admission_date ? new Date(employee.admission_date + 'T00:00:00Z') : null;
-        const demissionDate = employee.demission_date ? new Date(employee.demission_date + 'T00:00:00Z') : null;
-
-        for (let d = new Date(firstDayOfMonth); d <= lastDayOfMonth; d.setUTCDate(d.getUTCDate() + 1)) {
-            const dateString = d.toISOString().split('T')[0];
-            let saldoFinalDoDia = 0;
-
-            if ((admissionDate && d < admissionDate) || (demissionDate && d > demissionDate)) {
-                dailyBalances[dateString] = 0;
-                continue;
-            }
-
-            const dayOfWeek = d.getUTCDay();
-            const abonoDoDia = abonosData[dateString];
-            const isHoliday = holidays.has(dateString);
-            const dayData = timesheetData[dateString] || { dateString };
-            const jornadaDetalhes = employee.jornada?.detalhes || [];
-            
-            const totalWorkedStr = calculateTotalHours(dayData);
-            const [h, m] = totalWorkedStr.split(':').map(Number);
-            const totalWorkedMinutes = isNaN(h) ? 0 : (h * 60) + m;
-            
-            if (d > today) {
-                saldoFinalDoDia = 0;
-            } else if (isHoliday || dayOfWeek === 0 || dayOfWeek === 6) {
-                if (totalWorkedMinutes > 0) {
-                    saldoFinalDoDia = totalWorkedMinutes * 1.5;
-                }
-            } else {
-                const jornadaDoDia = jornadaDetalhes.find(j => j.dia_semana === dayOfWeek);
-                const isWorkday = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_saida;
-                let minutosPrevistos = 0;
-                if (isWorkday) {
-                    const entradaPrev = jornadaDoDia.horario_entrada.split(':').map(Number);
-                    const saidaPrev = jornadaDoDia.horario_saida.split(':').map(Number);
-                    const inicioIntPrev = jornadaDoDia.horario_saida_intervalo ? jornadaDoDia.horario_saida_intervalo.split(':').map(Number) : [0,0];
-                    const fimIntPrev = jornadaDoDia.horario_volta_intervalo ? jornadaDoDia.horario_volta_intervalo.split(':').map(Number) : [0,0];
-                    const minutosTrabalhoPrev = (saidaPrev[0]*60 + saidaPrev[1]) - (entradaPrev[0]*60 + entradaPrev[1]);
-                    const minutosIntervaloPrev = (fimIntPrev[0]*60 + fimIntPrev[1]) - (inicioIntPrev[0]*60 + inicioIntPrev[1]);
-                    minutosPrevistos = minutosTrabalhoPrev - (minutosIntervaloPrev > 0 ? minutosIntervaloPrev : 0);
-                }
-
-                // ***** INÍCIO DA CORREÇÃO *****
-                if (totalWorkedMinutes > 0) {
-                    // Se trabalhou, calcula o saldo normal, ignorando o abono para o cálculo do saldo.
-                    saldoFinalDoDia = totalWorkedMinutes - minutosPrevistos;
-                } else if (abonoDoDia) {
-                    // Se não trabalhou E tem abono, o saldo é zero (falta justificada).
-                    saldoFinalDoDia = 0;
-                } else {
-                    // Se não trabalhou E NÃO tem abono, o saldo é negativo (falta).
-                    saldoFinalDoDia = -minutosPrevistos;
-                }
-                // ***** FIM DA CORREÇÃO *****
-            }
-
-            dailyBalances[dateString] = Math.round(saldoFinalDoDia);
-            total += Math.round(saldoFinalDoDia);
-        }
-        return { dailyBalances, total };
-    }, [month, employee, timesheetData, holidays, abonosData, calculateTotalHours, isProcessing]);
-
+    useEffect(() => {
+        loadTimesheetData();
+    }, [employeeId, month, loadTimesheetData]);
+    
     useEffect(() => {
         const fetchInitialData = async () => {
             const { data: abonoTypesData } = await supabase.from('abono_tipos').select('id, descricao');
@@ -241,16 +209,90 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             if (userData) { setGeradoPor(`${userData.nome} ${userData.sobrenome}`); }
         };
         fetchInitialData();
-        loadTimesheetData();
-    }, [loadTimesheetData, supabase, user, userData, isUserProprietario]);
+    }, [supabase, user, userData, isUserProprietario]);
 
-    const kpiData = useMemo(() => {
-        if (!month || !employee || isProcessing) return { dias: '0 / 0', horas: '00:00h / 00:00h', faltas: 0, valorAPagar: 'R$ 0,00', saldoBancoHoras: '...', corBancoHoras: 'gray' };
-        
+    const monthlyBalance = useMemo(() => {
+        const dailyBalances = {};
+        let total = 0;
+        if (!month || !employee || isProcessing) return { dailyBalances, total };
         const [year, monthNum] = month.split('-').map(Number);
         const today = new Date();
         today.setHours(0,0,0,0);
-        
+        const lastDayOfMonth = new Date(Date.UTC(year, monthNum, 0));
+        const firstDayOfMonth = new Date(Date.UTC(year, monthNum - 1, 1));
+        const admissionDate = employee.admission_date ? new Date(employee.admission_date + 'T00:00:00Z') : null;
+        const demissionDate = employee.demission_date ? new Date(employee.demission_date + 'T00:00:00Z') : null;
+
+        for (let d = new Date(firstDayOfMonth); d <= lastDayOfMonth; d.setUTCDate(d.getUTCDate() + 1)) {
+            const dateString = d.toISOString().split('T')[0];
+            let saldoFinalDoDia = 0;
+            if ((admissionDate && d < admissionDate) || (demissionDate && d > demissionDate)) {
+                dailyBalances[dateString] = 0;
+                continue;
+            }
+            const dayOfWeek = d.getUTCDay();
+            const abonoDoDia = abonosData[dateString];
+            const isHoliday = holidays.has(dateString);
+            const dayData = timesheetData[dateString] || { dateString };
+            const totalWorkedStr = calculateTotalHours(dayData);
+            const [h, m] = totalWorkedStr.split(':').map(Number);
+            const totalWorkedMinutes = isNaN(h) ? 0 : (h * 60) + m;
+            
+            if (d > today) {
+                saldoFinalDoDia = 0;
+            } else if (isHoliday || dayOfWeek === 0 || dayOfWeek === 6) {
+                if (totalWorkedMinutes > 0) {
+                    saldoFinalDoDia = totalWorkedMinutes * 1.5;
+                }
+            } else {
+                const jornadaDoDia = employee.jornada?.detalhes?.find(j => j.dia_semana === dayOfWeek);
+                const isWorkday = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_saida;
+                let minutosPrevistos = 0;
+                if (isWorkday) {
+                    const entradaPrev = jornadaDoDia.horario_entrada.split(':').map(Number);
+                    const saidaPrev = jornadaDoDia.horario_saida.split(':').map(Number);
+                    const inicioIntPrev = jornadaDoDia.horario_saida_intervalo ? jornadaDoDia.horario_saida_intervalo.split(':').map(Number) : [0,0];
+                    const fimIntPrev = jornadaDoDia.horario_volta_intervalo ? jornadaDoDia.horario_volta_intervalo.split(':').map(Number) : [0,0];
+                    const minutosTrabalhoPrev = (saidaPrev[0]*60 + saidaPrev[1]) - (entradaPrev[0]*60 + entradaPrev[1]);
+                    const minutosIntervaloPrev = (fimIntPrev[0]*60 + fimIntPrev[1]) - (inicioIntPrev[0]*60 + inicioIntPrev[1]);
+                    minutosPrevistos = minutosTrabalhoPrev - (minutosIntervaloPrev > 0 ? minutosIntervaloPrev : 0);
+                }
+
+                if (abonoDoDia) {
+                    saldoFinalDoDia = 0;
+                } else if (totalWorkedMinutes > 0) {
+                    saldoFinalDoDia = totalWorkedMinutes - minutosPrevistos;
+                } else {
+                    saldoFinalDoDia = -minutosPrevistos;
+                }
+            }
+            dailyBalances[dateString] = Math.round(saldoFinalDoDia);
+            total += Math.round(saldoFinalDoDia);
+        }
+        return { dailyBalances, total };
+    }, [month, employee, timesheetData, holidays, abonosData, calculateTotalHours, isProcessing]);
+
+    const getDiariaParaData = useCallback((dateString, historico) => {
+        if (!historico || historico.length === 0) return 0;
+        const targetDate = new Date(dateString + 'T00:00:00Z');
+        let diariaVigente = 0;
+        for (const registro of historico) {
+            const vigenciaDate = new Date(registro.data_inicio_vigencia + 'T00:00:00Z');
+            if (vigenciaDate <= targetDate) {
+                diariaVigente = parseFloat(registro.valor_diaria) || 0;
+            } else {
+                break; 
+            }
+        }
+        return diariaVigente;
+    }, []);
+
+    // --- INÍCIO DA LÓGICA DE KPI CORRIGIDA ---
+    const kpiData = useMemo(() => {
+        if (!month || !employee || isProcessing || !historicoSalarial) return { dias: '0 / 0', horas: '00:00h / 00:00h', faltas: 0, valorAPagar: 'R$ 0,00' };
+
+        const [year, monthNum] = month.split('-').map(Number);
+        const today = new Date(); today.setHours(0,0,0,0);
         const firstDayOfMonth = new Date(Date.UTC(year, monthNum - 1, 1));
         const lastDayOfMonth = new Date(Date.UTC(year, monthNum, 0));
         const admissionDate = employee.admission_date ? new Date(employee.admission_date + 'T00:00:00Z') : null;
@@ -258,71 +300,64 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         
         let diasUteisNoPeriodo = 0;
         let cargaHorariaEsperadaMinutos = 0;
-        const jornadaDetalhes = employee.jornada?.detalhes || [];
-        
-        const lastDayToProcess = new Date() < lastDayOfMonth ? today : lastDayOfMonth;
-        
+        const diasPagaveis = new Set();
+        const diasComBatida = new Set(Object.keys(timesheetData));
+        let totalMinutosTrabalhados = 0;
+
         for (let d = new Date(firstDayOfMonth); d <= lastDayOfMonth; d.setUTCDate(d.getUTCDate() + 1)) {
             const dateString = d.toISOString().split('T')[0];
-
-            if ((admissionDate && d < admissionDate) || (demissionDate && d > demissionDate)) {
-                continue;
-            }
+            if ((admissionDate && d < admissionDate) || (demissionDate && d > demissionDate)) continue;
 
             const dayOfWeek = d.getUTCDay();
-            const abonoDoDia = abonosData[dateString];
             const isHoliday = holidays.has(dateString);
-            
-            if (d <= lastDayToProcess && dayOfWeek !== 0 && dayOfWeek !== 6 && !isHoliday && !abonoDoDia) {
+            const jornadaDoDia = employee.jornada?.detalhes?.find(j => j.dia_semana === dayOfWeek);
+            const isWorkday = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_saida && !isHoliday && dayOfWeek !== 0 && dayOfWeek !== 6;
+
+            if (isWorkday) {
                 diasUteisNoPeriodo++;
-                const jornadaDoDia = jornadaDetalhes.find(j => j.dia_semana === dayOfWeek);
-                if (jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_saida) {
-                    const entradaPrev = jornadaDoDia.horario_entrada.split(':').map(Number);
-                    const saidaPrev = jornadaDoDia.horario_saida.split(':').map(Number);
-                    const inicioIntPrev = jornadaDoDia.horario_saida_intervalo ? jornadaDoDia.horario_saida_intervalo.split(':').map(Number) : [0,0];
-                    const fimIntPrev = jornadaDoDia.horario_volta_intervalo ? jornadaDoDia.horario_volta_intervalo.split(':').map(Number) : [0,0];
-                    const minutosTrabalhoPrev = (saidaPrev[0]*60 + saidaPrev[1]) - (entradaPrev[0]*60 + entradaPrev[1]);
-                    const minutosIntervaloPrev = (fimIntPrev[0]*60 + fimIntPrev[1]) - (inicioIntPrev[0]*60 + inicioIntPrev[1]);
-                    cargaHorariaEsperadaMinutos += minutosTrabalhoPrev - (minutosIntervaloPrev > 0 ? minutosIntervaloPrev : 0);
+                const entradaPrev = jornadaDoDia.horario_entrada.split(':').map(Number);
+                const saidaPrev = jornadaDoDia.horario_saida.split(':').map(Number);
+                const inicioIntPrev = jornadaDoDia.horario_saida_intervalo ? jornadaDoDia.horario_saida_intervalo.split(':').map(Number) : [0,0];
+                const fimIntPrev = jornadaDoDia.horario_volta_intervalo ? jornadaDoDia.horario_volta_intervalo.split(':').map(Number) : [0,0];
+                const minutosTrabalhoPrev = (saidaPrev[0]*60 + saidaPrev[1]) - (entradaPrev[0]*60 + entradaPrev[1]);
+                const minutosIntervaloPrev = (fimIntPrev[0]*60 + fimIntPrev[1]) - (inicioIntPrev[0]*60 + inicioIntPrev[1]);
+                cargaHorariaEsperadaMinutos += minutosTrabalhoPrev - (minutosIntervaloPrev > 0 ? minutosIntervaloPrev : 0);
+            }
+
+            const abonoDoDia = abonosData[dateString];
+            const temBatida = diasComBatida.has(dateString);
+
+            if (temBatida) {
+                diasPagaveis.add(dateString);
+                const totalDayStr = calculateTotalHours(timesheetData[dateString]);
+                if (totalDayStr !== '--:--') {
+                    const [hours, minutes] = totalDayStr.split(':').map(Number);
+                    totalMinutosTrabalhados += (hours * 60) + minutes;
                 }
+            } else if (abonoDoDia && isWorkday) { // <<-- CORREÇÃO PRINCIPAL AQUI
+                diasPagaveis.add(dateString);
             }
         }
         
-        const cargaHorariaEsperadaFormatada = `${Math.floor(cargaHorariaEsperadaMinutos / 60)}:${String(cargaHorariaEsperadaMinutos % 60).padStart(2, '0')}h`;
-        const diasTrabalhados = Object.keys(timesheetData).length;
-        let totalMinutosTrabalhados = 0;
-        Object.values(timesheetData).forEach(dayData => {
-            const totalDayStr = calculateTotalHours(dayData);
-            if (totalDayStr !== '--:--') {
-                const [hours, minutes] = totalDayStr.split(':').map(Number);
-                totalMinutosTrabalhados += (hours * 60) + minutes;
-            }
+        const totalDiasTrabalhados = diasPagaveis.size;
+        
+        let valorAPagar = 0;
+        diasPagaveis.forEach(dateString => {
+            valorAPagar += getDiariaParaData(dateString, historicoSalarial);
         });
 
         const horasTrabalhadasFormatada = `${Math.floor(totalMinutosTrabalhados / 60)}:${String(Math.round(totalMinutosTrabalhados % 60)).padStart(2, '0')}h`;
-        const faltas = Math.max(0, diasUteisNoPeriodo - diasTrabalhados);
-        const valorDiariaStr = String(employee.daily_value || '0').replace('R$', '').trim().replace(/\./g, '').replace(',', '.');
-        const valorDiaria = parseFloat(valorDiariaStr) || 0;
-        const valorAPagar = diasTrabalhados * valorDiaria;
-        
-        let saldoBancoHorasFormatado = <FontAwesomeIcon icon={faSpinner} spin />;
-        let corBancoHoras = 'gray';
-
-        if (!saldoAnterior.loading) {
-            const saldoTotalMinutos = saldoAnterior.minutos + monthlyBalance.total;
-            saldoBancoHorasFormatado = formatMinutesToHours(saldoTotalMinutos);
-            corBancoHoras = saldoTotalMinutos >= 0 ? 'green' : 'red';
-        }
+        const cargaHorariaEsperadaFormatada = `${Math.floor(cargaHorariaEsperadaMinutos / 60)}:${String(cargaHorariaEsperadaMinutos % 60).padStart(2, '0')}h`;
+        const faltas = Math.max(0, diasUteisNoPeriodo - totalDiasTrabalhados);
         
         return { 
-            dias: `${diasTrabalhados} / ${diasUteisNoPeriodo}`, 
+            dias: `${totalDiasTrabalhados} / ${diasUteisNoPeriodo}`, 
             horas: `${horasTrabalhadasFormatada} / ${cargaHorariaEsperadaFormatada}`, 
             faltas,
-            valorAPagar: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorAPagar),
-            saldoBancoHoras: saldoBancoHorasFormatado,
-            corBancoHoras: corBancoHoras
+            valorAPagar: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorAPagar)
         };
-    }, [timesheetData, month, employee, holidays, abonosData, saldoAnterior, calculateTotalHours, isProcessing, monthlyBalance]);
+    }, [timesheetData, month, employee, holidays, abonosData, calculateTotalHours, isProcessing, historicoSalarial, getDiariaParaData]);
+    // --- FIM DA LÓGICA DE KPI CORRIGIDA ---
 
     useEffect(() => {
         if (!employee?.jornada?.detalhes || isProcessing) return;
@@ -346,7 +381,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             if (isWorkdayCheck && !holidays.has(dateString)) {
                 const dayData = timesheetData[dateString];
                 const abonoDoDia = abonosData[dateString];
-                const breakIsRequired = jornadaDoDia.horario_saida_intervalo && jornadaDoDia.horario_volta_intervalo;
+                const breakIsRequired = jornadaDoDia.horario_saida_intervalo && jornadaDoDia.horario_saida_intervalo.trim() !== '' && jornadaDoDia.horario_volta_intervalo && jornadaDoDia.horario_volta_intervalo.trim() !== '';
                 const hasRequiredPunches = dayData && dayData.entrada && dayData.saida && (!breakIsRequired || (dayData.inicio_intervalo && dayData.fim_intervalo));
                 if (!abonoDoDia && !hasRequiredPunches) {
                     pending.push(dateString);
@@ -356,7 +391,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         setPendingDays(pending);
     }, [timesheetData, employee, holidays, month, isProcessing, abonosData]);
 
-    const handleCellEdit = (date, field) => { if (isProcessing || !canEdit) return; setEditingCell({ date, field }); };
+    const handleCellEdit = (date, field) => { if (isProcessing || !canEdit || isMonthClosed) return; setEditingCell({ date, field }); };
     const handleSaveEdit = async (e, date, field) => { 
         e.preventDefault();
         if (!currentUser) { showToast("Não foi possível identificar o usuário.", "error"); return; }
@@ -387,23 +422,97 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         await loadTimesheetData(); setIsProcessing(false);
     };
 
+    const handleCloseMonth = async () => {
+        setActionLoading(true);
+        
+        const promise = new Promise(async (resolve, reject) => {
+            const [year, monthNum] = month.split('-');
+            const mes_referencia = `${year}-${monthNum}-01`;
+
+            const { error } = await supabase.from('banco_de_horas').insert({
+                funcionario_id: employeeId,
+                mes_referencia: mes_referencia,
+                saldo_minutos: monthlyBalance.total,
+                status: 'Fechado'
+            });
+
+            if (error) {
+                if (error.code === '23505') { // Código de violação de chave única
+                    return reject(new Error('O saldo para este mês já foi fechado anteriormente.'));
+                }
+                return reject(error);
+            }
+            resolve('Saldo do mês arquivado com sucesso no banco de horas!');
+        });
+
+        toast.promise(promise, {
+            loading: 'Fechando e arquivando saldo do mês...',
+            success: (message) => {
+                loadTimesheetData();
+                return message;
+            },
+            error: (err) => `Erro ao fechar o mês: ${err.message}`,
+            finally: () => setActionLoading(false)
+        });
+    };
+    
+    const handlePayOrDeduct = async () => {
+        if (monthlyBalance.total === 0) {
+            toast.info("O saldo do mês é zero, nenhuma ação é necessária.");
+            return;
+        }
+
+        const actionText = monthlyBalance.total > 0 ? 'pagar as horas extras' : 'descontar as horas negativas';
+        if (!window.confirm(`Tem certeza que deseja ${actionText} e fechar o saldo deste mês? Esta ação criará um lançamento financeiro.`)) {
+            return;
+        }
+        
+        setActionLoading(true);
+        
+        const promise = new Promise(async (resolve, reject) => {
+            const [year, monthNum] = month.split('-');
+            const mes_referencia = `${year}-${monthNum}-01`;
+
+            const { data, error } = await supabase.rpc('pagar_descontar_saldo_banco_horas', {
+                p_funcionario_id: employeeId,
+                p_mes_referencia_str: mes_referencia,
+                p_saldo_minutos: monthlyBalance.total
+            });
+
+            if (error) {
+                return reject(error);
+            }
+            
+            if (data && data.length > 0) {
+                const result = data[0];
+                if (result.success) {
+                    resolve(result.message);
+                } else {
+                    reject(new Error(result.message));
+                }
+            } else {
+                reject(new Error("A operação não retornou uma resposta válida."));
+            }
+        });
+
+        toast.promise(promise, {
+            loading: 'Processando pagamento/desconto...',
+            success: (message) => {
+                loadTimesheetData();
+                return message;
+            },
+            error: (err) => `Erro na operação: ${err.message}`,
+            finally: () => setActionLoading(false)
+        });
+    };
+    
     if (isProcessing) { return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando dados...</div>; }
     if (!employee) return null;
-    
-    const saldoTotalFinal = saldoAnterior.minutos + monthlyBalance.total;
 
     return (
         <div className="printable-area space-y-4">
             <style jsx global>{`@media print { @page { size: A4 portrait; margin: 0.8cm; } body * { visibility: hidden; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } .printable-area, .printable-area * { visibility: visible; } .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; } .no-print { display: none !important; } .print-header { display: block !important; } .print-header-info h3 { font-size: 1.1rem !important; } .kpi-container-on-print { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 0.5rem; font-size: 8pt; border: 1px solid #eee; padding: 4px; border-radius: 6px; } table { font-size: 7.5pt !important; width: 100%; border-collapse: collapse !important; margin-top: 0.5rem; } th, td { border: 1px solid #ccc !important; padding: 2px !important; text-align: center; } .signature-section { margin-top: 1.5cm !important; page-break-inside: avoid; } }`}</style>
             
-            <AjusteSaldoModal
-                isOpen={isAjusteModalOpen}
-                onClose={() => setIsAjusteModalOpen(false)}
-                employee={employee}
-                saldoTotalMinutos={saldoTotalFinal}
-                onSaveSuccess={loadTimesheetData}
-            />
-
             {toast.show && <Toast message={toast.message} type={toast.type} onclose={() => setToast({ ...toast, show: false })} />}
             
             {pendingDays.length > 0 && (
@@ -431,7 +540,6 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                     <div><p className="font-semibold">Dias (Trab. / Úteis):</p><p>{kpiData.dias}</p></div>
                     <div><p className="font-semibold">Horas (Trab. / Prev.):</p><p>{kpiData.horas}</p></div>
                     <div><p className="font-semibold">Faltas (período):</p><p>{kpiData.faltas}</p></div>
-                    <div><p className="font-semibold">Banco de Horas (Acumulado):</p><p>{kpiData.saldoBancoHoras}</p></div>
                 </div>
             </div>
             
@@ -452,11 +560,11 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 no-print">
-                <KpiCard title="Valor a Pagar (Mês)" value={kpiData.valorAPagar} icon={faDollarSign} color="purple" />
-                <KpiCard title="Dias (Trab. / Úteis)" value={kpiData.dias} icon={faCalendarCheck} color="blue" />
-                <KpiCard title="Horas (Trab. / Prev.)" value={kpiData.horas} icon={faBusinessTime} color="green" />
-                <KpiCard title="Saldo Banco de Horas (Acumulado)" value={kpiData.saldoBancoHoras} icon={faHistory} color={kpiData.corBancoHoras} />
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 no-print">
+                <KpiCard title="Férias Gozadas (Ano)" value={`${feriasGozadas} / 30`} icon={faUmbrellaBeach} color="yellow" />
+                <KpiCard title="Saldo Banco de Horas (Total)" value={formatMinutesToHours(saldoBancoHoras)} icon={faHistory} color="purple" />
+                <KpiCard title="Valor a Pagar (Mês)" value={kpiData.valorAPagar} icon={faDollarSign} color="blue" />
+                <KpiCard title="Dias (Trab. / Úteis)" value={kpiData.dias} icon={faCalendarCheck} color="green" />
                 <KpiCard title="Faltas (no período)" value={kpiData.faltas} icon={faCalendarXmark} color="red" />
             </div>
             
@@ -470,7 +578,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                             <th className="border p-2">Abono</th><th className="border p-2">Observações</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="bg-white divide-y divide-gray-200">
                         {Array.from({ length: new Date(month.split('-')[0], month.split('-')[1], 0).getDate() }, (_, i) => {
                             const dayOfMonth = i + 1;
                             const dateInMonth = new Date(Date.UTC(month.split('-')[0], month.split('-')[1] - 1, dayOfMonth));
@@ -505,7 +613,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                                                 isMissing = breakIsRequired && !punchExists;
                                             }
                                         }
-                                        const cellClass = `border p-2 text-center ${canEdit ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'} ${isMissing ? 'bg-red-100 border-2 border-red-400' : ''}`;
+                                        const cellClass = `border p-2 text-center ${canEdit && !isMonthClosed ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'} ${isMissing ? 'bg-red-100 border-2 border-red-400' : ''}`;
                                         
                                         return (
                                             <td key={field} onClick={() => handleCellEdit(dateString, field)} className={cellClass}>
@@ -519,12 +627,12 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                                     <td className={`border p-2 text-center font-bold ${abonoDoDia && totalWorkedMinutes === 0 ? 'text-gray-600' : saldoFinalDoDia > 0 ? 'text-green-600' : (saldoFinalDoDia < 0 ? 'text-red-600' : 'text-gray-600')}`}>
                                         {abonoDoDia && totalWorkedMinutes === 0 ? 'Abonado' : formatMinutesToHours(saldoFinalDoDia)}
                                     </td>
-                                    <td onClick={() => handleCellEdit(dateString, 'abono')} className={`border p-2 text-center min-w-[150px] ${canEdit ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'}`}>
+                                    <td onClick={() => handleCellEdit(dateString, 'abono')} className={`border p-2 text-center min-w-[150px] ${canEdit && !isMonthClosed ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'}`}>
                                         {editingCell?.date === dateString && editingCell?.field === 'abono' ? (
                                             <form onSubmit={(e) => handleSaveEdit(e, dateString, 'abono')}><select name="abono_select" defaultValue={abonoDoDia?.tipo_abono_id || ''} autoFocus onBlur={(e) => e.target.form.requestSubmit()} className="w-full text-center bg-blue-100 p-1"><option value="">Sem Abono</option>{abonoTypes.map(type => (<option key={type.id} value={type.id}>{type.descricao}</option>))}</select></form>
                                         ) : (abonoTypes.find(t => t.id === abonoDoDia?.tipo_abono_id)?.descricao || '--')}
                                     </td>
-                                    <td onClick={() => handleCellEdit(dateString, 'observacao')} className={`border p-2 text-left min-w-[200px] text-xs ${canEdit ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'}`}>
+                                    <td onClick={() => handleCellEdit(dateString, 'observacao')} className={`border p-2 text-left min-w-[200px] text-xs ${canEdit && !isMonthClosed ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'}`}>
                                          {editingCell?.date === dateString && editingCell?.field === 'observacao' ? (
                                             <form onSubmit={(e) => handleSaveEdit(e, dateString, 'observacao')}><input type="text" name="obs_input" defaultValue={dayData.observacao_final || ''} autoFocus onBlur={(e) => e.target.form.requestSubmit()} className="w-full text-left bg-blue-100 p-1"/></form>
                                         ) : (dayData.observacao_final || '--')}
@@ -536,27 +644,36 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                     <tfoot>
                         <tr className="bg-gray-200 font-bold">
                             <td colSpan="7" className="text-right px-4 py-2 uppercase text-sm">Total Saldo do Mês:</td>
-                            <td className={`text-center px-4 py-2 text-lg ${monthlyBalance.total > 0 ? 'text-green-700' : (monthlyBalance.total < 0 ? 'text-red-700' : 'text-gray-800')}`}>
+                            <td colSpan="3" className={`text-center px-4 py-2 text-lg ${monthlyBalance.total > 0 ? 'text-green-700' : (monthlyBalance.total < 0 ? 'text-red-700' : 'text-gray-800')}`}>
                                 {formatMinutesToHours(monthlyBalance.total)}
-                            </td>
-                            <td colSpan="2"></td>
-                        </tr>
-                        <tr className="bg-gray-800 font-bold text-white">
-                            <td colSpan="7" className="text-right px-4 py-2 uppercase text-sm">Saldo Acumulado Total:</td>
-                            <td className={`text-center px-4 py-2 text-xl ${(saldoAnterior.minutos + monthlyBalance.total) >= 0 ? 'text-green-300' : 'text-red-300'}`}>
-                                {saldoAnterior.loading ? <FontAwesomeIcon icon={faSpinner} spin /> : formatMinutesToHours(saldoTotalFinal)}
-                            </td>
-                            <td colSpan="2" className="text-center">
-                                {canEdit && saldoTotalFinal !== 0 && !saldoAnterior.loading && (
-                                    <button onClick={() => setIsAjusteModalOpen(true)} className="bg-yellow-500 text-yellow-900 px-3 py-1 rounded-md text-xs font-semibold hover:bg-yellow-600">
-                                        <FontAwesomeIcon icon={faCalculator} className="mr-1" />
-                                        Ajustar Saldo
-                                    </button>
-                                )}
                             </td>
                         </tr>
                     </tfoot>
                 </table>
+                 {isMonthClosed ? (
+                    <div className="p-4 bg-green-100 text-green-800 text-center font-semibold no-print">
+                        <FontAwesomeIcon icon={faCheckCircle} /> Este mês já foi fechado e arquivado no banco de horas.
+                    </div>
+                ) : (
+                    <div className="p-4 bg-gray-100 flex justify-end items-center gap-4 no-print">
+                        <button 
+                            onClick={handleCloseMonth}
+                            disabled={actionLoading}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2"
+                        >
+                           <FontAwesomeIcon icon={actionLoading ? faSpinner : faBoxArchive} spin={actionLoading} />
+                           {actionLoading ? 'Fechando...' : 'Fechar e Enviar para Banco de Horas'}
+                        </button>
+                        <button 
+                            onClick={handlePayOrDeduct}
+                            disabled={actionLoading}
+                            className="bg-green-600 text-white px-4 py-2 rounded-md shadow hover:bg-green-700 disabled:bg-gray-400 flex items-center gap-2"
+                        >
+                            <FontAwesomeIcon icon={actionLoading ? faSpinner : faHandHoldingDollar} spin={actionLoading} />
+                            Pagar / Descontar Saldo do Mês
+                        </button>
+                    </div>
+                )}
             </div>
             
             <section className="hidden print:block signature-section text-center">
@@ -568,8 +685,8 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                     </div>
                     <div className="w-2/5">
                         <div className="border-t border-black w-full mx-auto"></div>
-                        <p className="mt-2 text-sm font-semibold">{selectedSignatory.name}</p>
-                        <p className="text-xs">CPF: {selectedSignatory.cpf || 'N/A'}</p>
+                        <p className="mt-2 text-sm font-semibold">{selectedSignatory?.name}</p>
+                        <p className="text-xs">CPF: {selectedSignatory?.cpf || 'N/A'}</p>
                     </div>
                 </div>
                 <p className="text-xs text-gray-500 mt-8">Documento gerado por: {geradoPor} em {new Date().toLocaleString('pt-BR')}</p>
