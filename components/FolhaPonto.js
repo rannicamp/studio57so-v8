@@ -81,7 +81,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     const { user, userData } = useAuth();
     const [employee, setEmployee] = useState(null);
     const [timesheetData, setTimesheetData] = useState({});
-    const [holidays, setHolidays] = useState(new Set());
+    const [holidays, setHolidays] = useState([]);
     const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
     const [isProcessing, setIsProcessing] = useState(true);
     const [editingCell, setEditingCell] = useState(null);
@@ -122,13 +122,16 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             const [year, monthNum] = month.split('-');
             const firstDayOfMonth = `${year}-${monthNum}-01`;
             const lastDayOfMonth = new Date(year, monthNum, 0).toISOString().split('T')[0];
+            
+            const { data: allHolidays, error: holidayError } = await supabase.from('feriados').select('data_feriado, tipo');
+            if (holidayError) throw new Error(`Erro ao buscar feriados: ${holidayError.message}`);
+            setHolidays(allHolidays || []);
 
             const [
                 { data: employeeData, error: empError },
                 { data: pontosData },
                 { data: abonosDoMes },
                 { data: historicoData },
-                { data: allHolidays },
                 { data: fechamentoData },
                 { data: saldoBancoData, error: saldoError },
                 { data: feriasData, error: feriasError }
@@ -137,7 +140,6 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 supabase.from('pontos').select('*, editado_por_usuario_id:usuarios(nome, sobrenome)').eq('funcionario_id', employeeId).gte('data_hora', `${firstDayOfMonth}T00:00:00`).lte('data_hora', `${lastDayOfMonth}T23:59:59`),
                 supabase.from('abonos').select('*, criado_por_usuario_id:usuarios(nome, sobrenome)').eq('funcionario_id', employeeId).gte('data_abono', firstDayOfMonth).lte('data_abono', lastDayOfMonth),
                 supabase.from('historico_salarial').select('*').eq('funcionario_id', employeeId).order('data_inicio_vigencia', { ascending: true }),
-                supabase.from('feriados').select('data_feriado'),
                 supabase.from('banco_de_horas').select('*').eq('funcionario_id', employeeId).eq('mes_referencia', firstDayOfMonth).maybeSingle(),
                 supabase.rpc('get_saldo_banco_horas', { p_funcionario_id: employeeId }),
                 supabase.rpc('get_dias_ferias_gozados_ano', { p_funcionario_id: employeeId, p_ano: parseInt(year) })
@@ -151,7 +153,6 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             setFeriasGozadas(feriasData || 0);
             setEmployee(employeeData);
             setHistoricoSalarial(historicoData || []);
-            setHolidays(new Set((allHolidays || []).map(h => h.data_feriado)));
             setIsMonthClosed(!!fechamentoData);
 
             if (employeeData.foto_url) {
@@ -232,7 +233,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             }
             const dayOfWeek = d.getUTCDay();
             const abonoDoDia = abonosData[dateString];
-            const isHoliday = holidays.has(dateString);
+            const feriadoDoDia = holidays.find(h => h.data_feriado === dateString);
             const dayData = timesheetData[dateString] || { dateString };
             const totalWorkedStr = calculateTotalHours(dayData);
             const [h, m] = totalWorkedStr.split(':').map(Number);
@@ -240,7 +241,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             
             if (d > today) {
                 saldoFinalDoDia = 0;
-            } else if (isHoliday || dayOfWeek === 0 || dayOfWeek === 6) {
+            } else if (dayOfWeek === 0 || dayOfWeek === 6) {
                 if (totalWorkedMinutes > 0) {
                     saldoFinalDoDia = totalWorkedMinutes * 1.5;
                 }
@@ -260,6 +261,9 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
                 if (abonoDoDia) {
                     saldoFinalDoDia = 0;
+                } else if (feriadoDoDia) {
+                    const minutosEsperadosNoFeriado = feriadoDoDia.tipo === 'Meio Período' ? minutosPrevistos / 2 : 0;
+                    saldoFinalDoDia = totalWorkedMinutes - minutosEsperadosNoFeriado;
                 } else if (totalWorkedMinutes > 0) {
                     saldoFinalDoDia = totalWorkedMinutes - minutosPrevistos;
                 } else {
@@ -287,7 +291,6 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         return diariaVigente;
     }, []);
 
-    // --- INÍCIO DA LÓGICA DE KPI CORRIGIDA ---
     const kpiData = useMemo(() => {
         if (!month || !employee || isProcessing || !historicoSalarial) return { dias: '0 / 0', horas: '00:00h / 00:00h', faltas: 0, valorAPagar: 'R$ 0,00' };
 
@@ -309,7 +312,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             if ((admissionDate && d < admissionDate) || (demissionDate && d > demissionDate)) continue;
 
             const dayOfWeek = d.getUTCDay();
-            const isHoliday = holidays.has(dateString);
+            const isHoliday = holidays.some(h => h.data_feriado === dateString);
             const jornadaDoDia = employee.jornada?.detalhes?.find(j => j.dia_semana === dayOfWeek);
             const isWorkday = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_saida && !isHoliday && dayOfWeek !== 0 && dayOfWeek !== 6;
 
@@ -334,7 +337,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                     const [hours, minutes] = totalDayStr.split(':').map(Number);
                     totalMinutosTrabalhados += (hours * 60) + minutes;
                 }
-            } else if (abonoDoDia && isWorkday) { // <<-- CORREÇÃO PRINCIPAL AQUI
+            } else if (abonoDoDia && isWorkday) {
                 diasPagaveis.add(dateString);
             }
         }
@@ -357,7 +360,6 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             valorAPagar: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorAPagar)
         };
     }, [timesheetData, month, employee, holidays, abonosData, calculateTotalHours, isProcessing, historicoSalarial, getDiariaParaData]);
-    // --- FIM DA LÓGICA DE KPI CORRIGIDA ---
 
     useEffect(() => {
         if (!employee?.jornada?.detalhes || isProcessing) return;
@@ -378,7 +380,10 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             if (dayOfWeek === 0 || dayOfWeek === 6) continue;
             const jornadaDoDia = employee.jornada.detalhes.find(j => j.dia_semana === dayOfWeek);
             const isWorkdayCheck = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_entrada.trim() !== '' && jornadaDoDia.horario_saida && jornadaDoDia.horario_saida.trim() !== '';
-            if (isWorkdayCheck && !holidays.has(dateString)) {
+            
+            const isHoliday = holidays.some(h => h.data_feriado === dateString);
+
+            if (isWorkdayCheck && !isHoliday) {
                 const dayData = timesheetData[dateString];
                 const abonoDoDia = abonosData[dateString];
                 const breakIsRequired = jornadaDoDia.horario_saida_intervalo && jornadaDoDia.horario_saida_intervalo.trim() !== '' && jornadaDoDia.horario_volta_intervalo && jornadaDoDia.horario_volta_intervalo.trim() !== '';
@@ -437,7 +442,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             });
 
             if (error) {
-                if (error.code === '23505') { // Código de violação de chave única
+                if (error.code === '23505') {
                     return reject(new Error('O saldo para este mês já foi fechado anteriormente.'));
                 }
                 return reject(error);
@@ -457,13 +462,16 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     };
     
     const handlePayOrDeduct = async () => {
-        if (monthlyBalance.total === 0) {
-            toast.info("O saldo do mês é zero, nenhuma ação é necessária.");
+        const valorFinal = kpiData.valorAPagar.replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
+        const valorFinalNumerico = parseFloat(valorFinal);
+    
+        if (isNaN(valorFinalNumerico)) {
+            toast.error("Não foi possível calcular o valor final do pagamento.");
             return;
         }
-
-        const actionText = monthlyBalance.total > 0 ? 'pagar as horas extras' : 'descontar as horas negativas';
-        if (!window.confirm(`Tem certeza que deseja ${actionText} e fechar o saldo deste mês? Esta ação criará um lançamento financeiro.`)) {
+        
+        const actionText = `ajustar o pagamento para ${kpiData.valorAPagar} e fechar o saldo do banco de horas`;
+        if (!window.confirm(`Tem certeza que deseja ${actionText}? Esta ação irá atualizar o lançamento financeiro provisionado.`)) {
             return;
         }
         
@@ -471,32 +479,45 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         
         const promise = new Promise(async (resolve, reject) => {
             const [year, monthNum] = month.split('-');
-            const mes_referencia = `${year}-${monthNum}-01`;
-
-            const { data, error } = await supabase.rpc('pagar_descontar_saldo_banco_horas', {
-                p_funcionario_id: employeeId,
-                p_mes_referencia_str: mes_referencia,
-                p_saldo_minutos: monthlyBalance.total
-            });
-
-            if (error) {
-                return reject(error);
-            }
+            const mes_competencia = `${year}-${monthNum}-01`;
+    
+            const { data: lancamento, error: findError } = await supabase
+                .from('lancamentos')
+                .select('id')
+                .eq('funcionario_id', employeeId)
+                .eq('mes_competencia', mes_competencia)
+                .maybeSingle();
+    
+            if (findError) return reject(new Error(`Erro ao buscar lançamento provisionado: ${findError.message}`));
+            if (!lancamento) return reject(new Error('Nenhum lançamento de salário provisionado foi encontrado para este mês. Verifique se o provisionamento foi executado.'));
             
-            if (data && data.length > 0) {
-                const result = data[0];
-                if (result.success) {
-                    resolve(result.message);
-                } else {
-                    reject(new Error(result.message));
-                }
-            } else {
-                reject(new Error("A operação não retornou uma resposta válida."));
+            const { error: updateError } = await supabase
+                .from('lancamentos')
+                .update({ 
+                    valor: valorFinalNumerico,
+                    status: 'Pago',
+                    data_pagamento: new Date().toISOString()
+                })
+                .eq('id', lancamento.id);
+    
+            if (updateError) return reject(new Error(`Erro ao atualizar lançamento financeiro: ${updateError.message}`));
+    
+            const { error: bancoError } = await supabase.from('banco_de_horas').insert({
+                funcionario_id: employeeId,
+                mes_referencia: mes_competencia,
+                saldo_minutos: monthlyBalance.total,
+                status: 'Pago'
+            });
+            
+            if (bancoError && bancoError.code !== '23505') { 
+               return reject(new Error(`Erro ao fechar banco de horas: ${bancoError.message}`));
             }
+    
+            resolve('Lançamento financeiro atualizado e saldo do mês fechado com sucesso!');
         });
-
+    
         toast.promise(promise, {
-            loading: 'Processando pagamento/desconto...',
+            loading: 'Processando fechamento do mês...',
             success: (message) => {
                 loadTimesheetData();
                 return message;
@@ -585,7 +606,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                             const dateString = dateInMonth.toISOString().split('T')[0];
                             const dayData = timesheetData[dateString] || { dateString };
                             const abonoDoDia = abonosData[dateString];
-                            const isHoliday = holidays.has(dateString);
+                            const feriadoDoDia = holidays.find(h => h.data_feriado === dateString);
                             
                             const totalWorkedStr = calculateTotalHours(dayData);
                             const [h, m] = totalWorkedStr.split(':').map(Number);
@@ -594,13 +615,13 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                             const saldoFinalDoDia = monthlyBalance.dailyBalances[dateString];
                             
                             const isPending = pendingDays.includes(dateString);
-                            let rowClass = isHoliday ? 'bg-yellow-50' : (dateInMonth.getUTCDay() === 0 || dateInMonth.getUTCDay() === 6 ? 'bg-gray-50' : '');
+                            let rowClass = feriadoDoDia ? 'bg-yellow-50' : (dateInMonth.getUTCDay() === 0 || dateInMonth.getUTCDay() === 6 ? 'bg-gray-50' : '');
                             if (isPending) rowClass = 'bg-yellow-100';
 
                             return (
                                 <tr key={dateString} className={rowClass}>
                                     <td className="border p-2 text-center">{new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</td>
-                                    <td className="border p-2 text-center">{weekDays[dateInMonth.getUTCDay()]} {isHoliday && '(Feriado)'}</td>
+                                    <td className="border p-2 text-center">{weekDays[dateInMonth.getUTCDay()]} {feriadoDoDia && '(Feriado)'}</td>
                                     {['entrada', 'inicio_intervalo', 'fim_intervalo', 'saida'].map(field => {
                                         const jornadaDoDia = employee.jornada?.detalhes.find(j => j.dia_semana === dateInMonth.getUTCDay());
                                         const isWorkdayCheck = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_entrada.trim() !== '' && jornadaDoDia.horario_saida && jornadaDoDia.horario_saida.trim() !== '';
@@ -652,7 +673,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 </table>
                  {isMonthClosed ? (
                     <div className="p-4 bg-green-100 text-green-800 text-center font-semibold no-print">
-                        <FontAwesomeIcon icon={faCheckCircle} /> Este mês já foi fechado e arquivado no banco de horas.
+                        <FontAwesomeIcon icon={faCheckCircle} /> Este mês já foi fechado e o pagamento ajustado.
                     </div>
                 ) : (
                     <div className="p-4 bg-gray-100 flex justify-end items-center gap-4 no-print">
@@ -662,7 +683,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                             className="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2"
                         >
                            <FontAwesomeIcon icon={actionLoading ? faSpinner : faBoxArchive} spin={actionLoading} />
-                           {actionLoading ? 'Fechando...' : 'Fechar e Enviar para Banco de Horas'}
+                           {actionLoading ? 'Fechando...' : 'Fechar Mês (Apenas Banco de Horas)'}
                         </button>
                         <button 
                             onClick={handlePayOrDeduct}
@@ -670,7 +691,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                             className="bg-green-600 text-white px-4 py-2 rounded-md shadow hover:bg-green-700 disabled:bg-gray-400 flex items-center gap-2"
                         >
                             <FontAwesomeIcon icon={actionLoading ? faSpinner : faHandHoldingDollar} spin={actionLoading} />
-                            Pagar / Descontar Saldo do Mês
+                            Fechar Mês e Ajustar Pagamento
                         </button>
                     </div>
                 )}
