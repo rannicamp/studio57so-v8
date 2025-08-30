@@ -5,27 +5,76 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// Ícone de "copiar" foi adicionado
-import { faEye, faTrash, faCopy } from '@fortawesome/free-solid-svg-icons';
+// Ícones de ordenação adicionados
+import { faEye, faTrash, faCopy, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
 
 export default function ContratoList({ initialContratos }) {
     const [contratos, setContratos] = useState(initialContratos);
     const [searchTerm, setSearchTerm] = useState('');
     const router = useRouter();
     const supabase = createClient();
+    
+    // NOVO: Estado para controlar a ordenação da tabela
+    const [sortConfig, setSortConfig] = useState({ key: 'data_venda', direction: 'descending' });
 
-    const filteredContratos = useMemo(() => {
-        return contratos.filter(c => {
-            const cliente = c.contato?.nome || c.contato?.razao_social || '';
-            const produto = c.produto?.unidade || '';
-            const empreendimento = c.empreendimento?.nome || '';
-            return (
-                cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                produto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                empreendimento.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-        });
-    }, [contratos, searchTerm]);
+    // NOVO: Função para solicitar uma nova ordenação
+    const requestSort = (key) => {
+        let direction = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const sortedAndFilteredContratos = useMemo(() => {
+        let items = [...contratos];
+        
+        // Lógica de filtro (existente)
+        if (searchTerm) {
+            items = items.filter(c => {
+                const cliente = c.contato?.nome || c.contato?.razao_social || '';
+                const produto = c.produto?.unidade || '';
+                const empreendimento = c.empreendimento?.nome || '';
+                return (
+                    cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    produto.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    empreendimento.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+            });
+        }
+
+        // NOVO: Lógica de ordenação adicionada
+        if (sortConfig.key) {
+            items.sort((a, b) => {
+                let valA, valB;
+
+                // Trata os campos que são objetos aninhados
+                switch (sortConfig.key) {
+                    case 'cliente':
+                        valA = a.contato?.nome || a.contato?.razao_social || '';
+                        valB = b.contato?.nome || b.contato?.razao_social || '';
+                        break;
+                    case 'produto':
+                        valA = a.produto?.unidade || '';
+                        valB = b.produto?.unidade || '';
+                        break;
+                    case 'empreendimento':
+                        valA = a.empreendimento?.nome || '';
+                        valB = b.empreendimento?.nome || '';
+                        break;
+                    default:
+                        valA = a[sortConfig.key];
+                        valB = b[sortConfig.key];
+                }
+
+                if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        return items;
+    }, [contratos, searchTerm, sortConfig]);
     
     const formatDate = (dateString) => {
       if (!dateString) return 'N/A';
@@ -33,8 +82,6 @@ export default function ContratoList({ initialContratos }) {
     };
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-    // --- INÍCIO DA NOVA FUNÇÃO ---
-    // Nova função para lidar com a duplicação
     const handleDuplicate = async (e, contratoParaDuplicar) => {
         e.stopPropagation();
 
@@ -49,18 +96,16 @@ export default function ContratoList({ initialContratos }) {
         toast.promise(promise, {
             loading: 'Duplicando contrato...',
             success: (response) => {
-                // Para atualizar a lista, buscamos os dados novamente
                 supabase.from('contratos')
                     .select(`*, contato:contato_id ( nome, razao_social ), produto:produto_id ( unidade, tipo ), empreendimento:empreendimento_id ( nome )`)
                     .order('created_at', { ascending: false })
                     .then(({ data }) => setContratos(data || []));
                 
-                return response.message; // Mensagem de sucesso da função do banco
+                return response.message;
             },
             error: (err) => `Erro ao duplicar: ${err.message}`
         });
     };
-    // --- FIM DA NOVA FUNÇÃO ---
 
     const handleDelete = async (e, contratoParaExcluir) => {
         e.stopPropagation();
@@ -83,6 +128,23 @@ export default function ContratoList({ initialContratos }) {
         });
     };
 
+    // NOVO: Componente para o cabeçalho da tabela que permite ordenação
+    const SortableHeader = ({ label, sortKey }) => {
+        const getSortIcon = () => {
+            if (sortConfig.key !== sortKey) return faSort;
+            return sortConfig.direction === 'ascending' ? faSortUp : faSortDown;
+        };
+
+        return (
+            <th className="px-6 py-3 text-left text-xs font-medium uppercase">
+                <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2">
+                    {label}
+                    <FontAwesomeIcon icon={getSortIcon()} className="text-gray-400" />
+                </button>
+            </th>
+        );
+    };
+
     return (
         <div className="space-y-4">
             <input
@@ -96,16 +158,23 @@ export default function ContratoList({ initialContratos }) {
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Cliente</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Produto</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Empreendimento</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Data da Venda</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium uppercase">Valor</th>
+                            {/* Cabeçalhos da tabela agora são clicáveis */}
+                            <SortableHeader label="Cliente" sortKey="cliente" />
+                            <SortableHeader label="Produto" sortKey="produto" />
+                            <SortableHeader label="Empreendimento" sortKey="empreendimento" />
+                            <SortableHeader label="Data da Venda" sortKey="data_venda" />
+                            <th className="px-6 py-3 text-right text-xs font-medium uppercase">
+                                <button onClick={() => requestSort('valor_final_venda')} className="flex items-center gap-2 ml-auto">
+                                    Valor
+                                    <FontAwesomeIcon icon={sortConfig.key === 'valor_final_venda' ? (sortConfig.direction === 'ascending' ? faSortUp : faSortDown) : faSort} className="text-gray-400" />
+                                </button>
+                            </th>
                             <th className="px-6 py-3 text-center text-xs font-medium uppercase">Ações</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredContratos.map((contrato) => (
+                        {/* A tabela agora usa a lista ordenada e filtrada */}
+                        {sortedAndFilteredContratos.map((contrato) => (
                             <tr key={contrato.id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => router.push(`/contratos/${contrato.id}`)}>
                                     {contrato.contato?.nome || contrato.contato?.razao_social || 'N/A'}
@@ -119,7 +188,6 @@ export default function ContratoList({ initialContratos }) {
                                         <button onClick={() => router.push(`/contratos/${contrato.id}`)} className="text-blue-600 hover:text-blue-800" title="Visualizar/Editar Contrato">
                                             <FontAwesomeIcon icon={faEye} />
                                         </button>
-                                        {/* --- BOTÃO DE DUPLICAR ADICIONADO --- */}
                                         <button onClick={(e) => handleDuplicate(e, contrato)} className="text-gray-500 hover:text-gray-700" title="Duplicar Contrato">
                                             <FontAwesomeIcon icon={faCopy} />
                                         </button>
