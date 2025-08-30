@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faSpinner, faFilter, faTimes, faPenToSquare, faTrash, faSort, faSortUp, faSortDown, faLayerGroup, faSave, faStar as faStarSolid, faEllipsisV,
@@ -8,12 +8,23 @@ import {
     faChevronLeft, faChevronRight,
     faRobot,
     faCheckCircle,
-    faDollarSign
+    faDollarSign,
+    faUserTag,
+    faExchangeAlt // Ícone adicionado
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import KpiCard from '../KpiCard';
+
+// Componente para destacar texto
+const HighlightedText = ({ text = '', highlight = '' }) => {
+    if (!highlight.trim() || !text) { return <span>{text}</span>; }
+    const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+    return (<span>{parts.map((part, i) => regex.test(part) ? <mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark> : <span key={i}>{part}</span>)}</span>);
+};
+
 
 const AnalysisModal = ({ isOpen, onClose, analysisText, isLoading }) => {
     if (!isOpen) return null;
@@ -40,7 +51,7 @@ const BatchUpdateModal = ({ isOpen, onClose, onConfirm, fields, allData }) => {
 
 const initialFilterState = {
     searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [],
-    etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '',
+    etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', favorecidoId: null,
 };
 
 export default function LancamentosManager({
@@ -65,6 +76,39 @@ export default function LancamentosManager({
     const [analysisResult, setAnalysisResult] = useState('');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [editingCell, setEditingCell] = useState(null);
+
+    const [favorecidoSearchTerm, setFavorecidoSearchTerm] = useState('');
+    const [favorecidoSearchResults, setFavorecidoSearchResults] = useState([]);
+    const favorecidoInputRef = useRef(null);
+
+    const handleFavorecidoSearch = useCallback(async (term) => {
+        setFavorecidoSearchTerm(term);
+        if (term.length < 2) {
+            setFavorecidoSearchResults([]);
+            return;
+        }
+        const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term });
+        setFavorecidoSearchResults(data || []);
+    }, [supabase]);
+
+    const handleSelectFavorecido = (contato) => {
+        handleFilterChange('favorecidoId', contato.id);
+        setFavorecidoSearchTerm(contato.nome || contato.razao_social);
+        setFavorecidoSearchResults([]);
+    };
+    
+    const handleClearFavorecido = () => {
+        handleFilterChange('favorecidoId', null);
+        setFavorecidoSearchTerm('');
+        setFavorecidoSearchResults([]);
+    };
+
+    const selectedFavorecidoName = useMemo(() => {
+        if (!filters.favorecidoId) return '';
+        const contato = allContacts.find(c => c.id === filters.favorecidoId);
+        return contato ? (contato.nome || contato.razao_social) : '';
+    }, [filters.favorecidoId, allContacts]);
+
 
     const lancamentosParaExibir = useMemo(() => {
         const listaExibicao = [];
@@ -167,7 +211,14 @@ export default function LancamentosManager({
     const handleFilterChange = (name, value) => { setFilters(prev => ({...prev, [name]: value})); if(name !== 'startDate' && name !== 'endDate') setActivePeriodFilter(''); setCurrentPage(1); };
     const handleNatureFilterClick = (nature) => { setFilters(prev => { const currentTipo = prev.tipo || []; const newTipo = currentTipo.includes(nature) ? currentTipo.filter(t => t !== nature) : [...currentTipo, nature]; return { ...prev, tipo: newTipo }; }); setCurrentPage(1); };
     const setDateRange = (period) => { const today = new Date(); let startDate, endDate; if (period === 'today') { startDate = endDate = today; } else if (period === 'week') { const firstDayOfWeek = today.getDate() - today.getDay(); startDate = new Date(today.setDate(firstDayOfWeek)); endDate = new Date(startDate); endDate.setDate(endDate.getDate() + 6); } else if (period === 'month') { startDate = new Date(today.getFullYear(), today.getMonth(), 1); endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); } setFilters(prev => ({ ...prev, startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0], month: '', year: '' })); setActivePeriodFilter(period); setCurrentPage(1); };
-    const clearFilters = () => { setFilters(initialFilterState); setActivePeriodFilter(''); setCurrentPage(1); };
+    
+    const clearFilters = () => { 
+        setFilters(initialFilterState); 
+        setFavorecidoSearchTerm('');
+        setActivePeriodFilter(''); 
+        setCurrentPage(1); 
+    };
+
     const handleSaveFilter = () => { if (!newFilterName.trim()) { alert('Por favor, dê um nome para o filtro.'); return; } const isFavorited = savedFilters.find(f => f.name === newFilterName)?.isFavorite || false; const updatedSavedFilters = savedFilters.filter(f => f.name !== newFilterName); const newSavedFilter = { name: newFilterName, settings: filters, isFavorite: isFavorited }; setSavedFilters([...updatedSavedFilters, newSavedFilter]); localStorage.setItem('savedFinancialFilters', JSON.stringify([...updatedSavedFilters, newSavedFilter])); setNewFilterName(''); alert(`Filtro "${newFilterName}" salvo!`); };
     const handleUpdateFilter = (filterName) => { const updated = savedFilters.map(f => f.name === filterName ? { ...f, settings: filters } : f); setSavedFilters(updated); localStorage.setItem('savedFinancialFilters', JSON.stringify(updated)); alert(`Filtro "${filterName}" atualizado com sucesso!`); };
     const handleToggleFavorite = (filterName) => { const updated = savedFilters.map(f => f.name === filterName ? { ...f, isFavorite: !f.isFavorite } : f); setSavedFilters(updated); localStorage.setItem('savedFinancialFilters', JSON.stringify(updated)); };
@@ -244,12 +295,49 @@ export default function LancamentosManager({
                 </div>
                  
                 {filtersVisible && ( <div className="space-y-4 animate-fade-in">
+                    {/* ##### ALTERAÇÃO AQUI: Adição do botão de Transferências ##### */}
                     <div className="flex items-center gap-4 pt-2">
                         <span className="text-sm font-semibold text-gray-700">Filtrar por Natureza:</span>
                         <button onClick={() => handleNatureFilterClick('Receita')} className={`text-sm border px-4 py-2 rounded-md flex items-center gap-2 ${filters.tipo?.includes('Receita') ? 'bg-green-600 text-white border-green-700' : 'bg-white hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faArrowUp}/> Receitas </button>
                         <button onClick={() => handleNatureFilterClick('Despesa')} className={`text-sm border px-4 py-2 rounded-md flex items-center gap-2 ${filters.tipo?.includes('Despesa') ? 'bg-red-600 text-white border-red-700' : 'bg-white hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faArrowDown}/> Despesas </button>
+                        <button onClick={() => handleNatureFilterClick('Transferência')} className={`text-sm border px-4 py-2 rounded-md flex items-center gap-2 ${filters.tipo?.includes('Transferência') ? 'bg-yellow-500 text-white border-yellow-600' : 'bg-white hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faExchangeAlt}/> Transferências </button>
                     </div>
-                    <div className="grid grid-cols-1 gap-4"><input type="text" name="searchTerm" placeholder="BUSCAR POR DESCRIÇÃO..." value={filters.searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} className="p-2 border rounded-md shadow-sm w-full" /></div> <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"><MultiSelectDropdown label="Empresas" options={empresas} selectedIds={filters.empresaIds} onChange={(selected) => handleFilterChange('empresaIds', selected)} /><MultiSelectDropdown label="Empreendimentos" options={empreendimentos} selectedIds={filters.empreendimentoIds} onChange={(selected) => handleFilterChange('empreendimentoIds', selected)} /><MultiSelectDropdown label="Contas" options={contas} selectedIds={filters.contaIds} onChange={(selected) => handleFilterChange('contaIds', selected)} /><MultiSelectDropdown label="Categorias" options={categoryTree} selectedIds={filters.categoriaIds} onChange={(selected) => handleFilterChange('categoriaIds', selected)} /></div> <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end"> <div><MultiSelectDropdown label="Etapa da Obra" options={etapas.map(e => ({...e, nome: e.nome_etapa}))} selectedIds={filters.etapaIds} onChange={(selected) => handleFilterChange('etapaIds', selected)} /></div> <div><MultiSelectDropdown label="Status" options={statusOptions} selectedIds={filters.status} onChange={(selected) => handleFilterChange('status', selected)} placeholder="Todos os Status" /></div> <div className="lg:col-span-2 flex items-end gap-2"> <div className="flex-1"><label className="text-xs uppercase font-medium text-gray-600">Mês</label><select name="month" value={filters.month} onChange={(e) => handleFilterChange('month', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"><option value="">Todos</option>{months.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}</select></div> <div className="w-28"><label className="text-xs uppercase font-medium text-gray-600">Ano</label><select name="year" value={filters.year} onChange={(e) => handleFilterChange('year', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"><option value="">Todos</option>{years.map(y => <option key={y.id} value={y.id}>{y.nome}</option>)}</select></div> <div><label className="text-xs uppercase">De:</label><input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div> <div><label className="text-xs uppercase">Até:</label><input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div> </div> </div> <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t"> <div className="flex items-center gap-2"><button onClick={() => setDateRange('today')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarDay}/> Hoje</button><button onClick={() => setDateRange('week')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarWeek}/> Semana</button><button onClick={() => setDateRange('month')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarAlt}/> Mês</button></div> <button onClick={clearFilters} className="text-sm bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faTimes} />Limpar Filtros</button> </div> </div> )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                        <div className="w-full">
+                            <label className="text-xs uppercase font-medium text-gray-600">Descrição</label>
+                            <input type="text" name="searchTerm" placeholder="Buscar por descrição..." value={filters.searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} className="p-2 border rounded-md shadow-sm w-full mt-1" />
+                        </div>
+                        
+                        <div className="relative" ref={favorecidoInputRef}>
+                            <label className="text-xs uppercase font-medium text-gray-600">Favorecido</label>
+                            {filters.favorecidoId ? (
+                                <div className="flex items-center justify-between mt-1 w-full p-2 border rounded-md bg-gray-200 h-[42px]">
+                                    <span className="font-semibold text-gray-800">{selectedFavorecidoName}</span>
+                                    <button type="button" onClick={handleClearFavorecido} className="text-red-500 hover:text-red-700"><FontAwesomeIcon icon={faTimes}/></button>
+                                </div>
+                            ) : (
+                                <>
+                                    <input
+                                        type="text"
+                                        placeholder="Digite para buscar..."
+                                        value={favorecidoSearchTerm}
+                                        onChange={(e) => handleFavorecidoSearch(e.target.value)}
+                                        className="mt-1 w-full p-2 border rounded-md shadow-sm h-[42px]"
+                                    />
+                                    {favorecidoSearchResults.length > 0 && (
+                                        <ul className="absolute z-20 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto mt-1">
+                                            {favorecidoSearchResults.map(c => (
+                                                <li key={c.id} onClick={() => handleSelectFavorecido(c)} className="p-2 hover:bg-gray-100 cursor-pointer text-sm">
+                                                    <HighlightedText text={c.nome || c.razao_social} highlight={favorecidoSearchTerm} />
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"><MultiSelectDropdown label="Empresas" options={empresas} selectedIds={filters.empresaIds} onChange={(selected) => handleFilterChange('empresaIds', selected)} /><MultiSelectDropdown label="Empreendimentos" options={empreendimentos} selectedIds={filters.empreendimentoIds} onChange={(selected) => handleFilterChange('empreendimentoIds', selected)} /><MultiSelectDropdown label="Contas" options={contas} selectedIds={filters.contaIds} onChange={(selected) => handleFilterChange('contaIds', selected)} /><MultiSelectDropdown label="Categorias" options={categoryTree} selectedIds={filters.categoriaIds} onChange={(selected) => handleFilterChange('categoriaIds', selected)} /></div> <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end"> <div><MultiSelectDropdown label="Etapa da Obra" options={etapas.map(e => ({...e, nome: e.nome_etapa}))} selectedIds={filters.etapaIds} onChange={(selected) => handleFilterChange('etapaIds', selected)} /></div> <div><MultiSelectDropdown label="Status" options={statusOptions} selectedIds={filters.status} onChange={(selected) => handleFilterChange('status', selected)} placeholder="Todos os Status" /></div> <div className="lg:col-span-2 flex items-end gap-2"> <div className="flex-1"><label className="text-xs uppercase font-medium text-gray-600">Mês</label><select name="month" value={filters.month} onChange={(e) => handleFilterChange('month', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"><option value="">Todos</option>{months.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}</select></div> <div className="w-28"><label className="text-xs uppercase font-medium text-gray-600">Ano</label><select name="year" value={filters.year} onChange={(e) => handleFilterChange('year', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"><option value="">Todos</option>{years.map(y => <option key={y.id} value={y.id}>{y.nome}</option>)}</select></div> <div><label className="text-xs uppercase">De:</label><input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div> <div><label className="text-xs uppercase">Até:</label><input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/></div> </div> </div> <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t"> <div className="flex items-center gap-2"><button onClick={() => setDateRange('today')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarDay}/> Hoje</button><button onClick={() => setDateRange('week')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarWeek}/> Semana</button><button onClick={() => setDateRange('month')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarAlt}/> Mês</button></div> <button onClick={clearFilters} className="text-sm bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md flex items-center gap-2 uppercase"><FontAwesomeIcon icon={faTimes} />Limpar Filtros</button> </div> </div> )}
             </div>
 
             {savedFilters.filter(f => f.isFavorite).length > 0 && ( <div className="p-4 border rounded-lg bg-white space-y-2"> <h4 className="font-semibold flex items-center gap-2 text-sm uppercase text-gray-600"><FontAwesomeIcon icon={faStarSolid} /> Filtros Favoritos</h4> <div className="flex flex-wrap gap-2"> {savedFilters.filter(f => f.isFavorite).map((f, i) => { const isActive = JSON.stringify(filters) === JSON.stringify(f.settings); return ( <button key={i} onClick={() => handleLoadFilter(f.settings)} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${isActive ? 'bg-blue-600 text-white border-blue-700' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}> {f.name} </button> ) })} </div> </div> )}
@@ -316,8 +404,6 @@ export default function LancamentosManager({
                                 const isTransfer = item.tipo === 'Transferência';
                                 const isTransferEntry = item.unique_key?.toString().includes('_entrada');
                                 const nomeEmpresa = item.conta_exibicao?.empresa?.nome_fantasia || item.conta_exibicao?.empresa?.razao_social || 'N/A';
-
-                                // ##### INÍCIO DA CORREÇÃO #####
                                 let displayDate = item.data_transacao;
                                 let dateLabel = 'Data da Transação';
                                 let dateClass = '';
@@ -332,18 +418,15 @@ export default function LancamentosManager({
                                         dateClass = 'text-red-600 font-bold';
                                     }
                                 }
-                                // ##### FIM DA CORREÇÃO #####
 
                                 return (
                                     <tr key={item.unique_key} className={`${selectedIds.has(item.id) ? 'bg-blue-100' : ''} ${isTransferEntry ? 'bg-gray-50' : 'hover:bg-gray-50'}`}>
                                         <td className="p-4">
                                             <input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} />
                                         </td>
-                                        {/* ##### CORREÇÃO APLICADA AQUI ##### */}
                                         <td className={`px-4 py-2 whitespace-nowrap ${dateClass}`} title={dateLabel}>
                                             {formatDate(displayDate)}
                                         </td>
-                                        {/* ##### FIM DA CORREÇÃO APLICADA ##### */}
                                         <td className="px-4 py-2 font-medium">{item.descricao_exibicao}</td>
                                         <td className="px-4 py-2 text-gray-600">{item.conta_exibicao?.nome || 'N/A'}</td>
                                         <td className="px-4 py-2 text-gray-600 uppercase">{nomeEmpresa}</td>

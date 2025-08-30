@@ -43,7 +43,9 @@ export default function FinanceiroPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
     const [totalCount, setTotalCount] = useState(0);
-    const [filters, setFilters] = useState({ searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [], etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', });
+    // ##### ALTERAÇÃO AQUI #####
+    // Trocamos 'favorecidoIds' por 'favorecidoId' para aceitar apenas um.
+    const [filters, setFilters] = useState({ searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [], etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', favorecidoId: null });
     const [sortConfig, setSortConfig] = useState({ key: 'data_transacao', direction: 'descending' });
     
     useEffect(() => { if (!authLoading && !canViewPage) { router.push('/'); } }, [authLoading, canViewPage, router]);
@@ -61,6 +63,8 @@ export default function FinanceiroPage() {
         }
     }, [filters]);
 
+    // ##### ALTERAÇÃO AQUI #####
+    // A função que aplica os filtros na busca agora usa '.eq()' para o favorecido.
     const applyFiltersToQuery = useCallback((query, currentFilters) => {
         if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
         
@@ -79,6 +83,7 @@ export default function FinanceiroPage() {
         if (currentFilters.categoriaIds?.length > 0) query = query.in('categoria_id', currentFilters.categoriaIds);
         if (currentFilters.empreendimentoIds?.length > 0) query = query.in('empreendimento_id', currentFilters.empreendimentoIds);
         if (currentFilters.etapaIds?.length > 0) query = query.in('etapa_id', currentFilters.etapaIds);
+        if (currentFilters.favorecidoId) query = query.eq('favorecido_contato_id', currentFilters.favorecidoId); // <-- Linha alterada
         
         if (currentFilters.status?.length > 0) {
             const today = new Date().toISOString().split('T')[0];
@@ -183,7 +188,6 @@ export default function FinanceiroPage() {
     const handleOpenAddModal = () => { setEditingLancamento(null); setIsFormModalOpen(true); };
     const handleOpenEditModal = (lancamento) => { setEditingLancamento(lancamento); setIsFormModalOpen(true); };
     
-    // --- CORREÇÃO AQUI: A função TabButton voltou a ter o parâmetro 'icon' ---
     const TabButton = ({ tabName, label, icon }) => ( 
         <button onClick={() => setActiveTab(tabName)} className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm uppercase flex items-center gap-2 ${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
             <FontAwesomeIcon icon={icon} /> {label}
@@ -211,7 +215,6 @@ export default function FinanceiroPage() {
             
             <div className="border-b border-gray-200 bg-white shadow-sm rounded-t-lg">
                 <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">
-                    {/* --- CORREÇÃO AQUI: Adicionamos os ícones de volta e a nova aba --- */}
                     <TabButton tabName="lancamentos" label="Lançamentos" icon={faBalanceScale} />
                     <TabButton tabName="contas" label="Contas" icon={faBuilding} />
                     <TabButton tabName="ativos" label="Ativos" icon={faLandmark} />
