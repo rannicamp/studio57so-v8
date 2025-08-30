@@ -8,9 +8,9 @@ import { LayoutProvider } from '../../contexts/LayoutContext';
 import { EmpreendimentoProvider, useEmpreendimento } from '../../contexts/EmpreendimentoContext';
 import { useAuth } from '../../contexts/AuthContext';
 import PoliticasModal from '../../components/PoliticasModal';
-import AtividadeModal from '../../components/AtividadeModal'; // Importando o modal de atividade
-import { createClient } from '../../utils/supabase/client'; // Importando o Supabase client
-import { toast } from 'sonner'; // Importando o toast para feedback
+import AtividadeModal from '../../components/AtividadeModal';
+import { createClient } from '../../utils/supabase/client';
+import { toast } from 'sonner';
 
 import '@fortawesome/fontawesome-svg-core/styles.css'; 
 import { config } from '@fortawesome/fontawesome-svg-core';
@@ -20,16 +20,14 @@ config.autoAddCss = false;
 function MainLayout({ children }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { isProprietario } = useAuth();
-  const { empreendimentos } = useEmpreendimento(); // Pegando a lista de empreendimentos do contexto
+  const { empreendimentos } = useEmpreendimento();
 
-  // Estados para o modal global
   const [isGlobalActivityModalOpen, setIsGlobalActivityModalOpen] = useState(false);
   const [modalData, setModalData] = useState({ funcionarios: [], empresas: [] });
   const [isLoadingModalData, setIsLoadingModalData] = useState(false);
 
   const supabase = createClient();
 
-  // Função para buscar os dados necessários para o modal (funcionários e empresas)
   const fetchModalData = useCallback(async () => {
     setIsLoadingModalData(true);
     const [funcionariosRes, empresasRes] = await Promise.all([
@@ -43,24 +41,21 @@ function MainLayout({ children }) {
     setIsLoadingModalData(false);
   }, [supabase]);
 
-  // Efeito que "ouve" o atalho do teclado (Ctrl + A)
   useEffect(() => {
     const handleKeyDown = (event) => {
-      // Verifica se Ctrl (ou Command no Mac) e a tecla 'A' foram pressionados
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
-        event.preventDefault(); // Impede a ação padrão do navegador (selecionar tudo)
-        fetchModalData(); // Busca os dados mais recentes para o modal
-        setIsGlobalActivityModalOpen(true); // Abre o modal
+        event.preventDefault();
+        fetchModalData();
+        setIsGlobalActivityModalOpen(true);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
 
-    // Limpa o "ouvinte" quando o componente é desmontado para evitar problemas
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [fetchModalData]); // Adicionamos fetchModalData como dependência
+  }, [fetchModalData]);
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
@@ -68,7 +63,6 @@ function MainLayout({ children }) {
 
   return (
     <>
-      {/* O modal de atividade agora vive aqui, no layout principal */}
       {isGlobalActivityModalOpen && (
         <AtividadeModal
           isOpen={isGlobalActivityModalOpen}
@@ -76,9 +70,8 @@ function MainLayout({ children }) {
           onActivityAdded={() => {
             setIsGlobalActivityModalOpen(false);
             toast.success('Atividade rápida criada com sucesso!');
-            // Não fazemos um refresh global para não atrapalhar o usuário
           }}
-          activityToEdit={null} // Sempre para uma nova atividade
+          activityToEdit={null}
           funcionarios={modalData.funcionarios}
           allEmpreendimentos={empreendimentos}
           allEmpresas={modalData.empresas}

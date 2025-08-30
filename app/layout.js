@@ -1,113 +1,63 @@
-// app/(main)/layout.js
-"use client";
+// app/layout.js
 
-import { useState, useEffect, useCallback } from 'react';
-import Sidebar from '../../components/sidebar';
-import Header from '../../components/Header';
-import { LayoutProvider } from '../../contexts/LayoutContext';
-import { EmpreendimentoProvider, useEmpreendimento } from '../../contexts/EmpreendimentoContext';
-import { useAuth } from '../../contexts/AuthContext';
-import PoliticasModal from '../../components/PoliticasModal';
-import AtividadeModal from '../../components/AtividadeModal'; // Importando o modal de atividade
-import { createClient } from '../../utils/supabase/client'; // Importando o Supabase client
-import { toast } from 'sonner'; // Importando o toast para feedback
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { Toaster } from 'sonner';
+import Script from 'next/script';
+// --- INÍCIO DA ALTERAÇÃO ---
+// Importamos nosso novo componente "invólucro"
+import { Providers } from './providers';
+// --- FIM DA ALTERAÇÃO ---
 
-import '@fortawesome/fontawesome-svg-core/styles.css'; 
-import { config } from '@fortawesome/fontawesome-svg-core';
-config.autoAddCss = false; 
+const inter = Inter({ subsets: ['latin'] });
 
-// Componente interno para conter a nova lógica
-function MainLayout({ children }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const { isProprietario } = useAuth();
-  const { empreendimentos } = useEmpreendimento(); // Pegando a lista de empreendimentos do contexto
+export const metadata = {
+  title: 'Studio 57',
+  description: 'Sistema de Gestão Integrada',
+  manifest: '/manifest.json',
+};
 
-  // Estados para o modal global
-  const [isGlobalActivityModalOpen, setIsGlobalActivityModalOpen] = useState(false);
-  const [modalData, setModalData] = useState({ funcionarios: [], empresas: [] });
-  const [isLoadingModalData, setIsLoadingModalData] = useState(false);
-
-  const supabase = createClient();
-
-  // Função para buscar os dados necessários para o modal (funcionários e empresas)
-  const fetchModalData = useCallback(async () => {
-    setIsLoadingModalData(true);
-    const [funcionariosRes, empresasRes] = await Promise.all([
-      supabase.from('funcionarios').select('id, full_name').order('full_name'),
-      supabase.from('cadastro_empresa').select('id, razao_social').order('razao_social')
-    ]);
-    setModalData({
-      funcionarios: funcionariosRes.data || [],
-      empresas: empresasRes.data || []
-    });
-    setIsLoadingModalData(false);
-  }, [supabase]);
-
-  // Efeito que "ouve" o atalho do teclado (Ctrl + A)
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      // Verifica se Ctrl (ou Command no Mac) e a tecla 'A' foram pressionados
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
-        event.preventDefault(); // Impede a ação padrão do navegador (selecionar tudo)
-        fetchModalData(); // Busca os dados mais recentes para o modal
-        setIsGlobalActivityModalOpen(true); // Abre o modal
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-
-    // Limpa o "ouvinte" quando o componente é desmontado para evitar problemas
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [fetchModalData]); // Adicionamos fetchModalData como dependência
-
-  const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed);
-  };
-
+export default function RootLayout({ children }) {
   return (
-    <>
-      {/* O modal de atividade agora vive aqui, no layout principal */}
-      {isGlobalActivityModalOpen && (
-        <AtividadeModal
-          isOpen={isGlobalActivityModalOpen}
-          onClose={() => setIsGlobalActivityModalOpen(false)}
-          onActivityAdded={() => {
-            setIsGlobalActivityModalOpen(false);
-            toast.success('Atividade rápida criada com sucesso!');
-            // Não fazemos um refresh global para não atrapalhar o usuário
-          }}
-          activityToEdit={null} // Sempre para uma nova atividade
-          funcionarios={modalData.funcionarios}
-          allEmpreendimentos={empreendimentos}
-          allEmpresas={modalData.empresas}
+    <html lang="pt-br">
+      <head>
+        <meta name="theme-color" content="#0288d1" />
+      </head>
+      <body className={inter.className}>
+        
+        <div id="fb-root"></div>
+        <Script
+          async
+          defer
+          crossOrigin="anonymous"
+          src="https://connect.facebook.net/pt_BR/sdk.js"
+          strategy="afterInteractive"
         />
-      )}
-      
-      <div>
-        <Sidebar
-          isCollapsed={isCollapsed}
-          toggleSidebar={toggleSidebar}
-          isAdmin={isProprietario}
-        />
-        <Header isCollapsed={isCollapsed} />
-        <main className={`p-6 mt-[65px] transition-all duration-300 ${isCollapsed ? 'ml-[80px]' : 'ml-[260px]'}`}>
+        <Script id="facebook-sdk-init" strategy="afterInteractive">
+          {`
+            window.fbAsyncInit = function() {
+              FB.init({
+                appId      : '1518358099511142',
+                cookie     : true,
+                xfbml      : true,
+                version    : 'v20.0'
+              });
+              
+              FB.AppEvents.logPageView();   
+            };
+          `}
+        </Script>
+        <Script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" strategy="beforeInteractive" />
+        
+        {/* --- INÍCIO DA ALTERAÇÃO --- */}
+        {/* Agora, usamos o componente <Providers> para envolver o conteúdo */}
+        <Providers>
           {children}
-        </main>
-      </div>
-    </>
-  );
-}
-
-
-export default function MainAppLayoutWrapper({ children }) {
-  return (
-    <LayoutProvider>
-      <EmpreendimentoProvider>
-        <PoliticasModal />
-        <MainLayout>{children}</MainLayout>
-      </EmpreendimentoProvider>
-    </LayoutProvider>
+        </Providers>
+        {/* --- FIM DA ALTERAÇÃO --- */}
+        
+        <Toaster richColors position="top-right" />
+      </body>
+    </html>
   );
 }
