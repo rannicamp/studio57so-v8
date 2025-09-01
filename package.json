@@ -22,6 +22,7 @@
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.6",
     "googleapis": "^155.0.0",
+    "jszip": "^3.10.1",
     "lamejs": "^1.2.1",
     "next": "15.3.4",
     "next-auth": "^4.24.11",

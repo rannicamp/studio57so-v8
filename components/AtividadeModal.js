@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHistory } from '@fortawesome/free-solid-svg-icons';
 import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
 import { toast } from 'sonner';
+import AtividadeAnexos from './atividades/AtividadeAnexos'; // 1. Importa o novo componente
 
 function addBusinessDays(startDate, days) {
     if (!startDate || isNaN(days)) return startDate || '';
@@ -52,7 +51,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         recorrencia_tipo: 'diaria',
         recorrencia_intervalo: 1,
         recorrencia_fim: null,
-        contato_id: null, // Campo adicionado
+        contato_id: null,
     }), [selectedEmpreendimento]);
 
     const [formData, setFormData] = useState(getInitialState());
@@ -112,7 +111,6 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         });
     };
 
-    // Função para sincronizar com o Google Calendar
     const syncWithGoogleCalendar = async (activityData) => {
         try {
             const response = await fetch('/api/google-calendar/create-event', {
@@ -159,7 +157,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 etapa_id: formData.etapa_id || null,
                 tipo_atividade: etapaSelecionada ? etapaSelecionada.nome_etapa : 'Atividade Interna',
                 empreendimento_id: formData.empreendimento_id || null,
-                contato_id: formData.contato_id, // Passando o ID do contato
+                contato_id: formData.contato_id,
             };
 
             if (dadosParaSalvar.empreendimento_id) {
@@ -336,6 +334,17 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                             )}
                         </div>
                     </fieldset>
+                    
+                    {/* ***** INÍCIO DA NOVA FUNCIONALIDADE ***** */}
+                    {isEditing && (
+                        <fieldset className="border-t pt-4">
+                            <legend className="text-lg font-semibold text-gray-700">Anexos</legend>
+                            <div className="mt-2">
+                                <AtividadeAnexos activityId={activityToEdit.id} />
+                            </div>
+                        </fieldset>
+                    )}
+                    {/* ***** FIM DA NOVA FUNCIONALIDADE ***** */}
                     
                     <div className="flex justify-end gap-4 pt-4 border-t">
                         <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
