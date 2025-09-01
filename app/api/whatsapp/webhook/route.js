@@ -22,7 +22,6 @@ async function sendTextMessage(supabase, config, to, contatoId, text) {
         if (!response.ok) { console.error("ERRO ao enviar mensagem de texto via WhatsApp:", responseData); return; }
         const messageId = responseData.messages?.[0]?.id;
         if (messageId) {
-            // CORRIGIDO: Adiciona sent_at com a data e hora atuais
             await supabase.from('whatsapp_messages').insert({ contato_id: contatoId, message_id: messageId, sender_id: config.whatsapp_phone_number_id, receiver_id: to, content: text, direction: 'outbound', status: 'sent', raw_payload: payload, sent_at: new Date().toISOString() });
         }
     } catch (error) { console.error("ERRO de rede ao enviar mensagem de texto:", error); }
@@ -38,13 +37,12 @@ async function sendMediaMessage(supabase, config, to, contatoId, publicUrl, file
         if (!response.ok) { console.error("ERRO ao enviar mídia via WhatsApp:", responseData); return; }
         const messageId = responseData.messages?.[0]?.id;
         if (messageId) {
-            // CORRIGIDO: Adiciona sent_at com a data e hora atuais
             await supabase.from('whatsapp_messages').insert({ contato_id: contatoId, message_id: messageId, sender_id: config.whatsapp_phone_number_id, receiver_id: to, content: caption, direction: 'outbound', status: 'sent', raw_payload: payload, sent_at: new Date().toISOString() });
         }
     } catch (error) { console.error("ERRO de rede ao enviar mídia:", error); }
 }
 
-// --- FUNÇÕES AUXILIARES (MANTIDAS) ---
+// --- FUNÇÕES AUXILIARES (ATUALIZADAS E MANTIDAS) ---
 
 // Extrai o conteúdo de texto de uma mensagem do WhatsApp
 function getTextContent(message) {
@@ -59,16 +57,37 @@ function getTextContent(message) {
     }
 }
 
-// Normaliza números de telefone para busca no banco de dados
+// ##### INÍCIO DA ALTERAÇÃO INTELIGENTE #####
+// Esta função agora é mais inteligente para identificar o país do número.
 function normalizeAndGeneratePhoneNumbers(rawPhone) {
     const digitsOnly = rawPhone.replace(/\D/g, '');
-    let numbersToSearch = new Set([digitsOnly]);
-    // Adiciona o DDI 55 se não estiver presente e o número tiver tamanho típico de telefone brasileiro
-    if (!digitsOnly.startsWith('55') && (digitsOnly.length === 10 || digitsOnly.length === 11)) { 
-        numbersToSearch.add('55' + digitsOnly); 
+    let numbersToSearch = new Set();
+    
+    // Adiciona o número exatamente como veio (apenas dígitos)
+    numbersToSearch.add(digitsOnly);
+
+    // Lógica para EUA/Canadá (código de país '1')
+    // Um número completo dos EUA com DDI tem 11 dígitos e começa com 1.
+    if (digitsOnly.startsWith('1') && digitsOnly.length === 11) {
+        // Já está no formato correto (Ex: 17815002711)
+        numbersToSearch.add(digitsOnly); 
     }
+    // Lógica para o Brasil (código de país '55')
+    else if (digitsOnly.startsWith('55') && (digitsOnly.length === 12 || digitsOnly.length === 13)) {
+        // Número já está com DDI do Brasil, não faz nada.
+        numbersToSearch.add(digitsOnly);
+    }
+    // Lógica para números SEM DDI
+    else if (digitsOnly.length === 10 || digitsOnly.length === 11) {
+        // Se tem 10 ou 11 dígitos e não começa com '1', é muito provável que seja do Brasil.
+        numbersToSearch.add('55' + digitsOnly);
+    }
+    
+    // Devolve uma lista de possíveis números para buscar no banco de dados.
     return Array.from(numbersToSearch);
 }
+// ##### FIM DA ALTERAÇÃO INTELIGENTE #####
+
 
 // --- ROTAS (WEBHOOK) ---
 
