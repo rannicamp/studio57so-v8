@@ -46,8 +46,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         numero_parcelas: 2, data_primeiro_vencimento: new Date().toISOString().split('T')[0],
         frequencia: 'Mensal', recorrencia_data_inicio: new Date().toISOString().split('T')[0], recorrencia_data_fim: null,
         novo_favorecido: null,
-        // --- ETAPA 2: CAMPO NOVO AQUI ---
-        // Adicionamos um campo para guardar o anexo que vem do pedido
         anexo_preexistente: null, 
         anexo: { file: null, descricao: '', tipo_documento_id: null },
         data_pagamento: null,
@@ -91,7 +89,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         if (isOpen) {
             fetchDropdownData();
             setMessage('');
-            if (initialData) { // Funciona tanto para edição quanto para pré-preenchimento
+            if (initialData) {
                 const anexoData = initialData.anexos && initialData.anexos[0] ? initialData.anexos[0] : null;
                 const dataToLoad = { 
                     ...initialData, 
@@ -122,87 +120,95 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         e.preventDefault();
         setLoading(true);
         setMessage('Salvando, por favor aguarde...');
-
+    
         try {
             if (!user) { throw new Error("Usuário não autenticado. Por favor, faça login novamente."); }
-
-            const statusFinal = formData.tipo === 'Transferência' ? 'Pago' : formData.status;
-            
+    
             const valorNumerico = parseFloat(String(formData.valor || '0')) || 0;
-
-            const dataToSave = {
+            let favorecidoFinalId = formData.favorecido_contato_id;
+    
+            if (formData.novo_favorecido && formData.novo_favorecido.nome) {
+                const { data: novoContato, error: contatoError } = await supabase.from('contatos').insert({ nome: formData.novo_favorecido.nome, tipo_contato: 'Fornecedor' }).select().single();
+                if (contatoError) throw contatoError;
+                favorecidoFinalId = novoContato.id;
+            }
+    
+            const baseData = {
                 descricao: formData.descricao,
-                valor: valorNumerico,
-                data_transacao: formData.data_transacao,
-                data_vencimento: formData.data_vencimento,
-                data_pagamento: formData.data_pagamento,
                 tipo: formData.tipo,
-                status: statusFinal,
+                status: formData.status,
                 conta_id: formData.conta_id,
                 categoria_id: formData.categoria_id,
                 empreendimento_id: formData.empreendimento_id,
                 etapa_id: formData.etapa_id,
                 empresa_id: formData.empresa_id,
                 observacao: formData.observacoes,
+                favorecido_contato_id: favorecidoFinalId,
+                criado_por_usuario_id: user.id,
             };
-            
-            if (formData.novo_favorecido && formData.novo_favorecido.nome) {
-                const { data: novoContato, error: contatoError } = await supabase.from('contatos').insert({ nome: formData.novo_favorecido.nome, tipo_contato: 'Fornecedor' }).select().single();
-                if (contatoError) throw contatoError;
-                dataToSave.favorecido_contato_id = novoContato.id;
-            } else {
-                dataToSave.favorecido_contato_id = formData.favorecido_contato_id;
-            }
-
-            if (formData.tipo === 'Transferência') {
-                dataToSave.conta_destino_id = formData.conta_destino_id;
-            } else {
-                dataToSave.conta_destino_id = null;
-            }
-
-            let lancamentoId = null;
+    
+            let error = null;
+    
             if (isEditing) {
-                lancamentoId = formData.id;
-                dataToSave.criado_por_usuario_id = formData.criado_por_usuario_id;
-                const { error } = await supabase.from('lancamentos').update(dataToSave).eq('id', lancamentoId);
-                if (error) throw error;
+                const { error: updateError } = await supabase.from('lancamentos').update({ ...baseData, valor: valorNumerico, data_vencimento: formData.data_vencimento, data_pagamento: formData.data_pagamento }).eq('id', formData.id);
+                error = updateError;
             } else {
-                dataToSave.criado_por_usuario_id = user.id;
-                const { data: newLancamento, error } = await supabase.from('lancamentos').insert(dataToSave).select().single();
-                if (error) throw error;
-                lancamentoId = newLancamento.id;
-            }
-            
-            // --- ETAPA 2: LÓGICA DE ANEXO ATUALIZADA ---
-            // Se um NOVO arquivo foi selecionado, faz o upload.
-            if (formData.anexo && formData.anexo.file && lancamentoId) {
-                const file = formData.anexo.file;
-                const sanitizedFileName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w.\-]/g, '_');
-                const filePath = `lancamento-${lancamentoId}/${Date.now()}-${sanitizedFileName}`;
-                const { error: uploadError } = await supabase.storage.from('documentos-financeiro').upload(filePath, file);
-                if (uploadError) throw uploadError;
-                await supabase.from('lancamentos_anexos').insert({ 
-                    lancamento_id: lancamentoId, 
-                    caminho_arquivo: filePath, 
-                    nome_arquivo: file.name,
-                    descricao: formData.anexo.descricao, 
-                    tipo_documento_id: formData.anexo.tipo_documento_id 
-                });
-            // Se não há arquivo novo, mas há um anexo PRÉ-EXISTENTE (vindo do pedido), cria o vínculo.
-            } else if (formData.anexo_preexistente && lancamentoId) {
-                await supabase.from('lancamentos_anexos').insert({
-                    lancamento_id: lancamentoId,
-                    caminho_arquivo: formData.anexo_preexistente.caminho_arquivo,
-                    nome_arquivo: formData.anexo_preexistente.nome_arquivo,
-                    descricao: formData.anexo_preexistente.descricao,
-                    // Poderíamos adicionar tipo_documento_id se ele viesse do pedido
-                });
-            }
+                if (formData.form_type === 'parcelado') {
+                    const valorParcela = valorNumerico / formData.numero_parcelas;
+                    const lancamentosParcelados = [];
+                    for (let i = 0; i < formData.numero_parcelas; i++) {
+                        const dataVencimento = new Date(formData.data_primeiro_vencimento);
+                        dataVencimento.setUTCMonth(dataVencimento.getUTCMonth() + i);
+                        lancamentosParcelados.push({
+                            ...baseData,
+                            descricao: `${formData.descricao} [${i + 1}/${formData.numero_parcelas}]`,
+                            valor: valorParcela,
+                            data_transacao: formData.data_primeiro_vencimento,
+                            data_vencimento: dataVencimento.toISOString().split('T')[0],
+                        });
+                    }
+                    const { error: insertError } = await supabase.from('lancamentos').insert(lancamentosParcelados);
+                    error = insertError;
+                } else if (formData.form_type === 'recorrente') {
+                    // Lógica para recorrente
+                    const lancamentosRecorrentes = [];
+                    let dataCorrente = new Date(formData.recorrencia_data_inicio);
+                    const dataFim = formData.recorrencia_fim ? new Date(formData.recorrencia_fim) : new Date(new Date().setFullYear(new Date().getFullYear() + 2)); // Limite de 2 anos
+                    
+                    while (dataCorrente <= dataFim) {
+                         lancamentosRecorrentes.push({
+                            ...baseData,
+                            descricao: `${formData.descricao} [${dataCorrente.toLocaleDateString('pt-BR', {month: '2-digit', year:'numeric'})}]`,
+                            valor: valorNumerico,
+                            data_transacao: formData.recorrencia_data_inicio,
+                            data_vencimento: dataCorrente.toISOString().split('T')[0],
+                         });
 
-            setMessage(`Lançamento ${isEditing ? 'atualizado' : 'criado'} com sucesso!`);
+                         if(formData.frequencia === 'Mensal') dataCorrente.setMonth(dataCorrente.getMonth() + 1);
+                         else if (formData.frequencia === 'Anual') dataCorrente.setFullYear(dataCorrente.getFullYear() + 1);
+                    }
+                    const { error: insertError } = await supabase.from('lancamentos').insert(lancamentosRecorrentes);
+                    error = insertError;
+                } else { // Simples ou Transferência
+                    const { data: newLancamento, error: insertError } = await supabase.from('lancamentos').insert({
+                        ...baseData,
+                        valor: valorNumerico,
+                        data_transacao: formData.data_transacao,
+                        data_vencimento: formData.data_vencimento,
+                        data_pagamento: formData.data_pagamento,
+                        conta_destino_id: formData.tipo === 'Transferência' ? formData.conta_destino_id : null,
+                        status: formData.tipo === 'Transferência' ? 'Pago' : formData.status
+                    }).select().single();
+                    error = insertError;
+                }
+            }
+    
+            if (error) throw error;
+    
+            setMessage(`Lançamento(s) salvo(s) com sucesso!`);
             if (onSuccess) onSuccess();
             setTimeout(onClose, 1500);
-
+    
         } catch (error) {
             const detailedError = `ERRO: ${error.message}. Detalhes: ${error.details || 'N/A'}. Código: ${error.code || 'N/A'}`;
             setMessage(detailedError);
@@ -211,12 +217,9 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             setLoading(false);
         }
     };
-    
-    // --- O RESTANTE DO ARQUIVO PERMANECE IGUAL ---
-    // (As funções handleChange, handleFavorecidoSearch, etc., não precisam de alteração)
 
     const handleAiFileChange = (e) => { if (e.target.files && e.target.files[0]) { setAiFile(e.target.files[0]); } };
-    const handleAiExtract = async () => { /* ...código existente... */ };
+    const handleAiExtract = async () => { /* Código existente sem alteração */ };
     const handleChange = (e) => { 
         const { name, value } = e.target;
         let newFormData = { ...formData, [name]: value === '' ? null : value };
@@ -238,16 +241,12 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     const handleDragEvents = (e) => { e.preventDefault(); e.stopPropagation(); if (e.type === "dragenter" || e.type === "dragover") setIsDragging(true); else if (e.type === "dragleave") setIsDragging(false); };
     const handleDrop = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); if (e.dataTransfer.files && e.dataTransfer.files.length > 0) { handleAnexoChange(e.dataTransfer.files); e.dataTransfer.clearData(); } };
     const handleViewAnexo = async () => { if (!formData.anexo?.caminho_arquivo) return; const { data } = await supabase.storage.from('documentos-financeiro').createSignedUrl(formData.anexo.caminho_arquivo, 3600); if (data?.signedUrl) window.open(data.signedUrl, '_blank'); };
-    const handleRemoveAnexo = async () => { if (isEditing && formData.anexo?.id && window.confirm("Isso excluirá o anexo permanentemente. Deseja continuar?")) { await supabase.from('lancamentos_anexos').delete().eq('id', formData.anexo.id); await supabase.storage.from('documentos-financeiro').remove([formData.anexo.caminho_arquivo]); } setFormData(prev => ({ ...prev, anexo: { file: null, descricao: '', tipo_documento_id: null } })); };
+    const handleRemoveAnexo = async () => { if (isEditing && formData.anexo?.id && window.confirm("Isso excluirá o anexo permanentemente. Deseja continuar?")) { await supabase.from('lancamentos_anexos').delete().eq('id', formData.anexo.id); await supabase.storage.from('documentos-financeiro').remove([formData.anexo.caminho_arquivo]); } setFormData(prev => ({ ...prev, anexo: { file: null, descricao: '', tipo_documento_id: null }, anexo_preexistente: null })); };
 
     if (!isOpen) return null;
     const filteredCategorias = categorias.filter(c => c.tipo === formData.tipo);
-
-    // --- ETAPA 2: LÓGICA DE RENDERIZAÇÃO ATUALIZADA ---
-    // Determina se devemos mostrar um anexo vindo do pedido
     const anexoVisivel = formData.anexo?.id || formData.anexo?.file || formData.anexo_preexistente;
     const nomeAnexoVisivel = formData.anexo?.file?.name || formData.anexo?.nome_arquivo || formData.anexo_preexistente?.nome_arquivo;
-
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -255,9 +254,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 <h3 className="text-xl font-bold mb-4 text-center">{isEditing ? 'Editar Lançamento' : 'Novo Lançamento'}</h3>
                 {message && <p className={`text-center p-3 rounded-md text-sm font-semibold mb-4 ${message.includes('ERRO') ? 'bg-red-100 text-red-800' : 'bg-blue-50 text-blue-800'}`}>{message}</p>}
                 
-                {/* O restante do JSX continua igual, apenas a seção de anexo será ajustada */}
-                
-                 <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
                      <div className="flex flex-col md:flex-row gap-6 p-2 bg-gray-100 rounded-lg">
                          <div className="flex-1 space-y-2">
                              <label className="text-sm font-semibold text-center text-gray-600 block">Natureza</label>
@@ -280,6 +277,49 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                      </div>
                      <div className="space-y-4 pt-4 border-t">
                          <input type="text" name="descricao" value={formData.descricao || ''} onChange={handleChange} required placeholder="Descrição do Lançamento *" className="w-full p-2 border rounded-md" />
+                         
+                         {/* --- SEÇÃO RESTAURADA: PARCELADO --- */}
+                         {formData.form_type === 'parcelado' && !isEditing && (
+                             <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in">
+                                 <legend className="font-semibold text-sm">Detalhes do Parcelamento</legend>
+                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                     <div>
+                                         <label className="block text-sm font-medium">Valor Total *</label>
+                                         <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/>
+                                     </div>
+                                     <div>
+                                         <label className="block text-sm font-medium">Nº de Parcelas *</label>
+                                         <input type="number" min="2" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} required className="w-full p-2 border rounded-md"/>
+                                     </div>
+                                      <div>
+                                         <label className="block text-sm font-medium">1º Vencimento *</label>
+                                         <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/>
+                                     </div>
+                                 </div>
+                             </fieldset>
+                         )}
+
+                         {/* --- SEÇÃO RESTAURADA: RECORRENTE --- */}
+                         {formData.form_type === 'recorrente' && !isEditing && (
+                             <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in">
+                                 <legend className="font-semibold text-sm">Detalhes da Recorrência</legend>
+                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                     <div>
+                                        <label className="block text-sm font-medium">Valor Mensal *</label>
+                                        <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/>
+                                     </div>
+                                     <div>
+                                        <label className="block text-sm font-medium">Data Início *</label>
+                                        <input type="date" name="recorrencia_data_inicio" value={formData.recorrencia_data_inicio} onChange={handleChange} required className="w-full p-2 border rounded-md"/>
+                                     </div>
+                                     <div>
+                                        <label className="block text-sm font-medium">Data Fim (Opcional)</label>
+                                        <input type="date" name="recorrencia_data_fim" value={formData.recorrencia_data_fim || ''} onChange={handleChange} className="w-full p-2 border rounded-md"/>
+                                     </div>
+                                 </div>
+                             </fieldset>
+                         )}
+
                          {formData.form_type === 'simples' && (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div>
@@ -287,12 +327,12 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                                       <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleChange({target: {name: 'valor', value: unmaskedValue}})} required className="w-full p-2 border rounded-md"/>
                                   </div>
                                   <div>
-                                      <label className="block text-sm font-medium">Data de Vencimento *</label>
+                                      <label className="block text-sm font-medium">{formData.tipo === 'Transferência' ? 'Data da Transferência *' : 'Data de Vencimento *'}</label>
                                       <input type="date" name="data_vencimento" value={formData.data_vencimento || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"/>
                                   </div>
                                </div>
                          )}
-
+                         
                          {isEditing && (
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                  <div>
