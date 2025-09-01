@@ -351,6 +351,7 @@ CREATE TABLE public.contratos (
   multa_inadimplencia_percentual numeric,
   juros_mora_inadimplencia_percentual numeric,
   clausula_penal_percentual numeric,
+  numero_contrato text UNIQUE,
   CONSTRAINT contratos_pkey PRIMARY KEY (id),
   CONSTRAINT contratos_simulacao_id_fkey FOREIGN KEY (simulacao_id) REFERENCES public.simulacoes(id),
   CONSTRAINT contratos_corretor_id_fkey FOREIGN KEY (corretor_id) REFERENCES public.contatos(id),
@@ -533,6 +534,7 @@ CREATE TABLE public.feriados (
   data_feriado date NOT NULL UNIQUE,
   descricao text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
+  tipo text NOT NULL DEFAULT 'Integral'::text CHECK (tipo = ANY (ARRAY['Integral'::text, 'Meio Período'::text])),
   CONSTRAINT feriados_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.funcionarios (
@@ -672,6 +674,7 @@ CREATE TABLE public.lancamentos (
   criado_por_usuario_id uuid,
   conta_destino_id bigint,
   observacao text,
+  mes_competencia date,
   CONSTRAINT lancamentos_pkey PRIMARY KEY (id),
   CONSTRAINT fk_recorrencia FOREIGN KEY (recorrencia_id) REFERENCES public.recorrencias(id),
   CONSTRAINT fk_lancamento_empresa FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id),

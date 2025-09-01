@@ -4,8 +4,9 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faColumns, faTrashAlt, faEdit, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
+import { faColumns, faTrashAlt, faEdit, faSort, faSortUp, faSortDown, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { formatPhoneNumber } from '../utils/formatters';
+import MergeModal from './contatos/MergeModal'; // Importar o novo modal
 
 const ProgressCircle = ({ score }) => {
     const percentage = Math.min(Math.max(score, 0), 100);
@@ -56,9 +57,10 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
   const [visibleColumns, setVisibleColumns] = useState({ qualidade: true, display_name: true, tipo_contato: true, documento: false, email: true, telefone: true, cargo: false });
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false);
   const columnSelectorRef = useRef(null);
-
-  // ***** INÍCIO DA ALTERAÇÃO *****
   const [sortConfig, setSortConfig] = useState({ key: 'display_name', direction: 'ascending' });
+  
+  // Novo estado para o modal de mesclagem
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
 
   const requestSort = (key) => {
     let direction = 'ascending';
@@ -67,7 +69,6 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
     }
     setSortConfig({ key, direction });
   };
-  // ***** FIM DA ALTERAÇÃO *****
 
   useEffect(() => { setContatos(initialContatos); }, [initialContatos]);
   useEffect(() => {
@@ -78,7 +79,6 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
 
   const handleToggleColumn = (key) => setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
 
-  // ***** INÍCIO DA ALTERAÇÃO *****
   const sortedAndFilteredContatos = useMemo(() => {
     let filtered = [...contatos].map(c => ({
       ...c,
@@ -114,7 +114,6 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
 
     return filtered;
   }, [contatos, searchTerm, filterType, sortConfig]);
-  // ***** FIM DA ALTERAÇÃO *****
 
   const handleRowClick = (id) => router.push(`/contatos/editar/${id}`);
 
@@ -149,16 +148,48 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
         </th>
     );
   };
+  
+  // Contatos selecionados para mesclagem
+  const contactsToMerge = useMemo(() => {
+    return contatos.filter(c => selectedContatos.includes(c.id));
+  }, [selectedContatos, contatos]);
+
+  const handleMergeComplete = () => {
+    setSelectedContatos([]);
+    onActionComplete();
+  };
 
   return (
     <div className="space-y-4">
+      {/* Adicionar o Modal de Mesclagem */}
+      <MergeModal
+        isOpen={isMergeModalOpen}
+        onClose={() => setIsMergeModalOpen(false)}
+        contactsToMerge={contactsToMerge}
+        onMergeComplete={handleMergeComplete}
+      />
+
       <div className="flex flex-col md:flex-row gap-4 justify-between">
         <div className="flex flex-col md:flex-row gap-4">
           <input type="text" placeholder="Buscar por nome, razão social, telefone..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="p-2 border rounded-md w-full md:flex-grow shadow-sm" />
           <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="p-2 border rounded-md w-full md:w-auto shadow-sm"> <option value="">Todos os Tipos</option> <option>Contato</option> <option>Cliente</option> <option>Fornecedor</option> <option>Lead</option> </select>
         </div>
         <div className="flex items-center gap-4">
-            {selectedContatos.length > 0 && ( <button onClick={handleDeleteSelected} className="p-2 border rounded-md w-full md:w-auto shadow-sm bg-red-600 text-white hover:bg-red-700 flex items-center justify-center gap-2"> <FontAwesomeIcon icon={faTrashAlt} /> <span>Excluir ({selectedContatos.length})</span> </button> )}
+            {selectedContatos.length > 0 && (
+                <>
+                    {/* Botão Unir aparece quando 2 ou mais contatos são selecionados */}
+                    {selectedContatos.length >= 2 && (
+                        <button onClick={() => setIsMergeModalOpen(true)} className="p-2 border rounded-md w-full md:w-auto shadow-sm bg-orange-500 text-white hover:bg-orange-600 flex items-center justify-center gap-2">
+                            <FontAwesomeIcon icon={faUsers} />
+                            <span>Unir ({selectedContatos.length})</span>
+                        </button>
+                    )}
+                    <button onClick={handleDeleteSelected} className="p-2 border rounded-md w-full md:w-auto shadow-sm bg-red-600 text-white hover:bg-red-700 flex items-center justify-center gap-2">
+                        <FontAwesomeIcon icon={faTrashAlt} />
+                        <span>Excluir ({selectedContatos.length})</span>
+                    </button>
+                </>
+            )}
             <div className="relative" ref={columnSelectorRef}>
                 <button onClick={() => setIsColumnSelectorOpen(!isColumnSelectorOpen)} className="p-2 border rounded-md w-full md:w-auto shadow-sm bg-gray-100 hover:bg-gray-200 flex items-center justify-center gap-2"> <FontAwesomeIcon icon={faColumns} /> <span>Colunas</span> </button>
                 {isColumnSelectorOpen && ( <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-20 border"> <div className="p-2 font-semibold text-sm">Selecione as colunas</div> {allColumns.map(col => ( <label key={col.key} className="flex items-center p-2 hover:bg-gray-100 cursor-pointer text-sm"> <input type="checkbox" checked={visibleColumns[col.key]} onChange={() => handleToggleColumn(col.key)} className="mr-2 h-4 w-4 rounded" /> {col.label} </label> ))} </div> )}
