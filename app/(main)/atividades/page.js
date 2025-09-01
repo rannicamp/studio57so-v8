@@ -16,12 +16,12 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory, faLock, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import MultiSelectDropdown from '../../../components/financeiro/MultiSelectDropdown';
 import { toast } from 'sonner';
-
+import AtividadeDetalhesSidebar from '@/components/atividades/AtividadeDetalhesSidebar'; // IMPORTA O NOVO SIDEBAR
 
 export default function AtividadesPage() {
     const supabase = createClient();
     const router = useRouter();
-    const { hasPermission, loading: authLoading, user } = useAuth(); // Adicionado 'user'
+    const { hasPermission, loading: authLoading, user } = useAuth();
     const { setPageTitle } = useLayout();
     const { selectedEmpreendimento, empreendimentos } = useEmpreendimento();
 
@@ -41,12 +41,17 @@ export default function AtividadesPage() {
     const [allEmpresas, setAllEmpresas] = useState([]);
     const [filters, setFilters] = useState({ empresa: '', empreendimento: '', responsavel: '', status: [], selectedDate: '' });
 
+    // NOVOS ESTADOS PARA O SIDEBAR
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [selectedActivityForSidebar, setSelectedActivityForSidebar] = useState(null);
+
     useEffect(() => {
         if (!authLoading && !canViewPage) {
             router.push('/');
         }
     }, [authLoading, canViewPage, router]);
 
+    // O restante das funções useEffect, useCallback e useMemo permanece o mesmo...
     useEffect(() => {
         try {
             const savedFilters = localStorage.getItem('atividadesFilters');
@@ -161,43 +166,33 @@ export default function AtividadesPage() {
         }
     }, [selectedEmpreendimento, fetchAllActivities, canViewPage]);
 
-    const handleEditClick = (activity) => { setEditingActivity(activity); setIsModalOpen(true); };
+    // NOVA FUNÇÃO PARA ABRIR O SIDEBAR
+    const handleCardClick = (activity) => {
+        setSelectedActivityForSidebar(activity);
+        setIsSidebarOpen(true);
+    };
 
-    // NOVA FUNÇÃO PARA DUPLICAR ATIVIDADE
+    const handleEditClick = (activity) => { 
+        setEditingActivity(activity); 
+        setIsModalOpen(true); 
+        setIsSidebarOpen(false); // Fecha o sidebar ao abrir o modal de edição
+    };
+
     const handleDuplicateActivity = (activityToDuplicate) => {
-        if (!canCreate) {
-            toast.error("Você não tem permissão para criar atividades.");
-            return;
-        }
-        if (!window.confirm(`Deseja criar uma cópia da atividade "${activityToDuplicate.nome}"?`)) {
-            return;
-        }
-
+        if (!canCreate) { toast.error("Você não tem permissão para criar atividades."); return; }
+        if (!window.confirm(`Deseja criar uma cópia da atividade "${activityToDuplicate.nome}"?`)) { return; }
         const promise = new Promise(async (resolve, reject) => {
             const { id, created_at, updated_at, ...newActivityData } = activityToDuplicate;
-
             newActivityData.nome = `${activityToDuplicate.nome} (Cópia)`;
             newActivityData.status = 'Não Iniciado';
-            newActivityData.data_inicio_real = null;
-            newActivityData.data_fim_real = null;
-            newActivityData.data_fim_original = null;
-            newActivityData.criado_por_usuario_id = user?.id;
-
+            newActivityData.data_inicio_real = null; newActivityData.data_fim_real = null;
+            newActivityData.data_fim_original = null; newActivityData.criado_por_usuario_id = user?.id;
             const { error } = await supabase.from('activities').insert(newActivityData);
-
-            if (error) {
-                reject(new Error(error.message));
-            } else {
-                resolve("Atividade duplicada com sucesso!");
-            }
+            if (error) { reject(new Error(error.message)); } else { resolve("Atividade duplicada com sucesso!"); }
         });
-
         toast.promise(promise, {
             loading: 'Duplicando atividade...',
-            success: (msg) => {
-                fetchAllActivities();
-                return msg;
-            },
+            success: (msg) => { fetchAllActivities(); return msg; },
             error: (err) => `Erro: ${err.message}`,
         });
     };
@@ -209,6 +204,7 @@ export default function AtividadesPage() {
             else {
                 toast.success('Atividade deletada com sucesso!');
                 fetchAllActivities();
+                setIsSidebarOpen(false); // Fecha o sidebar se a atividade aberta for excluída
             }
         }
     };
@@ -244,20 +240,11 @@ export default function AtividadesPage() {
     );
 
     const handleFilterChange = (filterName, value) => {
-        setFilters(prevFilters => ({
-            ...prevFilters,
-            [filterName]: value
-        }));
+        setFilters(prevFilters => ({ ...prevFilters, [filterName]: value }));
     };
 
     const clearFilters = () => {
-        setFilters({
-            empresa: '',
-            empreendimento: '',
-            responsavel: '',
-            status: [],
-            selectedDate: ''
-        });
+        setFilters({ empresa: '', empreendimento: '', responsavel: '', status: [], selectedDate: '' });
         localStorage.removeItem('atividadesFilters');
     };
 
@@ -283,6 +270,16 @@ export default function AtividadesPage() {
 
     return (
         <div className="space-y-6">
+            {/* RENDERIZA O NOVO SIDEBAR */}
+            <AtividadeDetalhesSidebar
+                open={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+                activity={selectedActivityForSidebar}
+                onEditActivity={handleEditClick}
+                onUpdate={fetchAllActivities}
+            />
+
+            {/* O restante do código da página permanece o mesmo */}
             <div className="bg-white p-4 rounded-lg shadow">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                     <h2 className="text-xl font-semibold">
@@ -349,7 +346,7 @@ export default function AtividadesPage() {
             <div className="mt-4">
                 {loading || selectedEmpreendimento === null ? <p className="text-center p-10">Carregando atividades...</p> : (
                     <>
-                        {activeTab === 'kanban' && <KanbanBoard activities={filteredActivities} onEditActivity={handleEditClick} onStatusChange={handleStatusChange} canEdit={canEdit} onDeleteActivity={handleDeleteClick} onDuplicateActivity={handleDuplicateActivity} />}
+                        {activeTab === 'kanban' && <KanbanBoard activities={filteredActivities} onEditActivity={handleCardClick} onStatusChange={handleStatusChange} canEdit={canEdit} onDeleteActivity={handleDeleteClick} onDuplicateActivity={handleDuplicateActivity} />}
                         {activeTab === 'list' && <ActivityList activities={filteredActivities} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} />}
                         {activeTab === 'gantt' && <GanttChart activities={filteredActivities} onEditActivity={handleEditClick} />}
                         {activeTab === 'calendar' && <ActivityCalendar activities={filteredActivities} onActivityClick={handleEditClick} />}

@@ -1,12 +1,10 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faCalendarAlt, faTag, faEllipsisV, faDollarSign, faExclamationTriangle, faTruck, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { useState, useMemo } from 'react';
 
-export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allStatusColumns, hasPendingInvoice }) {
-    const router = useRouter();
+export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allStatusColumns, hasPendingInvoice, onCardClick }) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const totalPedido = useMemo(() => {
@@ -15,12 +13,13 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
+    // A função de clique agora chama a prop 'onCardClick'
     const handleCardClick = (e) => {
-        if (e.target.closest('.action-button')) { // Classe genérica para botões de ação
+        if (e.target.closest('.action-button')) {
             e.stopPropagation();
             return;
         }
-        router.push(`/pedidos/${pedido.id}`);
+        onCardClick(pedido); // Chama a função vinda da página principal
     };
 
     const handleStatusMenuChange = (newStatus) => {
@@ -28,9 +27,8 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
         setIsMenuOpen(false);
     };
     
-    // NOVO: Handler para o botão de duplicar
     const handleDuplicateClick = (e) => {
-        e.stopPropagation(); // Impede que o clique no card seja acionado
+        e.stopPropagation();
         if (window.confirm(`Deseja criar uma cópia do pedido "${pedido.titulo || `#${pedido.id}`}"?`)) {
             onDuplicate(pedido.id);
         }
@@ -59,14 +57,13 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
         <div 
             draggable="true"
             onDragStart={handleDragStart}
-            onClick={handleCardClick}
+            onClick={handleCardClick} // Usa a nova função de clique
             className={`bg-white rounded-md shadow p-3 border-l-4 ${borderClass} hover:shadow-lg transition-shadow duration-200 cursor-pointer kanban-card`}
         >
             <div>
                 <div className="flex justify-between items-start mb-2">
                     <p className="text-sm font-bold text-gray-800 truncate" title={cardTitle}>{cardTitle}</p>
                     <div className="flex items-center gap-2">
-                        {/* NOVO: Botão de duplicar adicionado aqui */}
                         <button onClick={handleDuplicateClick} title="Duplicar Pedido" className="action-button text-gray-400 hover:text-blue-600">
                             <FontAwesomeIcon icon={faCopy} />
                         </button>

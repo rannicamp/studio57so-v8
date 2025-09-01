@@ -3,9 +3,9 @@
 import { useMemo, useState, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import PedidoCard from './PedidoCard';
-import { toast } from 'sonner'; // Importar toast para feedback
+import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTrash, faBroom } from '@fortawesome/free-solid-svg-icons'; // Importar faTrash ou faBroom
+import { faSpinner, faTrash } from '@fortawesome/free-solid-svg-icons';
 
 const statusColumns = [
     { id: 'Solicitação', title: 'Solicitação' },
@@ -18,7 +18,7 @@ const statusColumns = [
     { id: 'Cancelado', title: 'Cancelado' },
 ];
 
-export default function ComprasKanban({ pedidos, setPedidos }) {
+export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) { // Adicionado onCardClick
     const supabase = createClient();
     const [dragOverColumn, setDragOverColumn] = useState(null);
     const scrollContainerRef = useRef(null);
@@ -26,7 +26,7 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
     const [scrollLeft, setScrollLeft] = useState(0);
-    const [isDeletingCanceled, setIsDeletingCanceled] = useState(false); // Novo estado para o botão de exclusão
+    const [isDeletingCanceled, setIsDeletingCanceled] = useState(false);
 
     const handleMouseDown = (e) => {
         if (e.target.closest('.kanban-card') || e.target.closest('button')) {
@@ -147,7 +147,6 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
         }
     };
 
-    // NOVA FUNÇÃO: Excluir todos os pedidos cancelados
     const handleDeleteAllCanceled = async () => {
         const canceledPedidosCount = groupedData['Cancelado']?.pedidos.length || 0;
 
@@ -167,7 +166,7 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
                 const { error } = await supabase
                     .from('pedidos_compra')
                     .delete()
-                    .eq('status', 'Cancelado'); // Exclui pedidos com status 'Cancelado'
+                    .eq('status', 'Cancelado');
 
                 if (error) {
                     reject(new Error(`Erro ao excluir pedidos cancelados: ${error.message}`));
@@ -178,7 +177,7 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
             {
                 loading: 'Excluindo pedidos cancelados...',
                 success: (msg) => { 
-                    setPedidos(prev => prev.filter(p => p.status !== 'Cancelado')); // Remove os pedidos cancelados do estado
+                    setPedidos(prev => prev.filter(p => p.status !== 'Cancelado'));
                     return msg; 
                 },
                 error: (err) => err.message,
@@ -222,9 +221,8 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
                     onDragLeave={() => setDragOverColumn(null)}
                     className={`w-80 flex-shrink-0 bg-gray-100 rounded-lg shadow-sm transition-colors duration-300 flex flex-col ${dragOverColumn === column.id ? 'bg-blue-100' : ''}`}
                 >
-                    <div className="p-3 text-sm font-semibold text-gray-700 border-b flex justify-between items-center"> {/* Adicionado flex para alinhamento */}
+                    <div className="p-3 text-sm font-semibold text-gray-700 border-b flex justify-between items-center">
                         <h3>{column.title} ({groupedData[column.id]?.pedidos.length || 0})</h3>
-                        {/* NOVO BOTÃO DE EXCLUIR PEDIDOS CANCELADOS EM MASSA */}
                         {column.id === 'Cancelado' && groupedData[column.id]?.pedidos.length > 0 && (
                             <button
                                 onClick={handleDeleteAllCanceled}
@@ -257,6 +255,7 @@ export default function ComprasKanban({ pedidos, setPedidos }) {
                                     allStatusColumns={statusColumns.map(s => s.id)}
                                     hasPendingInvoice={hasPendingInvoice}
                                     hasPendingItems={hasPendingItems}
+                                    onCardClick={onCardClick} // Passa a função para o card
                                 />
                             );
                         })}

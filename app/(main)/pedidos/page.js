@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faBoxOpen, faClock, faHourglassHalf, faClipboardList } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
 import KpiCard from '@/components/KpiCard';
+import PedidoDetalhesSidebar from '@/components/pedidos/PedidoDetalhesSidebar'; // Importe o novo sidebar
 
 export default function PedidosPage() {
     const { setPageTitle } = useLayout();
@@ -27,6 +28,10 @@ export default function PedidosPage() {
         tempoMedioEntrega: 'N/A',
         pedidosComPendencia: 0,
     });
+
+    // Novos estados para o sidebar
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [selectedPedido, setSelectedPedido] = useState(null);
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -47,7 +52,6 @@ export default function PedidosPage() {
     }, [setPageTitle, supabase]);
 
     const fetchPedidos = useCallback(async () => {
-        // CORREÇÃO: Removida a verificação que impedia a busca quando nenhum empreendimento estava selecionado
         setLoading(true);
         setError('');
 
@@ -57,12 +61,12 @@ export default function PedidosPage() {
                 *,
                 titulo,
                 turno_entrega,
+                empreendimentos(nome),
                 solicitante:solicitante_id(id, nome),
                 itens:pedidos_compra_itens(*),
                 anexos:pedidos_compra_anexos(descricao)
             `);
 
-        // NOVO: Adiciona o filtro de empreendimento apenas se um específico for selecionado
         if (selectedEmpreendimento && selectedEmpreendimento !== 'all') {
             query = query.eq('empreendimento_id', selectedEmpreendimento);
         }
@@ -190,9 +194,27 @@ export default function PedidosPage() {
         }
     };
 
+    // Funções para controlar o sidebar
+    const handleCardClick = (pedido) => {
+        setSelectedPedido(pedido);
+        setIsSidebarOpen(true);
+    };
+
+    const handleCloseSidebar = () => {
+        setIsSidebarOpen(false);
+        setSelectedPedido(null);
+    };
+
 
     return (
         <div className="space-y-6">
+            <PedidoDetalhesSidebar 
+                open={isSidebarOpen}
+                onClose={handleCloseSidebar}
+                pedido={selectedPedido}
+                onUpdate={fetchPedidos}
+            />
+
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <h2 className="text-xl font-semibold">
                     {empreendimentos.find(e => e.id == selectedEmpreendimento)?.nome || 'Todos os Empreendimentos'}
@@ -240,7 +262,11 @@ export default function PedidosPage() {
             ) : error ? (
                 <p className="text-center text-red-500">{error}</p>
             ) : (
-                <ComprasKanban pedidos={filteredPedidos} setPedidos={setPedidos} />
+                <ComprasKanban 
+                    pedidos={filteredPedidos} 
+                    setPedidos={setPedidos}
+                    onCardClick={handleCardClick} // Passa a função de clique
+                />
             )}
         </div>
     );

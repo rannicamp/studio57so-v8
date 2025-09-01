@@ -6,7 +6,7 @@ import TaskCard from './TaskCard';
 
 export default function KanbanBoard({ 
     activities, 
-    onEditActivity, 
+    onEditActivity, // Renomeado para onCardClick na passagem para o TaskCard
     onStatusChange, 
     canEdit,
     onDeleteActivity,
@@ -22,12 +22,9 @@ export default function KanbanBoard({
     const [scrollLeft, setScrollLeft] = useState(0);
 
     const statusColumns = useMemo(() => [
-        { id: 'Não Iniciado', title: 'Não Iniciado' },
-        { id: 'Em Andamento', title: 'Em Andamento' },
-        { id: 'Pausado', title: 'Pausado' },
-        { id: 'Aguardando Material', title: 'Aguardando Material' },
-        { id: 'Concluído', title: 'Concluído' },
-        { id: 'Cancelado', title: 'Cancelado' },
+        { id: 'Não Iniciado', title: 'Não Iniciado' }, { id: 'Em Andamento', title: 'Em Andamento' },
+        { id: 'Pausado', title: 'Pausado' }, { id: 'Aguardando Material', title: 'Aguardando Material' },
+        { id: 'Concluído', title: 'Concluído' }, { id: 'Cancelado', title: 'Cancelado' },
     ], []);
 
     const handleMouseDown = (e) => {
@@ -42,9 +39,7 @@ export default function KanbanBoard({
     const handleMouseLeaveOrUp = () => {
         if (!isDragging) return;
         setIsDragging(false);
-        if (scrollContainerRef.current) {
-            scrollContainerRef.current.style.cursor = 'grab';
-        }
+        if (scrollContainerRef.current) { scrollContainerRef.current.style.cursor = 'grab'; }
     };
 
     const handleMouseMove = (e) => {
@@ -58,38 +53,25 @@ export default function KanbanBoard({
 
     const groupedData = useMemo(() => {
         const groups = {};
-        statusColumns.forEach(col => {
-            groups[col.id] = activities.filter(a => a.status === col.id);
-        });
+        statusColumns.forEach(col => { groups[col.id] = activities.filter(a => a.status === col.id); });
         return groups;
     }, [activities, statusColumns]);
 
     const handleDragStart = (e, item, type) => {
         e.stopPropagation();
         setDraggedItem({ item, type });
-        if (type === 'card') {
-            e.dataTransfer.setData("activityId", item.id);
-        }
+        if (type === 'card') { e.dataTransfer.setData("activityId", item.id); }
     };
 
-    const handleDragOver = (e) => {
-        if (canEdit) e.preventDefault();
-    };
+    const handleDragOver = (e) => { if (canEdit) e.preventDefault(); };
 
     const handleDrop = (e, newStatus) => {
         if (!canEdit) return;
         e.preventDefault();
         const activityId = parseInt(e.dataTransfer.getData('activityId'), 10);
         const currentStatus = activities.find(a => a.id === activityId)?.status;
-        if (activityId && currentStatus !== newStatus) {
-            onStatusChange(activityId, newStatus);
-        }
+        if (activityId && currentStatus !== newStatus) { onStatusChange(activityId, newStatus); }
     };
-
-    const handleEditClick = (coluna) => { setEditingColumnId(coluna.id); setEditedColumnName(coluna.nome); };
-    const handleSaveEdit = async (columnId) => { if (!editedColumnName.trim()) return; await onEditColumn(columnId, editedColumnName); setEditingColumnId(null); setEditedColumnName(""); };
-    const handleCancelEdit = () => { setEditingColumnId(null); setEditedColumnName(""); };
-    const handleDeleteClick = (columnId, columnName) => { if (window.confirm(`Tem certeza que deseja deletar a etapa "${columnName}"? Todos os contatos nela serão movidos para a primeira etapa.`)) { onDeleteColumn(columnId); } };
 
     return (
         <div 
@@ -108,7 +90,7 @@ export default function KanbanBoard({
                     className="w-80 flex-shrink-0 bg-gray-100 rounded-lg shadow-sm flex flex-col"
                 >
                     <div className="p-3 text-sm font-semibold text-gray-700 border-b bg-gray-50 rounded-t-lg flex justify-between items-center cursor-move" draggable onDragStart={(e) => handleDragStart(e, column, 'column')} onDragEnd={() => setDraggedItem(null)}>
-                        <h3 className="flex-grow">{column.title} ({groupedData[column.id]?.length || 0})</h3>
+                       <h3 className="flex-grow">{column.title} ({groupedData[column.id]?.length || 0})</h3>
                     </div>
                     <div className="p-2 space-y-3 min-h-[100px] overflow-y-auto flex-1">
                         {(groupedData[column.id] || []).map(activity => (
@@ -119,7 +101,7 @@ export default function KanbanBoard({
                              >
                                 <TaskCard
                                     activity={activity}
-                                    onEditActivity={onEditActivity}
+                                    onEditActivity={onEditActivity} // Passando a função de clique
                                     onDeleteActivity={onDeleteActivity}
                                     onDuplicateActivity={onDuplicateActivity}
                                     allColumns={statusColumns}
