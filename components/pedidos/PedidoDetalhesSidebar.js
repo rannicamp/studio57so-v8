@@ -2,7 +2,7 @@
 "use client";
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faPenToSquare, faCalendarAlt, faUser, faBuilding, faClipboardList, faAlignLeft, faPaperclip, faSpinner, faDollarSign } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faPenToSquare, faCalendarAlt, faUser, faBuilding, faClipboardList, faAlignLeft, faPaperclip, faSpinner, faDollarSign, faTruck } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
 
 const InfoField = ({ icon, label, value }) => {
@@ -82,7 +82,14 @@ export default function PedidoDetalhesSidebar({ open, onClose, pedido, onUpdate 
                                 pedido.itens.map(item => (
                                     <div key={item.id} className="p-2 bg-white rounded-md text-sm border">
                                         <p className="font-semibold">{item.descricao_item}</p>
-                                        <p className="text-xs text-gray-600">
+                                        {/* ***** INÍCIO DA ALTERAÇÃO ***** */}
+                                        {item.fornecedor && (
+                                            <p className="text-xs text-gray-500">
+                                                Fornecedor: <span className="font-medium text-gray-700">{item.fornecedor.nome || item.fornecedor.razao_social}</span>
+                                            </p>
+                                        )}
+                                        {/* ***** FIM DA ALTERAÇÃO ***** */}
+                                        <p className="text-xs text-gray-600 mt-1">
                                             {item.quantidade_solicitada} {item.unidade_medida} x {formatCurrency(item.preco_unitario_real)} = <span className="font-bold">{formatCurrency(item.custo_total_real)}</span>
                                         </p>
                                     </div>

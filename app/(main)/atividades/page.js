@@ -16,7 +16,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory, faLock, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import MultiSelectDropdown from '../../../components/financeiro/MultiSelectDropdown';
 import { toast } from 'sonner';
-import AtividadeDetalhesSidebar from '@/components/atividades/AtividadeDetalhesSidebar'; // IMPORTA O NOVO SIDEBAR
+import AtividadeDetalhesSidebar from '@/components/atividades/AtividadeDetalhesSidebar';
 
 export default function AtividadesPage() {
     const supabase = createClient();
@@ -41,7 +41,6 @@ export default function AtividadesPage() {
     const [allEmpresas, setAllEmpresas] = useState([]);
     const [filters, setFilters] = useState({ empresa: '', empreendimento: '', responsavel: '', status: [], selectedDate: '' });
 
-    // NOVOS ESTADOS PARA O SIDEBAR
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [selectedActivityForSidebar, setSelectedActivityForSidebar] = useState(null);
 
@@ -51,7 +50,6 @@ export default function AtividadesPage() {
         }
     }, [authLoading, canViewPage, router]);
 
-    // O restante das funções useEffect, useCallback e useMemo permanece o mesmo...
     useEffect(() => {
         try {
             const savedFilters = localStorage.getItem('atividadesFilters');
@@ -166,7 +164,6 @@ export default function AtividadesPage() {
         }
     }, [selectedEmpreendimento, fetchAllActivities, canViewPage]);
 
-    // NOVA FUNÇÃO PARA ABRIR O SIDEBAR
     const handleCardClick = (activity) => {
         setSelectedActivityForSidebar(activity);
         setIsSidebarOpen(true);
@@ -175,27 +172,42 @@ export default function AtividadesPage() {
     const handleEditClick = (activity) => { 
         setEditingActivity(activity); 
         setIsModalOpen(true); 
-        setIsSidebarOpen(false); // Fecha o sidebar ao abrir o modal de edição
+        setIsSidebarOpen(false);
     };
 
+    // ***** INÍCIO DA CORREÇÃO *****
     const handleDuplicateActivity = (activityToDuplicate) => {
         if (!canCreate) { toast.error("Você não tem permissão para criar atividades."); return; }
         if (!window.confirm(`Deseja criar uma cópia da atividade "${activityToDuplicate.nome}"?`)) { return; }
+        
         const promise = new Promise(async (resolve, reject) => {
-            const { id, created_at, updated_at, ...newActivityData } = activityToDuplicate;
+            // Removemos os dados que não pertencem à tabela 'activities'
+            const { id, created_at, updated_at, empreendimentos, ...newActivityData } = activityToDuplicate;
+            
+            // O resto da lógica permanece o mesmo
             newActivityData.nome = `${activityToDuplicate.nome} (Cópia)`;
             newActivityData.status = 'Não Iniciado';
-            newActivityData.data_inicio_real = null; newActivityData.data_fim_real = null;
-            newActivityData.data_fim_original = null; newActivityData.criado_por_usuario_id = user?.id;
+            newActivityData.data_inicio_real = null;
+            newActivityData.data_fim_real = null;
+            newActivityData.data_fim_original = null;
+            newActivityData.criado_por_usuario_id = user?.id;
+            
             const { error } = await supabase.from('activities').insert(newActivityData);
-            if (error) { reject(new Error(error.message)); } else { resolve("Atividade duplicada com sucesso!"); }
+            
+            if (error) {
+                reject(new Error(error.message));
+            } else {
+                resolve("Atividade duplicada com sucesso!");
+            }
         });
+
         toast.promise(promise, {
             loading: 'Duplicando atividade...',
             success: (msg) => { fetchAllActivities(); return msg; },
             error: (err) => `Erro: ${err.message}`,
         });
     };
+    // ***** FIM DA CORREÇÃO *****
 
     const handleDeleteClick = async (activityId) => {
         if (window.confirm('Tem certeza que deseja deletar esta atividade?')) {
@@ -204,7 +216,7 @@ export default function AtividadesPage() {
             else {
                 toast.success('Atividade deletada com sucesso!');
                 fetchAllActivities();
-                setIsSidebarOpen(false); // Fecha o sidebar se a atividade aberta for excluída
+                setIsSidebarOpen(false);
             }
         }
     };
@@ -270,7 +282,6 @@ export default function AtividadesPage() {
 
     return (
         <div className="space-y-6">
-            {/* RENDERIZA O NOVO SIDEBAR */}
             <AtividadeDetalhesSidebar
                 open={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
@@ -279,7 +290,6 @@ export default function AtividadesPage() {
                 onUpdate={fetchAllActivities}
             />
 
-            {/* O restante do código da página permanece o mesmo */}
             <div className="bg-white p-4 rounded-lg shadow">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                     <h2 className="text-xl font-semibold">

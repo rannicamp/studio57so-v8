@@ -9,7 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faBoxOpen, faClock, faHourglassHalf, faClipboardList } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
 import KpiCard from '@/components/KpiCard';
-import PedidoDetalhesSidebar from '@/components/pedidos/PedidoDetalhesSidebar'; // Importe o novo sidebar
+import PedidoDetalhesSidebar from '@/components/pedidos/PedidoDetalhesSidebar';
 
 export default function PedidosPage() {
     const { setPageTitle } = useLayout();
@@ -55,6 +55,8 @@ export default function PedidosPage() {
         setLoading(true);
         setError('');
 
+        // ***** INÍCIO DA ALTERAÇÃO *****
+        // A busca de itens agora inclui os dados do fornecedor
         let query = supabase
             .from('pedidos_compra')
             .select(`
@@ -63,9 +65,10 @@ export default function PedidosPage() {
                 turno_entrega,
                 empreendimentos(nome),
                 solicitante:solicitante_id(id, nome),
-                itens:pedidos_compra_itens(*),
+                itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(nome, razao_social)),
                 anexos:pedidos_compra_anexos(descricao)
             `);
+        // ***** FIM DA ALTERAÇÃO *****
 
         if (selectedEmpreendimento && selectedEmpreendimento !== 'all') {
             query = query.eq('empreendimento_id', selectedEmpreendimento);
@@ -265,7 +268,7 @@ export default function PedidosPage() {
                 <ComprasKanban 
                     pedidos={filteredPedidos} 
                     setPedidos={setPedidos}
-                    onCardClick={handleCardClick} // Passa a função de clique
+                    onCardClick={handleCardClick}
                 />
             )}
         </div>
