@@ -1,9 +1,8 @@
-// components/TaskCard.js
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faExclamationTriangle, faSync, faCalendarAlt, faUser, faEllipsisV, faEdit, faTrash, faCopy, faClock } from '@fortawesome/free-solid-svg-icons';
+import { faExclamationTriangle, faSync, faCalendarAlt, faUser, faEllipsisV, faEdit, faTrash, faCopy, faClock, faSitemap } from '@fortawesome/free-solid-svg-icons';
 
 export default function TaskCard({ activity, onEditActivity, onDeleteActivity, onDuplicateActivity, allColumns, onStatusChange }) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -54,8 +53,15 @@ export default function TaskCard({ activity, onEditActivity, onDeleteActivity, o
         setIsMenuOpen(false);
     };
 
+    // Adicionado para permitir arrastar o card
+    const handleDragStart = (e) => {
+        e.dataTransfer.setData('activityId', activity.id);
+    };
+
     return (
         <div
+            draggable="true"
+            onDragStart={handleDragStart}
             className={`bg-white rounded-md shadow p-3 border-l-4 ${isOverdue ? 'border-red-500' : 'border-blue-500'} hover:shadow-lg transition-shadow duration-200 cursor-pointer kanban-card flex flex-col justify-between min-h-[160px]`}
             onClick={() => onEditActivity(activity)}
         >
@@ -69,6 +75,15 @@ export default function TaskCard({ activity, onEditActivity, onDeleteActivity, o
                         <p className="text-xs text-gray-500">#{activity.id}</p>
                     </div>
                 </div>
+                
+                {/* ***** INÍCIO DA ADIÇÃO ***** */}
+                {activity.atividade_pai && (
+                    <div className="mb-2 text-xs text-gray-500 bg-gray-100 p-1 rounded-md flex items-center gap-2">
+                        <FontAwesomeIcon icon={faSitemap} className="text-gray-400" />
+                        <span>Sub-tarefa de: <span className="font-semibold">{activity.atividade_pai.nome}</span></span>
+                    </div>
+                )}
+                {/* ***** FIM DA ADIÇÃO ***** */}
 
                 {isOverdue && (
                     <div className="bg-red-100 text-red-700 text-xs font-bold p-1 rounded-md mb-2 flex items-center justify-center gap-2">

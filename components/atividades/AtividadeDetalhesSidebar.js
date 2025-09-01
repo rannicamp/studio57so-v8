@@ -1,14 +1,14 @@
-// components/atividades/AtividadeDetalhesSidebar.js
 "use client";
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faPenToSquare, faCalendarAlt, faUser, faBuilding, faClipboardList, faAlignLeft, faPaperclip, faDownload, faSpinner, faFileZipper } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faPenToSquare, faCalendarAlt, faUser, faBuilding, faClipboardList, faAlignLeft, faPaperclip, faDownload, faSpinner, faFileZipper, faSitemap } from '@fortawesome/free-solid-svg-icons';
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
-import JSZip from 'jszip'; // Importa a biblioteca que acabamos de instalar
+import JSZip from 'jszip';
 
-const InfoField = ({ icon, label, value }) => {
+// ***** COMPONENTE InfoField ATUALIZADO PARA SUPORTAR LINKS *****
+const InfoField = ({ icon, label, value, isLink = false, onClick }) => {
     if (!value) return null;
     return (
         <div>
@@ -16,7 +16,11 @@ const InfoField = ({ icon, label, value }) => {
                 <FontAwesomeIcon icon={icon} />
                 {label}
             </dt>
-            <dd className="mt-1 text-sm text-gray-900">{value}</dd>
+            {isLink ? (
+                 <dd onClick={onClick} className="mt-1 text-sm text-blue-600 hover:text-blue-800 cursor-pointer hover:underline">{value}</dd>
+            ) : (
+                <dd className="mt-1 text-sm text-gray-900">{value}</dd>
+            )}
         </div>
     );
 };
@@ -25,7 +29,7 @@ export default function AtividadeDetalhesSidebar({ open, onClose, activity, onEd
     const supabase = createClient();
     const [fullActivityData, setFullActivityData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [isZipping, setIsZipping] = useState(false); // Estado para o loading do ZIP
+    const [isZipping, setIsZipping] = useState(false);
 
     const fetchData = useCallback(async () => {
         if (!activity?.id) {
@@ -35,13 +39,13 @@ export default function AtividadeDetalhesSidebar({ open, onClose, activity, onEd
         setLoading(true);
         const { data, error } = await supabase
             .from('activities')
-            .select('*, empreendimentos(nome), funcionario:funcionario_id(full_name), anexos:activity_anexos(*)')
+            .select('*, empreendimentos(nome), funcionario:funcionario_id(full_name), anexos:activity_anexos(*), atividade_pai:atividade_pai_id(id, nome), sub_tarefas:activities(id, nome, status)')
             .eq('id', activity.id)
             .single();
 
         if (error) {
             toast.error("Erro ao recarregar dados da atividade.");
-            setFullActivityData(activity); // Fallback to initial data
+            setFullActivityData(activity);
         } else {
             setFullActivityData(data);
         }
@@ -55,15 +59,11 @@ export default function AtividadeDetalhesSidebar({ open, onClose, activity, onEd
     }, [open, activity, fetchData]);
 
     const handleDownload = async (anexo) => {
-        const { data, error } = await supabase.storage
-            .from('activity-anexos')
-            .download(anexo.file_path);
-        
+        const { data, error } = await supabase.storage.from('activity-anexos').download(anexo.file_path);
         if (error) {
             toast.error('Erro ao baixar o anexo: ' + error.message);
             return;
         }
-
         const blob = new Blob([data], { type: anexo.file_type });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -75,33 +75,24 @@ export default function AtividadeDetalhesSidebar({ open, onClose, activity, onEd
         window.URL.revokeObjectURL(url);
     };
 
-    // ***** INÍCIO DA NOVA FUNCIONALIDADE *****
     const handleDownloadAll = async () => {
         if (!fullActivityData?.anexos || fullActivityData.anexos.length === 0) {
             toast.info("Não há anexos para baixar.");
             return;
         }
-
         setIsZipping(true);
         toast.loading("Preparando arquivos para download...");
-
         try {
             const zip = new JSZip();
-            const downloadPromises = fullActivityData.anexos.map(anexo =>
-                supabase.storage.from('activity-anexos').download(anexo.file_path)
-            );
-            
+            const downloadPromises = fullActivityData.anexos.map(anexo => supabase.storage.from('activity-anexos').download(anexo.file_path));
             const results = await Promise.all(downloadPromises);
-
             results.forEach((result, index) => {
                 if (!result.error && result.data) {
                     const anexo = fullActivityData.anexos[index];
                     zip.file(anexo.file_name, result.data);
                 }
             });
-
             const zipBlob = await zip.generateAsync({ type: 'blob' });
-
             const url = window.URL.createObjectURL(zipBlob);
             const a = document.createElement('a');
             a.href = url;
@@ -111,7 +102,6 @@ export default function AtividadeDetalhesSidebar({ open, onClose, activity, onEd
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
             toast.success("Download iniciado!");
-
         } catch (error) {
             console.error("Erro ao criar ZIP:", error);
             toast.error("Ocorreu um erro ao preparar os arquivos.");
@@ -120,7 +110,6 @@ export default function AtividadeDetalhesSidebar({ open, onClose, activity, onEd
             setIsZipping(false);
         }
     };
-    // ***** FIM DA NOVA FUNCIONALIDADE *****
 
     if (!open) return null;
 
@@ -136,7 +125,6 @@ export default function AtividadeDetalhesSidebar({ open, onClose, activity, onEd
                     </div>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><FontAwesomeIcon icon={faTimes} /></button>
                 </div>
-
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
                     {loading ? (
                         <div className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
@@ -150,6 +138,16 @@ export default function AtividadeDetalhesSidebar({ open, onClose, activity, onEd
                                     </button>
                                 </div>
                                 <dl className="grid grid-cols-1 gap-y-4">
+                                    {/* ***** ADIÇÃO DO CAMPO ATIVIDADE-PAI ***** */}
+                                    {fullActivityData.atividade_pai && (
+                                        <InfoField 
+                                            icon={faSitemap} 
+                                            label="Sub-tarefa de" 
+                                            value={fullActivityData.atividade_pai.nome}
+                                            isLink={true}
+                                            onClick={() => alert(`Abrir detalhes da atividade #${fullActivityData.atividade_pai.id}`)} // Ação futura
+                                        />
+                                    )}
                                     <InfoField icon={faAlignLeft} label="Descrição" value={fullActivityData.descricao} />
                                     <InfoField icon={faBuilding} label="Empreendimento" value={fullActivityData.empreendimentos?.nome} />
                                     <InfoField icon={faUser} label="Responsável" value={fullActivityData.funcionario?.full_name} />
@@ -169,10 +167,27 @@ export default function AtividadeDetalhesSidebar({ open, onClose, activity, onEd
                                     <InfoField label="Fim Real" value={formatDate(fullActivityData.data_fim_real)} />
                                 </dl>
                             </section>
+
+                            {/* ***** NOVA SEÇÃO DE SUB-TAREFAS ***** */}
+                            {fullActivityData.sub_tarefas && fullActivityData.sub_tarefas.length > 0 && (
+                                <section className="border-t pt-4">
+                                    <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                        <FontAwesomeIcon icon={faSitemap} rotation={90} /> 
+                                        Sub-tarefas ({fullActivityData.sub_tarefas.length})
+                                    </h4>
+                                    <div className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-2 bg-gray-50">
+                                        {fullActivityData.sub_tarefas.map(subtarefa => (
+                                            <div key={subtarefa.id} className="p-2 bg-white rounded-md text-sm border flex justify-between items-center">
+                                                <p className="font-medium truncate" title={subtarefa.nome}>{subtarefa.nome}</p>
+                                                <span className="text-xs font-semibold px-2 py-1 bg-gray-200 text-gray-700 rounded-full">{subtarefa.status}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
                             
                             {fullActivityData.anexos && fullActivityData.anexos.length > 0 && (
                                 <section className="border-t pt-4">
-                                    {/* ***** INÍCIO DA ALTERAÇÃO ***** */}
                                     <div className="flex justify-between items-center mb-3">
                                         <h4 className="font-semibold text-gray-700 flex items-center gap-2">
                                             <FontAwesomeIcon icon={faPaperclip} /> 
@@ -187,7 +202,6 @@ export default function AtividadeDetalhesSidebar({ open, onClose, activity, onEd
                                             Baixar Todos
                                         </button>
                                     </div>
-                                    {/* ***** FIM DA ALTERAÇÃO ***** */}
                                     <div className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-2 bg-gray-50">
                                         {fullActivityData.anexos.map(anexo => (
                                             <div key={anexo.id} className="p-2 bg-white rounded-md text-sm border flex justify-between items-center">

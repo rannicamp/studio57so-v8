@@ -116,7 +116,13 @@ export default function AtividadesPage() {
 
     const fetchAllActivities = useCallback(async () => {
         setLoading(true);
-        const { data, error } = await supabase.from('activities').select('*, empreendimentos(empresa_proprietaria_id)');
+        // ***** INÍCIO DA ALTERAÇÃO *****
+        // Agora, a busca também traz os dados da atividade-pai
+        const { data, error } = await supabase
+            .from('activities')
+            .select('*, empreendimentos(empresa_proprietaria_id), anexos:activity_anexos(*), atividade_pai:atividade_pai_id(id, nome)');
+        // ***** FIM DA ALTERAÇÃO *****
+        
         if (error) {
             console.error("Erro ao buscar todas as atividades:", error);
             setAllActivities([]);
@@ -175,16 +181,13 @@ export default function AtividadesPage() {
         setIsSidebarOpen(false);
     };
 
-    // ***** INÍCIO DA CORREÇÃO *****
     const handleDuplicateActivity = (activityToDuplicate) => {
         if (!canCreate) { toast.error("Você não tem permissão para criar atividades."); return; }
         if (!window.confirm(`Deseja criar uma cópia da atividade "${activityToDuplicate.nome}"?`)) { return; }
         
         const promise = new Promise(async (resolve, reject) => {
-            // Removemos os dados que não pertencem à tabela 'activities'
-            const { id, created_at, updated_at, empreendimentos, ...newActivityData } = activityToDuplicate;
+            const { id, created_at, updated_at, empreendimentos, anexos, atividade_pai, ...newActivityData } = activityToDuplicate;
             
-            // O resto da lógica permanece o mesmo
             newActivityData.nome = `${activityToDuplicate.nome} (Cópia)`;
             newActivityData.status = 'Não Iniciado';
             newActivityData.data_inicio_real = null;
@@ -207,7 +210,6 @@ export default function AtividadesPage() {
             error: (err) => `Erro: ${err.message}`,
         });
     };
-    // ***** FIM DA CORREÇÃO *****
 
     const handleDeleteClick = async (activityId) => {
         if (window.confirm('Tem certeza que deseja deletar esta atividade?')) {
@@ -287,7 +289,6 @@ export default function AtividadesPage() {
                 onClose={() => setIsSidebarOpen(false)}
                 activity={selectedActivityForSidebar}
                 onEditActivity={handleEditClick}
-                onUpdate={fetchAllActivities}
             />
 
             <div className="bg-white p-4 rounded-lg shadow">
