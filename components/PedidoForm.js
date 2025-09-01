@@ -8,6 +8,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTrash, faPlus, faPencilAlt, faSave, faTimes, faClock, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom } from '@fortawesome/free-solid-svg-icons';
 import PedidoItemModal from './PedidoItemModal';
 import KpiCard from './KpiCard';
+// --- ETAPA 1: IMPORTAÇÃO ADICIONADA ---
+// Importamos o modal de lançamento financeiro que será usado no lugar do antigo.
+import LancamentoFormModal from './financeiro/LancamentoFormModal';
+
 
 const formatDuration = (milliseconds) => {
     if (milliseconds < 0 || isNaN(milliseconds)) return '0 dias';
@@ -19,38 +23,8 @@ const formatDuration = (milliseconds) => {
     return result.trim() === '' ? 'Menos de 1h' : result;
 };
 
-const RegistrarPagamentoModal = ({ isOpen, onClose, onConfirm, contas }) => {
-    const [contaId, setContaId] = useState('');
-    const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().split('T')[0]);
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-                <h3 className="text-xl font-bold mb-4">Registrar Pagamento</h3>
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium">Conta de Pagamento *</label>
-                        <select value={contaId} onChange={(e) => setContaId(e.target.value)} required className="mt-1 w-full p-2 border rounded-md">
-                            <option value="">Selecione a conta...</option>
-                            {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium">Data do Pagamento *</label>
-                        <input type="date" value={dataPagamento} onChange={(e) => setDataPagamento(e.target.value)} required className="mt-1 w-full p-2 border rounded-md" />
-                    </div>
-                </div>
-                <div className="flex justify-end gap-4 pt-6 mt-4 border-t">
-                    <button onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                    <button onClick={() => onConfirm(contaId, dataPagamento)} disabled={!contaId || !dataPagamento} className="bg-green-600 text-white px-4 py-2 rounded-md disabled:bg-gray-400">Confirmar Pagamento</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
+// --- ETAPA 1: COMPONENTE REMOVIDO ---
+// O modal antigo e simples de pagamento foi completamente removido daqui.
 
 export default function PedidoForm({ pedidoId }) {
     const supabase = createClient();
@@ -64,7 +38,12 @@ export default function PedidoForm({ pedidoId }) {
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
-    const [isPagamentoModalOpen, setIsPagamentoModalOpen] = useState(false);
+    
+    // --- ETAPA 1: ESTADOS ADICIONADOS ---
+    const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false);
+    const [lancamentoInitialData, setLancamentoInitialData] = useState(null);
+    // O estado do modal de pagamento antigo foi removido.
+
     const [selectedItems, setSelectedItems] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
     const [newAnexoFile, setNewAnexoFile] = useState(null);
@@ -100,7 +79,7 @@ export default function PedidoForm({ pedidoId }) {
 
     const fetchData = useCallback(async () => {
         setLoading(true);
-        const { data: pedidoData, error: pedidoError } = await supabase.from('pedidos_compra').select(`*, solicitante:solicitante_id(nome), empreendimentos(nome), itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(nome, razao_social, nome_fantasia), etapa:etapa_id(nome_etapa)), historico:pedidos_compra_status_historico(*), anexos:pedidos_compra_anexos(*)`).eq('id', pedidoId).single();
+        const { data: pedidoData, error: pedidoError } = await supabase.from('pedidos_compra').select(`*, solicitante:solicitante_id(nome), empreendimentos(nome, empresa_id:empresa_proprietaria_id), itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(id, nome, razao_social, nome_fantasia), etapa:etapa_id(nome_etapa)), historico:pedidos_compra_status_historico(*), anexos:pedidos_compra_anexos(*)`).eq('id', pedidoId).single();
         if (pedidoError) { console.error(pedidoError); toast.error('Erro ao carregar os dados do pedido.'); setLoading(false); return; }
         setPedido(pedidoData); setItens(pedidoData.itens || []); setAnexos(pedidoData.anexos || []);
         if (pedidoData.historico) {
@@ -118,6 +97,44 @@ export default function PedidoForm({ pedidoId }) {
     }, [pedidoId, supabase]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+
+    // --- ETAPA 1: NOVA FUNÇÃO ---
+    // Esta função prepara os dados e abre o modal de lançamento financeiro.
+    const handleOpenLancamentoModal = () => {
+        if (!itens || itens.length === 0) {
+            toast.error("Adicione itens ao pedido antes de registrar um pagamento.");
+            return;
+        }
+
+        const totalPedido = itens.reduce((acc, item) => acc + (parseFloat(item.custo_total_real) || 0), 0);
+        
+        // Verifica se todos os itens têm o mesmo fornecedor
+        const firstFornecedorId = itens[0].fornecedor_id;
+        const allSameFornecedor = itens.every(item => item.fornecedor_id === firstFornecedorId);
+        
+        // Encontra a nota fiscal anexada, se houver
+        const notaFiscalAnexo = anexos.find(a => a.descricao.toLowerCase().includes('nota fiscal'));
+        
+        const initial = {
+            descricao: `Pagamento Ref. Pedido de Compra #${pedido.id} - ${pedido.titulo || ''}`.trim(),
+            valor: totalPedido.toFixed(2),
+            data_pagamento: new Date().toISOString().split('T')[0],
+            data_vencimento: new Date().toISOString().split('T')[0],
+            tipo: 'Despesa',
+            status: 'Pago',
+            favorecido_contato_id: allSameFornecedor ? firstFornecedorId : null,
+            empreendimento_id: pedido.empreendimento_id,
+            empresa_id: pedido.empreendimentos?.empresa_id || null,
+            anexo_preexistente: notaFiscalAnexo ? {
+                caminho_arquivo: notaFiscalAnexo.caminho_arquivo,
+                nome_arquivo: notaFiscalAnexo.nome_arquivo,
+                descricao: notaFiscalAnexo.descricao,
+            } : null,
+        };
+        
+        setLancamentoInitialData(initial);
+        setIsLancamentoModalOpen(true);
+    };
 
     const handleHeaderFieldChange = (field, value) => { setPedido(p => ({ ...p, [field]: value })); };
     
@@ -251,7 +268,6 @@ export default function PedidoForm({ pedidoId }) {
         );
     };
 
-    // ##### INÍCIO DA NOVA FUNÇÃO #####
     const handleEmptyItemList = async () => {
         if (!window.confirm('ATENÇÃO: Tem certeza que deseja REMOVER TODOS OS ITENS deste pedido? Esta ação é irreversível!')) return;
 
@@ -279,29 +295,9 @@ export default function PedidoForm({ pedidoId }) {
             }
         );
     };
-    // ##### FIM DA NOVA FUNÇÃO #####
 
-    const handleRegistrarPagamento = async (contaId, dataPagamento) => {
-        setIsPagamentoModalOpen(false);
-        setIsSaving(true);
-        
-        const promise = supabase.rpc('registrar_pagamento_pedido', {
-            p_pedido_id: pedidoId,
-            p_conta_id: contaId,
-            p_data_pagamento: dataPagamento
-        });
-
-        toast.promise(promise, {
-            loading: 'Registrando pagamento...',
-            success: (response) => {
-                if(response.error) throw new Error(response.error.message);
-                fetchData();
-                return response.data;
-            },
-            error: (err) => `Erro no registro: ${err.message}`,
-            finally: () => setIsSaving(false)
-        });
-    };
+    // --- ETAPA 1: FUNÇÃO REMOVIDA ---
+    // A função `handleRegistrarPagamento` antiga foi removida.
 
     const handleSelectionChange = (itemId) => {
         setSelectedItems(prev => { const newSet = new Set(prev); if (newSet.has(itemId)) newSet.delete(itemId); else newSet.add(itemId); return newSet; });
@@ -318,7 +314,19 @@ export default function PedidoForm({ pedidoId }) {
     return (
         <>
             <PedidoItemModal isOpen={isItemModalOpen} onClose={() => { setIsItemModalOpen(false); setEditingItem(null); }} onSave={handleSaveItem} etapas={etapas} itemToEdit={editingItem} />
-            <RegistrarPagamentoModal isOpen={isPagamentoModalOpen} onClose={() => setIsPagamentoModalOpen(false)} onConfirm={handleRegistrarPagamento} contas={contas} />
+            
+            {/* --- ETAPA 1: RENDERIZAÇÃO DO MODAL --- */}
+            {/* Renderiza o modal de lançamento financeiro, controlado pelos novos estados */}
+            <LancamentoFormModal 
+                isOpen={isLancamentoModalOpen}
+                onClose={() => setIsLancamentoModalOpen(false)}
+                onSuccess={() => {
+                    toast.success("Pagamento registrado com sucesso no financeiro!");
+                    fetchData(); // Atualiza os dados do pedido
+                }}
+                initialData={lancamentoInitialData}
+                // Passamos `empresas` aqui, mas o modal já busca os dados necessários (contas, categorias, etc) por conta própria
+            />
 
             <div className="bg-white p-6 rounded-lg shadow space-y-6">
                 <div className="border-b pb-4">
@@ -336,7 +344,9 @@ export default function PedidoForm({ pedidoId }) {
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><FontAwesomeIcon icon={faDollarSign} /> Registrar Pagamento</h3>
                     <div className="bg-gray-50 p-4 rounded-lg border flex items-center justify-between">
                         <p className="text-sm text-gray-700">Clique no botão para registrar este pedido como uma despesa no módulo financeiro.</p>
-                        <button onClick={() => setIsPagamentoModalOpen(true)} disabled={isSaving} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400">
+                        {/* --- ETAPA 1: BOTÃO ATUALIZADO --- */}
+                        {/* O botão agora chama a nova função que abre o modal completo */}
+                        <button onClick={handleOpenLancamentoModal} disabled={isSaving} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400">
                             {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Registrar Pagamento'}
                         </button>
                     </div>
@@ -346,7 +356,6 @@ export default function PedidoForm({ pedidoId }) {
                     <div className="flex justify-between items-center mb-2">
                         <h3 className="text-lg font-semibold">Itens do Pedido</h3>
                         <div className="flex items-center gap-2">
-                            {/* ##### INÍCIO DO NOVO BOTÃO ##### */}
                             {pedido.status === 'Cancelado' && itens.length > 0 && (
                                 <button
                                     onClick={handleEmptyItemList}
@@ -356,7 +365,6 @@ export default function PedidoForm({ pedidoId }) {
                                     <FontAwesomeIcon icon={faBroom} /> Esvaziar Itens
                                 </button>
                             )}
-                            {/* ##### FIM DO NOVO BOTÃO ##### */}
                             <button onClick={() => { setEditingItem(null); setIsItemModalOpen(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center justify-center gap-2 text-sm">
                                 <FontAwesomeIcon icon={faPlus} /> Adicionar Item
                             </button>
