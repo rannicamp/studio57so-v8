@@ -47,14 +47,11 @@ export default function PedidosPage() {
     }, [setPageTitle, supabase]);
 
     const fetchPedidos = useCallback(async () => {
-        if (!selectedEmpreendimento) {
-            setPedidos([]);
-            return;
-        }
+        // CORREÇÃO: Removida a verificação que impedia a busca quando nenhum empreendimento estava selecionado
         setLoading(true);
         setError('');
 
-        const { data, error } = await supabase
+        let query = supabase
             .from('pedidos_compra')
             .select(`
                 *,
@@ -63,9 +60,16 @@ export default function PedidosPage() {
                 solicitante:solicitante_id(id, nome),
                 itens:pedidos_compra_itens(*),
                 anexos:pedidos_compra_anexos(descricao)
-            `)
-            .eq('empreendimento_id', selectedEmpreendimento)
-            .order('data_solicitacao', { ascending: false });
+            `);
+
+        // NOVO: Adiciona o filtro de empreendimento apenas se um específico for selecionado
+        if (selectedEmpreendimento && selectedEmpreendimento !== 'all') {
+            query = query.eq('empreendimento_id', selectedEmpreendimento);
+        }
+
+        query = query.order('data_solicitacao', { ascending: false });
+
+        const { data, error } = await query;
 
         if (error) {
             console.error(error);
@@ -75,6 +79,7 @@ export default function PedidosPage() {
         }
         setLoading(false);
     }, [selectedEmpreendimento, supabase]);
+
 
     useEffect(() => {
         fetchPedidos();
@@ -163,8 +168,8 @@ export default function PedidosPage() {
     }, [filteredPedidos, supabase]);
     
     const handleCreateNewPedido = async () => {
-        if (!selectedEmpreendimento) {
-            alert('Por favor, selecione um empreendimento no cabeçalho primeiro.');
+        if (!selectedEmpreendimento || selectedEmpreendimento === 'all') {
+            alert('Por favor, selecione um empreendimento específico no cabeçalho para criar um novo pedido.');
             return;
         }
         const { data: { user } } = await supabase.auth.getUser();
@@ -190,7 +195,7 @@ export default function PedidosPage() {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <h2 className="text-xl font-semibold">
-                    {empreendimentos.find(e => e.id == selectedEmpreendimento)?.nome || 'Selecione um empreendimento'}
+                    {empreendimentos.find(e => e.id == selectedEmpreendimento)?.nome || 'Todos os Empreendimentos'}
                 </h2>
                 <button
                     onClick={handleCreateNewPedido}

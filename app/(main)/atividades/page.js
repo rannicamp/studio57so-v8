@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../../../utils/supabase/client';
-import { useRouter } from 'next/navigation'; // Importar useRouter
-import { useAuth } from '../../../contexts/AuthContext'; // Importar useAuth
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../../../contexts/AuthContext';
 import AtividadeModal from '../../../components/AtividadeModal';
 import ActivityList from '../../../components/ActivityList';
 import GanttChart from '../../../components/GanttChart';
@@ -15,16 +15,16 @@ import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory, faLock, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import MultiSelectDropdown from '../../../components/financeiro/MultiSelectDropdown';
+import { toast } from 'sonner';
 
 
 export default function AtividadesPage() {
     const supabase = createClient();
     const router = useRouter();
-    const { hasPermission, loading: authLoading } = useAuth();
+    const { hasPermission, loading: authLoading, user } = useAuth(); // Adicionado 'user'
     const { setPageTitle } = useLayout();
     const { selectedEmpreendimento, empreendimentos } = useEmpreendimento();
-    
-    // Permissões
+
     const canViewPage = hasPermission('atividades', 'pode_ver');
     const canCreate = hasPermission('atividades', 'pode_criar');
     const canEdit = hasPermission('atividades', 'pode_editar');
@@ -32,26 +32,14 @@ export default function AtividadesPage() {
 
     const [allActivities, setAllActivities] = useState([]);
     const [filteredActivities, setFilteredActivities] = useState([]);
-    
     const [funcionarios, setFuncionarios] = useState([]);
     const [loading, setLoading] = useState(true);
-    
     const [activeTab, setActiveTab] = useState('kanban');
-    
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingActivity, setEditingActivity] = useState(null);
-    
     const [sortConfig, setSortConfig] = useState({ key: 'data_inicio_prevista', direction: 'ascending' });
-
     const [allEmpresas, setAllEmpresas] = useState([]);
-
-    const [filters, setFilters] = useState({
-        empresa: '',
-        empreendimento: '',
-        responsavel: '',
-        status: [],
-        selectedDate: '' 
-    });
+    const [filters, setFilters] = useState({ empresa: '', empreendimento: '', responsavel: '', status: [], selectedDate: '' });
 
     useEffect(() => {
         if (!authLoading && !canViewPage) {
@@ -137,33 +125,25 @@ export default function AtividadesPage() {
 
     useEffect(() => {
         let activitiesToDisplay = [];
-        if (selectedEmpreendimento === 'all') {
-            activitiesToDisplay = allActivities.filter(act => {
-                const empresaMatch = !filters.empresa || (act.empreendimentos && act.empreendimentos.empresa_proprietaria_id == filters.empresa);
-                const empreendimentoMatch = !filters.empreendimento || act.empreendimento_id == filters.empreendimento;
-                const responsavelMatch = !filters.responsavel || act.funcionario_id == filters.responsavel;
-                const statusMatch = filters.status.length === 0 || filters.status.includes(act.status);
-                
-                const dateMatch = !filters.selectedDate || (
-                    act.data_inicio_prevista && act.data_fim_prevista &&
-                    filters.selectedDate >= act.data_inicio_prevista &&
-                    filters.selectedDate <= act.data_fim_prevista
-                );
-                
-                return empresaMatch && empreendimentoMatch && responsavelMatch && statusMatch && dateMatch;
-            });
-        } else {
-            activitiesToDisplay = allActivities.filter(act => {
-                const empreendimentoMatch = act.empreendimento_id == selectedEmpreendimento;
-                const statusMatch = filters.status.length === 0 || filters.status.includes(act.status);
-                const dateMatch = !filters.selectedDate || (
-                    act.data_inicio_prevista && act.data_fim_prevista &&
-                    filters.selectedDate >= act.data_inicio_prevista &&
-                    filters.selectedDate <= act.data_fim_prevista
-                );
-                return empreendimentoMatch && statusMatch && dateMatch;
-            });
-        }
+
+        activitiesToDisplay = allActivities.filter(act => {
+            if (selectedEmpreendimento !== 'all' && act.empreendimento_id != selectedEmpreendimento) {
+                return false;
+            }
+            if (selectedEmpreendimento === 'all') {
+                 const empresaMatch = !filters.empresa || (act.empreendimentos && act.empreendimentos.empresa_proprietaria_id == filters.empresa);
+                 const empreendimentoMatch = !filters.empreendimento || act.empreendimento_id == filters.empreendimento;
+                 if (!empresaMatch || !empreendimentoMatch) return false;
+            }
+            const responsavelMatch = !filters.responsavel || act.funcionario_id == filters.responsavel;
+            const statusMatch = filters.status.length === 0 || filters.status.includes(act.status);
+            const dateMatch = !filters.selectedDate || (
+                act.data_inicio_prevista && act.data_fim_prevista &&
+                filters.selectedDate >= act.data_inicio_prevista &&
+                filters.selectedDate <= act.data_fim_prevista
+            );
+            return responsavelMatch && statusMatch && dateMatch;
+        });
 
         activitiesToDisplay.sort((a, b) => {
             if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
@@ -182,12 +162,52 @@ export default function AtividadesPage() {
     }, [selectedEmpreendimento, fetchAllActivities, canViewPage]);
 
     const handleEditClick = (activity) => { setEditingActivity(activity); setIsModalOpen(true); };
+
+    // NOVA FUNÇÃO PARA DUPLICAR ATIVIDADE
+    const handleDuplicateActivity = (activityToDuplicate) => {
+        if (!canCreate) {
+            toast.error("Você não tem permissão para criar atividades.");
+            return;
+        }
+        if (!window.confirm(`Deseja criar uma cópia da atividade "${activityToDuplicate.nome}"?`)) {
+            return;
+        }
+
+        const promise = new Promise(async (resolve, reject) => {
+            const { id, created_at, updated_at, ...newActivityData } = activityToDuplicate;
+
+            newActivityData.nome = `${activityToDuplicate.nome} (Cópia)`;
+            newActivityData.status = 'Não Iniciado';
+            newActivityData.data_inicio_real = null;
+            newActivityData.data_fim_real = null;
+            newActivityData.data_fim_original = null;
+            newActivityData.criado_por_usuario_id = user?.id;
+
+            const { error } = await supabase.from('activities').insert(newActivityData);
+
+            if (error) {
+                reject(new Error(error.message));
+            } else {
+                resolve("Atividade duplicada com sucesso!");
+            }
+        });
+
+        toast.promise(promise, {
+            loading: 'Duplicando atividade...',
+            success: (msg) => {
+                fetchAllActivities();
+                return msg;
+            },
+            error: (err) => `Erro: ${err.message}`,
+        });
+    };
+
     const handleDeleteClick = async (activityId) => {
         if (window.confirm('Tem certeza que deseja deletar esta atividade?')) {
             const { error } = await supabase.from('activities').delete().eq('id', activityId);
-            if (error) alert(`Erro ao deletar: ${error.message}`);
+            if (error) toast.error(`Erro ao deletar: ${error.message}`);
             else {
-                alert('Atividade deletada com sucesso!');
+                toast.success('Atividade deletada com sucesso!');
                 fetchAllActivities();
             }
         }
@@ -204,7 +224,7 @@ export default function AtividadesPage() {
             updateData.data_fim_real = new Date().toISOString().split('T')[0];
         }
         const { error } = await supabase.from('activities').update(updateData).eq('id', activityId);
-        if (error) alert(`Erro ao atualizar o status: ${error.message}`);
+        if (error) toast.error(`Erro ao atualizar o status: ${error.message}`);
         else fetchAllActivities();
     };
 
@@ -213,7 +233,7 @@ export default function AtividadesPage() {
         if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
         setSortConfig({ key, direction });
     };
-    
+
     const selectedEmpreendimentoObj = useMemo(() => {
         if(!selectedEmpreendimento || selectedEmpreendimento === 'all') return null;
         return empreendimentos.find(e => e.id.toString() === selectedEmpreendimento);
@@ -242,12 +262,9 @@ export default function AtividadesPage() {
     };
 
     const statusOptions = [
-        { id: 'Não Iniciado', text: 'Não Iniciado' },
-        { id: 'Em Andamento', text: 'Em Andamento' },
-        { id: 'Concluído', text: 'Concluído' },
-        { id: 'Pausado', text: 'Pausado' },
-        { id: 'Aguardando Material', text: 'Aguardando Material' },
-        { id: 'Cancelado', text: 'Cancelado' }
+        { id: 'Não Iniciado', text: 'Não Iniciado' }, { id: 'Em Andamento', text: 'Em Andamento' },
+        { id: 'Concluído', text: 'Concluído' }, { id: 'Pausado', text: 'Pausado' },
+        { id: 'Aguardando Material', text: 'Aguardando Material' }, { id: 'Cancelado', text: 'Cancelado' }
     ];
 
     if (authLoading || loading) {
@@ -275,7 +292,7 @@ export default function AtividadesPage() {
                         <button onClick={() => handleEditClick(null)} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 w-full md:w-auto mt-2 md:mt-0">+ Nova Atividade</button>
                     )}
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 border-t pt-4">
                     {selectedEmpreendimento === 'all' && (
                         <>
@@ -293,7 +310,7 @@ export default function AtividadesPage() {
                         <option value="">Filtrar por Responsável...</option>
                         {funcionarios.map(f => <option key={f.id} value={f.id}>{f.full_name}</option>)}
                     </select>
-                    
+
                     <MultiSelectDropdown
                         options={statusOptions}
                         selectedIds={filters.status} 
@@ -311,7 +328,7 @@ export default function AtividadesPage() {
                     <button onClick={clearFilters} className="p-2 bg-gray-200 rounded-md hover:bg-gray-300 w-full">Limpar Filtros</button>
                 </div>
             </div>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 <KpiCard title="Atrasadas" value={kpiData.atrasadas} icon={faExclamationTriangle} color="red" />
                 <KpiCard title="Ativas" value={kpiData.ativas} icon={faTasks} color="blue" />
@@ -332,14 +349,14 @@ export default function AtividadesPage() {
             <div className="mt-4">
                 {loading || selectedEmpreendimento === null ? <p className="text-center p-10">Carregando atividades...</p> : (
                     <>
-                        {activeTab === 'kanban' && <KanbanBoard activities={filteredActivities} onEditActivity={handleEditClick} onStatusChange={handleStatusChange} canEdit={canEdit} />}
+                        {activeTab === 'kanban' && <KanbanBoard activities={filteredActivities} onEditActivity={handleEditClick} onStatusChange={handleStatusChange} canEdit={canEdit} onDeleteActivity={handleDeleteClick} onDuplicateActivity={handleDuplicateActivity} />}
                         {activeTab === 'list' && <ActivityList activities={filteredActivities} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} />}
                         {activeTab === 'gantt' && <GanttChart activities={filteredActivities} onEditActivity={handleEditClick} />}
                         {activeTab === 'calendar' && <ActivityCalendar activities={filteredActivities} onActivityClick={handleEditClick} />}
                     </>
                 )}
             </div>
-            
+
             {isModalOpen && (
                 <AtividadeModal 
                     isOpen={isModalOpen} 
