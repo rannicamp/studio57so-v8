@@ -11,10 +11,14 @@ import AtivosManager from '../../../components/financeiro/AtivosManager';
 import LancamentoFormModal from '../../../components/financeiro/LancamentoFormModal';
 import KpiCard from '../../../components/KpiCard';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faCogs, faShieldAlt, faCalculator, faSpinner, faLock, faArrowDown, faArrowUp, faBalanceScale, faSitemap, faHandshake, faLandmark, faBuilding } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faCogs, faShieldAlt, faCalculator, faSpinner, faLock, faArrowDown, faArrowUp, faBalanceScale, faSitemap, faHandshake, faLandmark, faBuilding, faFileInvoice } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toast } from 'sonner';
+// --- INÍCIO DA ALTERAÇÃO ---
+// 1. Importamos o novo componente que acabamos de criar.
+import ExtratoManager from '../../../components/financeiro/ExtratoManager';
+// --- FIM DA ALTERAÇÃO ---
 
 export default function FinanceiroPage() {
     const { setPageTitle } = useLayout();
@@ -26,7 +30,11 @@ export default function FinanceiroPage() {
     const canViewPage = hasPermission('financeiro', 'pode_ver');
     const canCreate = hasPermission('financeiro', 'pode_criar');
 
-    const [activeTab, setActiveTab] = useState('lancamentos');
+    // --- INÍCIO DA ALTERAÇÃO ---
+    // 2. Adicionamos 'extrato' como uma opção e a definimos como a aba inicial.
+    const [activeTab, setActiveTab] = useState('extrato');
+    // --- FIM DA ALTERAÇÃO ---
+
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
     const [empresas, setEmpresas] = useState([]);
@@ -43,8 +51,6 @@ export default function FinanceiroPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
     const [totalCount, setTotalCount] = useState(0);
-    // ##### ALTERAÇÃO AQUI #####
-    // Trocamos 'favorecidoIds' por 'favorecidoId' para aceitar apenas um.
     const [filters, setFilters] = useState({ searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [], etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', favorecidoId: null });
     const [sortConfig, setSortConfig] = useState({ key: 'data_transacao', direction: 'descending' });
     
@@ -63,8 +69,6 @@ export default function FinanceiroPage() {
         }
     }, [filters]);
 
-    // ##### ALTERAÇÃO AQUI #####
-    // A função que aplica os filtros na busca agora usa '.eq()' para o favorecido.
     const applyFiltersToQuery = useCallback((query, currentFilters) => {
         if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
         
@@ -83,7 +87,7 @@ export default function FinanceiroPage() {
         if (currentFilters.categoriaIds?.length > 0) query = query.in('categoria_id', currentFilters.categoriaIds);
         if (currentFilters.empreendimentoIds?.length > 0) query = query.in('empreendimento_id', currentFilters.empreendimentoIds);
         if (currentFilters.etapaIds?.length > 0) query = query.in('etapa_id', currentFilters.etapaIds);
-        if (currentFilters.favorecidoId) query = query.eq('favorecido_contato_id', currentFilters.favorecidoId); // <-- Linha alterada
+        if (currentFilters.favorecidoId) query = query.eq('favorecido_contato_id', currentFilters.favorecidoId);
         
         if (currentFilters.status?.length > 0) {
             const today = new Date().toISOString().split('T')[0];
@@ -181,9 +185,9 @@ export default function FinanceiroPage() {
         if (!authLoading && canViewPage) { setPageTitle('GESTÃO FINANCEIRA'); fetchInitialData(); }
     }, [setPageTitle, fetchInitialData, authLoading, canViewPage]);
     
-    useEffect(() => { if (canViewPage) { fetchLancamentos(); fetchLancamentosFiltradosParaKpi(); } }, [fetchLancamentos, fetchLancamentosFiltradosParaKpi, canViewPage]);
+    useEffect(() => { if (canViewPage && activeTab === 'lancamentos') { fetchLancamentos(); fetchLancamentosFiltradosParaKpi(); } }, [fetchLancamentos, fetchLancamentosFiltradosParaKpi, canViewPage, activeTab]);
     
-    const handleSuccess = () => { fetchLancamentos(); fetchLancamentosFiltradosParaKpi(); fetchInitialData(); };
+    const handleSuccess = () => { if(activeTab === 'lancamentos') { fetchLancamentos(); fetchLancamentosFiltradosParaKpi(); } fetchInitialData(); };
     const handleDeleteLancamento = async (id) => { if (!window.confirm("Tem certeza?")) return; const { error } = await supabase.from('lancamentos').delete().eq('id', id); if(error) {setMessage('Erro: ' + error.message);} else { setMessage('Lançamento excluído.'); handleSuccess(); }};
     const handleOpenAddModal = () => { setEditingLancamento(null); setIsFormModalOpen(true); };
     const handleOpenEditModal = (lancamento) => { setEditingLancamento(lancamento); setIsFormModalOpen(true); };
@@ -215,6 +219,10 @@ export default function FinanceiroPage() {
             
             <div className="border-b border-gray-200 bg-white shadow-sm rounded-t-lg">
                 <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">
+                    {/* --- INÍCIO DA ALTERAÇÃO --- */}
+                    {/* 3. Adicionamos o botão da nova aba "Extrato" */}
+                    <TabButton tabName="extrato" label="Extrato" icon={faFileInvoice} />
+                    {/* --- FIM DA ALTERAÇÃO --- */}
                     <TabButton tabName="lancamentos" label="Lançamentos" icon={faBalanceScale} />
                     <TabButton tabName="contas" label="Contas" icon={faBuilding} />
                     <TabButton tabName="ativos" label="Ativos" icon={faLandmark} />
@@ -224,6 +232,11 @@ export default function FinanceiroPage() {
             {message && <p className={`text-center p-2 rounded-md text-sm uppercase font-semibold ${message.includes('ERRO') || message.includes('Falha') ? 'bg-red-100 text-red-800' : 'bg-blue-50 text-blue-800'}`}>{message}</p>}
             
             <div className="mt-4">
+                {/* --- INÍCIO DA ALTERAÇÃO --- */}
+                {/* 4. Renderizamos o novo componente quando a aba "extrato" estiver ativa. */}
+                {activeTab === 'extrato' && <ExtratoManager contas={contas} />}
+                {/* --- FIM DA ALTERAÇÃO --- */}
+                
                 {activeTab === 'lancamentos' && (
                     <LancamentosManager 
                         lancamentos={lancamentos}

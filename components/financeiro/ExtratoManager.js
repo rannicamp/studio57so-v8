@@ -1,0 +1,243 @@
+"use client";
+
+import { useState, useEffect, useCallback } from 'react';
+import { createClient } from '../../utils/supabase/client';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner, faFilter, faCalendarDay, faCalendarWeek, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
+import MultiSelectDropdown from './MultiSelectDropdown';
+
+// Funções de formatação
+const formatCurrency = (value) => {
+    if (value === null || value === undefined || isNaN(value)) return 'R$ 0,00';
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+};
+const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR');
+};
+
+export default function ExtratoManager({ contas }) {
+    const supabase = createClient();
+    const [filters, setFilters] = useState({
+        contaIds: [],
+        startDate: '',
+        endDate: '',
+    });
+    const [loading, setLoading] = useState(false);
+    const [extratoItens, setExtratoItens] = useState([]);
+    const [saldoAnterior, setSaldoAnterior] = useState(0);
+    const [activePeriodFilter, setActivePeriodFilter] = useState('month');
+
+    // Define o período inicial para o mês atual
+    useEffect(() => {
+        setDateRange('month');
+    }, []);
+
+    const handleFilterChange = (name, value) => {
+        setFilters(prev => ({ ...prev, [name]: value }));
+        if (name !== 'startDate' && name !== 'endDate') {
+            setActivePeriodFilter('');
+        }
+    };
+    
+    const setDateRange = (period) => {
+        const today = new Date();
+        let startDate, endDate;
+        if (period === 'today') {
+            startDate = endDate = today;
+        } else if (period === 'week') {
+            const firstDayOfWeek = today.getDate() - today.getDay();
+            startDate = new Date(today.setDate(firstDayOfWeek));
+            endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 6);
+        } else if (period === 'month') {
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        }
+        setFilters(prev => ({
+            ...prev,
+            startDate: startDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0],
+        }));
+        setActivePeriodFilter(period);
+    };
+
+    const fetchExtrato = useCallback(async () => {
+        if (!filters.contaIds || filters.contaIds.length === 0) {
+            alert("Por favor, selecione pelo menos uma conta.");
+            return;
+        }
+        setLoading(true);
+        setExtratoItens([]);
+        setSaldoAnterior(0);
+
+        try {
+            const saldoPromises = filters.contaIds.map(contaId => 
+                supabase.rpc('calcular_saldo_anterior', { p_conta_id: contaId, p_data_inicio: filters.startDate })
+            );
+            const saldosResponses = await Promise.all(saldoPromises);
+
+            let saldoInicialTotal = 0;
+            saldosResponses.forEach(response => {
+                if (response.error) throw response.error;
+                saldoInicialTotal += response.data;
+            });
+            setSaldoAnterior(saldoInicialTotal);
+
+            const { data: lancamentos, error: lancamentosError } = await supabase
+                .from('lancamentos')
+                .select('*, conta:contas_financeiras!conta_id(nome), conta_destino:contas_financeiras!conta_destino_id(nome)')
+                .or(`conta_id.in.(${filters.contaIds.join(',')}),conta_destino_id.in.(${filters.contaIds.join(',')})`)
+                .gte('data_pagamento', filters.startDate)
+                .lte('data_pagamento', filters.endDate)
+                .in('status', ['Pago', 'Conciliado'])
+                .order('data_pagamento', { ascending: true })
+                .order('created_at', { ascending: true });
+            
+            if (lancamentosError) throw lancamentosError;
+
+            let saldoCorrente = saldoInicialTotal;
+            const itensProcessados = [];
+            
+            lancamentos.forEach(lanc => {
+                const isContaOrigem = filters.contaIds.includes(lanc.conta_id);
+                const isContaDestino = filters.contaIds.includes(lanc.conta_destino_id);
+                
+                let valorEntrada = 0;
+                let valorSaida = 0;
+                let descricaoExibida = lanc.descricao;
+
+                if (lanc.tipo === 'Receita' && isContaOrigem) {
+                    valorEntrada = lanc.valor;
+                } else if (lanc.tipo === 'Despesa' && isContaOrigem) {
+                    valorSaida = lanc.valor;
+                } else if (lanc.tipo === 'Transferência') {
+                    if (isContaDestino) { // Entrada na conta
+                        valorEntrada = lanc.valor;
+                        descricaoExibida = `Transferência de: ${lanc.conta?.nome || 'N/A'}`;
+                    }
+                    if (isContaOrigem) { // Saída da conta
+                        valorSaida = lanc.valor;
+                        descricaoExibida = `Transferência para: ${lanc.conta_destino?.nome || 'N/A'}`;
+                    }
+                }
+                
+                // Apenas processa se for relevante para as contas selecionadas
+                if (valorEntrada > 0 || valorSaida > 0) {
+                    saldoCorrente += valorEntrada - valorSaida;
+                    itensProcessados.push({
+                        ...lanc,
+                        descricao: descricaoExibida,
+                        entrada: valorEntrada,
+                        saida: valorSaida,
+                        saldo: saldoCorrente
+                    });
+                }
+            });
+            setExtratoItens(itensProcessados);
+
+        } catch (error) {
+            console.error("Erro ao gerar extrato:", error);
+            alert(`Erro ao buscar dados: ${error.message}`);
+        } finally {
+            setLoading(false);
+        }
+
+    }, [filters.contaIds, filters.startDate, filters.endDate, supabase]);
+
+    const saldoFinal = extratoItens.length > 0 ? extratoItens[extratoItens.length - 1].saldo : saldoAnterior;
+
+    return (
+        <div className="space-y-6">
+            <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                    <div className="lg:col-span-1">
+                        <MultiSelectDropdown 
+                            label="Conta(s) Financeira(s) *"
+                            options={contas}
+                            selectedIds={filters.contaIds}
+                            onChange={(selected) => handleFilterChange('contaIds', selected)}
+                            placeholder="Selecione uma ou mais contas"
+                        />
+                    </div>
+                    <div className="flex items-end gap-2">
+                        <div>
+                            <label className="block text-sm font-medium">De:</label>
+                            <input type="date" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="mt-1 w-full p-2 border rounded-md"/>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium">Até:</label>
+                            <input type="date" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="mt-1 w-full p-2 border rounded-md"/>
+                        </div>
+                    </div>
+                    <div className="flex items-end gap-2 justify-start md:justify-end">
+                        <button onClick={() => setDateRange('today')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarDay}/> Hoje</button>
+                        <button onClick={() => setDateRange('week')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarWeek}/> Semana</button>
+                        <button onClick={() => setDateRange('month')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarAlt}/> Mês</button>
+                    </div>
+                </div>
+                 <div className="text-right pt-4 border-t">
+                    <button
+                        onClick={fetchExtrato}
+                        disabled={loading || !filters.contaIds || filters.contaIds.length === 0}
+                        className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2"
+                    >
+                        {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faFilter} />}
+                        {loading ? 'Gerando...' : 'Gerar Extrato'}
+                    </button>
+                </div>
+            </div>
+
+            <div className="overflow-x-auto border rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-100">
+                        <tr>
+                            <th className="px-4 py-3 text-left font-bold uppercase w-1/12">Data</th>
+                            <th className="px-4 py-3 text-left font-bold uppercase w-5/12">Descrição</th>
+                            <th className="px-4 py-3 text-right font-bold uppercase w-2/12">Entrada</th>
+                            <th className="px-4 py-3 text-right font-bold uppercase w-2/12">Saída</th>
+                            <th className="px-4 py-3 text-right font-bold uppercase w-2/12">Saldo</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        <tr className="bg-gray-50 font-semibold">
+                            <td className="px-4 py-2" colSpan="4">SALDO ANTERIOR EM {formatDate(filters.startDate)}</td>
+                            <td className="px-4 py-2 text-right">{formatCurrency(saldoAnterior)}</td>
+                        </tr>
+                        {loading ? (
+                            <tr><td colSpan="5" className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></td></tr>
+                        ) : extratoItens.length > 0 ? (
+                            extratoItens.map((item, index) => (
+                                <tr key={`${item.id}-${index}`}>
+                                    <td className="px-4 py-2">{formatDate(item.data_pagamento)}</td>
+                                    <td className="px-4 py-2">{item.descricao}</td>
+                                    <td className="px-4 py-2 text-right text-green-600">
+                                        {item.entrada > 0 ? formatCurrency(item.entrada) : ''}
+                                    </td>
+                                    <td className="px-4 py-2 text-right text-red-600">
+                                        {item.saida > 0 ? formatCurrency(item.saida) : ''}
+                                    </td>
+                                    <td className={`px-4 py-2 text-right font-semibold ${item.saldo < 0 ? 'text-red-600' : 'text-gray-800'}`}>
+                                        {formatCurrency(item.saldo)}
+                                    </td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan="5" className="text-center py-10 text-gray-500">
+                                    Nenhum lançamento encontrado para o período e conta selecionados.
+                                </td>
+                            </tr>
+                        )}
+                        <tr className="bg-gray-100 font-bold text-base">
+                            <td className="px-4 py-3" colSpan="4">SALDO FINAL</td>
+                            <td className={`px-4 py-3 text-right ${saldoFinal < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                                {formatCurrency(saldoFinal)}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
