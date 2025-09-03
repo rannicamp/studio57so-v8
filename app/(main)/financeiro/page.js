@@ -15,10 +15,7 @@ import { faPlus, faCogs, faShieldAlt, faCalculator, faSpinner, faLock, faArrowDo
 import Link from 'next/link';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toast } from 'sonner';
-// --- INÍCIO DA ALTERAÇÃO ---
-// 1. Importamos o novo componente que acabamos de criar.
 import ExtratoManager from '../../../components/financeiro/ExtratoManager';
-// --- FIM DA ALTERAÇÃO ---
 
 export default function FinanceiroPage() {
     const { setPageTitle } = useLayout();
@@ -30,11 +27,7 @@ export default function FinanceiroPage() {
     const canViewPage = hasPermission('financeiro', 'pode_ver');
     const canCreate = hasPermission('financeiro', 'pode_criar');
 
-    // --- INÍCIO DA ALTERAÇÃO ---
-    // 2. Adicionamos 'extrato' como uma opção e a definimos como a aba inicial.
     const [activeTab, setActiveTab] = useState('extrato');
-    // --- FIM DA ALTERAÇÃO ---
-
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
     const [empresas, setEmpresas] = useState([]);
@@ -52,35 +45,46 @@ export default function FinanceiroPage() {
     const [itemsPerPage, setItemsPerPage] = useState(50);
     const [totalCount, setTotalCount] = useState(0);
     const [filters, setFilters] = useState({ searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [], etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', favorecidoId: null });
-    const [sortConfig, setSortConfig] = useState({ key: 'data_transacao', direction: 'descending' });
+    const [sortConfig, setSortConfig] = useState({ key: 'data_vencimento', direction: 'descending' });
     
     useEffect(() => { if (!authLoading && !canViewPage) { router.push('/'); } }, [authLoading, canViewPage, router]);
 
+    // --- INÍCIO DA CORREÇÃO ---
+    // Lógica aprimorada para converter Mês/Ano em datas de início e fim.
     useEffect(() => {
         const { month, year, startDate: currentStartDate, endDate: currentEndDate } = filters;
-        if (year) {
-            const newStartDate = month ? new Date(year, month - 1, 1) : new Date(year, 0, 1);
-            const newEndDate = month ? new Date(year, month, 0) : new Date(year, 11, 31);
+
+        if (month || year) {
+            const yearToUse = year || new Date().getFullYear().toString();
+            const newStartDate = month ? new Date(yearToUse, month - 1, 1) : new Date(yearToUse, 0, 1);
+            const newEndDate = month ? new Date(yearToUse, month, 0) : new Date(yearToUse, 11, 31);
             const newStartDateStr = newStartDate.toISOString().split('T')[0];
             const newEndDateStr = newEndDate.toISOString().split('T')[0];
-            if (currentStartDate !== newStartDateStr || currentEndDate !== newEndDateStr) {
-                setFilters(prev => ({ ...prev, startDate: newStartDateStr, endDate: newEndDateStr }));
+
+            if (currentStartDate !== newStartDateStr || currentEndDate !== newEndDateStr || year !== yearToUse) {
+                setFilters(prev => ({ 
+                    ...prev, 
+                    startDate: newStartDateStr, 
+                    endDate: newEndDateStr,
+                    year: yearToUse 
+                }));
             }
         }
-    }, [filters]);
+    // Dependências específicas para evitar loops.
+    }, [filters.month, filters.year, filters.startDate, filters.endDate]);
+    // --- FIM DA CORREÇÃO ---
 
     const applyFiltersToQuery = useCallback((query, currentFilters) => {
         if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
         
+        // --- INÍCIO DA CORREÇÃO ---
+        // Lógica de filtro de data refeita para ser 100% precisa.
         if (currentFilters.startDate && currentFilters.endDate) {
-            const transacaoInRange = `and(data_transacao.gte.${currentFilters.startDate},data_transacao.lte.${currentFilters.endDate})`;
-            const vencimentoInRange = `and(data_vencimento.gte.${currentFilters.startDate},data_vencimento.lte.${currentFilters.endDate})`;
-            query = query.or(`${transacaoInRange},${vencimentoInRange}`);
-        } else if (currentFilters.startDate) {
-            query = query.or(`data_transacao.gte.${currentFilters.startDate},data_vencimento.gte.${currentFilters.startDate}`);
-        } else if (currentFilters.endDate) {
-            query = query.or(`data_transacao.lte.${currentFilters.endDate},data_vencimento.lte.${currentFilters.endDate}`);
+            const pagoInRange = `and(status.eq.Pago,data_pagamento.gte.${currentFilters.startDate},data_pagamento.lte.${currentFilters.endDate})`;
+            const pendenteInRange = `and(status.neq.Pago,data_vencimento.gte.${currentFilters.startDate},data_vencimento.lte.${currentFilters.endDate})`;
+            query = query.or(`${pagoInRange},${pendenteInRange}`);
         }
+        // --- FIM DA CORREÇÃO ---
 
         if (currentFilters.empresaIds?.length > 0) query = query.in('empresa_id', currentFilters.empresaIds);
         if (currentFilters.contaIds?.length > 0) { query = query.or(`conta_id.in.(${currentFilters.contaIds.join(',')}),conta_destino_id.in.(${currentFilters.contaIds.join(',')})`); }
@@ -219,10 +223,7 @@ export default function FinanceiroPage() {
             
             <div className="border-b border-gray-200 bg-white shadow-sm rounded-t-lg">
                 <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">
-                    {/* --- INÍCIO DA ALTERAÇÃO --- */}
-                    {/* 3. Adicionamos o botão da nova aba "Extrato" */}
                     <TabButton tabName="extrato" label="Extrato" icon={faFileInvoice} />
-                    {/* --- FIM DA ALTERAÇÃO --- */}
                     <TabButton tabName="lancamentos" label="Lançamentos" icon={faBalanceScale} />
                     <TabButton tabName="contas" label="Contas" icon={faBuilding} />
                     <TabButton tabName="ativos" label="Ativos" icon={faLandmark} />
@@ -232,10 +233,7 @@ export default function FinanceiroPage() {
             {message && <p className={`text-center p-2 rounded-md text-sm uppercase font-semibold ${message.includes('ERRO') || message.includes('Falha') ? 'bg-red-100 text-red-800' : 'bg-blue-50 text-blue-800'}`}>{message}</p>}
             
             <div className="mt-4">
-                {/* --- INÍCIO DA ALTERAÇÃO --- */}
-                {/* 4. Renderizamos o novo componente quando a aba "extrato" estiver ativa. */}
                 {activeTab === 'extrato' && <ExtratoManager contas={contas} />}
-                {/* --- FIM DA ALTERAÇÃO --- */}
                 
                 {activeTab === 'lancamentos' && (
                     <LancamentosManager 

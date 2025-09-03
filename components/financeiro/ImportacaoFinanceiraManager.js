@@ -283,6 +283,7 @@ export default function ImportacaoFinanceiraManager() {
         setProgress({ current: 0, total: fileData.length });
         
         const lancamentosParaInserir = [];
+        const lancamentosFalhados = [];
 
         const getItemId = (type, name) => {
             if (!name) return null;
@@ -299,7 +300,7 @@ export default function ImportacaoFinanceiraManager() {
             const valorStr = (row[mappings.valor] || '0').replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
             const valor = parseFloat(valorStr);
             if (isNaN(valor)) {
-                console.warn(`Linha ${index + 2}: Valor inválido "${row[mappings.valor]}", pulando.`);
+                lancamentosFalhados.push({ row, error: `Valor inválido na linha ${index + 2}` });
                 continue;
             }
             
@@ -310,11 +311,11 @@ export default function ImportacaoFinanceiraManager() {
                 const fullYear = year.length === 2 ? `20${year}` : year;
                 data_transacao = `${fullYear}-${month}-${day}`;
                 if (isNaN(new Date(data_transacao))) {
-                    console.warn(`Linha ${index + 2}: Data inválida "${row[mappings.data_transacao]}", pulando.`);
+                    lancamentosFalhados.push({ row, error: `Data inválida na linha ${index + 2}` });
                     continue;
                 }
             } else {
-                 console.warn(`Linha ${index + 2}: Formato de data inválido "${row[mappings.data_transacao]}", pulando.`);
+                 lancamentosFalhados.push({ row, error: `Formato de data inválido na linha ${index + 2}` });
                  continue;
             }
 
@@ -322,7 +323,7 @@ export default function ImportacaoFinanceiraManager() {
             const conta_destino_id = getItemId('contas', row[mappings.conta_destino_nome]);
 
             if (!conta_id) {
-                console.warn(`Linha ${index + 2}: Conta principal "${row[mappings.conta_nome]}" não encontrada ou mapeada, pulando.`);
+                lancamentosFalhados.push({ row, error: `Conta principal "${row[mappings.conta_nome]}" não encontrada na linha ${index + 2}` });
                 continue;
             }
 
@@ -334,12 +335,28 @@ export default function ImportacaoFinanceiraManager() {
                 tipoLancamento = 'Receita';
             }
 
+            // --- INÍCIO DA CORREÇÃO ---
+            let statusFinal = 'Pendente'; // Define o padrão
+            const statusDoArquivo = (row[mappings.status] || '').toLowerCase().trim();
+            
+            // Verifica se o status do arquivo contém "pago" ou "conciliado"
+            if (statusDoArquivo.includes('pago') || statusDoArquivo.includes('conciliado')) {
+                statusFinal = 'Pago';
+            }
+            
+            // Força o status para 'Pago' se for uma transferência, pois elas são imediatas
+            if (tipoLancamento === 'Transferência') {
+                statusFinal = 'Pago';
+            }
+            // --- FIM DA CORREÇÃO ---
+
+
             const lancamento = {
                 data_transacao,
                 descricao: row[mappings.descricao] || 'Sem descrição',
                 valor: Math.abs(valor),
                 tipo: tipoLancamento,
-                status: (row[mappings.status] || 'Pendente').charAt(0).toUpperCase() + (row[mappings.status] || 'Pendente').slice(1).toLowerCase(),
+                status: statusFinal, // Usa a nova variável corrigida
                 conta_id: conta_id,
                 conta_destino_id: conta_destino_id,
                 categoria_id: getItemId('categorias', row[mappings.categoria_nome]),
@@ -367,13 +384,14 @@ export default function ImportacaoFinanceiraManager() {
             } else {
                 setImportResults({
                     success: data.map(row => ({ row, details: 'Importado com sucesso' })),
-                    failed: [],
+                    failed: lancamentosFalhados,
                     ignored: []
                 });
                 setMessage(`${data.length} lançamentos foram importados com sucesso!`);
             }
         } else {
             setMessage('Nenhum lançamento válido para importar após a validação.');
+             setImportResults({ success: [], failed: lancamentosFalhados, ignored: [] });
         }
 
         setIsProcessing(false);

@@ -10,7 +10,7 @@ import {
     faCheckCircle,
     faDollarSign,
     faUserTag,
-    faExchangeAlt // Ícone adicionado
+    faExchangeAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
@@ -266,15 +266,18 @@ export default function LancamentosManager({
 
     const handleBatchUpdateField = (field, value) => { setIsBatchUpdateModalOpen(false); if(!field || !value) { alert("Por favor, selecione um campo e um valor."); return; } const updateObject = { [field]: value }; if(field === 'status' && value === 'Pago'){ updateObject.data_pagamento = new Date().toISOString(); } handleBulkUpdate(updateObject); };
     
+    // ***** INÍCIO DA CORREÇÃO *****
+    // A lógica agora inclui a verificação do status 'Conciliado'
     const getPaymentStatus = (item) => {
         if (item.tipo === 'Transferência') return { text: 'Realizada', className: 'bg-blue-100 text-blue-800' };
-        if (item.status === 'Pago' || item.conciliado) return { text: 'Paga', className: 'bg-green-100 text-green-800' };
+        if (item.status === 'Pago' || item.status === 'Conciliado' || item.conciliado) return { text: 'Paga', className: 'bg-green-100 text-green-800' };
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const dueDate = new Date((item.data_vencimento || item.data_transacao) + 'T00:00:00Z');
         if (dueDate < today) return { text: 'Atrasada', className: 'bg-red-100 text-red-800' };
         return { text: 'A Pagar', className: 'bg-yellow-100 text-yellow-800' };
     };
+    // ***** FIM DA CORREÇÃO *****
 
     const formatCurrency = (value, tipo) => { const signal = tipo === 'Receita' ? '+' : (tipo === 'Despesa' ? '-' : ''); return `${signal} ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(value || 0))}`; };
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A';
@@ -295,7 +298,6 @@ export default function LancamentosManager({
                 </div>
                  
                 {filtersVisible && ( <div className="space-y-4 animate-fade-in">
-                    {/* ##### ALTERAÇÃO AQUI: Adição do botão de Transferências ##### */}
                     <div className="flex items-center gap-4 pt-2">
                         <span className="text-sm font-semibold text-gray-700">Filtrar por Natureza:</span>
                         <button onClick={() => handleNatureFilterClick('Receita')} className={`text-sm border px-4 py-2 rounded-md flex items-center gap-2 ${filters.tipo?.includes('Receita') ? 'bg-green-600 text-white border-green-700' : 'bg-white hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faArrowUp}/> Receitas </button>
@@ -386,7 +388,7 @@ export default function LancamentosManager({
                         <thead className="bg-gray-50">
                             <tr>
                                 <th className="p-4 w-4"><input type="checkbox" onChange={handleSelectAll} checked={lancamentos.length > 0 && selectedIds.size === lancamentos.length} /></th>
-                                <SortableHeader label="Data" sortKey="data_transacao" sortConfig={sortConfig} requestSort={requestSort} />
+                                <SortableHeader label="Data" sortKey="data_vencimento" sortConfig={sortConfig} requestSort={requestSort} />
                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase w-1/3">Descrição</th>
                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase">Conta</th>
                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase">Empresa</th>
