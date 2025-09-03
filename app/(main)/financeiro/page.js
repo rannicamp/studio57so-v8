@@ -49,42 +49,19 @@ export default function FinanceiroPage() {
     
     useEffect(() => { if (!authLoading && !canViewPage) { router.push('/'); } }, [authLoading, canViewPage, router]);
 
-    // --- INÍCIO DA CORREÇÃO ---
-    // Lógica aprimorada para converter Mês/Ano em datas de início e fim.
-    useEffect(() => {
-        const { month, year, startDate: currentStartDate, endDate: currentEndDate } = filters;
-
-        if (month || year) {
-            const yearToUse = year || new Date().getFullYear().toString();
-            const newStartDate = month ? new Date(yearToUse, month - 1, 1) : new Date(yearToUse, 0, 1);
-            const newEndDate = month ? new Date(yearToUse, month, 0) : new Date(yearToUse, 11, 31);
-            const newStartDateStr = newStartDate.toISOString().split('T')[0];
-            const newEndDateStr = newEndDate.toISOString().split('T')[0];
-
-            if (currentStartDate !== newStartDateStr || currentEndDate !== newEndDateStr || year !== yearToUse) {
-                setFilters(prev => ({ 
-                    ...prev, 
-                    startDate: newStartDateStr, 
-                    endDate: newEndDateStr,
-                    year: yearToUse 
-                }));
-            }
-        }
-    // Dependências específicas para evitar loops.
-    }, [filters.month, filters.year, filters.startDate, filters.endDate]);
-    // --- FIM DA CORREÇÃO ---
+    // ***** CORREÇÃO *****
+    // O useEffect problemático foi removido daqui. A lógica foi movida para dentro
+    // das funções que buscam os dados para garantir que a data seja calculada no momento exato da busca.
 
     const applyFiltersToQuery = useCallback((query, currentFilters) => {
         if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
         
-        // --- INÍCIO DA CORREÇÃO ---
         // Lógica de filtro de data refeita para ser 100% precisa.
         if (currentFilters.startDate && currentFilters.endDate) {
             const pagoInRange = `and(status.eq.Pago,data_pagamento.gte.${currentFilters.startDate},data_pagamento.lte.${currentFilters.endDate})`;
             const pendenteInRange = `and(status.neq.Pago,data_vencimento.gte.${currentFilters.startDate},data_vencimento.lte.${currentFilters.endDate})`;
             query = query.or(`${pagoInRange},${pendenteInRange}`);
         }
-        // --- FIM DA CORREÇÃO ---
 
         if (currentFilters.empresaIds?.length > 0) query = query.in('empresa_id', currentFilters.empresaIds);
         if (currentFilters.contaIds?.length > 0) { query = query.or(`conta_id.in.(${currentFilters.contaIds.join(',')}),conta_destino_id.in.(${currentFilters.contaIds.join(',')})`); }
@@ -126,13 +103,31 @@ export default function FinanceiroPage() {
         return query;
     }, []);
 
+    // ***** INÍCIO DA CORREÇÃO *****
+    // A função getCorrectedFilters agora calcula as datas antes de cada busca.
+    const getCorrectedFilters = (currentFilters) => {
+        const { month, year } = currentFilters;
+        let corrected = { ...currentFilters };
+
+        if (month || year) {
+            const yearToUse = year || new Date().getFullYear().toString();
+            const startDate = month ? new Date(yearToUse, month - 1, 1) : new Date(yearToUse, 0, 1);
+            const endDate = month ? new Date(yearToUse, month, 0) : new Date(yearToUse, 11, 31);
+            
+            corrected.startDate = startDate.toISOString().split('T')[0];
+            corrected.endDate = endDate.toISOString().split('T')[0];
+        }
+        return corrected;
+    };
+
     const fetchLancamentos = useCallback(async () => {
         setLoading(true);
+        const correctedFilters = getCorrectedFilters(filters);
         const from = (currentPage - 1) * itemsPerPage;
         const to = from + itemsPerPage - 1;
         const selectString = `*, data_pagamento, conta:contas_financeiras!conta_id(*, empresa:cadastro_empresa!empresa_id(id, nome_fantasia, razao_social)), conta_destino:contas_financeiras!conta_destino_id(id, nome), categoria:categorias_financeiras(*), favorecido:contatos!favorecido_contato_id(*), empreendimento:empreendimentos(*, empresa:cadastro_empresa!empresa_proprietaria_id(id, nome_fantasia, razao_social)), anexos:lancamentos_anexos(*)`;
         let query = supabase.from('lancamentos').select(selectString, { count: 'exact' }).order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' }).range(from, to);
-        query = applyFiltersToQuery(query, filters);
+        query = applyFiltersToQuery(query, correctedFilters);
         const { data, error, count } = await query;
         if (error) { console.error("Erro ao buscar lançamentos:", error); setMessage(`Falha ao carregar dados: ${error.message}`);
         } else { setLancamentos(data || []); setTotalCount(count || 0); }
@@ -140,12 +135,14 @@ export default function FinanceiroPage() {
     }, [currentPage, itemsPerPage, sortConfig, filters, supabase, applyFiltersToQuery]);
     
     const fetchLancamentosFiltradosParaKpi = useCallback(async () => {
+        const correctedFilters = getCorrectedFilters(filters);
         let query = supabase.from('lancamentos').select('valor, tipo');
-        query = applyFiltersToQuery(query, filters);
+        query = applyFiltersToQuery(query, correctedFilters);
         const { data, error } = await query;
         if (error) { console.error("Erro ao buscar dados para KPI:", error); } 
         else { setLancamentosFiltradosKpi(data || []); }
     }, [filters, supabase, applyFiltersToQuery]);
+    // ***** FIM DA CORREÇÃO *****
     
     const fetchTodosLancamentosParaSaldos = useCallback(async (listaDeContas) => {
         if (!listaDeContas || listaDeContas.length === 0) {
