@@ -189,15 +189,43 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
     
     return (
         <div className="printable-container">
+            {/* --- CSS CORRIGIDO PARA EVITAR PÁGINA EM BRANCO --- */}
             <style jsx global>{`
                 @media print {
-                    @page { size: A4 portrait; margin: 1cm; }
-                    body * { visibility: hidden; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                    .printable-area, .printable-area * { visibility: visible; }
-                    .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; }
-                    .no-print { display: none !important; }
-                    table { font-size: 9pt !important; }
-                    .signature-section { margin-top: 2cm !important; page-break-inside: avoid; }
+                    @page { 
+                        size: A4 portrait; 
+                        margin: 1cm; 
+                    }
+                    html, body {
+                        height: initial !important;
+                        overflow: initial !important;
+                        -webkit-print-color-adjust: exact;
+                    }
+                    body * { 
+                        visibility: hidden; 
+                    }
+                    .printable-area, .printable-area * { 
+                        visibility: visible; 
+                    }
+                    .printable-area { 
+                        position: absolute; 
+                        left: 0; 
+                        top: 0; 
+                        width: 100%; 
+                        padding: 0 !important; 
+                        margin: 0 !important;
+                        height: auto;
+                    }
+                    .no-print { 
+                        display: none !important; 
+                    }
+                    table { 
+                        font-size: 9pt !important; 
+                    }
+                    .signature-section { 
+                        margin-top: 2cm !important; 
+                        page-break-inside: avoid; 
+                    }
                 }
             `}</style>
             

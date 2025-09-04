@@ -14,21 +14,21 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
         contato: cliente, 
         produto, 
         empreendimento, 
-        contrato_parcelas: parcelas = [], // Garante que seja um array
-        contrato_permutas: permutas = [], // Garante que seja um array
+        contrato_parcelas: parcelas = [],
+        contrato_permutas: permutas = [],
         valor_final_venda: valorTotalContrato 
     } = contrato;
     
     const empresa = empreendimento?.empresa;
 
-    // --- CÁLCULOS ---
     const totalParcelas = parcelas.reduce((acc, p) => acc + parseFloat(p.valor_parcela || 0), 0);
     const totalPermutas = permutas.reduce((acc, p) => acc + parseFloat(p.valor_permutado || 0), 0);
     const saldoAPagar = valorTotalContrato - totalPermutas;
     const saldoRemanescente = saldoAPagar - totalParcelas;
 
+    // --- CORREÇÃO: Adicionada a classe "print:p-0" para remover o padding na impressão ---
     return (
-        <div className="p-4 font-sans text-gray-800">
+        <div className="p-4 print:p-0 font-sans text-gray-800">
             {/* Cabeçalho */}
             <header className="flex justify-between items-center border-b-2 pb-4">
                 <div>
@@ -69,7 +69,6 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
                         </tr>
                     </thead>
                     <tbody>
-                        {/* --- LINHAS PARA PERMUTAS --- */}
                         {permutas.map((permuta) => (
                             <tr key={`permuta-${permuta.id}`} className="bg-blue-50">
                                 <td className="border p-2 font-medium">{permuta.descricao} (Permuta)</td>
@@ -77,7 +76,6 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
                                 <td className="border p-2 text-right font-semibold text-blue-700">-{formatCurrency(permuta.valor_permutado)}</td>
                             </tr>
                         ))}
-                        {/* --- LINHAS PARA PARCELAS --- */}
                         {parcelas.map((p) => (
                             <tr key={p.id}>
                                 <td className="border p-2">{p.descricao}</td>
@@ -85,7 +83,6 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
                                 <td className="border p-2 text-right">{formatCurrency(p.valor_parcela)}</td>
                             </tr>
                         ))}
-                        {/* --- CORREÇÃO: Resumo movido para o TBODY para não repetir --- */}
                         <tr className="bg-gray-200 font-bold">
                             <td colSpan="2" className="border p-2 text-right">VALOR TOTAL DO CONTRATO:</td>
                             <td className="border p-2 text-right">{formatCurrency(valorTotalContrato)}</td>
