@@ -169,7 +169,6 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                 <KpiCard title="Próxima Parcela" value={kpiData.proximaParcela} icon={faCalendarCheck} color="purple" />
             </div>
 
-            {/* ***** ABAS CORRETAS MANTIDAS AQUI ***** */}
             <div className="border-b border-gray-200">
                 <nav className="flex gap-4">
                     <TabButton tabId="resumo" label="Resumo da Venda" icon={faHandshake} />
@@ -247,10 +246,7 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                     <div className="animate-fade-in space-y-6">
                         <PlanoPagamentoContrato contrato={contrato} onRecalculateSuccess={onUpdate} />
                         <CronogramaFinanceiro
-                            contratoId={contrato.id}
-                            parcelas={contrato.contrato_parcelas || []}
-                            permutas={contrato.contrato_permutas || []} 
-                            valorTotalContrato={contrato.valor_final_venda}
+                            contrato={contrato}
                             onUpdate={onUpdate}
                         />
                     </div>

@@ -29,7 +29,10 @@ export default function ContratoPage() {
                 contato:contato_id (*),
                 corretor:corretor_id (*), 
                 produto:produto_id (*),
-                empreendimento:empreendimento_id (nome),
+                empreendimento:empreendimento_id (
+                    nome,
+                    empresa:empresa_proprietaria_id (*)
+                ),
                 contrato_parcelas (*),
                 contrato_permutas (*),
                 simulacao:simulacao_id (*) 
@@ -38,8 +41,8 @@ export default function ContratoPage() {
             .maybeSingle();
 
         if (error) {
-            console.error("Erro ao buscar dados do contrato:", error);
-            setError('Não foi possível carregar os dados do contrato.');
+            console.error("ERRO DETALHADO DO SUPABASE AO BUSCAR CONTRATO:", error); 
+            setError(`Falha ao carregar dados. Verifique o console do navegador (F12) para detalhes técnicos.`);
             setLoading(false);
         } else if (!data) {
             setLoading(false);
@@ -79,8 +82,6 @@ export default function ContratoPage() {
                 Voltar para Lista de Contratos
             </Link>
             
-            {/* ***** ALTERAÇÃO PRINCIPAL AQUI ***** */}
-            {/* Agora a página simplesmente renderiza o componente FichaContrato, que contém as abas corretas e toda a lógica de exibição. */}
             <FichaContrato 
                 initialContratoData={contrato} 
                 onUpdate={fetchContratoData} 
