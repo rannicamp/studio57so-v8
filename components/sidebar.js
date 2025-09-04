@@ -101,7 +101,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         { href: '/crm', label: 'Funil de Vendas', icon: faBullseye, recurso: 'crm' },
         { href: '/comercial/anuncios', label: 'Anúncios', icon: faMeta, recurso: 'anuncios' },
         { href: '/contatos', label: 'Contatos', icon: faAddressBook, recurso: 'contatos' },
-        { href: '/comercial/simulador', label: 'Simulador', icon: faCalculator, recurso: 'simulador' },
+        // ***** LINHA ALTERADA *****
+        { href: '/simulador-financiamento', label: 'Simulador', icon: faCalculator, recurso: 'simulador', target: '_blank' },
       ]
     }
   ];
@@ -140,7 +141,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
 
                     return (
                       <li key={item.label}>
-                        <Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
+                        {/* ***** LINK ALTERADO PARA ACEITAR 'TARGET' ***** */}
+                        <Link 
+                          href={item.href} 
+                          target={item.target}
+                          rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
+                          className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}
+                        >
                           <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
                           {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
                         </Link>
