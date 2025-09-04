@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faTrash, faSpinner, faSave, faFileInvoiceDollar, faExclamationTriangle, faPen, faTimes, faCopy, faExchangeAlt, faLink, faPrint } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 import PlanoPagamentoPrint from './PlanoPagamentoPrint';
+import { useAuth } from '../../contexts/AuthContext'; // Importar o hook de autenticação
 
 // --- FUNÇÕES DE FORMATAÇÃO E ESTILO ---
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -32,6 +33,8 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
     const { id: contratoId, contrato_parcelas: parcelas, contrato_permutas: permutas, valor_final_venda: valorTotalContrato } = contrato;
     
     const supabase = createClient();
+    const { user, userData } = useAuth(); // Usar o contexto para pegar dados do usuário logado
+
     const [localParcelas, setLocalParcelas] = useState(parcelas || []);
     const [localPermutas, setLocalPermutas] = useState(permutas || []);
     const [newParcela, setNewParcela] = useState({ descricao: '', tipo: 'Adicional', data_vencimento: '', valor_parcela: '' });
@@ -40,6 +43,49 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
     const [newPermuta, setNewPermuta] = useState({ descricao: '', valor_permutado: '', data_registro: new Date().toISOString().split('T')[0] });
     const [loading, setLoading] = useState(false);
     const [isProvisioning, setIsProvisioning] = useState(false);
+
+    // --- NOVOS ESTADOS PARA ASSINATURA ---
+    const [proprietarios, setProprietarios] = useState([]);
+    const [selectedSignatoryId, setSelectedSignatoryId] = useState('');
+    const [geradoPor, setGeradoPor] = useState('');
+    const isUserProprietario = userData?.funcoes?.nome_funcao === 'Proprietário';
+
+    // --- CARREGA DADOS DOS PROPRIETÁRIOS ---
+    useEffect(() => {
+        const fetchInitialData = async () => {
+            const { data: proprietariosData } = await supabase
+                .from('usuarios')
+                .select('id, nome, sobrenome, funcionario:funcionarios(cpf), funcoes!inner(nome_funcao)')
+                .eq('funcoes.nome_funcao', 'Proprietário');
+            
+            setProprietarios(proprietariosData || []);
+
+            // Define o assinante padrão
+            if (isUserProprietario && user) {
+                setSelectedSignatoryId(user.id);
+            } else if (proprietariosData?.length > 0) {
+                setSelectedSignatoryId(proprietariosData[0].id);
+            }
+            // Define quem está gerando o documento
+            if (userData) {
+                setGeradoPor(`${userData.nome} ${userData.sobrenome}`);
+            }
+        };
+        fetchInitialData();
+    }, [supabase, user, userData, isUserProprietario]);
+    
+    // --- MEMORIZA O ASSINANTE SELECIONADO ---
+    const selectedSignatory = useMemo(() => {
+        if (!selectedSignatoryId || proprietarios.length === 0) return null;
+        const signatory = proprietarios.find(p => p.id === selectedSignatoryId);
+        return signatory 
+            ? { 
+                name: `${signatory.nome || ''} ${signatory.sobrenome || ''}`.trim(), 
+                cpf: signatory.funcionario?.cpf || 'N/A' 
+              }
+            : null;
+    }, [selectedSignatoryId, proprietarios]);
+
 
     useEffect(() => { setLocalParcelas(parcelas || []); setLocalPermutas(permutas || []); }, [parcelas, permutas]);
 
@@ -151,11 +197,16 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
                     .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; }
                     .no-print { display: none !important; }
                     table { font-size: 9pt !important; }
+                    .signature-section { margin-top: 2cm !important; page-break-inside: avoid; }
                 }
             `}</style>
             
             <div className="hidden print:block printable-area">
-                <PlanoPagamentoPrint contrato={contrato} />
+                <PlanoPagamentoPrint 
+                    contrato={contrato} 
+                    signatory={selectedSignatory}
+                    geradoPor={geradoPor}
+                />
             </div>
 
             <div className="no-print bg-white p-6 rounded-lg shadow-md border space-y-6">
@@ -199,8 +250,13 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
                      <div className="flex justify-between items-center">
                         <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2"><FontAwesomeIcon icon={faFileInvoiceDollar} /> Cronograma de Parcelas</h3>
                         <div className="flex items-center gap-2">
-                            <button onClick={() => window.print()} className="bg-gray-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-gray-700 flex items-center gap-2">
-                                <FontAwesomeIcon icon={faPrint} /> Imprimir Plano
+                             {/* --- SELETOR DE ASSINANTE --- */}
+                             <select value={selectedSignatoryId} onChange={(e) => setSelectedSignatoryId(e.target.value)} className="p-2 border rounded-md text-sm bg-gray-50">
+                                <option value="" disabled>Assinatura do Responsável</option>
+                                {proprietarios.map(p => <option key={p.id} value={p.id}>{p.nome} {p.sobrenome}</option>)}
+                            </select>
+                            <button onClick={() => window.print()} disabled={!selectedSignatoryId} className="bg-gray-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-gray-700 flex items-center gap-2 disabled:bg-gray-400">
+                                <FontAwesomeIcon icon={faPrint} /> Imprimir
                             </button>
                             <button onClick={handleProvisionarLancamentos} disabled={!hasPendingParcelsToProvision || isProvisioning} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400 flex items-center gap-2">
                                 <FontAwesomeIcon icon={isProvisioning ? faSpinner : faLink} spin={isProvisioning} />
