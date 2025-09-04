@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faCalculator, faPrint, faExclamationTriangle, faInfoCircle, faPlus, faTrash, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faCalculator, faPrint, faExclamationTriangle, faInfoCircle, faPlus, faTrash, faTimes, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 
 import SimuladorPrintView from './SimuladorPrintView';
@@ -46,8 +46,8 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
     
     const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState('');
     const [produtos, setProdutos] = useState([]);
-    const [selectedProdutos, setSelectedProdutos] = useState([]); // Alterado para array
-    const [currentSelectedProdutoId, setCurrentSelectedProdutoId] = useState(''); // Para o select
+    const [selectedProdutos, setSelectedProdutos] = useState([]);
+    const [currentSelectedProdutoId, setCurrentSelectedProdutoId] = useState('');
     const [loadingProdutos, setLoadingProdutos] = useState(false);
     
     const [cliente, setCliente] = useState({ nome: '', telefone: '', country_code: '+55' });
@@ -74,26 +74,24 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
 
     const [cronograma, setCronograma] = useState([]);
     const [isSimulating, setIsSimulating] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false); // Novo estado para o envio
     
     const printRef = useRef();
     const handlePrint = () => window.print();
 
-    // Funções para manipular as parcelas intermediárias
     const addIntermediaria = () => setParcelasIntermediarias([...parcelasIntermediarias, { id: Date.now(), descricao: 'Intermediária', data_vencimento: '', valor_parcela: '' }]);
     const updateIntermediaria = (id, field, value) => setParcelasIntermediarias(parcelasIntermediarias.map(p => p.id === id ? { ...p, [field]: value } : p));
     const removeIntermediaria = (id) => setParcelasIntermediarias(parcelasIntermediarias.filter(p => p.id !== id));
 
-    // Funções para manipular os produtos selecionados
     const addProduto = () => {
         const produtoToAdd = produtos.find(p => p.id == currentSelectedProdutoId);
         if (produtoToAdd && !selectedProdutos.some(p => p.id === produtoToAdd.id)) {
             setSelectedProdutos([...selectedProdutos, produtoToAdd]);
         }
-        setCurrentSelectedProdutoId(''); // Resetar o select
+        setCurrentSelectedProdutoId('');
     };
     const removeProduto = (id) => setSelectedProdutos(selectedProdutos.filter(p => p.id !== id));
 
-    // Busca os produtos do empreendimento selecionado
     useEffect(() => {
         const fetchProdutos = async () => {
             if (!selectedEmpreendimentoId) {
@@ -113,7 +111,6 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
     const totalValorBase = useMemo(() => selectedProdutos.reduce((acc, p) => acc + (parseFloat(p.valor_venda_calculado) || 0), 0), [selectedProdutos]);
     const totalIntermediarias = useMemo(() => parcelasIntermediarias.reduce((acc, p) => acc + (parseFloat(p.valor_parcela) || 0), 0), [parcelasIntermediarias]);
 
-    // Atualiza o plano quando os valores principais mudam
     useEffect(() => {
         const base = totalValorBase;
         const desc = parseFloat(plano.desconto_valor) || 0;
@@ -130,7 +127,6 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
         
         setCronograma([]);
     }, [totalValorBase, plano.desconto_valor, plano.entrada_valor, plano.parcelas_obra_valor, totalIntermediarias]);
-
 
     const handlePlanoChange = (name, value) => {
         const newPlanoState = { ...plano };
@@ -158,7 +154,6 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
         setPlano(newPlanoState);
     };
     
-    // Atualiza a data da primeira parcela do saldo
     useEffect(() => {
         if (plano.data_primeira_parcela_obra && plano.num_parcelas_obra > 0) {
             const dataUltimaParcelaObra = new Date(plano.data_primeira_parcela_obra);
@@ -171,7 +166,6 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
     const totalAlocado = (parseFloat(plano.entrada_valor) || 0) + (parseFloat(plano.parcelas_obra_valor) || 0) + totalIntermediarias + (parseFloat(plano.saldo_remanescente_valor) || 0);
     const diferencaTotal = valorFinal - totalAlocado;
     
-    // Gera o cronograma da simulação
     const handleSimular = () => {
         setIsSimulating(true);
         let novasParcelas = [];
@@ -216,7 +210,6 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
         toast.success("Simulação gerada com sucesso!");
     };
     
-    // Dados para o resumo da simulação
     const resumoData = useMemo(() => {
         if (selectedProdutos.length === 0) return null;
         
@@ -236,7 +229,7 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
             obraPercentual: parseFloat(plano.parcelas_obra_percentual) || 0,
             obraNumParcelas: plano.num_parcelas_obra,
             obraValorParcela: (parseFloat(plano.parcelas_obra_valor) || 0) / plano.num_parcelas_obra,
-            totalIntermediarias: totalIntermediarias, // Adicionado aqui
+            totalIntermediarias: totalIntermediarias,
             saldoRemanescente: parseFloat(plano.saldo_remanescente_valor) || 0,
             saldoRemPercentual: (parseFloat(plano.saldo_remanescente_valor) / (totalValorBase || 1)) * 100,
             mesAnoUltimaParcelaObra: plano.data_primeira_parcela_obra ? `${String(ultimaParcelaObra.getUTCMonth() + 1).padStart(2, '0')}/${ultimaParcelaObra.getUTCFullYear()}` : 'N/A'
@@ -245,8 +238,8 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
 
     const simulacaoCompletaData = {
         empreendimento: empreendimentos.find(e => e.id == selectedEmpreendimentoId),
-        produtos: selectedProdutos, // Alterado para 'produtos' (plural)
-        plano,
+        produtos: selectedProdutos,
+        plano: { ...plano, parcelas_intermediarias: parcelasIntermediarias }, // Inclui intermediárias no plano
         cronograma,
         valorFinal,
         resumo: resumoData,
@@ -254,6 +247,33 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
         corretor,
     };
     
+    const handleEnviarProposta = async () => {
+        if (!cliente.nome || !cliente.telefone) {
+            toast.error("O nome e o telefone do cliente são obrigatórios para enviar a proposta.");
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const response = await fetch('/api/simulacao/enviar-proposta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ simulacaoData: simulacaoCompletaData }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || "Falha ao enviar proposta.");
+            }
+
+            toast.success(result.message);
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
         <div>
             <style jsx global>{`@media print {@page { size: A4 portrait; margin: 1cm; } html, body { height: initial !important; overflow: initial !important; -webkit-print-color-adjust: exact; } body * { visibility: hidden; } .printable-area, .printable-area * { visibility: visible; } .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; height: auto; } .no-print { display: none !important; } tfoot { display: table-row-group; }}`}</style>
@@ -325,7 +345,12 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
                         {resumoData && <div className="p-4 border rounded-md space-y-3 text-lg mb-6"><div className="flex justify-between items-center"><span className="text-gray-600">Valor Base Total:</span><span className="font-bold text-blue-700">{formatCurrency(resumoData.valorBase)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Desconto ({resumoData.descontoPercentual.toFixed(2)}%):</span><span className="font-bold text-red-600">{formatCurrency(resumoData.descontoValor)}</span></div><div className="flex justify-between items-center border-t pt-3 mt-3"><span className="font-semibold text-gray-800">Valor Final (c/ Desc.):</span><span className="font-bold text-green-700 text-xl">{formatCurrency(resumoData.valorFinal)}</span></div><hr className="my-4"/><div className="flex justify-between items-center"><span className="text-gray-600">Entrada ({resumoData.entradaPercentual.toFixed(2)}%):</span><span className="font-semibold">{resumoData.entradaNumParcelas}x de {formatCurrency(resumoData.entradaValorParcela)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Parcelas Obra ({resumoData.obraPercentual.toFixed(2)}%):</span><span className="font-semibold">{resumoData.obraNumParcelas}x de {formatCurrency(resumoData.obraValorParcela)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Intermediárias:</span><span className="font-semibold">{formatCurrency(resumoData.totalIntermediarias)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Saldo Rem. ({resumoData.saldoRemPercentual.toFixed(2)}%):</span><span className="font-semibold">{formatCurrency(resumoData.saldoRemanescente)}</span></div><div className="flex justify-between items-center text-sm text-gray-500 border-t pt-2 mt-2"><span className="font-semibold">Mês/Ano Última Parc. Obra:</span><span>{resumoData.mesAnoUltimaParcelaObra}</span></div></div>}
                         <h4 className="font-semibold text-gray-800 mb-2 text-center">Cronograma Detalhado</h4>
                         <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 text-sm"><thead className="bg-gray-100"><tr><th className="px-4 py-2 text-left font-semibold">Descrição</th><th className="px-4 py-2 text-left font-semibold">Vencimento</th><th className="px-4 py-2 text-right font-semibold">Valor (R$)</th></tr></thead><tbody className="bg-white divide-y">{cronograma.map(p => (<tr key={p.id}><td className="px-4 py-2">{p.descricao}</td><td className="px-4 py-2">{formatDateForDisplay(p.data_vencimento)}</td><td className="px-4 py-2 text-right font-medium">{formatCurrency(p.valor_parcela)}</td></tr>))}</tbody></table></div>
-                        <div className="text-center mt-6"><button onClick={handlePrint} className="bg-gray-700 text-white font-bold px-8 py-3 rounded-md hover:bg-gray-800 flex items-center gap-2 mx-auto"><FontAwesomeIcon icon={faPrint} /> Imprimir / Salvar PDF</button></div>
+                        <div className="flex justify-center items-center gap-4 mt-6">
+                            <button onClick={handlePrint} className="bg-gray-700 text-white font-bold px-6 py-3 rounded-md hover:bg-gray-800 flex items-center gap-2"><FontAwesomeIcon icon={faPrint} /> Imprimir / PDF</button>
+                            <button onClick={handleEnviarProposta} disabled={isSubmitting} className="bg-green-600 text-white font-bold px-6 py-3 rounded-md hover:bg-green-700 disabled:bg-gray-400 flex items-center gap-2">
+                                <FontAwesomeIcon icon={isSubmitting ? faSpinner : faPaperPlane} spin={isSubmitting} /> {isSubmitting ? 'Enviando...' : 'Enviar Proposta'}
+                            </button>
+                        </div>
                      </fieldset>
                 )}
             </div>

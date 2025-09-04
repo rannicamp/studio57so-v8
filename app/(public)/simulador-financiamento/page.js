@@ -2,18 +2,20 @@
 
 import { createClient } from '@/utils/supabase/server';
 import SimuladorFinanceiroPublico from '@/components/SimuladorFinanceiroPublico';
+import { cookies } from 'next/headers'; // Importar cookies
 
 export const dynamic = 'force-dynamic';
 
 export default async function SimuladorPage() {
-  const supabase = createClient();
+  // CORREÇÃO APLICADA AQUI:
+  // A criação do cliente Supabase agora usa o cookieStore para funcionar corretamente no servidor.
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
 
-  // ***** CORREÇÃO APLICADA AQUI *****
-  // Agora, a busca filtra pela nova coluna 'listado_para_venda'
   const { data: empreendimentos, error } = await supabase
     .from('empreendimentos')
     .select('id, nome, status')
-    .eq('listado_para_venda', true) // Filtra apenas empreendimentos marcados para venda
+    .eq('listado_para_venda', true)
     .order('nome');
 
   if (error) {
