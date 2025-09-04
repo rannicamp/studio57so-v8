@@ -1,6 +1,7 @@
+// app/(main)/crm/page.js
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react'; // <--- CORREÇÃO AQUI
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useLayout } from '@/contexts/LayoutContext';
 import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
@@ -164,9 +165,10 @@ export default function CrmPage() {
                 const { data: contatosNoFunilRaw, error: contatosError } = await supabase
                     .from('contatos_no_funil')
                     .select(`
-                        id, coluna_id, numero_card, produto_id, 
+                        id, coluna_id, numero_card, produto_id, corretor_id,
                         produto:produto_id(id, unidade, tipo, valor_venda_calculado, empreendimento_id), 
-                        contatos:contato_id ( *, telefones ( telefone, tipo ), emails(email, tipo))
+                        contatos:contato_id ( *, telefones ( telefone, tipo ), emails(email, tipo)),
+                        corretores:corretor_id (id, nome, razao_social)
                     `)
                     .in('coluna_id', colunaIds);
                 if (contatosError) throw contatosError;
@@ -233,6 +235,21 @@ export default function CrmPage() {
 
     const handleAddContactToFunnel = async (contactId) => { try { const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).order('ordem').limit(1).single(); if (!primeiraColuna) throw new Error("Coluna inicial não encontrada."); const { error } = await supabase.from('contatos_no_funil').insert({ contato_id: contactId, coluna_id: primeiraColuna.id }); if (error) throw new Error(error.message); setIsAddContactModalOpen(false); toast.success('Contato adicionado ao funil!'); fetchFunilData(); } catch (error) { toast.error(`Erro: ${error.message}`); }};
     const handleAssociateProduct = async (contatoNoFunilId, produtoId) => { setContatosNoFunil(prev => prev.map(c => c.id === contatoNoFunilId ? { ...c, produto_id: produtoId, produto: availableProducts.find(p => p.id === produtoId) } : c)); const { error } = await supabase.from('contatos_no_funil').update({ produto_id: produtoId }).eq('id', contatoNoFunilId); if (error) { toast.error("Falha ao associar produto."); fetchFunilData(); } else { toast.success("Produto associado!"); }};
+    
+    const handleAssociateCorretor = async (contatoNoFunilId, corretorId) => {
+        const { error } = await supabase
+            .from('contatos_no_funil')
+            .update({ corretor_id: corretorId })
+            .eq('id', contatoNoFunilId);
+
+        if (error) {
+            toast.error("Falha ao associar corretor: " + error.message);
+        } else {
+            toast.success("Corretor associado com sucesso!");
+            fetchFunilData();
+        }
+    };
+    
     const handleStatusChange = async (contatoNoFunilId, novaColunaId) => { const novaColuna = colunasDoFunil.find(c => c.id === novaColunaId); const contatoMovido = contatosNoFunil.find(c => c.id === contatoNoFunilId); if (!novaColuna || !contatoMovido) return; if (novaColuna.nome === 'Vendido') { if (!contatoMovido.produto_id) { toast.error("Associe um produto de interesse ao card."); return; } if (!window.confirm(`Isso irá criar um novo contrato para o produto "${contatoMovido.produto.unidade}". Continuar?`)) return; setLoadingFunil(true); toast.info("Criando contrato..."); const { data: novoContrato, error: contratoError } = await supabase.from('contratos').insert({ contato_id: contatoMovido.contatos.id, produto_id: contatoMovido.produto_id, empreendimento_id: contatoMovido.produto.empreendimento_id, valor_final_venda: contatoMovido.produto.valor_venda_calculado || 0, status_contrato: 'Em assinatura' }).select('id').single(); if (contratoError) { toast.error(`Erro: ${contratoError.message}`); setLoadingFunil(false); return; } await supabase.rpc('mover_contato_e_atualizar_produto', { p_contato_no_funil_id: contatoNoFunilId, p_nova_coluna_id: novaColunaId }); toast.success("Contrato criado! Redirecionando..."); router.push(`/contratos/${novoContrato.id}`); } else { const originalContatos = [...contatosNoFunil]; setContatosNoFunil(prev => prev.map(c => c.id === contatoNoFunilId ? { ...c, coluna_id: novaColunaId } : c)); try { const payload = { contatoId: contatoNoFunilId, novaColunaId: novaColunaId }; const response = await fetch('/api/crm', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!response.ok) { const result = await response.json(); throw new Error(result.error); } toast.success('Contato movido!'); fetchFunilData(); } catch (error) { toast.error(`Erro: ${error.message}`); setContatosNoFunil(originalContatos); }}};
     const handleCreateColumn = async (columnName) => { try { const response = await fetch('/api/crm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ funilId: funilId, nomeColuna: columnName }), }); const result = await response.json(); if (!response.ok) throw new Error(result.error); toast.success('Etapa criada!'); fetchFunilData(); } catch (e) { toast.error(`Erro: ${e.message}`); }};
     const handleEditColumn = async (columnId, newName) => { try { const response = await fetch('/api/crm', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ columnId: columnId, newName: newName }), }); const result = await response.json(); if (!response.ok) throw new Error(result.error); toast.success('Etapa atualizada!'); fetchFunilData(); } catch (e) { toast.error(`Erro: ${e.message}`); }};
@@ -275,6 +292,7 @@ export default function CrmPage() {
                         onOpenNotesModal={handleOpenNotesModal}
                         availableProducts={availableProducts}
                         onAssociateProduct={handleAssociateProduct}
+                        onAssociateCorretor={handleAssociateCorretor}
                         onCardClick={handleCardClick}
                         onAddActivity={handleOpenActivityModal}
                     />

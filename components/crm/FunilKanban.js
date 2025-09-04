@@ -52,22 +52,23 @@ const AddColumn = ({ onCreate }) => {
 };
 
 
-export default function FunilKanban({ 
-    contatos, 
-    statusColumns, 
-    onStatusChange, 
-    onCreateColumn, 
-    onAddContact, 
-    onEditColumn, 
-    onDeleteColumn, 
-    onReorderColumns, 
+export default function FunilKanban({
+    contatos,
+    statusColumns,
+    onStatusChange,
+    onCreateColumn,
+    onAddContact,
+    onEditColumn,
+    onDeleteColumn,
+    onReorderColumns,
     onOpenNotesModal,
     availableProducts,
     onAssociateProduct,
+    onAssociateCorretor, // A função ainda é necessária
     onCardClick,
     onAddActivity
-}) { 
-    
+}) {
+
     const [editingColumnId, setEditingColumnId] = useState(null);
     const [editedColumnName, setEditedColumnName] = useState("");
     const [draggedItem, setDraggedItem] = useState(null);
@@ -108,7 +109,7 @@ export default function FunilKanban({
             const reorderedWithNewOrder = newColumns.map((col, index) => ({ ...col, ordem: index }));
             onReorderColumns(reorderedWithNewOrder);
         }
-        
+
         if (draggedItem.type === 'card' && draggedItem.item.coluna_id !== targetColumn.id) {
             onStatusChange(draggedItem.item.id, targetColumn.id);
         }
@@ -161,13 +162,13 @@ export default function FunilKanban({
                 <div
                     key={coluna.id}
                     className="w-80 flex-shrink-0 bg-gray-200 rounded-lg shadow-sm flex flex-col"
-                    onDragOver={handleDragOver} 
+                    onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, coluna)}
                 >
                     <div
                         className="p-3 text-sm font-semibold text-gray-700 border-b bg-gray-50 rounded-t-lg flex justify-between items-center cursor-move"
-                        draggable 
-                        onDragStart={(e) => handleDragStart(e, coluna, 'column')} 
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, coluna, 'column')}
                         onDragEnd={() => setDraggedItem(null)}
                     >
                         {editingColumnId === coluna.id ? (
@@ -211,22 +212,23 @@ export default function FunilKanban({
                                 onOpenNotesModal={onOpenNotesModal}
                                 availableProducts={availableProducts}
                                 onAssociateProduct={onAssociateProduct}
+                                onAssociateCorretor={onAssociateCorretor}
                                 onCardClick={onCardClick}
                                 onAddActivity={onAddActivity}
                             />
                         ))}
                     </div>
                     <div className="p-2 border-t mt-auto">
-                        <button 
+                        <button
                             onClick={() => onAddContact()}
                             className="w-full text-center text-sm p-2 rounded-md text-gray-600 hover:bg-gray-300 hover:text-gray-800 transition-colors"
                         >
-                            <FontAwesomeIcon icon={faPlus} className="mr-2"/> Adicionar Contato
+                            <FontAwesomeIcon icon={faPlus} className="mr-2" /> Adicionar Contato
                         </button>
                     </div>
                 </div>
             ))}
-            
+
             <AddColumn onCreate={onCreateColumn} />
         </div>
     );

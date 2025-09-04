@@ -1,130 +1,131 @@
-// app/api/crm/route.js
-
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// --- CORREÇÃO APLICADA AQUI ---
-// Agora, o código procura pela variável SUPABASE_SECRET_KEY que você configurou.
-const getSupabaseAdmin = () => createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SECRET_KEY
-);
-
-// --- O RESTANTE DO FICHEIRO CONTINUA IGUAL ---
-
-// Função para lidar com requisições PUT (Atualizar itens existentes)
-async function handlePut(supabase, payload) {
-    // Mover um contato para uma nova coluna
-    if (payload.contatoId && payload.novaColunaId) {
-        const { data, error } = await supabase
-            .from('contatos_no_funil')
-            .update({ coluna_id: payload.novaColunaId, updated_at: new Date().toISOString() })
-            .eq('id', payload.contatoId)
-            .select()
-            .single();
-        if (error) throw new Error("Não foi possível mover o contato: " + error.message);
-        return { success: true, data: data, message: "Contato movido com sucesso!" };
-    }
-
-    // Renomear uma coluna
-    if (payload.columnId && payload.newName) {
-        const { data, error } = await supabase.from('colunas_funil').update({ nome: payload.newName }).eq('id', payload.columnId).select();
-        if (error) throw new Error("Não foi possível atualizar o nome da coluna: " + error.message);
-        return { success: true, data };
-    }
-
-    // Reordenar colunas
-    if (payload.reorderColumns && Array.isArray(payload.reorderColumns)) {
-        const updatePromises = payload.reorderColumns.map(col =>
-            supabase.from('colunas_funil').update({ ordem: col.ordem }).eq('id', col.id)
-        );
-        const results = await Promise.all(updatePromises);
-        const firstError = results.find(res => res.error);
-        if (firstError) throw new Error("Erro ao reordenar uma ou mais colunas: " + firstError.error.message);
-        return { success: true, message: "Ordem das colunas atualizada." };
-    }
-
-    throw new Error("Payload inválido para a operação PUT.");
-}
-
-// ... (As outras funções como GET, POST, DELETE não precisam de alterações, mas são mantidas aqui para a integridade do ficheiro)
+import { createClient } from '@/utils/supabase/server'
+import { NextResponse } from 'next/server'
 
 export async function GET(request) {
-    const supabase = getSupabaseAdmin();
-    try {
-        const { searchParams } = new URL(request.url);
-        const context = searchParams.get('context');
-        const contatoNoFunilId = searchParams.get('contatoNoFunilId');
-        
-        if (context === 'notes' && contatoNoFunilId) {
-            const { data, error } = await supabase.from('crm_notas').select(`*, usuarios(nome, sobrenome)`).eq('contato_no_funil_id', contatoNoFunilId).order('created_at', { ascending: false });
-            if (error) throw new Error(error.message);
-            return NextResponse.json(data);
-        }
-        return new NextResponse(JSON.stringify({ error: "Contexto inválido para GET." }), { status: 400 });
-    } catch (error) {
-        return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
-    }
-}
+  const supabase = createClient()
+  const { searchParams } = new URL(request.url)
+  const funilId = searchParams.get('funil_id')
 
-export async function POST(request) {
-    const supabase = getSupabaseAdmin();
-    try {
-        const payload = await request.json();
-        const { funilId, nomeColuna, contatoIdParaFunil, action, contato_no_funil_id, contato_id, conteudo, usuario_id } = payload;
+  if (!funilId) {
+    return NextResponse.json({ error: 'Funil ID é obrigatório' }, { status: 400 })
+  }
 
-        if (action === 'createNote') {
-            if (!contato_no_funil_id || !contato_id || !conteudo || !usuario_id) { throw new Error("Campos obrigatórios faltando para criar nota."); }
-            const { data, error } = await supabase.from('crm_notas').insert({ contato_no_funil_id, contato_id, conteudo, usuario_id }).select().single();
-            if (error) throw new Error("Não foi possível criar a nota: " + error.message);
-            return NextResponse.json(data);
-        }
-        if (contatoIdParaFunil) {
-            if (!funilId) throw new Error("funilId é obrigatório para adicionar contato.");
-            const { data: primeiraColuna, error: colunaError } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).order('ordem').limit(1).single();
-            if (colunaError || !primeiraColuna) throw new Error("Coluna inicial do funil não encontrada.");
-            const { data: maxNumeroCardData } = await supabase.from('contatos_no_funil').select('numero_card').order('numero_card', { ascending: false }).limit(1).single();
-            const proximoNumeroCard = (maxNumeroCardData?.numero_card || 0) + 1;
-            const { data, error } = await supabase.from('contatos_no_funil').insert({ contato_id: contatoIdParaFunil, coluna_id: primeiraColuna.id, numero_card: proximoNumeroCard }).select().single();
-            if (error) throw new Error("Não foi possível adicionar o contato ao funil: " + error.message);
-            return NextResponse.json(data);
-        }
-        if (nomeColuna) {
-            if (!funilId) throw new Error("funilId é obrigatório para criar coluna.");
-            const { data: maxOrdemData } = await supabase.from('colunas_funil').select('ordem').eq('funil_id', funilId).order('ordem', { ascending: false }).limit(1).single();
-            const novaOrdem = (maxOrdemData?.ordem ?? -1) + 1;
-            const { data, error } = await supabase.from('colunas_funil').insert({ funil_id: funilId, nome: nomeColuna, ordem: novaOrdem }).select().single();
-            if (error) throw new Error("Não foi possível criar a nova coluna: " + error.message);
-            return NextResponse.json(data);
-        }
-        throw new Error("Payload inválido ou ação não reconhecida para a operação POST.");
-    } catch (error) {
-        return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
+  try {
+    const { data, error } = await supabase
+      .from('colunas_funil')
+      .select(`
+        id,
+        nome,
+        ordem,
+        contatos_no_funil (
+          id,
+          updated_at,
+          numero_card,
+          contato:contato_id (
+            id,
+            nome,
+            foto_url,
+            telefones (telefone),
+            emails (email)
+          ),
+          corretor:corretor_id (
+            id,
+            nome,
+            foto_url
+          ),
+          produto:produto_id (
+            id,
+            unidade
+          ),
+          simulacao:simulacao_id (
+            id,
+            valor_venda
+          )
+        )
+      `)
+      .eq('funil_id', funilId)
+      .order('ordem', { ascending: true })
+      .order('updated_at', { foreignTable: 'contatos_no_funil', ascending: false });
+
+    if (error) {
+      console.error('Erro ao buscar colunas e contatos do funil:', error)
+      throw error
     }
+
+    return NextResponse.json(data)
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 }
 
 export async function PUT(request) {
-    const supabase = getSupabaseAdmin();
-    try {
-        const payload = await request.json();
-        const result = await handlePut(supabase, payload);
-        return NextResponse.json(result);
-    } catch (error) {
-        return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
+  const supabase = createClient()
+  const { contatoId, novaColunaId, funilId } = await request.json()
+
+  try {
+    const { data: card, error: fetchError } = await supabase
+      .from('contatos_no_funil')
+      .select('id, coluna_id')
+      .eq('contato_id', contatoId)
+      .single()
+
+    if (fetchError && fetchError.code !== 'PGRST116') { // Ignora erro se o contato não está no funil
+      throw new Error(`Erro ao buscar contato no funil: ${fetchError.message}`)
     }
+
+    if (card) {
+      // Atualiza o card existente
+      const { error: updateError } = await supabase
+        .from('contatos_no_funil')
+        .update({ coluna_id: novaColunaId, updated_at: new Date().toISOString() })
+        .eq('id', card.id)
+      
+      if (updateError) throw new Error(`Erro ao mover contato: ${updateError.message}`)
+    } else {
+      // Adiciona o novo contato ao funil
+      const { error: insertError } = await supabase
+        .from('contatos_no_funil')
+        .insert({
+          contato_id: contatoId,
+          coluna_id: novaColunaId,
+        })
+      
+      if (insertError) throw new Error(`Erro ao adicionar contato: ${insertError.message}`)
+    }
+
+    return NextResponse.json({ message: 'Operação realizada com sucesso!' })
+  } catch (error) {
+    console.error('Erro na operação do funil:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 }
 
-export async function DELETE(request) {
-    const supabase = getSupabaseAdmin();
-    try {
-        const { searchParams } = new URL(request.url);
-        const columnId = searchParams.get('columnId');
-        if (!columnId) throw new Error("ID da coluna é obrigatório para a exclusão.");
-        await supabase.from('contatos_no_funil').delete().eq('coluna_id', columnId);
-        const { error } = await supabase.from('colunas_funil').delete().eq('id', columnId);
-        if (error) throw new Error("Não foi possível deletar a coluna: " + error.message);
-        return NextResponse.json({ success: true, message: "Coluna deletada com sucesso." });
-    } catch (error) {
-        return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
+
+export async function PATCH(request) {
+  const supabase = createClient()
+  const { cardId, corretorId } = await request.json()
+
+  if (!cardId) {
+    return NextResponse.json({ error: 'ID do Card é obrigatório' }, { status: 400 })
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('contatos_no_funil')
+      .update({ 
+        corretor_id: corretorId,
+        updated_at: new Date().toISOString()
+       })
+      .eq('id', cardId)
+      .select()
+
+    if (error) {
+      console.error('Erro ao atualizar corretor:', error)
+      throw error
     }
+
+    return NextResponse.json(data)
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 }
