@@ -26,8 +26,6 @@ async function getOrCreateContato(supabase, contatoInfo, tipo) {
         }
     }
     
-    // CORREÇÃO APLICADA AQUI:
-    // O corretor agora é criado como 'Lead' e seu cargo é definido como 'Corretor'.
     const insertData = {
         nome: nome,
         tipo_contato: 'Lead', // Todos são Leads por padrão
@@ -148,6 +146,7 @@ export async function POST(request) {
                 coluna_id: primeiraColuna.id,
                 simulacao_id: simulacaoSalva.id,
                 produto_id: produtos[0].id,
+                corretor_id: corretorId, // <-- LINHA ADICIONADA AQUI
             });
 
         if (erroFunil && erroFunil.code !== '23505') { 

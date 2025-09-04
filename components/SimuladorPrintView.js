@@ -7,6 +7,12 @@ import { ptBR } from 'date-fns/locale';
 
 const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendimento, contato, corretor, planoProposta }, ref) => {
 
+    // ***** LINHA DE CÓDIGO ADICIONADA *****
+    // Se não houver dados da simulação, não renderiza o componente para evitar erros.
+    if (!simulacao) {
+        return null;
+    }
+
     const formatCurrency = (value) => {
         if (typeof value !== 'number') return 'R$ 0,00';
         return new Intl.NumberFormat('pt-BR', {
@@ -123,6 +129,6 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendiment
     );
 });
 
-SimuladorPrintView.displayName = 'SimuladorPrintView'; // Esta linha foi adicionada
+SimuladorPrintView.displayName = 'SimuladorPrintView';
 
 export default SimuladorPrintView;
