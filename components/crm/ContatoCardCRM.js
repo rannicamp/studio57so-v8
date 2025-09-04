@@ -139,7 +139,9 @@ export default function ContatoCardCRM({
                         <span className="text-sm font-medium text-gray-800">{funilEntry.corretores ? (funilEntry.corretores.nome || funilEntry.corretores.razao_social) : '-- Nenhum --'}</span>
                         <div className='flex items-center gap-2'>
                            {funilEntry.corretor_id && (<button onClick={(e) => { e.stopPropagation(); handleClearCorretor();}} className="text-xs text-red-500 hover:text-red-700"><FontAwesomeIcon icon={faTimes} /></button>)}
-                           <button onClick={(e) => { e.stopPropagation(); setIsEditingCorretor(true); }} className="text-xs font-semibold text-blue-600 hover:text-blue-800">Trocar</button>
+                           <button onClick={(e) => { e.stopPropagation(); setIsEditingCorretor(true); }} className="text-xs font-semibold text-blue-600 hover:text-blue-800">
+                                {funilEntry.corretor_id ? 'Trocar' : 'Adicionar'}
+                           </button>
                         </div>
                     </div>
                 )}
