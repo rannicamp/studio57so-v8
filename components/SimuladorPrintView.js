@@ -1,118 +1,128 @@
 // components/SimuladorPrintView.js
-'use client';
+"use client";
 
 import React from 'react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
-// Funções de formatação
-const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-const formatDateForDisplay = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A';
-const formatPhone = (phone, countryCode) => {
-    if (!phone) return 'Não informado';
-    return `${countryCode} ${phone}`;
-}
+const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendimento, contato, corretor, planoProposta }, ref) => {
 
-
-const SimuladorPrintView = React.forwardRef(({ simulacaoData }, ref) => {
-    if (!simulacaoData || !simulacaoData.resumo) return null;
-
-    const { empreendimento, produtos, cronograma, valorFinal, resumo, cliente, corretor } = simulacaoData;
-    const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE";
+    const formatCurrency = (value) => {
+        if (typeof value !== 'number') return 'R$ 0,00';
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(value);
+    };
 
     return (
-        <div ref={ref} className="p-4 font-sans text-gray-800">
-            <header className="flex justify-between items-center border-b-2 border-gray-300 pb-4 mb-6">
-                <img src={logoUrl} alt="Logo Studio 57" className="h-14 w-auto" />
+        <div ref={ref} className="print-view p-8 bg-white text-gray-800 font-sans">
+            <header className="flex justify-between items-center border-b-2 pb-4">
+                <div className="text-left">
+                    <img src="/logo-studio57.png" alt="Logo Studio 57" className="h-12" />
+                    <p className="text-sm mt-2">CNPJ: 50.850.803/0001-38</p>
+                    <p className="text-sm">Rua Israel Pinheiro, 2380, Centro</p>
+                    <p className="text-sm">Governador Valadares, MG</p>
+                </div>
                 <div className="text-right">
-                    <h2 className="text-xl font-semibold">Simulação de Pagamento</h2>
-                    <p className="text-sm">Data da Simulação: {new Date().toLocaleDateString('pt-BR')}</p>
+                    <h1 className="text-2xl font-bold text-gray-700">Proposta de Compra</h1>
+                    <p className="text-sm mt-2">Data da Proposta: {format(new Date(), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                    <p className="text-sm">Proposta Nº: {simulacao.id}</p>
                 </div>
             </header>
-            
-            <section className="mb-6 grid grid-cols-2 gap-4">
-                <div className="border p-3 rounded-md bg-gray-50 text-sm">
-                    <h3 className="font-bold mb-2 border-b pb-1 text-gray-700">CLIENTE</h3>
-                    <p><strong>Nome:</strong> {cliente?.nome || 'Não informado'}</p>
-                    <p><strong>Telefone:</strong> {formatPhone(cliente?.telefone, cliente?.country_code)}</p>
-                </div>
-                <div className="border p-3 rounded-md bg-gray-50 text-sm">
-                    <h3 className="font-bold mb-2 border-b pb-1 text-gray-700">CORRETOR</h3>
-                    <p><strong>Nome:</strong> {corretor?.nome || 'Não informado'}</p>
-                    <p><strong>Telefone:</strong> {formatPhone(corretor?.telefone, corretor?.country_code)}</p>
-                </div>
-            </section>
 
+            <main className="mt-8">
+                {/* Detalhes do Empreendimento e Produto */}
+                <section className="mb-6">
+                    <h2 className="text-lg font-semibold border-b pb-2 mb-3">Detalhes do Imóvel</h2>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div><strong>Empreendimento:</strong> {empreendimento?.nome || 'N/A'}</div>
+                        <div><strong>Unidade:</strong> {produto?.unidade || 'N/A'}</div>
+                        <div><strong>Tipo:</strong> {produto?.tipo || 'N/A'}</div>
+                        <div><strong>Área:</strong> {produto?.area_m2 ? `${produto.area_m2} m²` : 'N/A'}</div>
+                    </div>
+                </section>
 
-            <section className="mb-6 border p-4 rounded-md bg-gray-50">
-                <h3 className="font-bold mb-2 border-b pb-1 text-gray-700">IMÓVEL DE INTERESSE</h3>
-                <p><strong>Empreendimento:</strong> {empreendimento?.nome}</p>
-                <div>
-                    <strong>Unidades:</strong>
-                    {produtos && produtos.length > 0 ? (
-                        <ul className="list-disc pl-5">
-                            {produtos.map(p => (
-                                <li key={p.id}>{p.unidade} ({p.tipo}) - {formatCurrency(p.valor_venda_calculado)}</li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p>Nenhuma unidade selecionada.</p>
-                    )}
-                </div>
-            </section>
+                {/* Detalhes do Cliente */}
+                <section className="mb-6">
+                    <h2 className="text-lg font-semibold border-b pb-2 mb-3">Dados do Proponente</h2>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div><strong>Nome:</strong> {contato?.nome || contato?.razao_social || 'N/A'}</div>
+                        <div><strong>CPF/CNPJ:</strong> {contato?.cpf || contato?.cnpj || 'N/A'}</div>
+                        <div><strong>Email:</strong> {contato?.emails?.[0]?.email || 'N/A'}</div>
+                        <div><strong>Telefone:</strong> {contato?.telefones?.[0]?.telefone || 'N/A'}</div>
+                    </div>
+                </section>
 
-            <section className="mb-6">
-                 <h3 className="text-lg font-bold mb-2">RESUMO DA PROPOSTA</h3>
-                <div className="p-4 border rounded-md space-y-2 text-base">
-                    <div className="flex justify-between items-center"><span className="text-gray-600">Valor Base Total:</span><span className="font-semibold text-blue-700">{formatCurrency(resumo.valorBase)}</span></div>
-                    <div className="flex justify-between items-center"><span className="text-gray-600">Desconto ({resumo.descontoPercentual.toFixed(2)}%):</span><span className="font-semibold text-red-600">{formatCurrency(resumo.descontoValor)}</span></div>
-                    <div className="flex justify-between items-center border-t pt-2 mt-2"><span className="font-bold text-gray-800">Valor Final (c/ Desc.):</span><span className="font-bold text-green-700 text-lg">{formatCurrency(resumo.valorFinal)}</span></div>
-                    <hr className="my-3"/>
-                    <div className="flex justify-between items-center"><span className="text-gray-600">Entrada ({resumo.entradaPercentual.toFixed(2)}%):</span><span className="font-semibold">{resumo.entradaNumParcelas}x de {formatCurrency(resumo.entradaValorParcela)}</span></div>
-                    <div className="flex justify-between items-center"><span className="text-gray-600">Parcelas Obra ({resumo.obraPercentual.toFixed(2)}%):</span><span className="font-semibold">{resumo.obraNumParcelas}x de {formatCurrency(resumo.obraValorParcela)}</span></div>
-                    {resumo.totalIntermediarias > 0 && (
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-600">Intermediárias:</span>
-                            <span className="font-semibold">{formatCurrency(resumo.totalIntermediarias)}</span>
+                {/* Resumo Financeiro */}
+                <section className="mb-6">
+                    <h2 className="text-lg font-semibold border-b pb-2 mb-3">Resumo da Proposta Financeira</h2>
+                    <div className="bg-gray-50 p-4 rounded-lg grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                        <div className="font-semibold">Valor do Imóvel:</div>
+                        <div className="text-right">{formatCurrency(simulacao.valor_venda)}</div>
+                        
+                        <div className="font-semibold">Desconto:</div>
+                        <div className="text-right text-green-600">
+                          {formatCurrency(simulacao.desconto_valor)} ({simulacao.desconto_percentual}%)
                         </div>
-                    )}
-                    <div className="flex justify-between items-center"><span className="text-gray-600">Saldo Rem. ({resumo.saldoRemPercentual.toFixed(2)}%):</span><span className="font-semibold">{formatCurrency(resumo.saldoRemanescente)}</span></div>
-                    <div className="flex justify-between items-center text-sm text-gray-500 border-t pt-2 mt-2"><span className="font-semibold">Mês/Ano Última Parc. Obra:</span><span>{resumo.mesAnoUltimaParcelaObra}</span></div>
-                </div>
-            </section>
 
-            <section>
-                <h3 className="text-lg font-bold mb-2">CRONOGRAMA DETALHADO</h3>
-                <table className="w-full text-xs border-collapse border">
-                    <thead className="bg-gray-100">
-                        <tr>
-                            <th className="border p-2 text-left">Descrição</th>
-                            <th className="border p-2 text-left">Vencimento</th>
-                            <th className="border p-2 text-right">Valor (R$)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {cronograma.map((p) => (
-                            <tr key={p.id}>
-                                <td className="border p-2">{p.descricao}</td>
-                                <td className="border p-2">{formatDateForDisplay(p.data_vencimento)}</td>
-                                <td className="border p-2 text-right font-medium">{formatCurrency(p.valor_parcela)}</td>
+                        <div className="font-bold text-base border-t pt-2">Valor Final da Proposta:</div>
+                        <div className="text-right font-bold text-base border-t pt-2">
+                          {formatCurrency(simulacao.valor_venda - simulacao.desconto_valor)}
+                        </div>
+                    </div>
+                </section>
+
+                {/* Plano de Pagamento */}
+                <section>
+                    <h2 className="text-lg font-semibold border-b pb-2 mb-3">Plano de Pagamento Detalhado</h2>
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-100">
+                            <tr>
+                                <th className="p-2">Descrição</th>
+                                <th className="p-2 text-center">Parcela Nº</th>
+                                <th className="p-2 text-right">Vencimento</th>
+                                <th className="p-2 text-right">Valor (R$)</th>
                             </tr>
-                        ))}
-                    </tbody>
-                    <tfoot className="bg-gray-200 font-bold">
-                        <tr>
-                            <td colSpan="2" className="border p-2 text-right">VALOR TOTAL A PAGAR:</td>
-                            <td className="border p-2 text-right">{formatCurrency(valorFinal)}</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </section>
+                        </thead>
+                        <tbody>
+                            {planoProposta.map((parcela, index) => (
+                                <tr key={index} className="border-b">
+                                    <td className="p-2">{parcela.descricao}</td>
+                                    <td className="p-2 text-center">{parcela.numero}</td>
+                                    <td className="p-2 text-right">{parcela.vencimento}</td>
+                                    <td className="p-2 text-right">{parcela.valor}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </section>
 
-            <footer className="mt-8 pt-4 border-t text-center text-xs text-gray-500">
-                <p>Esta é uma simulação e não representa um documento de contrato. Os valores e condições estão sujeitos a alterações e aprovação.</p>
-                <p>Studio 57 © {new Date().getFullYear()}</p>
+                {/* Observações e Assinaturas */}
+                <section className="mt-12 text-sm">
+                    <p className="mb-4">
+                        <strong>Observações:</strong> Esta proposta é válida por 7 dias a contar da data de emissão. Os valores serão corrigidos pelo CUB/SINDUSCON-MG até a entrega das chaves e, após, pelo IPCA + 1% ao mês.
+                    </p>
+                    <div className="mt-16 grid grid-cols-2 gap-16 text-center">
+                        <div>
+                            <p className="border-t pt-2">Assinatura do Proponente</p>
+                            <p className="mt-1">{contato?.nome || contato?.razao_social}</p>
+                        </div>
+                        <div>
+                            <p className="border-t pt-2">Assinatura do Corretor</p>
+                            <p className="mt-1">{corretor?.nome || 'N/A'}</p>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <footer className="text-center text-xs text-gray-500 mt-12 pt-4 border-t">
+                Studio 57 - Soluções Imobiliárias Inteligentes
             </footer>
         </div>
     );
 });
+
+SimuladorPrintView.displayName = 'SimuladorPrintView'; // Esta linha foi adicionada
 
 export default SimuladorPrintView;
