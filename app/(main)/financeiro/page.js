@@ -49,62 +49,6 @@ export default function FinanceiroPage() {
     
     useEffect(() => { if (!authLoading && !canViewPage) { router.push('/'); } }, [authLoading, canViewPage, router]);
 
-    // ***** CORREÇÃO *****
-    // O useEffect problemático foi removido daqui. A lógica foi movida para dentro
-    // das funções que buscam os dados para garantir que a data seja calculada no momento exato da busca.
-
-    const applyFiltersToQuery = useCallback((query, currentFilters) => {
-        if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
-        
-        // Lógica de filtro de data refeita para ser 100% precisa.
-        if (currentFilters.startDate && currentFilters.endDate) {
-            const pagoInRange = `and(status.eq.Pago,data_pagamento.gte.${currentFilters.startDate},data_pagamento.lte.${currentFilters.endDate})`;
-            const pendenteInRange = `and(status.neq.Pago,data_vencimento.gte.${currentFilters.startDate},data_vencimento.lte.${currentFilters.endDate})`;
-            query = query.or(`${pagoInRange},${pendenteInRange}`);
-        }
-
-        if (currentFilters.empresaIds?.length > 0) query = query.in('empresa_id', currentFilters.empresaIds);
-        if (currentFilters.contaIds?.length > 0) { query = query.or(`conta_id.in.(${currentFilters.contaIds.join(',')}),conta_destino_id.in.(${currentFilters.contaIds.join(',')})`); }
-        if (currentFilters.categoriaIds?.length > 0) query = query.in('categoria_id', currentFilters.categoriaIds);
-        if (currentFilters.empreendimentoIds?.length > 0) query = query.in('empreendimento_id', currentFilters.empreendimentoIds);
-        if (currentFilters.etapaIds?.length > 0) query = query.in('etapa_id', currentFilters.etapaIds);
-        if (currentFilters.favorecidoId) query = query.eq('favorecido_contato_id', currentFilters.favorecidoId);
-        
-        if (currentFilters.status?.length > 0) {
-            const today = new Date().toISOString().split('T')[0];
-            const orConditions = [];
-            
-            const hasPago = currentFilters.status.includes('Pago');
-            const hasPendente = currentFilters.status.includes('Pendente');
-            const hasAtrasada = currentFilters.status.includes('Atrasada');
-            const hasAReceber = currentFilters.status.includes('A Receber');
-            const otherStatus = currentFilters.status.filter(s => !['Pago', 'Pendente', 'Atrasada', 'A Receber'].includes(s));
-            
-            if(otherStatus.length > 0) {
-                 orConditions.push(`status.in.(${otherStatus.join(',')})`);
-            }
-            if(hasPago) orConditions.push(`status.eq.Pago`);
-            if (hasPendente) {
-                orConditions.push(`and(status.eq.Pendente,tipo.eq.Despesa,data_vencimento.gte.${today})`);
-            }
-            if (hasAtrasada) {
-                orConditions.push(`and(status.eq.Pendente,data_vencimento.lt.${today})`);
-            }
-            if (hasAReceber) {
-                orConditions.push(`and(tipo.eq.Receita,status.eq.Pendente,data_vencimento.gte.${today})`);
-            }
-            
-            if (orConditions.length > 0) {
-                query = query.or(orConditions.join(','));
-            }
-        }
-
-        if (currentFilters.tipo?.length > 0) { query = query.in('tipo', currentFilters.tipo); }
-        return query;
-    }, []);
-
-    // ***** INÍCIO DA CORREÇÃO *****
-    // A função getCorrectedFilters agora calcula as datas antes de cada busca.
     const getCorrectedFilters = (currentFilters) => {
         const { month, year } = currentFilters;
         let corrected = { ...currentFilters };
@@ -120,12 +64,56 @@ export default function FinanceiroPage() {
         return corrected;
     };
 
+    const applyFiltersToQuery = useCallback((query, currentFilters) => {
+        if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
+        
+        if (currentFilters.startDate && currentFilters.endDate) {
+            const pagoInRange = `and(status.eq.Pago,data_pagamento.gte.${currentFilters.startDate},data_pagamento.lte.${currentFilters.endDate})`;
+            const pendenteInRange = `and(status.neq.Pago,data_vencimento.gte.${currentFilters.startDate},data_vencimento.lte.${currentFilters.endDate})`;
+            query = query.or(`${pagoInRange},${pendenteInRange}`);
+        }
+
+        if (currentFilters.empresaIds?.length > 0) query = query.in('empresa_id', currentFilters.empresaIds);
+        if (currentFilters.contaIds?.length > 0) { query = query.in('conta_id', currentFilters.contaIds); }
+        if (currentFilters.categoriaIds?.length > 0) query = query.in('categoria_id', currentFilters.categoriaIds);
+        if (currentFilters.empreendimentoIds?.length > 0) query = query.in('empreendimento_id', currentFilters.empreendimentoIds);
+        if (currentFilters.etapaIds?.length > 0) query = query.in('etapa_id', currentFilters.etapaIds);
+        if (currentFilters.favorecidoId) query = query.eq('favorecido_contato_id', currentFilters.favorecidoId);
+        
+        if (currentFilters.status?.length > 0) {
+            const today = new Date().toISOString().split('T')[0];
+            const orConditions = [];
+            const hasPago = currentFilters.status.includes('Pago');
+            const hasPendente = currentFilters.status.includes('Pendente');
+            const hasAtrasada = currentFilters.status.includes('Atrasada');
+            const hasAReceber = currentFilters.status.includes('A Receber');
+            const otherStatus = currentFilters.status.filter(s => !['Pago', 'Pendente', 'Atrasada', 'A Receber'].includes(s));
+            if(otherStatus.length > 0) { orConditions.push(`status.in.(${otherStatus.join(',')})`); }
+            if(hasPago) orConditions.push(`status.eq.Pago`);
+            if (hasPendente) { orConditions.push(`and(status.eq.Pendente,tipo.eq.Despesa,data_vencimento.gte.${today})`); }
+            if (hasAtrasada) { orConditions.push(`and(status.eq.Pendente,data_vencimento.lt.${today})`); }
+            if (hasAReceber) { orConditions.push(`and(tipo.eq.Receita,status.eq.Pendente,data_vencimento.gte.${today})`); }
+            if (orConditions.length > 0) { query = query.or(orConditions.join(',')); }
+        }
+
+        if (currentFilters.tipo?.length > 0) { query = query.in('tipo', currentFilters.tipo); }
+        return query;
+    }, []);
+
     const fetchLancamentos = useCallback(async () => {
         setLoading(true);
         const correctedFilters = getCorrectedFilters(filters);
         const from = (currentPage - 1) * itemsPerPage;
         const to = from + itemsPerPage - 1;
-        const selectString = `*, data_pagamento, conta:contas_financeiras!conta_id(*, empresa:cadastro_empresa!empresa_id(id, nome_fantasia, razao_social)), conta_destino:contas_financeiras!conta_destino_id(id, nome), categoria:categorias_financeiras(*), favorecido:contatos!favorecido_contato_id(*), empreendimento:empreendimentos(*, empresa:cadastro_empresa!empresa_proprietaria_id(id, nome_fantasia, razao_social)), anexos:lancamentos_anexos(*)`;
+        const selectString = `
+            *, 
+            data_pagamento, 
+            conta:contas_financeiras!conta_id(*, empresa:cadastro_empresa!empresa_id(id, nome_fantasia, razao_social)), 
+            categoria:categorias_financeiras(*), 
+            favorecido:contatos!favorecido_contato_id(*), 
+            empreendimento:empreendimentos(*, empresa:cadastro_empresa!empresa_proprietaria_id(id, nome_fantasia, razao_social)), 
+            anexos:lancamentos_anexos(*)
+        `;
         let query = supabase.from('lancamentos').select(selectString, { count: 'exact' }).order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' }).range(from, to);
         query = applyFiltersToQuery(query, correctedFilters);
         const { data, error, count } = await query;
@@ -142,7 +130,6 @@ export default function FinanceiroPage() {
         if (error) { console.error("Erro ao buscar dados para KPI:", error); } 
         else { setLancamentosFiltradosKpi(data || []); }
     }, [filters, supabase, applyFiltersToQuery]);
-    // ***** FIM DA CORREÇÃO *****
     
     const fetchTodosLancamentosParaSaldos = useCallback(async (listaDeContas) => {
         if (!listaDeContas || listaDeContas.length === 0) {
@@ -152,7 +139,7 @@ export default function FinanceiroPage() {
         const empresaIds = [...new Set(listaDeContas.map(c => c.empresa_id).filter(Boolean))];
         let query = supabase
             .from('lancamentos')
-            .select('valor, tipo, status, conciliado, conta_id, conta_destino_id')
+            .select('valor, tipo, status, conciliado, conta_id')
             .or('status.eq.Pago,conciliado.eq.true');
             
         if (empresaIds.length > 0) {
@@ -211,7 +198,6 @@ export default function FinanceiroPage() {
                     <Link href="/financeiro/categorias" className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faSitemap} /> Categorias</Link>
                     <Link href="/financeiro/conciliacao" className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faHandshake} /> Conciliação</Link>
                     <Link href="/financeiro/auditoria" title="Painel de Auditoria" className="text-gray-400 hover:text-orange-500"><FontAwesomeIcon icon={faShieldAlt} /></Link> 
-                    <Link href="/financeiro/transferencias" className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 flex items-center gap-2 uppercase text-xs">Identificar Transferências</Link> 
                     <Link href="/financeiro/kpi-builder" className="bg-cyan-500 text-white px-4 py-2 rounded-md hover:bg-cyan-600 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faCalculator} /> KPIs</Link> 
                     <Link href="/configuracoes/financeiro/importar" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faCogs} /> Assistente</Link> 
                     {canCreate && (<button onClick={handleOpenAddModal} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faPlus} /> Novo Lançamento</button>)}
@@ -230,7 +216,7 @@ export default function FinanceiroPage() {
             {message && <p className={`text-center p-2 rounded-md text-sm uppercase font-semibold ${message.includes('ERRO') || message.includes('Falha') ? 'bg-red-100 text-red-800' : 'bg-blue-50 text-blue-800'}`}>{message}</p>}
             
             <div className="mt-4">
-                {activeTab === 'extrato' && <ExtratoManager contas={contas} />}
+                {activeTab === 'extrato' && <ExtratoManager contas={contas} onEdit={handleOpenEditModal} />}
                 
                 {activeTab === 'lancamentos' && (
                     <LancamentosManager 

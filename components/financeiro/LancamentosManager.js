@@ -109,51 +109,27 @@ export default function LancamentosManager({
         return contato ? (contato.nome || contato.razao_social) : '';
     }, [filters.favorecidoId, allContacts]);
 
-
-    const lancamentosParaExibir = useMemo(() => {
-        const listaExibicao = [];
-        lancamentos.forEach(item => {
-            if (item.tipo === 'Transferência') {
-                listaExibicao.push({
-                    ...item,
-                    tipo_exibicao: 'Despesa',
-                    descricao_exibicao: `Transferência para: ${item.conta_destino?.nome || 'N/A'}`,
-                    conta_exibicao: item.conta,
-                    is_transfer_part: true,
-                    unique_key: `${item.id}_saida`
-                });
-                listaExibicao.push({
-                    ...item,
-                    tipo_exibicao: 'Receita',
-                    descricao_exibicao: `Transferência de: ${item.conta?.nome || 'N/A'}`,
-                    conta_exibicao: item.conta_destino,
-                    is_transfer_part: true,
-                    unique_key: `${item.id}_entrada`
-                });
-            } else {
-                listaExibicao.push({
-                    ...item,
-                    tipo_exibicao: item.tipo,
-                    descricao_exibicao: item.descricao,
-                    conta_exibicao: item.conta,
-                    is_transfer_part: false,
-                    unique_key: item.id
-                });
-            }
-        });
-        return listaExibicao;
-    }, [lancamentos]);
-
+    // ***** INÍCIO DA CORREÇÃO *****
+    // Lógica de `lancamentosParaExibir` removida. Agora usamos `lancamentos` diretamente.
+    // Lógica de `kpiData` simplificada.
     const kpiData = useMemo(() => {
-        let totalReceitas = 0; let totalDespesas = 0;
+        let totalReceitas = 0;
+        let totalDespesas = 0;
+        
+        // A lógica agora é simples: apenas some o que é receita e o que é despesa.
         (allLancamentosKpi || []).forEach(l => {
             const valor = l.valor || 0;
-            if (l.tipo === 'Receita') { totalReceitas += valor; } 
-            else if (l.tipo === 'Despesa') { totalDespesas += valor; }
+            if (l.tipo === 'Receita') {
+                totalReceitas += valor;
+            } else if (l.tipo === 'Despesa') {
+                totalDespesas += valor;
+            }
         });
+            
         const resultado = totalReceitas - totalDespesas;
         return { totalReceitas, totalDespesas, resultado };
     }, [allLancamentosKpi]);
+    // ***** FIM DA CORREÇÃO *****
 
     const handleAnalyzeClick = async () => {
         setIsAnalysisModalOpen(true); setIsAnalyzing(true); setAnalysisResult('');
@@ -266,10 +242,8 @@ export default function LancamentosManager({
 
     const handleBatchUpdateField = (field, value) => { setIsBatchUpdateModalOpen(false); if(!field || !value) { alert("Por favor, selecione um campo e um valor."); return; } const updateObject = { [field]: value }; if(field === 'status' && value === 'Pago'){ updateObject.data_pagamento = new Date().toISOString(); } handleBulkUpdate(updateObject); };
     
-    // ***** INÍCIO DA CORREÇÃO *****
-    // A lógica agora inclui a verificação do status 'Conciliado'
+    // Lógica de status simplificada, não existe mais o tipo 'Transferência'
     const getPaymentStatus = (item) => {
-        if (item.tipo === 'Transferência') return { text: 'Realizada', className: 'bg-blue-100 text-blue-800' };
         if (item.status === 'Pago' || item.status === 'Conciliado' || item.conciliado) return { text: 'Paga', className: 'bg-green-100 text-green-800' };
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -277,7 +251,6 @@ export default function LancamentosManager({
         if (dueDate < today) return { text: 'Atrasada', className: 'bg-red-100 text-red-800' };
         return { text: 'A Pagar', className: 'bg-yellow-100 text-yellow-800' };
     };
-    // ***** FIM DA CORREÇÃO *****
 
     const formatCurrency = (value, tipo) => { const signal = tipo === 'Receita' ? '+' : (tipo === 'Despesa' ? '-' : ''); return `${signal} ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Math.abs(value || 0))}`; };
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A';
@@ -302,7 +275,6 @@ export default function LancamentosManager({
                         <span className="text-sm font-semibold text-gray-700">Filtrar por Natureza:</span>
                         <button onClick={() => handleNatureFilterClick('Receita')} className={`text-sm border px-4 py-2 rounded-md flex items-center gap-2 ${filters.tipo?.includes('Receita') ? 'bg-green-600 text-white border-green-700' : 'bg-white hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faArrowUp}/> Receitas </button>
                         <button onClick={() => handleNatureFilterClick('Despesa')} className={`text-sm border px-4 py-2 rounded-md flex items-center gap-2 ${filters.tipo?.includes('Despesa') ? 'bg-red-600 text-white border-red-700' : 'bg-white hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faArrowDown}/> Despesas </button>
-                        <button onClick={() => handleNatureFilterClick('Transferência')} className={`text-sm border px-4 py-2 rounded-md flex items-center gap-2 ${filters.tipo?.includes('Transferência') ? 'bg-yellow-500 text-white border-yellow-600' : 'bg-white hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faExchangeAlt}/> Transferências </button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                         <div className="w-full">
@@ -351,7 +323,7 @@ export default function LancamentosManager({
             </div>
 
             <div className="flex justify-between items-center bg-white p-4 border rounded-lg shadow-sm">
-                <span className="text-sm text-gray-700"> Mostrando <strong>{lancamentosParaExibir.length}</strong> de <strong>{totalCount}</strong> lançamentos </span>
+                <span className="text-sm text-gray-700"> Mostrando <strong>{lancamentos.length}</strong> de <strong>{totalCount}</strong> lançamentos </span>
                 <div className="flex items-center gap-2">
                     <button onClick={handleAnalyzeClick} disabled={loading || isAnalyzing} className="bg-purple-600 text-white px-4 py-2 rounded-md flex items-center gap-2 text-sm disabled:bg-gray-400">
                         <FontAwesomeIcon icon={isAnalyzing ? faSpinner : faRobot} spin={isAnalyzing} />
@@ -400,12 +372,11 @@ export default function LancamentosManager({
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {lancamentosParaExibir.length > 0 ? lancamentosParaExibir.map(item => {
+                            {lancamentos.length > 0 ? lancamentos.map(item => {
                                 const statusInfo = getPaymentStatus(item);
                                 const isPending = item.status === 'Pendente' && !item.conciliado;
-                                const isTransfer = item.tipo === 'Transferência';
-                                const isTransferEntry = item.unique_key?.toString().includes('_entrada');
-                                const nomeEmpresa = item.conta_exibicao?.empresa?.nome_fantasia || item.conta_exibicao?.empresa?.razao_social || 'N/A';
+                                const isTransfer = !!item.transferencia_id; // Verifica se é parte de uma transferência
+                                const nomeEmpresa = item.conta?.empresa?.nome_fantasia || item.conta?.empresa?.razao_social || 'N/A';
                                 let displayDate = item.data_transacao;
                                 let dateLabel = 'Data da Transação';
                                 let dateClass = '';
@@ -422,53 +393,38 @@ export default function LancamentosManager({
                                 }
 
                                 return (
-                                    <tr key={item.unique_key} className={`${selectedIds.has(item.id) ? 'bg-blue-100' : ''} ${isTransferEntry ? 'bg-gray-50' : 'hover:bg-gray-50'}`}>
+                                    <tr key={item.id} className={`${selectedIds.has(item.id) ? 'bg-blue-100' : ''} ${isTransfer ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}>
                                         <td className="p-4">
                                             <input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} />
                                         </td>
                                         <td className={`px-4 py-2 whitespace-nowrap ${dateClass}`} title={dateLabel}>
                                             {formatDate(displayDate)}
                                         </td>
-                                        <td className="px-4 py-2 font-medium">{item.descricao_exibicao}</td>
-                                        <td className="px-4 py-2 text-gray-600">{item.conta_exibicao?.nome || 'N/A'}</td>
+                                        <td className="px-4 py-2 font-medium">{item.descricao}</td>
+                                        <td className="px-4 py-2 text-gray-600">{item.conta?.nome || 'N/A'}</td>
                                         <td className="px-4 py-2 text-gray-600 uppercase">{nomeEmpresa}</td>
                                         <td className="px-4 py-2 text-gray-600">{item.categoria?.nome || 'N/A'}</td>
                                         <td className="px-4 py-2 text-center text-green-500">
                                             {item.conciliado && <FontAwesomeIcon icon={faCheckCircle} title="Conciliado com o extrato bancário" />}
                                         </td>
-                                        <td className={`px-4 py-2 text-right font-bold ${item.tipo_exibicao === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>
-                                            {formatCurrency(item.valor, item.tipo_exibicao)}
+                                        <td className={`px-4 py-2 text-right font-bold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>
+                                            {formatCurrency(item.valor, item.tipo)}
                                         </td>
                                         <td className="px-4 py-2 text-center text-xs">
-                                            {editingCell === item.unique_key && !isTransfer ? (
-                                                <select
-                                                    defaultValue={item.status}
-                                                    onBlur={(e) => handleStatusUpdate(item.id, e.target.value)}
-                                                    onChange={(e) => handleStatusUpdate(item.id, e.target.value)}
-                                                    autoFocus
-                                                    className="p-1 border rounded-md text-xs"
-                                                >
-                                                    <option value="Pendente">Pendente</option>
-                                                    <option value="Pago">Pago</option>
-                                                </select>
-                                            ) : (
-                                                <span onClick={() => !isTransfer && setEditingCell(item.unique_key)} className={`px-2 py-1 font-semibold leading-tight rounded-full ${statusInfo.className} ${!isTransfer ? 'cursor-pointer hover:ring-2 hover:ring-blue-300' : ''}`}>
-                                                    {statusInfo.text.toUpperCase()}
-                                                </span>
-                                            )}
+                                            <span onClick={() => setEditingCell(item.id)} className={`px-2 py-1 font-semibold leading-tight rounded-full ${statusInfo.className} cursor-pointer hover:ring-2 hover:ring-blue-300`}>
+                                                {statusInfo.text.toUpperCase()}
+                                            </span>
                                         </td>
                                         <td className="px-4 py-2 text-center">
-                                            {!isTransferEntry && (
-                                                <div className="flex items-center justify-center gap-3">
-                                                    {isPending && (
-                                                        <button onClick={() => handleMarkAsPaid(item.id)} className="text-green-500 hover:text-green-700" title="Marcar como Pago">
-                                                            <FontAwesomeIcon icon={faDollarSign} />
-                                                        </button>
-                                                    )}
-                                                    <button onClick={() => onEdit(item)} className="text-blue-500 hover:text-blue-700" title="Editar Completo"><FontAwesomeIcon icon={faPenToSquare} /></button>
-                                                    <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
-                                                </div>
-                                            )}
+                                            <div className="flex items-center justify-center gap-3">
+                                                {isPending && (
+                                                    <button onClick={() => handleMarkAsPaid(item.id)} className="text-green-500 hover:text-green-700" title="Marcar como Pago">
+                                                        <FontAwesomeIcon icon={faDollarSign} />
+                                                    </button>
+                                                )}
+                                                <button onClick={() => onEdit(item)} className="text-blue-500 hover:text-blue-700" title="Editar Completo"><FontAwesomeIcon icon={faPenToSquare} /></button>
+                                                <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
+                                            </div>
                                         </td>
                                     </tr>
                                 );

@@ -1,43 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faCopy, faExclamationTriangle, faTrash, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faExclamationTriangle, faTrash } from '@fortawesome/free-solid-svg-icons';
 
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-const formatDate = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR') : 'N/A';
-
-const DuplicateGroup = ({ group, onDelete }) => {
-    return (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <div className="pb-2 mb-2 border-b">
-                <p className="font-bold text-gray-800">{group[0].descricao}</p>
-                <p className="text-sm text-gray-600">
-                    Valor: <span className="font-semibold">{formatCurrency(group[0].valor)}</span> | 
-                    Data: <span className="font-semibold">{formatDate(group[0].data_transacao)}</span>
-                </p>
-            </div>
-            <div className="space-y-2">
-                {group.map(item => (
-                    <div key={item.id} className="flex justify-between items-center p-2 bg-white rounded-md shadow-sm">
-                        <div>
-                            <span className="text-xs text-gray-500">ID: {item.id}</span>
-                            {/* ***** CORREÇÃO ***** Acessando o nome da conta corretamente */}
-                            <p className="text-sm">Conta: <span className="font-medium">{item.contas_financeiras?.nome || 'N/A'}</span></p>
-                        </div>
-                        <button 
-                            onClick={() => onDelete(item.id)}
-                            className="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold hover:bg-red-600"
-                            title="Excluir este lançamento"
-                        >
-                            <FontAwesomeIcon icon={faTrash} /> Excluir
-                        </button>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
+const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr + 'T00:00:00Z');
+    return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 };
 
 export default function AuditoriaFinanceira() {
@@ -52,7 +24,6 @@ export default function AuditoriaFinanceira() {
         setLoading(true);
         setMessage('');
         
-        // ***** CORREÇÃO ***** Adicionamos a sintaxe específica !conta_id para resolver a ambiguidade
         const { data, error } = await supabase.rpc('encontrar_lancamentos_duplicados');
 
         if (error) {
@@ -113,17 +84,55 @@ export default function AuditoriaFinanceira() {
                                 <FontAwesomeIcon icon={faExclamationTriangle} className="mt-1"/>
                                 <div>
                                     <h4 className="font-bold">Atenção</h4>
-                                    <p>Abaixo estão os grupos de lançamentos com a mesma descrição, valor e data. Revise cada um com cuidado antes de excluir.</p>
+                                    <p>Abaixo estão os grupos de lançamentos com os mesmos dados. Revise cada um com cuidado antes de excluir.</p>
                                 </div>
                             </div>
                             {duplicateGroups.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                    {duplicateGroups.map(group => (
-                                        <DuplicateGroup key={group[0].chave_duplicata} group={group} onDelete={handleDeleteLancamento} />
-                                    ))}
+                                <div className="overflow-x-auto border rounded-lg">
+                                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                        <thead className="bg-gray-100">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left font-bold uppercase">Data</th>
+                                                <th className="px-4 py-3 text-left font-bold uppercase">Descrição</th>
+                                                <th className="px-4 py-3 text-left font-bold uppercase">Favorecido</th>
+                                                <th className="px-4 py-3 text-left font-bold uppercase">Conta</th>
+                                                <th className="px-4 py-3 text-right font-bold uppercase">Valor</th>
+                                                <th className="px-4 py-3 text-center font-bold uppercase">Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {duplicateGroups.map((group, groupIndex) => (
+                                                <Fragment key={group[0].chave_duplicata}>
+                                                    {group.map((item, itemIndex) => {
+                                                        const valorCor = item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600';
+                                                        const favorecidoNome = item.favorecido_contatos?.nome || item.favorecido_contatos?.razao_social || 'N/A';
+                                                        
+                                                        return (
+                                                            <tr key={item.id} className={itemIndex === 0 ? 'border-t-4 border-blue-200' : ''}>
+                                                                <td className="px-4 py-2">{formatDate(item.data_transacao)}</td>
+                                                                <td className="px-4 py-2">{item.descricao}</td>
+                                                                <td className="px-4 py-2 text-gray-600">{favorecidoNome}</td>
+                                                                <td className="px-4 py-2 text-gray-600">{item.contas_financeiras?.nome || 'N/A'}</td>
+                                                                <td className={`px-4 py-2 text-right font-semibold ${valorCor}`}>{formatCurrency(item.valor)}</td>
+                                                                <td className="px-4 py-2 text-center">
+                                                                    <button
+                                                                        onClick={() => handleDeleteLancamento(item.id)}
+                                                                        className="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold hover:bg-red-600"
+                                                                        title="Excluir este lançamento"
+                                                                    >
+                                                                        <FontAwesomeIcon icon={faTrash} />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </Fragment>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             ) : (
-                                <p className="text-center py-10 text-gray-500">Nenhum lançamento duplicado encontrado!</p>
+                                <p className="text-center py-10 text-gray-500">Nenhum lançamento duplicado encontrado com os novos critérios!</p>
                             )}
                         </div>
                     )}

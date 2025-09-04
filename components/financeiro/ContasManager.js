@@ -18,6 +18,8 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
         setContas(initialContas || []);
     }, [initialContas]);
 
+    // ***** INÍCIO DA CORREÇÃO *****
+    // Lógica de cálculo de saldo simplificada para o novo modelo de dados
     const contasComSaldoAtual = useMemo(() => {
         if (!contas || !contas.length) return [];
 
@@ -25,22 +27,16 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
             const saldoInicial = parseFloat(conta.saldo_inicial) || 0;
             
             const totalLancamentos = (allLancamentos || [])
-                .filter(l => (l.conta_id === conta.id || l.conta_destino_id === conta.id))
+                .filter(l => l.conta_id === conta.id) // Apenas filtramos pela conta_id agora
                 .reduce((acc, lancamento) => {
                     const valor = parseFloat(lancamento.valor) || 0;
                     
-                    switch (lancamento.tipo) {
-                        case 'Receita':
-                            return lancamento.conta_id === conta.id ? acc + valor : acc;
-                        case 'Despesa':
-                            return lancamento.conta_id === conta.id ? acc - valor : acc;
-                        case 'Transferência':
-                            if (lancamento.conta_destino_id === conta.id) return acc + valor;
-                            if (lancamento.conta_id === conta.id) return acc - valor;
-                            return acc;
-                        default:
-                            return acc;
+                    if (lancamento.tipo === 'Receita') {
+                        return acc + valor;
+                    } else if (lancamento.tipo === 'Despesa') {
+                        return acc - valor;
                     }
+                    return acc;
                 }, 0);
             
             return {
@@ -49,6 +45,7 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
             };
         });
     }, [contas, allLancamentos]);
+    // ***** FIM DA CORREÇÃO *****
     
     const handleSaveConta = async (formData) => {
         setMessage('Salvando...'); 

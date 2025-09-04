@@ -6,17 +6,23 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faFilter, faCalendarDay, faCalendarWeek, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 import MultiSelectDropdown from './MultiSelectDropdown';
 
-// Funções de formatação
+// --- INÍCIO DA CORREÇÃO ---
+// Função de formatação ajustada para usar o fuso horário UTC
 const formatCurrency = (value) => {
     if (value === null || value === undefined || isNaN(value)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
-    return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR');
+    // 1. Cria o objeto Date tratando a string como UTC
+    const date = new Date(dateStr + 'T00:00:00Z');
+    // 2. Formata a data para o padrão brasileiro, mas FORÇA a exibição no fuso UTC, impedindo a conversão.
+    return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 };
+// --- FIM DA CORREÇÃO ---
 
-export default function ExtratoManager({ contas }) {
+
+export default function ExtratoManager({ contas, onEdit }) {
     const supabase = createClient();
     const [filters, setFilters] = useState({
         contaIds: [],
@@ -64,7 +70,7 @@ export default function ExtratoManager({ contas }) {
 
     const fetchExtrato = useCallback(async () => {
         if (!filters.contaIds || filters.contaIds.length === 0) {
-            alert("Por favor, selecione pelo menos uma conta.");
+            setExtratoItens([]);
             return;
         }
         setLoading(true);
@@ -86,8 +92,8 @@ export default function ExtratoManager({ contas }) {
 
             const { data: lancamentos, error: lancamentosError } = await supabase
                 .from('lancamentos')
-                .select('*, conta:contas_financeiras!conta_id(nome), conta_destino:contas_financeiras!conta_destino_id(nome)')
-                .or(`conta_id.in.(${filters.contaIds.join(',')}),conta_destino_id.in.(${filters.contaIds.join(',')})`)
+                .select('*, favorecido:contatos!favorecido_contato_id(*), categoria:categorias_financeiras(*)') // Puxa mais dados para o modal
+                .in('conta_id', filters.contaIds)
                 .gte('data_pagamento', filters.startDate)
                 .lte('data_pagamento', filters.endDate)
                 .in('status', ['Pago', 'Conciliado'])
@@ -95,50 +101,25 @@ export default function ExtratoManager({ contas }) {
                 .order('created_at', { ascending: true });
             
             if (lancamentosError) throw lancamentosError;
-
-            let saldoCorrente = saldoInicialTotal;
-            const itensProcessados = [];
             
-            lancamentos.forEach(lanc => {
-                const isContaOrigem = filters.contaIds.includes(lanc.conta_id);
-                const isContaDestino = filters.contaIds.includes(lanc.conta_destino_id);
-                
-                let valorEntrada = 0;
-                let valorSaida = 0;
-                let descricaoExibida = lanc.descricao;
-
-                if (lanc.tipo === 'Receita' && isContaOrigem) {
-                    valorEntrada = lanc.valor;
-                } else if (lanc.tipo === 'Despesa' && isContaOrigem) {
-                    valorSaida = lanc.valor;
-                } else if (lanc.tipo === 'Transferência') {
-                    if (isContaDestino) { // Entrada na conta
-                        valorEntrada = lanc.valor;
-                        descricaoExibida = `Transferência de: ${lanc.conta?.nome || 'N/A'}`;
-                    }
-                    if (isContaOrigem) { // Saída da conta
-                        valorSaida = lanc.valor;
-                        descricaoExibida = `Transferência para: ${lanc.conta_destino?.nome || 'N/A'}`;
-                    }
-                }
-                
-                // Apenas processa se for relevante para as contas selecionadas
-                if (valorEntrada > 0 || valorSaida > 0) {
-                    saldoCorrente += valorEntrada - valorSaida;
-                    itensProcessados.push({
-                        ...lanc,
-                        descricao: descricaoExibida,
-                        entrada: valorEntrada,
-                        saida: valorSaida,
-                        saldo: saldoCorrente
-                    });
-                }
+            let saldoCorrente = saldoInicialTotal;
+            const itensProcessados = lancamentos.map(lanc => {
+                const entrada = lanc.tipo === 'Receita' ? lanc.valor : 0;
+                const saida = lanc.tipo === 'Despesa' ? lanc.valor : 0;
+                saldoCorrente += entrada - saida;
+                return { 
+                    ...lanc,
+                    entrada,
+                    saida,
+                    saldo: saldoCorrente 
+                };
             });
+
             setExtratoItens(itensProcessados);
 
         } catch (error) {
             console.error("Erro ao gerar extrato:", error);
-            alert(`Erro ao buscar dados: ${error.message}`);
+            alert(`Erro ao buscar dados do extrato: ${error.message}`);
         } finally {
             setLoading(false);
         }
@@ -192,8 +173,9 @@ export default function ExtratoManager({ contas }) {
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                     <thead className="bg-gray-100">
                         <tr>
+                            <th className="px-4 py-3 text-left font-bold uppercase w-1/12">ID</th>
                             <th className="px-4 py-3 text-left font-bold uppercase w-1/12">Data</th>
-                            <th className="px-4 py-3 text-left font-bold uppercase w-5/12">Descrição</th>
+                            <th className="px-4 py-3 text-left font-bold uppercase w-4/12">Descrição</th>
                             <th className="px-4 py-3 text-right font-bold uppercase w-2/12">Entrada</th>
                             <th className="px-4 py-3 text-right font-bold uppercase w-2/12">Saída</th>
                             <th className="px-4 py-3 text-right font-bold uppercase w-2/12">Saldo</th>
@@ -201,14 +183,15 @@ export default function ExtratoManager({ contas }) {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         <tr className="bg-gray-50 font-semibold">
-                            <td className="px-4 py-2" colSpan="4">SALDO ANTERIOR EM {formatDate(filters.startDate)}</td>
+                            <td className="px-4 py-2" colSpan="5">SALDO ANTERIOR EM {formatDate(filters.startDate)}</td>
                             <td className="px-4 py-2 text-right">{formatCurrency(saldoAnterior)}</td>
                         </tr>
                         {loading ? (
-                            <tr><td colSpan="5" className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></td></tr>
+                            <tr><td colSpan="6" className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></td></tr>
                         ) : extratoItens.length > 0 ? (
-                            extratoItens.map((item, index) => (
-                                <tr key={`${item.id}-${index}`}>
+                            extratoItens.map((item) => (
+                                <tr key={item.id} onClick={() => onEdit(item)} className="cursor-pointer hover:bg-blue-50">
+                                    <td className="px-4 py-2 font-mono text-xs text-gray-500">{item.id}</td>
                                     <td className="px-4 py-2">{formatDate(item.data_pagamento)}</td>
                                     <td className="px-4 py-2">{item.descricao}</td>
                                     <td className="px-4 py-2 text-right text-green-600">
@@ -224,13 +207,13 @@ export default function ExtratoManager({ contas }) {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="5" className="text-center py-10 text-gray-500">
+                                <td colSpan="6" className="text-center py-10 text-gray-500">
                                     Nenhum lançamento encontrado para o período e conta selecionados.
                                 </td>
                             </tr>
                         )}
                         <tr className="bg-gray-100 font-bold text-base">
-                            <td className="px-4 py-3" colSpan="4">SALDO FINAL</td>
+                            <td className="px-4 py-3" colSpan="5">SALDO FINAL</td>
                             <td className={`px-4 py-3 text-right ${saldoFinal < 0 ? 'text-red-600' : 'text-gray-900'}`}>
                                 {formatCurrency(saldoFinal)}
                             </td>
