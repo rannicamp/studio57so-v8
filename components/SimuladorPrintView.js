@@ -15,7 +15,7 @@ const formatPhone = (phone, countryCode) => {
 const SimuladorPrintView = React.forwardRef(({ simulacaoData }, ref) => {
     if (!simulacaoData || !simulacaoData.resumo) return null;
 
-    const { empreendimento, produto, cronograma, valorFinal, resumo, cliente, corretor } = simulacaoData;
+    const { empreendimento, produtos, cronograma, valorFinal, resumo, cliente, corretor } = simulacaoData;
     const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE";
 
     return (
@@ -45,7 +45,18 @@ const SimuladorPrintView = React.forwardRef(({ simulacaoData }, ref) => {
             <section className="mb-6 border p-4 rounded-md bg-gray-50">
                 <h3 className="font-bold mb-2 border-b pb-1 text-gray-700">IMÓVEL DE INTERESSE</h3>
                 <p><strong>Empreendimento:</strong> {empreendimento?.nome}</p>
-                <p><strong>Unidade:</strong> {produto?.unidade} ({produto?.tipo})</p>
+                <div>
+                    <strong>Unidades:</strong>
+                    {produtos && produtos.length > 0 ? (
+                        <ul className="list-disc pl-5">
+                            {produtos.map(p => (
+                                <li key={p.id}>{p.unidade} ({p.tipo}) - {formatCurrency(p.valor_venda_calculado)}</li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p>Nenhuma unidade selecionada.</p>
+                    )}
+                </div>
             </section>
 
             <section className="mb-6">
@@ -57,6 +68,12 @@ const SimuladorPrintView = React.forwardRef(({ simulacaoData }, ref) => {
                     <hr className="my-3"/>
                     <div className="flex justify-between items-center"><span className="text-gray-600">Entrada ({resumo.entradaPercentual.toFixed(2)}%):</span><span className="font-semibold">{resumo.entradaNumParcelas}x de {formatCurrency(resumo.entradaValorParcela)}</span></div>
                     <div className="flex justify-between items-center"><span className="text-gray-600">Parcelas Obra ({resumo.obraPercentual.toFixed(2)}%):</span><span className="font-semibold">{resumo.obraNumParcelas}x de {formatCurrency(resumo.obraValorParcela)}</span></div>
+                    {resumo.totalIntermediarias > 0 && (
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Intermediárias:</span>
+                            <span className="font-semibold">{formatCurrency(resumo.totalIntermediarias)}</span>
+                        </div>
+                    )}
                     <div className="flex justify-between items-center"><span className="text-gray-600">Saldo Rem. ({resumo.saldoRemPercentual.toFixed(2)}%):</span><span className="font-semibold">{formatCurrency(resumo.saldoRemanescente)}</span></div>
                     <div className="flex justify-between items-center text-sm text-gray-500 border-t pt-2 mt-2"><span className="font-semibold">Mês/Ano Última Parc. Obra:</span><span>{resumo.mesAnoUltimaParcelaObra}</span></div>
                 </div>

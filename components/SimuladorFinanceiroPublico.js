@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faCalculator, faPrint, faExclamationTriangle, faInfoCircle, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faCalculator, faPrint, faExclamationTriangle, faInfoCircle, faPlus, faTrash, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 
 import SimuladorPrintView from './SimuladorPrintView';
@@ -46,7 +46,8 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
     
     const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState('');
     const [produtos, setProdutos] = useState([]);
-    const [selectedProduto, setSelectedProduto] = useState(null);
+    const [selectedProdutos, setSelectedProdutos] = useState([]); // Alterado para array
+    const [currentSelectedProdutoId, setCurrentSelectedProdutoId] = useState(''); // Para o select
     const [loadingProdutos, setLoadingProdutos] = useState(false);
     
     const [cliente, setCliente] = useState({ nome: '', telefone: '', country_code: '+55' });
@@ -77,59 +78,63 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
     const printRef = useRef();
     const handlePrint = () => window.print();
 
-    const addIntermediaria = () => {
-        setParcelasIntermediarias([...parcelasIntermediarias, { id: Date.now(), descricao: 'Intermediária', data_vencimento: '', valor_parcela: '' }]);
-    };
-    const updateIntermediaria = (id, field, value) => {
-        setParcelasIntermediarias(parcelasIntermediarias.map(p => p.id === id ? { ...p, [field]: value } : p));
-    };
-    const removeIntermediaria = (id) => {
-        setParcelasIntermediarias(parcelasIntermediarias.filter(p => p.id !== id));
-    };
+    // Funções para manipular as parcelas intermediárias
+    const addIntermediaria = () => setParcelasIntermediarias([...parcelasIntermediarias, { id: Date.now(), descricao: 'Intermediária', data_vencimento: '', valor_parcela: '' }]);
+    const updateIntermediaria = (id, field, value) => setParcelasIntermediarias(parcelasIntermediarias.map(p => p.id === id ? { ...p, [field]: value } : p));
+    const removeIntermediaria = (id) => setParcelasIntermediarias(parcelasIntermediarias.filter(p => p.id !== id));
 
+    // Funções para manipular os produtos selecionados
+    const addProduto = () => {
+        const produtoToAdd = produtos.find(p => p.id == currentSelectedProdutoId);
+        if (produtoToAdd && !selectedProdutos.some(p => p.id === produtoToAdd.id)) {
+            setSelectedProdutos([...selectedProdutos, produtoToAdd]);
+        }
+        setCurrentSelectedProdutoId(''); // Resetar o select
+    };
+    const removeProduto = (id) => setSelectedProdutos(selectedProdutos.filter(p => p.id !== id));
+
+    // Busca os produtos do empreendimento selecionado
     useEffect(() => {
         const fetchProdutos = async () => {
             if (!selectedEmpreendimentoId) {
                 setProdutos([]);
-                setSelectedProduto(null);
+                setSelectedProdutos([]);
                 return;
             }
             setLoadingProdutos(true);
             const { data } = await supabase.from('produtos_empreendimento').select('id, unidade, tipo, valor_venda_calculado').eq('empreendimento_id', selectedEmpreendimentoId).eq('status', 'Disponível').order('unidade');
             setProdutos(data || []);
-            setSelectedProduto(null);
+            setSelectedProdutos([]);
             setLoadingProdutos(false);
         };
         fetchProdutos();
     }, [selectedEmpreendimentoId, supabase]);
     
-    // ***** LÓGICA DE CÁLCULO CENTRALIZADA E CORRIGIDA *****
+    const totalValorBase = useMemo(() => selectedProdutos.reduce((acc, p) => acc + (parseFloat(p.valor_venda_calculado) || 0), 0), [selectedProdutos]);
     const totalIntermediarias = useMemo(() => parcelasIntermediarias.reduce((acc, p) => acc + (parseFloat(p.valor_parcela) || 0), 0), [parcelasIntermediarias]);
 
+    // Atualiza o plano quando os valores principais mudam
     useEffect(() => {
-        if (selectedProduto) {
-            const base = parseFloat(selectedProduto.valor_venda_calculado) || 0;
-            const desc = parseFloat(plano.desconto_valor) || 0;
-            const entr = parseFloat(plano.entrada_valor) || 0;
-            const obra = parseFloat(plano.parcelas_obra_valor) || 0;
-            const inter = totalIntermediarias;
-            const saldo = base - desc - entr - obra - inter;
-            
-            setPlano(prev => ({ 
-                ...prev, 
-                valor_base: base,
-                saldo_remanescente_valor: saldo.toFixed(2) 
-            }));
-        } else {
-            setPlano(prev => ({ ...prev, valor_base: 0, saldo_remanescente_valor: 0 }));
-        }
+        const base = totalValorBase;
+        const desc = parseFloat(plano.desconto_valor) || 0;
+        const entr = parseFloat(plano.entrada_valor) || 0;
+        const obra = parseFloat(plano.parcelas_obra_valor) || 0;
+        const inter = totalIntermediarias;
+        const saldo = base - desc - entr - obra - inter;
+        
+        setPlano(prev => ({ 
+            ...prev, 
+            valor_base: base,
+            saldo_remanescente_valor: saldo.toFixed(2) 
+        }));
+        
         setCronograma([]);
-    }, [selectedProduto, plano.desconto_valor, plano.entrada_valor, plano.parcelas_obra_valor, totalIntermediarias]);
+    }, [totalValorBase, plano.desconto_valor, plano.entrada_valor, plano.parcelas_obra_valor, totalIntermediarias]);
 
 
     const handlePlanoChange = (name, value) => {
         const newPlanoState = { ...plano };
-        const baseValue = parseFloat(newPlanoState.valor_base) || 0;
+        const baseValue = totalValorBase;
         const numericValue = parseFloat(String(value).replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
 
         if (name.includes('_percentual')) {
@@ -152,7 +157,8 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
         
         setPlano(newPlanoState);
     };
-
+    
+    // Atualiza a data da primeira parcela do saldo
     useEffect(() => {
         if (plano.data_primeira_parcela_obra && plano.num_parcelas_obra > 0) {
             const dataUltimaParcelaObra = new Date(plano.data_primeira_parcela_obra);
@@ -161,10 +167,11 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
         }
     }, [plano.data_primeira_parcela_obra, plano.num_parcelas_obra]);
 
-    const valorFinal = (parseFloat(plano.valor_base) || 0) - (parseFloat(plano.desconto_valor) || 0);
+    const valorFinal = totalValorBase - (parseFloat(plano.desconto_valor) || 0);
     const totalAlocado = (parseFloat(plano.entrada_valor) || 0) + (parseFloat(plano.parcelas_obra_valor) || 0) + totalIntermediarias + (parseFloat(plano.saldo_remanescente_valor) || 0);
     const diferencaTotal = valorFinal - totalAlocado;
     
+    // Gera o cronograma da simulação
     const handleSimular = () => {
         setIsSimulating(true);
         let novasParcelas = [];
@@ -209,8 +216,9 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
         toast.success("Simulação gerada com sucesso!");
     };
     
+    // Dados para o resumo da simulação
     const resumoData = useMemo(() => {
-        if (!selectedProduto) return null;
+        if (selectedProdutos.length === 0) return null;
         
         const ultimaParcelaObra = new Date(plano.data_primeira_parcela_obra);
         if (plano.data_primeira_parcela_obra) {
@@ -218,7 +226,7 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
         }
 
         return {
-            valorBase: parseFloat(plano.valor_base) || 0,
+            valorBase: totalValorBase,
             descontoPercentual: parseFloat(plano.desconto_percentual) || 0,
             descontoValor: parseFloat(plano.desconto_valor) || 0,
             valorFinal: valorFinal,
@@ -228,15 +236,16 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
             obraPercentual: parseFloat(plano.parcelas_obra_percentual) || 0,
             obraNumParcelas: plano.num_parcelas_obra,
             obraValorParcela: (parseFloat(plano.parcelas_obra_valor) || 0) / plano.num_parcelas_obra,
+            totalIntermediarias: totalIntermediarias, // Adicionado aqui
             saldoRemanescente: parseFloat(plano.saldo_remanescente_valor) || 0,
-            saldoRemPercentual: ((parseFloat(plano.saldo_remanescente_valor) || 0) / (parseFloat(plano.valor_base) || 1)) * 100,
+            saldoRemPercentual: (parseFloat(plano.saldo_remanescente_valor) / (totalValorBase || 1)) * 100,
             mesAnoUltimaParcelaObra: plano.data_primeira_parcela_obra ? `${String(ultimaParcelaObra.getUTCMonth() + 1).padStart(2, '0')}/${ultimaParcelaObra.getUTCFullYear()}` : 'N/A'
         }
-    }, [plano, selectedProduto, valorFinal]);
+    }, [plano, selectedProdutos, totalValorBase, valorFinal, totalIntermediarias]);
 
     const simulacaoCompletaData = {
         empreendimento: empreendimentos.find(e => e.id == selectedEmpreendimentoId),
-        produto: selectedProduto,
+        produtos: selectedProdutos, // Alterado para 'produtos' (plural)
         plano,
         cronograma,
         valorFinal,
@@ -256,9 +265,45 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
                 <h1 className="text-3xl font-bold text-center text-gray-800">Simulador de Pagamentos</h1>
                 
                 <fieldset className="p-4 border rounded-lg"><legend className="px-2 font-semibold text-gray-700">Dados da Simulação</legend><div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"><input type="text" placeholder="Nome do Cliente" value={cliente.nome} onChange={(e) => setCliente({...cliente, nome: e.target.value})} className="p-2 border rounded-md" /><input type="text" placeholder="Nome do Corretor" value={corretor.nome} onChange={(e) => setCorretor({...corretor, nome: e.target.value})} className="p-2 border rounded-md" /><PhoneInput countryCode={cliente.country_code} onCountryChange={(e) => setCliente({...cliente, country_code: e.target.value, telefone: ''})} phone={cliente.telefone} onPhoneChange={(value) => setCliente({...cliente, telefone: value})} placeholder="Telefone do Cliente" /><PhoneInput countryCode={corretor.country_code} onCountryChange={(e) => setCorretor({...corretor, country_code: e.target.value, telefone: ''})} phone={corretor.telefone} onPhoneChange={(value) => setCorretor({...corretor, telefone: value})} placeholder="Telefone do Corretor" /></div></fieldset>
-                <fieldset className="p-4 border rounded-lg"><legend className="px-2 font-semibold text-gray-700">Passo 1: Selecione o Imóvel</legend><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><select value={selectedEmpreendimentoId} onChange={(e) => setSelectedEmpreendimentoId(e.target.value)} className="p-2 border rounded-md w-full"><option value="">Selecione o Empreendimento</option>{empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select><select value={selectedProduto?.id || ''} onChange={(e) => setSelectedProduto(produtos.find(p => p.id == e.target.value) || null)} disabled={!selectedEmpreendimentoId || loadingProdutos} className="p-2 border rounded-md w-full"><option value="">{loadingProdutos ? 'Carregando...' : 'Selecione a Unidade'}</option>{produtos.map(p => <option key={p.id} value={p.id}>{p.unidade} ({p.tipo}) - {formatCurrency(p.valor_venda_calculado)}</option>)}</select></div></fieldset>
                 
-                {selectedProduto && (
+                <fieldset className="p-4 border rounded-lg">
+                    <legend className="px-2 font-semibold text-gray-700">Passo 1: Selecione o Imóvel</legend>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                        <select value={selectedEmpreendimentoId} onChange={(e) => setSelectedEmpreendimentoId(e.target.value)} className="p-2 border rounded-md w-full">
+                            <option value="">Selecione o Empreendimento</option>
+                            {empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                        </select>
+                        <div className="flex items-center gap-2">
+                             <select value={currentSelectedProdutoId} onChange={(e) => setCurrentSelectedProdutoId(e.target.value)} disabled={!selectedEmpreendimentoId || loadingProdutos} className="p-2 border rounded-md w-full">
+                                <option value="">{loadingProdutos ? 'Carregando...' : 'Selecione a Unidade'}</option>
+                                {produtos.filter(p => !selectedProdutos.some(sp => sp.id === p.id)).map(p => <option key={p.id} value={p.id}>{p.unidade} ({p.tipo}) - {formatCurrency(p.valor_venda_calculado)}</option>)}
+                            </select>
+                            <button onClick={addProduto} disabled={!currentSelectedProdutoId} className="bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 disabled:bg-gray-300">
+                                <FontAwesomeIcon icon={faPlus} />
+                            </button>
+                        </div>
+                    </div>
+                     {selectedProdutos.length > 0 && (
+                        <div className="mt-4 p-3 border rounded-md bg-gray-50">
+                            <h4 className="font-semibold text-gray-700 mb-2">Unidades Selecionadas</h4>
+                            <ul className="space-y-2">
+                                {selectedProdutos.map(p => (
+                                    <li key={p.id} className="flex justify-between items-center bg-white p-2 border rounded-md">
+                                        <span>{p.unidade} ({p.tipo}) - <strong>{formatCurrency(p.valor_venda_calculado)}</strong></span>
+                                        <button onClick={() => removeProduto(p.id)} className="text-red-500 hover:text-red-700">
+                                            <FontAwesomeIcon icon={faTimes} />
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                            <div className="text-right font-bold mt-3 text-lg">
+                                Valor Total: {formatCurrency(totalValorBase)}
+                            </div>
+                        </div>
+                    )}
+                </fieldset>
+
+                {selectedProdutos.length > 0 && (
                     <fieldset className="p-4 border rounded-lg animate-fade-in"><legend className="px-2 font-semibold text-gray-700">Passo 2: Defina as Condições</legend>
                         <div className="space-y-4">
                             <div className="p-3 border rounded-md bg-gray-50"><h4 className="font-medium text-gray-600 mb-2">Desconto</h4><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="text-sm">Desconto (%)</label><input type="number" step="0.01" value={plano.desconto_percentual || ''} onChange={e => handlePlanoChange('desconto_percentual', e.target.value)} className="mt-1 w-full p-2 border rounded-md" /></div><div><label className="text-sm">Desconto (R$)</label><IMaskInput mask="R$ num" blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}} unmask={true} value={String(plano.desconto_valor || '')} onAccept={(value) => handlePlanoChange('desconto_valor', value)} className="mt-1 w-full p-2 border rounded-md" /></div></div></div>
@@ -277,7 +322,7 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
 
                 {cronograma.length > 0 && (
                      <fieldset className="p-4 border rounded-lg animate-fade-in"><legend className="px-2 font-semibold text-gray-700">Passo 3: Resultado da Simulação</legend>
-                        {resumoData && <div className="p-4 border rounded-md space-y-3 text-lg mb-6"><div className="flex justify-between items-center"><span className="text-gray-600">Valor Base Total:</span><span className="font-bold text-blue-700">{formatCurrency(resumoData.valorBase)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Desconto ({resumoData.descontoPercentual.toFixed(2)}%):</span><span className="font-bold text-red-600">{formatCurrency(resumoData.descontoValor)}</span></div><div className="flex justify-between items-center border-t pt-3 mt-3"><span className="font-semibold text-gray-800">Valor Final (c/ Desc.):</span><span className="font-bold text-green-700 text-xl">{formatCurrency(resumoData.valorFinal)}</span></div><hr className="my-4"/><div className="flex justify-between items-center"><span className="text-gray-600">Entrada ({resumoData.entradaPercentual.toFixed(2)}%):</span><span className="font-semibold">{resumoData.entradaNumParcelas}x de {formatCurrency(resumoData.entradaValorParcela)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Parcelas Obra ({resumoData.obraPercentual.toFixed(2)}%):</span><span className="font-semibold">{resumoData.obraNumParcelas}x de {formatCurrency(resumoData.obraValorParcela)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Saldo Rem. ({resumoData.saldoRemPercentual.toFixed(2)}%):</span><span className="font-semibold">{formatCurrency(resumoData.saldoRemanescente)}</span></div><div className="flex justify-between items-center text-sm text-gray-500 border-t pt-2 mt-2"><span className="font-semibold">Mês/Ano Última Parc. Obra:</span><span>{resumoData.mesAnoUltimaParcelaObra}</span></div></div>}
+                        {resumoData && <div className="p-4 border rounded-md space-y-3 text-lg mb-6"><div className="flex justify-between items-center"><span className="text-gray-600">Valor Base Total:</span><span className="font-bold text-blue-700">{formatCurrency(resumoData.valorBase)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Desconto ({resumoData.descontoPercentual.toFixed(2)}%):</span><span className="font-bold text-red-600">{formatCurrency(resumoData.descontoValor)}</span></div><div className="flex justify-between items-center border-t pt-3 mt-3"><span className="font-semibold text-gray-800">Valor Final (c/ Desc.):</span><span className="font-bold text-green-700 text-xl">{formatCurrency(resumoData.valorFinal)}</span></div><hr className="my-4"/><div className="flex justify-between items-center"><span className="text-gray-600">Entrada ({resumoData.entradaPercentual.toFixed(2)}%):</span><span className="font-semibold">{resumoData.entradaNumParcelas}x de {formatCurrency(resumoData.entradaValorParcela)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Parcelas Obra ({resumoData.obraPercentual.toFixed(2)}%):</span><span className="font-semibold">{resumoData.obraNumParcelas}x de {formatCurrency(resumoData.obraValorParcela)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Intermediárias:</span><span className="font-semibold">{formatCurrency(resumoData.totalIntermediarias)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Saldo Rem. ({resumoData.saldoRemPercentual.toFixed(2)}%):</span><span className="font-semibold">{formatCurrency(resumoData.saldoRemanescente)}</span></div><div className="flex justify-between items-center text-sm text-gray-500 border-t pt-2 mt-2"><span className="font-semibold">Mês/Ano Última Parc. Obra:</span><span>{resumoData.mesAnoUltimaParcelaObra}</span></div></div>}
                         <h4 className="font-semibold text-gray-800 mb-2 text-center">Cronograma Detalhado</h4>
                         <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 text-sm"><thead className="bg-gray-100"><tr><th className="px-4 py-2 text-left font-semibold">Descrição</th><th className="px-4 py-2 text-left font-semibold">Vencimento</th><th className="px-4 py-2 text-right font-semibold">Valor (R$)</th></tr></thead><tbody className="bg-white divide-y">{cronograma.map(p => (<tr key={p.id}><td className="px-4 py-2">{p.descricao}</td><td className="px-4 py-2">{formatDateForDisplay(p.data_vencimento)}</td><td className="px-4 py-2 text-right font-medium">{formatCurrency(p.valor_parcela)}</td></tr>))}</tbody></table></div>
                         <div className="text-center mt-6"><button onClick={handlePrint} className="bg-gray-700 text-white font-bold px-8 py-3 rounded-md hover:bg-gray-800 flex items-center gap-2 mx-auto"><FontAwesomeIcon icon={faPrint} /> Imprimir / Salvar PDF</button></div>
