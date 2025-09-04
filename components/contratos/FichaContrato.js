@@ -1,3 +1,5 @@
+// Caminho: components/contratos/FichaContrato.js
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -47,7 +49,6 @@ const SearchableField = ({ label, selectedName, onClear, children }) => {
 export default function FichaContrato({ initialContratoData, onUpdate }) {
     const supabase = createClient();
     const [contrato, setContrato] = useState(initialContratoData);
-    const [parcelas, setParcelas] = useState(initialContratoData.contrato_parcelas || []);
     const [activeTab, setActiveTab] = useState('resumo');
     
     const [produtosDisponiveis, setProdutosDisponiveis] = useState([]);
@@ -71,7 +72,6 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
     
     useEffect(() => {
         setContrato(initialContratoData);
-        setParcelas(initialContratoData.contrato_parcelas || []);
     }, [initialContratoData]);
 
     const kpiData = useMemo(() => {
@@ -89,7 +89,7 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
             saldoDevedor: formatCurrency(saldoDevedor),
             proximaParcela: proximaParcela ? `${formatCurrency(proximaParcela.valor_parcela)} em ${new Date(proximaParcela.data_vencimento + 'T00:00:00Z').toLocaleDateString('pt-BR')}` : 'Nenhuma'
         };
-    }, [contrato, formatCurrency]);
+    }, [contrato]);
 
     const handleFieldUpdate = async (fieldName, value) => {
         setLoading(prev => ({...prev, [fieldName]: true}));
@@ -169,10 +169,10 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                 <KpiCard title="Próxima Parcela" value={kpiData.proximaParcela} icon={faCalendarCheck} color="purple" />
             </div>
 
+            {/* ***** ABAS CORRETAS MANTIDAS AQUI ***** */}
             <div className="border-b border-gray-200">
                 <nav className="flex gap-4">
                     <TabButton tabId="resumo" label="Resumo da Venda" icon={faHandshake} />
-                    {/* --- ALTERAÇÃO AQUI: Unificamos as abas --- */}
                     <TabButton tabId="cronograma" label="Plano e Cronograma" icon={faFileInvoiceDollar} />
                     <TabButton tabId="documentos" label="Documentos" icon={faFileLines} />
                 </nav>
@@ -248,7 +248,7 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                         <PlanoPagamentoContrato contrato={contrato} onRecalculateSuccess={onUpdate} />
                         <CronogramaFinanceiro
                             contratoId={contrato.id}
-                            parcelas={parcelas}
+                            parcelas={contrato.contrato_parcelas || []}
                             permutas={contrato.contrato_permutas || []} 
                             valorTotalContrato={contrato.valor_final_venda}
                             onUpdate={onUpdate}
