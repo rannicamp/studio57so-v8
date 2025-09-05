@@ -1,13 +1,8 @@
-// app/layout.js
-
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'sonner';
 import Script from 'next/script';
-// --- INÍCIO DA ALTERAÇÃO ---
-// Importamos nosso novo componente "invólucro"
 import { Providers } from './providers';
-// --- FIM DA ALTERAÇÃO ---
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -15,6 +10,13 @@ export const metadata = {
   title: 'Studio 57',
   description: 'Sistema de Gestão Integrada',
   manifest: '/manifest.json',
+  // --- INÍCIO DA ALTERAÇÃO ---
+  // Adicionando ícones específicos para melhor compatibilidade com PWA
+  icons: {
+    icon: '/favicon.ico', // Ícone padrão para navegadores
+    apple: '/icons/icon-192x192.png', // Ícone para Apple (iPhone/iPad) ao adicionar à Tela de Início
+  },
+  // --- FIM DA ALTERAÇÃO ---
 };
 
 export default function RootLayout({ children }) {
@@ -49,12 +51,9 @@ export default function RootLayout({ children }) {
         </Script>
         <Script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" strategy="beforeInteractive" />
         
-        {/* --- INÍCIO DA ALTERAÇÃO --- */}
-        {/* Agora, usamos o componente <Providers> para envolver o conteúdo */}
         <Providers>
           {children}
         </Providers>
-        {/* --- FIM DA ALTERAÇÃO --- */}
         
         <Toaster richColors position="top-right" />
       </body>
