@@ -1,10 +1,10 @@
 // app/(public)/cadastro-cliente/page.js
 'use client';
 
-import { useState, useEffect, useActionState } from 'react'; // Corrigido: useActionState importado de 'react'
+import { useState, useEffect, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { createContact } from './actions';
-import { IMaskInput } from 'react-imask'; // Corrigido: Usando a nova biblioteca de máscara
+import { IMaskInput } from 'react-imask';
 
 const initialState = {
   message: null,
@@ -24,7 +24,7 @@ function SubmitButton() {
 }
 
 export default function CadastroClientePage() {
-  const [state, formAction] = useActionState(createContact, initialState); // Corrigido: Usando useActionState
+  const [state, formAction] = useActionState(createContact, initialState);
   const [tipoPessoa, setTipoPessoa] = useState('pf');
   const [cep, setCep] = useState('');
   const [endereco, setEndereco] = useState({
@@ -47,7 +47,7 @@ export default function CadastroClientePage() {
         .then(data => {
           if (!data.erro) {
             setEndereco({
-              street: data.logradouro,
+              street: data.logouro,
               neighborhood: data.bairro,
               city: data.localidade,
               state: data.uf
@@ -84,7 +84,14 @@ export default function CadastroClientePage() {
                     <input name="nome" placeholder="Nome Completo" className="input-style" required />
                     <IMaskInput mask="000.000.000-00" name="cpf" placeholder="CPF" className="input-style" required />
                     <input name="rg" placeholder="RG" className="input-style" />
-                    <input name="birth_date" type="date" placeholder="Data de Nascimento" className="input-style" />
+                    
+                    {/* ***** INÍCIO DA ALTERAÇÃO ***** */}
+                    <div>
+                        <label htmlFor="birth_date" className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
+                        <input name="birth_date" id="birth_date" type="date" className="input-style" />
+                    </div>
+                    {/* ***** FIM DA ALTERAÇÃO ***** */}
+
                     <input name="nacionalidade" placeholder="Nacionalidade" className="input-style" />
                     <select name="estado_civil" className="input-style" onChange={handleEstadoCivilChange}>
                         <option value="">Estado Civil</option>
