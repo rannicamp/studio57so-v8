@@ -1,18 +1,25 @@
+// next.config.mjs
+
 import withPWA from 'next-pwa';
 
-// As configurações do seu PWA (Progressive Web App)
+// Configuração do PWA
 const pwaConfig = {
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development', // Desativa o PWA em modo de desenvolvimento
+  disable: process.env.NODE_ENV === 'development',
 };
 
-// As configurações do seu Next.js
+// Configuração principal do Next.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Suas outras configurações do Next.js podem vir aqui
+  // --- IMPORTANTE: Suas configurações existentes estão aqui ---
+  images: {
+    domains: ['lh3.googleusercontent.com', 'firebasestorage.googleapis.com'],
+  },
+  // --- FIM ---
 };
 
-// O código abaixo une as duas configurações para você
-export default withPWA(pwaConfig)(nextConfig);
+// Une as duas configurações
+const withPWAConfig = withPWA(pwaConfig);
+export default withPWAConfig(nextConfig);
