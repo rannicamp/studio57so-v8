@@ -13,11 +13,9 @@ const pwaConfig = {
 // Configuração principal do Next.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // --- IMPORTANTE: Suas configurações existentes estão aqui ---
   images: {
     domains: ['lh3.googleusercontent.com', 'firebasestorage.googleapis.com'],
   },
-  // --- FIM ---
 };
 
 // Une as duas configurações
