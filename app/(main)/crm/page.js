@@ -99,6 +99,7 @@ export default function CrmPage() {
     const [contatosNoFunil, setContatosNoFunil] = useState([]);
     const [colunasDoFunil, setColunasDoFunil] = useState([]);
     const [loadingFunil, setLoadingFunil] = useState(true);
+    const [sorting, setSorting] = useState({});
 
     const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false);
     const [searchResults, setSearchResults] = useState([]);
@@ -165,7 +166,7 @@ export default function CrmPage() {
                 const { data: contatosNoFunilRaw, error: contatosError } = await supabase
                     .from('contatos_no_funil')
                     .select(`
-                        id, coluna_id, numero_card, produto_id, corretor_id,
+                        id, coluna_id, numero_card, produto_id, corretor_id, created_at,
                         produto:produto_id(id, unidade, tipo, valor_venda_calculado, empreendimento_id), 
                         contatos:contato_id ( *, telefones ( telefone, tipo ), emails(email, tipo)),
                         corretores:corretor_id (id, nome, razao_social)
@@ -188,6 +189,7 @@ export default function CrmPage() {
 
                 const contatosComMensagens = contatosParaEstado.map(item => ({
                     ...item,
+                    last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null,
                     contatos: {
                         ...item.contatos,
                         last_whatsapp_message: lastMessagesMap[item.contatos.id]?.content || null,
@@ -303,6 +305,8 @@ export default function CrmPage() {
                         onAssociateCorretor={handleAssociateCorretor}
                         onCardClick={handleCardClick}
                         onAddActivity={handleOpenActivityModal}
+                        sorting={sorting}
+                        setSorting={setSorting}
                     />
                 )}
             </div>

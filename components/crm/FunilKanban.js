@@ -1,10 +1,9 @@
-// components/crm/FunilKanban.js
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import ContatoCardCRM from './ContatoCardCRM';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faSort } from '@fortawesome/free-solid-svg-icons';
 
 const AddColumn = ({ onCreate }) => {
     const [isCreating, setIsCreating] = useState(false);
@@ -64,14 +63,32 @@ export default function FunilKanban({
     onOpenNotesModal,
     availableProducts,
     onAssociateProduct,
-    onAssociateCorretor, // A função ainda é necessária
+    onAssociateCorretor,
     onCardClick,
-    onAddActivity
+    onAddActivity,
+    sorting,
+    setSorting,
 }) {
 
     const [editingColumnId, setEditingColumnId] = useState(null);
     const [editedColumnName, setEditedColumnName] = useState("");
     const [draggedItem, setDraggedItem] = useState(null);
+    const [openSortMenu, setOpenSortMenu] = useState(null); // Estado para controlar o menu de ordenação
+    const sortMenuRef = useRef(null);
+
+    // Efeito para fechar o menu de ordenação ao clicar fora
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
+                setOpenSortMenu(null);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [sortMenuRef]);
+
 
     const handleDragStart = (e, item, type) => {
         e.stopPropagation();
@@ -90,145 +107,134 @@ export default function FunilKanban({
     const handleDrop = (e, targetColumn) => {
         e.preventDefault();
         e.stopPropagation();
-
         if (!draggedItem) return;
-
         if (draggedItem.type === 'column' && draggedItem.item.id !== targetColumn.id) {
             const draggedColumnId = draggedItem.item.id;
             const targetColumnId = targetColumn.id;
-
             const draggedIndex = statusColumns.findIndex(col => col.id === draggedColumnId);
             const targetIndex = statusColumns.findIndex(col => col.id === targetColumnId);
-
             if (draggedIndex === -1 || targetIndex === -1) return;
-
             const newColumns = Array.from(statusColumns);
             const [draggedColumn] = newColumns.splice(draggedIndex, 1);
             newColumns.splice(targetIndex, 0, draggedColumn);
-
             const reorderedWithNewOrder = newColumns.map((col, index) => ({ ...col, ordem: index }));
             onReorderColumns(reorderedWithNewOrder);
         }
-
         if (draggedItem.type === 'card' && draggedItem.item.coluna_id !== targetColumn.id) {
             onStatusChange(draggedItem.item.id, targetColumn.id);
         }
-
         setDraggedItem(null);
     };
 
-    const handleEditClick = (coluna) => {
-        setEditingColumnId(coluna.id);
-        setEditedColumnName(coluna.nome);
-    };
-
-    const handleSaveEdit = async (columnId) => {
-        if (!editedColumnName.trim()) return;
-        await onEditColumn(columnId, editedColumnName);
-        setEditingColumnId(null);
-        setEditedColumnName("");
-    };
-
-    const handleCancelEdit = () => {
-        setEditingColumnId(null);
-        setEditedColumnName("");
-    };
-
-    const handleDeleteClick = (columnId, columnName) => {
-        if (window.confirm(`Tem certeza que deseja deletar a etapa "${columnName}"? Todos os contatos nela serão movidos para a primeira etapa.`)) {
-            onDeleteColumn(columnId);
+    const handleEditClick = (coluna) => { setEditingColumnId(coluna.id); setEditedColumnName(coluna.nome); };
+    const handleSaveEdit = async (columnId) => { if (!editedColumnName.trim()) return; await onEditColumn(columnId, editedColumnName); setEditingColumnId(null); setEditedColumnName(""); };
+    const handleCancelEdit = () => { setEditingColumnId(null); setEditedColumnName(""); };
+    const handleDeleteClick = (columnId, columnName) => { if (window.confirm(`Tem certeza que deseja deletar a etapa "${columnName}"? Todos os contatos nela serão movidos para a primeira etapa.`)) { onDeleteColumn(columnId); } };
+    const handleMoveCardFromDropdown = (contatoNoFunilId, newColumnId) => { onStatusChange(contatoNoFunilId, newColumnId); };
+    
+    const handleSortChange = (colunaId, sortValue) => {
+        if (!sortValue) {
+            const newSorting = { ...sorting };
+            delete newSorting[colunaId];
+            setSorting(newSorting);
+        } else {
+            const [sortBy, order] = sortValue.split('_');
+            setSorting(prev => ({ ...prev, [colunaId]: { sortBy, order } }));
         }
+        setOpenSortMenu(null); // Fecha o menu após a seleção
     };
-
-    const handleMoveCardFromDropdown = (contatoNoFunilId, newColumnId) => {
-        onStatusChange(contatoNoFunilId, newColumnId);
-    };
+  
+    const sortOptions = [
+        { value: '', label: 'Padrão (Número do Card)' },
+        { value: 'nome_asc', label: 'Nome (A-Z)' },
+        { value: 'nome_desc', label: 'Nome (Z-A)' },
+        { value: 'created_at_desc', label: 'Entrada (Mais Recente)' },
+        { value: 'created_at_asc', label: 'Entrada (Mais Antigo)' },
+        { value: 'last_whatsapp_message_time_desc', label: 'Mensagem (Mais Recente)' },
+        { value: 'last_whatsapp_message_time_asc', label: 'Mensagem (Mais Antigo)' },
+    ];
 
     const contatosPorColuna = useMemo(() => {
         const grouped = {};
         if (statusColumns && contatos) {
             statusColumns.forEach(coluna => {
-                grouped[coluna.id] = contatos
-                    .filter(c => c.coluna_id === coluna.id)
-                    .sort((a, b) => (a.numero_card || 0) - (b.numero_card || 0));
+                let contatosDaColuna = contatos.filter(c => c.coluna_id === coluna.id);
+                const sortConfig = sorting[coluna.id];
+                if (sortConfig) {
+                    contatosDaColuna.sort((a, b) => {
+                        const { sortBy, order } = sortConfig;
+                        let valA, valB;
+                        if (sortBy === 'nome') {
+                            valA = a.contatos?.nome || a.contatos?.razao_social || '';
+                            valB = b.contatos?.nome || b.contatos?.razao_social || '';
+                            return order === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                        }
+                        if (sortBy === 'created_at' || sortBy === 'last_whatsapp_message_time') {
+                            const dateA = a[sortBy] ? new Date(a[sortBy]) : (order === 'asc' ? new Date('9999-12-31') : new Date('1000-01-01'));
+                            const dateB = b[sortBy] ? new Date(b[sortBy]) : (order === 'asc' ? new Date('9999-12-31') : new Date('1000-01-01'));
+                            return order === 'asc' ? dateA - dateB : dateB - dateA;
+                        }
+                        return 0;
+                    });
+                } else {
+                    contatosDaColuna.sort((a, b) => (a.numero_card || 0) - (b.numero_card || 0));
+                }
+                grouped[coluna.id] = contatosDaColuna;
             });
         }
         return grouped;
-    }, [contatos, statusColumns]);
+    }, [contatos, statusColumns, sorting]);
 
     return (
         <div className="flex gap-4 overflow-x-auto p-4 h-full bg-gray-100">
             {statusColumns.map((coluna) => (
-                <div
-                    key={coluna.id}
-                    className="w-80 flex-shrink-0 bg-gray-200 rounded-lg shadow-sm flex flex-col"
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, coluna)}
-                >
-                    <div
-                        className="p-3 text-sm font-semibold text-gray-700 border-b bg-gray-50 rounded-t-lg flex justify-between items-center cursor-move"
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, coluna, 'column')}
-                        onDragEnd={() => setDraggedItem(null)}
-                    >
+                <div key={coluna.id} className="w-80 flex-shrink-0 bg-white rounded-lg shadow-sm flex flex-col" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, coluna)}>
+                    <div className="p-3 text-sm font-semibold text-gray-700 border-b bg-gray-50 rounded-t-lg flex justify-between items-center cursor-move" draggable onDragStart={(e) => handleDragStart(e, coluna, 'column')} onDragEnd={() => setDraggedItem(null)}>
                         {editingColumnId === coluna.id ? (
                             <div className="flex w-full items-center gap-2">
-                                <input
-                                    type="text"
-                                    value={editedColumnName}
-                                    onChange={(e) => setEditedColumnName(e.target.value)}
-                                    className="flex-grow p-1 border rounded text-sm"
-                                    autoFocus
-                                    onKeyPress={(e) => {
-                                        if (e.key === 'Enter') handleSaveEdit(coluna.id);
-                                    }}
-                                />
+                                <input type="text" value={editedColumnName} onChange={(e) => setEditedColumnName(e.target.value)} className="flex-grow p-1 border rounded text-sm" autoFocus onKeyPress={(e) => { if (e.key === 'Enter') handleSaveEdit(coluna.id); }} />
                                 <button onClick={() => handleSaveEdit(coluna.id)} className="text-blue-600 hover:text-blue-800">Salvar</button>
                                 <button onClick={handleCancelEdit} className="text-gray-600 hover:text-gray-800">Cancelar</button>
                             </div>
                         ) : (
                             <>
                                 <h3 className="flex-grow">{coluna.nome} ({contatosPorColuna[coluna.id]?.length || 0})</h3>
-                                <div className="flex gap-2">
-                                    <button onClick={() => handleEditClick(coluna)} className="text-gray-500 hover:text-blue-600 transition-colors">
-                                        <FontAwesomeIcon icon={faEdit} size="sm" />
-                                    </button>
-                                    <button onClick={() => handleDeleteClick(coluna.id, coluna.nome)} className="text-gray-500 hover:text-red-600 transition-colors">
-                                        <FontAwesomeIcon icon={faTrash} size="sm" />
-                                    </button>
+                                <div className="flex items-center gap-2">
+                                    {/* BOTÃO DE ORDENAÇÃO NOVO E DISCRETO */}
+                                    <div className="relative" ref={sortMenuRef}>
+                                        <button onClick={() => setOpenSortMenu(openSortMenu === coluna.id ? null : coluna.id)} className="text-gray-500 hover:text-blue-600 transition-colors" title="Ordenar cards">
+                                            <FontAwesomeIcon icon={faSort} size="sm" />
+                                        </button>
+                                        {openSortMenu === coluna.id && (
+                                            <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-20">
+                                                <p className="p-2 font-semibold text-xs text-gray-500 border-b">Ordenar por:</p>
+                                                {sortOptions.map(option => (
+                                                    <button key={option.value} onClick={() => handleSortChange(coluna.id, option.value)} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                        {option.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button onClick={() => handleEditClick(coluna)} className="text-gray-500 hover:text-blue-600 transition-colors" title="Editar etapa"><FontAwesomeIcon icon={faEdit} size="sm" /></button>
+                                    <button onClick={() => handleDeleteClick(coluna.id, coluna.nome)} className="text-gray-500 hover:text-red-600 transition-colors" title="Excluir etapa"><FontAwesomeIcon icon={faTrash} size="sm" /></button>
                                 </div>
                             </>
                         )}
                     </div>
-                    <div className="p-2 space-y-3 overflow-y-auto flex-1">
+
+                    <div className="p-2 space-y-3 overflow-y-auto flex-1 bg-gray-100/50">
                         {(contatosPorColuna[coluna.id] || []).map((contato) => (
-                            <ContatoCardCRM
-                                key={contato.id}
-                                funilEntry={contato}
-                                onDragStart={(e) => handleDragStart(e, contato, 'card')}
-                                onDragEnd={() => setDraggedItem(null)}
-                                allColumns={statusColumns}
-                                onMoveToColumn={handleMoveCardFromDropdown}
-                                onOpenNotesModal={onOpenNotesModal}
-                                availableProducts={availableProducts}
-                                onAssociateProduct={onAssociateProduct}
-                                onAssociateCorretor={onAssociateCorretor}
-                                onCardClick={onCardClick}
-                                onAddActivity={onAddActivity}
-                            />
+                            <ContatoCardCRM key={contato.id} funilEntry={contato} onDragStart={(e) => handleDragStart(e, contato, 'card')} onDragEnd={() => setDraggedItem(null)} allColumns={statusColumns} onMoveToColumn={handleMoveCardFromDropdown} onOpenNotesModal={onOpenNotesModal} availableProducts={availableProducts} onAssociateProduct={onAssociateProduct} onAssociateCorretor={onAssociateCorretor} onCardClick={onCardClick} onAddActivity={onAddActivity} />
                         ))}
                     </div>
                     <div className="p-2 border-t mt-auto">
-                        <button
-                            onClick={() => onAddContact()}
-                            className="w-full text-center text-sm p-2 rounded-md text-gray-600 hover:bg-gray-300 hover:text-gray-800 transition-colors"
-                        >
+                        <button onClick={() => onAddContact()} className="w-full text-center text-sm p-2 rounded-md text-gray-600 hover:bg-gray-300 hover:text-gray-800 transition-colors">
                             <FontAwesomeIcon icon={faPlus} className="mr-2" /> Adicionar Contato
                         </button>
                     </div>
                 </div>
             ))}
-
             <AddColumn onCreate={onCreateColumn} />
         </div>
     );

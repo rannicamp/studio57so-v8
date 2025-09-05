@@ -1,4 +1,3 @@
-// components/crm/CrmDetalhesSidebar.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -10,6 +9,16 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+// ***** INÍCIO DA CORREÇÃO *****
+// Esta nova função trata a data como texto e apenas inverte a ordem,
+// evitando qualquer problema com fuso horário.
+const formatDateString = (dateStr) => {
+    if (!dateStr || !dateStr.includes('-')) return 'Não definido';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+};
+// ***** FIM DA CORREÇÃO *****
 
 const EditableField = ({ label, value, name, onChange, icon }) => (
     <div>
@@ -126,17 +135,17 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
         );
     };
     
-    const handleAddNote = async () => { /* ... (código existente sem alterações) ... */ };
-    const handleCompleteActivity = async (activityId) => { /* ... (código existente sem alterações) ... */ };
-    const handleDeleteActivity = async (activityId) => { /* ... (código existente sem alterações) ... */ };
-    const handleStartEditingNote = (note) => { /* ... (código existente sem alterações) ... */ };
-    const handleSaveNoteEdit = async (noteId) => { /* ... (código existente sem alterações) ... */ };
-    const handleDeleteNote = async (noteId) => { /* ... (código existente sem alterações) ... */ };
+    const handleAddNote = async () => { if (!newNoteContent.trim()) return; setSaving(true); const { error } = await supabase.from('crm_notas').insert({ contato_id: contato.id, contato_no_funil_id: contatoNoFunilId, conteudo: newNoteContent, usuario_id: user.id }); if (error) { toast.error(error.message); } else { setNewNoteContent(''); fetchData(); } setSaving(false); };
+    const handleCompleteActivity = async (activityId) => { const { error } = await supabase.from('activities').update({ status: 'Concluído' }).eq('id', activityId); if (error) toast.error(error.message); else fetchData(); };
+    const handleDeleteActivity = async (activityId) => { if (window.confirm('Tem certeza?')) { const { error } = await supabase.from('activities').delete().eq('id', activityId); if (error) toast.error(error.message); else fetchData(); }};
+    const handleStartEditingNote = (note) => { setEditingNoteId(note.id); setEditingNoteContent(note.conteudo); };
+    const handleSaveNoteEdit = async (noteId) => { setSaving(true); const { error } = await supabase.from('crm_notas').update({ conteudo: editingNoteContent }).eq('id', noteId); if (error) toast.error(error.message); else { setEditingNoteId(null); setEditingNoteContent(''); fetchData(); } setSaving(false); };
+    const handleDeleteNote = async (noteId) => { if (window.confirm('Tem certeza?')) { const { error } = await supabase.from('crm_notas').delete().eq('id', noteId); if (error) toast.error(error.message); else fetchData(); }};
 
     if (!open || !contato) return null;
 
     return (
-        <div className="fixed top-0 right-0 h-full w-[400px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out" style={{ transform: open ? 'translateX(0)' : 'translateX(100%)' }}>
+        <div className="fixed top-0 right-0 h-full w-[450px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out" style={{ transform: open ? 'translateX(0)' : 'translateX(100%)' }}>
             <div className="flex flex-col h-full">
                 <div className="p-4 border-b flex justify-between items-center bg-gray-50">
                     <h3 className="text-lg font-bold text-gray-800">{contato.nome || contato.razao_social}</h3>
@@ -182,7 +191,6 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
                             
                             <MetaFormData data={contato.meta_form_data} />
                             
-                            {/* ***** NOVA SEÇÃO DE SIMULAÇÕES ***** */}
                             <section>
                                 <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2"><FontAwesomeIcon icon={faCalculator} /> Simulações</h4>
                                 <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2 bg-gray-50">
@@ -212,13 +220,61 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
                                     <button onClick={() => onAddActivity(contato)} className="text-blue-600 hover:text-blue-800 text-sm font-semibold"><FontAwesomeIcon icon={faPlus} /> Adicionar</button>
                                 </div>
                                 <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2 bg-gray-50">
-                                    {/* ... (código existente das atividades) ... */}
+                                    {activities.length > 0 ? activities.map(act => (
+                                        <div key={act.id} className="p-2 bg-white rounded-md text-sm border flex justify-between items-center group">
+                                            <div className="flex-1">
+                                                <p className="font-semibold">{act.nome}</p>
+                                                <p className="text-xs text-gray-500">
+                                                    {/* ***** CORREÇÃO APLICADA AQUI ***** */}
+                                                    Prazo: {formatDateString(act.data_fim_prevista)}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {act.status !== 'Concluído' && <button onClick={() => handleCompleteActivity(act.id)} className="text-green-500 hover:text-green-700" title="Marcar como concluída"><FontAwesomeIcon icon={faCheckCircle} /></button>}
+                                                <button onClick={() => onEditActivity(act)} className="text-gray-500 hover:text-blue-700" title="Editar"><FontAwesomeIcon icon={faPen} /></button>
+                                                <button onClick={() => handleDeleteActivity(act.id)} className="text-gray-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
+                                            </div>
+                                        </div>
+                                    )) : <p className="text-xs text-gray-500 text-center py-4">Nenhuma atividade agendada.</p>}
                                 </div>
                             </section>
 
                             <section>
                                 <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2"><FontAwesomeIcon icon={faStickyNote} />Notas</h4>
-                                {/* ... (código existente das notas) ... */}
+                                <div className="space-y-3">
+                                    <div className="relative">
+                                        <textarea value={newNoteContent} onChange={(e) => setNewNoteContent(e.target.value)} placeholder="Adicionar uma nota..." className="w-full p-2 border rounded-md text-sm" rows={3}></textarea>
+                                        <button onClick={handleAddNote} disabled={saving || !newNoteContent.trim()} className="absolute bottom-2 right-2 bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-blue-700 disabled:bg-gray-400">
+                                            {saving ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Salvar'}
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2 max-h-56 overflow-y-auto border rounded-md p-2 bg-gray-50">
+                                        {notes.length > 0 ? notes.map(note => (
+                                            <div key={note.id} className="bg-white p-2 rounded border text-sm group">
+                                                {editingNoteId === note.id ? (
+                                                    <div>
+                                                        <textarea value={editingNoteContent} onChange={(e) => setEditingNoteContent(e.target.value)} className="w-full p-1 border rounded" rows={3}/>
+                                                        <div className="flex justify-end gap-2 mt-1">
+                                                            <button onClick={() => setEditingNoteId(null)} className="text-xs">Cancelar</button>
+                                                            <button onClick={() => handleSaveNoteEdit(note.id)} className="text-xs font-semibold text-blue-600">{saving ? 'Salvando...' : 'Salvar'}</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <p className="text-gray-800 whitespace-pre-wrap">{note.conteudo}</p>
+                                                        <div className="flex justify-between items-center mt-1">
+                                                            <p className="text-xs text-gray-500">{note.usuarios?.nome} - {format(new Date(note.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}</p>
+                                                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button onClick={() => handleStartEditingNote(note)} className="text-gray-500 hover:text-blue-700" title="Editar"><FontAwesomeIcon icon={faPen} /></button>
+                                                                <button onClick={() => handleDeleteNote(note.id)} className="text-gray-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )) : <p className="text-xs text-gray-500 text-center py-4">Nenhuma nota adicionada.</p>}
+                                    </div>
+                                </div>
                             </section>
                         </>
                     )}
