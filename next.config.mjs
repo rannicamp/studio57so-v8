@@ -1,16 +1,14 @@
 // next.config.mjs
 
-import withPWA from 'next-pwa';
+import withPWAInit from '@ducanh2912/next-pwa';
 
-// Configuração do PWA
-const pwaConfig = {
+const withPWA = withPWAInit({
   dest: 'public',
+  disable: process.env.NODE_ENV === 'development',
   register: true,
   skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development',
-};
+});
 
-// Configuração principal do Next.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -18,6 +16,4 @@ const nextConfig = {
   },
 };
 
-// Une as duas configurações
-const withPWAConfig = withPWA(pwaConfig);
-export default withPWAConfig(nextConfig);
+export default withPWA(nextConfig);
