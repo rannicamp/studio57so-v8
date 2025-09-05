@@ -1,8 +1,13 @@
+// app/layout.js
+
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'sonner';
 import Script from 'next/script';
 import { Providers } from './providers';
+// --- INÍCIO DA ALTERAÇÃO ---
+import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar'; // Importamos nosso novo componente
+// --- FIM DA ALTERAÇÃO ---
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -10,22 +15,26 @@ export const metadata = {
   title: 'Studio 57',
   description: 'Sistema de Gestão Integrada',
   manifest: '/manifest.json',
-  // --- INÍCIO DA ALTERAÇÃO ---
-  // Adicionando ícones específicos para melhor compatibilidade com PWA
   icons: {
-    icon: '/favicon.ico', // Ícone padrão para navegadores
-    apple: '/icons/icon-192x192.png', // Ícone para Apple (iPhone/iPad) ao adicionar à Tela de Início
+    icon: '/favicon.ico',
+    apple: '/icons/icon-192x192.png',
   },
-  // --- FIM DA ALTERAÇÃO ---
 };
 
 export default function RootLayout({ children }) {
+  // O useEffect que causava o erro foi REMOVIDO daqui.
+
   return (
     <html lang="pt-br">
       <head>
         <meta name="theme-color" content="#0288d1" />
       </head>
       <body className={inter.className}>
+        
+        {/* --- INÍCIO DA ALTERAÇÃO --- */}
+        {/* Chamamos nosso componente especialista aqui. Ele cuidará do registro. */}
+        <ServiceWorkerRegistrar />
+        {/* --- FIM DA ALTERAÇÃO --- */}
         
         <div id="fb-root"></div>
         <Script
@@ -41,7 +50,7 @@ export default function RootLayout({ children }) {
               FB.init({
                 appId      : '1518358099511142',
                 cookie     : true,
-                xfbml      : true,
+                xfml      : true,
                 version    : 'v20.0'
               });
               
