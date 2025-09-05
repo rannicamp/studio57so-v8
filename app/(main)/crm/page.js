@@ -264,7 +264,15 @@ export default function CrmPage() {
 
     return (
         <div className="h-full flex flex-col bg-gray-100">
-            <CrmDetalhesSidebar open={isSidebarOpen} onClose={handleCloseSidebar} contato={selectedContactForSidebar?.contatos} contatoNoFunilId={selectedContactForSidebar?.id} onAddActivity={handleOpenActivityModal} onEditActivity={handleEditActivity} onContactUpdate={() => { fetchFunilData(); }} refreshKey={sidebarRefreshKey} />
+            <CrmDetalhesSidebar
+                open={isSidebarOpen}
+                onClose={handleCloseSidebar}
+                funilEntry={selectedContactForSidebar}
+                onAddActivity={handleOpenActivityModal}
+                onEditActivity={handleEditActivity}
+                onContactUpdate={() => { fetchFunilData(); }}
+                refreshKey={sidebarRefreshKey}
+            />
             {isActivityModalOpen && ( <AtividadeModal isOpen={isActivityModalOpen} onClose={handleCloseActivityModal} onActivityAdded={() => { toast.success(`Atividade ${activityToEdit ? 'atualizada' : 'adicionada'}!`); if (isSidebarOpen) { setSidebarRefreshKey(prev => prev + 1); } }} activityToEdit={activityToEdit} initialContatoId={contactForNewActivity?.id} funcionarios={funcionarios} allEmpresas={empresas} /> )}
             
             <div className="flex-shrink-0 bg-white shadow-sm">

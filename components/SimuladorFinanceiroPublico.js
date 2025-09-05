@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faCalculator, faPrint, faExclamationTriangle, faInfoCircle, faPlus, faTrash, faTimes, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 import SimuladorPrintView from './SimuladorPrintView';
 
@@ -41,6 +43,7 @@ const PhoneInput = ({ countryCode, onCountryChange, phone, onPhoneChange, placeh
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 const formatDateForDisplay = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A';
 
+// REVERTIDO: Removemos a prop 'empresa' que vinha da página
 export default function SimuladorFinanceiroPublico({ empreendimentos }) {
     const supabase = createClient();
     
@@ -74,7 +77,7 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
 
     const [cronograma, setCronograma] = useState([]);
     const [isSimulating, setIsSimulating] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false); // Novo estado para o envio
+    const [isSubmitting, setIsSubmitting] = useState(false);
     
     const printRef = useRef();
     const handlePrint = () => window.print();
@@ -100,7 +103,7 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
                 return;
             }
             setLoadingProdutos(true);
-            const { data } = await supabase.from('produtos_empreendimento').select('id, unidade, tipo, valor_venda_calculado').eq('empreendimento_id', selectedEmpreendimentoId).eq('status', 'Disponível').order('unidade');
+            const { data } = await supabase.from('produtos_empreendimento').select('id, unidade, tipo, area_m2, valor_venda_calculado').eq('empreendimento_id', selectedEmpreendimentoId).eq('status', 'Disponível').order('unidade');
             setProdutos(data || []);
             setSelectedProdutos([]);
             setLoadingProdutos(false);
@@ -122,7 +125,7 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
         setPlano(prev => ({ 
             ...prev, 
             valor_base: base,
-            saldo_remanescente_valor: saldo.toFixed(2) 
+            saldo_remanescente_valor: saldo > 0 ? saldo.toFixed(2) : '0.00'
         }));
         
         setCronograma([]);
@@ -231,15 +234,15 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
             obraValorParcela: (parseFloat(plano.parcelas_obra_valor) || 0) / plano.num_parcelas_obra,
             totalIntermediarias: totalIntermediarias,
             saldoRemanescente: parseFloat(plano.saldo_remanescente_valor) || 0,
-            saldoRemPercentual: (parseFloat(plano.saldo_remanescente_valor) / (totalValorBase || 1)) * 100,
+            saldoRemPercentual: (parseFloat(plano.saldo_remanescente_valor) / (valorFinal || 1)) * 100,
             mesAnoUltimaParcelaObra: plano.data_primeira_parcela_obra ? `${String(ultimaParcelaObra.getUTCMonth() + 1).padStart(2, '0')}/${ultimaParcelaObra.getUTCFullYear()}` : 'N/A'
         }
     }, [plano, selectedProdutos, totalValorBase, valorFinal, totalIntermediarias]);
-
+    
     const simulacaoCompletaData = {
         empreendimento: empreendimentos.find(e => e.id == selectedEmpreendimentoId),
         produtos: selectedProdutos,
-        plano: { ...plano, parcelas_intermediarias: parcelasIntermediarias }, // Inclui intermediárias no plano
+        plano: { ...plano, parcelas_intermediarias: parcelasIntermediarias },
         cronograma,
         valorFinal,
         resumo: resumoData,
@@ -274,11 +277,52 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
         }
     };
 
+    const printViewData = useMemo(() => {
+        if (!resumoData || selectedProdutos.length === 0 || cronograma.length === 0) {
+            return null;
+        }
+
+        const simulacaoParaImpressao = {
+            id: `PROP-${Date.now()}`,
+            valor_venda: resumoData.valorBase,
+            desconto_valor: resumoData.descontoValor,
+            desconto_percentual: resumoData.descontoPercentual.toFixed(2),
+        };
+
+        const planoPropostaParaImpressao = cronograma.map((p, index) => ({
+            numero: index + 1,
+            descricao: p.descricao,
+            vencimento: format(new Date(p.data_vencimento), 'dd/MM/yyyy', { locale: ptBR }),
+            valor: formatCurrency(p.valor_parcela)
+        }));
+
+        return {
+            simulacao: simulacaoParaImpressao,
+            produto: selectedProdutos[0], 
+            empreendimento: empreendimentos.find(e => e.id == selectedEmpreendimentoId),
+            contato: cliente, 
+            corretor: corretor,
+            planoProposta: planoPropostaParaImpressao,
+            resumo: resumoData,
+        };
+
+    }, [resumoData, selectedProdutos, empreendimentos, selectedEmpreendimentoId, cliente, corretor, cronograma]);
+
     return (
         <div>
             <style jsx global>{`@media print {@page { size: A4 portrait; margin: 1cm; } html, body { height: initial !important; overflow: initial !important; -webkit-print-color-adjust: exact; } body * { visibility: hidden; } .printable-area, .printable-area * { visibility: visible; } .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; height: auto; } .no-print { display: none !important; } tfoot { display: table-row-group; }}`}</style>
+            
             <div className="hidden print:block printable-area">
-                <SimuladorPrintView ref={printRef} simulacaoData={simulacaoCompletaData} />
+                <SimuladorPrintView 
+                    ref={printRef} 
+                    simulacao={printViewData?.simulacao}
+                    produto={printViewData?.produto}
+                    empreendimento={printViewData?.empreendimento}
+                    contato={printViewData?.contato}
+                    corretor={printViewData?.corretor}
+                    planoProposta={printViewData?.planoProposta}
+                    resumo={printViewData?.resumo}
+                />
             </div>
 
             <div className="space-y-8 no-print">
@@ -295,8 +339,8 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
                         </select>
                         <div className="flex items-center gap-2">
                              <select value={currentSelectedProdutoId} onChange={(e) => setCurrentSelectedProdutoId(e.target.value)} disabled={!selectedEmpreendimentoId || loadingProdutos} className="p-2 border rounded-md w-full">
-                                <option value="">{loadingProdutos ? 'Carregando...' : 'Selecione a Unidade'}</option>
-                                {produtos.filter(p => !selectedProdutos.some(sp => sp.id === p.id)).map(p => <option key={p.id} value={p.id}>{p.unidade} ({p.tipo}) - {formatCurrency(p.valor_venda_calculado)}</option>)}
+                                 <option value="">{loadingProdutos ? 'Carregando...' : 'Selecione a Unidade'}</option>
+                                 {produtos.filter(p => !selectedProdutos.some(sp => sp.id === p.id)).map(p => <option key={p.id} value={p.id}>{p.unidade} ({p.tipo}) - {formatCurrency(p.valor_venda_calculado)}</option>)}
                             </select>
                             <button onClick={addProduto} disabled={!currentSelectedProdutoId} className="bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 disabled:bg-gray-300">
                                 <FontAwesomeIcon icon={faPlus} />
@@ -342,16 +386,16 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
 
                 {cronograma.length > 0 && (
                      <fieldset className="p-4 border rounded-lg animate-fade-in"><legend className="px-2 font-semibold text-gray-700">Passo 3: Resultado da Simulação</legend>
-                        {resumoData && <div className="p-4 border rounded-md space-y-3 text-lg mb-6"><div className="flex justify-between items-center"><span className="text-gray-600">Valor Base Total:</span><span className="font-bold text-blue-700">{formatCurrency(resumoData.valorBase)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Desconto ({resumoData.descontoPercentual.toFixed(2)}%):</span><span className="font-bold text-red-600">{formatCurrency(resumoData.descontoValor)}</span></div><div className="flex justify-between items-center border-t pt-3 mt-3"><span className="font-semibold text-gray-800">Valor Final (c/ Desc.):</span><span className="font-bold text-green-700 text-xl">{formatCurrency(resumoData.valorFinal)}</span></div><hr className="my-4"/><div className="flex justify-between items-center"><span className="text-gray-600">Entrada ({resumoData.entradaPercentual.toFixed(2)}%):</span><span className="font-semibold">{resumoData.entradaNumParcelas}x de {formatCurrency(resumoData.entradaValorParcela)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Parcelas Obra ({resumoData.obraPercentual.toFixed(2)}%):</span><span className="font-semibold">{resumoData.obraNumParcelas}x de {formatCurrency(resumoData.obraValorParcela)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Intermediárias:</span><span className="font-semibold">{formatCurrency(resumoData.totalIntermediarias)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Saldo Rem. ({resumoData.saldoRemPercentual.toFixed(2)}%):</span><span className="font-semibold">{formatCurrency(resumoData.saldoRemanescente)}</span></div><div className="flex justify-between items-center text-sm text-gray-500 border-t pt-2 mt-2"><span className="font-semibold">Mês/Ano Última Parc. Obra:</span><span>{resumoData.mesAnoUltimaParcelaObra}</span></div></div>}
-                        <h4 className="font-semibold text-gray-800 mb-2 text-center">Cronograma Detalhado</h4>
-                        <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 text-sm"><thead className="bg-gray-100"><tr><th className="px-4 py-2 text-left font-semibold">Descrição</th><th className="px-4 py-2 text-left font-semibold">Vencimento</th><th className="px-4 py-2 text-right font-semibold">Valor (R$)</th></tr></thead><tbody className="bg-white divide-y">{cronograma.map(p => (<tr key={p.id}><td className="px-4 py-2">{p.descricao}</td><td className="px-4 py-2">{formatDateForDisplay(p.data_vencimento)}</td><td className="px-4 py-2 text-right font-medium">{formatCurrency(p.valor_parcela)}</td></tr>))}</tbody></table></div>
-                        <div className="flex justify-center items-center gap-4 mt-6">
-                            <button onClick={handlePrint} className="bg-gray-700 text-white font-bold px-6 py-3 rounded-md hover:bg-gray-800 flex items-center gap-2"><FontAwesomeIcon icon={faPrint} /> Imprimir / PDF</button>
-                            <button onClick={handleEnviarProposta} disabled={isSubmitting} className="bg-green-600 text-white font-bold px-6 py-3 rounded-md hover:bg-green-700 disabled:bg-gray-400 flex items-center gap-2">
-                                <FontAwesomeIcon icon={isSubmitting ? faSpinner : faPaperPlane} spin={isSubmitting} /> {isSubmitting ? 'Enviando...' : 'Enviar Proposta'}
-                            </button>
-                        </div>
-                     </fieldset>
+                         {resumoData && <div className="p-4 border rounded-md space-y-3 text-lg mb-6"><div className="flex justify-between items-center"><span className="text-gray-600">Valor Base Total:</span><span className="font-bold text-blue-700">{formatCurrency(resumoData.valorBase)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Desconto ({resumoData.descontoPercentual.toFixed(2)}%):</span><span className="font-bold text-red-600">{formatCurrency(resumoData.descontoValor)}</span></div><div className="flex justify-between items-center border-t pt-3 mt-3"><span className="font-semibold text-gray-800">Valor Final (c/ Desc.):</span><span className="font-bold text-green-700 text-xl">{formatCurrency(resumoData.valorFinal)}</span></div><hr className="my-4"/><div className="flex justify-between items-center"><span className="text-gray-600">Entrada ({resumoData.entradaPercentual.toFixed(2)}%):</span><span className="font-semibold">{resumoData.entradaNumParcelas}x de {formatCurrency(resumoData.entradaValorParcela)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Parcelas Obra ({resumoData.obraPercentual.toFixed(2)}%):</span><span className="font-semibold">{resumoData.obraNumParcelas}x de {formatCurrency(resumoData.obraValorParcela)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Intermediárias:</span><span className="font-semibold">{formatCurrency(resumoData.totalIntermediarias)}</span></div><div className="flex justify-between items-center"><span className="text-gray-600">Saldo Rem. ({resumoData.saldoRemPercentual.toFixed(2)}%):</span><span className="font-semibold">{formatCurrency(resumoData.saldoRemanescente)}</span></div><div className="flex justify-between items-center text-sm text-gray-500 border-t pt-2 mt-2"><span className="font-semibold">Mês/Ano Última Parc. Obra:</span><span>{resumoData.mesAnoUltimaParcelaObra}</span></div></div>}
+                         <h4 className="font-semibold text-gray-800 mb-2 text-center">Cronograma Detalhado</h4>
+                         <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 text-sm"><thead className="bg-gray-100"><tr><th className="px-4 py-2 text-left font-semibold">Descrição</th><th className="px-4 py-2 text-left font-semibold">Vencimento</th><th className="px-4 py-2 text-right font-semibold">Valor (R$)</th></tr></thead><tbody className="bg-white divide-y">{cronograma.map(p => (<tr key={p.id}><td className="px-4 py-2">{p.descricao}</td><td className="px-4 py-2">{formatDateForDisplay(p.data_vencimento)}</td><td className="px-4 py-2 text-right font-medium">{formatCurrency(p.valor_parcela)}</td></tr>))}</tbody></table></div>
+                         <div className="flex justify-center items-center gap-4 mt-6">
+                             <button onClick={handlePrint} className="bg-gray-700 text-white font-bold px-6 py-3 rounded-md hover:bg-gray-800 flex items-center gap-2"><FontAwesomeIcon icon={faPrint} /> Imprimir / PDF</button>
+                             <button onClick={handleEnviarProposta} disabled={isSubmitting} className="bg-green-600 text-white font-bold px-6 py-3 rounded-md hover:bg-green-700 disabled:bg-gray-400 flex items-center gap-2">
+                                 <FontAwesomeIcon icon={isSubmitting ? faSpinner : faPaperPlane} spin={isSubmitting} /> {isSubmitting ? 'Enviando...' : 'Enviar Proposta'}
+                             </button>
+                         </div>
+                    </fieldset>
                 )}
             </div>
         </div>
