@@ -47,7 +47,7 @@ export default function CadastroClientePage() {
         .then(data => {
           if (!data.erro) {
             setEndereco({
-              street: data.logouro,
+              street: data.logradouro,
               neighborhood: data.bairro,
               city: data.localidade,
               state: data.uf
@@ -84,14 +84,10 @@ export default function CadastroClientePage() {
                     <input name="nome" placeholder="Nome Completo" className="input-style" required />
                     <IMaskInput mask="000.000.000-00" name="cpf" placeholder="CPF" className="input-style" required />
                     <input name="rg" placeholder="RG" className="input-style" />
-                    
-                    {/* ***** INÍCIO DA ALTERAÇÃO ***** */}
                     <div>
                         <label htmlFor="birth_date" className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
                         <input name="birth_date" id="birth_date" type="date" className="input-style" />
                     </div>
-                    {/* ***** FIM DA ALTERAÇÃO ***** */}
-
                     <input name="nacionalidade" placeholder="Nacionalidade" className="input-style" />
                     <select name="estado_civil" className="input-style" onChange={handleEstadoCivilChange}>
                         <option value="">Estado Civil</option>
@@ -101,6 +97,10 @@ export default function CadastroClientePage() {
                         <option value="Divorciado(a)">Divorciado(a)</option>
                         <option value="Viúvo(a)">Viúvo(a)</option>
                     </select>
+                    {/* ***** CAMPO ADICIONADO AQUI ***** */}
+                    <div className="md:col-span-2">
+                        <input name="cargo" placeholder="Profissão/Cargo/Função" className="input-style" />
+                    </div>
                 </div>
                 {showConjuge && (
                     <>
@@ -130,6 +130,10 @@ export default function CadastroClientePage() {
                     <input name="inscricao_estadual" placeholder="Inscrição Estadual" className="input-style" />
                     <input name="responsavel_legal" placeholder="Responsável Legal" className="input-style" />
                     <input name="pessoa_contato" placeholder="Pessoa de Contato" className="input-style" />
+                    {/* ***** CAMPO ADICIONADO AQUI ***** */}
+                    <div className="md:col-span-2">
+                        <input name="cargo" placeholder="Cargo/Função da Pessoa de Contato" className="input-style" />
+                    </div>
                 </div>
             </div>
           )}
