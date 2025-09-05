@@ -5,6 +5,7 @@ import { useState, useEffect, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { createContact } from './actions';
 import { IMaskInput } from 'react-imask';
+// Removido o import do Image, pois não será mais usado
 
 const initialState = {
   message: null,
@@ -60,11 +61,21 @@ export default function CadastroClientePage() {
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="max-w-4xl w-full bg-white p-8 rounded-lg shadow-md">
+        
+        {/* ***** CÓDIGO CORRIGIDO PARA USAR A TAG <img> NORMAL ***** */}
+        <div className="flex justify-center mb-6">
+            <img
+                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG" 
+                alt="Studio 57"
+                className="h-16 w-auto" // Estilo para controlar o tamanho, como no simulador
+            />
+        </div>
+        
         <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">Ficha Cadastral</h1>
         <p className="text-center text-gray-500 mb-6">Preencha os campos abaixo para realizar o seu cadastro.</p>
         
         <form action={formAction}>
-          {/* Seletor de Tipo de Pessoa */}
+          {/* O restante do formulário continua igual */}
           <div className="mb-6">
             <div className="flex border border-gray-300 rounded-md p-1">
               <button type="button" onClick={() => setTipoPessoa('pf')} className={`w-1/2 p-2 rounded-md transition-colors ${tipoPessoa === 'pf' ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}>
@@ -97,7 +108,6 @@ export default function CadastroClientePage() {
                         <option value="Divorciado(a)">Divorciado(a)</option>
                         <option value="Viúvo(a)">Viúvo(a)</option>
                     </select>
-                    {/* ***** CAMPO ADICIONADO AQUI ***** */}
                     <div className="md:col-span-2">
                         <input name="cargo" placeholder="Profissão/Cargo/Função" className="input-style" />
                     </div>
@@ -130,7 +140,6 @@ export default function CadastroClientePage() {
                     <input name="inscricao_estadual" placeholder="Inscrição Estadual" className="input-style" />
                     <input name="responsavel_legal" placeholder="Responsável Legal" className="input-style" />
                     <input name="pessoa_contato" placeholder="Pessoa de Contato" className="input-style" />
-                    {/* ***** CAMPO ADICIONADO AQUI ***** */}
                     <div className="md:col-span-2">
                         <input name="cargo" placeholder="Cargo/Função da Pessoa de Contato" className="input-style" />
                     </div>
