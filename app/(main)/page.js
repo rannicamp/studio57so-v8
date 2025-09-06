@@ -1,11 +1,9 @@
-// app/(main)/page.js
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/utils/supabase/client';
-import Header from '@/components/Header';
+// A importação do Header foi REMOVIDA daqui
 import { redirect, useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -20,7 +18,6 @@ import 'react-resizable/css/styles.css';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
-// Layout atualizado para incluir o novo card de pendências
 const initialLayout = [
     { i: 'profile-card', x: 0, y: 0, w: 2, h: 2, minW: 2, minH: 2 },
     { i: 'pending-clock-ins-card', x: 2, y: 0, w: 2, h: 2, minW: 2, minH: 2 },
@@ -41,12 +38,11 @@ export default function DashboardPage() {
     const [dashboardLoading, setDashboardLoading] = useState(true);
     const [layout, setLayout] = useState([]);
     
-    // Estados para o novo card de pendências
     const [pendingEmployees, setPendingEmployees] = useState([]);
     const [checkingPendencies, setCheckingPendencies] = useState(true);
 
     useEffect(() => {
-        const savedLayoutJSON = localStorage.getItem('dashboard-layout-v3'); // Nova chave para o layout
+        const savedLayoutJSON = localStorage.getItem('dashboard-layout-v3');
         let savedLayout = null;
         if (savedLayoutJSON) {
             try { savedLayout = JSON.parse(savedLayoutJSON); } catch (e) { savedLayout = null; }
@@ -200,13 +196,12 @@ export default function DashboardPage() {
     }, [user, userData, authLoading, fetchEmployeeAndUserData, fetchMonthlyHoursSummary, fetchDollarRate, supabase]);
 
     const goToPonto = (employeeId) => {
-        // Armazena o ID no localStorage para a página de ponto poder ler
         localStorage.setItem('selectedEmployeeIdForPonto', employeeId);
         router.push('/ponto');
     };
 
     if (authLoading || dashboardLoading) {
-        return ( <div className="flex justify-center items-center min-h-screen bg-gray-100"> <p className="text-gray-700 text-lg">Carregando painel...</p> </div> );
+        return ( <div className="flex justify-center items-center h-full"><p className="text-gray-700 text-lg">Carregando painel...</p></div> );
     }
 
     const nameToDisplay = employeeData?.full_name || userData?.nome_completo || `${userData?.nome || ''} ${userData?.sobrenome || ''}`.trim() || user?.email || 'Usuário';
@@ -216,89 +211,87 @@ export default function DashboardPage() {
     const avatarUrlToUse = user?.user_metadata?.avatar_url || userData?.avatar_url || '/default-avatar.png';
 
     return (
-        <div className="flex flex-col min-h-screen bg-gray-100">
-            <Header />
-            <main className="flex-1 p-6 md:p-8 lg:p-10">
-                <h1 className="text-3xl font-bold mb-6 text-gray-800">Painel de {nameToDisplay}</h1>
-                <ResponsiveGridLayout
-                    className="layout"
-                    layouts={{ lg: layout }}
-                    breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-                    cols={{ lg: 4, md: 4, sm: 2, xs: 1, xxs: 1 }}
-                    rowHeight={120}
-                    onLayoutChange={(newLayout) => handleLayoutChange(newLayout)}
-                    isBounded={true}
-                >
-                    <div key="profile-card" className="panel-card bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
-                        <div className="p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 h-full w-full">
-                            <div className="w-24 h-24 flex-shrink-0 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden border-4 border-blue-300 shadow-md">
-                                {avatarUrlToUse && avatarUrlToUse !== '/default-avatar.png' ? (
-                                    <img src={avatarUrlToUse} alt="Avatar do Usuário" className="w-full h-full object-cover" />
-                                ) : (
-                                    <FontAwesomeIcon icon={faUserCircle} className="text-blue-500 text-6xl" />
-                                )}
-                            </div>
-                            <div className="flex-1 text-center sm:text-left overflow-hidden">
-                                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-1 leading-tight">{nameToDisplay}</h2>
-                                <p className="text-sm sm:text-base text-blue-600 mb-2 font-semibold"> <FontAwesomeIcon icon={faBriefcase} className="mr-2" /> {cargoToDisplay} </p>
-                                <div className="text-gray-700 text-sm space-y-1">
-                                    <p className="flex items-center justify-center sm:justify-start"> <FontAwesomeIcon icon={faEnvelope} className="mr-2 text-base text-gray-500" /> <span className="truncate flex-1 min-w-0">{emailToDisplay}</span> </p>
-                                    <p className="flex items-center justify-center sm:justify-start"> <FontAwesomeIcon icon={faPhone} className="mr-2 text-base text-gray-500" /> <span>{phoneToDisplay}</span> </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div key="pending-clock-ins-card" className="panel-card bg-white p-4 rounded-lg shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col">
-                        <div className="flex items-center justify-center gap-2 mb-2">
-                            <FontAwesomeIcon icon={faExclamationTriangle} className="text-2xl text-yellow-500" />
-                            <h3 className="text-lg font-bold text-gray-800">Pendências de Ponto</h3>
-                        </div>
-                        <div className="flex-1 overflow-y-auto pr-2 text-center">
-                            {checkingPendencies ? (
-                                <div className="flex items-center justify-center h-full"><FontAwesomeIcon icon={faSpinner} spin /></div>
-                            ) : pendingEmployees.length > 0 ? (
-                                <ul className="space-y-2">
-                                    {pendingEmployees.map(emp => (
-                                        <li key={emp.id}>
-                                            <button onClick={() => goToPonto(emp.id)} className="w-full text-left text-sm font-medium text-gray-700 hover:text-blue-600 p-2 bg-yellow-50 rounded-md hover:bg-yellow-100">
-                                                {emp.full_name}
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
+        // O Header foi REMOVIDO daqui. O layout principal já o fornece.
+        <div className="flex-1">
+            <h1 className="text-3xl font-bold mb-6 text-gray-800">Painel de {nameToDisplay}</h1>
+            <ResponsiveGridLayout
+                className="layout"
+                layouts={{ lg: layout }}
+                breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+                cols={{ lg: 4, md: 4, sm: 2, xs: 1, xxs: 1 }}
+                rowHeight={120}
+                onLayoutChange={(newLayout) => handleLayoutChange(newLayout)}
+                isBounded={true}
+            >
+                <div key="profile-card" className="panel-card bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
+                    <div className="p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 h-full w-full">
+                        <div className="w-24 h-24 flex-shrink-0 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden border-4 border-blue-300 shadow-md">
+                            {avatarUrlToUse && avatarUrlToUse !== '/default-avatar.png' ? (
+                                <img src={avatarUrlToUse} alt="Avatar do Usuário" className="w-full h-full object-cover" />
                             ) : (
-                                <div className="flex items-center justify-center h-full text-sm text-gray-500">Nenhuma pendência encontrada.</div>
+                                <FontAwesomeIcon icon={faUserCircle} className="text-blue-500 text-6xl" />
                             )}
                         </div>
+                        <div className="flex-1 text-center sm:text-left overflow-hidden">
+                            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-1 leading-tight">{nameToDisplay}</h2>
+                            <p className="text-sm sm:text-base text-blue-600 mb-2 font-semibold"> <FontAwesomeIcon icon={faBriefcase} className="mr-2" /> {cargoToDisplay} </p>
+                            <div className="text-gray-700 text-sm space-y-1">
+                                <p className="flex items-center justify-center sm:justify-start"> <FontAwesomeIcon icon={faEnvelope} className="mr-2 text-base text-gray-500" /> <span className="truncate flex-1 min-w-0">{emailToDisplay}</span> </p>
+                                <p className="flex items-center justify-center sm:justify-start"> <FontAwesomeIcon icon={faPhone} className="mr-2 text-base text-gray-500" /> <span>{phoneToDisplay}</span> </p>
+                            </div>
+                        </div>
                     </div>
+                </div>
 
-                    <div key="dollar-card" className="panel-card bg-white p-4 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col items-center justify-center text-center">
-                        <FontAwesomeIcon icon={faDollarSign} className="text-4xl text-green-600 mb-2" />
-                        <h3 className="text-xl font-bold text-gray-800 mb-1">Dólar (USD)</h3>
-                        <p className="text-3xl font-extrabold text-green-700"> R$ {dollarRate || '...'} </p>
-                        <p className="text-xs text-gray-500 mt-1">Cotação de Venda</p>
+                <div key="pending-clock-ins-card" className="panel-card bg-white p-4 rounded-lg shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                        <FontAwesomeIcon icon={faExclamationTriangle} className="text-2xl text-yellow-500" />
+                        <h3 className="text-lg font-bold text-gray-800">Pendências de Ponto</h3>
                     </div>
+                    <div className="flex-1 overflow-y-auto pr-2 text-center">
+                        {checkingPendencies ? (
+                            <div className="flex items-center justify-center h-full"><FontAwesomeIcon icon={faSpinner} spin /></div>
+                        ) : pendingEmployees.length > 0 ? (
+                            <ul className="space-y-2">
+                                {pendingEmployees.map(emp => (
+                                    <li key={emp.id}>
+                                        <button onClick={() => goToPonto(emp.id)} className="w-full text-left text-sm font-medium text-gray-700 hover:text-blue-600 p-2 bg-yellow-50 rounded-md hover:bg-yellow-100">
+                                            {emp.full_name}
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-sm text-gray-500">Nenhuma pendência encontrada.</div>
+                        )}
+                    </div>
+                </div>
 
-                    <div key="days-card" className="panel-card bg-white p-4 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col items-center justify-center text-center">
-                        <FontAwesomeIcon icon={faCalendarDays} className="text-3xl text-blue-500 mb-2" />
-                        <h3 className="text-lg font-bold text-gray-800 mb-1">Dias Trab.</h3>
-                        <p className="text-2xl font-extrabold text-blue-700"> {monthlyHoursSummary.totalDays} <span className="text-base font-normal text-gray-600 ml-1">dias</span> </p>
-                    </div>
+                <div key="dollar-card" className="panel-card bg-white p-4 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col items-center justify-center text-center">
+                    <FontAwesomeIcon icon={faDollarSign} className="text-4xl text-green-600 mb-2" />
+                    <h3 className="text-xl font-bold text-gray-800 mb-1">Dólar (USD)</h3>
+                    <p className="text-3xl font-extrabold text-green-700"> R$ {dollarRate || '...'} </p>
+                    <p className="text-xs text-gray-500 mt-1">Cotação de Venda</p>
+                </div>
 
-                    <div key="hours-card" className="panel-card bg-white p-4 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col items-center justify-center text-center">
-                        <FontAwesomeIcon icon={faClock} className="text-3xl text-blue-500 mb-2" />
-                        <h3 className="text-lg font-bold text-gray-800 mb-1">Total Horas</h3>
-                        <p className="text-2xl font-extrabold text-blue-700"> {monthlyHoursSummary.formattedTotalHours} <span className="text-base font-normal text-gray-600 ml-1">h</span> </p>
-                    </div>
+                <div key="days-card" className="panel-card bg-white p-4 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col items-center justify-center text-center">
+                    <FontAwesomeIcon icon={faCalendarDays} className="text-3xl text-blue-500 mb-2" />
+                    <h3 className="text-lg font-bold text-gray-800 mb-1">Dias Trab.</h3>
+                    <p className="text-2xl font-extrabold text-blue-700"> {monthlyHoursSummary.totalDays} <span className="text-base font-normal text-gray-600 ml-1">dias</span> </p>
+                </div>
 
-                    <div key="overtime-card" className="panel-card bg-white p-4 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col items-center justify-center text-center">
-                        <FontAwesomeIcon icon={faBusinessTime} className="text-3xl text-blue-500 mb-2" />
-                        <h3 className="text-lg font-bold text-gray-800 mb-1">Horas Extras</h3>
-                        <p className="text-2xl font-extrabold text-blue-700"> {monthlyHoursSummary.hoursOvertime} <span className="text-base font-normal text-gray-600 ml-1">h</span> </p>
-                    </div>
-                </ResponsiveGridLayout>
-            </main>
+                <div key="hours-card" className="panel-card bg-white p-4 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col items-center justify-center text-center">
+                    <FontAwesomeIcon icon={faClock} className="text-3xl text-blue-500 mb-2" />
+                    <h3 className="text-lg font-bold text-gray-800 mb-1">Total Horas</h3>
+                    <p className="text-2xl font-extrabold text-blue-700"> {monthlyHoursSummary.formattedTotalHours} <span className="text-base font-normal text-gray-600 ml-1">h</span> </p>
+                </div>
+
+                <div key="overtime-card" className="panel-card bg-white p-4 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col items-center justify-center text-center">
+                    <FontAwesomeIcon icon={faBusinessTime} className="text-3xl text-blue-500 mb-2" />
+                    <h3 className="text-lg font-bold text-gray-800 mb-1">Horas Extras</h3>
+                    <p className="text-2xl font-extrabold text-blue-700"> {monthlyHoursSummary.hoursOvertime} <span className="text-base font-normal text-gray-600 ml-1">h</span> </p>
+                </div>
+            </ResponsiveGridLayout>
         </div>
     );
 }
