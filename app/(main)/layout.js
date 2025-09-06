@@ -1,4 +1,3 @@
-// app/(main)/layout.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -12,14 +11,14 @@ import AtividadeModal from '../../components/AtividadeModal';
 import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
 
-import '@fortawesome/fontawesome-svg-core/styles.css'; 
+import '@fortawesome/fontawesome-svg-core/styles.css';
 import { config } from '@fortawesome/fontawesome-svg-core';
-config.autoAddCss = false; 
+config.autoAddCss = false;
 
 // Componente interno para conter a nova lógica
 function MainLayout({ children }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { isProprietario } = useAuth();
+  const { isProprietario, sidebarPosition, loading: authLoading } = useAuth(); // Pega a posição do menu
   const { empreendimentos } = useEmpreendimento();
 
   const [isGlobalActivityModalOpen, setIsGlobalActivityModalOpen] = useState(false);
@@ -60,6 +59,39 @@ function MainLayout({ children }) {
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
   };
+  
+  // Se ainda estiver carregando os dados do usuário, exibe um loader
+  if (authLoading) {
+    return <div className="flex items-center justify-center h-screen">Carregando...</div>;
+  }
+
+  // LÓGICA PARA AS CLASSES DINÂMICAS DO LAYOUT
+  const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom';
+  
+  const containerClasses = {
+    left: 'flex flex-row',
+    right: 'flex flex-row-reverse',
+    top: 'flex flex-col',
+    bottom: 'flex flex-col-reverse'
+  };
+
+  const mainContentMargins = {
+    left: isCollapsed ? 'ml-[80px]' : 'ml-[260px]',
+    right: isCollapsed ? 'mr-[80px]' : 'mr-[260px]',
+    top: 'mt-[65px]', // Altura do Header
+    bottom: 'mb-[65px]' // Altura do Sidebar quando está embaixo
+  };
+
+  const headerMargins = {
+    left: isCollapsed ? 'left-[80px]' : 'left-[260px]',
+    right: isCollapsed ? 'right-[80px]' : 'right-[260px]',
+    top: 'left-0',
+    bottom: 'left-0'
+  };
+
+  const finalContainerClass = containerClasses[sidebarPosition] || 'flex flex-row';
+  const finalMainContentMargin = mainContentMargins[sidebarPosition] || 'ml-[260px]';
+  const finalHeaderMargin = headerMargins[sidebarPosition] || 'left-[260px]';
 
   return (
     <>
@@ -78,21 +110,22 @@ function MainLayout({ children }) {
         />
       )}
       
-      <div>
+      <div className={finalContainerClass}>
         <Sidebar
           isCollapsed={isCollapsed}
           toggleSidebar={toggleSidebar}
           isAdmin={isProprietario}
         />
-        <Header isCollapsed={isCollapsed} />
-        <main className={`p-6 mt-[65px] transition-all duration-300 ${isCollapsed ? 'ml-[80px]' : 'ml-[260px]'}`}>
-          {children}
-        </main>
+        <div className={`flex-1 ${!isHorizontal ? 'relative' : ''}`}>
+            <Header isCollapsed={isCollapsed} headerPositionClass={finalHeaderMargin} />
+            <main className={`p-6 transition-all duration-300 ${!isHorizontal ? `mt-[65px] ${finalMainContentMargin}` : 'pt-[85px]'}`}>
+                {children}
+            </main>
+        </div>
       </div>
     </>
   );
 }
-
 
 export default function MainAppLayoutWrapper({ children }) {
   return (

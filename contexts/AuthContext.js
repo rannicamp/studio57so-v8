@@ -13,6 +13,8 @@ export function AuthProvider({ children }) {
   const [isProprietario, setIsProprietario] = useState(false);
   const [canViewSalaries, setCanViewSalaries] = useState(false);
   const [permissions, setPermissions] = useState({});
+  // NOVO ESTADO PARA A POSIÇÃO DO MENU
+  const [sidebarPosition, setSidebarPosition] = useState('left');
 
   const fetchProfileAndPermissions = useCallback(async (currentUser) => {
     if (!currentUser) {
@@ -20,6 +22,7 @@ export function AuthProvider({ children }) {
       setPermissions({});
       setIsProprietario(false);
       setCanViewSalaries(false);
+      setSidebarPosition('left'); // Reseta para o padrão
       setLoading(false);
       return;
     }
@@ -41,6 +44,8 @@ export function AuthProvider({ children }) {
       setPermissions({});
     } else if (profileData) {
       setUserData(profileData);
+      // DEFINE A POSIÇÃO DO SIDEBAR COM BASE NO DADO DO BANCO
+      setSidebarPosition(profileData.sidebar_position || 'left');
       
       const userRole = profileData?.funcoes;
       const isUserProprietario = userRole?.nome_funcao === 'Proprietário';
@@ -52,7 +57,7 @@ export function AuthProvider({ children }) {
       
       // Se for Proprietário, concede todas as permissões
       if (isUserProprietario) {
-          const allResources = ['empresas', 'empreendimentos', 'funcionarios', 'atividades', 'rdo', 'usuarios', 'permissoes', 'financeiro', 'ponto', 'orcamento', 'pedidos', 'crm', 'contatos'];
+          const allResources = ['empresas', 'empreendimentos', 'funcionarios', 'atividades', 'rdo', 'usuarios', 'permissoes', 'financeiro', 'ponto', 'orcamento', 'pedidos', 'crm', 'contatos', 'simulador', 'contratos', 'caixa-de-entrada', 'anuncios', 'dashboard', 'funil'];
           const allPermissions = allResources.reduce((acc, resource) => {
               acc[resource] = { pode_criar: true, pode_excluir: true, pode_editar: true, pode_ver: true };
               return acc;
@@ -96,12 +101,9 @@ export function AuthProvider({ children }) {
     return permissions[recurso]?.[permissao] || false;
   };
 
-  const value = { user, userData, loading, isProprietario, canViewSalaries, permissions, hasPermission };
-
-  // ##### CORREÇÃO APLICADA AQUI #####
-  // Removemos a condição '!loading &&'. Agora o AuthProvider SEMPRE renderiza
-  // os 'children', e cada página individualmente decidirá se exibe um 'loading'
-  // ou o conteúdo, com base no hook useAuth.
+  // ADICIONA sidebarPosition AO VALOR DO CONTEXTO
+  const value = { user, userData, loading, isProprietario, canViewSalaries, permissions, hasPermission, sidebarPosition };
+  
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

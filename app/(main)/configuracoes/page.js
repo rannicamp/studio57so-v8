@@ -3,7 +3,7 @@ import { createClient } from '../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faUsersCog, faKey, faFileAlt, faBusinessTime, faBox, faNetworkWired, faRobot, faInbox, faFileContract
+  faUsersCog, faKey, faFileAlt, faBusinessTime, faBox, faNetworkWired, faRobot, faInbox, faFileContract, faColumns
 } from '@fortawesome/free-solid-svg-icons';
 
 // Opções de configuração que aparecerão na página
@@ -56,45 +56,58 @@ const settingsOptions = [
     title: 'Central de Feedback',
     description: 'Envie sugestões ou visualize os feedbacks recebidos dos usuários.'
   },
-  // --- NOVO ITEM ADICIONADO AQUI ---
   {
     href: '/configuracoes/politicas',
     icon: faFileContract,
     title: 'Políticas de Uso',
     description: 'Leia os Termos de Uso e a Política de Privacidade do sistema.'
   },
+  // --- NOVO CARTÃO ADICIONADO AQUI ---
+  {
+    href: '/configuracoes/menu',
+    icon: faColumns,
+    title: 'Configurações do Menu',
+    description: 'Personalize a posição do menu lateral (sidebar) na tela.'
+  },
 ];
 
 export default async function ConfiguracoesPage() {
   const supabase = createClient();
 
-  // Proteção de Rota: Apenas o "Proprietário" pode acessar
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     redirect('/login');
   }
 
-  const { data: adminData } = await supabase
+  const { data: userData } = await supabase
     .from('usuarios')
     .select('funcoes(nome_funcao)')
     .eq('id', user.id)
     .single();
 
-  if (adminData?.funcoes?.nome_funcao !== 'Proprietário') {
-    redirect('/');
-  }
+  const isOwner = userData?.funcoes?.nome_funcao === 'Proprietário';
+
+  // Filtra as opções baseadas na permissão
+  const availableOptions = settingsOptions.filter(option => {
+    // Todos podem ver as políticas e configurar o menu
+    if (['/configuracoes/politicas', '/configuracoes/menu', '/configuracoes/feedback'].includes(option.href)) {
+      return true;
+    }
+    // Apenas o proprietário pode ver o resto
+    return isOwner;
+  });
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Configurações Gerais</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Configurações</h1>
         <p className="mt-2 text-gray-600">
-          Gerencie as configurações centrais que afetam todo o sistema.
+          Gerencie as configurações do sistema ou personalize sua experiência.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {settingsOptions.map((option) => (
+        {availableOptions.map((option) => (
           <Link href={option.href} key={option.href} className="block group">
             <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full">
               <FontAwesomeIcon icon={option.icon} className="text-3xl text-blue-500 mb-4" />

@@ -6,17 +6,16 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
   faClipboardList, faCog, faChevronLeft, faChevronRight, faClock,
-  faAddressBook, faDollarSign, faShoppingCart, faUserCog,
-  faSitemap, faBug, faInbox, faBullseye, faFileSignature, faCalculator,
-  faChevronDown,
-  faBoxOpen
+  faAddressBook, faDollarSign, faShoppingCart,
+  faInbox, faBullseye, faFileSignature, faCalculator,
+  faChevronDown, faBoxOpen
 } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { createClient } from '../utils/supabase/client';
 
 export default function Sidebar({ isCollapsed, toggleSidebar }) {
-  const { hasPermission } = useAuth();
+  const { hasPermission, sidebarPosition } = useAuth();
   const supabase = createClient();
 
   const [empreendimentos, setEmpreendimentos] = useState([]);
@@ -54,20 +53,16 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
       render: (isCollapsed, isMenuOpen, setMenuOpen) => {
         const canViewEmpreendimentos = hasPermission('empreendimentos', 'pode_ver');
         if (!canViewEmpreendimentos) return null;
-
         return (
           <>
-            <button
-              onClick={() => !isCollapsed && setMenuOpen(!isMenuOpen)}
-              className={`flex items-center justify-between w-full py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}
-            >
+            <button onClick={() => !isCollapsed && setMenuOpen(!isMenuOpen)} className="flex items-center justify-between w-full py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 px-6">
               <div className="flex items-center">
-                <FontAwesomeIcon icon={faProjectDiagram} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
-                {!isCollapsed && <span className="ml-4 text-sm font-medium">Empreendimentos</span>}
+                <FontAwesomeIcon icon={faProjectDiagram} className="text-lg w-6" />
+                <span className="ml-4 text-sm font-medium">Empreendimentos</span>
               </div>
-              {!isCollapsed && <FontAwesomeIcon icon={faChevronDown} className={`transform transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} />}
+              <FontAwesomeIcon icon={faChevronDown} className={`transform transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} />
             </button>
-            {(!isCollapsed && isMenuOpen) && (
+            {isMenuOpen && (
               <ul className="bg-gray-50 border-l-4 border-gray-200 ml-6 pl-2">
                 <li><Link href="/empreendimentos" className="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-200 text-sm"><span className="w-6 text-center">-</span> Ver Todos</Link></li>
                 {empreendimentos.map(emp => (
@@ -103,8 +98,48 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
   const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE";
   const logoIconUrl = "/favicon.ico";
 
+  const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom';
+
+  if (isHorizontal) {
+    const positionClass = sidebarPosition === 'top' ? 'top-0' : 'bottom-0';
+    const allItems = navSections.flatMap(section => section.items || []);
+
+    return (
+      <aside className={`bg-white shadow-lg h-[65px] w-full fixed left-0 ${positionClass} z-40 flex items-center justify-center px-4`}>
+        <div className="absolute left-4">
+          <Link href="/">
+            <img src={logoIconUrl} alt="Logo Studio 57" className="h-8 w-auto" />
+          </Link>
+        </div>
+        <nav className="flex items-center gap-2">
+          {allItems.map((item) => {
+            const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['caixa_de_entrada', 'painel', 'perfil', 'anuncios'].includes(item.recurso);
+            if (!canViewItem) return null;
+            return (
+              <div key={item.label} className="relative group flex">
+                <Link
+                  href={item.href}
+                  target={item.target}
+                  rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
+                  className="flex items-center justify-center h-12 w-12 text-gray-700 hover:bg-gray-100 rounded-md transition-colors duration-200"
+                >
+                  <FontAwesomeIcon icon={item.icon} className="text-xl" />
+                </Link>
+                <span className={`absolute left-1/2 -translate-x-1/2 ${sidebarPosition === 'top' ? 'top-full mt-2' : 'bottom-full mb-2'} w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none`}>
+                  {item.label}
+                </span>
+              </div>
+            );
+          })}
+        </nav>
+      </aside>
+    );
+  }
+
+  const positionClass = sidebarPosition === 'left' ? 'left-0' : 'right-0';
+
   return (
-    <aside className={`bg-white shadow-lg h-full fixed left-0 top-0 z-40 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
+    <aside className={`bg-white shadow-lg h-full fixed top-0 ${positionClass} z-40 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
       <div className="flex items-center justify-center h-[65px] border-b border-gray-200 flex-shrink-0">
         <Link href="/">
           <img src={isCollapsed ? logoIconUrl : logoUrl} alt="Logo Studio 57" className={`transition-all duration-300 ${isCollapsed ? 'h-8' : 'h-10'} w-auto`} />
@@ -112,7 +147,10 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
       </div>
       <nav className="mt-4 flex-grow overflow-y-auto">
         <ul>
-          {navSections.map((section) => (
+          {navSections.map((section) => {
+            if (isCollapsed && section.render) return null;
+            
+            return (
             <li key={section.title} className="mb-2">
               {!isCollapsed && section.title !== 'Empreendimentos' && ( <h3 className="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider my-2">{section.title}</h3> )}
               {isCollapsed && section.title !== 'Empreendimentos' && ( <div className="flex justify-center my-4"><div className="w-8 border-t border-gray-200"></div></div> )}
@@ -124,7 +162,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                     if (!canViewItem) return null;
 
                     return (
-                      <li key={item.label}>
+                      <li key={item.label} className="relative group">
                         <Link
                           href={item.href}
                           target={item.target}
@@ -134,18 +172,23 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                           <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
                           {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
                         </Link>
+                         {isCollapsed && (
+                            <span className={`absolute ${sidebarPosition === 'left' ? 'left-full ml-4' : 'right-full mr-4'} w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-50`}>
+                                {item.label}
+                            </span>
+                        )}
                       </li>
                     );
                   })}
                 </ul>
               ) : ( section.render(isCollapsed, isEmpreendimentosOpen, setIsEmpreendimentosOpen) )}
             </li>
-          ))}
+          )})}
         </ul>
       </nav>
       <div className="border-t border-gray-200 p-2">
         <button onClick={toggleSidebar} className="w-full h-12 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
-          <FontAwesomeIcon icon={isCollapsed ? faChevronRight : faChevronLeft} size="lg" />
+          <FontAwesomeIcon icon={isCollapsed ? (sidebarPosition === 'right' ? faChevronLeft : faChevronRight) : (sidebarPosition === 'right' ? faChevronRight : faChevronLeft)} size="lg" />
         </button>
       </div>
     </aside>

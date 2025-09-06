@@ -10,7 +10,8 @@ import { useLayout } from '../contexts/LayoutContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useEmpreendimento } from '../contexts/EmpreendimentoContext';
 
-export default function Header({ isCollapsed }) {
+// Recebe a classe de posicionamento do layout.js
+export default function Header({ headerPositionClass }) {
   const router = useRouter();
   const { pageTitle } = useLayout();
   const { user, userData, hasPermission } = useAuth();
@@ -30,7 +31,6 @@ export default function Header({ isCollapsed }) {
     }
   }, [user, userData]);
 
-  // Hook para fechar o menu ao clicar fora
   useEffect(() => {
     function handleClickOutside(event) {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -47,10 +47,9 @@ export default function Header({ isCollapsed }) {
     changeEmpreendimento(e.target.value);
   };
 
-  const headerLeftPosition = isCollapsed ? 'left-[80px]' : 'left-[260px]';
-
   return (
-    <header className={`bg-white shadow-md h-[65px] fixed top-0 right-0 z-30 flex items-center justify-between px-6 transition-all duration-300 ${headerLeftPosition}`}>
+    // Aplica a classe de posicionamento recebida
+    <header className={`bg-white shadow-md h-[65px] fixed top-0 right-0 z-30 flex items-center justify-between px-6 transition-all duration-300 ${headerPositionClass}`}>
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-4">
           <button onClick={() => router.back()} className="text-gray-600 hover:text-blue-500" title="Voltar"><FontAwesomeIcon icon={faChevronLeft} size="lg" /></button>
