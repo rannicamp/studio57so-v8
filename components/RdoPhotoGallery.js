@@ -1,7 +1,5 @@
 "use client";
 
-// O PORQUÊ: Adicionamos o 'useRef' do React. Ele nos permitirá
-// criar uma referência direta ao elemento da imagem na tela para o "sensor" observar.
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import Link from 'next/link';
@@ -17,48 +15,40 @@ const formatBytes = (bytes, decimals = 2) => {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 };
 
-// O PORQUÊ (ATUALIZADO): O componente da miniatura da imagem agora é "inteligente".
-// Ele só vai buscar a imagem do servidor quando estiver visível na tela.
-const ImageThumbnail = ({ photo, onClick }) => {
+const ImageThumbnail = ({ photo, onClick, className }) => {
   const [signedUrl, setSignedUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
-  // O PORQUÊ: Estes são os novos estados para controlar o Lazy Loading.
-  const [isVisible, setIsVisible] = useState(false); // Controla se a imagem está visível
-  const placeholderRef = useRef(null); // A referência para o "sensor"
+  const [isVisible, setIsVisible] = useState(false);
+  const placeholderRef = useRef(null);
 
-  // O PORQUÊ: Este useEffect configura o "sensor de presença" (Intersection Observer).
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        // Quando o placeholder da imagem entra na tela...
         if (entries[0].isIntersecting) {
-          setIsVisible(true); // ...avisamos que ela está visível...
-          observer.disconnect(); // ...e desligamos o sensor para não trabalhar mais à toa.
+          setIsVisible(true);
+          observer.disconnect();
         }
       },
       {
-        // O sensor será acionado um pouco antes da imagem aparecer, para uma transição suave.
         rootMargin: '100px',
       }
     );
 
-    if (placeholderRef.current) {
-      observer.observe(placeholderRef.current);
+    const currentRef = placeholderRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
     }
 
-    // Limpa o observador quando o componente é desmontado
     return () => {
-      if (placeholderRef.current) {
-        observer.unobserve(placeholderRef.current);
+      if (currentRef) {
+        observer.unobserve(currentRef);
       }
     };
   }, []);
 
-  // O PORQUÊ: Este useEffect, que busca a URL da imagem, agora SÓ é acionado se 'isVisible' for verdadeiro.
   useEffect(() => {
-    // Se não estiver visível, não faz nada.
     if (!isVisible) return;
 
     const getUrl = async () => {
@@ -74,8 +64,6 @@ const ImageThumbnail = ({ photo, onClick }) => {
     getUrl();
   }, [isVisible, photo.caminho_arquivo, supabase]);
 
-  // Se a imagem ainda não está visível, ou se está visível mas carregando, mostramos um placeholder.
-  // A 'ref' é anexada aqui para que o sensor saiba qual div observar.
   if (!isVisible || (isVisible && loading && !signedUrl)) {
     return <div ref={placeholderRef} className="w-full h-full bg-gray-200 animate-pulse"></div>;
   }
@@ -84,12 +72,11 @@ const ImageThumbnail = ({ photo, onClick }) => {
     return <div ref={placeholderRef} className="w-full h-full bg-gray-100 flex items-center justify-center text-xs text-red-500">Erro</div>;
   }
 
-  // Somente quando estiver visível E com a URL carregada, a imagem é renderizada.
   return (
     <img
       src={signedUrl}
       alt={photo.descricao || 'Foto do RDO'}
-      className="object-cover w-full h-full cursor-pointer group-hover:opacity-75 transition-opacity"
+      className={className || "object-cover w-full h-full cursor-pointer group-hover:opacity-75 transition-opacity"}
       onClick={onClick}
     />
   );
@@ -160,8 +147,8 @@ export default function RdoPhotoGallery({ photos }) {
 
       {/* Lightbox Modal */}
       {selectedImageIndex !== null && currentPhoto && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 animate-fade-in">
-          <div className="relative w-full h-full max-w-4xl max-h-4/5 flex flex-col items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-50 animate-fade-in"> {/* Alterado para flex-col para melhor controle do layout vertical */}
+          <div className="relative w-full h-full max-w-4xl max-h-screen flex flex-col"> {/* Removido max-h-4/5 e adicionado flex-col */}
             
             <button
               onClick={closeLightbox}
@@ -170,22 +157,27 @@ export default function RdoPhotoGallery({ photos }) {
               <FontAwesomeIcon icon={faTimes} />
             </button>
             
-            <div className="w-full text-center text-white p-4 bg-black bg-opacity-50 rounded-t-lg">
-              <div className="flex items-center justify-center gap-4">
-                <p className="font-bold">{currentPhoto.descricao || 'Sem descrição'}</p>
+            {/* O PORQUÊ (ALTERAÇÃO): O cabeçalho agora está dentro de um div que tem uma altura mínima
+                e garantimos que ele não vai encolher, permitindo que as informações fiquem visíveis. */}
+            <div className="w-full text-center text-white p-4 bg-black bg-opacity-50 rounded-t-lg flex-shrink-0"> 
+              <div className="flex flex-col items-center justify-center gap-2"> {/* Alterado para flex-col para alinhar itens */}
+                <p className="font-bold text-lg">{currentPhoto.descricao || 'Sem descrição'}</p> {/* Aumentei o texto da descrição */}
                 {currentPhoto.tamanho_arquivo && (
-                  <span className="text-xs bg-gray-700 px-2 py-0.5 rounded-full">
+                  <span className="text-sm bg-gray-700 px-2 py-0.5 rounded-full"> {/* Aumentei o texto do tamanho */}
                     {formatBytes(currentPhoto.tamanho_arquivo)}
                   </span>
                 )}
+                <Link href={`/rdo/${currentPhoto.diarios_obra.id}`} className="text-base text-blue-300 hover:text-blue-200 hover:underline inline-flex items-center mt-1"> {/* Aumentei o texto do link e adicionei inline-flex */}
+                  RDO {currentPhoto.diarios_obra.rdo_numero} - {new Date(currentPhoto.diarios_obra.data_relatorio + 'T00:00:00').toLocaleDateString('pt-BR')}
+                  <FontAwesomeIcon icon={faExternalLinkAlt} className="ml-2 w-4 h-4"/>
+                </Link>
               </div>
-              <Link href={`/rdo/${currentPhoto.diarios_obra.id}`} className="text-sm text-blue-300 hover:text-blue-200 hover:underline mt-1 inline-block">
-                {currentPhoto.diarios_obra.rdo_numero} - {new Date(currentPhoto.diarios_obra.data_relatorio + 'T00:00:00').toLocaleDateString('pt-BR')}
-                <FontAwesomeIcon icon={faExternalLinkAlt} className="ml-2 w-3 h-3"/>
-              </Link>
             </div>
             
-            <div className="relative w-full flex-grow flex items-center justify-between">
+            {/* O PORQUÊ (ALTERAÇÃO): A área da imagem agora é um flex-grow,
+                o que significa que ela vai ocupar o espaço restante,
+                respeitando o cabeçalho e os botões de navegação. */}
+            <div className="relative w-full flex-grow flex items-center justify-between overflow-hidden"> {/* Adicionado overflow-hidden */}
               <button
                 onClick={goToPrevious}
                 className="absolute left-4 text-white text-3xl z-50 p-2 bg-black bg-opacity-40 rounded-full hover:bg-opacity-70"
@@ -193,13 +185,15 @@ export default function RdoPhotoGallery({ photos }) {
                 <FontAwesomeIcon icon={faChevronLeft} />
               </button>
               
-              {/* O Lightbox precisa da imagem completa imediatamente, então usamos o componente original aqui */}
-              <div className="w-full h-full flex items-center justify-center">
-                 <img
-                    src={currentPhoto.signedUrl || ''} // Assumindo que a URL já foi buscada para a miniatura
-                    alt={currentPhoto.descricao || 'Foto do RDO'}
-                    className="object-contain w-full h-full"
-                  />
+              <div className="w-full h-full flex items-center justify-center p-4"> {/* Adicionado padding para a imagem */}
+                 {/* O PORQUÊ (ALTERAÇÃO): Adicionado max-h-full e max-w-full ao className
+                     para garantir que a imagem nunca ultrapasse o tamanho do seu container
+                     e, assim, não "empurre" as informações para fora da tela. */}
+                 <ImageThumbnail 
+                    photo={currentPhoto} 
+                    onClick={() => {}} 
+                    className="object-contain max-h-full max-w-full"
+                 />
               </div>
               
               <button
