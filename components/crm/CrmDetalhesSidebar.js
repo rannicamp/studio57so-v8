@@ -10,15 +10,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// ***** INÍCIO DA CORREÇÃO *****
-// Esta nova função trata a data como texto e apenas inverte a ordem,
-// evitando qualquer problema com fuso horário.
+// Esta função trata a data como texto, evitando problemas com fuso horário.
 const formatDateString = (dateStr) => {
     if (!dateStr || !dateStr.includes('-')) return 'Não definido';
     const [year, month, day] = dateStr.split('-');
     return `${day}/${month}/${year}`;
 };
-// ***** FIM DA CORREÇÃO *****
 
 const EditableField = ({ label, value, name, onChange, icon }) => (
     <div>
@@ -75,6 +72,7 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
     const [editingNoteContent, setEditingNoteContent] = useState('');
 
     const initializeEditData = useCallback((c) => {
+        if (!c) return;
         setEditData({
             nome: c.nome || '',
             razao_social: c.razao_social || '',
@@ -90,21 +88,26 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
         if (!contato?.id) return;
         setLoading(true);
 
-        const notesPromise = supabase.from('crm_notas').select('*, usuarios(nome, sobrenome)').eq('contato_id', contato.id).order('created_at', { ascending: false });
-        const activitiesPromise = supabase.from('activities').select('*').eq('contato_id', contato.id).order('data_inicio_prevista', { ascending: true });
-        const simulationsPromise = supabase.from('simulacoes').select('id, created_at, status, valor_venda').eq('contato_id', contato.id).order('created_at', { ascending: false });
+        try {
+            const notesPromise = supabase.from('crm_notas').select('*, usuarios(nome, sobrenome)').eq('contato_id', contato.id).order('created_at', { ascending: false });
+            const activitiesPromise = supabase.from('activities').select('*').eq('contato_id', contato.id).order('data_inicio_prevista', { ascending: true });
+            const simulationsPromise = supabase.from('simulacoes').select('id, created_at, status, valor_venda').eq('contato_id', contato.id).order('created_at', { ascending: false });
 
-        const [{ data: notesData, error: notesError }, { data: activitiesData, error: activitiesError }, { data: simulationsData, error: simulationsError }] = await Promise.all([notesPromise, activitiesPromise, simulationsPromise]);
+            const [{ data: notesData, error: notesError }, { data: activitiesData, error: activitiesError }, { data: simulationsData, error: simulationsError }] = await Promise.all([notesPromise, activitiesPromise, simulationsPromise]);
 
-        if (notesError || activitiesError || simulationsError) {
-            toast.error("Erro ao carregar detalhes do contato.");
-            console.error({ notesError, activitiesError, simulationsError });
-        } else {
+            if (notesError) throw notesError;
+            if (activitiesError) throw activitiesError;
+            if (simulationsError) throw simulationsError;
+
             setNotes(notesData || []);
             setActivities(activitiesData || []);
             setSimulations(simulationsData || []);
+        } catch (error) {
+            toast.error("Erro ao carregar detalhes do contato.");
+            console.error("Erro no fetchData:", error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }, [contato, supabase]);
 
     useEffect(() => {
@@ -121,18 +124,48 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
     const handleSave = async () => {
         setSaving(true);
         const { nome, razao_social, cpf, cnpj, origem, telefone, email } = editData;
-        toast.promise(
-            new Promise(async (resolve, reject) => {
-                const { error: cErr } = await supabase.from('contatos').update({ nome, razao_social, cpf, cnpj, origem }).eq('id', contato.id);
-                if (cErr) return reject(new Error(cErr.message));
-                const telId = contato.telefones?.[0]?.id;
-                if (telefone) telId ? await supabase.from('telefones').update({ telefone }).eq('id', telId) : await supabase.from('telefones').insert({ contato_id: contato.id, telefone, tipo: 'Principal' });
-                const emailId = contato.emails?.[0]?.id;
-                if (email) emailId ? await supabase.from('emails').update({ email }).eq('id', emailId) : await supabase.from('emails').insert({ contato_id: contato.id, email, tipo: 'Principal' });
-                resolve("Contato atualizado!");
-            }),
-            { loading: 'Salvando...', success: (msg) => { setSaving(false); setIsEditing(false); onContactUpdate(); return msg; }, error: (err) => { setSaving(false); return `Erro: ${err.message}`; } }
+        
+        const updatePromises = [];
+
+        // Atualiza contato principal
+        updatePromises.push(
+            supabase.from('contatos').update({ nome, razao_social, cpf, cnpj, origem }).eq('id', contato.id)
         );
+
+        // Atualiza ou insere telefone
+        const telId = contato.telefones?.[0]?.id;
+        if (telefone) {
+            if (telId) {
+                updatePromises.push(supabase.from('telefones').update({ telefone }).eq('id', telId));
+            } else {
+                updatePromises.push(supabase.from('telefones').insert({ contato_id: contato.id, telefone, tipo: 'Principal' }));
+            }
+        }
+        
+        // Atualiza ou insere email
+        const emailId = contato.emails?.[0]?.id;
+        if (email) {
+            if (emailId) {
+                updatePromises.push(supabase.from('emails').update({ email }).eq('id', emailId));
+            } else {
+                updatePromises.push(supabase.from('emails').insert({ contato_id: contato.id, email, tipo: 'Principal' }));
+            }
+        }
+
+        toast.promise(Promise.all(updatePromises), {
+            loading: 'Salvando...',
+            success: () => {
+                setSaving(false);
+                setIsEditing(false);
+                onContactUpdate(); // Atualiza a lista principal
+                return "Contato atualizado com sucesso!";
+            },
+            error: (err) => {
+                setSaving(false);
+                console.error("Erro ao salvar:", err);
+                return `Erro ao salvar: ${err.message || 'Ocorreu um problema.'}`;
+            }
+        });
     };
     
     const handleAddNote = async () => { if (!newNoteContent.trim()) return; setSaving(true); const { error } = await supabase.from('crm_notas').insert({ contato_id: contato.id, contato_no_funil_id: contatoNoFunilId, conteudo: newNoteContent, usuario_id: user.id }); if (error) { toast.error(error.message); } else { setNewNoteContent(''); fetchData(); } setSaving(false); };
@@ -145,14 +178,20 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
     if (!open || !contato) return null;
 
     return (
-        <div className="fixed top-0 right-0 h-full w-[450px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out" style={{ transform: open ? 'translateX(0)' : 'translateX(100%)' }}>
+        <div 
+            className="fixed top-0 right-0 h-full w-full md:w-[450px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out"
+            style={{ transform: open ? 'translateX(0)' : 'translateX(100%)' }}
+        >
             <div className="flex flex-col h-full">
-                <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                <header className="p-4 border-b flex justify-between items-center bg-gray-50 flex-shrink-0">
                     <h3 className="text-lg font-bold text-gray-800">{contato.nome || contato.razao_social}</h3>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><FontAwesomeIcon icon={faTimes} /></button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                    {loading ? ( <div className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div> ) : (
+                </header>
+                
+                <main className="flex-1 overflow-y-auto p-4 space-y-6">
+                    {loading ? ( 
+                        <div className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div> 
+                    ) : (
                         <>
                             <section>
                                 <div className="flex justify-between items-center mb-3">
@@ -225,7 +264,6 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
                                             <div className="flex-1">
                                                 <p className="font-semibold">{act.nome}</p>
                                                 <p className="text-xs text-gray-500">
-                                                    {/* ***** CORREÇÃO APLICADA AQUI ***** */}
                                                     Prazo: {formatDateString(act.data_fim_prevista)}
                                                 </p>
                                             </div>
@@ -278,7 +316,7 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
                             </section>
                         </>
                     )}
-                </div>
+                </main>
             </div>
         </div>
     );
