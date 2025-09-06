@@ -2,32 +2,39 @@
 
 import { useState, Fragment } from 'react';
 import { createClient } from '../utils/supabase/client';
+import { toast } from 'sonner';
 
 export default function PermissionManager({ initialFuncoes }) {
   const supabase = createClient();
   const [funcoes, setFuncoes] = useState(initialFuncoes);
-  const [message, setMessage] = useState('');
 
   // LISTA DE RECURSOS ATUALIZADA E COMPLETA
   const recursos = [
-    { key: 'empresas', name: 'Empresas' },
-    { key: 'empreendimentos', name: 'Empreendimentos' },
-    { key: 'funcionarios', name: 'Funcionários' },
-    { key: 'ponto', name: 'Controle de Ponto' },
+    { key: 'dashboard', name: 'Dashboard' },
+    { key: 'crm', name: 'CRM' },
+    { key: 'funil', name: 'Funil de Vendas' },
     { key: 'atividades', name: 'Atividades' },
+    { key: 'caixa-de-entrada', name: 'Caixa de Entrada' },
+    { key: 'simulador', name: 'Simulador' },
+    { key: 'contratos', name: 'Contratos' },
+    { key: 'anuncios', name: 'Anúncios' },
+    { key: 'financeiro', name: 'Financeiro' },
+    { key: 'ponto', name: 'Controle de Ponto' },
+    { key: 'funcionarios', name: 'Funcionários' },
+    { key: 'pedidos', name: 'Pedidos de Compra' },
     { key: 'rdo', name: 'Diário de Obra (RDO)' },
     { key: 'orcamento', name: 'Orçamento' },
-    { key: 'pedidos', name: 'Pedidos de Compra' },
+    { key: 'empresas', name: 'Empresas' },
+    { key: 'empreendimentos', name: 'Empreendimentos' },
     { key: 'contatos', name: 'Contatos' },
-    { key: 'crm', name: 'CRM (Funil/WhatsApp)' },
-    { key: 'financeiro', name: 'Financeiro' },
     { key: 'usuarios', name: 'Usuários' },
     { key: 'permissoes', name: 'Permissões' },
   ];
 
-  const handlePermissionChange = async (funcaoId, recursoKey, tipoPermissao, valor) => {
-    setMessage('Salvando...');
+  const handlePermissionChange = (funcaoId, recursoKey, tipoPermissao, valor) => {
+    const originalFuncoes = JSON.parse(JSON.stringify(funcoes)); // Cópia profunda para rollback
 
+    // Atualização otimista da interface
     const updatedFuncoes = funcoes.map(funcao => {
       if (funcao.id === funcaoId) {
         let permissaoEncontrada = false;
@@ -48,23 +55,30 @@ export default function PermissionManager({ initialFuncoes }) {
     });
     setFuncoes(updatedFuncoes);
 
-    const { error } = await supabase
-      .from('permissoes')
-      .upsert({
-        funcao_id: funcaoId,
-        recurso: recursoKey,
-        [tipoPermissao]: valor
-      }, {
-        onConflict: 'funcao_id, recurso'
-      });
-    
-    if (error) {
-      setMessage(`Erro ao salvar: ${error.message}`);
-      console.error(error);
-    } else {
-      setMessage('Permissão atualizada com sucesso!');
-      setTimeout(() => setMessage(''), 2000);
-    }
+    // Promise para salvar no banco
+    const promise = async () => {
+      const { error } = await supabase
+        .from('permissoes')
+        .upsert({
+          funcao_id: funcaoId,
+          recurso: recursoKey,
+          [tipoPermissao]: valor
+        }, {
+          onConflict: 'funcao_id, recurso'
+        });
+
+      if (error) {
+        setFuncoes(originalFuncoes); // Em caso de erro, reverte para o estado original
+        throw error;
+      }
+    };
+
+    // Usando o Sonner para notificação
+    toast.promise(promise(), {
+      loading: 'Salvando permissão...',
+      success: 'Permissão atualizada com sucesso!',
+      error: (err) => `Erro ao salvar: ${err.message}`,
+    });
   };
 
   const getPermissao = (funcao, recursoKey, tipo) => {
@@ -74,7 +88,6 @@ export default function PermissionManager({ initialFuncoes }) {
 
   return (
     <div className="space-y-4">
-      {message && <p className="text-center font-medium text-sm p-2 bg-blue-50 text-blue-800 rounded-md">{message}</p>}
       <div className="overflow-x-auto border border-gray-200 rounded-lg">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -124,7 +137,7 @@ export default function PermissionManager({ initialFuncoes }) {
           </tbody>
         </table>
       </div>
-       <p className="text-xs text-gray-500 mt-2">
+      <p className="text-xs text-gray-500 mt-2">
         Nota: As permissões para a função &apos;Proprietário&apos; não podem ser alteradas. Esta função sempre terá acesso total.
       </p>
     </div>

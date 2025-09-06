@@ -1,4 +1,3 @@
-// components/sidebar.js
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -21,7 +20,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
   const supabase = createClient();
 
   const [empreendimentos, setEmpreendimentos] = useState([]);
-  const [isObrasOpen, setIsObrasOpen] = useState(true);
+  const [isEmpreendimentosOpen, setIsEmpreendimentosOpen] = useState(true);
 
   useEffect(() => {
     const fetchEmpreendimentos = async () => {
@@ -52,15 +51,33 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
       ]
     },
     {
-      title: 'Obras',
+      title: 'Comercial',
+      items: [
+        { href: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: faInbox, recurso: 'caixa_de_entrada' },
+        { href: '/crm', label: 'Funil de Vendas', icon: faBullseye, recurso: 'crm' },
+        { href: '/comercial/anuncios', label: 'Anúncios', icon: faMeta, recurso: 'anuncios' },
+        { href: '/contatos', label: 'Contatos', icon: faAddressBook, recurso: 'contatos' },
+        { href: '/simulador-financiamento', label: 'Simulador', icon: faCalculator, recurso: 'simulador', target: '_blank' },
+      ]
+    },
+    {
+      title: 'Obra',
+      items: [
+        { href: '/orcamento', label: 'Orçamentação', icon: faDollarSign, recurso: 'orcamento' },
+        { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart, recurso: 'pedidos' },
+        { href: '/rdo/gerenciador', label: 'Diário de Obra', icon: faClipboardList, recurso: 'rdo' },
+      ]
+    },
+    {
+      title: 'Empreendimentos',
       render: (isCollapsed, isMenuOpen, setMenuOpen) => {
         const canViewEmpreendimentos = hasPermission('empreendimentos', 'pode_ver');
         if (!canViewEmpreendimentos) return null;
 
         return (
           <>
-            <button 
-              onClick={() => !isCollapsed && setMenuOpen(!isMenuOpen)} 
+            <button
+              onClick={() => !isCollapsed && setMenuOpen(!isMenuOpen)}
               className={`flex items-center justify-between w-full py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}
             >
               <div className="flex items-center">
@@ -77,34 +94,10 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 ))}
               </ul>
             )}
-            {[
-              { href: '/orcamento', label: 'Orçamentária', icon: faDollarSign, recurso: 'orcamento' },
-              { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart, recurso: 'pedidos' },
-              { href: '/rdo/gerenciador', label: 'Diário de Obra', icon: faClipboardList, recurso: 'rdo' },
-            ].map(item => {
-                if (!hasPermission(item.recurso, 'pode_ver')) return null;
-                return (
-                    <Link key={item.href} href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}>
-                        <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
-                        {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
-                    </Link>
-                );
-            })}
           </>
         );
       }
     },
-    {
-      title: 'Comercial',
-      items: [
-        { href: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: faInbox, recurso: 'caixa_de_entrada' },
-        { href: '/crm', label: 'Funil de Vendas', icon: faBullseye, recurso: 'crm' },
-        { href: '/comercial/anuncios', label: 'Anúncios', icon: faMeta, recurso: 'anuncios' },
-        { href: '/contatos', label: 'Contatos', icon: faAddressBook, recurso: 'contatos' },
-        // ***** LINHA ALTERADA *****
-        { href: '/simulador-financiamento', label: 'Simulador', icon: faCalculator, recurso: 'simulador', target: '_blank' },
-      ]
-    }
   ];
 
   const bottomNavAlwaysVisible = [
@@ -130,9 +123,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         <ul>
           {navSections.map((section) => (
             <li key={section.title} className="mb-2">
-              {!isCollapsed && section.title !== 'Obras' && ( <h3 className="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider my-2">{section.title}</h3> )}
-              {isCollapsed && section.title !== 'Obras' && ( <div className="flex justify-center my-4"><div className="w-8 border-t border-gray-200"></div></div> )}
-              
+              {!isCollapsed && section.title !== 'Empreendimentos' && ( <h3 className="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider my-2">{section.title}</h3> )}
+              {isCollapsed && section.title !== 'Empreendimentos' && ( <div className="flex justify-center my-4"><div className="w-8 border-t border-gray-200"></div></div> )}
+
               {section.items ? (
                 <ul>
                   {section.items.map((item) => {
@@ -141,9 +134,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
 
                     return (
                       <li key={item.label}>
-                        {/* ***** LINK ALTERADO PARA ACEITAR 'TARGET' ***** */}
-                        <Link 
-                          href={item.href} 
+                        <Link
+                          href={item.href}
                           target={item.target}
                           rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
                           className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}
@@ -155,7 +147,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                     );
                   })}
                 </ul>
-              ) : ( section.render(isCollapsed, isObrasOpen, setIsObrasOpen) )}
+              ) : ( section.render(isCollapsed, isEmpreendimentosOpen, setIsEmpreendimentosOpen) )}
             </li>
           ))}
         </ul>
