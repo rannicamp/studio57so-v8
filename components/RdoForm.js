@@ -5,6 +5,10 @@ import { createClient } from '../utils/supabase/client';
 import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTruck, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+// O PORQUÊ: Importamos a biblioteca de compressão de imagens que você instalou.
+// É ela que fará o trabalho de reduzir o tamanho dos arquivos de foto.
+import imageCompression from 'browser-image-compression';
+
 
 export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const supabase = createClient();
@@ -26,8 +30,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const [pedidosPrevistos, setPedidosPrevistos] = useState([]);
   const [isRdoLocked, setIsRdoLocked] = useState(false);
 
-  // O PORQUÊ: Adicionei um state para guardar os dados do responsável
-  // que vem do banco de dados, para não confundir com o usuário logado.
   const [responsavelOriginal, setResponsavelOriginal] = useState(null);
 
   const weatherOptions = ["Ensolarado", "Nublado", "Chuvoso", "Parcialmente Nublado", "Ventania", "Tempestade"];
@@ -50,12 +52,9 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         empreendimento_id: rdoData.empreendimento_id
       });
 
-      // O PORQUÊ: Se o RDO carregado tem um usuário associado,
-      // guardamos o nome e sobrenome dele no nosso novo state 'responsavelOriginal'.
       if (rdoData.usuarios) {
         setResponsavelOriginal(`${rdoData.usuarios.nome} ${rdoData.usuarios.sobrenome}`);
       } else {
-        // Como fallback, se não encontrar o usuário, mostra o email antigo.
         setResponsavelOriginal(rdoData.responsavel_rdo || 'Não identificado');
       }
 
@@ -136,8 +135,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   useEffect(() => {
     const initializeForm = async () => {
       if (initialRdoData) {
-        // O PORQUÊ: Buscamos os dados completos do RDO incluindo o usuário,
-        // para garantir que o nome do responsável original seja exibido.
         const { data: fullRdoData, error } = await supabase
           .from('diarios_obra')
           .select('*, empreendimentos(*), ocorrencias(*), rdo_fotos_uploads(*), usuarios(nome, sobrenome)')
@@ -162,14 +159,12 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
           .maybeSingle();
 
         if (!rdo && !error) {
-          // O PORQUÊ: Ao criar um NOVO RDO, agora salvamos o `usuario_responsavel_id`
-          // e removemos a geração do `rdo_numero`, que agora é responsabilidade do banco.
           const { data: newRdo, error: insertError } = await supabase
             .from('diarios_obra')
             .insert({
               empreendimento_id: selectedEmpreendimento.id,
               data_relatorio: today,
-              usuario_responsavel_id: user?.id, // <-- CORREÇÃO: Salva o ID do usuário
+              usuario_responsavel_id: user?.id,
               condicoes_climaticas: 'Ensolarado',
               condicoes_trabalho: 'Praticável',
               status_atividades: [],
@@ -195,7 +190,7 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         setLoadingForm(false);
       }
     };
-    if (user) { // Garante que o usuário já foi carregado antes de inicializar
+    if (user) { 
         initializeForm();
     }
   }, [initialRdoData, selectedEmpreendimento, supabase, setupFormWithData, user]);
@@ -315,35 +310,65 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
 
   const handleAddPhoto = async () => {
     if (isRdoLocked || !currentPhotoFile) return;
+
     setIsUploading(true);
-    setMessage('Enviando foto...');
-    const safeFileName = `${Date.now()}-${currentPhotoFile.name.replace(/\s/g, '_')}`;
-    const filePath = `${rdoFormData.id}/${safeFileName}`;
-    const { data: fileData, error: fileError } = await supabase.storage.from('rdo-fotos').upload(filePath, currentPhotoFile);
-    if (fileError) {
-      setMessage(`Erro no upload: ${fileError.message}`);
-      setIsUploading(false);
-      return;
-    }
-    const { data: dbData, error: dbError } = await supabase.from('rdo_fotos_uploads').insert({
-      diario_obra_id: rdoFormData.id,
-      caminho_arquivo: fileData.path,
-      descricao: currentPhotoDescription || null
-    }).select().single();
-    if (dbError) {
-      setMessage(`Erro: ${dbError.message}`);
-      await supabase.storage.from('rdo-fotos').remove([fileData.path]);
-    } else {
+    setMessage('Comprimindo e enviando foto...');
+
+    const options = {
+      maxSizeMB: 1,
+      maxWidthOrHeight: 1920,
+      useWebWorker: true,
+    };
+
+    try {
+      const compressedFile = await imageCompression(currentPhotoFile, options);
+
+      const safeFileName = `${Date.now()}-${currentPhotoFile.name.replace(/\s/g, '_')}`;
+      const filePath = `${rdoFormData.id}/${safeFileName}`;
+
+      const { data: fileData, error: fileError } = await supabase.storage
+        .from('rdo-fotos')
+        .upload(filePath, compressedFile);
+
+      if (fileError) {
+        throw fileError;
+      }
+      
+      const { data: dbData, error: dbError } = await supabase
+        .from('rdo_fotos_uploads')
+        .insert({
+          diario_obra_id: rdoFormData.id,
+          caminho_arquivo: fileData.path,
+          descricao: currentPhotoDescription || null,
+          // O PORQUÊ (NOVA ALTERAÇÃO): Aqui está a única mudança neste arquivo.
+          // Adicionamos a propriedade 'tamanho_arquivo' para salvar o tamanho
+          // do arquivo comprimido (em bytes) no banco de dados.
+          tamanho_arquivo: compressedFile.size 
+        })
+        .select()
+        .single();
+      
+      if (dbError) {
+        await supabase.storage.from('rdo-fotos').remove([fileData.path]);
+        throw dbError;
+      }
+
       const { data: signedUrlData } = await supabase.storage.from('rdo-fotos').createSignedUrl(dbData.caminho_arquivo, 3600);
       setAllPhotosMetadata(prev => [...prev, { ...dbData, signedUrl: signedUrlData?.signedUrl }]);
-      setMessage('Foto adicionada!');
+      setMessage('Foto adicionada com sucesso!');
+      
       setCurrentPhotoFile(null);
       setCurrentPhotoDescription('');
       if (document.getElementById('photo-file-input')) {
         document.getElementById('photo-file-input').value = "";
       }
+
+    } catch (error) {
+      console.error('Erro no processo de adicionar foto:', error);
+      setMessage(`Erro: ${error.message}`);
+    } finally {
+      setIsUploading(false);
     }
-    setIsUploading(false);
   };
 
   const handleRemovePhoto = async (photoId, photoPath) => {
@@ -381,8 +406,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Responsável</label>
-              {/* O PORQUÊ: A correção final. Exibimos o nome do responsável
-                  que salvamos no state 'responsavelOriginal'. */}
               <p className="mt-1 p-2 bg-gray-100 rounded-md text-sm">{responsavelOriginal || 'Carregando...'}</p>
             </div>
           </div>

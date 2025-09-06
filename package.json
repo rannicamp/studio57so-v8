@@ -20,6 +20,7 @@
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.50.0",
     "@tanstack/react-query": "^5.85.3",
+    "browser-image-compression": "^2.0.2",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.6",
     "googleapis": "^155.0.0",
