@@ -47,25 +47,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         { href: '/ponto', label: 'Controle de Ponto', icon: faClock, recurso: 'ponto' },
         { href: '/empresas', label: 'Empresas', icon: faBuilding, recurso: 'empresas' },
         { href: '/contratos', label: 'Contratos', icon: faFileSignature, recurso: 'contratos' },
-        { href: '/atividades', label: 'Atividades', icon: faTasks, recurso: 'atividades' },
-      ]
-    },
-    {
-      title: 'Comercial',
-      items: [
-        { href: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: faInbox, recurso: 'caixa_de_entrada' },
-        { href: '/crm', label: 'Funil de Vendas', icon: faBullseye, recurso: 'crm' },
-        { href: '/comercial/anuncios', label: 'Anúncios', icon: faMeta, recurso: 'anuncios' },
-        { href: '/contatos', label: 'Contatos', icon: faAddressBook, recurso: 'contatos' },
-        { href: '/simulador-financiamento', label: 'Simulador', icon: faCalculator, recurso: 'simulador', target: '_blank' },
-      ]
-    },
-    {
-      title: 'Obra',
-      items: [
-        { href: '/orcamento', label: 'Orçamentação', icon: faDollarSign, recurso: 'orcamento' },
-        { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart, recurso: 'pedidos' },
-        { href: '/rdo/gerenciador', label: 'Diário de Obra', icon: faClipboardList, recurso: 'rdo' },
       ]
     },
     {
@@ -98,15 +79,25 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         );
       }
     },
-  ];
-
-  const bottomNavAlwaysVisible = [
-      { href: '/configuracoes/feedback/enviar', label: 'Enviar Feedback', icon: faInbox, recurso: 'feedback' },
-  ];
-
-  const bottomNavItems = [
-    { href: '/perfil', label: 'Meu Perfil', icon: faUserCog, recurso: 'perfil' },
-    { href: '/configuracoes', label: 'Configurações', icon: faCog, recurso: 'configuracoes' },
+    {
+      title: 'Comercial',
+      items: [
+        { href: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: faInbox, recurso: 'caixa_de_entrada' },
+        { href: '/crm', label: 'Funil de Vendas', icon: faBullseye, recurso: 'crm' },
+        { href: '/comercial/anuncios', label: 'Anúncios', icon: faMeta, recurso: 'anuncios' },
+        { href: '/contatos', label: 'Contatos', icon: faAddressBook, recurso: 'contatos' },
+        { href: '/simulador-financiamento', label: 'Simulador', icon: faCalculator, recurso: 'simulador', target: '_blank' },
+      ]
+    },
+    {
+      title: 'Obra',
+      items: [
+        { href: '/orcamento', label: 'Orçamentação', icon: faDollarSign, recurso: 'orcamento' },
+        { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart, recurso: 'pedidos' },
+        { href: '/rdo/gerenciador', label: 'Diário de Obra', icon: faClipboardList, recurso: 'rdo' },
+        { href: '/atividades', label: 'Atividades', icon: faTasks, recurso: 'atividades' },
+      ]
+    },
   ];
 
   const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE";
@@ -150,12 +141,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
               ) : ( section.render(isCollapsed, isEmpreendimentosOpen, setIsEmpreendimentosOpen) )}
             </li>
           ))}
-        </ul>
-      </nav>
-      <nav className="mt-auto mb-2 flex-shrink-0">
-        <ul>
-          {bottomNavAlwaysVisible.map((item) => ( <li key={item.label}><Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}><FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />{!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}</Link></li> ))}
-          {bottomNavItems.map((item) => { const canViewItem = hasPermission(item.recurso, 'pode_ver'); if (!canViewItem) return null; return ( <li key={item.label}><Link href={item.href} className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}><FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />{!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}</Link></li> ); })}
         </ul>
       </nav>
       <div className="border-t border-gray-200 p-2">

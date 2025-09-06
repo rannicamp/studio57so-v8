@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import LogoutButton from './LogoutButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft, faChevronRight, faHome, faUserCircle, faBuilding } from '@fortawesome/free-solid-svg-icons';
+import { faChevronLeft, faChevronRight, faHome, faUserCircle, faBuilding, faCog, faInbox, faUser, faChevronDown } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
 import { useLayout } from '../contexts/LayoutContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,10 +13,12 @@ import { useEmpreendimento } from '../contexts/EmpreendimentoContext';
 export default function Header({ isCollapsed }) {
   const router = useRouter();
   const { pageTitle } = useLayout();
-  const { user, userData } = useAuth();
+  const { user, userData, hasPermission } = useAuth();
   const { empreendimentos, selectedEmpreendimento, changeEmpreendimento, loading: loadingEmpreendimento } = useEmpreendimento();
   const [userName, setUserName] = useState('');
   const [userPhoto, setUserPhoto] = useState(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   useEffect(() => {
     if (userData) {
@@ -26,6 +29,19 @@ export default function Header({ isCollapsed }) {
       setUserName(user.email);
     }
   }, [user, userData]);
+
+  // Hook para fechar o menu ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [menuRef]);
 
   const handleEmpreendimentoChange = (e) => {
     changeEmpreendimento(e.target.value);
@@ -62,16 +78,49 @@ export default function Header({ isCollapsed }) {
         )}
 
         {userName && (
-          <div className="flex items-center gap-3">
-            {userPhoto ? (
-              <img src={userPhoto} alt="Foto do perfil" className="w-9 h-9 rounded-full object-cover" />
-            ) : (
-              <FontAwesomeIcon icon={faUserCircle} className="w-9 h-9 text-gray-400" />
+          <div className="relative" ref={menuRef}>
+            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="flex items-center gap-3 cursor-pointer">
+              {userPhoto ? (
+                <img src={userPhoto} alt="Foto do perfil" className="w-9 h-9 rounded-full object-cover" />
+              ) : (
+                <FontAwesomeIcon icon={faUserCircle} className="w-9 h-9 text-gray-400" />
+              )}
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium text-gray-700">{userName}</span>
+                <FontAwesomeIcon icon={faChevronDown} className={`w-3 h-3 text-gray-500 transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} />
+              </div>
+            </button>
+
+            {isMenuOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-50 border border-gray-200">
+                <ul className="py-1">
+                  <li>
+                    <Link href="/perfil" className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                      <FontAwesomeIcon icon={faUser} className="w-4 h-4" />
+                      <span>Meu Perfil</span>
+                    </Link>
+                  </li>
+                  {hasPermission('configuracoes', 'pode_ver') && (
+                    <li>
+                      <Link href="/configuracoes" className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        <FontAwesomeIcon icon={faCog} className="w-4 h-4" />
+                        <span>Configurações</span>
+                      </Link>
+                    </li>
+                  )}
+                  <li>
+                    <Link href="/configuracoes/feedback/enviar" className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                      <FontAwesomeIcon icon={faInbox} className="w-4 h-4" />
+                      <span>Enviar Feedback</span>
+                    </Link>
+                  </li>
+                  <li className="border-t border-gray-200 my-1"></li>
+                  <li>
+                    <LogoutButton />
+                  </li>
+                </ul>
+              </div>
             )}
-            <div className="flex items-center">
-              <span className="text-sm font-medium text-gray-700">{userName}</span>
-              <LogoutButton />
-            </div>
           </div>
         )}
       </div>
