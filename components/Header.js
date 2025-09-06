@@ -48,8 +48,8 @@ export default function Header({ headerPositionClass }) {
   };
 
   return (
-    // Aplica a classe de posicionamento recebida
-    <header className={`bg-white shadow-md h-[65px] fixed top-0 right-0 z-30 flex items-center justify-between px-6 transition-all duration-300 ${headerPositionClass}`}>
+    // A lógica de posicionamento foi REMOVIDA daqui e agora a classe é controlada pelo layout.js
+    <header className={`bg-white shadow-md h-[65px] fixed top-0 z-30 flex items-center justify-between px-6 transition-all duration-300 ${headerPositionClass}`}>
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-4">
           <button onClick={() => router.back()} className="text-gray-600 hover:text-blue-500" title="Voltar"><FontAwesomeIcon icon={faChevronLeft} size="lg" /></button>

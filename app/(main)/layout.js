@@ -18,7 +18,7 @@ config.autoAddCss = false;
 // Componente interno para conter a nova lógica
 function MainLayout({ children }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { isProprietario, sidebarPosition, loading: authLoading } = useAuth(); // Pega a posição do menu
+  const { isProprietario, sidebarPosition, loading: authLoading } = useAuth();
   const { empreendimentos } = useEmpreendimento();
 
   const [isGlobalActivityModalOpen, setIsGlobalActivityModalOpen] = useState(false);
@@ -48,9 +48,7 @@ function MainLayout({ children }) {
         setIsGlobalActivityModalOpen(true);
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
-
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
@@ -60,14 +58,11 @@ function MainLayout({ children }) {
     setIsCollapsed(!isCollapsed);
   };
   
-  // Se ainda estiver carregando os dados do usuário, exibe um loader
   if (authLoading) {
     return <div className="flex items-center justify-center h-screen">Carregando...</div>;
   }
 
   // LÓGICA PARA AS CLASSES DINÂMICAS DO LAYOUT
-  const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom';
-  
   const containerClasses = {
     left: 'flex flex-row',
     right: 'flex flex-row-reverse',
@@ -75,23 +70,29 @@ function MainLayout({ children }) {
     bottom: 'flex flex-col-reverse'
   };
 
+  const headerMargins = {
+    left: isCollapsed ? 'left-[80px] right-0' : 'left-[260px] right-0',
+    right: isCollapsed ? 'right-[80px] left-0' : 'right-[260px] left-0',
+    top: 'left-0 right-0',
+    bottom: 'left-0 right-0'
+  };
+  
+  // ***** INÍCIO DA CORREÇÃO *****
+  // Ajustamos a margem do conteúdo principal.
   const mainContentMargins = {
     left: isCollapsed ? 'ml-[80px]' : 'ml-[260px]',
     right: isCollapsed ? 'mr-[80px]' : 'mr-[260px]',
-    top: 'mt-[65px]', // Altura do Header
-    bottom: 'mb-[65px]' // Altura do Sidebar quando está embaixo
+    // Se o menu estiver no topo, a margem superior será a altura do Header (65px) + a altura do Sidebar (65px) = 130px.
+    top: 'mt-[130px]', 
+    // Se o menu estiver embaixo, a margem inferior será a altura do Sidebar.
+    bottom: 'mb-[65px]'
   };
-
-  const headerMargins = {
-    left: isCollapsed ? 'left-[80px]' : 'left-[260px]',
-    right: isCollapsed ? 'right-[80px]' : 'right-[260px]',
-    top: 'left-0',
-    bottom: 'left-0'
-  };
+  // ***** FIM DA CORREÇÃO *****
 
   const finalContainerClass = containerClasses[sidebarPosition] || 'flex flex-row';
-  const finalMainContentMargin = mainContentMargins[sidebarPosition] || 'ml-[260px]';
-  const finalHeaderMargin = headerMargins[sidebarPosition] || 'left-[260px]';
+  // A margem do conteúdo principal agora é calculada corretamente para todas as posições.
+  const finalMainContentMargin = mainContentMargins[sidebarPosition] || mainContentMargins.left;
+  const finalHeaderMargin = headerMargins[sidebarPosition] || headerMargins.left;
 
   return (
     <>
@@ -116,9 +117,13 @@ function MainLayout({ children }) {
           toggleSidebar={toggleSidebar}
           isAdmin={isProprietario}
         />
-        <div className={`flex-1 ${!isHorizontal ? 'relative' : ''}`}>
+        {/* O container do Header e Main foi simplificado */}
+        <div className="flex-1">
             <Header isCollapsed={isCollapsed} headerPositionClass={finalHeaderMargin} />
-            <main className={`p-6 transition-all duration-300 ${!isHorizontal ? `mt-[65px] ${finalMainContentMargin}` : 'pt-[85px]'}`}>
+            {/* A margem superior fixa de 65px é para o Header.
+              A classe 'finalMainContentMargin' adiciona as margens específicas para a posição do Sidebar.
+            */}
+            <main className={`p-6 transition-all duration-300 mt-[65px] ${finalMainContentMargin}`}>
                 {children}
             </main>
         </div>

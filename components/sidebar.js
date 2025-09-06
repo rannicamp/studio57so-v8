@@ -100,8 +100,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
 
   const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom';
 
+  // Renderização do menu horizontal (topo/inferior)
   if (isHorizontal) {
-    const positionClass = sidebarPosition === 'top' ? 'top-0' : 'bottom-0';
+    const positionClass = sidebarPosition === 'top' ? 'top-[65px]' : 'bottom-0';
     const allItems = navSections.flatMap(section => section.items || []);
 
     return (
@@ -136,10 +137,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
     );
   }
 
-  const positionClass = sidebarPosition === 'left' ? 'left-0' : 'right-0';
-
+  // Renderização do menu vertical (esquerda/direita) - A lógica de posicionamento foi REMOVIDA
   return (
-    <aside className={`bg-white shadow-lg h-full fixed top-0 ${positionClass} z-40 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
+    <aside className={`bg-white shadow-lg h-full fixed top-0 z-40 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
       <div className="flex items-center justify-center h-[65px] border-b border-gray-200 flex-shrink-0">
         <Link href="/">
           <img src={isCollapsed ? logoIconUrl : logoUrl} alt="Logo Studio 57" className={`transition-all duration-300 ${isCollapsed ? 'h-8' : 'h-10'} w-auto`} />

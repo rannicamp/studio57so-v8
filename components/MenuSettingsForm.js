@@ -52,8 +52,8 @@ export default function MenuSettingsForm({ userId, currentPosition }) {
       <fieldset>
         <legend className="text-lg font-medium text-gray-900 mb-4">Posição do Menu</legend>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {/* A linha abaixo agora filtra a opção 'top' */}
-          {options.filter(option => option.value !== 'top').map((option) => (
+          {/* ***** CORREÇÃO ***** A linha abaixo agora mostra todas as opções, sem filtro. */}
+          {options.map((option) => (
             <div key={option.value}>
               <input
                 type="radio"
