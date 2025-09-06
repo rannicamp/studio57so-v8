@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
@@ -14,27 +15,31 @@ import { faMeta } from '@fortawesome/free-brands-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { createClient } from '../utils/supabase/client';
 
+// Função de busca de dados isolada para ser usada pelo useQuery
+const fetchEmpreendimentos = async () => {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('empreendimentos')
+    .select('id, nome')
+    .order('nome');
+
+  if (error) {
+    console.error("Erro ao buscar empreendimentos para o menu:", error);
+    throw new Error('Não foi possível buscar os empreendimentos.');
+  }
+  return data || [];
+};
+
 export default function Sidebar({ isCollapsed, toggleSidebar }) {
   const { hasPermission, sidebarPosition } = useAuth();
-  const supabase = createClient();
+  
+  // Otimização: Usando useQuery para buscar os dados
+  const { data: empreendimentos = [] } = useQuery({
+    queryKey: ['empreendimentosMenu'],
+    queryFn: fetchEmpreendimentos
+  });
 
-  const [empreendimentos, setEmpreendimentos] = useState([]);
   const [isEmpreendimentosOpen, setIsEmpreendimentosOpen] = useState(true);
-
-  useEffect(() => {
-    const fetchEmpreendimentos = async () => {
-      const { data, error } = await supabase
-        .from('empreendimentos')
-        .select('id, nome')
-        .order('nome');
-      if (error) {
-        console.error("Erro ao buscar empreendimentos para o menu:", error);
-      } else {
-        setEmpreendimentos(data || []);
-      }
-    };
-    fetchEmpreendimentos();
-  }, [supabase]);
 
   const navSections = [
     {
@@ -112,12 +117,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             <img src={logoIconUrl} alt="Logo Studio 57" className="h-8 w-auto" />
           </Link>
         </div>
-        <nav className="flex items-center gap-2">
+        {/* A MÁGICA ACONTECE AQUI! */}
+        <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2">
           {allItems.map((item) => {
             const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['caixa_de_entrada', 'painel', 'perfil', 'anuncios'].includes(item.recurso);
             if (!canViewItem) return null;
             return (
-              <div key={item.label} className="relative group flex">
+              <div key={item.label} className="relative group flex-shrink-0">
                 <Link
                   href={item.href}
                   target={item.target}
@@ -137,7 +143,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
     );
   }
 
-  // Renderização do menu vertical (esquerda/direita) - A lógica de posicionamento foi REMOVIDA
+  // Renderização do menu vertical (esquerda/direita)
   return (
     <aside className={`bg-white shadow-lg h-full fixed top-0 z-40 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
       <div className="flex items-center justify-center h-[65px] border-b border-gray-200 flex-shrink-0">
@@ -172,11 +178,11 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                           <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
                           {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
                         </Link>
-                         {isCollapsed && (
+                          {isCollapsed && (
                             <span className={`absolute ${sidebarPosition === 'left' ? 'left-full ml-4' : 'right-full mr-4'} w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-50`}>
                                 {item.label}
                             </span>
-                        )}
+                          )}
                       </li>
                     );
                   })}
