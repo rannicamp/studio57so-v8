@@ -36,7 +36,10 @@ export default function RdoListManager({ initialRdos, empreendimentosList, respo
       const rdoDate = new Date(rdo.data_relatorio + 'T00:00:00');
       
       const matchEmpreendimento = !selectedEmpreendimento || rdo.empreendimento_id?.toString() === selectedEmpreendimento;
-      const matchResponsavel = !selectedResponsavel || rdo.responsavel_rdo === selectedResponsavel;
+      
+      // O PORQUÊ: A lógica de filtro foi atualizada. Agora, comparamos
+      // o 'rdo.usuario_responsavel_id' com o ID do usuário selecionado no filtro.
+      const matchResponsavel = !selectedResponsavel || rdo.usuario_responsavel_id === selectedResponsavel;
       
       const matchStartDate = !startDate || rdoDate >= new Date(startDate + 'T00:00:00');
       const matchEndDate = !endDate || rdoDate <= new Date(endDate + 'T00:00:00');
@@ -83,9 +86,16 @@ export default function RdoListManager({ initialRdos, empreendimentosList, respo
               <option value="">Todos Empreendimentos</option>
               {empreendimentosList.map(emp => <option key={emp.id} value={emp.id}>{emp.nome}</option>)}
             </select>
+            
+            {/* O PORQUÊ: O filtro de responsáveis agora é populado com a lista de usuários.
+                O 'value' de cada opção é o ID do usuário, e o texto é o nome completo. */}
             <select onChange={(e) => setSelectedResponsavel(e.target.value)} value={selectedResponsavel} className="p-2 border rounded-md">
               <option value="">Todos Responsáveis</option>
-              {responsaveisList.map(resp => <option key={resp} value={resp}>{resp}</option>)}
+              {responsaveisList.map(resp => (
+                <option key={resp.id} value={resp.id}>
+                  {`${resp.nome} ${resp.sobrenome}`}
+                </option>
+              ))}
             </select>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
@@ -133,10 +143,16 @@ export default function RdoListManager({ initialRdos, empreendimentosList, respo
                 <tr key={rdo.id} onClick={() => handleRowClick(rdo.id)} className="cursor-pointer hover:bg-gray-50">
                   <td className="px-6 py-4">{new Date(rdo.data_relatorio + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                   <td className="px-6 py-4">{rdo.empreendimentos?.nome || 'N/A'}</td>
-                  <td className="px-6 py-4">{rdo.responsavel_rdo || 'N/A'}</td>
+                  
+                  {/* O PORQUÊ: A célula do responsável agora exibe o nome e sobrenome do usuário.
+                      Se por algum motivo o usuário não for encontrado (ex: um RDO muito antigo),
+                      ele ainda exibe o e-mail antigo como um fallback. */}
+                  <td className="px-6 py-4">
+                    {rdo.usuarios ? `${rdo.usuarios.nome} ${rdo.usuarios.sobrenome}` : (rdo.responsavel_rdo || 'N/A')}
+                  </td>
+
                   <td className="px-6 py-4">{rdo.condicoes_trabalho === 'Praticável' ? 'Sim' : 'Não'}</td>
                   <td className="px-6 py-4 text-right">
-                    {/* O botão de excluir só aparece se o usuário for admin */}
                     {isAdmin && (
                       <button onClick={(e) => handleDeleteRdo(e, rdo.id)} className="text-red-600 hover:text-red-900 z-10 relative">Excluir</button>
                     )}

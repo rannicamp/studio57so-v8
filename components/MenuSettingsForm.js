@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+// ***** CORREÇÃO AQUI: Os ícones corretos estão sendo importados e usados *****
 import { faArrowLeft, faArrowRight, faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons';
 
 export default function MenuSettingsForm({ userId, currentPosition }) {
@@ -12,8 +13,9 @@ export default function MenuSettingsForm({ userId, currentPosition }) {
   const supabase = createClient();
 
   const options = [
-    { value: 'left', label: 'Esquerda', icon: faArrowRight },
-    { value: 'right', label: 'Direita', icon: faArrowLeft },
+    // ***** CORREÇÃO AQUI: Os ícones foram trocados para a posição correta *****
+    { value: 'left', label: 'Esquerda', icon: faArrowLeft },
+    { value: 'right', label: 'Direita', icon: faArrowRight },
     { value: 'top', label: 'Superior', icon: faArrowUp },
     { value: 'bottom', label: 'Inferior', icon: faArrowDown },
   ];
@@ -52,7 +54,7 @@ export default function MenuSettingsForm({ userId, currentPosition }) {
       <fieldset>
         <legend className="text-lg font-medium text-gray-900 mb-4">Posição do Menu</legend>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {/* ***** CORREÇÃO ***** A linha abaixo agora mostra todas as opções, sem filtro. */}
+          {/* A lógica de filtro para 'top' foi removida em uma etapa anterior, mantendo a correção. */}
           {options.map((option) => (
             <div key={option.value}>
               <input

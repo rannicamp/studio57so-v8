@@ -5,33 +5,36 @@ import Link from 'next/link';
 export default async function ManageRdosPage() {
   const supabase = createClient();
 
-  // Busca os RDOs e os dados relacionados para a lista e filtros
+  // 1. Busca os RDOs e os dados relacionados (empreendimento e usuário)
+  // O PORQUÊ: Adicionamos 'usuarios ( nome, sobrenome )' para buscar
+  // os dados do usuário usando a nova coluna de relacionamento.
   const { data: rdos, error: rdosError } = await supabase
-    .from('diarios_obra') 
+    .from('diarios_obra')
     .select(`
       *,
-      empreendimentos ( nome ) 
+      empreendimentos ( nome ),
+      usuarios ( nome, sobrenome )
     `)
     .order('data_relatorio', { ascending: false });
-    
-  // Busca a lista de todos os empreendimentos para o filtro
+
+  // 2. Busca a lista de todos os empreendimentos para o filtro
   const { data: empreendimentos, error: empreendimentosError } = await supabase
     .from('empreendimentos')
     .select('id, nome')
     .order('nome');
 
-  // Busca a lista de todos os responsáveis para o filtro
-  const { data: responsaveis, error: responsaveisError } = await supabase
-    .from('diarios_obra')
-    .select('responsavel_rdo')
-    .neq('responsavel_rdo', 'is', null);
+  // 3. Busca a lista de todos os usuários para o filtro de responsáveis
+  // O PORQUÊ: Em vez de buscar e-mails duplicados da tabela de RDOs,
+  // agora buscamos uma lista limpa e completa de todos os usuários cadastrados.
+  // Isso torna o filtro mais poderoso e correto.
+  const { data: todosUsuarios, error: usuariosError } = await supabase
+    .from('usuarios')
+    .select('id, nome, sobrenome')
+    .order('nome');
 
-  if (rdosError || empreendimentosError || responsaveisError) {
-    console.error('Erro ao buscar dados para o gerenciador de RDO:', { rdosError, empreendimentosError, responsaveisError });
+  if (rdosError || empreendimentosError || usuariosError) {
+    console.error('Erro ao buscar dados para o gerenciador de RDO:', { rdosError, empreendimentosError, usuariosError });
   }
-  
-  // Cria uma lista de responsáveis únicos
-  const uniqueResponsaveis = [...new Set(responsaveis?.map(r => r.responsavel_rdo) || [])];
 
   return (
     <div className="space-y-6">
@@ -46,7 +49,8 @@ export default async function ManageRdosPage() {
         <RdoListManager 
           initialRdos={rdos || []}
           empreendimentosList={empreendimentos || []}
-          responsaveisList={uniqueResponsaveis}
+          // Passamos a lista de objetos de usuário para o componente
+          responsaveisList={todosUsuarios || []}
         />
       </div>
     </div>
