@@ -6,7 +6,28 @@ import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
 import { toast } from 'sonner';
 import AtividadeAnexos from './atividades/AtividadeAnexos';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSitemap, faSpinner, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faSitemap, faSpinner, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
+
+// Componente para destacar o texto da busca
+const HighlightedText = ({ text = '', highlight = '' }) => {
+    if (!highlight.trim() || !text) {
+        return <span>{text}</span>;
+    }
+    const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+    return (
+        <span>
+            {parts.map((part, i) =>
+                regex.test(part) ? (
+                    <mark key={i} className="bg-yellow-200 px-0 py-0 rounded">{part}</mark>
+                ) : (
+                    <span key={i}>{part}</span>
+                )
+            )}
+        </span>
+    );
+};
+
 
 function addBusinessDays(startDate, days) {
     if (!startDate || isNaN(days)) return startDate || '';
@@ -30,6 +51,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
     const supabase = createClient();
     const { empreendimentos: allEmpreendimentos, loading: empreendimentosLoading } = useEmpreendimento();
     const [etapas, setEtapas] = useState([]);
+    const [subetapas, setSubetapas] = useState([]);
     const [currentUserId, setCurrentUserId] = useState(null);
     const isEditing = Boolean(activityToEdit);
     const [type, setType] = useState('atividade');
@@ -39,10 +61,17 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
     const [isSearchingParent, setIsSearchingParent] = useState(false);
     const [selectedParent, setSelectedParent] = useState(null);
 
+    const [subetapaSearch, setSubetapaSearch] = useState('');
+    const [isSubetapaDropdownOpen, setIsSubetapaDropdownOpen] = useState(false);
+    const [filteredSubetapas, setFilteredSubetapas] = useState([]);
+    const [isCreatingSubetapa, setIsCreatingSubetapa] = useState(false);
+
+
     const getInitialState = useCallback(() => ({
         nome: '',
         descricao: '',
         etapa_id: '',
+        subetapa_id: '',
         funcionario_id: null,
         data_inicio_prevista: '',
         duracao_dias: 1,
@@ -75,6 +104,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
             setParentActivitySearch('');
             setParentActivityOptions([]);
             setSelectedParent(null);
+            setSubetapaSearch(''); 
 
             if (isEditing) {
                 const initialFormData = { ...getInitialState(), ...activityToEdit };
@@ -101,10 +131,16 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         }
     }, [isOpen, isEditing, activityToEdit, getInitialState, supabase, initialContatoId]);
     
+    // Busca Etapas quando o empreendimento muda
     useEffect(() => {
         const fetchEtapas = async () => {
             if (formData.empreendimento_id) {
-                const { data: etapasData } = await supabase.from('etapa_obra').select('id, nome_etapa').order('nome_etapa');
+                // ALTERAÇÃO 1: Pedindo 'codigo_etapa' e ordenando por ele
+                const { data: etapasData } = await supabase
+                    .from('etapa_obra')
+                    .select('id, nome_etapa, codigo_etapa') // Pedimos o código
+                    .order('codigo_etapa', { ascending: true }); // Ordenamos pelo código
+
                 setEtapas(etapasData || []);
             } else {
                 setEtapas([]);
@@ -112,6 +148,54 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         };
         fetchEtapas();
     }, [formData.empreendimento_id, supabase]);
+
+    // Busca Subetapas quando a etapa muda
+    useEffect(() => {
+        const fetchSubetapas = async () => {
+            if (formData.etapa_id) {
+                const { data: subetapasData, error } = await supabase
+                    .from('subetapas')
+                    .select('id, nome_subetapa')
+                    .eq('etapa_id', formData.etapa_id)
+                    .order('nome_subetapa');
+                
+                if (error) {
+                    toast.error("Erro ao buscar subetapas.");
+                    setSubetapas([]);
+                } else {
+                    setSubetapas(subetapasData || []);
+                    if (isEditing && formData.subetapa_id) {
+                        const selectedSub = subetapasData.find(s => s.id === formData.subetapa_id);
+                        if (selectedSub) {
+                            setSubetapaSearch(selectedSub.nome_subetapa);
+                        }
+                    }
+                }
+            } else {
+                setSubetapas([]);
+                setSubetapaSearch('');
+                setFormData(prev => ({ ...prev, subetapa_id: null }));
+            }
+        };
+        fetchSubetapas();
+    }, [formData.etapa_id, supabase, isEditing, formData.subetapa_id]);
+
+
+    useEffect(() => {
+        if (!subetapaSearch) {
+            setFilteredSubetapas(subetapas);
+        } else {
+            const searchLower = subetapaSearch.toLowerCase();
+            const filtered = subetapas.filter(s => s.nome_subetapa.toLowerCase().includes(searchLower));
+            setFilteredSubetapas(filtered);
+            
+            const exactMatch = subetapas.find(s => s.nome_subetapa.toLowerCase() === searchLower);
+            if (!exactMatch) {
+                setFormData(prev => ({ ...prev, subetapa_id: null }));
+            }
+        }
+    }, [subetapaSearch, subetapas]);
+
 
     const searchParentActivities = useCallback(async (searchTerm) => {
         if (searchTerm.length < 3) {
@@ -181,10 +265,62 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 if (name === 'empresa_id') {
                     newState.empreendimento_id = null;
                     newState.etapa_id = '';
+                    newState.subetapa_id = '';
+                    setSubetapaSearch('');
+                }
+                if (name === 'empreendimento_id') {
+                    newState.etapa_id = '';
+                    newState.subetapa_id = '';
+                    setSubetapaSearch('');
+                }
+                if (name === 'etapa_id') {
+                    newState.subetapa_id = '';
+                    setSubetapaSearch('');
                 }
                 return newState;
             });
         }
+    };
+
+    const handleSelectSubetapa = (subetapa) => {
+        setFormData(prev => ({ ...prev, subetapa_id: subetapa.id }));
+        setSubetapaSearch(subetapa.nome_subetapa);
+        setIsSubetapaDropdownOpen(false);
+    };
+
+    const handleCreateSubetapa = async () => {
+        if (!subetapaSearch.trim() || !formData.etapa_id) return;
+
+        const subetapaNome = subetapaSearch.trim();
+        setIsCreatingSubetapa(true);
+
+        const promise = new Promise(async (resolve, reject) => {
+            const { data: newSubetapa, error } = await supabase
+                .from('subetapas')
+                .insert({ nome_subetapa: subetapaNome, etapa_id: formData.etapa_id })
+                .select()
+                .single();
+
+            if (error) {
+                reject(error);
+            } else {
+                setSubetapas(prev => [...prev, newSubetapa]);
+                handleSelectSubetapa(newSubetapa);
+                resolve(newSubetapa);
+            }
+        });
+        
+        toast.promise(promise, {
+            loading: 'Criando nova subetapa...',
+            success: () => {
+                setIsCreatingSubetapa(false);
+                return 'Subetapa criada com sucesso!';
+            },
+            error: (err) => {
+                setIsCreatingSubetapa(false);
+                return `Erro ao criar subetapa: ${err.message}`;
+            },
+        });
     };
 
     const syncWithGoogleCalendar = async (activityData) => { /* ... (código existente sem alteração) ... */ };
@@ -209,6 +345,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 responsavel_texto: responsavelNome,
                 funcionario_id: formData.funcionario_id || null,
                 etapa_id: formData.etapa_id || null,
+                subetapa_id: formData.subetapa_id || null,
                 tipo_atividade: etapaSelecionada ? etapaSelecionada.nome_etapa : 'Atividade Interna',
                 empreendimento_id: formData.empreendimento_id || null,
                 contato_id: formData.contato_id,
@@ -310,20 +447,20 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                         <div className="md:col-span-2 relative">
                             <label className="block text-sm font-medium">Vincular à Atividade-Pai (Opcional)</label>
                              <div className="relative">
-                                <FontAwesomeIcon icon={faSitemap} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                <input 
-                                    type="text" 
-                                    name="parent_search"
-                                    value={parentActivitySearch} 
-                                    onChange={handleChange}
-                                    placeholder="Digite para buscar a atividade principal..." 
-                                    className="mt-1 w-full p-2 pl-10 border rounded-md"
-                                />
-                                {selectedParent && (
-                                    <button type="button" onClick={handleClearParent} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-red-600">
-                                        <FontAwesomeIcon icon={faTimes} />
-                                    </button>
-                                )}
+                                  <FontAwesomeIcon icon={faSitemap} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                  <input 
+                                      type="text" 
+                                      name="parent_search"
+                                      value={parentActivitySearch} 
+                                      onChange={handleChange}
+                                      placeholder="Digite para buscar a atividade principal..." 
+                                      className="mt-1 w-full p-2 pl-10 border rounded-md"
+                                   />
+                                  {selectedParent && (
+                                      <button type="button" onClick={handleClearParent} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-red-600">
+                                           <FontAwesomeIcon icon={faTimes} />
+                                      </button>
+                                  )}
                             </div>
                             {parentActivityOptions.length > 0 && !selectedParent && (
                                 <ul className="absolute z-20 w-full bg-white border rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg">
@@ -370,6 +507,62 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                                 )}
                             </select>
                         </div>
+                        
+                        <div>
+                            <label className="block text-sm font-medium">Etapa da Obra</label>
+                            <select name="etapa_id" value={formData.etapa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!formData.empreendimento_id}>
+                                <option value="">Selecione uma etapa</option>
+                                {etapas.map(etapa => (
+                                    // ALTERAÇÃO 2: Exibindo "código - nome"
+                                    <option key={etapa.id} value={etapa.id}>
+                                        {etapa.codigo_etapa} - {etapa.nome_etapa}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        
+                        <div className="relative">
+                            <label className="block text-sm font-medium">Subetapa (Opcional)</label>
+                            <input
+                                type="text"
+                                value={subetapaSearch}
+                                onChange={(e) => setSubetapaSearch(e.target.value)}
+                                onFocus={() => setIsSubetapaDropdownOpen(true)}
+                                onBlur={() => setTimeout(() => setIsSubetapaDropdownOpen(false), 200)}
+                                disabled={!formData.etapa_id}
+                                placeholder={!formData.etapa_id ? "Selecione uma etapa primeiro" : "Digite para buscar ou criar"}
+                                className="mt-1 w-full p-2 border rounded-md disabled:bg-gray-100"
+                                autoComplete="off"
+                            />
+                            {isSubetapaDropdownOpen && formData.etapa_id && (
+                                <ul className="absolute z-20 w-full bg-white border rounded-md mt-1 shadow-lg max-h-48 overflow-y-auto">
+                                    {filteredSubetapas.map(sub => (
+                                        <li key={sub.id} onMouseDown={() => handleSelectSubetapa(sub)} className="p-2 border-b hover:bg-gray-100 cursor-pointer">
+                                            <HighlightedText text={sub.nome_subetapa} highlight={subetapaSearch} />
+                                        </li>
+                                    ))}
+                                    {filteredSubetapas.length === 0 && subetapaSearch && (
+                                        <li className='p-2 text-sm text-gray-500'>Nenhuma subetapa encontrada.</li>
+                                    )}
+                                    {subetapaSearch && !filteredSubetapas.some(s => s.nome_subetapa.toLowerCase() === subetapaSearch.toLowerCase()) && (
+                                        <li onMouseDown={handleCreateSubetapa} className="p-2 border-t bg-green-50 hover:bg-green-100 cursor-pointer flex items-center gap-2">
+                                            {isCreatingSubetapa ? (
+                                                <>
+                                                    <FontAwesomeIcon icon={faSpinner} spin className="text-gray-500" />
+                                                    <span className="text-gray-600">Criando...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <FontAwesomeIcon icon={faPlus} className="text-green-600" />
+                                                    <span className="text-green-800 font-semibold">Criar: "{subetapaSearch}"</span>
+                                                </>
+                                            )}
+                                        </li>
+                                    )}
+                                </ul>
+                            )}
+                        </div>
+                        
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium">Descrição</label>
                             <textarea name="descricao" value={formData.descricao || ''} onChange={handleChange} rows="3" className="mt-1 w-full p-2 border rounded-md"></textarea>
@@ -393,7 +586,6 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                         <div><label className="block text-sm font-medium">Status</label><select name="status" value={formData.status} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option>Não Iniciado</option><option>Em Andamento</option><option>Concluído</option><option>Pausado</option><option>Aguardando Material</option><option>Cancelado</option></select></div>
                     </div>
 
-                    {/* ***** CÓDIGO DE RECORRÊNCIA REINSERIDO ***** */}
                     <fieldset className="border-t pt-4">
                         <legend className="text-lg font-semibold text-gray-700">Recorrência</legend>
                         <div className="mt-2 space-y-3">
