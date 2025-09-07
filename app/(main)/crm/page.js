@@ -143,7 +143,7 @@ export default function CrmPage() {
 
             if (!novaColuna || !contatoMovido) throw new Error("Contato ou coluna não encontrado.");
             
-            // O gatilho da notificação!
+            // ***** INÍCIO DA ADIÇÃO DA LÓGICA DE NOTIFICAÇÃO *****
             const contatoNome = contatoMovido.contatos?.nome || contatoMovido.contatos?.razao_social || 'Um contato';
             const colunaNome = novaColuna.nome;
             
@@ -157,6 +157,7 @@ export default function CrmPage() {
                     url: '/crm' // Link para onde o usuário será levado ao clicar
                 })
             }).catch(err => console.error("Falha ao enviar notificação:", err)); // Apenas logamos o erro no console.
+            // ***** FIM DA ADIÇÃO DA LÓGICA DE NOTIFICAÇÃO *****
 
             // O restante da lógica para mover o card continua igual...
             if (novaColuna.nome === 'Vendido') {

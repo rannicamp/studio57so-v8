@@ -4,15 +4,14 @@ import { NextResponse } from 'next/server';
 import webpush from 'web-push';
 
 // 1. Configura a biblioteca de envio com as chaves VAPID (remetente da notificação)
-// É crucial que as variáveis de ambiente VAPID_PRIVATE_KEY e NEXT_PUBLIC_VAPID_PUBLIC_KEY estejam no seu arquivo .env.local
+// É crucial que as variáveis VAPID_PRIVATE_KEY e NEXT_PUBLIC_VAPID_PUBLIC_KEY estejam no seu .env.local
 webpush.setVapidDetails(
-  'mailto:seu-email-de-contato@dominio.com', // Use um e-mail seu aqui para contato
+  'mailto:rannierecampos@studio57.arq.br', // Seu e-mail de contato
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 );
 
 export async function POST(request) {
-  // Usamos o createClient com a chave de serviço para ter permissão de ler todas as assinaturas
   const supabase = createClient();
 
   try {
