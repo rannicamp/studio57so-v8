@@ -135,11 +135,10 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
     useEffect(() => {
         const fetchEtapas = async () => {
             if (formData.empreendimento_id) {
-                // ALTERAÇÃO 1: Pedindo 'codigo_etapa' e ordenando por ele
                 const { data: etapasData } = await supabase
                     .from('etapa_obra')
-                    .select('id, nome_etapa, codigo_etapa') // Pedimos o código
-                    .order('codigo_etapa', { ascending: true }); // Ordenamos pelo código
+                    .select('id, nome_etapa, codigo_etapa')
+                    .order('codigo_etapa', { ascending: true });
 
                 setEtapas(etapasData || []);
             } else {
@@ -513,7 +512,6 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                             <select name="etapa_id" value={formData.etapa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!formData.empreendimento_id}>
                                 <option value="">Selecione uma etapa</option>
                                 {etapas.map(etapa => (
-                                    // ALTERAÇÃO 2: Exibindo "código - nome"
                                     <option key={etapa.id} value={etapa.id}>
                                         {etapa.codigo_etapa} - {etapa.nome_etapa}
                                     </option>
@@ -554,7 +552,8 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                                             ) : (
                                                 <>
                                                     <FontAwesomeIcon icon={faPlus} className="text-green-600" />
-                                                    <span className="text-green-800 font-semibold">Criar: "{subetapaSearch}"</span>
+                                                     {/* CORREÇÃO APLICADA AQUI */}
+                                                    <span className="text-green-800 font-semibold">Criar: &quot;{subetapaSearch}&quot;</span>
                                                 </>
                                             )}
                                         </li>

@@ -32,7 +32,7 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
     }), []);
 
     const [formData, setFormData] = useState(getInitialState());
-    const [subetapas, setSubetapas] =useState([]);
+    const [subetapas, setSubetapas] = useState([]);
     const [filteredSubetapas, setFilteredSubetapas] = useState([]);
     const [subetapaSearch, setSubetapaSearch] = useState('');
     const [isSubetapaDropdownOpen, setIsSubetapaDropdownOpen] = useState(false);
@@ -82,7 +82,7 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
         };
 
         if(isOpen) fetchSubetapas();
-    }, [isOpen, formData.etapa_id, supabase]);
+    }, [isOpen, formData.etapa_id, formData.subetapa_id, supabase]);
 
     useEffect(() => {
         if (!subetapaSearch) {
@@ -213,7 +213,8 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
                                         <li className='p-2 text-sm text-gray-500'>Nenhuma subetapa encontrada.</li>
                                     )}
                                     {subetapaSearch && !filteredSubetapas.some(s => s.nome_subetapa.toLowerCase() === subetapaSearch.toLowerCase()) && (
-                                        <li onMouseDown={handleCreateSubetapa} className="p-2 border-t bg-green-50 hover:bg-green-100 cursor-pointer flex items-center gap-2"><FontAwesomeIcon icon={faPlus} className="text-green-600" /><span className="text-green-800 font-semibold">Criar subetapa: "{subetapaSearch}"</span></li>
+                                         // CORREÇÃO APLICADA AQUI
+                                        <li onMouseDown={handleCreateSubetapa} className="p-2 border-t bg-green-50 hover:bg-green-100 cursor-pointer flex items-center gap-2"><FontAwesomeIcon icon={faPlus} className="text-green-600" /><span className="text-green-800 font-semibold">Criar subetapa: &quot;{subetapaSearch}&quot;</span></li>
                                     )}
                                 </ul>
                             )}
