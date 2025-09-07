@@ -2,38 +2,36 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import LogoutButton from './LogoutButton';
+import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft, faChevronRight, faHome, faUserCircle, faBuilding, faCog, faInbox, faUser, faChevronDown } from '@fortawesome/free-solid-svg-icons';
-import { useRouter } from 'next/navigation';
+
 import { useLayout } from '../contexts/LayoutContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useEmpreendimento } from '../contexts/EmpreendimentoContext';
 
-// Recebe a classe de posicionamento do layout.js
+import LogoutButton from './LogoutButton';
+import NotificationBell from './NotificationBell';
+
 export default function Header({ headerPositionClass }) {
   const router = useRouter();
   const { pageTitle } = useLayout();
   const { user, userData, hasPermission } = useAuth();
   const { empreendimentos, selectedEmpreendimento, changeEmpreendimento, loading: loadingEmpreendimento } = useEmpreendimento();
-  const [userName, setUserName] = useState('');
-  const [userPhoto, setUserPhoto] = useState(null);
+  
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
-  useEffect(() => {
-    if (userData) {
-      const firstName = userData.nome?.split(' ')[0];
-      setUserName(firstName || user?.email);
-      setUserPhoto(userData.avatar_url || null);
-    } else if (user) {
-      setUserName(user.email);
-    }
-  }, [user, userData]);
+  // Otimização: Calculamos o nome e a foto diretamente, sem precisar de estado extra.
+  // Isso torna o componente mais simples e performático.
+  const firstName = userData?.nome?.split(' ')[0];
+  const userName = firstName || user?.email;
+  const userPhoto = userData?.avatar_url || null;
 
+  // Este useEffect é ótimo para funcionalidades como "clicar fora para fechar".
   useEffect(() => {
     function handleClickOutside(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+      if (menuRef.current && !menu_ref.current.contains(event.target)) {
         setIsMenuOpen(false);
       }
     }
@@ -48,7 +46,6 @@ export default function Header({ headerPositionClass }) {
   };
 
   return (
-    // ***** ALTERAÇÃO AQUI: z-30 foi alterado para z-50 *****
     <header className={`bg-white shadow-md h-[65px] fixed top-0 z-50 flex items-center justify-between px-6 transition-all duration-300 ${headerPositionClass}`}>
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-4">
@@ -75,6 +72,9 @@ export default function Header({ headerPositionClass }) {
             </select>
           </div>
         )}
+
+        {/* --- SINO DE NOTIFICAÇÃO ADICIONADO AQUI --- */}
+        <NotificationBell />
 
         {userName && (
           <div className="relative" ref={menuRef}>
