@@ -1,9 +1,12 @@
+// Local do Arquivo: components/comercial/AdsManager.js
+
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useSession, signIn } from 'next-auth/react';
+import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faChartBar, faBullhorn, faToggleOn, faToggleOff } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faChartBar, faBullhorn } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 
 // Função para formatar moeda
@@ -11,101 +14,84 @@ const formatCurrency = (value, currency) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: currency || 'BRL' }).format(value || 0);
 }
 
+// ========= FUNÇÕES DE BUSCA DE DADOS (agora separadas) =========
+
+// 1. Busca as Contas de Anúncio
+const fetchAdAccounts = async () => {
+    const response = await fetch('/api/meta/ad-accounts');
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Falha ao buscar contas de anúncio');
+    }
+    return response.json();
+};
+
+// 2. Busca as Campanhas de uma conta específica
+const fetchCampaigns = async (adAccountId) => {
+    if (!adAccountId) return [];
+    const response = await fetch('/api/meta/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adAccountId }),
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Falha ao buscar campanhas');
+    }
+    return response.json();
+};
+
+// 3. Busca os Anúncios de uma campanha específica
+const fetchAds = async (campaignId) => {
+    if (!campaignId) return [];
+    const response = await fetch('/api/meta/ads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId }),
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Falha ao buscar anúncios');
+    }
+    return response.json();
+};
+
+
 export default function AdsManager() {
     const { data: session, status: sessionStatus } = useSession();
     
-    // Estados para os dados
-    const [adAccounts, setAdAccounts] = useState([]);
-    const [campaigns, setCampaigns] = useState([]);
-    const [ads, setAds] = useState([]);
-
     // Estados para o que está selecionado na tela
     const [selectedAdAccountId, setSelectedAdAccountId] = useState('');
     const [selectedCampaignId, setSelectedCampaignId] = useState('');
 
-    // Estados para controlar o carregamento
-    const [loading, setLoading] = useState({ accounts: false, campaigns: false, ads: false });
+    // ========= QUERIES (a nova forma de buscar dados) =========
 
-    // Busca as Contas de Anúncio
-    const fetchAdAccounts = useCallback(async () => {
-        if (sessionStatus !== 'authenticated') return;
-        setLoading(prev => ({ ...prev, accounts: true }));
-        try {
-            const response = await fetch('/api/meta/ad-accounts');
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Falha ao buscar contas de anúncio');
-            setAdAccounts(data);
-            if (data.length > 0) {
-                setSelectedAdAccountId(data[0].id); // Meta retorna 'id' que já inclui o 'act_'
+    // Query para buscar as contas de anúncio. Roda automaticamente.
+    const { data: adAccounts = [], isLoading: isLoadingAccounts, isError: isErrorAccounts, error: errorAccounts } = useQuery({
+        queryKey: ['adAccounts'],
+        queryFn: fetchAdAccounts,
+        enabled: sessionStatus === 'authenticated', // Só executa se estiver autenticado
+        onSuccess: (data) => {
+            // Se ainda não tiver uma conta selecionada e houver contas, seleciona a primeira
+            if (!selectedAdAccountId && data && data.length > 0) {
+                setSelectedAdAccountId(data[0].id);
             }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(prev => ({ ...prev, accounts: false }));
-        }
-    }, [sessionStatus]);
+        },
+    });
 
-    useEffect(() => {
-        fetchAdAccounts();
-    }, [fetchAdAccounts]);
+    // Query para buscar as campanhas. Roda apenas quando um 'selectedAdAccountId' existir.
+    const { data: campaigns = [], isLoading: isLoadingCampaigns } = useQuery({
+        queryKey: ['campaigns', selectedAdAccountId],
+        queryFn: () => fetchCampaigns(selectedAdAccountId),
+        enabled: !!selectedAdAccountId, // A '!!' transforma a string em booleano (true se tiver algo, false se for vazia)
+    });
 
-    // Busca as Campanhas quando uma conta é selecionada
-    useEffect(() => {
-        const fetchCampaigns = async () => {
-            if (!selectedAdAccountId) {
-                setCampaigns([]);
-                setAds([]);
-                setSelectedCampaignId('');
-                return;
-            };
-            setLoading(prev => ({ ...prev, campaigns: true, ads: false }));
-            setCampaigns([]);
-            setAds([]);
-            setSelectedCampaignId('');
-            try {
-                const response = await fetch('/api/meta/campaigns', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ adAccountId: selectedAdAccountId }),
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || 'Falha ao buscar campanhas');
-                setCampaigns(data);
-            } catch (error) {
-                console.error(error);
-            } finally {
-                setLoading(prev => ({ ...prev, campaigns: false }));
-            }
-        };
-        fetchCampaigns();
-    }, [selectedAdAccountId]);
-
-    // Busca os Anúncios quando uma campanha é selecionada
-    useEffect(() => {
-        const fetchAds = async () => {
-            if (!selectedCampaignId) {
-                setAds([]);
-                return;
-            };
-            setLoading(prev => ({ ...prev, ads: true }));
-            setAds([]);
-            try {
-                const response = await fetch('/api/meta/ads', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ campaignId: selectedCampaignId }),
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || 'Falha ao buscar anúncios');
-                setAds(data);
-            } catch (error) {
-                console.error(error);
-            } finally {
-                setLoading(prev => ({ ...prev, ads: false }));
-            }
-        };
-        fetchAds();
-    }, [selectedCampaignId]);
+    // Query para buscar os anúncios. Roda apenas quando uma 'selectedCampaignId' existir.
+    const { data: ads = [], isLoading: isLoadingAds } = useQuery({
+        queryKey: ['ads', selectedCampaignId],
+        queryFn: () => fetchAds(selectedCampaignId),
+        enabled: !!selectedCampaignId,
+    });
 
 
     if (sessionStatus === 'loading') {
@@ -127,18 +113,30 @@ export default function AdsManager() {
         <div className="space-y-6">
             <div>
                 <label htmlFor="ad-account-select" className="block text-sm font-medium text-gray-700">Conta de Anúncios</label>
-                <select id="ad-account-select" value={selectedAdAccountId} onChange={e => setSelectedAdAccountId(e.target.value)} disabled={loading.accounts} className="mt-1 block w-full md:w-1/2 p-2 border rounded-md">
-                    {loading.accounts ? <option>Carregando contas...</option> : adAccounts.map(acc => (
+                <select 
+                    id="ad-account-select" 
+                    value={selectedAdAccountId} 
+                    onChange={e => {
+                        setSelectedAdAccountId(e.target.value);
+                        setSelectedCampaignId(''); // Limpa a seleção de campanha ao trocar de conta
+                    }} 
+                    disabled={isLoadingAccounts} 
+                    className="mt-1 block w-full md:w-1/2 p-2 border rounded-md"
+                >
+                    {isLoadingAccounts ? <option>Carregando contas...</option> : 
+                     isErrorAccounts ? <option>Erro ao carregar contas</option> :
+                     adAccounts.map(acc => (
                         <option key={acc.id} value={acc.id}>{acc.name} ({acc.account_id})</option>
                     ))}
                 </select>
+                {isErrorAccounts && <p className="text-red-500 text-sm mt-1">{errorAccounts.message}</p>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Lista de Campanhas */}
                 <div className="border rounded-lg p-4 bg-white">
                     <h3 className="font-semibold mb-2 flex items-center gap-2"><FontAwesomeIcon icon={faBullhorn} /> Campanhas</h3>
-                    {loading.campaigns ? <div className="text-center"><FontAwesomeIcon icon={faSpinner} spin /></div> : (
+                    {isLoadingCampaigns ? <div className="text-center"><FontAwesomeIcon icon={faSpinner} spin /></div> : (
                         <ul className="space-y-2 max-h-96 overflow-y-auto">
                             {campaigns.map(camp => (
                                 <li key={camp.id} onClick={() => setSelectedCampaignId(camp.id)} className={`p-2 rounded-md cursor-pointer ${selectedCampaignId === camp.id ? 'bg-blue-100 ring-2 ring-blue-300' : 'hover:bg-gray-100'}`}>
@@ -153,7 +151,7 @@ export default function AdsManager() {
                 {/* Lista de Anúncios */}
                 <div className="border rounded-lg p-4 bg-white">
                     <h3 className="font-semibold mb-2 flex items-center gap-2"><FontAwesomeIcon icon={faChartBar} /> Anúncios</h3>
-                     {loading.ads ? <div className="text-center"><FontAwesomeIcon icon={faSpinner} spin /></div> : (
+                     {isLoadingAds ? <div className="text-center"><FontAwesomeIcon icon={faSpinner} spin /></div> : (
                         <div className="space-y-2 max-h-96 overflow-y-auto">
                            {ads.length > 0 ? ads.map(ad => (
                                <div key={ad.id} className="p-2 border-b">
