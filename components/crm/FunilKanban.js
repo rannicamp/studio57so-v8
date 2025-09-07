@@ -131,13 +131,18 @@ export default function FunilKanban({
     const handleDeleteClick = (columnId, columnName) => { if (window.confirm(`Tem certeza que deseja deletar a etapa "${columnName}"? Todos os contatos nela serão movidos para a primeira etapa.`)) { onDeleteColumn(columnId); } };
     const handleMoveCardFromDropdown = (contatoNoFunilId, newColumnId) => { onStatusChange(contatoNoFunilId, newColumnId); };
     
+    // --- CORREÇÃO APLICADA AQUI ---
     const handleSortChange = (colunaId, sortValue) => {
         if (!sortValue) {
             const newSorting = { ...sorting };
             delete newSorting[colunaId];
             setSorting(newSorting);
         } else {
-            const [sortBy, order] = sortValue.split('_');
+            // Lógica mais inteligente para separar o campo da direção (asc/desc)
+            const lastUnderscoreIndex = sortValue.lastIndexOf('_');
+            const sortBy = sortValue.substring(0, lastUnderscoreIndex);
+            const order = sortValue.substring(lastUnderscoreIndex + 1);
+            
             setSorting(prev => ({ ...prev, [colunaId]: { sortBy, order } }));
         }
         setOpenSortMenu(null);
@@ -161,11 +166,6 @@ export default function FunilKanban({
                 const sortConfig = sorting[coluna.id];
 
                 if (sortConfig) {
-                    // O PORQUÊ DA CORREÇÃO:
-                    // A lógica de ordenação foi reescrita para ser mais robusta e clara.
-                    // 1. Ela agora lida explicitamente com valores nulos (como contatos sem nome ou sem mensagem), sempre os enviando para o final da lista.
-                    // 2. A comparação de datas e nomes foi generalizada para evitar erros sutis.
-                    // Esta abordagem garante que a ordenação funcione corretamente em todos os casos.
                     contatosDaColuna.sort((a, b) => {
                         const { sortBy, order } = sortConfig;
                         let valA, valB;
