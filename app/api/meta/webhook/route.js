@@ -123,7 +123,6 @@ export async function POST(request) {
         }
         
         let leadDetails;
-        // ***** INÍCIO DA ALTERAÇÃO INTELIGENTE *****
         // Verifica se é um lead de teste para não chamar a API da Meta
         if (leadId.startsWith('TEST_')) {
             console.log("LOG: [TESTE] Lead de simulação detectado. Usando dados fictícios.");
@@ -144,7 +143,6 @@ export async function POST(request) {
             if (!leadDetailsResponse.ok) throw new Error(apiResult.error?.message || "Falha ao buscar dados do lead no Meta.");
             leadDetails = apiResult;
         }
-        // ***** FIM DA ALTERAÇÃO INTELIGENTE *****
 
         console.log("LOG: Detalhes do lead recebidos com sucesso.");
         
@@ -199,17 +197,19 @@ export async function POST(request) {
             console.error('LOG: ERRO ao adicionar contato ao funil:', funilError);
         } else {
             console.log('LOG: SUCESSO! Contato adicionado ao funil! Disparando notificação...');
-
-            const notificationPayload = {
-                title: '🎉 Novo Lead Recebido!',
-                body: `Um novo lead (${nomeCompleto}) chegou através da campanha da Meta.`,
-            };
-
-            await fetch(`${request.nextUrl.origin}/api/notifications/send`, {
+            
+            // ***** INÍCIO DA IMPLEMENTAÇÃO DA NOTIFICAÇÃO *****
+            // Dispara a notificação em "segundo plano", sem esperar pela resposta.
+            fetch(`${request.nextUrl.origin}/api/notifications/send`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(notificationPayload),
-            });
+                body: JSON.stringify({
+                    title: '🎉 Novo Lead Recebido!',
+                    message: `Um novo lead (${nomeCompleto}) chegou através da campanha da Meta.`,
+                    url: '/crm' // Leva o usuário direto para o funil
+                })
+            }).catch(err => console.error("Falha ao disparar notificação de novo lead:", err));
+            // ***** FIM DA IMPLEMENTAÇÃO DA NOTIFICAÇÃO *****
         }
 
         console.log("LOG: [FIM] Processamento do webhook concluído com sucesso.");
