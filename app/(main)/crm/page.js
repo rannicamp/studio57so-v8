@@ -1,7 +1,7 @@
 // app/(main)/crm/page.js
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useLayout } from '@/contexts/LayoutContext';
@@ -142,7 +142,23 @@ export default function CrmPage() {
             const contatoMovido = conts.find(c => c.id === contatoNoFunilId);
 
             if (!novaColuna || !contatoMovido) throw new Error("Contato ou coluna não encontrado.");
+            
+            // O gatilho da notificação!
+            const contatoNome = contatoMovido.contatos?.nome || contatoMovido.contatos?.razao_social || 'Um contato';
+            const colunaNome = novaColuna.nome;
+            
+            // Dispara a notificação em "segundo plano". Não precisamos esperar a resposta dela.
+            fetch('/api/notifications/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: 'Movimentação no Funil de Vendas',
+                    message: `${contatoNome} foi movido para a etapa "${colunaNome}".`,
+                    url: '/crm' // Link para onde o usuário será levado ao clicar
+                })
+            }).catch(err => console.error("Falha ao enviar notificação:", err)); // Apenas logamos o erro no console.
 
+            // O restante da lógica para mover o card continua igual...
             if (novaColuna.nome === 'Vendido') {
                 const { data: novoContrato, error: contratoError } = await supabase.from('contratos').insert({ contato_id: contatoMovido.contatos.id, produto_id: contatoMovido.produto_id, empreendimento_id: contatoMovido.produto.empreendimento_id, valor_final_venda: contatoMovido.produto.valor_venda_calculado || 0, status_contrato: 'Em assinatura' }).select('id').single();
                 if (contratoError) throw new Error(`Erro ao criar contrato: ${contratoError.message}`);

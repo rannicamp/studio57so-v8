@@ -1,49 +1,74 @@
-// app/api/notifications/send/route.js
+// Caminho: app/api/notifications/send/route.js
 import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
 
-// Verifique se as variáveis de ambiente estão carregadas
-if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
-  console.error('VAPID keys are not defined in environment variables.');
-  // Em um ambiente de produção, você pode querer lançar um erro ou lidar com isso de outra forma
-}
-
+// 1. Configura a biblioteca de envio com as chaves VAPID (remetente da notificação)
+// É crucial que as variáveis de ambiente VAPID_PRIVATE_KEY e NEXT_PUBLIC_VAPID_PUBLIC_KEY estejam no seu arquivo .env.local
 webpush.setVapidDetails(
-  'mailto:rannierecampos@studio57.arq.br', // E-mail de contato real
+  'mailto:seu-email-de-contato@dominio.com', // Use um e-mail seu aqui para contato
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 );
 
 export async function POST(request) {
-    const supabase = createClient();
+  // Usamos o createClient com a chave de serviço para ter permissão de ler todas as assinaturas
+  const supabase = createClient();
 
-    try {
-        const notificationPayload = await request.json();
-        const { data: subscriptions, error } = await supabase
-            .from('push_subscriptions')
-            .select('subscription_object');
+  try {
+    const body = await request.json();
+    const { title, message, url } = body;
 
-        if (error) throw error;
-
-        // Filtra assinaturas inválidas ou nulas antes de tentar enviar
-        const validSubscriptions = subscriptions.filter(s => s && s.subscription_object);
-
-        if (validSubscriptions.length === 0) {
-            console.log('No valid push subscriptions found.');
-            return NextResponse.json({ success: true, sentTo: 0, message: "No valid subscriptions found." });
-        }
-
-        const sendPromises = validSubscriptions.map(s =>
-            webpush.sendNotification(s.subscription_object, JSON.stringify(notificationPayload))
-        );
-
-        await Promise.all(sendPromises);
-
-        return NextResponse.json({ success: true, sentTo: validSubscriptions.length });
-
-    } catch (error) {
-        console.error('[API SEND NOTIFICATION ERROR]', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!title || !message) {
+      return NextResponse.json({ error: 'Título e mensagem são obrigatórios' }, { status: 400 });
     }
+
+    // 2. Busca TODAS as assinaturas salvas na nossa tabela correta
+    const { data: subscriptions, error: fetchError } = await supabase
+      .from('notification_subscriptions') // Lendo da tabela correta
+      .select('subscription'); // Lendo a coluna correta
+
+    if (fetchError) {
+      console.error('Erro ao buscar assinaturas:', fetchError);
+      throw fetchError;
+    }
+
+    if (!subscriptions || subscriptions.length === 0) {
+      return NextResponse.json({ success: true, message: 'Nenhum dispositivo inscrito para receber notificações.' });
+    }
+
+    // 3. Prepara o conteúdo da notificação
+    const notificationPayload = JSON.stringify({
+      title,
+      body: message,
+      icon: '/favicon.ico', // Ícone que aparecerá na notificação
+      data: {
+        url: url || '/', // URL para abrir ao clicar
+      },
+    });
+
+    // 4. Envia a notificação para cada dispositivo inscrito
+    const sendPromises = subscriptions.map(sub =>
+      webpush.sendNotification(
+        sub.subscription, // A assinatura de cada dispositivo
+        notificationPayload
+      ).catch(err => {
+        // Se uma assinatura for inválida (ex: usuário limpou o cache), a removemos do banco
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          console.log('Assinatura expirada, removendo:', sub.subscription.endpoint);
+          return supabase.from('notification_subscriptions').delete().eq('subscription', sub.subscription);
+        } else {
+          console.error('Erro ao enviar notificação para um dispositivo:', err.statusCode);
+        }
+      })
+    );
+
+    await Promise.all(sendPromises);
+
+    return NextResponse.json({ success: true, sent_to: subscriptions.length });
+
+  } catch (error) {
+    console.error('Erro na API /api/notifications/send:', error);
+    return NextResponse.json({ error: 'Falha ao enviar notificações', details: error.message }, { status: 500 });
+  }
 }
