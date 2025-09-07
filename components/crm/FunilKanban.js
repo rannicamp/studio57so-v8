@@ -73,10 +73,9 @@ export default function FunilKanban({
     const [editingColumnId, setEditingColumnId] = useState(null);
     const [editedColumnName, setEditedColumnName] = useState("");
     const [draggedItem, setDraggedItem] = useState(null);
-    const [openSortMenu, setOpenSortMenu] = useState(null); // Estado para controlar o menu de ordenação
+    const [openSortMenu, setOpenSortMenu] = useState(null);
     const sortMenuRef = useRef(null);
 
-    // Efeito para fechar o menu de ordenação ao clicar fora
     useEffect(() => {
         function handleClickOutside(event) {
             if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
@@ -141,9 +140,9 @@ export default function FunilKanban({
             const [sortBy, order] = sortValue.split('_');
             setSorting(prev => ({ ...prev, [colunaId]: { sortBy, order } }));
         }
-        setOpenSortMenu(null); // Fecha o menu após a seleção
+        setOpenSortMenu(null);
     };
-  
+ 
     const sortOptions = [
         { value: '', label: 'Padrão (Número do Card)' },
         { value: 'nome_asc', label: 'Nome (A-Z)' },
@@ -158,22 +157,41 @@ export default function FunilKanban({
         const grouped = {};
         if (statusColumns && contatos) {
             statusColumns.forEach(coluna => {
-                let contatosDaColuna = contatos.filter(c => c.coluna_id === coluna.id);
+                const contatosDaColuna = [...contatos.filter(c => c.coluna_id === coluna.id)];
                 const sortConfig = sorting[coluna.id];
+
                 if (sortConfig) {
+                    // O PORQUÊ DA CORREÇÃO:
+                    // A lógica de ordenação foi reescrita para ser mais robusta e clara.
+                    // 1. Ela agora lida explicitamente com valores nulos (como contatos sem nome ou sem mensagem), sempre os enviando para o final da lista.
+                    // 2. A comparação de datas e nomes foi generalizada para evitar erros sutis.
+                    // Esta abordagem garante que a ordenação funcione corretamente em todos os casos.
                     contatosDaColuna.sort((a, b) => {
                         const { sortBy, order } = sortConfig;
                         let valA, valB;
+
                         if (sortBy === 'nome') {
-                            valA = a.contatos?.nome || a.contatos?.razao_social || '';
-                            valB = b.contatos?.nome || b.contatos?.razao_social || '';
-                            return order === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                            valA = a.contatos?.nome || a.contatos?.razao_social || null;
+                            valB = b.contatos?.nome || b.contatos?.razao_social || null;
+                        } else if (sortBy === 'created_at' || sortBy === 'last_whatsapp_message_time') {
+                            valA = a[sortBy] ? new Date(a[sortBy]) : null;
+                            valB = b[sortBy] ? new Date(b[sortBy]) : null;
                         }
-                        if (sortBy === 'created_at' || sortBy === 'last_whatsapp_message_time') {
-                            const dateA = a[sortBy] ? new Date(a[sortBy]) : (order === 'asc' ? new Date('9999-12-31') : new Date('1000-01-01'));
-                            const dateB = b[sortBy] ? new Date(b[sortBy]) : (order === 'asc' ? new Date('9999-12-31') : new Date('1000-01-01'));
-                            return order === 'asc' ? dateA - dateB : dateB - dateA;
+
+                        if (valA === valB) return 0;
+                        if (valA === null) return 1;
+                        if (valB === null) return -1;
+                        
+                        const direction = order === 'asc' ? 1 : -1;
+
+                        if (typeof valA === 'string') {
+                            return valA.localeCompare(valB) * direction;
                         }
+                        
+                        if (valA instanceof Date) {
+                            return (valA - valB) * direction;
+                        }
+
                         return 0;
                     });
                 } else {
@@ -200,13 +218,12 @@ export default function FunilKanban({
                             <>
                                 <h3 className="flex-grow">{coluna.nome} ({contatosPorColuna[coluna.id]?.length || 0})</h3>
                                 <div className="flex items-center gap-2">
-                                    {/* BOTÃO DE ORDENAÇÃO NOVO E DISCRETO */}
-                                    <div className="relative" ref={sortMenuRef}>
+                                    <div className="relative">
                                         <button onClick={() => setOpenSortMenu(openSortMenu === coluna.id ? null : coluna.id)} className="text-gray-500 hover:text-blue-600 transition-colors" title="Ordenar cards">
                                             <FontAwesomeIcon icon={faSort} size="sm" />
                                         </button>
                                         {openSortMenu === coluna.id && (
-                                            <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-20">
+                                            <div ref={sortMenuRef} className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-20">
                                                 <p className="p-2 font-semibold text-xs text-gray-500 border-b">Ordenar por:</p>
                                                 {sortOptions.map(option => (
                                                     <button key={option.value} onClick={() => handleSortChange(coluna.id, option.value)} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">
