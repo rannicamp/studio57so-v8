@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import OrcamentoManager from '@/components/OrcamentoManager';
 
 export default function OrcamentoPage() {
@@ -10,7 +9,6 @@ export default function OrcamentoPage() {
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
           Gestão de Orçamentos
         </h1>
-        {/* O botão de importação foi removido daqui */}
       </div>
 
       <p className="mb-8 text-gray-600">

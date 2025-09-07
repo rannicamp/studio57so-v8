@@ -1,23 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { useEmpreendimento } from '@/contexts/EmpreendimentoContext'; // Importar o contexto
+import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
 import OrcamentoDetalhes from './OrcamentoDetalhes';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner'; // <-- MUDANÇA AQUI: importando do sonner
 
-// Componente do Modal para criar novo orçamento
+// --- Componente do Modal (sem alteração na sua lógica interna) ---
 const NovoOrcamentoModal = ({ isOpen, onClose, onSave, empreendimentoNome }) => {
     const [nome, setNome] = useState(`Orçamento Padrão - ${empreendimentoNome}`);
     const [versao, setVersao] = useState(1);
-    const [loading, setLoading] = useState(false);
-
-    const handleSubmit = async () => {
-        setLoading(true);
-        await onSave({ nome_orcamento: nome, versao });
-        setLoading(false);
-        onClose();
+    
+    const handleSubmit = () => {
+        onSave({ nome_orcamento: nome, versao });
     };
 
     if (!isOpen) return null;
@@ -38,8 +36,8 @@ const NovoOrcamentoModal = ({ isOpen, onClose, onSave, empreendimentoNome }) => 
                 </div>
                 <div className="flex justify-end gap-4 pt-6 mt-4 border-t">
                     <button onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                    <button onClick={handleSubmit} disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
-                         {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Criar Orçamento'}
+                    <button onClick={handleSubmit} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                         Criar Orçamento
                     </button>
                 </div>
             </div>
@@ -49,61 +47,60 @@ const NovoOrcamentoModal = ({ isOpen, onClose, onSave, empreendimentoNome }) => 
 
 
 const OrcamentoManager = () => {
-    // Usa o contexto para obter o empreendimento selecionado globalmente
+    const supabase = createClient();
+    const queryClient = useQueryClient();
     const { selectedEmpreendimento, empreendimentos } = useEmpreendimento();
     
-    const [orcamentos, setOrcamentos] = useState([]);
-    const [loadingOrcamentos, setLoadingOrcamentos] = useState(false);
-    const [error, setError] = useState('');
     const [selectedOrcamento, setSelectedOrcamento] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const supabase = createClient();
-
-    useEffect(() => {
-        // Se nenhum empreendimento (ou 'todos') for selecionado, limpa a lista.
+    const fetchOrcamentos = async () => {
         if (!selectedEmpreendimento || selectedEmpreendimento === 'all') {
-            setOrcamentos([]);
-            return;
+            return [];
         }
-
-        const fetchOrcamentos = async () => {
-            setLoadingOrcamentos(true);
-            setSelectedOrcamento(null); 
-            const { data, error } = await supabase
-                .from('orcamentos')
-                .select('*')
-                .eq('empreendimento_id', selectedEmpreendimento)
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                console.error('Erro ao buscar orçamentos:', error);
-                setError('Não foi possível carregar os orçamentos para este empreendimento.');
-            } else {
-                setOrcamentos(data || []);
-            }
-            setLoadingOrcamentos(false);
-        };
-
-        fetchOrcamentos();
-    }, [selectedEmpreendimento, supabase]);
-
-    const handleCreateOrcamento = async (orcamentoData) => {
         const { data, error } = await supabase
             .from('orcamentos')
-            .insert({
-                ...orcamentoData,
-                empreendimento_id: selectedEmpreendimento
-            })
-            .select()
-            .single();
+            .select('*')
+            .eq('empreendimento_id', selectedEmpreendimento)
+            .order('created_at', { ascending: false });
 
         if (error) {
-            setError('Erro ao criar o orçamento: ' + error.message);
-        } else {
-            setOrcamentos(prev => [data, ...prev]);
+            throw new Error('Não foi possível carregar os orçamentos: ' + error.message);
         }
+        return data || [];
     };
+
+    const { data: orcamentos, isLoading: loadingOrcamentos, error } = useQuery({
+        queryKey: ['orcamentos', selectedEmpreendimento],
+        queryFn: fetchOrcamentos,
+        enabled: !!selectedEmpreendimento && selectedEmpreendimento !== 'all',
+    });
+
+    const createOrcamentoMutation = useMutation({
+        mutationFn: async (orcamentoData) => {
+            const { data, error } = await supabase
+                .from('orcamentos')
+                .insert({
+                    ...orcamentoData,
+                    empreendimento_id: selectedEmpreendimento
+                })
+                .select()
+                .single();
+
+            if (error) {
+                throw new Error('Erro ao criar o orçamento: ' + error.message);
+            }
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['orcamentos', selectedEmpreendimento] });
+            toast.success('Orçamento criado com sucesso!'); // <-- MUDANÇA AQUI: usando toast.success do sonner
+            setIsModalOpen(false);
+        },
+        onError: (err) => {
+            toast.error(err.message); // <-- MUDANÇA AQUI: usando toast.error do sonner
+        }
+    });
 
     const handleBackToList = () => {
         setSelectedOrcamento(null);
@@ -132,10 +129,12 @@ const OrcamentoManager = () => {
             </div>
 
             {loadingOrcamentos ? (
-                <p className="text-center text-gray-500">Carregando orçamentos...</p>
+                <div className="flex justify-center items-center py-10">
+                    <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-blue-500" />
+                </div>
             ) : error ? (
-                 <p className="text-center text-red-500">{error}</p>
-            ) : orcamentos.length > 0 ? (
+                 <p className="text-center text-red-500">{error.message}</p>
+            ) : orcamentos && orcamentos.length > 0 ? (
                 <ul className="space-y-3">
                     {orcamentos.map(orc => (
                     <li 
@@ -144,14 +143,14 @@ const OrcamentoManager = () => {
                         className="bg-gray-50 p-4 rounded-lg shadow-sm flex justify-between items-center cursor-pointer transition hover:bg-gray-100 hover:shadow-md"
                     >
                         <div>
-                        <p className="font-bold text-gray-900">{orc.nome_orcamento}</p>
-                        <p className="text-sm text-gray-600">Versão: {orc.versao}</p>
-                        <p className="text-sm text-gray-600">Status: {orc.status}</p>
+                            <p className="font-bold text-gray-900">{orc.nome_orcamento}</p>
+                            <p className="text-sm text-gray-600">Versão: {orc.versao}</p>
+                            <p className="text-sm text-gray-600">Status: {orc.status}</p>
                         </div>
                         <div className="text-right">
-                        <p className="font-semibold text-lg text-blue-600">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(orc.custo_total_previsto || 0)}
-                        </p>
+                            <p className="font-semibold text-lg text-blue-600">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(orc.custo_total_previsto || 0)}
+                            </p>
                         </div>
                     </li>
                     ))}
@@ -170,7 +169,7 @@ const OrcamentoManager = () => {
                 <NovoOrcamentoModal 
                     isOpen={isModalOpen}
                     onClose={() => setIsModalOpen(false)}
-                    onSave={handleCreateOrcamento}
+                    onSave={createOrcamentoMutation.mutate}
                     empreendimentoNome={empreendimentoAtual.nome}
                 />
             )}
