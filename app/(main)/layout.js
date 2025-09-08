@@ -13,10 +13,6 @@ import AtividadeModal from '../../components/AtividadeModal';
 import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
 
-// ##### INÍCIO DA CORREÇÃO #####
-// 1. REMOVEMOS o import do SessionProvider daqui.
-// ##### FIM DA CORREÇÃO #####
-
 import '@fortawesome/fontawesome-svg-core/styles.css';
 import { config } from '@fortawesome/fontawesome-svg-core';
 config.autoAddCss = false;
@@ -36,7 +32,7 @@ function MainLayout({ children }) {
     setIsLoadingModalData(true);
     const [funcionariosRes, empresasRes] = await Promise.all([
       supabase.from('funcionarios').select('id, full_name').order('full_name'),
-      supabase.from('cadastro_empresa').select('id, razao_social').order('rao_social')
+      supabase.from('cadastro_empresa').select('id, razao_social').order('razao_social')
     ]);
     setModalData({
       funcionarios: funcionariosRes.data || [],
@@ -128,14 +124,11 @@ function MainLayout({ children }) {
 
 export default function MainAppLayoutWrapper({ children }) {
   return (
-    // ##### INÍCIO DA CORREÇÃO #####
-    // 2. REMOVEMOS o SessionProvider daqui, pois ele agora está no layout pai.
     <LayoutProvider>
       <EmpreendimentoProvider>
         <PoliticasModal />
         <MainLayout>{children}</MainLayout>
       </EmpreendimentoProvider>
     </LayoutProvider>
-    // ##### FIM DA CORREÇÃO #####
   );
 }

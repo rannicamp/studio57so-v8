@@ -4,13 +4,8 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'sonner';
 import Script from 'next/script';
-import { Providers } from './providers';
+import { Providers } from './providers'; // Já importado
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
-
-// ##### INÍCIO DA CORREÇÃO #####
-// 1. Importamos o SessionProvider aqui, no arquivo principal.
-import { SessionProvider } from 'next-auth/react';
-// ##### FIM DA CORREÇÃO #####
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -57,12 +52,10 @@ export default function RootLayout({ children }) {
         <Script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" strategy="beforeInteractive" />
 
         {/* ##### INÍCIO DA CORREÇÃO ##### */}
-        {/* 2. Envolvemos o <Providers> com o <SessionProvider>. */}
-        <SessionProvider>
-          <Providers>
-            {children}
-          </Providers>
-        </SessionProvider>
+        {/* Agora apenas usamos o componente <Providers>, que já contém o SessionProvider internamente. */}
+        <Providers>
+          {children}
+        </Providers>
         {/* ##### FIM DA CORREÇÃO ##### */}
 
         <Toaster richColors position="top-right" />
