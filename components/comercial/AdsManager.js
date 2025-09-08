@@ -107,7 +107,9 @@ export default function AdsManager() {
             <div className="text-center p-8 bg-gray-50 rounded-lg">
                 <p className="mb-4">Por favor, conecte sua conta da Meta para gerenciar seus anúncios.</p>
                 {session && session.error === 'RefreshAccessTokenError' && <p className="text-red-500 mb-4">Sua sessão expirou. Por favor, conecte-se novamente.</p>}
-                <button onClick={() => signIn('facebook')} className="bg-blue-800 text-white px-4 py-2 rounded-md hover:bg-blue-900 flex items-center gap-2 mx-auto">
+                
+                {/* ##### AQUI ESTÁ A MUDANÇA ##### */}
+                <button onClick={() => signIn('facebook', { callbackUrl: '/comercial/anuncios' })} className="bg-blue-800 text-white px-4 py-2 rounded-md hover:bg-blue-900 flex items-center gap-2 mx-auto">
                     <FontAwesomeIcon icon={faMeta} /> Conectar com a Meta
                 </button>
             </div>
