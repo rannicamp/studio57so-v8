@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faUsersCog, faKey, faFileAlt, faBusinessTime, faBox, faNetworkWired, faRobot, faInbox, faFileContract, faColumns
 } from '@fortawesome/free-solid-svg-icons';
+import { checkPermission } from '../../../utils/permissions'; // Importamos nossa "guardiã"
 
 // Opções de configuração que aparecerão na página
 const settingsOptions = [
@@ -88,9 +89,27 @@ export default async function ConfiguracoesPage() {
     redirect('/login');
   }
 
-  // ETAPA 1: Lógica de filtro removida. Todos os cartões são retornados.
-  // A lógica de permissões granulares será adicionada em uma etapa futura.
-  const availableOptions = settingsOptions;
+  // Array para armazenar as opções que o usuário pode ver
+  const availableOptions = [];
+
+  // Itera sobre cada opção de configuração para verificar a permissão
+  for (const option of settingsOptions) {
+    // Itens públicos que todos podem ver, não precisam de verificação
+    if (['politicas', 'feedback', 'menu'].includes(option.key)) {
+      availableOptions.push(option);
+      continue; // Pula para a próxima iteração do loop
+    }
+
+    // Para os outros itens, construímos a chave da permissão e verificamos
+    // Ex: "config_view_usuarios", "config_view_permissoes"
+    const permissionKey = `config_view_${option.key}`;
+    const hasPermission = await checkPermission(permissionKey);
+
+    // Se o usuário tiver a permissão, adicionamos o cartão à lista
+    if (hasPermission) {
+      availableOptions.push(option);
+    }
+  }
 
   return (
     <div className="space-y-8">

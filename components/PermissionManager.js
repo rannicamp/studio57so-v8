@@ -8,7 +8,7 @@ export default function PermissionManager({ initialFuncoes }) {
   const supabase = createClient();
   const [funcoes, setFuncoes] = useState(initialFuncoes);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragTargetState, setDragTargetState] = useState(false); // true = check, false = uncheck
+  const [dragTargetState, setDragTargetState] = useState(false);
   const pendingChanges = useRef([]);
 
   useEffect(() => {
@@ -63,6 +63,19 @@ export default function PermissionManager({ initialFuncoes }) {
       resources: [
         { key: 'usuarios', name: 'Usuários' },
         { key: 'permissoes', name: 'Permissões' },
+      ]
+    },
+    // --- NOVO GRUPO DE CONFIGURAÇÕES ADICIONADO AQUI ---
+    {
+      title: 'Configurações',
+      resources: [
+        { key: 'config_view_usuarios', name: 'Acesso: Gestão de Usuários' },
+        { key: 'config_view_permissoes', name: 'Acesso: Permissões de Acesso' },
+        { key: 'config_view_jornadas', name: 'Acesso: Jornadas de Trabalho' },
+        { key: 'config_view_tipos_documento', name: 'Acesso: Tipos de Documento' },
+        { key: 'config_view_integracoes', name: 'Acesso: Integrações' },
+        { key: 'config_view_materiais', name: 'Acesso: Base de Materiais' },
+        { key: 'config_view_treinamento_ia', name: 'Acesso: Treinamento da IA' },
       ]
     }
   ];
