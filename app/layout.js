@@ -1,16 +1,19 @@
-// app/layout.js
+// Local do Arquivo: app/layout.js
 
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'sonner';
 import Script from 'next/script';
 import { Providers } from './providers';
-// Importamos nosso novo componente
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
+
+// ##### INÍCIO DA CORREÇÃO #####
+// 1. Importamos o SessionProvider aqui, no arquivo principal.
+import { SessionProvider } from 'next-auth/react';
+// ##### FIM DA CORREÇÃO #####
 
 const inter = Inter({ subsets: ['latin'] });
 
-// Agora o metadata pode ser exportado sem problemas, pois este é um Server Component
 export const metadata = {
   title: 'Studio 57',
   description: 'Sistema de Gestão Integrada',
@@ -28,7 +31,6 @@ export default function RootLayout({ children }) {
         <meta name="theme-color" content="#0288d1" />
       </head>
       <body className={inter.className}>
-        {/* Adicionamos o componente aqui. Ele cuidará do registro do PWA. */}
         <ServiceWorkerRegistrar />
 
         <div id="fb-root"></div>
@@ -48,16 +50,20 @@ export default function RootLayout({ children }) {
                 xfml       : true,
                 version    : 'v20.0'
               });
-
               FB.AppEvents.logPageView();   
             };
           `}
         </Script>
         <Script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" strategy="beforeInteractive" />
 
-        <Providers>
-          {children}
-        </Providers>
+        {/* ##### INÍCIO DA CORREÇÃO ##### */}
+        {/* 2. Envolvemos o <Providers> com o <SessionProvider>. */}
+        <SessionProvider>
+          <Providers>
+            {children}
+          </Providers>
+        </SessionProvider>
+        {/* ##### FIM DA CORREÇÃO ##### */}
 
         <Toaster richColors position="top-right" />
       </body>
