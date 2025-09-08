@@ -80,41 +80,15 @@ const fetchFunilData = async (supabase) => {
         return { funilId, colunasDoFunil: [], contatosNoFunil: [] };
     }
     const colunaIds = colunasDoFunil.map(col => col.id);
-    
-    // ATUALIZAÇÃO: Busca agora os produtos da nova tabela
-    const { data: contatosNoFunilRaw, error: contatosError } = await supabase
-        .from('contatos_no_funil')
-        .select(`
-            id, coluna_id, numero_card, corretor_id, created_at,
-            contatos:contato_id (*, telefones (telefone, tipo), emails(email, tipo)),
-            corretores:corretor_id (id, nome, razao_social),
-            produtos_interesse:contatos_no_funil_produtos (
-                id,
-                produto:produtos_empreendimento (id, unidade, tipo, valor_venda_calculado, empreendimento_id)
-            )
-        `)
-        .in('coluna_id', colunaIds);
-
+    const { data: contatosNoFunilRaw, error: contatosError } = await supabase.from('contatos_no_funil').select(`id, coluna_id, numero_card, corretor_id, created_at, contatos:contato_id ( *, telefones ( telefone, tipo ), emails(email, tipo)), corretores:corretor_id (id, nome, razao_social), produtos_interesse:contatos_no_funil_produtos (id, produto:produtos_empreendimento (id, unidade, tipo, valor_venda_calculado, empreendimento_id))`).in('coluna_id', colunaIds);
     if (contatosError) throw contatosError;
-
     const contatosParaEstado = (contatosNoFunilRaw || []).filter(item => item.contatos?.id);
     const contatoIds = contatosParaEstado.map(c => c.contatos.id);
     const { data: lastMessagesData } = await supabase.rpc('get_last_messages_for_contacts', { p_contact_ids: contatoIds });
     const lastMessagesMap = (lastMessagesData || []).reduce((map, msg) => { map[msg.contato_id] = { content: msg.content, sent_at: msg.sent_at }; return map; }, {});
-    
-    const contatosComMensagens = contatosParaEstado.map(item => ({ 
-        ...item, 
-        last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, 
-        contatos: { 
-            ...item.contatos, 
-            last_whatsapp_message: lastMessagesMap[item.contatos.id]?.content || null, 
-            last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, 
-        } 
-    }));
-    
+    const contatosComMensagens = contatosParaEstado.map(item => ({ ...item, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, contatos: { ...item.contatos, last_whatsapp_message: lastMessagesMap[item.contatos.id]?.content || null, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, } }));
     return { funilId, colunasDoFunil, contatosNoFunil: contatosComMensagens };
 };
-
 
 const fetchAvailableProducts = async (supabase, empreendimentoId) => {
     let query = supabase.from('produtos_empreendimento').select('id, unidade, tipo, valor_venda_calculado, empreendimento_id').eq('status', 'Disponível');
@@ -134,7 +108,7 @@ const fetchActivityModalData = async (supabase) => {
 
 // --- COMPONENTE PRINCIPAL ---
 export default function CrmPage() {
-    const { setPageTitle } = useLayout();
+    const { setPageTitle, userData } = useLayout();
     const { selectedEmpreendimento } = useEmpreendimento();
     const supabase = createClient();
     const router = useRouter();
@@ -153,9 +127,7 @@ export default function CrmPage() {
     const [activityToEdit, setActivityToEdit] = useState(null);
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
     
-    useEffect(() => {
-      setPageTitle("CRM - Funil de Vendas");
-    }, [setPageTitle]);
+    useEffect(() => { setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
 
     const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ queryKey: ['funilData'], queryFn: () => fetchFunilData(supabase), });
     const { funilId, colunasDoFunil = [], contatosNoFunil = [] } = funilData || {};
@@ -166,39 +138,17 @@ export default function CrmPage() {
     if (funilError) { toast.error(`Erro ao carregar dados do funil: ${funilError.message}`); }
 
     const kpiData = useMemo(() => {
-        if (!colunasDoFunil || contatosNoFunil.length === 0) {
-            return { totalLeads: 0, vendidos: 0, taxaConversao: 0, valorEmNegociacao: 0, ultimoLead: 'N/A' };
-        }
+        if (!colunasDoFunil || contatosNoFunil.length === 0) return { totalLeads: 0, vendidos: 0, taxaConversao: 0, valorEmNegociacao: 0, ultimoLead: 'N/A' };
         const colunaVendido = colunasDoFunil.find(c => c.nome.toLowerCase() === 'vendido');
         const ordemVendido = colunaVendido ? colunaVendido.ordem : -1;
         const totalLeads = contatosNoFunil.length;
         const vendidos = contatosNoFunil.filter(c => c.coluna_id === colunaVendido?.id).length;
         const taxaConversao = totalLeads > 0 ? (vendidos / totalLeads) * 100 : 0;
-        
-        // ATUALIZAÇÃO: Soma os valores de todos os produtos na lista de interesse
-        const valorEmNegociacao = contatosNoFunil
-            .filter(contato => {
-                const colunaDoContato = colunasDoFunil.find(c => c.id === contato.coluna_id);
-                return colunaDoContato && colunaVendido && colunaDoContato.ordem < ordemVendido;
-            })
-            .reduce((acc, contato) => {
-                const valorProdutos = (contato.produtos_interesse || []).reduce((sum, item) => sum + (item.produto?.valor_venda_calculado || 0), 0);
-                return acc + valorProdutos;
-            }, 0);
-
-        const ultimoLeadDate = contatosNoFunil.length > 0
-            ? new Date(Math.max(...contatosNoFunil.map(c => new Date(c.created_at))))
-            : null;
-        return {
-            totalLeads,
-            vendidos,
-            taxaConversao,
-            valorEmNegociacao,
-            ultimoLead: ultimoLeadDate ? ultimoLeadDate.toLocaleDateString('pt-BR') : 'N/A',
-        };
+        const valorEmNegociacao = contatosNoFunil.filter(contato => { const colunaDoContato = colunasDoFunil.find(c => c.id === contato.coluna_id); return colunaDoContato && colunaVendido && colunaDoContato.ordem < ordemVendido; }).reduce((acc, contato) => { const valorProdutos = (contato.produtos_interesse || []).reduce((sum, item) => sum + (item.produto?.valor_venda_calculado || 0), 0); return acc + valorProdutos; }, 0);
+        const ultimoLeadDate = contatosNoFunil.length > 0 ? new Date(Math.max(...contatosNoFunil.map(c => new Date(c.created_at)))) : null;
+        return { totalLeads, vendidos, taxaConversao, valorEmNegociacao, ultimoLead: ultimoLeadDate ? ultimoLeadDate.toLocaleDateString('pt-BR') : 'N/A', };
     }, [contatosNoFunil, colunasDoFunil]);
 
-    // --- Ações que Modificam Dados (Mutations) ---
     const updateContactColumnMutation = useMutation({
         mutationFn: async ({ contatoNoFunilId, novaColunaId }) => {
             const { colunasDoFunil: cols, contatosNoFunil: conts } = queryClient.getQueryData(['funilData']);
@@ -207,34 +157,15 @@ export default function CrmPage() {
             if (!novaColuna || !contatoMovido) throw new Error("Contato ou coluna não encontrado.");
             const contatoNome = contatoMovido.contatos?.nome || contatoMovido.contatos?.razao_social || 'Um contato';
             const colunaNome = novaColuna.nome;
-            fetch('/api/notifications/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: 'Movimentação no Funil de Vendas', message: `${contatoNome} foi movido para a etapa "${colunaNome}".`, url: '/crm' })
-            }).catch(err => console.error("Falha ao enviar notificação:", err));
-
-            // ATUALIZAÇÃO: Lógica para criar múltiplos contratos
+            fetch('/api/notifications/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'Movimentação no Funil de Vendas', message: `${contatoNome} foi movido para a etapa "${colunaNome}".`, url: '/crm' }) }).catch(err => console.error("Falha ao enviar notificação:", err));
             if (novaColuna.nome === 'Vendido') {
                 const produtosParaVender = contatoMovido.produtos_interesse || [];
-                if (produtosParaVender.length === 0) {
-                    throw new Error("Nenhum produto associado para vender.");
-                }
-
-                const novosContratos = produtosParaVender.map(item => ({
-                    contato_id: contatoMovido.contatos.id,
-                    produto_id: item.produto.id,
-                    empreendimento_id: item.produto.empreendimento_id,
-                    valor_final_venda: item.produto.valor_venda_calculado || 0,
-                    status_contrato: 'Em assinatura'
-                }));
-
+                if (produtosParaVender.length === 0) { throw new Error("Nenhum produto associado para vender."); }
+                const novosContratos = produtosParaVender.map(item => ({ contato_id: contatoMovido.contatos.id, produto_id: item.produto.id, empreendimento_id: item.produto.empreendimento_id, valor_final_venda: item.produto.valor_venda_calculado || 0, status_contrato: 'Em assinatura' }));
                 const { data: contratosCriados, error: contratoError } = await supabase.from('contratos').insert(novosContratos).select('id');
                 if (contratoError) throw new Error(`Erro ao criar contratos: ${contratoError.message}`);
-                
-                // Apenas move o card. A atualização de status do produto deve ser feita por uma trigger ou manualmente.
                 const { error: rpcError } = await supabase.from('contatos_no_funil').update({ coluna_id: novaColunaId }).eq('id', contatoNoFunilId);
                 if (rpcError) throw new Error(`Erro ao mover o card: ${rpcError.message}`);
-                
                 return { newContractIds: contratosCriados.map(c => c.id) };
             } else {
                 const { error } = await supabase.from('contatos_no_funil').update({ coluna_id: novaColunaId }).eq('id', contatoNoFunilId);
@@ -243,15 +174,9 @@ export default function CrmPage() {
             }
         },
         onSuccess: (data) => {
-            if (data.newContractIds && data.newContractIds.length > 0) {
-                toast.success(`${data.newContractIds.length} contrato(s) criado(s) com sucesso!`);
-                // Opcional: redirecionar para o primeiro contrato criado
-                // router.push(`/contratos/${data.newContractIds[0]}`);
-            } else {
-                toast.success('Contato movido com sucesso!');
-            }
+            if (data.newContractIds && data.newContractIds.length > 0) { toast.success(`${data.newContractIds.length} contrato(s) criado(s) com sucesso!`); } else { toast.success('Contato movido com sucesso!'); }
             queryClient.invalidateQueries({ queryKey: ['funilData'] });
-            queryClient.invalidateQueries({ queryKey: ['availableProducts'] }); // Atualiza a lista de produtos disponíveis
+            queryClient.invalidateQueries({ queryKey: ['availableProducts'] });
         },
         onError: (error) => { toast.error(error.message); },
     });
@@ -288,22 +213,29 @@ export default function CrmPage() {
         onSuccess: () => { toast.success('Ordem das etapas salva!'); queryClient.invalidateQueries({ queryKey: ['funilData'] }); },
         onError: (error) => { toast.error(error.message); },
     });
-
-    // NOVO: Mutations para adicionar e remover produtos
-    const associateProductMutation = useMutation({
-        mutationFn: async ({ contatoNoFunilId, productId }) => {
-            const { error } = await supabase.from('contatos_no_funil_produtos').insert({ contato_no_funil_id: contatoNoFunilId, produto_id: productId });
-            if (error) throw new Error(error.message);
+    
+    const deleteColumnCardsMutation = useMutation({
+        mutationFn: async (columnId) => {
+            const { data: cardsToDelete, error: fetchError } = await supabase.from('contatos_no_funil').select('id').eq('coluna_id', columnId);
+            if (fetchError) throw new Error(`Falha ao buscar cards para excluir: ${fetchError.message}`);
+            if (!cardsToDelete || cardsToDelete.length === 0) return { deletedCount: 0 };
+            const cardIdsToDelete = cardsToDelete.map(card => card.id);
+            const { error: deleteError } = await supabase.from('contatos_no_funil').delete().in('id', cardIdsToDelete);
+            if (deleteError) throw new Error(`Falha ao excluir os cards: ${deleteError.message}`);
+            return { deletedCount: cardIdsToDelete.length };
         },
+        onSuccess: (data) => { toast.success(`${data.deletedCount} card(s) excluído(s) permanentemente.`); queryClient.invalidateQueries({ queryKey: ['funilData'] }); },
+        onError: (error) => { toast.error(error.message); }
+    });
+    
+    const associateProductMutation = useMutation({
+        mutationFn: async ({ contatoNoFunilId, productId }) => { const { error } = await supabase.from('contatos_no_funil_produtos').insert({ contato_no_funil_id: contatoNoFunilId, produto_id: productId }); if (error) throw new Error(error.message); },
         onSuccess: () => { toast.success("Produto associado!"); queryClient.invalidateQueries({ queryKey: ['funilData'] }); },
         onError: (error) => { toast.error(`Falha ao associar produto: ${error.message}`); }
     });
     
     const dissociateProductMutation = useMutation({
-        mutationFn: async (associationId) => {
-            const { error } = await supabase.from('contatos_no_funil_produtos').delete().eq('id', associationId);
-            if (error) throw new Error(error.message);
-        },
+        mutationFn: async (associationId) => { const { error } = await supabase.from('contatos_no_funil_produtos').delete().eq('id', associationId); if (error) throw new Error(error.message); },
         onSuccess: () => { toast.success("Produto removido!"); queryClient.invalidateQueries({ queryKey: ['funilData'] }); },
         onError: (error) => { toast.error(`Falha ao remover produto: ${error.message}`); }
     });
@@ -317,13 +249,8 @@ export default function CrmPage() {
     const handleStatusChange = (contactId, columnId) => {
         const novaColuna = colunasDoFunil.find(c => c.id === columnId);
         const contatoMovido = contatosNoFunil.find(c => c.id === contactId);
-        
-        // ATUALIZAÇÃO: Checa a lista de produtos
         if (novaColuna?.nome === 'Vendido') {
-            if (!contatoMovido?.produtos_interesse || contatoMovido.produtos_interesse.length === 0) { 
-                toast.error("Associe pelo menos um produto ao card."); 
-                return; 
-            }
+            if (!contatoMovido?.produtos_interesse || contatoMovido.produtos_interesse.length === 0) { toast.error("Associe pelo menos um produto ao card."); return; }
             if (window.confirm(`Isso irá criar ${contatoMovido.produtos_interesse.length} novo(s) contrato(s). Continuar?`)) {
                 updateContactColumnMutation.mutate({ contatoNoFunilId: contactId, novaColunaId: columnId });
             }
@@ -376,6 +303,8 @@ export default function CrmPage() {
                         onAddActivity={(contato) => { setContactForNewActivity(contato); setIsActivityModalOpen(true); }}
                         sorting={sorting}
                         setSorting={setSorting}
+                        userRole={userData?.funcoes?.nome_funcao}
+                        onDeleteAllCardsInColumn={(columnId) => deleteColumnCardsMutation.mutate(columnId)}
                     />
                 )}
             </div>
