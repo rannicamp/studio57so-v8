@@ -27,8 +27,9 @@ export default function ContratosPage() {
                 *,
                 contato:contato_id ( nome, razao_social ),
                 produto:produto_id ( unidade, tipo ),
-                empreendimento:empreendimento_id ( nome )
-            `)
+                empreendimento:empreendimento_id ( nome ),
+                corretor:corretor_id ( nome ) 
+            `) // Adicionado corretor aqui
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -44,7 +45,6 @@ export default function ContratosPage() {
         fetchContratos();
     }, [setPageTitle, fetchContratos]);
 
-    // --- Lógica para calcular os KPIs (AGORA CORRIGIDA) ---
     const totalVendido = contratos.reduce((acc, contrato) => acc + (contrato.valor_final_venda || 0), 0);
     const unidadesVendidas = contratos.length;
     const ticketMedio = unidadesVendidas > 0 ? totalVendido / unidadesVendidas : 0;
