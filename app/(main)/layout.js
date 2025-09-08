@@ -1,3 +1,5 @@
+// Local do Arquivo: app/(main)/layout.js
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -11,11 +13,16 @@ import AtividadeModal from '../../components/AtividadeModal';
 import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
 
+// ##### INÍCIO DA CORREÇÃO #####
+// 1. Importamos o SessionProvider do next-auth/react
+import { SessionProvider } from 'next-auth/react';
+// ##### FIM DA CORREÇÃO #####
+
 import '@fortawesome/fontawesome-svg-core/styles.css';
 import { config } from '@fortawesome/fontawesome-svg-core';
 config.autoAddCss = false;
 
-// Componente interno para conter a nova lógica
+// Componente interno para conter a nova lógica (nenhuma alteração aqui)
 function MainLayout({ children }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { isProprietario, sidebarPosition, loading: authLoading } = useAuth();
@@ -62,7 +69,6 @@ function MainLayout({ children }) {
     return <div className="flex items-center justify-center h-screen">Carregando...</div>;
   }
 
-  // LÓGICA PARA AS CLASSES DINÂMICAS DO LAYOUT
   const containerClasses = {
     left: 'flex flex-row',
     right: 'flex flex-row-reverse',
@@ -77,20 +83,14 @@ function MainLayout({ children }) {
     bottom: 'left-0 right-0'
   };
   
-  // ***** INÍCIO DA CORREÇÃO *****
-  // Ajustamos a margem do conteúdo principal.
   const mainContentMargins = {
     left: isCollapsed ? 'ml-[80px]' : 'ml-[260px]',
     right: isCollapsed ? 'mr-[80px]' : 'mr-[260px]',
-    // Se o menu estiver no topo, a margem superior será a altura do Header (65px) + a altura do Sidebar (65px) = 130px.
     top: 'mt-[130px]', 
-    // Se o menu estiver embaixo, a margem inferior será a altura do Sidebar.
     bottom: 'mb-[65px]'
   };
-  // ***** FIM DA CORREÇÃO *****
 
   const finalContainerClass = containerClasses[sidebarPosition] || 'flex flex-row';
-  // A margem do conteúdo principal agora é calculada corretamente para todas as posições.
   const finalMainContentMargin = mainContentMargins[sidebarPosition] || mainContentMargins.left;
   const finalHeaderMargin = headerMargins[sidebarPosition] || headerMargins.left;
 
@@ -117,12 +117,8 @@ function MainLayout({ children }) {
           toggleSidebar={toggleSidebar}
           isAdmin={isProprietario}
         />
-        {/* O container do Header e Main foi simplificado */}
         <div className="flex-1">
             <Header isCollapsed={isCollapsed} headerPositionClass={finalHeaderMargin} />
-            {/* A margem superior fixa de 65px é para o Header.
-              A classe 'finalMainContentMargin' adiciona as margens específicas para a posição do Sidebar.
-            */}
             <main className={`p-6 transition-all duration-300 mt-[65px] ${finalMainContentMargin}`}>
                 {children}
             </main>
@@ -134,11 +130,17 @@ function MainLayout({ children }) {
 
 export default function MainAppLayoutWrapper({ children }) {
   return (
-    <LayoutProvider>
-      <EmpreendimentoProvider>
-        <PoliticasModal />
-        <MainLayout>{children}</MainLayout>
-      </EmpreendimentoProvider>
-    </LayoutProvider>
+    // ##### INÍCIO DA CORREÇÃO #####
+    // 2. Envolvemos todos os outros providers com o SessionProvider.
+    // Assim, a sessão fica disponível para toda a aplicação que estiver dentro deste layout.
+    <SessionProvider>
+      <LayoutProvider>
+        <EmpreendimentoProvider>
+          <PoliticasModal />
+          <MainLayout>{children}</MainLayout>
+        </EmpreendimentoProvider>
+      </LayoutProvider>
+    </SessionProvider>
+    // ##### FIM DA CORREÇÃO #####
   );
 }
