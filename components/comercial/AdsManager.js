@@ -60,6 +60,11 @@ const fetchAds = async (campaignId) => {
 export default function AdsManager() {
     const { data: session, status: sessionStatus } = useSession();
     
+    // ##### INÍCIO DA LINHA DE DETETIVE #####
+    // Esta linha vai nos mostrar no console do navegador o que está acontecendo com a sessão.
+    console.log("Status da Sessão:", sessionStatus, "Dados da Sessão:", session);
+    // ##### FIM DA LINHA DE DETETIVE #####
+
     // Estados para o que está selecionado na tela
     const [selectedAdAccountId, setSelectedAdAccountId] = useState('');
     const [selectedCampaignId, setSelectedCampaignId] = useState('');
@@ -72,7 +77,6 @@ export default function AdsManager() {
         queryFn: fetchAdAccounts,
         enabled: sessionStatus === 'authenticated', // Só executa se estiver autenticado
         onSuccess: (data) => {
-            // Se ainda não tiver uma conta selecionada e houver contas, seleciona a primeira
             if (!selectedAdAccountId && data && data.length > 0) {
                 setSelectedAdAccountId(data[0].id);
             }
@@ -83,7 +87,7 @@ export default function AdsManager() {
     const { data: campaigns = [], isLoading: isLoadingCampaigns } = useQuery({
         queryKey: ['campaigns', selectedAdAccountId],
         queryFn: () => fetchCampaigns(selectedAdAccountId),
-        enabled: !!selectedAdAccountId, // A '!!' transforma a string em booleano (true se tiver algo, false se for vazia)
+        enabled: !!selectedAdAccountId,
     });
 
     // Query para buscar os anúncios. Roda apenas quando uma 'selectedCampaignId' existir.
@@ -118,7 +122,7 @@ export default function AdsManager() {
                     value={selectedAdAccountId} 
                     onChange={e => {
                         setSelectedAdAccountId(e.target.value);
-                        setSelectedCampaignId(''); // Limpa a seleção de campanha ao trocar de conta
+                        setSelectedCampaignId(''); 
                     }} 
                     disabled={isLoadingAccounts} 
                     className="mt-1 block w-full md:w-1/2 p-2 border rounded-md"
@@ -133,7 +137,6 @@ export default function AdsManager() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Lista de Campanhas */}
                 <div className="border rounded-lg p-4 bg-white">
                     <h3 className="font-semibold mb-2 flex items-center gap-2"><FontAwesomeIcon icon={faBullhorn} /> Campanhas</h3>
                     {isLoadingCampaigns ? <div className="text-center"><FontAwesomeIcon icon={faSpinner} spin /></div> : (
@@ -148,7 +151,6 @@ export default function AdsManager() {
                     )}
                 </div>
 
-                {/* Lista de Anúncios */}
                 <div className="border rounded-lg p-4 bg-white">
                     <h3 className="font-semibold mb-2 flex items-center gap-2"><FontAwesomeIcon icon={faChartBar} /> Anúncios</h3>
                      {isLoadingAds ? <div className="text-center"><FontAwesomeIcon icon={faSpinner} spin /></div> : (
