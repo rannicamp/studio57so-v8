@@ -102,10 +102,11 @@ export default function AdsManager() {
         return <div className="text-center p-8"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Verificando autenticação...</div>;
     }
 
-    if (sessionStatus === 'unauthenticated') {
+    if (sessionStatus === 'unauthenticated' || (session && session.error === 'RefreshAccessTokenError')) {
         return (
             <div className="text-center p-8 bg-gray-50 rounded-lg">
                 <p className="mb-4">Por favor, conecte sua conta da Meta para gerenciar seus anúncios.</p>
+                {session && session.error === 'RefreshAccessTokenError' && <p className="text-red-500 mb-4">Sua sessão expirou. Por favor, conecte-se novamente.</p>}
                 <button onClick={() => signIn('facebook')} className="bg-blue-800 text-white px-4 py-2 rounded-md hover:bg-blue-900 flex items-center gap-2 mx-auto">
                     <FontAwesomeIcon icon={faMeta} /> Conectar com a Meta
                 </button>

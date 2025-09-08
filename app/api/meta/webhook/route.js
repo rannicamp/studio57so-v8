@@ -4,11 +4,13 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const getSupabaseAdmin = () => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    // AQUI ESTÁ A CORREÇÃO: trocamos SUPABASE_SERVICE_ROLE_KEY por SUPABASE_SECRET_KEY
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
         console.error("LOG: ERRO CRÍTICO - Variáveis de ambiente do Supabase não encontradas!");
         return null;
     }
-    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    // E AQUI TAMBÉM
+    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
 };
 
 // Função para garantir que o funil e a primeira coluna existam, criando-os se necessário.
