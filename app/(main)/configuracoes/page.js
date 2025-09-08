@@ -9,61 +9,70 @@ import {
 // Opções de configuração que aparecerão na página
 const settingsOptions = [
   {
+    key: 'usuarios',
     href: '/configuracoes/usuarios',
     icon: faUsersCog,
     title: 'Gestão de Usuários',
     description: 'Adicione, remova e gerencie os usuários do sistema e suas funções.'
   },
   {
+    key: 'permissoes',
     href: '/configuracoes/permissoes',
     icon: faKey,
     title: 'Permissões de Acesso',
     description: 'Defina o que cada função de usuário pode ver e fazer no sistema.'
   },
   {
+    key: 'jornadas',
     href: '/configuracoes/jornadas',
     icon: faBusinessTime,
     title: 'Jornadas de Trabalho',
     description: 'Crie e edite os horários de trabalho padrão para o controle de ponto.'
   },
   {
+    key: 'tipos_documento',
     href: '/configuracoes/tipos-documento',
     icon: faFileAlt,
     title: 'Tipos de Documento',
     description: 'Gerencie as siglas e descrições dos tipos de documentos para uploads.'
   },
   {
+    key: 'integracoes',
     href: '/configuracoes/integracoes',
     icon: faNetworkWired,
     title: 'Integrações',
     description: 'Configure as chaves e credenciais de APIs externas, como a do WhatsApp.'
   },
   {
+    key: 'materiais',
     href: '/configuracoes/materiais',
     icon: faBox,
     title: 'Base de Materiais',
     description: 'Gerencie a base de dados central de materiais e serviços para orçamentos.'
   },
   {
+    key: 'treinamento_ia',
     href: '/configuracoes/treinamento-ia',
     icon: faRobot,
     title: 'Treinamento da IA',
     description: 'Acompanhe o que a IA Stella já aprendeu e gerencie seu conhecimento.'
   },
   {
+    key: 'feedback',
     href: '/configuracoes/feedback',
     icon: faInbox,
     title: 'Central de Feedback',
     description: 'Envie sugestões ou visualize os feedbacks recebidos dos usuários.'
   },
   {
+    key: 'politicas',
     href: '/configuracoes/politicas',
     icon: faFileContract,
     title: 'Políticas de Uso',
     description: 'Leia os Termos de Uso e a Política de Privacidade do sistema.'
   },
-  // --- NOVO CARTÃO ADICIONADO AQUI ---
   {
+    key: 'menu',
     href: '/configuracoes/menu',
     icon: faColumns,
     title: 'Configurações do Menu',
@@ -79,23 +88,9 @@ export default async function ConfiguracoesPage() {
     redirect('/login');
   }
 
-  const { data: userData } = await supabase
-    .from('usuarios')
-    .select('funcoes(nome_funcao)')
-    .eq('id', user.id)
-    .single();
-
-  const isOwner = userData?.funcoes?.nome_funcao === 'Proprietário';
-
-  // Filtra as opções baseadas na permissão
-  const availableOptions = settingsOptions.filter(option => {
-    // Todos podem ver as políticas e configurar o menu
-    if (['/configuracoes/politicas', '/configuracoes/menu', '/configuracoes/feedback'].includes(option.href)) {
-      return true;
-    }
-    // Apenas o proprietário pode ver o resto
-    return isOwner;
-  });
+  // ETAPA 1: Lógica de filtro removida. Todos os cartões são retornados.
+  // A lógica de permissões granulares será adicionada em uma etapa futura.
+  const availableOptions = settingsOptions;
 
   return (
     <div className="space-y-8">
