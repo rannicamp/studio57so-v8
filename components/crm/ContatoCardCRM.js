@@ -3,9 +3,9 @@
 
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisV, faStickyNote, faBullhorn, faHome, faTasks, faPhone, faUserTie, faSpinner, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faEllipsisV, faStickyNote, faBullhorn, faHome, faTasks, faPhone, faUserTie, faSpinner, faTimes, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 
@@ -31,6 +31,7 @@ export default function ContatoCardCRM({
     onOpenNotesModal,
     availableProducts,
     onAssociateProduct,
+    onDissociateProduct, // Nova propriedade para remover
     onAssociateCorretor,
     onCardClick,
     onAddActivity
@@ -46,14 +47,15 @@ export default function ContatoCardCRM({
     const [isSearching, setIsSearching] = useState(false);
     const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
+    // --- NOVOS ESTADOS PARA ADICIONAR PRODUTOS ---
+    const [isAddingProduct, setIsAddingProduct] = useState(false);
+    const [selectedProductId, setSelectedProductId] = useState('');
+
     useEffect(() => {
         const searchCorretores = async () => {
             if (debouncedSearchTerm) {
                 setIsSearching(true);
-                const { data, error } = await supabase.rpc('buscar_contatos_geral', {
-                    p_search_term: debouncedSearchTerm
-                });
-                
+                const { data, error } = await supabase.rpc('buscar_contatos_geral', { p_search_term: debouncedSearchTerm });
                 if (error) {
                     console.error("Erro ao buscar corretores:", error);
                     toast.error("Falha na busca de corretores.");
@@ -77,6 +79,16 @@ export default function ContatoCardCRM({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    // Filtra produtos disponíveis para não mostrar os que já estão na lista de interesse
+    const productIdsInteresse = useMemo(() => 
+        new Set((funilEntry.produtos_interesse || []).map(p => p.produto.id)), 
+        [funilEntry.produtos_interesse]
+    );
+    const filteredAvailableProducts = useMemo(() => 
+        availableProducts.filter(p => !productIdsInteresse.has(p.id)),
+        [availableProducts, productIdsInteresse]
+    );
+    
     if (!funilEntry || !funilEntry.contatos) return <div className="bg-red-100 p-3 rounded-md shadow">Erro ao carregar contato.</div>;
 
     const contato = funilEntry.contatos;
@@ -84,7 +96,16 @@ export default function ContatoCardCRM({
     const currentColumnId = funilEntry.coluna_id;
     const isMetaLead = contato.origem === 'Meta Lead Ad';
 
-    const handleProductSelection = (e) => onAssociateProduct(funilEntry.id, e.target.value ? parseInt(e.target.value, 10) : null);
+    const handleAddProduct = () => {
+        if (!selectedProductId) {
+            toast.error("Selecione uma unidade para adicionar.");
+            return;
+        }
+        onAssociateProduct(funilEntry.id, selectedProductId);
+        setSelectedProductId('');
+        setIsAddingProduct(false);
+    };
+
     const handleSelectCorretor = (corretorId) => { onAssociateCorretor(funilEntry.id, corretorId); setIsEditingCorretor(false); setSearchTerm(''); setSearchResults([]); };
     const handleClearCorretor = () => onAssociateCorretor(funilEntry.id, null);
     const formatDate = (dateString) => dateString ? format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'N/A';
@@ -113,13 +134,43 @@ export default function ContatoCardCRM({
                 </div>
             </div>
 
-            <div className="mt-2">
-                <label className="flex items-center text-xs text-gray-500 font-medium mb-1"><FontAwesomeIcon icon={faHome} className="mr-2" /> Produto de Interesse:</label>
-                <select value={funilEntry.produto_id || ''} onChange={handleProductSelection} onClick={(e) => e.stopPropagation()} className="w-full p-1.5 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">-- Nenhum --</option>
-                    {funilEntry.produto && !availableProducts.some(p => p.id === funilEntry.produto.id) && (<option key={funilEntry.produto.id} value={funilEntry.produto.id} disabled>{funilEntry.produto.unidade} ({funilEntry.produto.tipo})</option>)}
-                    {availableProducts.map(product => (<option key={product.id} value={product.id}>{product.unidade} ({product.tipo})</option>))}
-                </select>
+            {/* --- NOVA SEÇÃO DE PRODUTOS --- */}
+            <div className="mt-2 space-y-2">
+                <label className="flex items-center text-xs text-gray-500 font-medium"><FontAwesomeIcon icon={faHome} className="mr-2" /> Unidades de Interesse:</label>
+                
+                {(funilEntry.produtos_interesse || []).length > 0 ? (
+                    <ul className="space-y-1">
+                        {(funilEntry.produtos_interesse).map(item => (
+                            <li key={item.id} className="text-sm flex justify-between items-center group bg-gray-100 p-1.5 rounded">
+                                <span>{item.produto.unidade} ({item.produto.tipo})</span>
+                                <button onClick={(e) => { e.stopPropagation(); onDissociateProduct(item.id); }} className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity" title="Remover unidade">
+                                    <FontAwesomeIcon icon={faTrash} size="xs" />
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p className="text-xs text-gray-400 px-2">Nenhuma unidade associada.</p>
+                )}
+
+                {!isAddingProduct ? (
+                    <button onClick={(e) => { e.stopPropagation(); setIsAddingProduct(true); }} className="w-full text-center text-xs p-1 mt-1 rounded border-2 border-dashed border-gray-300 text-gray-500 hover:bg-gray-100 hover:border-gray-400 transition-colors">
+                        <FontAwesomeIcon icon={faPlus} className="mr-1" /> Adicionar Unidade
+                    </button>
+                ) : (
+                    <div className="p-2 bg-gray-50 rounded space-y-2 border border-gray-200" onClick={(e) => e.stopPropagation()}>
+                        <select value={selectedProductId} onChange={(e) => setSelectedProductId(e.target.value)} className="w-full p-1.5 border border-gray-300 rounded-md text-sm">
+                            <option value="">-- Selecione uma unidade --</option>
+                            {filteredAvailableProducts.map(product => (
+                                <option key={product.id} value={product.id}>{product.unidade} ({product.tipo})</option>
+                            ))}
+                        </select>
+                        <div className="flex gap-2 justify-end">
+                            <button onClick={() => setIsAddingProduct(false)} className="text-xs px-2 py-1 rounded hover:bg-gray-200">Cancelar</button>
+                            <button onClick={handleAddProduct} className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Adicionar</button>
+                        </div>
+                    </div>
+                )}
             </div>
             
             <div className="mt-2" ref={corretorDropdownRef}>
