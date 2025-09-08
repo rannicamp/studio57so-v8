@@ -58,12 +58,22 @@ export const authOptions = {
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
-  // ##### BLOCO REMOVIDO #####
-  // O bloco 'pages' que estava aqui foi removido para usar o fluxo padrão.
-  // pages: {
-  //   signIn: '/',
-  //   error: '/',
-  // },
+  
+  // ##### INÍCIO DA NOVA LÓGICA DE COOKIES #####
+  cookies: {
+    sessionToken: {
+      name: `__Secure-next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: true,
+        domain: 'studio57.netlify.app' // Define o domínio exato
+      }
+    }
+  },
+  // ##### FIM DA NOVA LÓGICA DE COOKIES #####
+
   callbacks: {
     async jwt({ token, account }) {
       if (account) {
