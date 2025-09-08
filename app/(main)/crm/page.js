@@ -1,20 +1,21 @@
 // app/(main)/crm/page.js
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useLayout } from '@/contexts/LayoutContext';
 import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTimes, faSearch, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTimes, faSearch, faPlus, faUsers, faHandshake, faPercent, faSackDollar, faCalendarDay } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
 import FunilKanban from '@/components/crm/FunilKanban';
 import CrmNotesModal from '@/components/crm/CrmNotesModal';
 import CrmDetalhesSidebar from '@/components/crm/CrmDetalhesSidebar';
 import AtividadeModal from '@/components/AtividadeModal';
+import KpiCard from '@/components/KpiCard';
 
 // --- COMPONENTES AUXILIARES ---
 const HighlightedText = ({ text = '', highlight = '' }) => {
@@ -125,6 +126,10 @@ export default function CrmPage() {
     const [contactForNewActivity, setContactForNewActivity] = useState(null);
     const [activityToEdit, setActivityToEdit] = useState(null);
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
+    
+    useEffect(() => {
+      setPageTitle("CRM - Funil de Vendas");
+    }, [setPageTitle]);
 
     const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ queryKey: ['funilData'], queryFn: () => fetchFunilData(supabase), });
     const { funilId, colunasDoFunil = [], contatosNoFunil = [] } = funilData || {};
@@ -134,32 +139,47 @@ export default function CrmPage() {
     const { funcionarios = [], empresas = [] } = activityData || {};
     if (funilError) { toast.error(`Erro ao carregar dados do funil: ${funilError.message}`); }
 
+    const kpiData = useMemo(() => {
+        if (!colunasDoFunil || contatosNoFunil.length === 0) {
+            return { totalLeads: 0, vendidos: 0, taxaConversao: 0, valorEmNegociacao: 0, ultimoLead: 'N/A' };
+        }
+        const colunaVendido = colunasDoFunil.find(c => c.nome.toLowerCase() === 'vendido');
+        const ordemVendido = colunaVendido ? colunaVendido.ordem : -1;
+        const totalLeads = contatosNoFunil.length;
+        const vendidos = contatosNoFunil.filter(c => c.coluna_id === colunaVendido?.id).length;
+        const taxaConversao = totalLeads > 0 ? (vendidos / totalLeads) * 100 : 0;
+        const valorEmNegociacao = contatosNoFunil
+            .filter(contato => {
+                const colunaDoContato = colunasDoFunil.find(c => c.id === contato.coluna_id);
+                return colunaDoContato && colunaVendido && colunaDoContato.ordem < ordemVendido;
+            })
+            .reduce((acc, contato) => acc + (contato.produto?.valor_venda_calculado || 0), 0);
+        const ultimoLeadDate = contatosNoFunil.length > 0
+            ? new Date(Math.max(...contatosNoFunil.map(c => new Date(c.created_at))))
+            : null;
+        return {
+            totalLeads,
+            vendidos,
+            taxaConversao,
+            valorEmNegociacao,
+            ultimoLead: ultimoLeadDate ? ultimoLeadDate.toLocaleDateString('pt-BR') : 'N/A',
+        };
+    }, [contatosNoFunil, colunasDoFunil]);
+
     // --- Ações que Modificam Dados (Mutations) ---
     const updateContactColumnMutation = useMutation({
         mutationFn: async ({ contatoNoFunilId, novaColunaId }) => {
             const { colunasDoFunil: cols, contatosNoFunil: conts } = queryClient.getQueryData(['funilData']);
             const novaColuna = cols.find(c => c.id === novaColunaId);
             const contatoMovido = conts.find(c => c.id === contatoNoFunilId);
-
             if (!novaColuna || !contatoMovido) throw new Error("Contato ou coluna não encontrado.");
-            
-            // ***** INÍCIO DA ADIÇÃO DA LÓGICA DE NOTIFICAÇÃO *****
             const contatoNome = contatoMovido.contatos?.nome || contatoMovido.contatos?.razao_social || 'Um contato';
             const colunaNome = novaColuna.nome;
-            
-            // Dispara a notificação em "segundo plano". Não precisamos esperar a resposta dela.
             fetch('/api/notifications/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: 'Movimentação no Funil de Vendas',
-                    message: `${contatoNome} foi movido para a etapa "${colunaNome}".`,
-                    url: '/crm' // Link para onde o usuário será levado ao clicar
-                })
-            }).catch(err => console.error("Falha ao enviar notificação:", err)); // Apenas logamos o erro no console.
-            // ***** FIM DA ADIÇÃO DA LÓGICA DE NOTIFICAÇÃO *****
-
-            // O restante da lógica para mover o card continua igual...
+                body: JSON.stringify({ title: 'Movimentação no Funil de Vendas', message: `${contatoNome} foi movido para a etapa "${colunaNome}".`, url: '/crm' })
+            }).catch(err => console.error("Falha ao enviar notificação:", err));
             if (novaColuna.nome === 'Vendido') {
                 const { data: novoContrato, error: contratoError } = await supabase.from('contratos').insert({ contato_id: contatoMovido.contatos.id, produto_id: contatoMovido.produto_id, empreendimento_id: contatoMovido.produto.empreendimento_id, valor_final_venda: contatoMovido.produto.valor_venda_calculado || 0, status_contrato: 'Em assinatura' }).select('id').single();
                 if (contratoError) throw new Error(`Erro ao criar contrato: ${contratoError.message}`);
@@ -195,10 +215,59 @@ export default function CrmPage() {
         onError: (error) => { toast.error(`Erro: ${error.message}`); },
     });
     
+    const createColumnMutation = useMutation({
+        mutationFn: async (newColumnName) => {
+            if (!funilId) throw new Error("ID do Funil não encontrado. A página será recarregada.");
+            const newOrder = colunasDoFunil ? colunasDoFunil.length : 0;
+            const { error } = await supabase
+                .from('colunas_funil')
+                .insert({
+                    nome: newColumnName,
+                    funil_id: funilId,
+                    ordem: newOrder
+                });
+            if (error) throw new Error(`Falha ao criar nova etapa: ${error.message}`);
+        },
+        onSuccess: () => {
+            toast.success('Nova etapa criada com sucesso!');
+            queryClient.invalidateQueries({ queryKey: ['funilData'] });
+        },
+        onError: (error) => {
+            toast.error(error.message);
+            if (error.message.includes("ID do Funil não encontrado")) {
+                setTimeout(() => window.location.reload(), 2000);
+            }
+        },
+    });
+
+    // ***** INÍCIO DA CORREÇÃO *****
+    const reorderColumnsMutation = useMutation({
+        mutationFn: async (reorderedColumns) => {
+            const updates = reorderedColumns.map(column =>
+                supabase
+                    .from('colunas_funil')
+                    .update({ ordem: column.ordem })
+                    .eq('id', column.id)
+            );
+            const results = await Promise.all(updates);
+            const firstError = results.find(res => res.error);
+            if (firstError) {
+                throw new Error(`Falha ao reordenar uma ou mais etapas: ${firstError.error.message}`);
+            }
+        },
+        onSuccess: () => {
+            toast.success('Ordem das etapas salva com sucesso!');
+            queryClient.invalidateQueries({ queryKey: ['funilData'] });
+        },
+        onError: (error) => {
+            toast.error(error.message);
+        },
+    });
+    // ***** FIM DA CORREÇÃO *****
+
     const associateProductMutation = useMutation({ mutationFn: async ({ contactId, productId }) => { const { error } = await supabase.from('contatos_no_funil').update({ produto_id: productId }).eq('id', contactId); if (error) throw error; }, onSuccess: () => { toast.success("Produto associado!"); queryClient.invalidateQueries({ queryKey: ['funilData'] }); }, onError: () => { toast.error("Falha ao associar produto."); } });
     const associateCorretorMutation = useMutation({ mutationFn: async ({ contactId, corretorId }) => { const { error } = await supabase.from('contatos_no_funil').update({ corretor_id: corretorId }).eq('id', contactId); if (error) throw error; }, onSuccess: () => { toast.success("Corretor associado!"); queryClient.invalidateQueries({ queryKey: ['funilData'] }); }, onError: () => { toast.error("Falha ao associar corretor."); } });
 
-    // --- Funções da Interface ---
     const [debounceTimeout, setDebounceTimeout] = useState(null);
     const handleSearch = (term) => { clearTimeout(debounceTimeout); if (!term.trim() || term.length < 2) { setSearchResults([]); return; } setDebounceTimeout(setTimeout(async () => { const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term }); setSearchResults(data || []); }, 300)); };
     const openAddContactModal = () => { setSearchResults([]); setIsAddContactModalOpen(true); };
@@ -221,16 +290,24 @@ export default function CrmPage() {
             <CrmDetalhesSidebar open={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} funilEntry={selectedContactForSidebar} onAddActivity={(contato) => { setContactForNewActivity(contato); setIsActivityModalOpen(true); }} onEditActivity={(activity) => { setActivityToEdit(activity); setIsActivityModalOpen(true); }} onContactUpdate={() => queryClient.invalidateQueries({ queryKey: ['funilData'] })} refreshKey={sidebarRefreshKey} />
             {isActivityModalOpen && (<AtividadeModal isOpen={isActivityModalOpen} onClose={() => { setIsActivityModalOpen(false); setContactForNewActivity(null); setActivityToEdit(null); }} onActivityAdded={() => { toast.success(`Atividade ${activityToEdit ? 'atualizada' : 'adicionada'}!`); if (isSidebarOpen) { setSidebarRefreshKey(prev => prev + 1); } }} activityToEdit={activityToEdit} initialContatoId={contactForNewActivity?.id} funcionarios={funcionarios} allEmpresas={empresas} />)}
 
-            <div className="flex-shrink-0 bg-white shadow-sm">
-                <div className="flex justify-between items-center p-4">
+            <div className="flex-shrink-0 bg-white shadow-sm p-4 space-y-4">
+                <div className="flex justify-between items-center">
                     <h1 className="text-xl font-bold text-gray-800">Funil de Vendas</h1>
                     <button onClick={openAddContactModal} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center gap-2">
                         <FontAwesomeIcon icon={faPlus} /> Adicionar Contato
                     </button>
                 </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <KpiCard title="Total de Leads" value={kpiData.totalLeads} icon={faUsers} />
+                    <KpiCard title="Leads Vendidos" value={kpiData.vendidos} icon={faHandshake} />
+                    <KpiCard title="Taxa de Conversão" value={`${kpiData.taxaConversao.toFixed(1)}%`} icon={faPercent} />
+                    <KpiCard title="Valor em Negociação" value={`R$ ${kpiData.valorEmNegociacao.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={faSackDollar} />
+                    <KpiCard title="Último Lead" value={kpiData.ultimoLead} icon={faCalendarDay} />
+                </div>
             </div>
 
-            <div className="flex-grow overflow-hidden">
+            <div className="flex-grow overflow-hidden p-4">
                 {loadingFunil ? (
                     <div className="flex justify-center items-center h-full"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
                 ) : (
@@ -238,11 +315,13 @@ export default function CrmPage() {
                         contatos={contatosNoFunil}
                         statusColumns={colunasDoFunil}
                         onStatusChange={handleStatusChange}
-                        onCreateColumn={() => { /* Implementar createColumnMutation */ }}
+                        onCreateColumn={(newColumnName) => createColumnMutation.mutate(newColumnName)}
                         onAddContact={openAddContactModal}
                         onEditColumn={() => { /* Implementar editColumnMutation */ }}
                         onDeleteColumn={() => { /* Implementar deleteColumnMutation */ }}
-                        onReorderColumns={() => { /* Implementar reorderColumnsMutation */ }}
+                        // ***** INÍCIO DA CORREÇÃO *****
+                        onReorderColumns={(reorderedColumns) => reorderColumnsMutation.mutate(reorderedColumns)}
+                        // ***** FIM DA CORREÇÃO *****
                         onOpenNotesModal={(funilId, contatoId) => { setCurrentContactFunilIdForNotes(funilId); setCurrentContactIdForNotes(contatoId); setIsNotesModalOpen(true); }}
                         availableProducts={availableProducts}
                         onAssociateProduct={(contactId, productId) => associateProductMutation.mutate({ contactId, productId })}
