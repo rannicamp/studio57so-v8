@@ -1,78 +1,140 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faUpload, faLink, faFileImport, faCheckCircle, faMagic } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faUpload, faLink, faFileImport, faCheckCircle, faMagic, faPlus, faExclamationTriangle, faEraser } from '@fortawesome/free-solid-svg-icons';
+import LancamentoFormModal from './LancamentoFormModal';
+import { useDebouncedCallback } from 'use-debounce';
+import { toast } from 'sonner';
 
-// Função para formatar a data
 const formatDate = (dateStr) => {
-    if (!dateStr) return 'N/A';
-    // Adiciona o fuso para evitar problemas de conversão de data
-    const date = new Date(dateStr + 'T00:00:00Z');
-    return date.toLocaleDateString('pt-BR');
+    if (!dateStr || !dateStr.includes('-')) return 'N/A';
+    const [year, month, day] = dateStr.split('T')[0].split('-');
+    return `${day}/${month}/${year}`;
 };
 
-// Função para formatar moeda
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
-const ItemCard = ({ item, type, isSelected, isSuggested, onSelect, onDragStart, onDragEnd, onDrop, onDragOver, onDragLeave, isDragOver }) => {
-    const isDespesa = (type === 'extrato' && item.valor < 0) || (type === 'sistema' && item.tipo === 'Despesa');
-    const valor = type === 'extrato' ? item.valor : (isDespesa ? -item.valor : item.valor);
-    const data = type === 'extrato' ? item.data : (item.data_vencimento || item.data_transacao);
-
-    return (
-        <div
-            draggable
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onClick={onSelect}
-            className={`
-                p-3 border-b grid grid-cols-12 gap-2 items-center text-sm cursor-pointer
-                ${isSelected ? 'bg-blue-200 ring-2 ring-blue-400' : ''}
-                ${isSuggested && !isSelected ? 'bg-yellow-100' : ''}
-                ${isDragOver ? 'bg-green-200' : ''}
-                ${type === 'extrato' ? 'hover:bg-blue-50' : 'hover:bg-green-50'}
-            `}
-        >
-            <div className="col-span-3 text-gray-700">{formatDate(data)}</div>
-            <div className="col-span-6 text-gray-900 font-medium truncate" title={item.descricao}>{item.descricao}</div>
-            <div className={`col-span-3 text-right font-bold ${isDespesa ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(valor)}</div>
-        </div>
-    );
+const getColorForPair = (pairId) => {
+    const colors = ['border-yellow-400 bg-yellow-100', 'border-purple-400 bg-purple-100', 'border-pink-400 bg-pink-100', 'border-indigo-400 bg-indigo-100', 'border-teal-400 bg-teal-100'];
+    return colors[pairId % colors.length];
 };
 
+const fetchLancamentosSistema = async (supabase, contaId) => {
+    if (!contaId) return [];
+    const { data, error } = await supabase.from('lancamentos').select('*').eq('conta_id', contaId).eq('conciliado', false).in('status', ['Pago', 'Pendente']);
+    if (error) throw new Error(error.message);
+    return data;
+};
 
 export default function ConciliacaoManager({ contas }) {
     const supabase = createClient();
-    const [selectedContaId, setSelectedContaId] = useState('');
+
+    // ***** INÍCIO DA ATUALIZAÇÃO 1/2 *****
+    // Ao iniciar o componente, ele verifica se há uma conta salva na sessão.
+    const [selectedContaId, setSelectedContaId] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return sessionStorage.getItem('lastSelectedConciliationAccountId') || '';
+        }
+        return '';
+    });
+    // ***** FIM DA ATUALIZAÇÃO 1/2 *****
+
     const [file, setFile] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [message, setMessage] = useState('');
 
-    const [transacoesExtrato, setTransacoesExtrato] = useState([]);
-    const [lancamentosSistema, setLancamentosSistema] = useState([]);
+    const [conciliationState, setConciliationState] = useState({
+        extrato: [],
+        sistema: [],
+        matches: [],
+    });
+
+    const [selectedItems, setSelectedItems] = useState({ extrato: null, sistema: null });
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [lancamentoParaCriar, setLancamentoParaCriar] = useState(null);
+
+    const [lines, setLines] = useState([]);
+    const itemRefs = useRef(new Map());
+    const containerRef = useRef(null);
+
+    const calculateLines = useDebouncedCallback(() => {
+        if (!containerRef.current) return;
+        const newLines = [];
+        const containerRect = containerRef.current.getBoundingClientRect();
+
+        conciliationState.matches.forEach(match => {
+            const sistemaNode = itemRefs.current.get(`sistema-${match.sistemaId}`);
+            const extratoNode = itemRefs.current.get(`extrato-${match.extratoId}`);
+
+            if (sistemaNode && extratoNode) {
+                const sistemaRect = sistemaNode.getBoundingClientRect();
+                const extratoRect = extratoNode.getBoundingClientRect();
+                const startX = sistemaRect.right - containerRect.left;
+                const startY = sistemaRect.top - containerRect.top + sistemaRect.height / 2;
+                const endX = extratoRect.left - containerRect.left;
+                const endY = extratoRect.top - containerRect.top + extratoRect.height / 2;
+                newLines.push({ startX, startY, endX, endY, pairId: match.pairId });
+            }
+        });
+        setLines(newLines);
+    }, 100);
+
+    useLayoutEffect(() => {
+        calculateLines();
+        window.addEventListener('resize', calculateLines);
+        return () => window.removeEventListener('resize', calculateLines);
+    }, [conciliationState.matches, conciliationState.sistema, conciliationState.extrato, calculateLines]);
+
+    const { refetch: refetchLancamentos } = useQuery({
+        queryKey: ['lancamentosSistema', selectedContaId],
+        queryFn: () => fetchLancamentosSistema(supabase, selectedContaId),
+        enabled: false,
+    });
     
-    const [selectedItem, setSelectedItem] = useState({ id: null, type: null });
-    const [potentialMatches, setPotentialMatches] = useState([]);
-    const [draggedItem, setDraggedItem] = useState(null);
-    const [dragOverTarget, setDragOverTarget] = useState(null);
+    // ***** INÍCIO DA ATUALIZAÇÃO 2/2 *****
+    // Salva o ID da conta selecionada na sessão para persistir entre navegações.
+    useEffect(() => {
+        if (selectedContaId) {
+            sessionStorage.setItem('lastSelectedConciliationAccountId', selectedContaId);
+        } else {
+            sessionStorage.removeItem('lastSelectedConciliationAccountId');
+        }
+    }, [selectedContaId]);
+    // ***** FIM DA ATUALIZAÇÃO 2/2 *****
+
+    useEffect(() => {
+        if (selectedContaId && (conciliationState.extrato.length > 0 || conciliationState.sistema.length > 0)) {
+            sessionStorage.setItem(`conciliationProgress_${selectedContaId}`, JSON.stringify(conciliationState));
+        }
+    }, [conciliationState, selectedContaId]);
+
+    useEffect(() => {
+        if (selectedContaId) {
+            const savedStateJSON = sessionStorage.getItem(`conciliationProgress_${selectedContaId}`);
+            if (savedStateJSON) {
+                setConciliationState(JSON.parse(savedStateJSON));
+                toast.success("Encontrei um progresso salvo e restaurei para você!");
+            } else {
+                setConciliationState({ extrato: [], sistema: [], matches: [] });
+            }
+        } else {
+            setConciliationState({ extrato: [], sistema: [], matches: [] });
+        }
+    }, [selectedContaId]);
+
+    // ... (restante do código permanece inalterado)
 
     const handleFileChange = (event) => {
         const selectedFile = event.target.files[0];
         if (selectedFile) {
             setFile(selectedFile);
-            setTransacoesExtrato([]);
-            setLancamentosSistema([]);
-            setMessage('');
-            setSelectedItem({ id: null, type: null });
+            toast.info(`Arquivo "${selectedFile.name}" pronto para ser processado.`);
         }
     };
     
-    const parseFileManually = (fileContent) => {
+    const parseOfxFile = (fileContent) => {
         try {
             const transacoesManuais = [];
             const transacoesRegex = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/g;
@@ -84,202 +146,273 @@ export default function ConciliacaoManager({ contas }) {
                 const dataStr = getValue('DTPOSTED')?.substring(0, 8);
                 if (!dataStr || isNaN(valor)) continue;
                 const formattedDate = `${dataStr.substring(0, 4)}-${dataStr.substring(4, 6)}-${dataStr.substring(6, 8)}`;
-                transacoesManuais.push({ id: getValue('FITID'), data: formattedDate, valor: valor, descricao: getValue('MEMO') || getValue('NAME') || 'Sem descrição', tipo: valor < 0 ? 'Despesa' : 'Receita', conciliado: false });
+                transacoesManuais.push({ id: getValue('FITID'), data: formattedDate, valor: valor, descricao: getValue('MEMO') || getValue('NAME') || 'Sem descrição' });
             }
             return transacoesManuais;
         } catch (error) { console.error("Erro no parse manual:", error); return null; }
     };
     
-    // CORREÇÃO: A função agora usa exclusivamente o seu método manual.
-    const parseOfxFile = (fileContent) => {
-        return parseFileManually(fileContent);
-    };
-    
-    const conciliarPar = async (transacao, lancamento) => {
-        const { error } = await supabase
-            .from('lancamentos')
-            .update({ 
-                conciliado: true, 
-                status: 'Pago',
-                data_pagamento: new Date().toISOString(),
-                id_transacao_externa: transacao.id 
-            })
-            .eq('id', lancamento.id);
-
-        if (error) { console.error("Erro ao conciliar par:", error); return false; }
-        return true;
-    };
-    
-    const runAutoConciliation = async (transacoes, lancamentos) => {
-        const matches = new Map();
-        const lancamentosNaoConciliados = [];
-        let autoConciliadosCount = 0;
-
-        for (const lancamento of lancamentos) {
-            const key = `${lancamento.data_transacao}_${Math.abs(lancamento.valor).toFixed(2)}`;
-            const matchesForKey = matches.get(key) || [];
-            matchesForKey.push(lancamento);
-            matches.set(key, matchesForKey);
-        }
-
-        const transacoesNaoConciliadas = [];
-        for (const transacao of transacoes) {
-            const key = `${transacao.data}_${Math.abs(transacao.valor).toFixed(2)}`;
-            const lancamentosCorrespondentes = matches.get(key);
-
-            if (lancamentosCorrespondentes && lancamentosCorrespondentes.length > 0) {
-                const lancamentoParaConciliar = lancamentosCorrespondentes.shift();
-                const success = await conciliarPar(transacao, lancamentoParaConciliar);
-                if (success) autoConciliadosCount++;
-                else transacoesNaoConciliadas.push(transacao);
-            } else {
-                transacoesNaoConciliadas.push(transacao);
-            }
-        }
-        
-        matches.forEach(lancamentosRestantes => {
-            lancamentosNaoConciliados.push(...lancamentosRestantes);
-        });
-
-        if (autoConciliadosCount > 0) {
-            setMessage(`${autoConciliadosCount} lançamentos foram conciliados automaticamente!`);
-        } else {
-            setMessage('Nenhum lançamento foi conciliado automaticamente. Verifique os itens abaixo.');
-        }
-
-        return { transacoesRestantes: transacoesNaoConciliadas, lancamentosRestantes: lancamentosNaoConciliados, count: autoConciliadosCount };
-    };
-
-    const handleLoadForConciliation = async () => {
-        if (!file || !selectedContaId) { setMessage('Selecione uma conta e um arquivo.'); return; }
-        setIsProcessing(true);
-        setMessage('Lendo arquivo e buscando lançamentos do sistema...');
-        const fileContent = await file.text();
-        const transacoes = parseOfxFile(fileContent);
-        if (!transacoes || transacoes.length === 0) { setMessage('Nenhuma transação válida encontrada ou erro ao ler o arquivo.'); setIsProcessing(false); return; }
-
-        const { data: lancamentosData, error } = await supabase.from('lancamentos').select('*').eq('conta_id', selectedContaId).eq('conciliado', false);
-        if (error) { setMessage('Erro ao buscar lançamentos do sistema.'); setIsProcessing(false); return; }
-        
-        const { transacoesRestantes, lancamentosRestantes } = await runAutoConciliation(transacoes, lancamentosData || []);
-        
-        setTransacoesExtrato(transacoesRestantes);
-        setLancamentosSistema(lancamentosRestantes);
-        
-        setIsProcessing(false);
-    };
-    
-    const handleImportAsNew = () => { /* ...código sem alteração... */ };
-    
-    const findMatches = useCallback((item, list, type) => {
-        if (!item) return [];
-
-        const itemDate = new Date(type === 'extrato' ? item.data : (item.data_vencimento || item.data_transacao));
-        const itemValue = Math.abs(item.valor);
-
-        return list
-            .map(candidate => {
-                const candidateDate = new Date(type === 'sistema' ? candidate.data : (candidate.data_vencimento || candidate.data_transacao));
-                const candidateValue = Math.abs(candidate.valor);
-                const dateDiff = Math.abs(itemDate - candidateDate) / (1000 * 60 * 60 * 24);
-                const valueDiff = Math.abs(itemValue - candidateValue);
-
-                if (dateDiff <= 5 && valueDiff <= 1) { // Tolerância: 5 dias e R$1,00 de diferença
-                    return candidate.id;
-                }
-                return null;
-            })
-            .filter(Boolean);
-    }, []);
-
-    useEffect(() => {
-        if (!selectedItem.id) {
-            setPotentialMatches([]);
+    const handleProcessFile = async () => {
+        if (!file || !selectedContaId) {
+            toast.warning('Por favor, selecione uma conta e um arquivo OFX.');
             return;
         }
-
-        if (selectedItem.type === 'extrato') {
-            const item = transacoesExtrato.find(t => t.id === selectedItem.id);
-            setPotentialMatches(findMatches(item, lancamentosSistema, 'sistema'));
-        } else {
-            const item = lancamentosSistema.find(l => l.id === selectedItem.id);
-            setPotentialMatches(findMatches(item, transacoesExtrato, 'extrato'));
-        }
-    }, [selectedItem, transacoesExtrato, lancamentosSistema, findMatches]);
-
-    const handleDropOnLancamento = async (lancamentoAlvo) => {
-        if (!draggedItem) return;
+        const toastId = toast.loading('Lendo arquivo e buscando lançamentos...');
+        setIsProcessing(true);
         
-        const transacaoArrastada = draggedItem;
-        setDraggedItem(null); setDragOverTarget(null);
+        const fileContent = await file.text();
+        const transacoesDoExtrato = parseOfxFile(fileContent);
 
-        const success = await conciliarPar(transacaoArrastada, lancamentoAlvo);
-        if (success) {
-            setTransacoesExtrato(prev => prev.filter(t => t.id !== transacaoArrastada.id));
-            setLancamentosSistema(prev => prev.filter(l => l.id !== lancamentoAlvo.id));
-            setMessage('Conciliado com sucesso!');
-        } else {
-            setMessage('Erro ao tentar conciliar.');
+        if (!transacoesDoExtrato || transacoesDoExtrato.length === 0) {
+            toast.error('Nenhuma transação válida encontrada no arquivo.', { id: toastId });
+            setIsProcessing(false);
+            return;
+        }
+        
+        const { data: lancamentosSistemaFetched, error: fetchError } = await refetchLancamentos();
+        if (fetchError) {
+            toast.error(`Erro ao buscar lançamentos: ${fetchError.message}`, { id: toastId });
+            setIsProcessing(false);
+            return;
+        }
+        
+        const availableSistema = [...(lancamentosSistemaFetched || [])];
+        const newMatches = [];
+        let pairCounter = 0;
+        
+        const unmatchedExtrato = transacoesDoExtrato.filter(extratoItem => {
+            const matchIndex = availableSistema.findIndex(sistemaItem => {
+                const dataSistema = sistemaItem.data_pagamento || sistemaItem.data_vencimento || sistemaItem.data_transacao;
+                const valorSistema = Math.abs(sistemaItem.valor);
+                const valorExtrato = Math.abs(extratoItem.valor);
+                return dataSistema === extratoItem.data && valorSistema.toFixed(2) === valorExtrato.toFixed(2);
+            });
+
+            if (matchIndex > -1) {
+                const [matchedSistema] = availableSistema.splice(matchIndex, 1);
+                newMatches.push({ extratoId: extratoItem.id, sistemaId: matchedSistema.id, pairId: pairCounter++ });
+                return false;
+            }
+            return true;
+        });
+
+        setConciliationState({
+            extrato: transacoesDoExtrato,
+            sistema: (lancamentosSistemaFetched || []),
+            matches: newMatches
+        });
+        toast.success(`${newMatches.length} pares foram sugeridos automaticamente!`, { id: toastId });
+        setIsProcessing(false);
+    };
+
+    const handleManualMatch = () => {
+        if (!selectedItems.extrato || !selectedItems.sistema) return;
+        const newPairId = (conciliationState.matches[conciliationState.matches.length - 1]?.pairId || -1) + 1;
+        setConciliationState(prev => ({
+            ...prev,
+            matches: [...prev.matches, { extratoId: selectedItems.extrato, sistemaId: selectedItems.sistema, pairId: newPairId }]
+        }));
+        setSelectedItems({ extrato: null, sistema: null });
+    };
+
+    const handleConfirmMatches = async () => {
+        if (conciliationState.matches.length === 0) return;
+
+        const toastId = toast.loading(`Confirmando ${conciliationState.matches.length} pares...`);
+        setIsProcessing(true);
+        
+        const updates = conciliationState.matches.map(match => ({
+            id: match.sistemaId,
+            updates: { conciliado: true, status: 'Pago', data_pagamento: new Date().toISOString(), id_transacao_externa: match.extratoId }
+        }));
+
+        try {
+            for (const item of updates) {
+                const { error } = await supabase.from('lancamentos').update(item.updates).eq('id', item.id);
+                if (error) throw error;
+            }
+            toast.success(`${updates.length} lançamentos foram conciliados com sucesso!`, { id: toastId });
+            resetState();
+        } catch (error) {
+            toast.error(`Erro ao confirmar conciliações: ${error.message}`, { id: toastId });
+        } finally {
+            setIsProcessing(false);
         }
     };
-    
-    return (
-        <div className="bg-white p-6 rounded-lg shadow space-y-6">
-            <h2 className="text-xl font-bold text-gray-800">Conciliação Bancária</h2>
 
+    const handleCreateLancamento = (extratoItem) => {
+        setLancamentoParaCriar({
+            descricao: extratoItem.descricao,
+            valor: Math.abs(extratoItem.valor),
+            tipo: extratoItem.valor > 0 ? 'Receita' : 'Despesa',
+            conta_id: selectedContaId,
+            data_transacao: extratoItem.data,
+            data_vencimento: extratoItem.data,
+            data_pagamento: extratoItem.data,
+            status: 'Pago',
+            id_transacao_externa: extratoItem.id,
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleSuccessCreate = (createdLancamento) => {
+        toast.success('Lançamento criado e conciliado com sucesso a partir do extrato!');
+        const extratoId = lancamentoParaCriar.id_transacao_externa;
+        if (!extratoId || !createdLancamento) return;
+
+        const newPairId = (conciliationState.matches[conciliationState.matches.length - 1]?.pairId || -1) + 1;
+
+        const newMatch = {
+            extratoId: extratoId,
+            sistemaId: createdLancamento.id,
+            pairId: newPairId
+        };
+
+        setConciliationState(prev => ({
+            ...prev,
+            sistema: [...prev.sistema, createdLancamento],
+            matches: [...prev.matches, newMatch]
+        }));
+    };
+
+    const resetState = () => {
+        if (selectedContaId) {
+            sessionStorage.removeItem(`conciliationProgress_${selectedContaId}`);
+        }
+        setFile(null);
+        setConciliationState({ extrato: [], sistema: [], matches: [] });
+        setSelectedItems({ extrato: null, sistema: null });
+        const fileInput = document.getElementById('file-input');
+        if (fileInput) fileInput.value = '';
+    };
+
+    const { matchedExtratoIds, matchedSistemaIds } = useMemo(() => {
+        const matchedExtratoIds = new Set(conciliationState.matches.map(m => m.extratoId));
+        const matchedSistemaIds = new Set(conciliationState.matches.map(m => m.sistemaId));
+        return { matchedExtratoIds, matchedSistemaIds };
+    }, [conciliationState.matches]);
+    
+    const { sortedSistema, sortedExtrato } = useMemo(() => {
+        const sistemaMatchOrder = new Map(conciliationState.matches.map(m => [m.sistemaId, m.pairId]));
+        const extratoMatchOrder = new Map(conciliationState.matches.map(m => [m.extratoId, m.pairId]));
+
+        const sortRule = (idSet, orderMap, dateFieldA, dateFieldB) => (a, b) => {
+            const aIsMatched = idSet.has(a.id);
+            const bIsMatched = idSet.has(b.id);
+
+            if (aIsMatched && bIsMatched) {
+                return orderMap.get(a.id) - orderMap.get(b.id);
+            }
+            if (aIsMatched) return -1;
+            if (bIsMatched) return 1;
+            
+            const dateA = new Date(a[dateFieldA] || a[dateFieldB]);
+            const dateB = new Date(b[dateFieldA] || b[dateFieldB]);
+            return dateA - dateB;
+        };
+
+        const sortedSistema = [...conciliationState.sistema].sort(sortRule(matchedSistemaIds, sistemaMatchOrder, 'data_vencimento', 'data_transacao'));
+        const sortedExtrato = [...conciliationState.extrato].sort(sortRule(matchedExtratoIds, extratoMatchOrder, 'data'));
+
+        return { sortedSistema, sortedExtrato };
+    }, [conciliationState.sistema, conciliationState.extrato, conciliationState.matches, matchedSistemaIds, matchedExtratoIds]);
+
+    return (
+        <div className="space-y-6">
+            <LancamentoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={handleSuccessCreate} initialData={lancamentoParaCriar}/>
+            
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div><label className="block text-sm font-medium">1. Selecione a Conta</label><select value={selectedContaId} onChange={(e) => setSelectedContaId(e.target.value)} className="mt-1 w-full p-2 border rounded-md"><option value="">-- Escolha uma conta --</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
-                    <div><label className="block text-sm font-medium">2. Envie o arquivo OFX/OFC</label><input type="file" onChange={handleFileChange} accept=".ofx,.ofc" className="mt-1 w-full text-sm"/></div>
+                    <div><label className="block text-sm font-medium">2. Envie o arquivo OFX</label><input id="file-input" type="file" onChange={handleFileChange} accept=".ofx,.ofc" className="mt-1 w-full text-sm" /></div>
                 </div>
-                <div className="flex flex-col md:flex-row justify-end gap-3 pt-3 border-t">
-                    <button onClick={handleImportAsNew} disabled={isProcessing || !file || !selectedContaId} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 flex items-center justify-center gap-2"><FontAwesomeIcon icon={isProcessing ? faSpinner : faFileImport} spin={isProcessing} />Importar para o Financeiro</button>
-                    <button onClick={handleLoadForConciliation} disabled={isProcessing || !file || !selectedContaId} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center gap-2"><FontAwesomeIcon icon={isProcessing ? faSpinner : faMagic} spin={isProcessing} />Conciliar Automaticamente</button>
+                <div className="flex flex-col md:flex-row justify-end items-center gap-3 pt-3 border-t">
+                    <button onClick={resetState} className="text-sm text-gray-600 hover:text-red-600 font-semibold flex items-center gap-2"><FontAwesomeIcon icon={faEraser} /> Limpar Tela</button>
+                    <button onClick={handleProcessFile} disabled={isProcessing || !file || !selectedContaId} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center gap-2"><FontAwesomeIcon icon={isProcessing ? faSpinner : faMagic} spin={isProcessing} /> Processar e Sugerir Pares</button>
                 </div>
             </div>
 
-            {message && <p className="text-center p-2 bg-blue-50 text-blue-800 rounded-md text-sm">{message}</p>}
+            <div ref={containerRef} className="relative pt-6 border-t">
+                <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-10">
+                    {lines.map((line, index) => (
+                        <path
+                            key={index}
+                            d={`M ${line.startX} ${line.startY} C ${line.startX + 50} ${line.startY}, ${line.endX - 50} ${line.endY}, ${line.endX} ${line.endY}`}
+                            stroke={getColorForPair(line.pairId).split(' ')[0].replace('border', 'stroke').replace('-400', '-500')}
+                            strokeWidth="2"
+                            fill="none"
+                        />
+                    ))}
+                </svg>
 
-            {(transacoesExtrato.length > 0 || lancamentosSistema.length > 0) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <h3 className="font-semibold mb-2">Transações do Extrato ({transacoesExtrato.length})</h3>
-                        <div className="border rounded-lg max-h-[60vh] overflow-y-auto">
-                            <div className="sticky top-0 bg-gray-50 grid grid-cols-12 gap-2 p-2 border-b text-xs font-bold uppercase text-gray-600">
-                                <div className="col-span-3">Data</div><div className="col-span-6">Descrição</div><div className="col-span-3 text-right">Valor</div>
-                            </div>
-                            {transacoesExtrato.length === 0 && <p className="p-4 text-center text-gray-500">Nenhuma transação pendente.</p>}
-                            {transacoesExtrato.map(t => (
-                                <ItemCard key={t.id} item={t} type="extrato"
-                                    isSelected={selectedItem.id === t.id}
-                                    isSuggested={selectedItem.type === 'sistema' && potentialMatches.includes(t.id)}
-                                    onSelect={() => setSelectedItem({id: t.id, type: 'extrato'})}
-                                    onDragStart={() => setDraggedItem(t)}
-                                    onDragEnd={() => setDraggedItem(null)}
-                                />
-                            ))}
+                        <h3 className="font-semibold mb-2">Lançamentos no Sistema</h3>
+                        <div className="border rounded-lg max-h-[60vh] overflow-y-auto space-y-1 p-1">
+                            {sortedSistema.map(item => {
+                                const isMatched = matchedSistemaIds.has(item.id);
+                                const match = isMatched ? conciliationState.matches.find(m => m.sistemaId === item.id) : null;
+                                const isSelected = selectedItems.sistema === item.id;
+                                const colorClass = isMatched && match ? getColorForPair(match.pairId) : 'bg-white';
+                                return (
+                                    <div
+                                        key={item.id}
+                                        ref={node => { const map = itemRefs.current; if (node) map.set(`sistema-${item.id}`, node); else map.delete(`sistema-${item.id}`); }}
+                                        onClick={() => !isMatched && setSelectedItems(prev => ({ ...prev, sistema: item.id }))}
+                                        className={`p-2 border grid grid-cols-12 gap-2 text-sm rounded-md transition-all ${!isMatched ? 'cursor-pointer hover:bg-gray-100' : 'opacity-70'} ${isSelected ? 'ring-2 ring-blue-500' : ''} ${colorClass}`}
+                                    >
+                                        <div className="col-span-3">{formatDate(item.data_vencimento || item.data_transacao)}</div>
+                                        <div className="col-span-6 truncate">{item.descricao}</div>
+                                        <div className={`col-span-3 text-right font-bold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(item.valor)}</div>
+                                    </div>
+                                );
+                            })}
+                            {sortedSistema.length === 0 && <p className="p-4 text-center text-gray-500 text-sm">Nenhum lançamento a conciliar.</p>}
                         </div>
                     </div>
+
                     <div>
-                        <h3 className="font-semibold mb-2">Lançamentos do Sistema ({lancamentosSistema.length})</h3>
-                        <div className="border rounded-lg max-h-[60vh] overflow-y-auto">
-                           <div className="sticky top-0 bg-gray-50 grid grid-cols-12 gap-2 p-2 border-b text-xs font-bold uppercase text-gray-600">
-                                <div className="col-span-3">Data</div><div className="col-span-6">Descrição</div><div className="col-span-3 text-right">Valor</div>
-                            </div>
-                            {lancamentosSistema.length === 0 && <p className="p-4 text-center text-gray-500">Nenhum lançamento pendente.</p>}
-                            {lancamentosSistema.map(l => (
-                                <ItemCard key={l.id} item={l} type="sistema"
-                                    isSelected={selectedItem.id === l.id}
-                                    isSuggested={selectedItem.type === 'extrato' && potentialMatches.includes(l.id)}
-                                    isDragOver={dragOverTarget === l.id}
-                                    onSelect={() => setSelectedItem({id: l.id, type: 'sistema'})}
-                                    onDrop={() => handleDropOnLancamento(l)}
-                                    onDragOver={(e) => { e.preventDefault(); setDragOverTarget(l.id); }}
-                                    onDragLeave={() => setDragOverTarget(null)}
-                                />
-                            ))}
+                        <h3 className="font-semibold mb-2">Transações do Extrato</h3>
+                        <div className="border rounded-lg max-h-[60vh] overflow-y-auto space-y-1 p-1">
+                            {sortedExtrato.map(item => {
+                                const isMatched = matchedExtratoIds.has(item.id);
+                                const isSelected = selectedItems.extrato === item.id;
+                                const match = isMatched ? conciliationState.matches.find(m => m.extratoId === item.id) : null;
+                                const colorClass = isMatched && match ? getColorForPair(match.pairId) : 'bg-white';
+                                return (
+                                    <div
+                                        key={item.id}
+                                        ref={node => { const map = itemRefs.current; if (node) map.set(`extrato-${item.id}`, node); else map.delete(`extrato-${item.id}`); }}
+                                        onClick={() => !isMatched && setSelectedItems(prev => ({ ...prev, extrato: item.id }))}
+                                        className={`p-2 border grid grid-cols-12 gap-2 text-sm items-center rounded-md transition-all ${!isMatched ? 'cursor-pointer hover:bg-gray-100' : 'opacity-70'} ${isSelected ? 'ring-2 ring-blue-500' : ''} ${colorClass}`}
+                                    >
+                                        <div className="col-span-3">{formatDate(item.data)}</div>
+                                        <div className="col-span-5 truncate">{item.descricao}</div>
+                                        <div className={`col-span-2 text-right font-bold ${item.valor > 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(item.valor)}</div>
+                                        <div className="col-span-2 text-center">
+                                            {!isMatched && <button onClick={(e) => { e.stopPropagation(); handleCreateLancamento(item); }} className="bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold px-2 py-1 rounded-md"><FontAwesomeIcon icon={faPlus} /> Add</button>}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {sortedExtrato.length === 0 && <p className="p-4 text-center text-gray-500 text-sm">Nenhuma transação do extrato carregada.</p>}
                         </div>
                     </div>
+                </div>
+            </div>
+            
+            {(conciliationState.matches.length > 0 || (selectedItems.extrato && selectedItems.sistema)) && (
+                <div className="sticky bottom-0 bg-white p-4 border-t-2 shadow-lg flex justify-center items-center gap-4 z-20">
+                     {selectedItems.extrato && selectedItems.sistema && (
+                        <button onClick={handleManualMatch} className="bg-yellow-500 text-white font-bold px-4 py-2 rounded-md hover:bg-yellow-600 flex items-center gap-2 animate-pulse">
+                            <FontAwesomeIcon icon={faLink}/> Conciliar Itens Selecionados
+                        </button>
+                    )}
+                    {conciliationState.matches.length > 0 && (
+                        <button onClick={handleConfirmMatches} disabled={isProcessing} className="bg-green-700 text-white font-bold px-8 py-3 rounded-lg text-lg hover:bg-green-800 disabled:bg-gray-400 flex items-center gap-3">
+                            <FontAwesomeIcon icon={faCheckCircle}/> Confirmar {conciliationState.matches.length} Conciliações
+                        </button>
+                    )}
                 </div>
             )}
         </div>
