@@ -113,9 +113,10 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         }
     }, [isOpen, initialData, supabase]);
 
-    // AQUI ESTÁ A LÓGICA ATUALIZADA E COMPLETA
+    // A LÓGICA FINAL E À PROVA DE BALAS
     const handleChange = (e) => {
         const { name, value } = e.target;
+        
         let newFormData = { ...formData, [name]: value === '' ? null : value };
 
         if (name === 'form_type' && value === 'transferencia') newFormData.tipo = 'Despesa';
@@ -123,34 +124,41 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             newFormData.data_pagamento = new Date().toISOString().split('T')[0];
         }
 
+        // Se o usuário muda a EMPRESA manualmente, reseta os filhos
         if (name === 'empresa_id') {
             newFormData.conta_id = null;
             newFormData.empreendimento_id = null;
             newFormData.etapa_id = null;
         }
 
+        // Se o usuário muda a CONTA, define a empresa e valida o empreendimento
         if (name === 'conta_id') {
-            const selectedConta = contas.find(c => c.id == value);
-            if (selectedConta?.empresa_id) {
-                newFormData.empresa_id = String(selectedConta.empresa_id);
-                const empAtual = empreendimentos.find(emp => emp.id == newFormData.empreendimento_id);
-                if(empAtual && String(empAtual.empresa_id) !== String(newFormData.empresa_id)) {
+            const conta = contas.find(c => c.id == value);
+            if (conta?.empresa_id) {
+                const novaEmpresaId = String(conta.empresa_id);
+                newFormData.empresa_id = novaEmpresaId;
+                
+                const emp = empreendimentos.find(em => em.id == newFormData.empreendimento_id);
+                if (emp && String(emp.empresa_id) !== novaEmpresaId) {
                     newFormData.empreendimento_id = null;
                     newFormData.etapa_id = null;
                 }
             }
         }
         
+        // Se o usuário muda o EMPREENDIMENTO, define a empresa e valida a conta
         if (name === 'empreendimento_id') {
-            const selectedEmp = empreendimentos.find(e => e.id == value);
-            if (selectedEmp?.empresa_id) {
-                newFormData.empresa_id = String(selectedEmp.empresa_id);
-                const contaAtual = contas.find(c => c.id == newFormData.conta_id);
-                 if(contaAtual && String(contaAtual.empresa_id) !== String(newFormData.empresa_id)) {
+            newFormData.etapa_id = null; // Sempre reseta a etapa
+            const emp = empreendimentos.find(em => em.id == value);
+            if (emp?.empresa_id) {
+                const novaEmpresaId = String(emp.empresa_id);
+                newFormData.empresa_id = novaEmpresaId;
+
+                const conta = contas.find(c => c.id == newFormData.conta_id);
+                if (conta && String(conta.empresa_id) !== novaEmpresaId) {
                     newFormData.conta_id = null;
                 }
             }
-            newFormData.etapa_id = null;
         }
 
         setFormData(newFormData);

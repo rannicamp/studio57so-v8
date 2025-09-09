@@ -29,7 +29,6 @@ export default function PedidoDetalhesSidebar({ open, onClose, pedido, onUpdate 
 
     const formatDate = (dateStr) => {
         if (!dateStr) return 'N/A';
-        // Ajuste para tratar a data corretamente sem problemas de fuso
         const [year, month, day] = dateStr.split('-');
         return `${day}/${month}/${year}`;
     };
@@ -44,7 +43,7 @@ export default function PedidoDetalhesSidebar({ open, onClose, pedido, onUpdate 
 
     const handleOpenLancamentoModal = () => {
         if (!pedido.itens || pedido.itens.length === 0) {
-            toast.error("Adicione itens ao pedido antes de registrar um pagamento.");
+            toast.error("Adicione itens ao pedido antes de planejar um pagamento.");
             return;
         }
 
@@ -55,16 +54,26 @@ export default function PedidoDetalhesSidebar({ open, onClose, pedido, onUpdate 
         
         const notaFiscalAnexo = pedido.anexos.find(a => a.descricao && a.descricao.toLowerCase().includes('nota fiscal'));
         
+        // --- LÓGICA CORRIGIDA AQUI ---
+        let etapaObraId = null;
+        if (pedido.itens.length > 0) {
+            const firstEtapaId = pedido.itens[0].etapa_id;
+            // Se o primeiro item tem uma etapa E todos os outros itens têm a mesma etapa
+            if (firstEtapaId && pedido.itens.every(item => item.etapa_id === firstEtapaId)) {
+                etapaObraId = firstEtapaId;
+            }
+        }
+
         const initial = {
             descricao: `Pagamento Ref. Pedido de Compra #${pedido.id} - ${pedido.titulo || ''}`.trim(),
             valor: totalPedidoValor.toFixed(2),
-            data_pagamento: new Date().toISOString().split('T')[0],
             data_vencimento: new Date().toISOString().split('T')[0],
             tipo: 'Despesa',
-            status: 'Pago',
+            status: 'Pendente',
             favorecido_contato_id: allSameFornecedor ? firstFornecedorId : null,
             empreendimento_id: pedido.empreendimento_id,
             empresa_id: pedido.empreendimentos?.empresa_id || null,
+            etapa_obra_id: etapaObraId, // Adicionado para preencher a etapa
             anexo_preexistente: notaFiscalAnexo ? {
                 caminho_arquivo: notaFiscalAnexo.caminho_arquivo,
                 nome_arquivo: notaFiscalAnexo.nome_arquivo,
@@ -82,7 +91,7 @@ export default function PedidoDetalhesSidebar({ open, onClose, pedido, onUpdate 
                 isOpen={isLancamentoModalOpen}
                 onClose={() => setIsLancamentoModalOpen(false)}
                 onSuccess={() => {
-                    toast.success("Pagamento registrado com sucesso no financeiro!");
+                    toast.success("Planejamento de pagamento registrado com sucesso!");
                     setIsLancamentoModalOpen(false);
                     if (onUpdate) onUpdate();
                 }}
@@ -141,7 +150,7 @@ export default function PedidoDetalhesSidebar({ open, onClose, pedido, onUpdate 
                                 className="w-full bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 flex items-center justify-center gap-2"
                             >
                                 <FontAwesomeIcon icon={faHandHoldingDollar} />
-                                Registrar Pagamento
+                                Planejar Pagamento
                             </button>
                         </section>
 
