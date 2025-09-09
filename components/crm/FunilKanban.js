@@ -54,14 +54,15 @@ export default function FunilKanban({
     onOpenNotesModal,
     availableProducts,
     onAssociateProduct,
-    onDissociateProduct, // Adicionado para múltiplos produtos
+    onDissociateProduct,
     onAssociateCorretor,
     onCardClick,
     onAddActivity,
     sorting,
     setSorting,
     userRole,
-    onDeleteAllCardsInColumn
+    onDeleteAllCardsInColumn,
+    onDeleteCard
 }) {
     const [editingColumnId, setEditingColumnId] = useState(null);
     const [editedColumnName, setEditedColumnName] = useState("");
@@ -69,7 +70,10 @@ export default function FunilKanban({
     const [openSortMenu, setOpenSortMenu] = useState(null);
     const sortMenuRef = useRef(null);
     const [deletingColumnId, setDeletingColumnId] = useState(null);
-
+    
+    // ***** INÍCIO DA CORREÇÃO *****
+    const protectedColumns = ['excluir', 'vendido', 'perdido'];
+    // ***** FIM DA CORREÇÃO *****
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -190,7 +194,7 @@ export default function FunilKanban({
                                 <h3 className="flex-grow">{coluna.nome} ({contatosPorColuna[coluna.id]?.length || 0})</h3>
                                 <div className="flex items-center gap-2">
                                     {/* ***** INÍCIO DA CORREÇÃO ***** */}
-                                    {userRole === 'Proprietário' && coluna.nome.toLowerCase() === 'excluir' && (contatosPorColuna[coluna.id]?.length || 0) > 0 && (
+                                    {userRole === 'Proprietário' && coluna.nome.trim().toLowerCase() === 'excluir' && (contatosPorColuna[coluna.id]?.length || 0) > 0 && (
                                         <button onClick={() => handleDeleteAll(coluna.id, contatosPorColuna[coluna.id].length)} disabled={deletingColumnId === coluna.id} className="text-red-500 hover:text-red-700 transition-colors" title={`Excluir todos os ${contatosPorColuna[coluna.id].length} cards`}>
                                             <FontAwesomeIcon icon={deletingColumnId === coluna.id ? faSpinner : faTrash} spin={deletingColumnId === coluna.id} size="sm" />
                                         </button>
@@ -206,14 +210,33 @@ export default function FunilKanban({
                                         )}
                                     </div>
                                     <button onClick={() => handleEditClick(coluna)} className="text-gray-500 hover:text-blue-600 transition-colors" title="Editar etapa"><FontAwesomeIcon icon={faEdit} size="sm" /></button>
-                                    <button onClick={() => handleDeleteClick(coluna.id, coluna.nome)} className="text-gray-500 hover:text-red-600 transition-colors" title="Excluir etapa"><FontAwesomeIcon icon={faTrash} size="sm" /></button>
+                                    {/* ***** INÍCIO DA CORREÇÃO ***** */}
+                                    {!protectedColumns.includes(coluna.nome.trim().toLowerCase()) && (
+                                        <button onClick={() => handleDeleteClick(coluna.id, coluna.nome)} className="text-gray-500 hover:text-red-600 transition-colors" title="Excluir etapa"><FontAwesomeIcon icon={faTrash} size="sm" /></button>
+                                    )}
+                                    {/* ***** FIM DA CORREÇÃO ***** */}
                                 </div>
                             </>
                         )}
                     </div>
                     <div className="p-2 space-y-3 overflow-y-auto flex-1 bg-gray-100/50">
                         {(contatosPorColuna[coluna.id] || []).map((contato) => (
-                            <ContatoCardCRM key={contato.id} funilEntry={contato} onDragStart={(e) => handleDragStart(e, contato, 'card')} onDragEnd={() => setDraggedItem(null)} allColumns={statusColumns} onMoveToColumn={handleMoveCardFromDropdown} onOpenNotesModal={onOpenNotesModal} availableProducts={availableProducts} onAssociateProduct={onAssociateProduct} onDissociateProduct={onDissociateProduct} onAssociateCorretor={onAssociateCorretor} onCardClick={onCardClick} onAddActivity={onAddActivity} />
+                            <ContatoCardCRM
+                                key={contato.id}
+                                funilEntry={contato}
+                                onDragStart={(e) => handleDragStart(e, contato, 'card')}
+                                onDragEnd={() => setDraggedItem(null)}
+                                allColumns={statusColumns}
+                                onMoveToColumn={handleMoveCardFromDropdown}
+                                onOpenNotesModal={onOpenNotesModal}
+                                availableProducts={availableProducts}
+                                onAssociateProduct={onAssociateProduct}
+                                onDissociateProduct={onDissociateProduct}
+                                onAssociateCorretor={onAssociateCorretor}
+                                onCardClick={onCardClick}
+                                onAddActivity={onAddActivity}
+                                onDeleteCard={onDeleteCard}
+                            />
                         ))}
                     </div>
                     <div className="p-2 border-t mt-auto">

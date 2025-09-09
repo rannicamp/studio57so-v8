@@ -110,14 +110,22 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
         }
     }, [contato, supabase]);
 
+    // ***** INÍCIO DA CORREÇÃO *****
+    // Efeito para buscar dados quando o sidebar abrir ou a chave de atualização mudar
     useEffect(() => {
         if (open && contato) {
             fetchData();
-            initializeEditData(contato);
-        } else {
-            setIsEditing(false);
         }
-    }, [open, contato, fetchData, initializeEditData, refreshKey]);
+    }, [open, contato, fetchData, refreshKey]);
+
+    // Efeito para inicializar/resetar o formulário APENAS quando o contato mudar
+    useEffect(() => {
+        if (contato) {
+            initializeEditData(contato);
+            setIsEditing(false); // Garante que o modo de edição seja desativado ao trocar de contato
+        }
+    }, [contato?.id, initializeEditData]); // Depende apenas do ID do contato
+    // ***** FIM DA CORREÇÃO *****
 
     const handleEditChange = (e) => setEditData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 

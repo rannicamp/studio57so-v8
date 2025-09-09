@@ -228,6 +228,22 @@ export default function CrmPage() {
         onError: (error) => { toast.error(error.message); }
     });
     
+    // ***** INÍCIO DA CORREÇÃO *****
+    const deleteCardMutation = useMutation({
+        mutationFn: async (contatoNoFunilId) => {
+            const { error } = await supabase.from('contatos_no_funil').delete().eq('id', contatoNoFunilId);
+            if (error) throw new Error(`Falha ao excluir o card: ${error.message}`);
+        },
+        onSuccess: () => {
+            toast.success("Card excluído com sucesso!");
+            queryClient.invalidateQueries({ queryKey: ['funilData'] });
+        },
+        onError: (error) => {
+            toast.error(error.message);
+        }
+    });
+    // ***** FIM DA CORREÇÃO *****
+
     const associateProductMutation = useMutation({
         mutationFn: async ({ contatoNoFunilId, productId }) => { const { error } = await supabase.from('contatos_no_funil_produtos').insert({ contato_no_funil_id: contatoNoFunilId, produto_id: productId }); if (error) throw new Error(error.message); },
         onSuccess: () => { toast.success("Produto associado!"); queryClient.invalidateQueries({ queryKey: ['funilData'] }); },
@@ -305,6 +321,7 @@ export default function CrmPage() {
                         setSorting={setSorting}
                         userRole={userData?.funcoes?.nome_funcao}
                         onDeleteAllCardsInColumn={(columnId) => deleteColumnCardsMutation.mutate(columnId)}
+                        onDeleteCard={(cardId) => deleteCardMutation.mutate(cardId)} // ***** ADIÇÃO DA NOVA PROPRIEDADE *****
                     />
                 )}
             </div>

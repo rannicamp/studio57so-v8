@@ -31,11 +31,13 @@ export default function ContatoCardCRM({
     onOpenNotesModal,
     availableProducts,
     onAssociateProduct,
-    onDissociateProduct, // Nova propriedade para remover
+    onDissociateProduct,
     onAssociateCorretor,
     onCardClick,
-    onAddActivity
+    onAddActivity,
+    onDeleteCard // ***** INÍCIO DA CORREÇÃO *****
 }) {
+    // ***** FIM DA CORREÇÃO *****
     const supabase = createClient();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -47,7 +49,6 @@ export default function ContatoCardCRM({
     const [isSearching, setIsSearching] = useState(false);
     const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
-    // --- NOVOS ESTADOS PARA ADICIONAR PRODUTOS ---
     const [isAddingProduct, setIsAddingProduct] = useState(false);
     const [selectedProductId, setSelectedProductId] = useState('');
 
@@ -79,7 +80,6 @@ export default function ContatoCardCRM({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Filtra produtos disponíveis para não mostrar os que já estão na lista de interesse
     const productIdsInteresse = useMemo(() => 
         new Set((funilEntry.produtos_interesse || []).map(p => p.produto.id)), 
         [funilEntry.produtos_interesse]
@@ -106,6 +106,16 @@ export default function ContatoCardCRM({
         setIsAddingProduct(false);
     };
 
+    // ***** INÍCIO DA CORREÇÃO *****
+    const handleDeleteCardClick = (e) => {
+        e.stopPropagation();
+        if (window.confirm(`Tem certeza que deseja excluir o card #${cardNumber} (${displayName}) do funil? O contato não será apagado.`)) {
+            onDeleteCard(funilEntry.id);
+        }
+        setIsDropdownOpen(false);
+    };
+    // ***** FIM DA CORREÇÃO *****
+
     const handleSelectCorretor = (corretorId) => { onAssociateCorretor(funilEntry.id, corretorId); setIsEditingCorretor(false); setSearchTerm(''); setSearchResults([]); };
     const handleClearCorretor = () => onAssociateCorretor(funilEntry.id, null);
     const formatDate = (dateString) => dateString ? format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'N/A';
@@ -127,14 +137,18 @@ export default function ContatoCardCRM({
                         <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1">
                             <button onClick={handleAddActivityClick} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"><FontAwesomeIcon icon={faTasks} className="mr-2" /> Adicionar Atividade</button>
                             <button onClick={(e) => { e.stopPropagation(); handleOpenNotes(); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"><FontAwesomeIcon icon={faStickyNote} className="mr-2" /> Ver/Adicionar Notas</button>
-                            <div className="border-t border-gray-200 my-1"></div><p className="px-3 py-2 text-xs text-gray-500 border-b">Mover para:</p>
+                            {/* ***** INÍCIO DA CORREÇÃO ***** */}
+                            <div className="border-t border-gray-200 my-1"></div>
+                            <button onClick={handleDeleteCardClick} className="block w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"><FontAwesomeIcon icon={faTrash} className="mr-2" /> Excluir Card</button>
+                            <div className="border-t border-gray-200 my-1"></div>
+                            {/* ***** FIM DA CORREÇÃO ***** */}
+                            <p className="px-3 py-2 text-xs text-gray-500 border-b">Mover para:</p>
                             {allColumns.filter(col => col.id !== currentColumnId).map(column => (<button key={column.id} onClick={(e) => { e.stopPropagation(); handleMoveClick(column.id); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">{column.nome}</button>))}
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* --- NOVA SEÇÃO DE PRODUTOS --- */}
             <div className="mt-2 space-y-2">
                 <label className="flex items-center text-xs text-gray-500 font-medium"><FontAwesomeIcon icon={faHome} className="mr-2" /> Unidades de Interesse:</label>
                 
