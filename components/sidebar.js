@@ -14,6 +14,7 @@ import {
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { createClient } from '../utils/supabase/client';
+import Tooltip from './Tooltip'; // IMPORTANDO NOSSO NOVO COMPONENTE!
 
 // Função de busca de dados isolada para ser usada pelo useQuery
 const fetchEmpreendimentos = async () => {
@@ -33,7 +34,6 @@ const fetchEmpreendimentos = async () => {
 export default function Sidebar({ isCollapsed, toggleSidebar }) {
   const { hasPermission, sidebarPosition } = useAuth();
   
-  // Otimização: Usando useQuery para buscar os dados
   const { data: empreendimentos = [] } = useQuery({
     queryKey: ['empreendimentosMenu'],
     queryFn: fetchEmpreendimentos
@@ -111,19 +111,18 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
     const allItems = navSections.flatMap(section => section.items || []);
 
     return (
-      <aside className={`bg-white shadow-lg h-[65px] w-full fixed left-0 ${positionClass} z-40 flex items-center justify-center px-4`}>
+      <aside className={`bg-white shadow-lg h-[65px] w-full fixed left-0 ${positionClass} z-50 flex items-center justify-center px-4`}>
         <div className="absolute left-4">
           <Link href="/">
             <img src={logoIconUrl} alt="Logo Studio 57" className="h-8 w-auto" />
           </Link>
         </div>
-        {/* A MÁGICA ACONTECE AQUI! */}
         <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2">
           {allItems.map((item) => {
             const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['caixa_de_entrada', 'painel', 'perfil', 'anuncios'].includes(item.recurso);
             if (!canViewItem) return null;
             return (
-              <div key={item.label} className="relative group flex-shrink-0">
+              <Tooltip key={item.label} label={item.label} position={sidebarPosition === 'top' ? 'bottom' : 'top'}>
                 <Link
                   href={item.href}
                   target={item.target}
@@ -132,10 +131,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 >
                   <FontAwesomeIcon icon={item.icon} className="text-xl" />
                 </Link>
-                <span className={`absolute left-1/2 -translate-x-1/2 ${sidebarPosition === 'top' ? 'top-full mt-2' : 'bottom-full mb-2'} w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none`}>
-                  {item.label}
-                </span>
-              </div>
+              </Tooltip>
             );
           })}
         </nav>
@@ -145,14 +141,14 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
 
   // Renderização do menu vertical (esquerda/direita)
   return (
-    <aside className={`bg-white shadow-lg h-full fixed top-0 z-40 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
+    <aside className={`bg-white shadow-lg h-full fixed top-0 z-50 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
       <div className="flex items-center justify-center h-[65px] border-b border-gray-200 flex-shrink-0">
         <Link href="/">
           <img src={isCollapsed ? logoIconUrl : logoUrl} alt="Logo Studio 57" className={`transition-all duration-300 ${isCollapsed ? 'h-8' : 'h-10'} w-auto`} />
         </Link>
       </div>
-      <nav className="mt-4 flex-grow overflow-y-auto">
-        <ul>
+      <nav className="mt-4 flex-grow flex flex-col">
+        <ul className="overflow-y-auto">
           {navSections.map((section) => {
             if (isCollapsed && section.render) return null;
             
@@ -168,21 +164,18 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                     if (!canViewItem) return null;
 
                     return (
-                      <li key={item.label} className="relative group">
-                        <Link
-                          href={item.href}
-                          target={item.target}
-                          rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
-                          className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 ${isCollapsed ? 'justify-center' : 'px-6'}`}
-                        >
-                          <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
-                          {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
-                        </Link>
-                          {isCollapsed && (
-                            <span className={`absolute ${sidebarPosition === 'left' ? 'left-full ml-4' : 'right-full mr-4'} w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-50`}>
-                                {item.label}
-                            </span>
-                          )}
+                      <li key={item.label}>
+                        <Tooltip label={item.label} position={sidebarPosition === 'left' ? 'right' : 'left'}>
+                           <Link
+                            href={item.href}
+                            target={item.target}
+                            rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
+                            className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 w-full ${isCollapsed ? 'justify-center' : 'px-6'}`}
+                          >
+                            <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
+                            {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
+                          </Link>
+                        </Tooltip>
                       </li>
                     );
                   })}
