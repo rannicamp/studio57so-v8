@@ -27,7 +27,8 @@ const supabase = createClient();
 async function fetchInitialData() {
     const [empresasRes, contasRes, categoriasRes, empreendimentosRes, contatosRes, funcionariosRes] = await Promise.all([
         supabase.from('cadastro_empresa').select('*').order('nome_fantasia'),
-        supabase.from('contas_financeiras').select('*, empresa:cadastro_empresa!empresa_id(id, nome_fantasia, razao_social)').order('nome'),
+        // ATUALIZADO AQUI: Adicionamos a busca da conta de débito da fatura
+        supabase.from('contas_financeiras').select('*, empresa:cadastro_empresa!empresa_id(id, nome_fantasia, razao_social), conta_debito_fatura:contas_financeiras!conta_debito_fatura_id(id, nome)').order('nome'),
         supabase.from('categorias_financeiras').select('*').order('nome'),
         supabase.from('empreendimentos').select('*, empresa:cadastro_empresa!empresa_proprietaria_id(nome_fantasia, razao_social)').order('nome'),
         supabase.from('contatos').select('id, nome, razao_social').order('nome'),
@@ -142,7 +143,7 @@ export default function FinanceiroPage() {
     const canCreate = hasPermission('financeiro', 'pode_criar');
 
     // Estados locais para controle da UI
-    const [activeTab, setActiveTab] = useState('extrato');
+    const [activeTab, setActiveTab] = useState('contas');
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingLancamento, setEditingLancamento] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -206,7 +207,7 @@ export default function FinanceiroPage() {
         },
         onSuccess: () => {
             toast.success('Lançamento excluído com sucesso!');
-            // Invalida os caches relacionados para forçar a atualização automática dos dados
+            // Invalida os caches relacionados para forçar la atualização automática dos dados
             queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
             queryClient.invalidateQueries({ queryKey: ['lancamentosKpi'] });
             queryClient.invalidateQueries({ queryKey: ['saldosData'] });

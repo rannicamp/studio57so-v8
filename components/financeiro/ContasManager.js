@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faSpinner, faUniversity, faCreditCard, faMoneyBillWave, faChartLine, faPenToSquare, faTrash, faBuilding } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faSpinner, faUniversity, faCreditCard, faMoneyBillWave, faChartLine, faPenToSquare, faTrash, faBuilding, faCalendarAlt, faWallet, faArrowCircleDown, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import ContaFormModal from './ContaFormModal';
 
 export default function ContasManager({ initialContas, allLancamentos, onUpdate, empresas }) {
@@ -18,8 +18,6 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
         setContas(initialContas || []);
     }, [initialContas]);
 
-    // ***** INÍCIO DA CORREÇÃO *****
-    // Lógica de cálculo de saldo simplificada para o novo modelo de dados
     const contasComSaldoAtual = useMemo(() => {
         if (!contas || !contas.length) return [];
 
@@ -27,51 +25,70 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
             const saldoInicial = parseFloat(conta.saldo_inicial) || 0;
             
             const totalLancamentos = (allLancamentos || [])
-                .filter(l => l.conta_id === conta.id) // Apenas filtramos pela conta_id agora
+                .filter(l => l.conta_id === conta.id)
                 .reduce((acc, lancamento) => {
                     const valor = parseFloat(lancamento.valor) || 0;
-                    
-                    if (lancamento.tipo === 'Receita') {
-                        return acc + valor;
-                    } else if (lancamento.tipo === 'Despesa') {
-                        return acc - valor;
-                    }
+                    if (lancamento.tipo === 'Receita') return acc + valor;
+                    if (lancamento.tipo === 'Despesa') return acc - valor;
                     return acc;
                 }, 0);
+
+            let saldoFinal = saldoInicial + totalLancamentos;
+            let faturaAtual = 0;
+            
+            if (conta.tipo === 'Cartão de Crédito') {
+                // Para cartão, o "saldo" é a fatura, que é a soma das despesas.
+                // O saldo inicial pode ser uma fatura anterior não paga.
+                faturaAtual = (allLancamentos || [])
+                    .filter(l => l.conta_id === conta.id && l.tipo === 'Despesa')
+                    .reduce((acc, l) => acc + (parseFloat(l.valor) || 0), saldoInicial);
+                saldoFinal = -faturaAtual; // Representamos a fatura como um valor negativo (dívida)
+            }
             
             return {
                 ...conta,
-                saldo_atual: saldoInicial + totalLancamentos
+                saldo_atual: saldoFinal,
+                fatura_atual: faturaAtual
             };
         });
     }, [contas, allLancamentos]);
-    // ***** FIM DA CORREÇÃO *****
     
     const handleSaveConta = async (formData) => {
         setMessage('Salvando...'); 
         try {
             const isEditing = Boolean(formData.id);
-            const saldoNumerico = parseFloat(String(formData.saldo_inicial).replace(/[^0-9,.]/g, '').replace('.', '').replace(',', '.')) || 0;
-            const dataToSave = { ...formData, saldo_inicial: saldoNumerico };
+
+            // Limpa e converte todos os campos numéricos
+            const dataToSave = {
+                ...formData,
+                saldo_inicial: parseFloat(String(formData.saldo_inicial || '0').replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.')) || 0,
+                limite_credito: formData.limite_credito ? parseFloat(String(formData.limite_credito).replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.')) : null,
+                limite_cheque_especial: formData.limite_cheque_especial ? parseFloat(String(formData.limite_cheque_especial).replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.')) : null,
+                dia_fechamento_fatura: formData.dia_fechamento_fatura ? parseInt(formData.dia_fechamento_fatura, 10) : null,
+                dia_pagamento_fatura: formData.dia_pagamento_fatura ? parseInt(formData.dia_pagamento_fatura, 10) : null,
+                conta_debito_fatura_id: formData.conta_debito_fatura_id || null
+            };
+
+            // Remove campos que não devem ir pro DB ou que são nulos
+            Object.keys(dataToSave).forEach(key => {
+                if (dataToSave[key] === '' || dataToSave[key] === undefined) {
+                    dataToSave[key] = null;
+                }
+            });
+
 
             let error;
             if (isEditing) {
-                const { id, ...updateData } = dataToSave;
-                delete updateData.empresa;
-                delete updateData.saldo_atual;
+                const { id, empresa, saldo_atual, fatura_atual, conta_debito_fatura, ...updateData } = dataToSave;
                 const { error: updateError } = await supabase.from('contas_financeiras').update(updateData).eq('id', id);
                 error = updateError;
             } else {
                 delete dataToSave.id;
-                delete dataToSave.empresa;
-                delete dataToSave.saldo_atual;
                 const { error: insertError } = await supabase.from('contas_financeiras').insert(dataToSave);
                 error = insertError;
             }
 
-            if (error) {
-                throw error;
-            }
+            if (error) throw error;
 
             setMessage(`Conta ${isEditing ? 'atualizada' : 'criada'} com sucesso!`);
             await onUpdate();
@@ -87,7 +104,7 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
     };
 
     const handleDeleteConta = async (contaId) => {
-        if (!window.confirm("Tem certeza que deseja excluir esta conta? Todas as transações associadas também serão perdidas.")) return;
+        if (!window.confirm("Tem certeza que deseja excluir esta conta? Os lançamentos associados a ela ficarão órfãos.")) return;
         
         const { error } = await supabase.from('contas_financeiras').delete().eq('id', contaId);
         if (error) {
@@ -106,16 +123,30 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
             case 'Conta Corrente': return faUniversity;
             case 'Cartão de Crédito': return faCreditCard;
             case 'Dinheiro': return faMoneyBillWave;
-            case 'Investimento': return faChartLine;
+            case 'Conta Investimento': return faChartLine;
             default: return faBuilding;
         }
     };
     
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
+    const getSaldoLabel = (conta) => {
+        if (conta.tipo === 'Cartão de Crédito') return 'Fatura Atual';
+        if (conta.tipo === 'Conta Corrente' && conta.limite_cheque_especial > 0) return 'Saldo + Ch. Especial';
+        return 'Saldo Atual';
+    };
+
     return (
         <div className="bg-white p-6 rounded-lg shadow space-y-4">
-            <ContaFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveConta} initialData={editingConta} empresas={empresas} />
+            <ContaFormModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                onSave={handleSaveConta} 
+                initialData={editingConta} 
+                empresas={empresas}
+                contas={contas.filter(c => c.tipo === 'Conta Corrente')} // Passa apenas contas correntes para o débito
+            />
+
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-800">Minhas Contas</h2>
                 <button onClick={handleOpenAddModal} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
@@ -146,17 +177,44 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
                                     </div>
                                 </div>
                                 <div className="space-y-2 text-xs text-gray-600 border-t pt-3">
-                                    <p><strong>Ag:</strong> {conta.agencia || 'N/A'} / <strong>CC:</strong> {conta.numero_conta || 'N/A'}</p>
                                     {conta.empresa && <p><strong>Empresa:</strong> {conta.empresa.nome_fantasia || conta.empresa.razao_social}</p>}
+
+                                    {/* Campos para Conta Corrente */}
+                                    {(conta.tipo === 'Conta Corrente' || !conta.tipo) && (
+                                        <>
+                                            <p><strong>Ag:</strong> {conta.agencia || 'N/A'} / <strong>CC:</strong> {conta.numero_conta || 'N/A'}</p>
+                                            {conta.limite_cheque_especial > 0 && 
+                                                <p className='text-yellow-600 flex items-center gap-2'>
+                                                    <FontAwesomeIcon icon={faExclamationTriangle} />
+                                                    <strong>Cheque Esp.:</strong> {formatCurrency(conta.limite_cheque_especial)}
+                                                </p>
+                                            }
+                                        </>
+                                    )}
+
+                                    {/* Campos para Cartão de Crédito */}
+                                    {conta.tipo === 'Cartão de Crédito' && (
+                                        <>
+                                            <p className='flex items-center gap-2'><FontAwesomeIcon icon={faWallet} /> <strong>Limite:</strong> {formatCurrency(conta.limite_credito)}</p>
+                                            <p className='flex items-center gap-2'><FontAwesomeIcon icon={faCalendarAlt} /> <strong>Fecha dia:</strong> {conta.dia_fechamento_fatura} | <strong>Paga dia:</strong> {conta.dia_pagamento_fatura}</p>
+                                            {conta.conta_debito_fatura && 
+                                                <p className='flex items-center gap-2 text-blue-600'>
+                                                    <FontAwesomeIcon icon={faArrowCircleDown} />
+                                                    <strong>Débito em:</strong> {conta.conta_debito_fatura.nome}
+                                                </p>
+                                            }
+                                        </>
+                                    )}
+
                                     {conta.chaves_pix && conta.chaves_pix.length > 0 && (
                                         <div><strong>PIX:</strong> {conta.chaves_pix.map(p => p.chave).join(', ')}</div>
                                     )}
                                 </div>
                             </div>
                             <div className="text-right mt-4 pt-3 border-t">
-                                <p className="text-sm text-gray-600">Saldo Atual</p>
+                                <p className="text-sm text-gray-600">{getSaldoLabel(conta)}</p>
                                 <p className={`text-xl font-semibold ${conta.saldo_atual < 0 ? 'text-red-600' : 'text-gray-800'}`}>
-                                    {formatCurrency(conta.saldo_atual)}
+                                    {formatCurrency(conta.tipo === 'Cartão de Crédito' ? conta.fatura_atual : conta.saldo_atual + (conta.limite_cheque_especial || 0))}
                                 </p>
                             </div>
                         </div>
