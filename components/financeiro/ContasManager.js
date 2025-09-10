@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSpinner, faUniversity, faCreditCard, faMoneyBillWave, faChartLine, faPenToSquare, faTrash, faBuilding, faCalendarAlt, faWallet, faArrowCircleDown, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
@@ -9,7 +9,8 @@ import ContaFormModal from './ContaFormModal';
 export default function ContasManager({ initialContas, allLancamentos, onUpdate, empresas }) {
     const supabase = createClient();
     const [contas, setContas] = useState(initialContas || []);
-    const [loading, setLoading] = useState(false);
+    const [saldos, setSaldos] = useState({});
+    const [loadingSaldos, setLoadingSaldos] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingConta, setEditingConta] = useState(null);
     const [message, setMessage] = useState('');
@@ -18,47 +19,71 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
         setContas(initialContas || []);
     }, [initialContas]);
 
-    const contasComSaldoAtual = useMemo(() => {
-        if (!contas || !contas.length) return [];
+    // ***** INÍCIO DA GRANDE CORREÇÃO *****
+    // Esta função agora busca os saldos diretamente do banco de dados para cada conta.
+    const fetchSaldos = useCallback(async () => {
+        if (!contas || contas.length === 0) {
+            setLoadingSaldos(false);
+            return;
+        }
 
-        return contas.map(conta => {
-            const saldoInicial = parseFloat(conta.saldo_inicial) || 0;
-            
-            const totalLancamentos = (allLancamentos || [])
-                .filter(l => l.conta_id === conta.id)
-                .reduce((acc, lancamento) => {
-                    const valor = parseFloat(lancamento.valor) || 0;
-                    if (lancamento.tipo === 'Receita') return acc + valor;
-                    if (lancamento.tipo === 'Despesa') return acc - valor;
-                    return acc;
-                }, 0);
+        setLoadingSaldos(true);
+        try {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
-            let saldoFinal = saldoInicial + totalLancamentos;
-            let faturaAtual = 0;
-            
-            if (conta.tipo === 'Cartão de Crédito') {
-                // Para cartão, o "saldo" é a fatura, que é a soma das despesas.
-                // O saldo inicial pode ser uma fatura anterior não paga.
-                faturaAtual = (allLancamentos || [])
+            const saldosPromises = contas.map(async (conta) => {
+                // Para contas normais, usamos a função do banco de dados para o saldo real.
+                if (conta.tipo !== 'Cartão de Crédito') {
+                    const { data, error } = await supabase.rpc('calcular_saldo_anterior', {
+                        p_conta_id: conta.id,
+                        p_data_inicio: tomorrowStr // Passamos "amanhã" para pegar o saldo até o fim de "hoje"
+                    });
+
+                    if (error) {
+                        console.error(`Erro ao buscar saldo para conta ${conta.id}:`, error);
+                        return { id: conta.id, saldo: 'Erro' };
+                    }
+                    return { id: conta.id, saldo: data };
+                }
+                
+                // Para Cartão de Crédito, a lógica é diferente, calculamos a fatura atual.
+                // Isso continua sendo feito no lado do cliente pois é uma lógica específica.
+                const saldoInicialFatura = parseFloat(conta.saldo_inicial) || 0;
+                const faturaAtual = (allLancamentos || [])
                     .filter(l => l.conta_id === conta.id && l.tipo === 'Despesa')
-                    .reduce((acc, l) => acc + (parseFloat(l.valor) || 0), saldoInicial);
-                saldoFinal = -faturaAtual; // Representamos a fatura como um valor negativo (dívida)
-            }
+                    .reduce((acc, l) => acc + (parseFloat(l.valor) || 0), saldoInicialFatura);
+                
+                return { id: conta.id, saldo: -faturaAtual, fatura_atual: faturaAtual };
+            });
+
+            const resolvedSaldos = await Promise.all(saldosPromises);
             
-            return {
-                ...conta,
-                saldo_atual: saldoFinal,
-                fatura_atual: faturaAtual
-            };
-        });
-    }, [contas, allLancamentos]);
-    
+            const saldosMap = resolvedSaldos.reduce((acc, result) => {
+                acc[result.id] = result;
+                return acc;
+            }, {});
+
+            setSaldos(saldosMap);
+
+        } catch (error) {
+            console.error("Falha geral ao buscar saldos:", error);
+        } finally {
+            setLoadingSaldos(false);
+        }
+    }, [contas, supabase, allLancamentos]); // allLancamentos é necessário para o cálculo da fatura do cartão
+
+    // Dispara a busca de saldos quando as contas mudam.
+    useEffect(() => {
+        fetchSaldos();
+    }, [fetchSaldos]);
+    // ***** FIM DA GRANDE CORREÇÃO *****
+
     const handleSaveConta = async (formData) => {
         setMessage('Salvando...'); 
         try {
             const isEditing = Boolean(formData.id);
-
-            // Limpa e converte todos os campos numéricos
             const dataToSave = {
                 ...formData,
                 saldo_inicial: parseFloat(String(formData.saldo_inicial || '0').replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.')) || 0,
@@ -69,13 +94,11 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
                 conta_debito_fatura_id: formData.conta_debito_fatura_id || null
             };
 
-            // Remove campos que não devem ir pro DB ou que são nulos
             Object.keys(dataToSave).forEach(key => {
                 if (dataToSave[key] === '' || dataToSave[key] === undefined) {
                     dataToSave[key] = null;
                 }
             });
-
 
             let error;
             if (isEditing) {
@@ -144,7 +167,7 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
                 onSave={handleSaveConta} 
                 initialData={editingConta} 
                 empresas={empresas}
-                contas={contas.filter(c => c.tipo === 'Conta Corrente')} // Passa apenas contas correntes para o débito
+                contas={contas.filter(c => c.tipo === 'Conta Corrente')}
             />
 
             <div className="flex justify-between items-center">
@@ -156,69 +179,72 @@ export default function ContasManager({ initialContas, allLancamentos, onUpdate,
 
             {message && <p className={`text-center text-sm font-medium p-2 rounded-md ${message.includes('Erro') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{message}</p>}
 
-            {loading && initialContas.length === 0 ? ( <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div> ) 
-            : contasComSaldoAtual.length === 0 ? ( <p className="text-center text-gray-500 py-10">Nenhuma conta cadastrada.</p> ) 
+            {loadingSaldos && contas.length > 0 ? ( <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div> ) 
+            : contas.length === 0 ? ( <p className="text-center text-gray-500 py-10">Nenhuma conta cadastrada.</p> ) 
             : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {contasComSaldoAtual.map(conta => (
-                        <div key={conta.id} className="border p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow relative group flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className="flex items-center gap-4">
-                                        <FontAwesomeIcon icon={getAccountIcon(conta.tipo)} className="text-2xl text-blue-500 mt-1" />
-                                        <div>
-                                            <h3 className="font-bold text-lg">{conta.nome}</h3>
-                                            <p className="text-xs text-gray-500">{conta.instituicao}</p>
+                    {contas.map(conta => {
+                        const saldoInfo = saldos[conta.id];
+                        const saldoAtual = saldoInfo?.saldo ?? 0;
+                        const faturaAtual = saldoInfo?.fatura_atual ?? 0;
+                        const saldoDisplay = conta.tipo === 'Cartão de Crédito' ? faturaAtual : saldoAtual + (conta.limite_cheque_especial || 0);
+
+                        return (
+                            <div key={conta.id} className="border p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow relative group flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex items-center gap-4">
+                                            <FontAwesomeIcon icon={getAccountIcon(conta.tipo)} className="text-2xl text-blue-500 mt-1" />
+                                            <div>
+                                                <h3 className="font-bold text-lg">{conta.nome}</h3>
+                                                <p className="text-xs text-gray-500">{conta.instituicao}</p>
+                                            </div>
+                                        </div>
+                                        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => handleOpenEditModal(conta)} className="text-gray-500 hover:text-blue-600"><FontAwesomeIcon icon={faPenToSquare} /></button>
+                                            <button onClick={() => handleDeleteConta(conta.id)} className="text-gray-500 hover:text-red-600"><FontAwesomeIcon icon={faTrash} /></button>
                                         </div>
                                     </div>
-                                    <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => handleOpenEditModal(conta)} className="text-gray-500 hover:text-blue-600"><FontAwesomeIcon icon={faPenToSquare} /></button>
-                                        <button onClick={() => handleDeleteConta(conta.id)} className="text-gray-500 hover:text-red-600"><FontAwesomeIcon icon={faTrash} /></button>
+                                    <div className="space-y-2 text-xs text-gray-600 border-t pt-3">
+                                        {conta.empresa && <p><strong>Empresa:</strong> {conta.empresa.nome_fantasia || conta.empresa.razao_social}</p>}
+
+                                        {(conta.tipo === 'Conta Corrente' || !conta.tipo) && (
+                                            <>
+                                                <p><strong>Ag:</strong> {conta.agencia || 'N/A'} / <strong>CC:</strong> {conta.numero_conta || 'N/A'}</p>
+                                                {conta.limite_cheque_especial > 0 && 
+                                                    <p className='text-yellow-600 flex items-center gap-2'>
+                                                        <FontAwesomeIcon icon={faExclamationTriangle} />
+                                                        <strong>Cheque Esp.:</strong> {formatCurrency(conta.limite_cheque_especial)}
+                                                    </p>
+                                                }
+                                            </>
+                                        )}
+                                        {conta.tipo === 'Cartão de Crédito' && (
+                                            <>
+                                                <p className='flex items-center gap-2'><FontAwesomeIcon icon={faWallet} /> <strong>Limite:</strong> {formatCurrency(conta.limite_credito)}</p>
+                                                <p className='flex items-center gap-2'><FontAwesomeIcon icon={faCalendarAlt} /> <strong>Fecha dia:</strong> {conta.dia_fechamento_fatura} | <strong>Paga dia:</strong> {conta.dia_pagamento_fatura}</p>
+                                                {conta.conta_debito_fatura && 
+                                                    <p className='flex items-center gap-2 text-blue-600'>
+                                                        <FontAwesomeIcon icon={faArrowCircleDown} />
+                                                        <strong>Débito em:</strong> {conta.conta_debito_fatura.nome}
+                                                    </p>
+                                                }
+                                            </>
+                                        )}
+                                        {conta.chaves_pix && conta.chaves_pix.length > 0 && (
+                                            <div><strong>PIX:</strong> {conta.chaves_pix.map(p => p.chave).join(', ')}</div>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="space-y-2 text-xs text-gray-600 border-t pt-3">
-                                    {conta.empresa && <p><strong>Empresa:</strong> {conta.empresa.nome_fantasia || conta.empresa.razao_social}</p>}
-
-                                    {/* Campos para Conta Corrente */}
-                                    {(conta.tipo === 'Conta Corrente' || !conta.tipo) && (
-                                        <>
-                                            <p><strong>Ag:</strong> {conta.agencia || 'N/A'} / <strong>CC:</strong> {conta.numero_conta || 'N/A'}</p>
-                                            {conta.limite_cheque_especial > 0 && 
-                                                <p className='text-yellow-600 flex items-center gap-2'>
-                                                    <FontAwesomeIcon icon={faExclamationTriangle} />
-                                                    <strong>Cheque Esp.:</strong> {formatCurrency(conta.limite_cheque_especial)}
-                                                </p>
-                                            }
-                                        </>
-                                    )}
-
-                                    {/* Campos para Cartão de Crédito */}
-                                    {conta.tipo === 'Cartão de Crédito' && (
-                                        <>
-                                            <p className='flex items-center gap-2'><FontAwesomeIcon icon={faWallet} /> <strong>Limite:</strong> {formatCurrency(conta.limite_credito)}</p>
-                                            <p className='flex items-center gap-2'><FontAwesomeIcon icon={faCalendarAlt} /> <strong>Fecha dia:</strong> {conta.dia_fechamento_fatura} | <strong>Paga dia:</strong> {conta.dia_pagamento_fatura}</p>
-                                            {conta.conta_debito_fatura && 
-                                                <p className='flex items-center gap-2 text-blue-600'>
-                                                    <FontAwesomeIcon icon={faArrowCircleDown} />
-                                                    <strong>Débito em:</strong> {conta.conta_debito_fatura.nome}
-                                                </p>
-                                            }
-                                        </>
-                                    )}
-
-                                    {conta.chaves_pix && conta.chaves_pix.length > 0 && (
-                                        <div><strong>PIX:</strong> {conta.chaves_pix.map(p => p.chave).join(', ')}</div>
-                                    )}
+                                <div className="text-right mt-4 pt-3 border-t">
+                                    <p className="text-sm text-gray-600">{getSaldoLabel(conta)}</p>
+                                    <p className={`text-xl font-semibold ${saldoAtual < 0 ? 'text-red-600' : 'text-gray-800'}`}>
+                                        {loadingSaldos ? <FontAwesomeIcon icon={faSpinner} spin /> : formatCurrency(saldoDisplay)}
+                                    </p>
                                 </div>
                             </div>
-                            <div className="text-right mt-4 pt-3 border-t">
-                                <p className="text-sm text-gray-600">{getSaldoLabel(conta)}</p>
-                                <p className={`text-xl font-semibold ${conta.saldo_atual < 0 ? 'text-red-600' : 'text-gray-800'}`}>
-                                    {formatCurrency(conta.tipo === 'Cartão de Crédito' ? conta.fatura_atual : conta.saldo_atual + (conta.limite_cheque_especial || 0))}
-                                </p>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>
