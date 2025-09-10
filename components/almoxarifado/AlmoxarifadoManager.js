@@ -44,10 +44,9 @@ export default function AlmoxarifadoManager() {
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['estoque', selectedEmpreendimentoId],
         queryFn: () => fetchEstoqueData(supabase, selectedEmpreendimentoId),
-        enabled: !!selectedEmpreendimentoId, // A busca só é ativada quando um empreendimento é selecionado
+        enabled: !!selectedEmpreendimentoId,
     });
 
-    // Busca a lista de empreendimentos na primeira carga
     const { data: empreendimentosList, isLoading: isLoadingEmpreendimentos } = useQuery({
         queryKey: ['empreendimentosList'],
         queryFn: async () => {
@@ -69,7 +68,6 @@ export default function AlmoxarifadoManager() {
 
     const handleSuccess = () => {
         toast.success("Operação realizada com sucesso!");
-        // Invalida a query para forçar a atualização dos dados do estoque na tela
         queryClient.invalidateQueries({ queryKey: ['estoque', selectedEmpreendimentoId] });
     };
 
@@ -137,7 +135,12 @@ export default function AlmoxarifadoManager() {
                             ) : (
                                 data?.estoque.map(item => (
                                     <tr key={item.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 font-semibold">{item.material.nome}</td>
+                                        {/* ***** CORREÇÃO AQUI ***** */}
+                                        <td className="px-6 py-4">
+                                            <div className="font-semibold text-gray-800">{item.material.nome}</div>
+                                            <div className="text-xs text-gray-500">{item.material.descricao}</div>
+                                        </td>
+                                        {/* ***** FIM DA CORREÇÃO ***** */}
                                         <td className="px-6 py-4 text-center font-bold text-xl">{item.quantidade_atual}</td>
                                         <td className="px-6 py-4 text-center">{item.unidade_medida}</td>
                                         <td className="px-6 py-4 text-right font-mono">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_medio)}</td>

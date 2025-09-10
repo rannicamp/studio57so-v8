@@ -8,12 +8,15 @@ import { faSpinner, faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-i
 
 const fetchHistorico = async (supabase, estoqueId) => {
     if (!estoqueId) return [];
+    // ***** ATUALIZAÇÃO NA BUSCA *****
+    // Agora também buscamos o nome do funcionário
     const { data, error } = await supabase
         .from('movimentacoes_estoque')
         .select(`
             *,
             usuario:usuarios(id, nome, sobrenome),
-            pedido:pedidos_compra(id, titulo)
+            pedido:pedidos_compra(id, titulo),
+            funcionario:funcionarios(id, full_name)
         `)
         .eq('estoque_id', estoqueId)
         .order('data_movimentacao', { ascending: false });
@@ -27,7 +30,7 @@ export default function HistoricoMovimentacoesModal({ isOpen, onClose, estoqueIt
     const { data: historico, isLoading, isError, error } = useQuery({
         queryKey: ['historicoMovimentacoes', estoqueItem?.id],
         queryFn: () => fetchHistorico(supabase, estoqueItem.id),
-        enabled: isOpen && !!estoqueItem?.id, // Só busca quando o modal está aberto e tem um item
+        enabled: isOpen && !!estoqueItem?.id,
     });
 
     const formatDate = (dateStr) => {
@@ -74,7 +77,9 @@ export default function HistoricoMovimentacoesModal({ isOpen, onClose, estoqueIt
                                                 {mov.tipo}
                                             </td>
                                             <td className="p-2 text-center font-bold">{mov.quantidade}</td>
-                                            <td className="p-2">{mov.tipo === 'Entrada' ? `Pedido #${mov.pedido_compra_id}` : (mov.usuario?.nome || 'N/A')}</td>
+                                            {/* ***** ATUALIZAÇÃO NA EXIBIÇÃO ***** */}
+                                            {/* Agora mostra o nome do funcionário para saídas */}
+                                            <td className="p-2">{mov.tipo === 'Entrada' ? `Pedido #${mov.pedido_compra_id}` : (mov.funcionario?.full_name || 'N/A')}</td>
                                         </tr>
                                     ))
                                 )}

@@ -7,6 +7,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
+
+// Nova função para buscar a lista de funcionários
+const fetchFuncionarios = async (supabase) => {
+    const { data, error } = await supabase.from('funcionarios').select('id, full_name').order('full_name');
+    if (error) throw new Error("Não foi possível carregar a lista de funcionários.");
+    return data;
+};
 
 export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSuccess }) {
     const supabase = createClient();
@@ -14,6 +22,15 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
     const [quantidade, setQuantidade] = useState('');
     const [observacao, setObservacao] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    // ***** NOVO ESTADO PARA O FUNCIONÁRIO *****
+    const [funcionarioId, setFuncionarioId] = useState('');
+
+    // Hook para buscar os funcionários
+    const { data: funcionarios, isLoading: isLoadingFuncionarios } = useQuery({
+        queryKey: ['funcionarios'],
+        queryFn: () => fetchFuncionarios(supabase),
+        enabled: isOpen, // Só busca quando o modal está aberto
+    });
 
     const handleSave = async () => {
         if (!user) {
@@ -29,11 +46,15 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
             toast.error("A quantidade de saída não pode ser maior que o estoque atual.");
             return;
         }
+        // ***** NOVA VALIDAÇÃO *****
+        if (!funcionarioId) {
+            toast.warning("Por favor, selecione o funcionário que fez a retirada.");
+            return;
+        }
 
         setIsSaving(true);
         
         try {
-            // 1. Subtrai do estoque principal
             const novaQuantidade = estoqueItem.quantidade_atual - qtdNum;
             const { error: updateError } = await supabase
                 .from('estoque')
@@ -42,7 +63,8 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
 
             if (updateError) throw updateError;
 
-            // 2. Registra a movimentação de saída
+            // ***** ATUALIZAÇÃO NO INSERT *****
+            // Adicionamos o funcionario_id ao registro de movimentação
             const { error: insertError } = await supabase
                 .from('movimentacoes_estoque')
                 .insert({
@@ -51,6 +73,7 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
                     quantidade: qtdNum,
                     usuario_id: user.id,
                     observacao: observacao,
+                    funcionario_id: funcionarioId, // <-- NOVA INFORMAÇÃO
                 });
             
             if (insertError) throw insertError;
@@ -64,6 +87,7 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
             setIsSaving(false);
             setQuantidade('');
             setObservacao('');
+            setFuncionarioId(''); // Limpa o funcionário selecionado
         }
     };
 
@@ -75,8 +99,23 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
                 <h3 className="text-xl font-bold mb-2">Dar Baixa no Estoque</h3>
                 <p className="text-sm mb-4">Item: <span className="font-semibold">{estoqueItem.material.nome}</span></p>
                 <div className="space-y-4">
+                    {/* ***** NOVO CAMPO DE SELEÇÃO DE FUNCIONÁRIO ***** */}
                     <div>
-                        <label className="block text-sm font-medium">Quantidade a ser utilizada</label>
+                        <label className="block text-sm font-medium">Funcionário que fez a retirada *</label>
+                        <select
+                            value={funcionarioId}
+                            onChange={(e) => setFuncionarioId(e.target.value)}
+                            disabled={isLoadingFuncionarios}
+                            className="mt-1 w-full p-2 border rounded-md"
+                        >
+                            <option value="">{isLoadingFuncionarios ? 'Carregando...' : 'Selecione um funcionário'}</option>
+                            {funcionarios?.map(func => (
+                                <option key={func.id} value={func.id}>{func.full_name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium">Quantidade a ser utilizada *</label>
                         <input
                             type="number"
                             value={quantidade}
