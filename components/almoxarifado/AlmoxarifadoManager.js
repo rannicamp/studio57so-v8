@@ -1,7 +1,8 @@
 // components/almoxarifado/AlmoxarifadoManager.js
 "use client";
 
-import { useState } from 'react';
+// 1. Importamos o useMemo do React
+import { useState, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -10,11 +11,10 @@ import { toast } from 'sonner';
 import BaixaEstoqueModal from './BaixaEstoqueModal';
 import HistoricoMovimentacoesModal from './HistoricoMovimentacoesModal';
 
-// Função de busca foi atualizada para trazer a classificação do material e a quantidade em uso
 const fetchEstoqueData = async (supabase, empreendimentoId) => {
-    if (!empreendimentoId) return { estoque: [] };
+    if (!empreendimentoId) return [];
 
-    const { data: estoque, error: estError } = await supabase
+    const { data, error } = await supabase
         .from('estoque')
         .select(`
             *,
@@ -24,9 +24,9 @@ const fetchEstoqueData = async (supabase, empreendimentoId) => {
         .eq('empreendimento_id', empreendimentoId)
         .order('ultima_atualizacao', { ascending: false });
 
-    if (estError) throw new Error('Falha ao buscar dados do estoque.');
+    if (error) throw new Error('Falha ao buscar dados do estoque.');
     
-    return { estoque: estoque || [] };
+    return data || [];
 };
 
 export default function AlmoxarifadoManager() {
@@ -34,36 +34,30 @@ export default function AlmoxarifadoManager() {
     const queryClient = useQueryClient();
     
     const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState('');
-    const [activeTab, setActiveTab] = useState('disponivel'); // 'disponivel' ou 'em_uso'
+    const [activeTab, setActiveTab] = useState('disponivel');
     const [isBaixaModalOpen, setIsBaixaModalOpen] = useState(false);
     const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
     const [selectedEstoqueItem, setSelectedEstoqueItem] = useState(null);
 
-    // Query principal para o estoque disponível
-    const { data, isLoading, isError, error } = useQuery({
+    const { data: estoqueCompleto, isLoading, isError, error } = useQuery({
         queryKey: ['estoque', selectedEmpreendimentoId],
         queryFn: () => fetchEstoqueData(supabase, selectedEmpreendimentoId),
         enabled: !!selectedEmpreendimentoId,
     });
-    const estoqueDisponivel = data?.estoque || [];
 
-    // Query separada para os equipamentos em uso
-    const { data: equipamentosEmUso, isLoading: isLoadingEmUso } = useQuery({
-        queryKey: ['equipamentosEmUso', selectedEmpreendimentoId],
-        queryFn: async () => {
-            if (!selectedEmpreendimentoId) return [];
-            const { data, error } = await supabase
-                .from('estoque')
-                .select('*, material:materiais(*)')
-                .eq('empreendimento_id', selectedEmpreendimentoId)
-                .eq('material.classificacao', 'Equipamento')
-                .gt('quantidade_em_uso', 0);
-            if (error) throw new Error("Falha ao buscar equipamentos em uso.");
-            return data;
-        },
-        enabled: !!selectedEmpreendimentoId,
-    });
+    // 2. REMOVEMOS a query separada para 'equipamentosEmUso'.
 
+    // 3. ADICIONAMOS o useMemo para criar a lista de equipamentos em uso a partir da lista principal.
+    // Ele só vai re-calcular essa lista se o 'estoqueCompleto' mudar.
+    const equipamentosEmUso = useMemo(() => {
+        if (!estoqueCompleto) return [];
+        return estoqueCompleto.filter(item => 
+            item.material.classificacao === 'Equipamento' && item.quantidade_em_uso > 0
+        );
+    }, [estoqueCompleto]);
+
+    // A lista de estoque disponível é a lista completa.
+    const estoqueDisponivel = estoqueCompleto || [];
 
     const { data: empreendimentosList, isLoading: isLoadingEmpreendimentos } = useQuery({
         queryKey: ['empreendimentosList'],
@@ -84,16 +78,14 @@ export default function AlmoxarifadoManager() {
         setIsHistoricoModalOpen(true);
     };
     
-    // Futuramente, teremos modais separados para Retirada, Devolução, etc.
     const handleOpenRetiradaModal = (item) => toast.info("Funcionalidade 'Registrar Retirada' será implementada no próximo passo.");
     const handleOpenDevolucaoModal = (item) => toast.info("Funcionalidade 'Devolver' será implementada no próximo passo.");
     const handleOpenBaixaQuebraModal = (item) => toast.info("Funcionalidade 'Baixa por Quebra' será implementada no próximo passo.");
 
-
     const handleSuccess = () => {
         toast.success("Operação realizada com sucesso!");
         queryClient.invalidateQueries({ queryKey: ['estoque', selectedEmpreendimentoId] });
-        queryClient.invalidateQueries({ queryKey: ['equipamentosEmUso', selectedEmpreendimentoId] });
+        // Não precisamos mais invalidar 'equipamentosEmUso' separadamente.
     };
 
     const TabButton = ({ tabName, label, icon, count }) => (
@@ -152,11 +144,10 @@ export default function AlmoxarifadoManager() {
                 <div className="border-b border-gray-200">
                     <nav className="flex space-x-4">
                         <TabButton tabName="disponivel" label="Estoque Disponível" icon={faWarehouse} count={estoqueDisponivel.length} />
-                        <TabButton tabName="em_uso" label="Equipamentos em Uso" icon={faTools} count={equipamentosEmUso?.length || 0} />
+                        <TabButton tabName="em_uso" label="Equipamentos em Uso" icon={faTools} count={equipamentosEmUso.length} />
                     </nav>
                 </div>
             )}
-
 
             {isLoading && <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando estoque...</div>}
             {isError && <div className="text-center p-10 text-red-600">Erro ao carregar dados: {error.message}</div>}
@@ -224,9 +215,8 @@ export default function AlmoxarifadoManager() {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {isLoadingEmUso ? (
-                                        <tr><td colSpan="3" className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></td></tr>
-                                    ) : equipamentosEmUso.length === 0 ? (
+                                    {/* Agora não temos mais 'isLoadingEmUso', a verificação de 'isLoading' principal já cobre isso */}
+                                    {equipamentosEmUso.length === 0 ? (
                                         <tr><td colSpan="3" className="text-center py-10 text-gray-500"><FontAwesomeIcon icon={faTools} size="3x" className="mb-2" /><p>Nenhum equipamento em uso no momento.</p></td></tr>
                                     ) : (
                                         equipamentosEmUso.map(item => (
@@ -251,7 +241,7 @@ export default function AlmoxarifadoManager() {
                                         ))
                                     )}
                                 </tbody>
-                           </table>
+                            </table>
                         </div>
                     )}
                 </>
