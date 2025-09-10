@@ -4,7 +4,6 @@ import { useState, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// CORREÇÃO: Importando TODOS os ícones necessários, incluindo os novos
 import { 
     faSpinner, faWarehouse, faFilter, faTimes, faArrowDown, faHistory, 
     faArrowUp, faTools, faBox, faBoxOpen, faSearch 
@@ -12,9 +11,7 @@ import {
 import { toast } from 'sonner';
 import BaixaEstoqueModal from './BaixaEstoqueModal';
 import HistoricoMovimentacoesModal from './HistoricoMovimentacoesModal';
-// NOVO: Importando o hook para saber a obra selecionada no cabeçalho
 import { useEmpreendimento } from '../../contexts/EmpreendimentoContext';
-// NOVO: Importando o hook para otimizar a busca
 import { useDebounce } from 'use-debounce';
 
 const fetchEstoqueData = async (supabase, empreendimentoId) => {
@@ -27,7 +24,7 @@ const fetchEstoqueData = async (supabase, empreendimentoId) => {
             material:materiais(id, nome, descricao, classificacao)
         `)
         .eq('empreendimento_id', empreendimentoId)
-        .order('material(nome)', { ascending: true }); // Ordenando por nome do material
+        .order('material(nome)', { ascending: true });
 
     if (error) throw new Error('Falha ao buscar dados do estoque.');
     
@@ -59,9 +56,13 @@ export default function AlmoxarifadoManager() {
         if (!estoqueCompleto) return [];
         return estoqueCompleto.filter(item => {
             const correspondeClassificacao = filtroClassificacao === 'Todos' || item.material.classificacao === filtroClassificacao;
+            
+            // CORREÇÃO: Verificamos se 'nome' e 'descricao' existem ANTES de tentar ler.
+            // Isso previne o erro quando um desses campos é nulo.
             const correspondeBusca = !debouncedBusca || 
-                item.material.nome.toLowerCase().includes(debouncedBusca.toLowerCase()) ||
-                item.material.descricao?.toLowerCase().includes(debouncedBusca.toLowerCase());
+                (item.material.nome && item.material.nome.toLowerCase().includes(debouncedBusca.toLowerCase())) ||
+                (item.material.descricao && item.material.descricao.toLowerCase().includes(debouncedBusca.toLowerCase()));
+
             return correspondeClassificacao && correspondeBusca;
         });
     }, [estoqueCompleto, filtroClassificacao, debouncedBusca]);
@@ -174,7 +175,6 @@ export default function AlmoxarifadoManager() {
                                         <tr><td colSpan="5" className="text-center py-10 text-gray-500"><FontAwesomeIcon icon={faSearch} size="3x" className="mb-2" /><p>Nenhum item encontrado com os filtros aplicados.</p></td></tr>
                                     ) : (
                                         itensFiltrados.map(item => (
-                                            // CORREÇÃO: Conteúdo da linha da tabela foi restaurado aqui!
                                             <tr key={item.id} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4">
                                                     <div className="font-semibold text-gray-800">{item.material.nome}</div>
@@ -209,7 +209,6 @@ export default function AlmoxarifadoManager() {
                         </div>
                     )}
                     {activeTab === 'em_uso' && (
-                        // A aba 'em_uso' continua funcionando com base na lógica original
                         <div className="overflow-x-auto border rounded-lg">
                            <table className="min-w-full divide-y divide-gray-200 text-sm">
                                 <thead className="bg-gray-50">
