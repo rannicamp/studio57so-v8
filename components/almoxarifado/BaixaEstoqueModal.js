@@ -1,38 +1,94 @@
 // components/almoxarifado/BaixaEstoqueModal.js
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-// Nova função para buscar a lista de funcionários
+// Função para buscar a lista de funcionários (sem alterações)
 const fetchFuncionarios = async (supabase) => {
     const { data, error } = await supabase.from('funcionarios').select('id, full_name').order('full_name');
     if (error) throw new Error("Não foi possível carregar a lista de funcionários.");
     return data;
 };
 
+// Nova função que contém a lógica de baixa no estoque
+const darBaixaEstoque = async ({ supabase, estoqueItem, quantidade, observacao, usuarioId, funcionarioId }) => {
+    const qtdNum = parseFloat(quantidade);
+
+    // 1. Atualiza a quantidade no item do estoque
+    const novaQuantidade = estoqueItem.quantidade_atual - qtdNum;
+    const { error: updateError } = await supabase
+        .from('estoque')
+        .update({ quantidade_atual: novaQuantidade, ultima_atualizacao: new Date().toISOString() })
+        .eq('id', estoqueItem.id);
+
+    if (updateError) throw updateError;
+
+    // 2. Insere o registro na tabela de movimentações
+    const { error: insertError } = await supabase
+        .from('movimentacoes_estoque')
+        .insert({
+            estoque_id: estoqueItem.id,
+            tipo: 'Saída',
+            quantidade: qtdNum,
+            usuario_id: usuarioId,
+            observacao: observacao,
+            funcionario_id: funcionarioId,
+        });
+
+    if (insertError) throw insertError;
+
+    return { success: true };
+};
+
+
 export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSuccess }) {
     const supabase = createClient();
     const { user } = useAuth();
+    const queryClient = useQueryClient(); // Essencial para invalidar queries
+
     const [quantidade, setQuantidade] = useState('');
     const [observacao, setObservacao] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
-    // ***** NOVO ESTADO PARA O FUNCIONÁRIO *****
     const [funcionarioId, setFuncionarioId] = useState('');
 
-    // Hook para buscar os funcionários
+    // Hook para buscar os funcionários (sem alterações)
     const { data: funcionarios, isLoading: isLoadingFuncionarios } = useQuery({
         queryKey: ['funcionarios'],
         queryFn: () => fetchFuncionarios(supabase),
-        enabled: isOpen, // Só busca quando o modal está aberto
+        enabled: isOpen,
     });
 
-    const handleSave = async () => {
+    // A MÁGICA ACONTECE AQUI: useMutation!
+    const baixaMutation = useMutation({
+        mutationFn: darBaixaEstoque, // A função que faz o trabalho sujo
+        onSuccess: () => {
+            // O que fazer quando tudo der certo
+            onSuccess(); // Chama a função de sucesso que recebemos (toast, etc)
+            onClose();   // Fecha o modal
+        },
+        onError: (error) => {
+            // O que fazer quando der erro
+            toast.error(`Erro ao dar baixa no estoque: ${error.message}`);
+        },
+    });
+
+    // Limpa os campos quando o modal é fechado ou o item muda
+    useEffect(() => {
+        if (!isOpen) {
+            setQuantidade('');
+            setObservacao('');
+            setFuncionarioId('');
+            baixaMutation.reset(); // Reseta o estado da mutation
+        }
+    }, [isOpen]);
+
+
+    const handleSave = () => {
         if (!user) {
             toast.error("Você precisa estar logado para realizar esta ação.");
             return;
@@ -46,49 +102,20 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
             toast.error("A quantidade de saída não pode ser maior que o estoque atual.");
             return;
         }
-        // ***** NOVA VALIDAÇÃO *****
         if (!funcionarioId) {
             toast.warning("Por favor, selecione o funcionário que fez a retirada.");
             return;
         }
-
-        setIsSaving(true);
         
-        try {
-            const novaQuantidade = estoqueItem.quantidade_atual - qtdNum;
-            const { error: updateError } = await supabase
-                .from('estoque')
-                .update({ quantidade_atual: novaQuantidade, ultima_atualizacao: new Date().toISOString() })
-                .eq('id', estoqueItem.id);
-
-            if (updateError) throw updateError;
-
-            // ***** ATUALIZAÇÃO NO INSERT *****
-            // Adicionamos o funcionario_id ao registro de movimentação
-            const { error: insertError } = await supabase
-                .from('movimentacoes_estoque')
-                .insert({
-                    estoque_id: estoqueItem.id,
-                    tipo: 'Saída',
-                    quantidade: qtdNum,
-                    usuario_id: user.id,
-                    observacao: observacao,
-                    funcionario_id: funcionarioId, // <-- NOVA INFORMAÇÃO
-                });
-            
-            if (insertError) throw insertError;
-
-            onSuccess();
-            onClose();
-
-        } catch (error) {
-            toast.error(`Erro ao dar baixa no estoque: ${error.message}`);
-        } finally {
-            setIsSaving(false);
-            setQuantidade('');
-            setObservacao('');
-            setFuncionarioId(''); // Limpa o funcionário selecionado
-        }
+        // Em vez de chamar a lógica aqui, chamamos a mutation!
+        baixaMutation.mutate({
+            supabase,
+            estoqueItem,
+            quantidade,
+            observacao,
+            usuarioId: user.id,
+            funcionarioId,
+        });
     };
 
     if (!isOpen) return null;
@@ -99,7 +126,6 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
                 <h3 className="text-xl font-bold mb-2">Dar Baixa no Estoque</h3>
                 <p className="text-sm mb-4">Item: <span className="font-semibold">{estoqueItem.material.nome}</span></p>
                 <div className="space-y-4">
-                    {/* ***** NOVO CAMPO DE SELEÇÃO DE FUNCIONÁRIO ***** */}
                     <div>
                         <label className="block text-sm font-medium">Funcionário que fez a retirada *</label>
                         <select
@@ -138,8 +164,9 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
                 </div>
                 <div className="flex justify-end gap-4 pt-6 mt-4 border-t">
                     <button onClick={onClose} className="bg-gray-200 px-4 py-2 rounded-md">Cancelar</button>
-                    <button onClick={handleSave} disabled={isSaving} className="bg-red-600 text-white px-4 py-2 rounded-md disabled:bg-gray-400">
-                        {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Confirmar Baixa'}
+                    {/* O botão agora usa o estado `isPending` da mutation */}
+                    <button onClick={handleSave} disabled={baixaMutation.isPending} className="bg-red-600 text-white px-4 py-2 rounded-md disabled:bg-gray-400">
+                        {baixaMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Confirmar Baixa'}
                     </button>
                 </div>
             </div>
