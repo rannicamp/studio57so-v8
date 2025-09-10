@@ -1,37 +1,102 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSpinner, faPenToSquare, faTrash } from '@fortawesome/free-solid-svg-icons';
 import CategoriaFormModal from './CategoriaFormModal';
 
-export default function CategoriasManager() {
+// Função de busca de dados foi movida para fora do componente.
+// Isso a torna mais reutilizável e organizada.
+const fetchCategorias = async () => {
     const supabase = createClient();
-    const [categorias, setCategorias] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { data, error } = await supabase
+        .from('categorias_financeiras')
+        .select('*')
+        .order('nome');
+    
+    if (error) {
+        throw new Error("Erro ao buscar categorias: " + error.message);
+    }
+    return data || [];
+};
+
+export default function CategoriasManager() {
+    const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategoria, setEditingCategoria] = useState(null);
-    // Novo estado para controlar o tipo padrão do modal
     const [defaultModalType, setDefaultModalType] = useState('Despesa');
-    const [message, setMessage] = useState('');
 
-    const fetchCategorias = useCallback(async () => {
-        setLoading(true);
-        const { data, error } = await supabase
-            .from('categorias_financeiras')
-            .select('*')
-            .order('nome');
-        
-        if (error) setMessage("Erro ao buscar categorias: " + error.message);
-        else setCategorias(data || []);
-        
-        setLoading(false);
-    }, [supabase]);
+    // useQuery: O novo "garçom" para buscar os dados.
+    // Ele gerencia o loading, erros e cache automaticamente.
+    const { data: categorias = [], isLoading, error: fetchError } = useQuery({
+        queryKey: ['categorias_financeiras'], // Chave única para identificar essa busca
+        queryFn: fetchCategorias,             // Função que executa a busca
+    });
 
-    useEffect(() => {
-        fetchCategorias();
-    }, [fetchCategorias]);
+    // useMutation para salvar (criar ou atualizar) uma categoria.
+    const saveMutation = useMutation({
+        mutationFn: async (formData) => {
+            const supabase = createClient();
+            const isEditing = Boolean(formData.id);
+            let error;
+
+            if (isEditing) {
+                const { id, ...updateData } = formData;
+                const { error: updateError } = await supabase.from('categorias_financeiras').update(updateData).eq('id', id);
+                error = updateError;
+            } else {
+                delete formData.id;
+                const { error: insertError } = await supabase.from('categorias_financeiras').insert(formData);
+                error = insertError;
+            }
+
+            if (error) {
+                throw new Error(error.message);
+            }
+            return isEditing;
+        },
+        onSuccess: (isEditing) => {
+            // Quando a operação tem sucesso, invalida a query para buscar os dados atualizados.
+            queryClient.invalidateQueries({ queryKey: ['categorias_financeiras'] });
+            toast.success(`Categoria ${isEditing ? 'atualizada' : 'criada'} com sucesso!`);
+            setIsModalOpen(false); // Fecha o modal após o sucesso
+        },
+        onError: (error) => {
+            toast.error(`Erro ao salvar: ${error.message}`);
+        }
+    });
+
+    // useMutation para deletar uma categoria.
+    const deleteMutation = useMutation({
+        mutationFn: async (id) => {
+            const supabase = createClient();
+            const { error } = await supabase.rpc('delete_category_and_children', { p_category_id: id });
+            if (error) {
+                throw new Error(error.message);
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['categorias_financeiras'] });
+            toast.success('Categoria e subcategorias excluídas com sucesso.');
+        },
+        onError: (error) => {
+            toast.error(`Erro ao excluir: ${error.message}`);
+        }
+    });
+
+    const handleSaveCategoria = async (formData) => {
+        await saveMutation.mutateAsync(formData);
+        // Retornamos 'true' para compatibilidade com o modal, embora o fechamento agora seja no onSuccess.
+        return true;
+    };
+    
+    const handleDeleteCategoria = (id) => {
+        if (!window.confirm("Atenção! Excluir uma categoria principal também excluirá todas as suas subcategorias. Deseja continuar?")) return;
+        deleteMutation.mutate(id);
+    };
 
     const categoryTree = useMemo(() => {
         const tree = [];
@@ -52,45 +117,6 @@ export default function CategoriasManager() {
         return tree;
     }, [categorias]);
 
-    const handleSaveCategoria = async (formData) => {
-        const isEditing = Boolean(formData.id);
-        
-        let error;
-        if (isEditing) {
-            const { id, ...updateData } = formData;
-            const { error: updateError } = await supabase.from('categorias_financeiras').update(updateData).eq('id', id);
-            error = updateError;
-        } else {
-            delete formData.id;
-            const { error: insertError } = await supabase.from('categorias_financeiras').insert(formData);
-            error = insertError;
-        }
-
-        if (error) {
-            setMessage(`Erro: ${error.message}`);
-            return false;
-        }
-
-        setMessage(`Categoria ${isEditing ? 'atualizada' : 'criada'} com sucesso!`);
-        setTimeout(() => setMessage(''), 3000);
-        fetchCategorias();
-        return true;
-    };
-    
-    const handleDeleteCategoria = async (id) => {
-        if (!window.confirm("Atenção! Excluir uma categoria principal também excluirá todas as suas subcategorias. Deseja continuar?")) return;
-        
-        const { error } = await supabase.rpc('delete_category_and_children', { p_category_id: id });
-
-        if (error) {
-            setMessage(`Erro ao excluir: ${error.message}`);
-        } else {
-            setMessage('Categoria e subcategorias excluídas com sucesso.');
-            fetchCategorias();
-        }
-    };
-
-    // Função alterada para receber o tipo
     const handleOpenAddModal = (type) => {
         setDefaultModalType(type);
         setEditingCategoria(null);
@@ -111,7 +137,7 @@ export default function CategoriasManager() {
                         <span className="font-semibold">{cat.nome}</span>
                         <div className="space-x-3">
                             <button onClick={() => handleOpenEditModal(cat)} className="text-blue-500 hover:text-blue-700"><FontAwesomeIcon icon={faPenToSquare} /></button>
-                            <button onClick={() => handleDeleteCategoria(cat.id)} className="text-red-500 hover:text-red-700"><FontAwesomeIcon icon={faTrash} /></button>
+                            <button onClick={() => handleDeleteCategoria(cat.id)} disabled={deleteMutation.isPending} className="text-red-500 hover:text-red-700 disabled:text-gray-300"><FontAwesomeIcon icon={faTrash} /></button>
                         </div>
                     </div>
                     {cat.children && cat.children.length > 0 && (
@@ -125,23 +151,20 @@ export default function CategoriasManager() {
     );
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow space-y-4">
+        <div className="space-y-4">
             <CategoriaFormModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveCategoria}
                 initialData={editingCategoria}
                 allCategories={categorias}
-                // Passando o tipo padrão para o modal
                 defaultType={defaultModalType}
             />
-            <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold text-gray-800">Gerenciar Categorias</h2>
-            </div>
-             {message && <p className="text-center text-sm font-medium p-2 bg-blue-50 text-blue-800 rounded-md">{message}</p>}
 
-            {loading ? (
+            {isLoading ? (
                 <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
+            ) : fetchError ? (
+                <p className="text-center text-sm font-medium p-2 bg-red-50 text-red-800 rounded-md">{fetchError.message}</p>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -155,7 +178,7 @@ export default function CategoriasManager() {
                          <div className="flex justify-between items-center mb-2">
                              <h3 className="font-semibold text-lg text-red-700">Despesas</h3>
                               <button onClick={() => handleOpenAddModal('Despesa')} className="bg-red-600 text-white px-3 py-1 text-xs rounded-md hover:bg-red-700 flex items-center gap-1"><FontAwesomeIcon icon={faPlus}/> Nova Despesa</button>
-                        </div>
+                         </div>
                         <CategoryList categories={categoryTree.filter(c => c.tipo === 'Despesa')} />
                     </div>
                 </div>
