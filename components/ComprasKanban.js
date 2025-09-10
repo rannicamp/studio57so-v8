@@ -6,6 +6,7 @@ import PedidoCard from './PedidoCard';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '../contexts/AuthContext'; // ADICIONADO: Para identificar o usuário
 
 const statusColumns = [
     { id: 'Solicitação', title: 'Solicitação' },
@@ -18,8 +19,9 @@ const statusColumns = [
     { id: 'Cancelado', title: 'Cancelado' },
 ];
 
-export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) { // Adicionado onCardClick
+export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
     const supabase = createClient();
+    const { user } = useAuth(); // ADICIONADO: Pegamos os dados do usuário logado
     const [dragOverColumn, setDragOverColumn] = useState(null);
     const scrollContainerRef = useRef(null);
     
@@ -83,7 +85,6 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) { //
     };
 
     const handleDuplicatePedido = async (pedidoId) => {
-        const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
             alert('Você precisa estar logado para duplicar um pedido.');
             return;
@@ -133,8 +134,6 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) { //
         const updatedPedidos = pedidos.map(p => p.id === pedidoId ? updatedPedido : p);
         setPedidos(updatedPedidos);
 
-        const { data: { user } } = await supabase.auth.getUser();
-
         const { error: rpcError } = await supabase.rpc('atualizar_status_pedido', {
             p_pedido_id: pedidoId,
             p_novo_status: statusToSave,
@@ -145,6 +144,27 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) { //
             alert('Erro ao registrar histórico: ' + rpcError.message);
             setPedidos(originalPedidos);
         }
+
+        // ***** INÍCIO DA NOVA LÓGICA DO ALMOXARIFADO *****
+        // Se o novo status for "Entregue", chama a função para dar entrada no estoque
+        if (newStatus === 'Entregue' && user) {
+            toast.info('Processando entrada dos itens no almoxarifado...');
+
+            const { error: almoxarifadoError } = await supabase.rpc('processar_entrada_pedido_no_estoque', {
+                p_pedido_id: pedidoId,
+                p_usuario_id: user.id
+            });
+
+            if (almoxarifadoError) {
+                toast.error(`Falha ao dar entrada no estoque: ${almoxarifadoError.message}`);
+                // Reverte o status se a entrada no estoque falhar
+                await supabase.from('pedidos_compra').update({ status: pedido.status }).eq('id', pedidoId);
+                setPedidos(originalPedidos);
+            } else {
+                toast.success('Itens recebidos e adicionados ao almoxarifado com sucesso!');
+            }
+        }
+        // ***** FIM DA NOVA LÓGICA DO ALMOXARIFADO *****
     };
 
     const handleDeleteAllCanceled = async () => {
@@ -255,7 +275,7 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) { //
                                     allStatusColumns={statusColumns.map(s => s.id)}
                                     hasPendingInvoice={hasPendingInvoice}
                                     hasPendingItems={hasPendingItems}
-                                    onCardClick={onCardClick} // Passa a função para o card
+                                    onCardClick={onCardClick}
                                 />
                             );
                         })}
