@@ -11,7 +11,7 @@ import {
     faDollarSign,
     faUserTag,
     faExchangeAlt,
-    faCopy // 1. ÍCONE ADICIONADO AQUI
+    faCopy
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
@@ -180,31 +180,21 @@ export default function LancamentosManager({
         await handleStatusUpdate(lancamentoId, 'Pago');
     };
 
-    // 2. NOVA FUNÇÃO DE DUPLICAR
     const handleDuplicate = async (item) => {
         if (!window.confirm(`Tem certeza que deseja duplicar o lançamento: "${item.descricao}"?`)) {
             return;
         }
-
-        // Criamos uma cópia do objeto, removendo campos que são gerados automaticamente pelo banco
         const { id, created_at, conta, categoria, empreendimento, ...lancamentoParaDuplicar } = item;
-
-        // Modificamos a cópia para que seja claramente um novo lançamento
         lancamentoParaDuplicar.descricao = `(Cópia) ${lancamentoParaDuplicar.descricao}`;
-        lancamentoParaDuplicar.status = 'Pendente'; // Todo lançamento duplicado começa como pendente
-        lancamentoParaDuplicar.data_pagamento = null; // Limpamos a data de pagamento, se houver
-        lancamentoParaDuplicar.conciliado = false; // A cópia obviamente não está conciliada
-
-        // Inserimos o novo objeto no banco de dados
-        const { error } = await supabase
-            .from('lancamentos')
-            .insert([lancamentoParaDuplicar]);
-
+        lancamentoParaDuplicar.status = 'Pendente';
+        lancamentoParaDuplicar.data_pagamento = null;
+        lancamentoParaDuplicar.conciliado = false;
+        const { error } = await supabase.from('lancamentos').insert([lancamentoParaDuplicar]);
         if (error) {
             alert("Erro ao duplicar o lançamento: " + error.message);
         } else {
             alert("Lançamento duplicado com sucesso!");
-            if (onUpdate) onUpdate(); // Isso faz a tabela recarregar para mostrar o novo item
+            if (onUpdate) onUpdate();
         }
     };
 
@@ -348,15 +338,14 @@ export default function LancamentosManager({
             <div className="flex justify-between items-center bg-white p-4 border rounded-lg shadow-sm">
                 <span className="text-sm text-gray-700"> Mostrando <strong>{lancamentos.length}</strong> de <strong>{totalCount}</strong> lançamentos </span>
                 <div className="flex items-center gap-2">
-                    <button onClick={handleAnalyzeClick} disabled={loading || isAnalyzing} className="bg-purple-600 text-white px-4 py-2 rounded-md flex items-center gap-2 text-sm disabled:bg-gray-400">
-                        <FontAwesomeIcon icon={isAnalyzing ? faSpinner : faRobot} spin={isAnalyzing} />
-                        Analisar com IA
-                    </button>
+                    {/* ***** INÍCIO DA CORREÇÃO 2/2 ***** */}
+                    {/* O botão de Análise com IA foi removido desta seção */}
                     <label htmlFor="items-per-page" className="text-sm font-medium">Itens por página:</label>
                     <input type="number" id="items-per-page" value={itemsPerPageInput} onChange={(e) => setItemsPerPageInput(e.target.value)} onBlur={handleItemsPerPageChange} onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }} min="1" max="999" className="w-20 p-2 border rounded-md text-center" />
                     <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || loading} className="p-2 border rounded-md disabled:opacity-50"> <FontAwesomeIcon icon={faChevronLeft} /> </button>
                     <span className="px-4 py-2 text-sm">Página {currentPage} de {totalPages}</span>
                     <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || loading} className="p-2 border rounded-md disabled:opacity-50"> <FontAwesomeIcon icon={faChevronRight} /> </button>
+                    {/* ***** FIM DA CORREÇÃO 2/2 ***** */}
                 </div>
             </div>
 
@@ -459,7 +448,6 @@ export default function LancamentosManager({
                                                      </button>
                                                  )}
                                                  <button onClick={() => onEdit(item)} className="text-blue-500 hover:text-blue-700" title="Editar Completo"><FontAwesomeIcon icon={faPenToSquare} /></button>
-                                                 {/* 3. NOVO BOTÃO DE DUPLICAR ADICIONADO AQUI */}
                                                  <button onClick={() => handleDuplicate(item)} className="text-gray-500 hover:text-gray-700" title="Duplicar Lançamento">
                                                     <FontAwesomeIcon icon={faCopy} />
                                                  </button>
