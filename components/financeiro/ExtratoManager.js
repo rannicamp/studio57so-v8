@@ -6,37 +6,49 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faFilter, faCalendarDay, faCalendarWeek, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 import MultiSelectDropdown from './MultiSelectDropdown';
 
-// --- INÍCIO DA CORREÇÃO ---
-// Função de formatação ajustada para usar o fuso horário UTC
 const formatCurrency = (value) => {
     if (value === null || value === undefined || isNaN(value)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
-    // 1. Cria o objeto Date tratando a string como UTC
     const date = new Date(dateStr + 'T00:00:00Z');
-    // 2. Formata a data para o padrão brasileiro, mas FORÇA a exibição no fuso UTC, impedindo a conversão.
     return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 };
-// --- FIM DA CORREÇÃO ---
-
 
 export default function ExtratoManager({ contas, onEdit }) {
     const supabase = createClient();
-    const [filters, setFilters] = useState({
-        contaIds: [],
-        startDate: '',
-        endDate: '',
+    
+    // ***** INÍCIO DA CORREÇÃO 1/3 *****
+    // O estado inicial agora tenta carregar os dados salvos no sessionStorage.
+    const [filters, setFilters] = useState(() => {
+        if (typeof window === 'undefined') {
+            return { contaIds: [], startDate: '', endDate: '' };
+        }
+        const savedState = sessionStorage.getItem('lastExtratoState');
+        return savedState ? JSON.parse(savedState).filters : { contaIds: [], startDate: '', endDate: '' };
     });
+    const [extratoItens, setExtratoItens] = useState(() => {
+        if (typeof window === 'undefined') return [];
+        const savedState = sessionStorage.getItem('lastExtratoState');
+        return savedState ? JSON.parse(savedState).extratoItens : [];
+    });
+    const [saldoAnterior, setSaldoAnterior] = useState(() => {
+        if (typeof window === 'undefined') return 0;
+        const savedState = sessionStorage.getItem('lastExtratoState');
+        return savedState ? JSON.parse(savedState).saldoAnterior : 0;
+    });
+    // ***** FIM DA CORREÇÃO 1/3 *****
+
     const [loading, setLoading] = useState(false);
-    const [extratoItens, setExtratoItens] = useState([]);
-    const [saldoAnterior, setSaldoAnterior] = useState(0);
     const [activePeriodFilter, setActivePeriodFilter] = useState('month');
 
-    // Define o período inicial para o mês atual
+    // Define o período inicial para o mês atual, SOMENTE se não houver dados salvos.
     useEffect(() => {
-        setDateRange('month');
+        const savedState = sessionStorage.getItem('lastExtratoState');
+        if (!savedState) {
+            setDateRange('month');
+        }
     }, []);
 
     const handleFilterChange = (name, value) => {
@@ -71,6 +83,10 @@ export default function ExtratoManager({ contas, onEdit }) {
     const fetchExtrato = useCallback(async () => {
         if (!filters.contaIds || filters.contaIds.length === 0) {
             setExtratoItens([]);
+            // ***** INÍCIO DA CORREÇÃO 2/3 *****
+            // Limpa o estado salvo se a busca for inválida
+            sessionStorage.removeItem('lastExtratoState');
+            // ***** FIM DA CORREÇÃO 2/3 *****
             return;
         }
         setLoading(true);
@@ -92,7 +108,7 @@ export default function ExtratoManager({ contas, onEdit }) {
 
             const { data: lancamentos, error: lancamentosError } = await supabase
                 .from('lancamentos')
-                .select('*, favorecido:contatos!favorecido_contato_id(*), categoria:categorias_financeiras(*)') // Puxa mais dados para o modal
+                .select('*, favorecido:contatos!favorecido_contato_id(*), categoria:categorias_financeiras(*)')
                 .in('conta_id', filters.contaIds)
                 .gte('data_pagamento', filters.startDate)
                 .lte('data_pagamento', filters.endDate)
@@ -116,6 +132,16 @@ export default function ExtratoManager({ contas, onEdit }) {
             });
 
             setExtratoItens(itensProcessados);
+
+            // ***** INÍCIO DA CORREÇÃO 3/3 *****
+            // Salva o resultado da busca bem-sucedida no sessionStorage
+            const stateToSave = {
+                filters,
+                extratoItens: itensProcessados,
+                saldoAnterior: saldoInicialTotal
+            };
+            sessionStorage.setItem('lastExtratoState', JSON.stringify(stateToSave));
+            // ***** FIM DA CORREÇÃO 3/3 *****
 
         } catch (error) {
             console.error("Erro ao gerar extrato:", error);
