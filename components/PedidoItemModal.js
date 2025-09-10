@@ -5,7 +5,7 @@ import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faPlus, faPenToSquare, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 
 // Componente para destacar o texto da busca em amarelo
@@ -59,9 +59,26 @@ const fetchSubetapas = async (supabase, etapaId) => {
     return data || [];
 };
 
+// CORREÇÃO: Movido para fora do componente para evitar o loop infinito.
+const getInitialState = () => ({
+    id: null,
+    material_id: null,
+    descricao_item: '',
+    quantidade_solicitada: 1,
+    unidade_medida: 'unid.',
+    etapa_id: '',
+    subetapa_id: '', 
+    fornecedor_id: null,
+    fornecedor_nome: '',
+    preco_unitario_real: '',
+    tipo_operacao: 'Compra',
+    dias_aluguel: null
+});
+
 
 export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit }) {
     const supabase = createClient();
+    const queryClient = useQueryClient();
     const isEditing = Boolean(itemToEdit);
     
     const [filteredSubetapas, setFilteredSubetapas] = useState([]);
@@ -69,22 +86,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
     const [isSubetapaDropdownOpen, setIsSubetapaDropdownOpen] = useState(false);
     const [isCreatingSubetapa, setIsCreatingSubetapa] = useState(false);
 
-    const getInitialState = useCallback(() => ({
-        id: null,
-        material_id: null,
-        descricao_item: '',
-        quantidade_solicitada: 1,
-        unidade_medida: 'unid.',
-        etapa_id: '',
-        subetapa_id: '', 
-        fornecedor_id: null,
-        fornecedor_nome: '',
-        preco_unitario_real: '',
-        tipo_operacao: 'Compra',
-        dias_aluguel: null
-    }), []);
-
-    const [item, setItem] = useState(getInitialState());
+    const [item, setItem] = useState(getInitialState);
     const [isItemSelected, setIsItemSelected] = useState(false);
     const [materialSearchResults, setMaterialSearchResults] = useState([]);
     const [fornecedorSearchResults, setFornecedorSearchResults] = useState([]);
@@ -93,6 +95,9 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
     const [message, setMessage] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [fornecedorSearchTerm, setFornecedorSearchTerm] = useState('');
+    
+    // NOVO ESTADO: Para guardar a classificação escolhida para um novo material.
+    const [newMaterialClassification, setNewMaterialClassification] = useState('Insumo');
 
     const { data: etapas = [], isLoading: isLoadingEtapas } = useQuery({
         queryKey: ['etapas'],
@@ -140,10 +145,9 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
              setMessage('');
              setSubetapaSearch('');
         }
-    // --- MUDANÇA 1: 'subetapas' foi REMOVIDO da lista de dependências ---
-    }, [isOpen, isEditing, itemToEdit, getInitialState]);
+    // CORREÇÃO: Removida a dependência 'getInitialState' para quebrar o loop.
+    }, [isOpen, isEditing, itemToEdit]);
     
-    // --- MUDANÇA 2: Novo useEffect, focado apenas em preencher a subetapa na edição ---
     useEffect(() => {
         if (isEditing && itemToEdit.subetapa_id && subetapas.length > 0) {
             const selectedSub = subetapas.find(s => s.id === itemToEdit.subetapa_id);
@@ -174,7 +178,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         setSearchTerm(value);
         if (value.length < 2) { setMaterialSearchResults([]); return; }
         setIsSearching(prev => ({ ...prev, material: true }));
-        const { data, error } = await supabase.from('materiais').select('id, descricao, unidade_medida, preco_unitario, categoria:Grupo').ilike('descricao', `%${value}%`).limit(10);
+        const { data, error } = await supabase.from('materiais').select('id, descricao, unidade_medida, preco_unitario, nome').ilike('nome', `%${value}%`).limit(10);
         if (error) console.error("Erro na busca de materiais:", error);
         setMaterialSearchResults(data || []);
         setIsSearching(prev => ({ ...prev, material: false }));
@@ -191,6 +195,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
             .from('contatos')
             .select('id, nome, razao_social, nome_fantasia')
             .or(`nome.ilike.%${value}%,razao_social.ilike.%${value}%,nome_fantasia.ilike.%${value}%`)
+            .eq('tipo_contato', 'Fornecedor')
             .limit(10);
 
         if (error) {
@@ -204,17 +209,33 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
     };
 
     const handleSelectMaterial = (material) => {
-        setItem(prev => ({ ...prev, material_id: material.id, descricao_item: material.descricao, unidade_medida: material.unidade_medida || 'unid.' }));
+        setItem(prev => ({ ...prev, material_id: material.id, descricao_item: material.nome || material.descricao, unidade_medida: material.unidade_medida || 'unid.' }));
         setIsItemSelected(true);
         setMaterialSearchResults([]);
-        setSearchTerm(material.descricao);
+        setSearchTerm(material.nome || material.descricao);
     };
 
-    const handleAddNewMaterialText = () => {
-        setItem(prev => ({ ...prev, material_id: null, descricao_item: searchTerm }));
-        setIsItemSelected(true);
-        setMaterialSearchResults([]);
-    }
+    const handleAddNewMaterialText = async () => {
+        const toastId = toast.loading("Criando novo material...");
+        const { data: newMaterial, error } = await supabase
+            .from('materiais')
+            .insert({ 
+                nome: searchTerm.trim(), 
+                descricao: searchTerm.trim(),
+                classificacao: newMaterialClassification 
+            })
+            .select()
+            .single();
+    
+        if (error) {
+            toast.error(`Erro ao criar material: ${error.message}`, { id: toastId });
+            return;
+        }
+        
+        toast.success(`Material "${newMaterial.nome}" criado com sucesso!`, { id: toastId });
+        queryClient.invalidateQueries({ queryKey: ['materiais'] });
+        handleSelectMaterial(newMaterial);
+    };
 
     const handleResetItemSelection = () => {
         setIsItemSelected(false);
@@ -232,17 +253,10 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         const { name, value, type } = e.target;
         
         if (name === 'etapa_id') {
-            setItem(prev => ({
-                ...prev,
-                etapa_id: value,
-                subetapa_id: ''
-            }));
+            setItem(prev => ({ ...prev, etapa_id: value, subetapa_id: '' }));
             setSubetapaSearch('');
         } else {
-            setItem(prev => ({
-                ...prev,
-                [name]: type === 'number' ? parseFloat(value) : value
-            }));
+            setItem(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) : value }));
         }
     };
     
@@ -254,16 +268,10 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
 
     const handleCreateSubetapa = async () => {
         if (!subetapaSearch.trim() || !item.etapa_id) return;
-
         const subetapaNome = subetapaSearch.trim();
         setIsCreatingSubetapa(true);
-        const { data: newSubetapa, error } = await supabase
-            .from('subetapas')
-            .insert({ nome_subetapa: subetapaNome, etapa_id: item.etapa_id })
-            .select()
-            .single();
+        const { data: newSubetapa, error } = await supabase.from('subetapas').insert({ nome_subetapa: subetapaNome, etapa_id: item.etapa_id }).select().single();
         setIsCreatingSubetapa(false);
-        
         if (error) {
             toast.error(`Erro ao criar subetapa: ${error.message}`);
         } else {
@@ -274,7 +282,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
 
 
     const handleSaveClick = async () => {
-        if (!item.descricao_item && !searchTerm) { setMessage('A descrição do item é obrigatória.'); return; }
+        if (!isItemSelected && !searchTerm) { setMessage('A descrição do item é obrigatória.'); return; }
         
         if (item.tipo_operacao === 'Aluguel' && (!item.dias_aluguel || item.dias_aluguel <= 0)) {
             setMessage('Para aluguel, a quantidade de dias é obrigatória e deve ser maior que zero.');
@@ -283,8 +291,10 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
 
         setIsSaving(true);
         setMessage('');
-        
         const itemToSave = { ...item };
+
+        // Se o item não foi selecionado da lista, mas um texto foi digitado,
+        // usamos o texto como descrição de um item avulso (sem material_id).
         if (!isItemSelected && searchTerm) {
             itemToSave.descricao_item = searchTerm;
         }
@@ -332,14 +342,29 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
                                      <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-48 overflow-y-auto">
                                          {materialSearchResults.map(material => 
                                              <li key={material.id} onClick={() => handleSelectMaterial(material)} className="p-3 hover:bg-gray-100 cursor-pointer">
-                                                 <HighlightedText text={material.descricao} highlight={searchTerm} />
+                                                 <HighlightedText text={material.descricao || material.nome} highlight={searchTerm} />
                                              </li>
                                          )}
                                      </ul>
                                  )}
                                  {!isSearching.material && searchTerm.length > 2 && materialSearchResults.length === 0 && (
-                                     <div className="absolute z-20 w-full bg-white border rounded-md shadow-lg p-3">
-                                         <button type="button" onClick={handleAddNewMaterialText} className="text-blue-600 font-semibold flex items-center gap-2"> <FontAwesomeIcon icon={faPlus} /> Usar o texto &quot;{searchTerm}&quot; </button>
+                                     <div className="absolute z-20 w-full bg-white border rounded-md shadow-lg p-3 space-y-3">
+                                         {/* ***** INÍCIO DA ALTERAÇÃO ***** */}
+                                         <div>
+                                            <label className="block text-xs font-medium mb-1">Classificar novo material como:</label>
+                                            <select 
+                                                value={newMaterialClassification} 
+                                                onChange={(e) => setNewMaterialClassification(e.target.value)}
+                                                className="w-full p-2 border rounded-md text-sm"
+                                            >
+                                                <option value="Insumo">Insumo (Consumível)</option>
+                                                <option value="Equipamento">Equipamento (Retornável)</option>
+                                            </select>
+                                         </div>
+                                         <button type="button" onClick={handleCreateAndSelectMaterial} className="text-blue-600 font-semibold flex items-center gap-2"> 
+                                             <FontAwesomeIcon icon={faPlus} /> Criar e usar &quot;{searchTerm}&quot; 
+                                         </button>
+                                         {/* ***** FIM DA ALTERAÇÃO ***** */}
                                      </div>
                                  )}
                              </>
