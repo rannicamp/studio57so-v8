@@ -8,17 +8,27 @@ import { faPlus, faFileImport, faFileExport, faBroom, faEdit, faTrash, faSort, f
 import MaterialFormModal from './MaterialFormModal';
 import MaterialImporter from './materiais/MaterialImporter';
 
-// Função para converter dados JSON em uma string CSV
+// Função para converter dados JSON em uma string CSV (sem alterações)
 function convertToCSV(data) {
     const headers = Object.keys(data[0]);
     const csvRows = [
-        headers.join(';'), // Cabeçalho com ponto e vírgula
+        headers.join(';'),
         ...data.map(row => 
             headers.map(fieldName => JSON.stringify(row[fieldName] || '', (key, value) => value === null ? '' : value)).join(';')
         )
     ];
     return csvRows.join('\r\n');
 }
+
+// NOVO: Nossa função "mágica" para normalizar textos (remover acentos e converter para minúsculas)
+const normalizarTexto = (texto) => {
+    if (!texto) return '';
+    return texto
+      .toString()
+      .normalize('NFD') // Separa as letras dos acentos
+      .replace(/[\u0300-\u036f]/g, '') // Remove os acentos
+      .toLowerCase(); // Converte para minúsculas
+};
 
 
 export default function MaterialManager({ initialMaterials }) {
@@ -31,13 +41,12 @@ export default function MaterialManager({ initialMaterials }) {
     const [originFilter, setOriginFilter] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [sortConfig, setSortConfig] = useState({ key: 'descricao', direction: 'ascending' });
+    const [sortConfig, setSortConfig] = useState({ key: 'nome', direction: 'ascending' });
 
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isImporterOpen, setIsImporterOpen] = useState(false);
     const [editingMaterial, setEditingMaterial] = useState(null);
 
-    // Buscando fornecedores para passar ao modal
     const [fornecedores, setFornecedores] = useState([]);
     useState(() => {
         const fetchFornecedores = async () => {
@@ -52,16 +61,50 @@ export default function MaterialManager({ initialMaterials }) {
         return Array.from(origins).sort();
     }, [materials]);
 
+    // ATENÇÃO: Toda a lógica de filtro e ordenação foi atualizada aqui!
     const processedMaterials = useMemo(() => {
         let filtered = [...materials];
-        if (searchTerm) filtered = filtered.filter(mat => (mat.descricao || mat.nome || '').toLowerCase().includes(searchTerm.toLowerCase()));
-        if (originFilter) { const filter = originFilter === 'Importado' ? null : originFilter; filtered = filtered.filter(mat => mat.Origem === filter || (!mat.Origem && filter === null)); }
+        const termoBuscaNormalizado = normalizarTexto(searchTerm);
+        const filtroOrigemNormalizado = normalizarTexto(originFilter);
+
+        // Filtro por termo de busca (nome/descrição)
+        if (termoBuscaNormalizado) {
+            filtered = filtered.filter(mat => {
+                const nomeNormalizado = normalizarTexto(mat.nome);
+                const descricaoNormalizada = normalizarTexto(mat.descricao);
+                return nomeNormalizado.includes(termoBuscaNormalizado) || descricaoNormalizada.includes(termoBuscaNormalizado);
+            });
+        }
+
+        // Filtro por origem
+        if (filtroOrigemNormalizado) {
+            filtered = filtered.filter(mat => {
+                const origemMaterial = mat.Origem || 'Importado';
+                return normalizarTexto(origemMaterial) === filtroOrigemNormalizado;
+            });
+        }
+        
+        // Filtros de data (sem alterações)
         if (startDate) filtered = filtered.filter(mat => new Date(mat.created_at) >= new Date(startDate));
         if (endDate) filtered = filtered.filter(mat => new Date(mat.created_at) <= new Date(endDate + 'T23:59:59'));
+
+        // Lógica de ordenação
         if (sortConfig.key) {
             filtered.sort((a, b) => {
-                if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
-                if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
+                const valA = a[sortConfig.key];
+                const valB = b[sortConfig.key];
+                
+                // Trata valores nulos ou indefinidos para evitar erros
+                if (valA == null || valB == null) {
+                    return valA == null ? 1 : -1;
+                }
+
+                // Normaliza os textos antes de comparar para ordenação correta
+                const valANormalizado = normalizarTexto(valA);
+                const valBNormalizado = normalizarTexto(valB);
+
+                if (valANormalizado < valBNormalizado) return sortConfig.direction === 'ascending' ? -1 : 1;
+                if (valANormalizado > valBNormalizado) return sortConfig.direction === 'ascending' ? 1 : -1;
                 return 0;
             });
         }
@@ -70,14 +113,13 @@ export default function MaterialManager({ initialMaterials }) {
     
     const requestSort = (key) => { let direction = 'ascending'; if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending'; setSortConfig({ key, direction }); };
     const getSortIcon = (key) => { if (sortConfig.key !== key) return faSort; return sortConfig.direction === 'ascending' ? faSortUp : faSortDown; };
-    const clearFilters = () => { setSearchTerm(''); setOriginFilter(''); setStartDate(''); setEndDate(''); setSortConfig({ key: 'descricao', direction: 'ascending' }); };
+    const clearFilters = () => { setSearchTerm(''); setOriginFilter(''); setStartDate(''); setEndDate(''); setSortConfig({ key: 'nome', direction: 'ascending' }); };
     const handleOpenAddModal = () => { setEditingMaterial(null); setIsFormModalOpen(true); };
     const handleOpenEditModal = (material) => { setEditingMaterial(material); setIsFormModalOpen(true); };
     
     const handleSaveMaterial = async (formData) => {
         const isEditing = Boolean(formData.id);
         let error;
-        // Garante que o nome seja usado se a descrição estiver vazia
         const dataToSave = { ...formData, descricao: formData.descricao || formData.nome };
         if (!isEditing) dataToSave.Origem = 'Manual';
         
@@ -111,17 +153,12 @@ export default function MaterialManager({ initialMaterials }) {
     
     const handleImportComplete = async () => {
         setIsImporterOpen(false);
-        const { data: updatedMaterials } = await supabase.from('materiais').select('*').order('descricao');
+        const { data: updatedMaterials } = await supabase.from('materiais').select('*').order('nome');
         setMaterials(updatedMaterials || []);
     };
     
-    const handleExport = async () => {
-        // ... (código original mantido)
-    };
-
-    const handlePurge = async () => {
-        // ... (código original mantido)
-    };
+    const handleExport = async () => { /* ... (código original mantido) ... */ };
+    const handlePurge = async () => { /* ... (código original mantido) ... */ };
 
     const formatDate = (dateString) => { if (!dateString) return 'N/A'; return new Date(dateString).toLocaleDateString('pt-BR'); };
 
@@ -131,7 +168,7 @@ export default function MaterialManager({ initialMaterials }) {
                 isOpen={isFormModalOpen} 
                 onClose={() => setIsFormModalOpen(false)} 
                 onSave={handleSaveMaterial} 
-                material={editingMaterial} // Prop renomeada para ser mais clara
+                material={editingMaterial}
                 fornecedores={fornecedores}
             />
             <MaterialImporter isOpen={isImporterOpen} onClose={() => setIsImporterOpen(false)} onImportComplete={handleImportComplete} />
@@ -149,12 +186,12 @@ export default function MaterialManager({ initialMaterials }) {
 
                 <div className="p-4 bg-gray-50 border rounded-lg space-y-4">
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                         <input type="text" placeholder="Buscar por descrição..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="p-2 border rounded-md shadow-sm lg:col-span-2"/>
+                         <input type="text" placeholder="Buscar por nome ou descrição..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="p-2 border rounded-md shadow-sm lg:col-span-2"/>
                          <select value={originFilter} onChange={e => setOriginFilter(e.target.value)} className="p-2 border rounded-md shadow-sm">
                              <option value="">Todas as Origens</option>
                              {uniqueOrigins.map(origin => <option key={origin} value={origin}>{origin || 'Importado'}</option>)}
                          </select>
-                    </div>
+                     </div>
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                          <div> <label className="text-xs font-medium">De:</label> <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border rounded-md shadow-sm w-full"/> </div>
                          <div> <label className="text-xs font-medium">Até:</label> <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border rounded-md shadow-sm w-full"/> </div>
@@ -165,41 +202,37 @@ export default function MaterialManager({ initialMaterials }) {
                 {message && <p className="text-center p-2 bg-green-50 text-green-700 rounded-md text-sm">{message}</p>}
 
                 <div className="border rounded-lg overflow-hidden">
-                    {/* ***** INÍCIO DA CORREÇÃO ***** */}
-                    <div className="bg-gray-50 grid grid-cols-12 px-6 py-2">
-                        <button onClick={() => requestSort('Origem')} className="col-span-2 text-left text-xs font-bold text-gray-600 uppercase flex items-center gap-2"> Origem <FontAwesomeIcon icon={getSortIcon('Origem')} /> </button>
-                        <button onClick={() => requestSort('nome')} className="col-span-5 text-left text-xs font-bold text-gray-600 uppercase flex items-center gap-2"> Nome <FontAwesomeIcon icon={getSortIcon('nome')} /> </button>
-                        {/* Nova coluna de Classificação */}
-                        <button onClick={() => requestSort('classificacao')} className="col-span-2 text-left text-xs font-bold text-gray-600 uppercase flex items-center gap-2"> Classificação <FontAwesomeIcon icon={getSortIcon('classificacao')} /> </button>
-                        <button onClick={() => requestSort('created_at')} className="col-span-2 text-left text-xs font-bold text-gray-600 uppercase flex items-center gap-2"> Data de Criação <FontAwesomeIcon icon={getSortIcon('created_at')} /> </button>
-                        <div className="col-span-1 text-center text-xs font-bold text-gray-600 uppercase">Ações</div>
-                    </div>
-                    <ul className="divide-y divide-gray-200">
-                        {processedMaterials.length > 0 ? (
-                            processedMaterials.map((material) => (
-                                <li key={material.id} className="grid grid-cols-12 px-6 py-4 items-center hover:bg-gray-50">
-                                    <div className="col-span-2 text-sm text-gray-700">{material.Origem || 'Importado'}</div>
-                                    <div className="col-span-5 text-sm font-medium text-gray-900">{material.nome || material.descricao}</div>
-                                    {/* Nova célula para exibir a Classificação com um selo colorido */}
-                                    <div className="col-span-2 text-sm">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                            material.classificacao === 'Equipamento' 
-                                            ? 'bg-orange-100 text-orange-800' 
-                                            : 'bg-teal-100 text-teal-800'
-                                        }`}>
-                                            {material.classificacao}
-                                        </span>
-                                    </div>
-                                    <div className="col-span-2 text-sm text-gray-700">{formatDate(material.created_at)}</div>
-                                    <div className="col-span-1 text-center space-x-4">
-                                        <button onClick={() => handleOpenEditModal(material)} title="Editar" className="text-blue-500 hover:text-blue-700"> <FontAwesomeIcon icon={faEdit} /> </button>
-                                        <button onClick={() => handleDelete(material.id)} title="Excluir" className="text-red-500 hover:text-red-700"> <FontAwesomeIcon icon={faTrash} /> </button>
-                                    </div>
-                                </li>
-                            ))
-                        ) : ( <li className="text-center py-10 text-gray-500">Nenhum material encontrado com os filtros aplicados.</li> )}
-                    </ul>
-                    {/* ***** FIM DA CORREÇÃO ***** */}
+                     <div className="bg-gray-50 grid grid-cols-12 px-6 py-2">
+                         <button onClick={() => requestSort('Origem')} className="col-span-2 text-left text-xs font-bold text-gray-600 uppercase flex items-center gap-2"> Origem <FontAwesomeIcon icon={getSortIcon('Origem')} /> </button>
+                         <button onClick={() => requestSort('nome')} className="col-span-5 text-left text-xs font-bold text-gray-600 uppercase flex items-center gap-2"> Nome <FontAwesomeIcon icon={getSortIcon('nome')} /> </button>
+                         <button onClick={() => requestSort('classificacao')} className="col-span-2 text-left text-xs font-bold text-gray-600 uppercase flex items-center gap-2"> Classificação <FontAwesomeIcon icon={getSortIcon('classificacao')} /> </button>
+                         <button onClick={() => requestSort('created_at')} className="col-span-2 text-left text-xs font-bold text-gray-600 uppercase flex items-center gap-2"> Data de Criação <FontAwesomeIcon icon={getSortIcon('created_at')} /> </button>
+                         <div className="col-span-1 text-center text-xs font-bold text-gray-600 uppercase">Ações</div>
+                     </div>
+                     <ul className="divide-y divide-gray-200">
+                         {processedMaterials.length > 0 ? (
+                             processedMaterials.map((material) => (
+                                 <li key={material.id} className="grid grid-cols-12 px-6 py-4 items-center hover:bg-gray-50">
+                                     <div className="col-span-2 text-sm text-gray-700">{material.Origem || 'Importado'}</div>
+                                     <div className="col-span-5 text-sm font-medium text-gray-900">{material.nome || material.descricao}</div>
+                                     <div className="col-span-2 text-sm">
+                                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                             material.classificacao === 'Equipamento' 
+                                             ? 'bg-orange-100 text-orange-800' 
+                                             : 'bg-teal-100 text-teal-800'
+                                         }`}>
+                                             {material.classificacao}
+                                         </span>
+                                     </div>
+                                     <div className="col-span-2 text-sm text-gray-700">{formatDate(material.created_at)}</div>
+                                     <div className="col-span-1 text-center space-x-4">
+                                         <button onClick={() => handleOpenEditModal(material)} title="Editar" className="text-blue-500 hover:text-blue-700"> <FontAwesomeIcon icon={faEdit} /> </button>
+                                         <button onClick={() => handleDelete(material.id)} title="Excluir" className="text-red-500 hover:text-red-700"> <FontAwesomeIcon icon={faTrash} /> </button>
+                                     </div>
+                                 </li>
+                             ))
+                         ) : ( <li className="text-center py-10 text-gray-500">Nenhum material encontrado com os filtros aplicados.</li> )}
+                     </ul>
                 </div>
             </div>
         </>

@@ -38,7 +38,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     const { user } = useAuth();
     const isEditing = Boolean(initialData?.id);
     
-    // ***** INÍCIO DA CORREÇÃO *****
     // Adicionado form_type 'transferencia' para controle interno
     const getInitialState = () => ({
         descricao: '', valor: '', data_transacao: new Date().toISOString().split('T')[0],
@@ -55,7 +54,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         conta_origem_id: null,
         conta_destino_id: null,
     });
-    // ***** FIM DA CORREÇÃO *****
 
     const [formData, setFormData] = useState(getInitialState());
     const [loading, setLoading] = useState(false);
@@ -122,8 +120,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         }
     }, [isOpen, initialData, supabase]);
 
-    // ***** INÍCIO DA CORREÇÃO *****
-    // Lógica de handleSubmit completamente refeita para suportar o novo modelo de transferências
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -195,8 +191,12 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     const { error: insertError } = await supabase.from('lancamentos').insert(lancamentosRecorrentes);
                     error = insertError;
                 } else { // Simples
-                    const { error: insertError } = await supabase.from('lancamentos').insert({ ...baseData, tipo: formData.tipo, conta_id: formData.conta_id, valor: valorNumerico, data_transacao: formData.data_transacao, data_vencimento: formData.data_vencimento, data_pagamento: formData.data_pagamento }).select().single();
+                    // ***** INÍCIO DA CORREÇÃO *****
+                    // A correção é aqui: o objeto do lançamento foi colocado dentro de um array `[]`
+                    // e o `.select().single()` desnecessário foi removido.
+                    const { error: insertError } = await supabase.from('lancamentos').insert([{ ...baseData, tipo: formData.tipo, conta_id: formData.conta_id, valor: valorNumerico, data_transacao: formData.data_transacao, data_vencimento: formData.data_vencimento, data_pagamento: formData.data_pagamento }]);
                     error = insertError;
+                    // ***** FIM DA CORREÇÃO *****
                 }
             }
     
@@ -214,13 +214,10 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             setLoading(false);
         }
     };
-    // ***** FIM DA CORREÇÃO *****
 
     const handleAiFileChange = (e) => { if (e.target.files && e.target.files[0]) { setAiFile(e.target.files[0]); } };
     const handleAiExtract = async () => { /* Código existente sem alteração */ };
     
-    // ***** INÍCIO DA CORREÇÃO *****
-    // Lógica de handleChange alterada para lidar com a seleção do tipo 'transferencia'
     const handleChange = (e) => {
         const { name, value } = e.target;
         let newFormData = { ...formData, [name]: value === '' ? null : value };
@@ -241,7 +238,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         }
         setFormData(newFormData);
     };
-    // ***** FIM DA CORREÇÃO *****
     
     const handleFavorecidoSearch = async (e) => { const value = e.target.value; setSearchAttempted(true); setFavorecidoSearchTerm(value); if (value.length < 2) { setFavorecidoSearchResults([]); return; } setIsSearchingFavorecido(true); const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: value }); setFavorecidoSearchResults(data || []); setIsSearchingFavorecido(false); };
     const handleSelectFavorecido = (contato) => { setFormData(prev => ({ ...prev, favorecido_contato_id: contato.id, novo_favorecido: null })); setFavorecidoSearchTerm(contato.nome || contato.razao_social); setFavorecidoSearchResults([]); };
@@ -265,184 +261,174 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 {message && <p className={`text-center p-3 rounded-md text-sm font-semibold mb-4 ${message.includes('ERRO') ? 'bg-red-100 text-red-800' : 'bg-blue-50 text-blue-800'}`}>{message}</p>}
                 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                     <div className="flex flex-col md:flex-row gap-6 p-2 bg-gray-100 rounded-lg">
-                         {/* ***** INÍCIO DA CORREÇÃO ***** */}
-                         {/* Lógica de botões alterada. Não se seleciona mais o tipo "Transferência" */}
-                         <div className="flex-1 space-y-2">
-                             <label className="text-sm font-semibold text-center text-gray-600 block">Natureza</label>
-                             <div className="flex gap-2">
-                                 <TipoToggleButton label="Despesa" icon={faArrowDown} isActive={formData.tipo === 'Despesa' && formData.form_type !== 'transferencia'} onClick={() => { if(isEditing) return; handleChange({ target: { name: 'tipo', value: 'Despesa' }})}} colorClass="bg-red-500 hover:bg-red-600" />
-                                 <TipoToggleButton label="Receita" icon={faArrowUp} isActive={formData.tipo === 'Receita' && formData.form_type !== 'transferencia'} onClick={() => { if(isEditing) return; handleChange({ target: { name: 'tipo', value: 'Receita' }})}} colorClass="bg-green-500 hover:bg-green-600" />
-                             </div>
-                         </div>
-                         {/* ***** FIM DA CORREÇÃO ***** */}
-                         {!isEditing && (
+                         <div className="flex flex-col md:flex-row gap-6 p-2 bg-gray-100 rounded-lg">
                              <div className="flex-1 space-y-2">
-                                 <label className="text-sm font-semibold text-center text-gray-600 block">Estrutura</label>
+                                 <label className="text-sm font-semibold text-center text-gray-600 block">Natureza</label>
                                  <div className="flex gap-2">
-                                     <TipoToggleButton label="Simples" icon={faReceipt} isActive={formData.form_type === 'simples'} onClick={() => handleChange({ target: { name: 'form_type', value: 'simples' }})} />
-                                     <TipoToggleButton label="Parcelado" icon={faCalendarAlt} isActive={formData.form_type === 'parcelado'} onClick={() => handleChange({ target: { name: 'form_type', value: 'parcelado' }})} />
-                                     <TipoToggleButton label="Recorrente" icon={faRetweet} isActive={formData.form_type === 'recorrente'} onClick={() => handleChange({ target: { name: 'form_type', value: 'recorrente' }})} />
-                                     {/* ***** NOVO BOTÃO ***** */}
-                                     <TipoToggleButton label="Transferência" icon={faExchangeAlt} isActive={formData.form_type === 'transferencia'} onClick={() => handleChange({ target: { name: 'form_type', value: 'transferencia' }})} colorClass="bg-yellow-500 hover:bg-yellow-600 text-gray-800" />
+                                     <TipoToggleButton label="Despesa" icon={faArrowDown} isActive={formData.tipo === 'Despesa' && formData.form_type !== 'transferencia'} onClick={() => { if(isEditing) return; handleChange({ target: { name: 'tipo', value: 'Despesa' }})}} colorClass="bg-red-500 hover:bg-red-600" />
+                                     <TipoToggleButton label="Receita" icon={faArrowUp} isActive={formData.tipo === 'Receita' && formData.form_type !== 'transferencia'} onClick={() => { if(isEditing) return; handleChange({ target: { name: 'tipo', value: 'Receita' }})}} colorClass="bg-green-500 hover:bg-green-600" />
                                  </div>
                              </div>
-                         )}
-                     </div>
-                     <div className="space-y-4 pt-4 border-t">
-                         <input type="text" name="descricao" value={formData.descricao || ''} onChange={handleChange} required placeholder="Descrição do Lançamento *" className="w-full p-2 border rounded-md" />
-                         
-                         {formData.form_type === 'parcelado' && !isEditing && (
-                             <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in">
-                                 <legend className="font-semibold text-sm">Detalhes do Parcelamento</legend>
-                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                                     <div>
-                                         <label className="block text-sm font-medium">Valor Total *</label>
-                                         <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/>
-                                     </div>
-                                     <div>
-                                         <label className="block text-sm font-medium">Nº de Parcelas *</label>
-                                         <input type="number" min="2" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} required className="w-full p-2 border rounded-md"/>
-                                     </div>
-                                      <div>
-                                         <label className="block text-sm font-medium">1º Vencimento *</label>
-                                         <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/>
+                             {!isEditing && (
+                                 <div className="flex-1 space-y-2">
+                                     <label className="text-sm font-semibold text-center text-gray-600 block">Estrutura</label>
+                                     <div className="flex gap-2">
+                                         <TipoToggleButton label="Simples" icon={faReceipt} isActive={formData.form_type === 'simples'} onClick={() => handleChange({ target: { name: 'form_type', value: 'simples' }})} />
+                                         <TipoToggleButton label="Parcelado" icon={faCalendarAlt} isActive={formData.form_type === 'parcelado'} onClick={() => handleChange({ target: { name: 'form_type', value: 'parcelado' }})} />
+                                         <TipoToggleButton label="Recorrente" icon={faRetweet} isActive={formData.form_type === 'recorrente'} onClick={() => handleChange({ target: { name: 'form_type', value: 'recorrente' }})} />
+                                         <TipoToggleButton label="Transferência" icon={faExchangeAlt} isActive={formData.form_type === 'transferencia'} onClick={() => handleChange({ target: { name: 'form_type', value: 'transferencia' }})} colorClass="bg-yellow-500 hover:bg-yellow-600 text-gray-800" />
                                      </div>
                                  </div>
-                             </fieldset>
-                         )}
+                             )}
+                         </div>
+                         <div className="space-y-4 pt-4 border-t">
+                             <input type="text" name="descricao" value={formData.descricao || ''} onChange={handleChange} required placeholder="Descrição do Lançamento *" className="w-full p-2 border rounded-md" />
+                             
+                             {formData.form_type === 'parcelado' && !isEditing && (
+                                 <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in">
+                                     <legend className="font-semibold text-sm">Detalhes do Parcelamento</legend>
+                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                         <div>
+                                             <label className="block text-sm font-medium">Valor Total *</label>
+                                             <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/>
+                                         </div>
+                                         <div>
+                                             <label className="block text-sm font-medium">Nº de Parcelas *</label>
+                                             <input type="number" min="2" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} required className="w-full p-2 border rounded-md"/>
+                                         </div>
+                                          <div>
+                                             <label className="block text-sm font-medium">1º Vencimento *</label>
+                                             <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/>
+                                         </div>
+                                     </div>
+                                 </fieldset>
+                             )}
 
-                         {formData.form_type === 'recorrente' && !isEditing && (
-                             <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in">
-                                 <legend className="font-semibold text-sm">Detalhes da Recorrência</legend>
-                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                                     <div>
-                                        <label className="block text-sm font-medium">Valor Mensal *</label>
-                                        <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/>
+                             {formData.form_type === 'recorrente' && !isEditing && (
+                                 <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in">
+                                     <legend className="font-semibold text-sm">Detalhes da Recorrência</legend>
+                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                         <div>
+                                            <label className="block text-sm font-medium">Valor Mensal *</label>
+                                            <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/>
+                                         </div>
+                                         <div>
+                                            <label className="block text-sm font-medium">Data Início *</label>
+                                            <input type="date" name="recorrencia_data_inicio" value={formData.recorrencia_data_inicio} onChange={handleChange} required className="w-full p-2 border rounded-md"/>
+                                         </div>
+                                         <div>
+                                            <label className="block text-sm font-medium">Data Fim (Opcional)</label>
+                                            <input type="date" name="recorrencia_data_fim" value={formData.recorrencia_data_fim || ''} onChange={handleChange} className="w-full p-2 border rounded-md"/>
+                                         </div>
                                      </div>
-                                     <div>
-                                        <label className="block text-sm font-medium">Data Início *</label>
-                                        <input type="date" name="recorrencia_data_inicio" value={formData.recorrencia_data_inicio} onChange={handleChange} required className="w-full p-2 border rounded-md"/>
-                                     </div>
-                                     <div>
-                                        <label className="block text-sm font-medium">Data Fim (Opcional)</label>
-                                        <input type="date" name="recorrencia_data_fim" value={formData.recorrencia_data_fim || ''} onChange={handleChange} className="w-full p-2 border rounded-md"/>
-                                     </div>
-                                 </div>
-                             </fieldset>
-                         )}
+                                 </fieldset>
+                             )}
 
-                        {/* ***** INÍCIO DA CORREÇÃO ***** */}
-                        {/* Seção de valor e data agora é um componente único que aparece para Simples e Transferência */}
-                        {(formData.form_type === 'simples' || formData.form_type === 'transferencia') && (
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                 <div>
-                                     <label className="block text-sm font-medium">Valor *</label>
-                                     <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleChange({target: {name: 'valor', value: unmaskedValue}})} required className="w-full p-2 border rounded-md"/>
+                             {(formData.form_type === 'simples' || formData.form_type === 'transferencia') && (
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <div>
+                                         <label className="block text-sm font-medium">Valor *</label>
+                                         <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleChange({target: {name: 'valor', value: unmaskedValue}})} required className="w-full p-2 border rounded-md"/>
+                                     </div>
+                                     <div>
+                                         <label className="block text-sm font-medium">{formData.form_type === 'transferencia' ? 'Data da Transferência *' : 'Data de Vencimento *'}</label>
+                                         <input type="date" name="data_vencimento" value={formData.data_vencimento || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"/>
+                                     </div>
                                  </div>
-                                 <div>
-                                     <label className="block text-sm font-medium">{formData.form_type === 'transferencia' ? 'Data da Transferência *' : 'Data de Vencimento *'}</label>
-                                     <input type="date" name="data_vencimento" value={formData.data_vencimento || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"/>
+                             )}
+                             
+                             {isEditing && (
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <div>
+                                         <label className="block text-sm font-medium">Status</label>
+                                         <select name="status" value={formData.status || 'Pendente'} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
+                                             <option value="Pendente">Pendente</option>
+                                             <option value="Pago">Pago</option>
+                                         </select>
+                                     </div>
+                                     {formData.status === 'Pago' && (
+                                         <div className="animate-fade-in">
+                                             <label className="block text-sm font-medium">Data do Pagamento</label>
+                                             <input type="date" name="data_pagamento" value={formData.data_pagamento || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md bg-green-50" />
+                                         </div>
+                                     )}
                                  </div>
-                              </div>
-                        )}
-                        {/* ***** FIM DA CORREÇÃO ***** */}
-                         
-                         {isEditing && (
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                 <div>
-                                     <label className="block text-sm font-medium">Status</label>
-                                     <select name="status" value={formData.status || 'Pendente'} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
-                                         <option value="Pendente">Pendente</option>
-                                         <option value="Pago">Pago</option>
-                                     </select>
+                             )}
+                             
+                             {formData.form_type === 'transferencia' ? (
+                                 <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in">
+                                     <legend className="font-semibold text-sm">Contas da Transferência</legend>
+                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                                         <div><label className="block text-sm font-medium">De (Origem)*</label><select name="conta_origem_id" value={formData.conta_origem_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
+                                         <div><label className="block text-sm font-medium">Para (Destino)*</label><select name="conta_destino_id" value={formData.conta_destino_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{contas.filter(c => c.id !== formData.conta_origem_id).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
+                                     </div>
+                                </fieldset>
+                             ) : (
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <div><label className="block text-sm font-medium">Conta*</label><select name="conta_id" value={formData.conta_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
+                                     <div><label className="block text-sm font-medium">Categoria</label><select name="categoria_id" value={formData.categoria_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{filteredCategorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
+                                     <div className="md:col-span-2 relative">
+                                         <label className="block text-sm font-medium">Favorecido / Fornecedor</label>
+                                         <input type="text" value={favorecidoSearchTerm} onChange={handleFavorecidoSearch} disabled={!!formData.favorecido_contato_id} placeholder={formData.favorecido_contato_id ? '' : 'Digite para buscar...'} className="mt-1 w-full p-2 border rounded-md" />
+                                         {formData.favorecido_contato_id && (
+                                             <button type="button" onClick={handleClearFavorecido} className="absolute right-2 top-8 text-gray-500 hover:text-red-600"><FontAwesomeIcon icon={faTimes} /></button>
+                                         )}
+                                         {favorecidoSearchTerm && !formData.favorecido_contato_id && (
+                                             <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg">
+                                                 {isSearchingFavorecido && <li className="px-4 py-2 text-gray-500">Buscando...</li>}
+                                                 {!isSearchingFavorecido && searchAttempted && favorecidoSearchResults.length === 0 && (
+                                                     <li className="px-4 py-2 text-center text-gray-500">Nenhum resultado. <button type="button" onClick={handleAddNewFavorecido} className="text-blue-600 hover:underline font-semibold ml-2">Adicionar Novo?</button></li>
+                                                 )}
+                                                 {favorecidoSearchResults.map(contato => (
+                                                     <li key={contato.id} onClick={() => handleSelectFavorecido(contato)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={contato.nome || contato.razao_social} highlight={favorecidoSearchTerm} /></li>
+                                                 ))}
+                                             </ul>
+                                         )}
+                                     </div>
+                                     <div><label className="block text-sm font-medium">Empresa</label><select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!!formData.empreendimento_id}><option value="">Nenhuma</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}</select></div>
+                                     <div><label className="block text-sm font-medium">Empreendimento</label><select name="empreendimento_id" value={formData.empreendimento_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Nenhum</option>{empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></div>
+                                     <div><label className="block text-sm font-medium">Etapa da Obra</label><select name="etapa_id" value={formData.etapa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!formData.empreendimento_id}><option value="">Nenhuma</option>{etapas.map(e => <option key={e.id} value={e.id}>{e.nome_etapa}</option>)}</select></div>
                                  </div>
-                                 {formData.status === 'Pago' && (
-                                     <div className="animate-fade-in">
-                                         <label className="block text-sm font-medium">Data do Pagamento</label>
-                                         <input type="date" name="data_pagamento" value={formData.data_pagamento || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md bg-green-50" />
+                             )}
+
+                             <div className="pt-4 border-t">
+                                 <label className="block text-sm font-medium mb-2">Anexo</label>
+                                 {anexoVisivel ? (
+                                     <div className="p-3 border rounded-md bg-gray-50 flex items-center justify-between">
+                                         <div className="flex items-center gap-3 text-sm">
+                                             <FontAwesomeIcon icon={faFileLines} className="text-gray-600" />
+                                             <span>{nomeAnexoVisivel}</span>
+                                             {formData.anexo_preexistente && <span className="text-xs font-bold text-green-700">(Anexado do Pedido)</span>}
+                                         </div>
+                                         <div className="flex items-center gap-4">
+                                             {(formData.anexo.id || formData.anexo_preexistente) && <button type="button" onClick={handleViewAnexo} className="text-blue-600 hover:text-blue-800"><FontAwesomeIcon icon={faEye} title="Visualizar Anexo" /></button>}
+                                             <button type="button" onClick={handleRemoveAnexo} className="text-red-600 hover:text-red-800"><FontAwesomeIcon icon={faTrashAlt} title="Remover Anexo" /></button>
+                                         </div>
+                                     </div>
+                                 ) : (
+                                     <div onDragEnter={handleDragEvents} onDragLeave={handleDragEvents} onDragOver={handleDragEvents} onDrop={handleDrop} className={`p-6 border-2 border-dashed rounded-md text-center cursor-pointer ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white'}`}>
+                                         <input type="file" id="anexo-upload" className="hidden" onChange={(e) => handleAnexoChange(e.target.files)} />
+                                         <label htmlFor="anexo-upload" className="cursor-pointer">
+                                             <FontAwesomeIcon icon={faUpload} className="text-gray-500 text-2xl mb-2" />
+                                             <p className="text-sm text-gray-600">Arraste e solte um arquivo aqui, ou <span className="font-semibold text-blue-600">clique para selecionar</span>.</p>
+                                         </label>
                                      </div>
                                  )}
-                             </div>
-                         )}
-                         
-                         {/* ***** INÍCIO DA CORREÇÃO ***** */}
-                         {/* Lógica de exibição de contas e outros campos adaptada para o novo form_type */}
-                         {formData.form_type === 'transferencia' ? (
-                             <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in">
-                                 <legend className="font-semibold text-sm">Contas da Transferência</legend>
-                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                                     <div><label className="block text-sm font-medium">De (Origem)*</label><select name="conta_origem_id" value={formData.conta_origem_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
-                                     <div><label className="block text-sm font-medium">Para (Destino)*</label><select name="conta_destino_id" value={formData.conta_destino_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{contas.filter(c => c.id !== formData.conta_origem_id).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                     <input type="text" name="anexo.descricao" value={formData.anexo.descricao || ''} onChange={(e) => setFormData(prev => ({...prev, anexo: {...prev.anexo, descricao: e.target.value}}))} placeholder="Descrição do anexo" className="w-full p-2 border rounded-md" />
+                                     <select name="anexo.tipo_documento_id" value={formData.anexo.tipo_documento_id || ''} onChange={(e) => setFormData(prev => ({...prev, anexo: {...prev.anexo, tipo_documento_id: e.target.value || null}}))} className="w-full p-2 border rounded-md">
+                                         <option value="">Tipo de Documento...</option>
+                                         {tiposDocumento.map(tipo => <option key={tipo.id} value={tipo.id}>{tipo.sigla} - {tipo.descricao}</option>)}
+                                     </select>
                                  </div>
-                            </fieldset>
-                         ) : (
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                 <div><label className="block text-sm font-medium">Conta*</label><select name="conta_id" value={formData.conta_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
-                                 <div><label className="block text-sm font-medium">Categoria</label><select name="categoria_id" value={formData.categoria_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{filteredCategorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
-                                 <div className="md:col-span-2 relative">
-                                    <label className="block text-sm font-medium">Favorecido / Fornecedor</label>
-                                    <input type="text" value={favorecidoSearchTerm} onChange={handleFavorecidoSearch} disabled={!!formData.favorecido_contato_id} placeholder={formData.favorecido_contato_id ? '' : 'Digite para buscar...'} className="mt-1 w-full p-2 border rounded-md" />
-                                    {formData.favorecido_contato_id && (
-                                        <button type="button" onClick={handleClearFavorecido} className="absolute right-2 top-8 text-gray-500 hover:text-red-600"><FontAwesomeIcon icon={faTimes} /></button>
-                                    )}
-                                    {favorecidoSearchTerm && !formData.favorecido_contato_id && (
-                                        <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg">
-                                            {isSearchingFavorecido && <li className="px-4 py-2 text-gray-500">Buscando...</li>}
-                                            {!isSearchingFavorecido && searchAttempted && favorecidoSearchResults.length === 0 && (
-                                                <li className="px-4 py-2 text-center text-gray-500">Nenhum resultado. <button type="button" onClick={handleAddNewFavorecido} className="text-blue-600 hover:underline font-semibold ml-2">Adicionar Novo?</button></li>
-                                            )}
-                                            {favorecidoSearchResults.map(contato => (
-                                                <li key={contato.id} onClick={() => handleSelectFavorecido(contato)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={contato.nome || contato.razao_social} highlight={favorecidoSearchTerm} /></li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                 </div>
-                                 <div><label className="block text-sm font-medium">Empresa</label><select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!!formData.empreendimento_id}><option value="">Nenhuma</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}</select></div>
-                                 <div><label className="block text-sm font-medium">Empreendimento</label><select name="empreendimento_id" value={formData.empreendimento_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Nenhum</option>{empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></div>
-                                 <div><label className="block text-sm font-medium">Etapa da Obra</label><select name="etapa_id" value={formData.etapa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!formData.empreendimento_id}><option value="">Nenhuma</option>{etapas.map(e => <option key={e.id} value={e.id}>{e.nome_etapa}</option>)}</select></div>
-                             </div>
-                         )}
-                         {/* ***** FIM DA CORREÇÃO ***** */}
-
-                         <div className="pt-4 border-t">
-                             <label className="block text-sm font-medium mb-2">Anexo</label>
-                             {anexoVisivel ? (
-                                <div className="p-3 border rounded-md bg-gray-50 flex items-center justify-between">
-                                    <div className="flex items-center gap-3 text-sm">
-                                        <FontAwesomeIcon icon={faFileLines} className="text-gray-600" />
-                                        <span>{nomeAnexoVisivel}</span>
-                                        {formData.anexo_preexistente && <span className="text-xs font-bold text-green-700">(Anexado do Pedido)</span>}
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        {(formData.anexo.id || formData.anexo_preexistente) && <button type="button" onClick={handleViewAnexo} className="text-blue-600 hover:text-blue-800"><FontAwesomeIcon icon={faEye} title="Visualizar Anexo" /></button>}
-                                        <button type="button" onClick={handleRemoveAnexo} className="text-red-600 hover:text-red-800"><FontAwesomeIcon icon={faTrashAlt} title="Remover Anexo" /></button>
-                                    </div>
-                                </div>
-                             ) : (
-                                <div onDragEnter={handleDragEvents} onDragLeave={handleDragEvents} onDragOver={handleDragEvents} onDrop={handleDrop} className={`p-6 border-2 border-dashed rounded-md text-center cursor-pointer ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white'}`}>
-                                    <input type="file" id="anexo-upload" className="hidden" onChange={(e) => handleAnexoChange(e.target.files)} />
-                                    <label htmlFor="anexo-upload" className="cursor-pointer">
-                                        <FontAwesomeIcon icon={faUpload} className="text-gray-500 text-2xl mb-2" />
-                                        <p className="text-sm text-gray-600">Arraste e solte um arquivo aqui, ou <span className="font-semibold text-blue-600">clique para selecionar</span>.</p>
-                                    </label>
-                                </div>
-                             )}
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                <input type="text" name="anexo.descricao" value={formData.anexo.descricao || ''} onChange={(e) => setFormData(prev => ({...prev, anexo: {...prev.anexo, descricao: e.target.value}}))} placeholder="Descrição do anexo" className="w-full p-2 border rounded-md" />
-                                <select name="anexo.tipo_documento_id" value={formData.anexo.tipo_documento_id || ''} onChange={(e) => setFormData(prev => ({...prev, anexo: {...prev.anexo, tipo_documento_id: e.target.value || null}}))} className="w-full p-2 border rounded-md">
-                                    <option value="">Tipo de Documento...</option>
-                                    {tiposDocumento.map(tipo => <option key={tipo.id} value={tipo.id}>{tipo.sigla} - {tipo.descricao}</option>)}
-                                </select>
                              </div>
                          </div>
-                     </div>
-                     <div className="flex justify-end gap-4 pt-4 border-t">
-                         <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                         <button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
-                             {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : (isEditing ? 'Salvar Alterações' : 'Criar Lançamento')}
-                         </button>
-                     </div>
+                         <div className="flex justify-end gap-4 pt-4 border-t">
+                             <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                             <button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
+                                 {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : (isEditing ? 'Salvar Alterações' : 'Criar Lançamento')}
+                             </button>
+                         </div>
                 </form>
             </div>
         </div>
