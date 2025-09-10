@@ -6,7 +6,8 @@ import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faColumns, faTrashAlt, faEdit, faSort, faSortUp, faSortDown, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { formatPhoneNumber } from '../utils/formatters';
-import MergeModal from './contatos/MergeModal'; // Importar o novo modal
+import MergeModal from './contatos/MergeModal';
+import { toast } from 'sonner'; // Importamos o toast para notificações
 
 const ProgressCircle = ({ score }) => {
     const percentage = Math.min(Math.max(score, 0), 100);
@@ -58,8 +59,6 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false);
   const columnSelectorRef = useRef(null);
   const [sortConfig, setSortConfig] = useState({ key: 'display_name', direction: 'ascending' });
-  
-  // Novo estado para o modal de mesclagem
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
 
   const requestSort = (key) => {
@@ -127,12 +126,32 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
 
   const handleSelectAll = (e) => setSelectedContatos(e.target.checked ? sortedAndFilteredContatos.map(c => c.id) : []);
   const handleSelectOne = (id) => setSelectedContatos(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
+  
+  // ***** INÍCIO DA CORREÇÃO *****
   const handleDeleteSelected = async () => {
-    if (selectedContatos.length === 0 || !window.confirm(`Excluir ${selectedContatos.length} contato(s)?`)) return;
-    const { error } = await supabase.from('contatos').delete().in('id', selectedContatos);
-    if (error) alert('Erro: ' + error.message);
-    else { setSelectedContatos([]); if (onActionComplete) onActionComplete(); }
+    if (selectedContatos.length === 0 || !window.confirm(`Excluir ${selectedContatos.length} contato(s)? Esta ação cuidará das associações existentes, mas não pode ser desfeita.`)) return;
+
+    // Criamos uma promessa para cada exclusão usando a nossa função RPC "inteligente"
+    const deletePromises = selectedContatos.map(id =>
+        supabase.rpc('delete_contato_completo', { p_contato_id: id })
+    );
+
+    // Usamos o toast.promise para mostrar o status do processo de exclusão
+    toast.promise(Promise.all(deletePromises), {
+        loading: `Excluindo ${selectedContatos.length} contato(s)...`,
+        success: () => {
+            setSelectedContatos([]); // Limpa a seleção
+            if (onActionComplete) onActionComplete(); // Atualiza a lista na tela principal
+            return `${selectedContatos.length} contato(s) excluído(s) com sucesso!`;
+        },
+        error: (err) => {
+            // Em caso de erro em qualquer uma das promessas
+            if (onActionComplete) onActionComplete(); // Atualiza a lista mesmo em caso de erro parcial
+            return `Erro ao excluir um ou mais contatos: ${err.message}`;
+        }
+    });
   };
+  // ***** FIM DA CORREÇÃO *****
 
   const SortableHeader = ({ col }) => {
     const getSortIcon = () => {
@@ -149,7 +168,6 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
     );
   };
   
-  // Contatos selecionados para mesclagem
   const contactsToMerge = useMemo(() => {
     return contatos.filter(c => selectedContatos.includes(c.id));
   }, [selectedContatos, contatos]);
@@ -161,7 +179,6 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
 
   return (
     <div className="space-y-4">
-      {/* Adicionar o Modal de Mesclagem */}
       <MergeModal
         isOpen={isMergeModalOpen}
         onClose={() => setIsMergeModalOpen(false)}
@@ -177,7 +194,6 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
         <div className="flex items-center gap-4">
             {selectedContatos.length > 0 && (
                 <>
-                    {/* Botão Unir aparece quando 2 ou mais contatos são selecionados */}
                     {selectedContatos.length >= 2 && (
                         <button onClick={() => setIsMergeModalOpen(true)} className="p-2 border rounded-md w-full md:w-auto shadow-sm bg-orange-500 text-white hover:bg-orange-600 flex items-center justify-center gap-2">
                             <FontAwesomeIcon icon={faUsers} />
