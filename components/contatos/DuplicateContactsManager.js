@@ -5,6 +5,7 @@ import { createClient } from '../../utils/supabase/client';
 import { formatPhoneNumber } from '../../utils/formatters';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUsers, faIdCard, faBuilding, faPhone, faEnvelope, faSpinner, faLink, faBolt } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'sonner';
 
 export default function DuplicateContactsManager() {
     const supabase = createClient();
@@ -12,12 +13,10 @@ export default function DuplicateContactsManager() {
     const [loading, setLoading] = useState(true);
     const [mergingGroupId, setMergingGroupId] = useState(null);
     const [isMergingAll, setIsMergingAll] = useState(false);
-    const [message, setMessage] = useState('');
 
     const fetchDuplicates = useCallback(() => {
         setLoading(true);
-        setMessage('');
-        fetch('/api/contatos/duplicates', { cache: 'no-store' })
+        const promise = fetch('/api/contatos/duplicates', { cache: 'no-store' })
           .then(res => {
               if (!res.ok) {
                   return res.json().then(err => { throw new Error(err.error || 'Erro na resposta da API') });
@@ -26,13 +25,16 @@ export default function DuplicateContactsManager() {
           })
           .then(data => {
             setDuplicateGroups(data);
-          })
-          .catch(err => {
-            console.error("Erro ao buscar duplicatas:", err);
-            setMessage(`Falha ao carregar duplicatas: ${err.message}`);
-          })
-          .finally(() => setLoading(false));
-      }, []);
+            return data.length > 0 ? `${data.length} grupos de duplicatas encontrados.` : 'Nenhuma duplicata encontrada!';
+          });
+        
+        toast.promise(promise, {
+            loading: 'Buscando contatos duplicados...',
+            success: (message) => message,
+            error: (err) => `Falha ao carregar: ${err.message}`,
+            finally: () => setLoading(false)
+        });
+    }, []);
 
     useEffect(() => {
         fetchDuplicates();
@@ -42,73 +44,64 @@ export default function DuplicateContactsManager() {
         if (!window.confirm(`Tem certeza que deseja mesclar ${group.contatos.length} contatos encontrados pelo ${group.type}: "${group.value}"? Esta ação não pode ser desfeita.`)) {
             return;
         }
-
         setMergingGroupId(group.value);
-        setMessage(`Mesclando contatos do grupo: ${group.value}...`);
-
+        
         const contactIds = group.contatos.map(c => c.id);
 
-        const { data, error } = await supabase.rpc('merge_contatos', {
+        const promise = supabase.rpc('auto_merge_contacts_and_relink', {
             p_contact_ids: contactIds
         });
 
-        if (error) {
-            setMessage(`Erro ao mesclar: ${error.message}`);
-            console.error("Erro na RPC merge_contatos:", error);
-        } else {
-            setMessage(data[0].message);
-            fetchDuplicates();
-        }
-
-        setMergingGroupId(null);
-        setTimeout(() => setMessage(''), 5000);
+        toast.promise(promise, {
+            loading: `Mesclando grupo: ${group.value}...`,
+            success: (response) => {
+                fetchDuplicates();
+                return response.data;
+            },
+            error: (err) => `Erro ao mesclar: ${err.message}`,
+            finally: () => setMergingGroupId(null)
+        });
     };
 
     const handleMergeAll = async () => {
         if (!window.confirm(`Tem certeza que deseja mesclar TODOS os ${duplicateGroups.length} grupos de contatos duplicados? Esta ação é irreversível e pode levar alguns segundos.`)) {
             return;
         }
-
         setIsMergingAll(true);
-
-        for (let i = 0; i < duplicateGroups.length; i++) {
-            const group = duplicateGroups[i];
-            setMergingGroupId(group.value);
-            setMessage(`(${i + 1}/${duplicateGroups.length}) Mesclando grupo por ${group.type}: ${group.value}...`);
-
-            const contactIds = group.contatos.map(c => c.id);
-            const { error } = await supabase.rpc('merge_contatos', { p_contact_ids: contactIds });
-
-            if (error) {
-                setMessage(`Erro ao mesclar o grupo "${group.value}": ${error.message}. A operação foi interrompida.`);
-                setIsMergingAll(false);
-                setMergingGroupId(null);
-                fetchDuplicates();
-                return;
+        
+        const mergeAllPromise = (async () => {
+            for (let i = 0; i < duplicateGroups.length; i++) {
+                const group = duplicateGroups[i];
+                const contactIds = group.contatos.map(c => c.id);
+                const { error } = await supabase.rpc('auto_merge_contacts_and_relink', { p_contact_ids: contactIds });
+                if (error) {
+                    throw new Error(`Erro no grupo "${group.value}": ${error.message}. Operação interrompida.`);
+                }
             }
-            await new Promise(resolve => setTimeout(resolve, 300));
-        }
+            return `Todos os ${duplicateGroups.length} grupos foram mesclados com sucesso!`;
+        })();
 
-        setMessage('Todos os grupos foram mesclados com sucesso!');
-        setIsMergingAll(false);
-        setMergingGroupId(null);
-        fetchDuplicates();
-        setTimeout(() => setMessage(''), 5000);
+        toast.promise(mergeAllPromise, {
+            loading: 'Iniciando mesclagem de todos os grupos...',
+            success: (message) => {
+                fetchDuplicates();
+                return message;
+            },
+            error: (err) => err.message,
+            finally: () => setIsMergingAll(false)
+        });
     };
 
     if (loading) {
         return (
             <div className="text-center p-10">
                 <FontAwesomeIcon icon={faSpinner} spin size="3x" className="text-gray-400" />
-                <p className="mt-4 text-lg">Buscando contatos duplicados...</p>
             </div>
         );
     }
 
     return (
         <div className="space-y-8">
-            {message && <div className={`p-3 text-center rounded-md font-semibold ${message.includes('Erro') ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>{message}</div>}
-            
             {duplicateGroups.length > 0 && !loading && (
                 <div className="p-4 bg-gray-50 rounded-lg flex flex-col sm:flex-row items-center justify-center sm:justify-end border">
                     <p className="text-sm text-gray-700 font-medium sm:mr-4 mb-2 sm:mb-0">
@@ -154,7 +147,7 @@ export default function DuplicateContactsManager() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {group.contatos.map(contato => (
                             <div key={contato.id} className="border p-4 rounded-lg bg-gray-50 space-y-3">
-                            <h3 className="font-bold text-lg">{contato.nome}</h3>
+                            <h3 className="font-bold text-lg">{contato.nome || contato.razao_social}</h3>
                             <p><FontAwesomeIcon icon={faBuilding} className="mr-2 w-4 text-gray-500" /> {contato.tipo_contato}</p>
                             
                             {contato.cpf && <p><span className="font-semibold">CPF:</span> {contato.cpf}</p>}
@@ -164,7 +157,7 @@ export default function DuplicateContactsManager() {
                                 <div className="flex items-start">
                                     <FontAwesomeIcon icon={faPhone} className="mr-2 w-4 mt-1 text-gray-500" />
                                     <div>
-                                        {contato.telefones.map((tel, i) => <span key={i} className="block">{formatPhoneNumber(tel)}</span>)}
+                                        {contato.telefones.map((tel, i) => <span key={i} className="block">{formatPhoneNumber(tel.telefone)}</span>)}
                                     </div>
                                 </div>
                             )}
@@ -173,7 +166,7 @@ export default function DuplicateContactsManager() {
                                 <div className="flex items-start">
                                     <FontAwesomeIcon icon={faEnvelope} className="mr-2 w-4 mt-1 text-gray-500" />
                                     <div className="truncate">
-                                        {contato.emails.map((email, i) => <span key={i} className="block">{email}</span>)}
+                                        {contato.emails.map((email, i) => <span key={i} className="block">{email.email}</span>)}
                                     </div>
                                 </div>
                             )}

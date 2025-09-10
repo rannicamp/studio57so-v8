@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faCheckCircle, faUsers, faTimes, faArrowRight } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faUsers, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
 const MergeField = ({ field, contacts, finalContact, setFinalContact }) => {
@@ -78,10 +78,17 @@ export default function MergeModal({ isOpen, onClose, contactsToMerge, onMergeCo
             const initialPrimary = contactsToMerge[0];
             setPrimaryContactId(initialPrimary.id);
 
+            // Combina todos os telefones e emails para a seleção inicial
+            const allTelefones = contactsToMerge.flatMap(c => c.telefones || []);
+            const uniqueTelefones = Array.from(new Map(allTelefones.map(item => [item.telefone, item])).values());
+            
+            const allEmails = contactsToMerge.flatMap(c => c.emails || []);
+            const uniqueEmails = Array.from(new Map(allEmails.map(item => [item.email, item])).values());
+
             const initialFinalContact = {
                 ...initialPrimary,
-                telefones: contactsToMerge.flatMap(c => c.telefones || []),
-                emails: contactsToMerge.flatMap(c => c.emails || [])
+                telefones: uniqueTelefones,
+                emails: uniqueEmails,
             };
             setFinalContact(initialFinalContact);
         }
@@ -102,17 +109,18 @@ export default function MergeModal({ isOpen, onClose, contactsToMerge, onMergeCo
         const promise = new Promise(async (resolve, reject) => {
             const secondaryContactIds = contactsToMerge.map(c => c.id).filter(id => id !== primaryContactId);
             
-            // Prepara o objeto final para o update, removendo chaves que não são colunas
-            const finalDataForUpdate = { ...finalContact };
-            delete finalDataForUpdate.telefones;
-            delete finalDataForUpdate.emails;
-            // Remove qualquer outra chave que não seja uma coluna direta da tabela 'contatos'
-            delete finalDataForUpdate.display_name;
-            delete finalDataForUpdate.documento;
-            delete finalDataForUpdate.email;
-            delete finalDataForUpdate.telefone;
+            // Prepara o objeto final para o update, garantindo que apenas colunas da tabela 'contatos' sejam enviadas
+            const finalDataForUpdate = {
+                nome: finalContact.nome || null,
+                razao_social: finalContact.razao_social || null,
+                cpf: finalContact.cpf || null,
+                cnpj: finalContact.cnpj || null,
+                tipo_contato: finalContact.tipo_contato || null,
+            };
 
-            const { data, error } = await supabase.rpc('merge_contatos_manualmente', {
+            // ***** AQUI ESTÁ A MUDANÇA PRINCIPAL *****
+            // Chamamos a nova função RPC com todos os dados necessários
+            const { data, error } = await supabase.rpc('merge_contacts_and_relink_all_references', {
                 p_primary_contact_id: primaryContactId,
                 p_secondary_contact_ids: secondaryContactIds,
                 p_final_data: finalDataForUpdate,
@@ -125,13 +133,13 @@ export default function MergeModal({ isOpen, onClose, contactsToMerge, onMergeCo
         });
 
         toast.promise(promise, {
-            loading: 'Mesclando contatos...',
+            loading: 'Mesclando contatos e atualizando todas as referências...',
             success: (message) => {
                 onMergeComplete();
                 onClose();
                 return message;
             },
-            error: (err) => `Erro: ${err.message}`,
+            error: (err) => `Erro ao mesclar: ${err.message}`,
             finally: () => setIsMerging(false)
         });
     };
@@ -162,7 +170,7 @@ export default function MergeModal({ isOpen, onClose, contactsToMerge, onMergeCo
                          <h3 className="font-bold text-lg">2. Revise e confirme</h3>
                          <div className="p-4 border rounded-md bg-green-50 text-green-900 max-h-[65vh] overflow-y-auto">
                             <h4 className="font-semibold mb-2">Contato Principal (Manter ID)</h4>
-                            <select value={primaryContactId} onChange={(e) => setPrimaryContactId(parseInt(e.target.value))} className="w-full p-2 border rounded-md mb-4">
+                            <select value={primaryContactId || ''} onChange={(e) => setPrimaryContactId(parseInt(e.target.value))} className="w-full p-2 border rounded-md mb-4">
                                 {contactsToMerge.map(c => (
                                     <option key={c.id} value={c.id}>{c.nome || c.razao_social} (ID: {c.id})</option>
                                 ))}
@@ -175,7 +183,7 @@ export default function MergeModal({ isOpen, onClose, contactsToMerge, onMergeCo
                                 <p><strong>Telefones:</strong> {(finalContact.telefones || []).map(t => t.telefone).join(', ')}</p>
                                 <p><strong>Emails:</strong> {(finalContact.emails || []).map(e => e.email).join(', ')}</p>
                             </div>
-                         </div>
+                       </div>
                     </div>
                 </div>
 
