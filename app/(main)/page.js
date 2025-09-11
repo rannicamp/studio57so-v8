@@ -1,10 +1,9 @@
 "use client";
 
-// MUDANÇA AQUI: o caminho agora é 'painel'
 import RhSection from '@/components/painel/RhSection';
+import CustomKpiSection from '@/components/painel/CustomKpiSection'; // 1. IMPORTAMOS A NOVA SEÇÃO
 import { useAuth } from '@/contexts/AuthContext';
 
-// MUDANÇA AQUI: o nome do componente agora é PainelPage
 export default function PainelPage() {
     const { userData } = useAuth();
     
@@ -19,7 +18,10 @@ export default function PainelPage() {
                 Olá, <span className="font-semibold">{nameToDisplay}</span>! Aqui está um resumo do Studio 57.
             </p>
             
-            {/* Seção de Recursos Humanos */}
+            {/* 2. ADICIONAMOS A SEÇÃO DE KPIS PERSONALIZADOS */}
+            <CustomKpiSection />
+            
+            {/* Seção de Recursos Humanos (que já tínhamos) */}
             <RhSection />
 
             {/* No futuro, adicionaremos outras seções aqui */}

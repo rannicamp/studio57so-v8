@@ -50,8 +50,8 @@ const Option = ({ option, selectedIds, onSelectionChange, level = 0 }) => {
 
 export default function MultiSelectDropdown({ 
     label, 
-    options, 
-    selectedIds, 
+    options = [],         // <-- CORREÇÃO APLICADA AQUI
+    selectedIds = [],     // <-- CORREÇÃO APLICADA AQUI
     onChange,
     placeholder = `Todos(as) os(as) ${label}` 
 }) {
@@ -88,7 +88,8 @@ export default function MultiSelectDropdown({
     
     const flattenOptions = useCallback((opts) => {
         let flat = [];
-        opts.forEach(o => {
+        // A verificação 'opts &&' garante que não tentaremos iterar sobre undefined
+        opts && opts.forEach(o => {
             flat.push(o);
             if (o.children) {
                 flat = flat.concat(flattenOptions(o.children));
@@ -110,7 +111,8 @@ export default function MultiSelectDropdown({
         
         const lowerTerm = term.toLowerCase();
 
-        return opts.reduce((acc, option) => {
+        // A verificação 'opts &&' garante que não tentaremos dar reduce em undefined
+        return opts ? opts.reduce((acc, option) => {
             const displayName = (getDisplayName(option) || '').toLowerCase();
             const hasChildren = option.children && option.children.length > 0;
 
@@ -121,7 +123,7 @@ export default function MultiSelectDropdown({
             }
             
             return acc;
-        }, []);
+        }, []) : [];
     };
     
     const filteredOptions = filterOptions(options, searchTerm);
@@ -132,7 +134,7 @@ export default function MultiSelectDropdown({
             <button
                 type="button"
                 onClick={handleToggle}
-                className="mt-1 w-full p-2 border rounded-md shadow-sm bg-white flex justify-between items-center text-left"
+                className="mt-1 w-full p-2 border rounded-md shadow-sm bg-white flex justify-between items-center text-left h-[42px]"
             >
                 <span className="truncate pr-2">{displayLabel}</span>
                 <FontAwesomeIcon icon={faChevronDown} className={`transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
@@ -141,22 +143,22 @@ export default function MultiSelectDropdown({
             {isOpen && (
                 <div className="absolute z-30 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
                      <div className="p-2 border-b">
-                        <input
-                          type="text"
-                          placeholder="Buscar..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full p-1 border rounded"
-                        />
-                    </div>
-                    {filteredOptions.map(option => (
-                        <Option 
-                            key={option.id}
-                            option={option}
-                            selectedIds={selectedIds}
-                            onSelectionChange={handleSelection}
-                        />
-                    ))}
+                         <input
+                             type="text"
+                             placeholder="Buscar..."
+                             value={searchTerm}
+                             onChange={(e) => setSearchTerm(e.target.value)}
+                             className="w-full p-1 border rounded"
+                         />
+                     </div>
+                     {filteredOptions.map(option => (
+                         <Option 
+                             key={option.id}
+                             option={option}
+                             selectedIds={selectedIds}
+                             onSelectionChange={handleSelection}
+                         />
+                     ))}
                 </div>
             )}
         </div>
