@@ -215,7 +215,10 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         setSearchTerm(material.nome || material.descricao);
     };
 
-    const handleAddNewMaterialText = async () => {
+    // ***** CORREÇÃO APLICADA AQUI *****
+    // O nome da função foi alterado de 'handleAddNewMaterialText' para 'handleCreateAndSelectMaterial'
+    // para corresponder ao que o botão 'onClick' está chamando.
+    const handleCreateAndSelectMaterial = async () => {
         const toastId = toast.loading("Criando novo material...");
         const { data: newMaterial, error } = await supabase
             .from('materiais')
@@ -327,126 +330,124 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
                 </div>
                 {message && <p className="text-sm text-red-500 mb-4">{message}</p>}
                 <div className="space-y-4">
-                     <div className="relative">
-                         <label className="block text-sm font-medium">Material / Descrição do Item</label>
-                         {isItemSelected ? (
-                             <div className="flex items-center justify-between mt-1 w-full p-2 border rounded-md bg-gray-100">
-                                 <span className="font-semibold text-gray-800">{item.descricao_item}</span>
-                                 <button onClick={handleResetItemSelection} className="text-blue-600 hover:text-blue-800 text-sm font-semibold flex items-center gap-1"> <FontAwesomeIcon icon={faPenToSquare} /> Alterar </button>
-                             </div>
-                         ) : (
-                             <>
-                                 <input type="text" value={searchTerm} onChange={handleMaterialSearchChange} placeholder="Digite para buscar ou descrever..." className="mt-1 w-full p-2 border rounded-md" autoComplete="off" />
-                                 {isSearching.material && <p className="text-xs text-gray-500">Buscando...</p>}
-                                 {materialSearchResults.length > 0 && (
-                                     <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-48 overflow-y-auto">
-                                         {materialSearchResults.map(material => 
-                                             <li key={material.id} onClick={() => handleSelectMaterial(material)} className="p-3 hover:bg-gray-100 cursor-pointer">
-                                                 <HighlightedText text={material.descricao || material.nome} highlight={searchTerm} />
-                                             </li>
-                                         )}
-                                     </ul>
-                                 )}
-                                 {!isSearching.material && searchTerm.length > 2 && materialSearchResults.length === 0 && (
-                                     <div className="absolute z-20 w-full bg-white border rounded-md shadow-lg p-3 space-y-3">
-                                         {/* ***** INÍCIO DA ALTERAÇÃO ***** */}
-                                         <div>
-                                            <label className="block text-xs font-medium mb-1">Classificar novo material como:</label>
-                                            <select 
-                                                value={newMaterialClassification} 
-                                                onChange={(e) => setNewMaterialClassification(e.target.value)}
-                                                className="w-full p-2 border rounded-md text-sm"
-                                            >
-                                                <option value="Insumo">Insumo (Consumível)</option>
-                                                <option value="Equipamento">Equipamento (Retornável)</option>
-                                            </select>
-                                         </div>
-                                         <button type="button" onClick={handleCreateAndSelectMaterial} className="text-blue-600 font-semibold flex items-center gap-2"> 
-                                             <FontAwesomeIcon icon={faPlus} /> Criar e usar &quot;{searchTerm}&quot; 
-                                         </button>
-                                         {/* ***** FIM DA ALTERAÇÃO ***** */}
-                                     </div>
-                                 )}
-                             </>
-                         )}
-                     </div>
-                     <div className="relative mt-2">
-                         <label className="block text-sm font-medium">Fornecedor</label>
-                         <input type="text" value={fornecedorSearchTerm} onChange={handleFornecedorSearchChange} placeholder="Buscar por Nome, Razão Social ou Fantasia..." className="mt-1 w-full p-2 border rounded-md" autoComplete="off" />
-                         {isSearching.fornecedor && <p className="text-xs text-gray-500">Buscando...</p>}
-                         {fornecedorSearchResults.length > 0 && (
-                             <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-40 overflow-y-auto">
-                                 {fornecedorSearchResults.map(f => <li key={f.id} onClick={() => handleSelectFornecedor(f)} className="p-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={f.razao_social || f.nome} highlight={fornecedorSearchTerm} /> <span className="text-xs text-gray-500">{f.nome_fantasia && `(${f.nome_fantasia})`}</span></li>)}
-                             </ul>
-                         )}
-                     </div>
+                    <div className="relative">
+                        <label className="block text-sm font-medium">Material / Descrição do Item</label>
+                        {isItemSelected ? (
+                            <div className="flex items-center justify-between mt-1 w-full p-2 border rounded-md bg-gray-100">
+                                <span className="font-semibold text-gray-800">{item.descricao_item}</span>
+                                <button onClick={handleResetItemSelection} className="text-blue-600 hover:text-blue-800 text-sm font-semibold flex items-center gap-1"> <FontAwesomeIcon icon={faPenToSquare} /> Alterar </button>
+                            </div>
+                        ) : (
+                            <>
+                                <input type="text" value={searchTerm} onChange={handleMaterialSearchChange} placeholder="Digite para buscar ou descrever..." className="mt-1 w-full p-2 border rounded-md" autoComplete="off" />
+                                {isSearching.material && <p className="text-xs text-gray-500">Buscando...</p>}
+                                {materialSearchResults.length > 0 && (
+                                    <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-48 overflow-y-auto">
+                                        {materialSearchResults.map(material => 
+                                            <li key={material.id} onClick={() => handleSelectMaterial(material)} className="p-3 hover:bg-gray-100 cursor-pointer">
+                                                <HighlightedText text={material.descricao || material.nome} highlight={searchTerm} />
+                                            </li>
+                                        )}
+                                    </ul>
+                                )}
+                                {!isSearching.material && searchTerm.length > 2 && materialSearchResults.length === 0 && (
+                                    <div className="absolute z-20 w-full bg-white border rounded-md shadow-lg p-3 space-y-3">
+                                        <div>
+                                          <label className="block text-xs font-medium mb-1">Classificar novo material como:</label>
+                                          <select 
+                                              value={newMaterialClassification} 
+                                              onChange={(e) => setNewMaterialClassification(e.target.value)}
+                                              className="w-full p-2 border rounded-md text-sm"
+                                          >
+                                              <option value="Insumo">Insumo (Consumível)</option>
+                                              <option value="Equipamento">Equipamento (Retornável)</option>
+                                          </select>
+                                        </div>
+                                        <button type="button" onClick={handleCreateAndSelectMaterial} className="text-blue-600 font-semibold flex items-center gap-2"> 
+                                            <FontAwesomeIcon icon={faPlus} /> Criar e usar &quot;{searchTerm}&quot; 
+                                        </button>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                    <div className="relative mt-2">
+                        <label className="block text-sm font-medium">Fornecedor</label>
+                        <input type="text" value={fornecedorSearchTerm} onChange={handleFornecedorSearchChange} placeholder="Buscar por Nome, Razão Social ou Fantasia..." className="mt-1 w-full p-2 border rounded-md" autoComplete="off" />
+                        {isSearching.fornecedor && <p className="text-xs text-gray-500">Buscando...</p>}
+                        {fornecedorSearchResults.length > 0 && (
+                            <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-40 overflow-y-auto">
+                                {fornecedorSearchResults.map(f => <li key={f.id} onClick={() => handleSelectFornecedor(f)} className="p-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={f.razao_social || f.nome} highlight={fornecedorSearchTerm} /> <span className="text-xs text-gray-500">{f.nome_fantasia && `(${f.nome_fantasia})`}</span></li>)}
+                            </ul>
+                        )}
+                    </div>
 
-                     <div>
-                         <label className="block text-sm font-medium">Tipo de Operação</label>
-                         <select name="tipo_operacao" value={item.tipo_operacao} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
-                             <option value="Compra">Compra</option>
-                             <option value="Aluguel">Aluguel</option>
-                         </select>
-                     </div>
+                    <div>
+                        <label className="block text-sm font-medium">Tipo de Operação</label>
+                        <select name="tipo_operacao" value={item.tipo_operacao} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
+                            <option value="Compra">Compra</option>
+                            <option value="Aluguel">Aluguel</option>
+                        </select>
+                    </div>
 
-                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                         <div> <label className="block text-sm font-medium">Quantidade</label> <input type="number" name="quantidade_solicitada" value={item.quantidade_solicitada} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /> </div>
-                         <div> <label className="block text-sm font-medium">Unidade</label> <input type="text" name="unidade_medida" value={item.unidade_medida} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /> </div>
-                         <div> <label className="block text-sm font-medium">Preço Unitário</label> <input type="number" step="0.01" name="preco_unitario_real" value={item.preco_unitario_real || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /> </div>
-                     </div>
-                     
-                     {item.tipo_operacao === 'Aluguel' && (
-                         <div>
-                             <label className="block text-sm font-medium">Dias de Aluguel</label>
-                             <input type="number" name="dias_aluguel" value={item.dias_aluguel || ''} onChange={handleChange} min="1" className="mt-1 w-full p-2 border rounded-md" required />
-                         </div>
-                     )}
-                     
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         <div>
-                             <label className="block text-sm font-medium">Etapa da Obra</label>
-                             <select name="etapa_id" value={item.etapa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={isLoadingEtapas}>
-                                 <option value="">{isLoadingEtapas ? 'Carregando...' : 'Selecione a etapa'}</option>
-                                 {etapas.map(e => <option key={e.id} value={e.id}>{e.codigo_etapa} - {e.nome_etapa}</option>)}
-                             </select>
-                         </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div> <label className="block text-sm font-medium">Quantidade</label> <input type="number" name="quantidade_solicitada" value={item.quantidade_solicitada} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /> </div>
+                        <div> <label className="block text-sm font-medium">Unidade</label> <input type="text" name="unidade_medida" value={item.unidade_medida} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /> </div>
+                        <div> <label className="block text-sm font-medium">Preço Unitário</label> <input type="number" step="0.01" name="preco_unitario_real" value={item.preco_unitario_real || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /> </div>
+                    </div>
+                    
+                    {item.tipo_operacao === 'Aluguel' && (
+                        <div>
+                            <label className="block text-sm font-medium">Dias de Aluguel</label>
+                            <input type="number" name="dias_aluguel" value={item.dias_aluguel || ''} onChange={handleChange} min="1" className="mt-1 w-full p-2 border rounded-md" required />
+                        </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium">Etapa da Obra</label>
+                            <select name="etapa_id" value={item.etapa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={isLoadingEtapas}>
+                                <option value="">{isLoadingEtapas ? 'Carregando...' : 'Selecione a etapa'}</option>
+                                {etapas.map(e => <option key={e.id} value={e.id}>{e.codigo_etapa} - {e.nome_etapa}</option>)}
+                            </select>
+                        </div>
 
-                         <div className="relative">
-                             <label className="block text-sm font-medium">Subetapa (Opcional)</label>
-                             <input
-                                 type="text"
-                                 value={subetapaSearch}
-                                 onChange={(e) => setSubetapaSearch(e.target.value)}
-                                 onFocus={() => setIsSubetapaDropdownOpen(true)}
-                                 onBlur={() => setTimeout(() => setIsSubetapaDropdownOpen(false), 200)}
-                                 disabled={!item.etapa_id}
-                                 placeholder={!item.etapa_id ? "Selecione uma etapa" : "Digite para buscar ou criar"}
-                                 className="mt-1 w-full p-2 border rounded-md disabled:bg-gray-100"
-                                 autoComplete="off"
-                             />
-                             {isSubetapaDropdownOpen && item.etapa_id && (
-                                 <ul className="absolute z-30 w-full bg-white border rounded-md mt-1 shadow-lg max-h-48 overflow-y-auto">
-                                     {filteredSubetapas.map(sub => (
-                                         <li key={sub.id} onMouseDown={() => handleSelectSubetapa(sub)} className="p-2 border-b hover:bg-gray-100 cursor-pointer">
-                                             <HighlightedText text={sub.nome_subetapa} highlight={subetapaSearch} />
-                                         </li>
-                                     ))}
-                                     {filteredSubetapas.length === 0 && subetapaSearch && (
-                                         <li className='p-2 text-sm text-gray-500'>Nenhuma subetapa encontrada.</li>
-                                     )}
-                                     {subetapaSearch && !filteredSubetapas.some(s => s.nome_subetapa.toLowerCase() === subetapaSearch.toLowerCase()) && (
-                                         <li onMouseDown={handleCreateSubetapa} className="p-2 border-t bg-green-50 hover:bg-green-100 cursor-pointer flex items-center gap-2">
-                                             {isCreatingSubetapa ? (
-                                                 <><FontAwesomeIcon icon={faSpinner} spin /> Criando...</>
-                                             ) : (
-                                                 <><FontAwesomeIcon icon={faPlus} className="text-green-600" /> <span className="text-green-800 font-semibold">Criar: &quot;{subetapaSearch}&quot;</span></>
-                                             )}
-                                         </li>
-                                     )}
-                                 </ul>
-                             )}
-                         </div>
-                     </div>
+                        <div className="relative">
+                            <label className="block text-sm font-medium">Subetapa (Opcional)</label>
+                            <input
+                                type="text"
+                                value={subetapaSearch}
+                                onChange={(e) => setSubetapaSearch(e.target.value)}
+                                onFocus={() => setIsSubetapaDropdownOpen(true)}
+                                onBlur={() => setTimeout(() => setIsSubetapaDropdownOpen(false), 200)}
+                                disabled={!item.etapa_id}
+                                placeholder={!item.etapa_id ? "Selecione uma etapa" : "Digite para buscar ou criar"}
+                                className="mt-1 w-full p-2 border rounded-md disabled:bg-gray-100"
+                                autoComplete="off"
+                            />
+                            {isSubetapaDropdownOpen && item.etapa_id && (
+                                <ul className="absolute z-30 w-full bg-white border rounded-md mt-1 shadow-lg max-h-48 overflow-y-auto">
+                                    {filteredSubetapas.map(sub => (
+                                        <li key={sub.id} onMouseDown={() => handleSelectSubetapa(sub)} className="p-2 border-b hover:bg-gray-100 cursor-pointer">
+                                            <HighlightedText text={sub.nome_subetapa} highlight={subetapaSearch} />
+                                        </li>
+                                    ))}
+                                    {filteredSubetapas.length === 0 && subetapaSearch && (
+                                        <li className='p-2 text-sm text-gray-500'>Nenhuma subetapa encontrada.</li>
+                                    )}
+                                    {subetapaSearch && !filteredSubetapas.some(s => s.nome_subetapa.toLowerCase() === subetapaSearch.toLowerCase()) && (
+                                        <li onMouseDown={handleCreateSubetapa} className="p-2 border-t bg-green-50 hover:bg-green-100 cursor-pointer flex items-center gap-2">
+                                            {isCreatingSubetapa ? (
+                                                <><FontAwesomeIcon icon={faSpinner} spin /> Criando...</>
+                                            ) : (
+                                                <><FontAwesomeIcon icon={faPlus} className="text-green-600" /> <span className="text-green-800 font-semibold">Criar: &quot;{subetapaSearch}&quot;</span></>
+                                            )}
+                                        </li>
+                                    )}
+                                </ul>
+                            )}
+                        </div>
+                    </div>
                 </div>
                  <div className="flex justify-end gap-4 pt-6 mt-4 border-t">
                      <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
