@@ -1,3 +1,5 @@
+// components/ContatoList.js
+
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -7,7 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faColumns, faTrashAlt, faEdit, faSort, faSortUp, faSortDown, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { formatPhoneNumber } from '../utils/formatters';
 import MergeModal from './contatos/MergeModal';
-import { toast } from 'sonner'; // Importamos o toast para notificações
+import { toast } from 'sonner';
 
 const ProgressCircle = ({ score }) => {
     const percentage = Math.min(Math.max(score, 0), 100);
@@ -48,7 +50,8 @@ const allColumns = [
   { key: 'cargo', label: 'Cargo/Profissão', sortable: true },
 ];
 
-export default function ContatoList({ initialContatos, onActionComplete }) {
+// ALTERADO: Adicionamos `onRowClick` na lista de propriedades
+export default function ContatoList({ initialContatos, onActionComplete, onRowClick }) {
   const supabase = createClient();
   const router = useRouter();
   const [contatos, setContatos] = useState(initialContatos);
@@ -114,7 +117,10 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
     return filtered;
   }, [contatos, searchTerm, filterType, sortConfig]);
 
-  const handleRowClick = (id) => router.push(`/contatos/editar/${id}`);
+  // ALTERADO: A função de editar agora é separada da de visualizar
+  const handleEditClick = (id) => {
+    router.push(`/contatos/editar/${id}`);
+  };
 
   const getColumnValue = (contato, key) => {
     switch (key) {
@@ -127,31 +133,26 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
   const handleSelectAll = (e) => setSelectedContatos(e.target.checked ? sortedAndFilteredContatos.map(c => c.id) : []);
   const handleSelectOne = (id) => setSelectedContatos(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
   
-  // ***** INÍCIO DA CORREÇÃO *****
   const handleDeleteSelected = async () => {
     if (selectedContatos.length === 0 || !window.confirm(`Excluir ${selectedContatos.length} contato(s)? Esta ação cuidará das associações existentes, mas não pode ser desfeita.`)) return;
 
-    // Criamos uma promessa para cada exclusão usando a nossa função RPC "inteligente"
     const deletePromises = selectedContatos.map(id =>
         supabase.rpc('delete_contato_completo', { p_contato_id: id })
     );
 
-    // Usamos o toast.promise para mostrar o status do processo de exclusão
     toast.promise(Promise.all(deletePromises), {
         loading: `Excluindo ${selectedContatos.length} contato(s)...`,
         success: () => {
-            setSelectedContatos([]); // Limpa a seleção
-            if (onActionComplete) onActionComplete(); // Atualiza a lista na tela principal
+            setSelectedContatos([]);
+            if (onActionComplete) onActionComplete();
             return `${selectedContatos.length} contato(s) excluído(s) com sucesso!`;
         },
         error: (err) => {
-            // Em caso de erro em qualquer uma das promessas
-            if (onActionComplete) onActionComplete(); // Atualiza a lista mesmo em caso de erro parcial
+            if (onActionComplete) onActionComplete();
             return `Erro ao excluir um ou mais contatos: ${err.message}`;
         }
     });
   };
-  // ***** FIM DA CORREÇÃO *****
 
   const SortableHeader = ({ col }) => {
     const getSortIcon = () => {
@@ -223,10 +224,12 @@ export default function ContatoList({ initialContatos, onActionComplete }) {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {sortedAndFilteredContatos.map((contato) => (
-              <tr key={contato.id} className={`${selectedContatos.includes(contato.id) ? 'bg-blue-50' : ''} hover:bg-gray-50`}>
-                <td className="px-4 py-4"> <input type="checkbox" className="h-4 w-4 rounded" checked={selectedContatos.includes(contato.id)} onChange={() => handleSelectOne(contato.id)}/> </td>
-                {allColumns.map(col => (visibleColumns[col.key] && ( <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm cursor-pointer" onClick={() => handleRowClick(contato.id)}> {getColumnValue(contato, col.key)} </td> )))}
-                <td className="px-6 py-4 whitespace-nowrap text-sm"> <button onClick={() => handleRowClick(contato.id)} className="text-blue-600 hover:text-blue-800" title="Editar Contato"> <FontAwesomeIcon icon={faEdit} /> </button> </td>
+              // ALTERADO: A linha agora chama `onRowClick` e tem um cursor
+              <tr key={contato.id} onClick={() => onRowClick(contato)} className={`cursor-pointer ${selectedContatos.includes(contato.id) ? 'bg-blue-50' : ''} hover:bg-gray-50`}>
+                {/* ALTERADO: Adicionamos stopPropagation para os checkboxes e botões */}
+                <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}> <input type="checkbox" className="h-4 w-4 rounded" checked={selectedContatos.includes(contato.id)} onChange={() => handleSelectOne(contato.id)}/> </td>
+                {allColumns.map(col => (visibleColumns[col.key] && ( <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm"> {getColumnValue(contato, col.key)} </td> )))}
+                <td className="px-6 py-4 whitespace-nowrap text-sm" onClick={(e) => e.stopPropagation()}> <button onClick={() => handleEditClick(contato.id)} className="text-blue-600 hover:text-blue-800" title="Editar Contato"> <FontAwesomeIcon icon={faEdit} /> </button> </td>
               </tr>
             ))}
              {sortedAndFilteredContatos.length === 0 && ( <tr> <td colSpan={Object.values(visibleColumns).filter(v => v).length + 2} className="text-center py-10 text-gray-500"> Nenhum contato encontrado. </td> </tr> )}
