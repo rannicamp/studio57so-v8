@@ -1,3 +1,5 @@
+// app/(main)/financeiro/page.js
+
 "use client";
 
 import { useState, useCallback, useEffect } from 'react';
@@ -16,6 +18,8 @@ import ContasManager from '../../../components/financeiro/ContasManager';
 import AtivosManager from '../../../components/financeiro/AtivosManager';
 import LancamentoFormModal from '../../../components/financeiro/LancamentoFormModal';
 import ExtratoManager from '../../../components/financeiro/ExtratoManager';
+// NOVO: Importamos o novo sidebar de detalhes que criamos
+import LancamentoDetalhesSidebar from '../../../components/financeiro/LancamentoDetalhesSidebar';
 
 // =================================
 // FUNÇÕES DE BUSCA DE DADOS (API)
@@ -141,7 +145,10 @@ export default function FinanceiroPage() {
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingLancamento, setEditingLancamento] = useState(null);
     
-    // ***** INÍCIO DA CORREÇÃO 1/2 *****
+    // NOVO: Estados para controlar o sidebar de detalhes
+    const [isDetailsSidebarOpen, setIsDetailsSidebarOpen] = useState(false);
+    const [selectedLancamento, setSelectedLancamento] = useState(null);
+    
     const [currentPage, setCurrentPage] = useState(() => {
         if (typeof window !== 'undefined') {
             const savedState = sessionStorage.getItem('lancamentosState');
@@ -150,7 +157,6 @@ export default function FinanceiroPage() {
         return 1;
     });
 
-    // O valor padrão de itemsPerPage agora é 150.
     const [itemsPerPage, setItemsPerPage] = useState(() => {
         if (typeof window !== 'undefined') {
             const savedState = sessionStorage.getItem('lancamentosState');
@@ -193,7 +199,6 @@ export default function FinanceiroPage() {
             sessionStorage.setItem('lancamentosState', JSON.stringify(stateToSave));
         }
     }, [filters, currentPage, itemsPerPage, sortConfig]);
-    // ***** FIM DA CORREÇÃO 1/2 *****
 
     useEffect(() => {
       if (!authLoading && canViewPage) {
@@ -265,6 +270,16 @@ export default function FinanceiroPage() {
     const handleOpenAddModal = () => { setEditingLancamento(null); setIsFormModalOpen(true); };
     const handleOpenEditModal = (lancamento) => { setEditingLancamento(lancamento); setIsFormModalOpen(true); };
     
+    // NOVO: Funções para controlar o sidebar de detalhes
+    const handleViewLancamentoDetails = (lancamento) => {
+        setSelectedLancamento(lancamento);
+        setIsDetailsSidebarOpen(true);
+    };
+    const handleCloseDetailsSidebar = () => {
+        setIsDetailsSidebarOpen(false);
+        setTimeout(() => setSelectedLancamento(null), 300); // Atraso para a animação de saída
+    };
+
     const TabButton = ({ tabName, label, icon }) => ( 
         <button onClick={() => setActiveTab(tabName)} className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm uppercase flex items-center gap-2 ${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
             <FontAwesomeIcon icon={icon} /> {label}
@@ -282,6 +297,13 @@ export default function FinanceiroPage() {
     return (
         <div className="space-y-6">
             <LancamentoFormModal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} onSuccess={handleSuccessForm} initialData={editingLancamento} empresas={empresas} />
+            
+            {/* NOVO: Renderiza o sidebar de detalhes aqui. Ele fica invisível até ser ativado. */}
+            <LancamentoDetalhesSidebar 
+                open={isDetailsSidebarOpen}
+                onClose={handleCloseDetailsSidebar}
+                lancamento={selectedLancamento}
+            />
             
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900 uppercase">Painel Financeiro</h1>
@@ -330,6 +352,8 @@ export default function FinanceiroPage() {
                         onEdit={handleOpenEditModal}
                         onDelete={handleDeleteLancamento}
                         onUpdate={() => queryClient.invalidateQueries({ queryKey: ['lancamentos'] })}
+                        // NOVO: Passamos a função para o LancamentosManager para ser acionada no clique da linha
+                        onRowClick={handleViewLancamentoDetails}
                     />
                 )}
                 {activeTab === 'contas' && <ContasManager initialContas={contas} allLancamentos={todosLancamentosParaSaldos} onUpdate={() => queryClient.invalidateQueries({ queryKey: ['initialFinanceData'] })} empresas={empresas} />}

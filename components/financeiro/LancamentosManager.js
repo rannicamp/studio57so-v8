@@ -55,10 +55,12 @@ const initialFilterState = {
     etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', favorecidoId: null,
 };
 
+// ALTERADO: Adicionamos `onRowClick` na lista de propriedades recebidas
 export default function LancamentosManager({
     lancamentos, allLancamentosKpi, loading, contas, categorias, empreendimentos, empresas, funcionarios, allContacts,
     onEdit, onDelete, onUpdate, filters, setFilters, sortConfig, setSortConfig,
-    currentPage, setCurrentPage, itemsPerPage, setItemsPerPage, totalCount
+    currentPage, setCurrentPage, itemsPerPage, setItemsPerPage, totalCount,
+    onRowClick 
 }) {
     const supabase = createClient();
     const [selectedIds, setSelectedIds] = useState(new Set());
@@ -338,14 +340,11 @@ export default function LancamentosManager({
             <div className="flex justify-between items-center bg-white p-4 border rounded-lg shadow-sm">
                 <span className="text-sm text-gray-700"> Mostrando <strong>{lancamentos.length}</strong> de <strong>{totalCount}</strong> lançamentos </span>
                 <div className="flex items-center gap-2">
-                    {/* ***** INÍCIO DA CORREÇÃO 2/2 ***** */}
-                    {/* O botão de Análise com IA foi removido desta seção */}
                     <label htmlFor="items-per-page" className="text-sm font-medium">Itens por página:</label>
                     <input type="number" id="items-per-page" value={itemsPerPageInput} onChange={(e) => setItemsPerPageInput(e.target.value)} onBlur={handleItemsPerPageChange} onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }} min="1" max="999" className="w-20 p-2 border rounded-md text-center" />
                     <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || loading} className="p-2 border rounded-md disabled:opacity-50"> <FontAwesomeIcon icon={faChevronLeft} /> </button>
                     <span className="px-4 py-2 text-sm">Página {currentPage} de {totalPages}</span>
                     <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || loading} className="p-2 border rounded-md disabled:opacity-50"> <FontAwesomeIcon icon={faChevronRight} /> </button>
-                    {/* ***** FIM DA CORREÇÃO 2/2 ***** */}
                 </div>
             </div>
 
@@ -405,57 +404,60 @@ export default function LancamentosManager({
                                  }
 
                                  return (
-                                     <tr key={item.id} className={`${selectedIds.has(item.id) ? 'bg-blue-100' : ''} ${isTransfer ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}>
-                                         <td className="p-4">
-                                             <input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} />
-                                         </td>
-                                         <td className={`px-4 py-2 whitespace-nowrap ${dateClass}`} title={dateLabel}>
-                                             {formatDate(displayDate)}
-                                         </td>
-                                         <td className="px-4 py-2 font-medium">{item.descricao}</td>
-                                         <td className="px-4 py-2 text-gray-600">{item.conta?.nome || 'N/A'}</td>
-                                         <td className="px-4 py-2 text-gray-600 uppercase">{nomeEmpresa}</td>
-                                         <td className="px-4 py-2 text-gray-600">{item.categoria?.nome || 'N/A'}</td>
-                                         <td className="px-4 py-2 text-center text-green-500">
-                                             {item.conciliado && <FontAwesomeIcon icon={faCheckCircle} title="Conciliado com o extrato bancário" />}
-                                         </td>
-                                         <td className={`px-4 py-2 text-right font-bold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>
-                                             {formatCurrency(item.valor, item.tipo)}
-                                         </td>
-                                         <td className="px-4 py-2 text-center text-xs">
-                                             {editingCell === item.id ? (
-                                                 <select
-                                                     value={item.status}
-                                                     onChange={(e) => handleStatusUpdate(item.id, e.target.value)}
-                                                     onBlur={() => setEditingCell(null)}
-                                                     className="p-1 border rounded-md bg-white shadow-sm focus:ring-2 focus:ring-blue-500"
-                                                     autoFocus
-                                                 >
-                                                     <option value="Pendente">Pendente</option>
-                                                     <option value="Pago">Pago</option>
-                                                 </select>
-                                             ) : (
-                                                 <span onClick={() => setEditingCell(item.id)} className={`px-2 py-1 font-semibold leading-tight rounded-full ${statusInfo.className} cursor-pointer hover:ring-2 hover:ring-blue-300`}>
-                                                     {statusInfo.text.toUpperCase()}
-                                                 </span>
-                                             )}
-                                         </td>
-                                         <td className="px-4 py-2 text-center">
-                                             <div className="flex items-center justify-center gap-3">
-                                                 {isPending && (
-                                                     <button onClick={() => handleMarkAsPaid(item.id)} className="text-green-500 hover:text-green-700" title="Marcar como Pago">
-                                                         <FontAwesomeIcon icon={faDollarSign} />
-                                                     </button>
-                                                 )}
-                                                 <button onClick={() => onEdit(item)} className="text-blue-500 hover:text-blue-700" title="Editar Completo"><FontAwesomeIcon icon={faPenToSquare} /></button>
-                                                 <button onClick={() => handleDuplicate(item)} className="text-gray-500 hover:text-gray-700" title="Duplicar Lançamento">
-                                                    <FontAwesomeIcon icon={faCopy} />
-                                                 </button>
-                                                 <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
-                                             </div>
-                                         </td>
-                                     </tr>
-                                 );
+                                    // ALTERAÇÃO AQUI: Adicionamos o onClick e a classe cursor-pointer na linha da tabela (tr)
+                                    <tr key={item.id} onClick={() => onRowClick(item)} className={`cursor-pointer ${selectedIds.has(item.id) ? 'bg-blue-100' : ''} ${isTransfer ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}>
+                                        {/* ALTERAÇÃO: Adicionamos stopPropagation para o checkbox não acionar o clique da linha */}
+                                        <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                                            <input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} />
+                                        </td>
+                                        <td className={`px-4 py-2 whitespace-nowrap ${dateClass}`} title={dateLabel}>
+                                            {formatDate(displayDate)}
+                                        </td>
+                                        <td className="px-4 py-2 font-medium">{item.descricao}</td>
+                                        <td className="px-4 py-2 text-gray-600">{item.conta?.nome || 'N/A'}</td>
+                                        <td className="px-4 py-2 text-gray-600 uppercase">{nomeEmpresa}</td>
+                                        <td className="px-4 py-2 text-gray-600">{item.categoria?.nome || 'N/A'}</td>
+                                        <td className="px-4 py-2 text-center text-green-500">
+                                            {item.conciliado && <FontAwesomeIcon icon={faCheckCircle} title="Conciliado com o extrato bancário" />}
+                                        </td>
+                                        <td className={`px-4 py-2 text-right font-bold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>
+                                            {formatCurrency(item.valor, item.tipo)}
+                                        </td>
+                                        <td className="px-4 py-2 text-center text-xs">
+                                            {editingCell === item.id ? (
+                                                <select
+                                                    value={item.status}
+                                                    onChange={(e) => handleStatusUpdate(item.id, e.target.value)}
+                                                    onBlur={() => setEditingCell(null)}
+                                                    className="p-1 border rounded-md bg-white shadow-sm focus:ring-2 focus:ring-blue-500"
+                                                    autoFocus
+                                                >
+                                                    <option value="Pendente">Pendente</option>
+                                                    <option value="Pago">Pago</option>
+                                                </select>
+                                            ) : (
+                                                <span onClick={(e) => { e.stopPropagation(); setEditingCell(item.id); }} className={`px-2 py-1 font-semibold leading-tight rounded-full ${statusInfo.className} cursor-pointer hover:ring-2 hover:ring-blue-300`}>
+                                                    {statusInfo.text.toUpperCase()}
+                                                </span>
+                                            )}
+                                        </td>
+                                        {/* ALTERAÇÃO: Adicionamos stopPropagation para os botões não acionarem o clique da linha */}
+                                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center justify-center gap-3">
+                                                {isPending && (
+                                                    <button onClick={() => handleMarkAsPaid(item.id)} className="text-green-500 hover:text-green-700" title="Marcar como Pago">
+                                                        <FontAwesomeIcon icon={faDollarSign} />
+                                                    </button>
+                                                )}
+                                                <button onClick={() => onEdit(item)} className="text-blue-500 hover:text-blue-700" title="Editar Completo"><FontAwesomeIcon icon={faPenToSquare} /></button>
+                                                <button onClick={() => handleDuplicate(item)} className="text-gray-500 hover:text-gray-700" title="Duplicar Lançamento">
+                                                   <FontAwesomeIcon icon={faCopy} />
+                                                </button>
+                                                <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
                              }) : (
                                  <tr><td colSpan="10" className="text-center py-10 text-gray-500 uppercase">Nenhum lançamento encontrado. Tente limpar os filtros.</td></tr>
                              )}
