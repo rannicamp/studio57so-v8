@@ -11,6 +11,8 @@ import {
 import { toast } from 'sonner';
 import BaixaEstoqueModal from './BaixaEstoqueModal';
 import HistoricoMovimentacoesModal from './HistoricoMovimentacoesModal';
+import RegistrarRetiradaModal from './RegistrarRetiradaModal';
+import RegistrarDevolucaoModal from './RegistrarDevolucaoModal'; // <-- NOVO: Importamos o modal de devolução
 import { useEmpreendimento } from '../../contexts/EmpreendimentoContext';
 import { useDebounce } from 'use-debounce';
 
@@ -28,7 +30,7 @@ const fetchEstoqueData = async (supabase, empreendimentoId) => {
 
     if (error) throw new Error('Falha ao buscar dados do estoque.');
     
-    return data || [];
+    return data?.map(item => ({ ...item, quantidade_em_uso: item.quantidade_em_uso || 0 })) || [];
 };
 
 export default function AlmoxarifadoManager() {
@@ -44,6 +46,8 @@ export default function AlmoxarifadoManager() {
     const [activeTab, setActiveTab] = useState('disponivel');
     const [isBaixaModalOpen, setIsBaixaModalOpen] = useState(false);
     const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
+    const [isRetiradaModalOpen, setIsRetiradaModalOpen] = useState(false);
+    const [isDevolucaoModalOpen, setIsDevolucaoModalOpen] = useState(false); // <-- NOVO: Estado para o novo modal
     const [selectedEstoqueItem, setSelectedEstoqueItem] = useState(null);
 
     const { data: estoqueCompleto, isLoading, isError, error } = useQuery({
@@ -56,13 +60,9 @@ export default function AlmoxarifadoManager() {
         if (!estoqueCompleto) return [];
         return estoqueCompleto.filter(item => {
             const correspondeClassificacao = filtroClassificacao === 'Todos' || item.material.classificacao === filtroClassificacao;
-            
-            // CORREÇÃO: Verificamos se 'nome' e 'descricao' existem ANTES de tentar ler.
-            // Isso previne o erro quando um desses campos é nulo.
             const correspondeBusca = !debouncedBusca || 
                 (item.material.nome && item.material.nome.toLowerCase().includes(debouncedBusca.toLowerCase())) ||
                 (item.material.descricao && item.material.descricao.toLowerCase().includes(debouncedBusca.toLowerCase()));
-
             return correspondeClassificacao && correspondeBusca;
         });
     }, [estoqueCompleto, filtroClassificacao, debouncedBusca]);
@@ -81,8 +81,9 @@ export default function AlmoxarifadoManager() {
 
     const handleOpenBaixaModal = (item) => { setSelectedEstoqueItem(item); setIsBaixaModalOpen(true); };
     const handleOpenHistoricoModal = (item) => { setSelectedEstoqueItem(item); setIsHistoricoModalOpen(true); };
-    const handleOpenRetiradaModal = (item) => toast.info("Funcionalidade 'Registrar Retirada' será implementada.");
-    const handleOpenDevolucaoModal = (item) => toast.info("Funcionalidade 'Devolver' será implementada.");
+    const handleOpenRetiradaModal = (item) => { setSelectedEstoqueItem(item); setIsRetiradaModalOpen(true); };
+    // AQUI A MUDANÇA: Abrimos o modal de devolução
+    const handleOpenDevolucaoModal = (item) => { setSelectedEstoqueItem(item); setIsDevolucaoModalOpen(true); };
     const handleOpenBaixaQuebraModal = (item) => toast.info("Funcionalidade 'Baixa por Quebra' será implementada.");
 
     const TabButton = ({ tabName, label, icon, count }) => (
@@ -129,6 +130,9 @@ export default function AlmoxarifadoManager() {
                 <>
                     <BaixaEstoqueModal isOpen={isBaixaModalOpen} onClose={() => setIsBaixaModalOpen(false)} estoqueItem={selectedEstoqueItem} onSuccess={handleSuccess} />
                     <HistoricoMovimentacoesModal isOpen={isHistoricoModalOpen} onClose={() => setIsHistoricoModalOpen(false)} estoqueItem={selectedEstoqueItem} />
+                    <RegistrarRetiradaModal isOpen={isRetiradaModalOpen} onClose={() => setIsRetiradaModalOpen(false)} estoqueItem={selectedEstoqueItem} onSuccess={handleSuccess} />
+                    {/* <-- NOVO: Renderizamos o modal de devolução aqui */}
+                    <RegistrarDevolucaoModal isOpen={isDevolucaoModalOpen} onClose={() => setIsDevolucaoModalOpen(false)} estoqueItem={selectedEstoqueItem} onSuccess={handleSuccess} />
                 </>
             )}
 

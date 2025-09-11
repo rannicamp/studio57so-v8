@@ -7,8 +7,6 @@ import { faSpinner, faPlus, faPenToSquare, faTimes } from '@fortawesome/free-sol
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-
-// Componente para destacar o texto da busca em amarelo
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight || !text || !highlight.trim()) {
         return <span>{text}</span>;
@@ -59,7 +57,6 @@ const fetchSubetapas = async (supabase, etapaId) => {
     return data || [];
 };
 
-// CORREÇÃO: Movido para fora do componente para evitar o loop infinito.
 const getInitialState = () => ({
     id: null,
     material_id: null,
@@ -74,7 +71,6 @@ const getInitialState = () => ({
     tipo_operacao: 'Compra',
     dias_aluguel: null
 });
-
 
 export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit }) {
     const supabase = createClient();
@@ -96,7 +92,6 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
     const [searchTerm, setSearchTerm] = useState('');
     const [fornecedorSearchTerm, setFornecedorSearchTerm] = useState('');
     
-    // NOVO ESTADO: Para guardar a classificação escolhida para um novo material.
     const [newMaterialClassification, setNewMaterialClassification] = useState('Insumo');
 
     const { data: etapas = [], isLoading: isLoadingEtapas } = useQuery({
@@ -145,7 +140,6 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
              setMessage('');
              setSubetapaSearch('');
         }
-    // CORREÇÃO: Removida a dependência 'getInitialState' para quebrar o loop.
     }, [isOpen, isEditing, itemToEdit]);
     
     useEffect(() => {
@@ -178,7 +172,8 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         setSearchTerm(value);
         if (value.length < 2) { setMaterialSearchResults([]); return; }
         setIsSearching(prev => ({ ...prev, material: true }));
-        const { data, error } = await supabase.from('materiais').select('id, descricao, unidade_medida, preco_unitario, nome').ilike('nome', `%${value}%`).limit(10);
+        // O PORQUÊ: A busca agora é feita na coluna 'descricao'.
+        const { data, error } = await supabase.from('materiais').select('id, descricao, unidade_medida, preco_unitario, nome').ilike('descricao', `%${value}%`).limit(10);
         if (error) console.error("Erro na busca de materiais:", error);
         setMaterialSearchResults(data || []);
         setIsSearching(prev => ({ ...prev, material: false }));
@@ -209,15 +204,13 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
     };
 
     const handleSelectMaterial = (material) => {
-        setItem(prev => ({ ...prev, material_id: material.id, descricao_item: material.nome || material.descricao, unidade_medida: material.unidade_medida || 'unid.' }));
+        // O PORQUÊ: Priorizamos a 'descricao' ao preencher o campo.
+        setItem(prev => ({ ...prev, material_id: material.id, descricao_item: material.descricao || material.nome, unidade_medida: material.unidade_medida || 'unid.' }));
         setIsItemSelected(true);
         setMaterialSearchResults([]);
-        setSearchTerm(material.nome || material.descricao);
+        setSearchTerm(material.descricao || material.nome);
     };
 
-    // ***** CORREÇÃO APLICADA AQUI *****
-    // O nome da função foi alterado de 'handleAddNewMaterialText' para 'handleCreateAndSelectMaterial'
-    // para corresponder ao que o botão 'onClick' está chamando.
     const handleCreateAndSelectMaterial = async () => {
         const toastId = toast.loading("Criando novo material...");
         const { data: newMaterial, error } = await supabase
@@ -295,9 +288,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         setIsSaving(true);
         setMessage('');
         const itemToSave = { ...item };
-
-        // Se o item não foi selecionado da lista, mas um texto foi digitado,
-        // usamos o texto como descrição de um item avulso (sem material_id).
+        
         if (!isItemSelected && searchTerm) {
             itemToSave.descricao_item = searchTerm;
         }
@@ -381,7 +372,6 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
                             </ul>
                         )}
                     </div>
-
                     <div>
                         <label className="block text-sm font-medium">Tipo de Operação</label>
                         <select name="tipo_operacao" value={item.tipo_operacao} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
@@ -389,7 +379,6 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
                             <option value="Aluguel">Aluguel</option>
                         </select>
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div> <label className="block text-sm font-medium">Quantidade</label> <input type="number" name="quantidade_solicitada" value={item.quantidade_solicitada} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /> </div>
                         <div> <label className="block text-sm font-medium">Unidade</label> <input type="text" name="unidade_medida" value={item.unidade_medida} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /> </div>

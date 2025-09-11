@@ -8,9 +8,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTruck, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import imageCompression from 'browser-image-compression';
+import { toast } from 'sonner';
 
-// O PORQUÊ: Alteramos as chaves para serem todas em letras minúsculas.
-// Isso é parte da solução para tornar a comparação de status insensível a maiúsculas/minúsculas.
 const STATUS_CONFIG = {
   'em andamento': { order: 1, colorClass: 'border-l-4 border-blue-500' },
   'aguardando material': { order: 2, colorClass: 'border-l-4 border-orange-400' },
@@ -46,7 +45,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const occurrenceTypes = ["Informativa", "Alerta", "Grave", "Acidente de Trabalho", "Condição Insegura"];
 
   const setupFormWithData = useCallback(async (rdoData) => {
-    // ... (toda a função setupFormWithData permanece igual)
     if (!rdoData) {
       setLoadingForm(false);
       return;
@@ -143,7 +141,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
     }
   }, [supabase]);
 
-  // ... (useEffect e outras funções handle... permanecem iguais)
   useEffect(() => {
     const initializeForm = async () => {
       if (initialRdoData) {
@@ -202,33 +199,56 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         setLoadingForm(false);
       }
     };
-    if (user) { 
+    if (user) {
       initializeForm();
     }
   }, [initialRdoData, selectedEmpreendimento, supabase, setupFormWithData, user]);
 
+  // ***** INÍCIO DA CORREÇÃO *****
   const handleMarcarEntregue = async (pedidoId) => {
     if (isRdoLocked) {
-      alert("Este RDO está bloqueado e não pode ser alterado.");
+      toast.warning("Este RDO está bloqueado e não pode ser alterado.");
       return;
     }
     if (!user) {
-      alert("Usuário não autenticado. Não é possível realizar esta ação.");
+      toast.error("Usuário não autenticado. Não é possível realizar esta ação.");
       return;
     }
-    const { error } = await supabase.rpc('marcar_pedido_entregue', {
+
+    const toastId = toast.loading("Marcando pedido como entregue...");
+
+    // 1. Marca o pedido como entregue (RPC antigo)
+    const { error: rpcError } = await supabase.rpc('marcar_pedido_entregue', {
       p_pedido_id: pedidoId,
       p_usuario_id: user.id
     });
-    if (error) {
-      setMessage(`Erro ao marcar como entregue: ${error.message}`);
+
+    if (rpcError) {
+      toast.error(`Erro ao marcar como entregue: ${rpcError.message}`, { id: toastId });
+      return;
+    }
+
+    // Se o passo 1 deu certo, atualiza a tela
+    setPedidosPrevistos(prev => prev.map(p =>
+      p.id === pedidoId ? { ...p, status: 'Entregue' } : p
+    ));
+    toast.success(`Pedido #${pedidoId} marcado como entregue!`, { id: toastId });
+
+    // 2. Chama a rotina do almoxarifado (lógica que estava faltando)
+    toast.info("Processando entrada dos itens no almoxarifado...");
+
+    const { error: almoxarifadoError } = await supabase.rpc('processar_entrada_pedido_no_estoque', {
+      p_pedido_id: pedidoId,
+      p_usuario_id: user.id
+    });
+
+    if (almoxarifadoError) {
+      toast.error(`Falha ao dar entrada no estoque: ${almoxarifadoError.message}`);
     } else {
-      setMessage(`Pedido #${pedidoId} marcado como entregue com sucesso!`);
-      setPedidosPrevistos(prev => prev.map(p =>
-        p.id === pedidoId ? { ...p, status: 'Entregue' } : p
-      ));
+      toast.success('Itens recebidos e adicionados ao almoxarifado com sucesso!');
     }
   };
+  // ***** FIM DA CORREÇÃO *****
 
   const handleRdoFormChange = (e) => {
     if (isRdoLocked) return;
@@ -387,13 +407,11 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
     setMessage('Foto removida.');
   };
 
-
   const sortedActivityStatuses = useMemo(() => {
     if (!Array.isArray(activityStatuses)) {
       return [];
     }
     return [...activityStatuses].sort((a, b) => {
-      // O PORQUÊ: Adicionamos .toLowerCase() para que a ordenação também ignore maiúsculas/minúsculas.
       const statusA = (a?.status || 'Não Iniciado').trim().toLowerCase();
       const statusB = (b?.status || 'Não Iniciado').trim().toLowerCase();
       const orderA = STATUS_CONFIG[statusA]?.order || 99;
@@ -416,7 +434,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         </div>
       )}
       <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-        {/* ... Seções do formulário (Informações Gerais, Condições, etc.)... */}
         <div className="border-b border-gray-200 pb-4">
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Informações Gerais</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -489,18 +506,10 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Status das Atividades</h3>
           <ul className="divide-y divide-gray-200">
             {sortedActivityStatuses.map((activity) => {
-              // ---- FERRAMENTA DE DEPURACÃO ----
-              // O PORQUÊ: Este console.log é a nossa ferramenta de investigação.
-              // Ele vai imprimir o status EXATO de cada atividade no console do navegador.
-              // Se o problema persistir, essa informação nos dará a resposta definitiva.
               if (process.env.NODE_ENV === 'development') {
                 console.log(`Atividade: "${activity.nome}", Status do BD: "${activity.status}"`);
               }
-              // ---- FIM DA DEPURACÃO ----
 
-              // O PORQUÊ: A CORREÇÃO FINAL.
-              // Usamos .trim() para remover espaços e .toLowerCase() para converter para minúsculas.
-              // Agora, " Em Andamento ", "em andamento" e "EM ANDAMENTO" serão todos tratados da mesma forma.
               const currentStatus = (activity.status || 'Não Iniciado').trim().toLowerCase();
               const config = STATUS_CONFIG[currentStatus] || { colorClass: 'border-l-4 border-gray-200' };
 
@@ -519,7 +528,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
             )}
           </ul>
         </div>
-        {/* ... Restante do formulário (Mão de Obra, Ocorrências, Fotos)... */}
         <div className="border-b border-gray-200 pb-4">
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Mão de Obra</h3>
           <ul className="divide-y divide-gray-200">
