@@ -25,7 +25,7 @@ const fetchKpis = async () => {
 
 export default function ConstrutorKpiManager() {
     const [isFormVisible, setIsFormVisible] = useState(false);
-    const [editingKpi, setEditingKpi] = useState(null); // Para edição no futuro
+    const [editingKpi, setEditingKpi] = useState(null);
 
     const queryClient = useQueryClient();
 
@@ -96,8 +96,8 @@ export default function ConstrutorKpiManager() {
                     <div className="text-center py-8 border-2 border-dashed rounded-lg">
                         <FontAwesomeIcon icon={faChartPie} size="3x" className="text-gray-300 mb-4" />
                         <p className="text-gray-500">Você ainda não criou nenhum KPI personalizado.</p>
-                        {/* AQUI ESTÁ A CORREÇÃO: troquei as aspas duplas por simples */}
-                        <p className="text-gray-400 text-sm">Clique em 'Criar Novo KPI' para começar.</p>
+                        {/* AQUI ESTÁ A CORREÇÃO DEFINITIVA */}
+                        <p className="text-gray-400 text-sm">{`Clique em "Criar Novo KPI" para começar.`}</p>
                     </div>
                 )}
             </div>
