@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSpinner, faExclamationTriangle, faChartPie } from '@fortawesome/free-solid-svg-icons';
-import ConstrutorKpiForm from './ConstrutorKpiForm'; // Vamos criar este arquivo a seguir
+import ConstrutorKpiForm from './ConstrutorKpiForm';
 
 // Função para buscar os KPIs do usuário logado
 const fetchKpis = async () => {
@@ -96,7 +96,8 @@ export default function ConstrutorKpiManager() {
                     <div className="text-center py-8 border-2 border-dashed rounded-lg">
                         <FontAwesomeIcon icon={faChartPie} size="3x" className="text-gray-300 mb-4" />
                         <p className="text-gray-500">Você ainda não criou nenhum KPI personalizado.</p>
-                        <p className="text-gray-400 text-sm">Clique em "Criar Novo KPI" para começar.</p>
+                        {/* AQUI ESTÁ A CORREÇÃO: troquei as aspas duplas por simples */}
+                        <p className="text-gray-400 text-sm">Clique em 'Criar Novo KPI' para começar.</p>
                     </div>
                 )}
             </div>
