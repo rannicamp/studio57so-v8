@@ -224,12 +224,12 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
                     <div className="relative">
                         <label className="block text-sm font-medium">Material / Descrição</label>
                         {isItemSelected ? (
-                             <div className="flex items-center justify-between mt-1 w-full p-2 border rounded-md bg-gray-100">
+                            <div className="flex items-center justify-between mt-1 w-full p-2 border rounded-md bg-gray-100">
                                 <span className="font-semibold text-gray-800">{item.descricao}</span>
                                 <button onClick={() => { setIsItemSelected(false); setSearchTerm(''); }} className="text-blue-600 hover:text-blue-800 text-sm font-semibold flex items-center gap-1">
                                     <FontAwesomeIcon icon={faPenToSquare} /> Alterar
                                 </button>
-                             </div>
+                            </div>
                         ) : (
                             <>
                                 <input
@@ -255,7 +255,8 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
                                                 onClick={handleCreateAndSelectMaterial} 
                                                 className="text-blue-600 font-semibold flex items-center gap-2 w-full text-left hover:text-blue-800"
                                             > 
-                                                <FontAwesomeIcon icon={faPlus} /> Criar e usar "{searchTerm}"
+                                                {/* CORREÇÃO AQUI: As aspas duplas foram trocadas por `&quot;` */}
+                                                <FontAwesomeIcon icon={faPlus} /> Criar e usar &quot;{searchTerm}&quot;
                                             </button>
                                         </div>
                                     )}
