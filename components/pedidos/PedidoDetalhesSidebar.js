@@ -27,11 +27,34 @@ export default function PedidoDetalhesSidebar({ open, onClose, pedido, onUpdate 
 
     if (!open || !pedido) return null;
 
+    // ***** INÍCIO DA CORREÇÃO *****
+    // Função atualizada para lidar com datas completas (com hora) e datas simples.
     const formatDate = (dateStr) => {
         if (!dateStr) return 'N/A';
-        const [year, month, day] = dateStr.split('-');
-        return `${day}/${month}/${year}`;
+
+        // Se a data incluir 'T', é um timestamp completo (com hora e fuso)
+        if (dateStr.includes('T')) {
+            const date = new Date(dateStr);
+            // Usamos toLocaleDateString para garantir a formatação correta sem problemas de fuso horário
+            return date.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                timeZone: 'UTC' // Usar UTC para evitar que a data mude para o dia anterior
+            });
+        }
+
+        // Se for uma data simples (YYYY-MM-DD), usamos a lógica antiga
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            const [year, month, day] = parts;
+            return `${day}/${month}/${year}`;
+        }
+
+        // Se o formato for inesperado, retorna a string original
+        return dateStr;
     };
+    // ***** FIM DA CORREÇÃO *****
     
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
@@ -54,11 +77,9 @@ export default function PedidoDetalhesSidebar({ open, onClose, pedido, onUpdate 
         
         const notaFiscalAnexo = pedido.anexos.find(a => a.descricao && a.descricao.toLowerCase().includes('nota fiscal'));
         
-        // --- LÓGICA CORRIGIDA AQUI ---
         let etapaObraId = null;
         if (pedido.itens.length > 0) {
             const firstEtapaId = pedido.itens[0].etapa_id;
-            // Se o primeiro item tem uma etapa E todos os outros itens têm a mesma etapa
             if (firstEtapaId && pedido.itens.every(item => item.etapa_id === firstEtapaId)) {
                 etapaObraId = firstEtapaId;
             }
@@ -73,7 +94,7 @@ export default function PedidoDetalhesSidebar({ open, onClose, pedido, onUpdate 
             favorecido_contato_id: allSameFornecedor ? firstFornecedorId : null,
             empreendimento_id: pedido.empreendimento_id,
             empresa_id: pedido.empreendimentos?.empresa_id || null,
-            etapa_obra_id: etapaObraId, // Adicionado para preencher a etapa
+            etapa_obra_id: etapaObraId,
             anexo_preexistente: notaFiscalAnexo ? {
                 caminho_arquivo: notaFiscalAnexo.caminho_arquivo,
                 nome_arquivo: notaFiscalAnexo.nome_arquivo,

@@ -71,9 +71,13 @@ export default function FunilKanban({
     const sortMenuRef = useRef(null);
     const [deletingColumnId, setDeletingColumnId] = useState(null);
     
-    // ***** INÍCIO DA CORREÇÃO *****
+    // ADICIONADO: Estados e ref para a funcionalidade de arrastar para rolar
+    const scrollContainerRef = useRef(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [scrollLeft, setScrollLeft] = useState(0);
+
     const protectedColumns = ['excluir', 'vendido', 'perdido'];
-    // ***** FIM DA CORREÇÃO *****
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -86,6 +90,36 @@ export default function FunilKanban({
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, [sortMenuRef]);
+
+    // ADICIONADO: Funções para controlar o arrastar do mouse
+    const handleMouseDown = (e) => {
+        // Impede o arrastar se o clique for em um card ou botão
+        if (e.target.closest('.kanban-card') || e.target.closest('button')) {
+            return;
+        }
+        setIsDragging(true);
+        const container = scrollContainerRef.current;
+        setStartX(e.pageX - container.offsetLeft);
+        setScrollLeft(container.scrollLeft);
+        container.style.cursor = 'grabbing'; // Muda o cursor para "agarrando"
+    };
+
+    const handleMouseLeaveOrUp = () => {
+        if (!isDragging) return;
+        setIsDragging(false);
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.style.cursor = 'grab'; // Volta o cursor para a "mãozinha"
+        }
+    };
+
+    const handleMouseMove = (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        const container = scrollContainerRef.current;
+        const x = e.pageX - container.offsetLeft;
+        const walk = (x - startX); 
+        container.scrollLeft = scrollLeft - walk;
+    };
 
 
     const handleDragStart = (e, item, type) => {
@@ -147,7 +181,7 @@ export default function FunilKanban({
         }
         setOpenSortMenu(null);
     };
- 
+   
     const sortOptions = [
         { value: '', label: 'Padrão (Número do Card)' }, { value: 'nome_asc', label: 'Nome (A-Z)' }, { value: 'nome_desc', label: 'Nome (Z-A)' }, { value: 'created_at_desc', label: 'Entrada (Mais Recente)' }, { value: 'created_at_asc', label: 'Entrada (Mais Antigo)' }, { value: 'last_whatsapp_message_time_desc', label: 'Mensagem (Mais Recente)' }, { value: 'last_whatsapp_message_time_asc', label: 'Mensagem (Mais Antigo)' },
     ];
@@ -179,9 +213,17 @@ export default function FunilKanban({
     }, [contatos, statusColumns, sorting]);
 
     return (
-        <div className="flex gap-4 overflow-x-auto p-4 h-full bg-gray-100">
+        // ADICIONADO: Propriedades ref, className e onMouse... para ativar o arrastar
+        <div 
+            ref={scrollContainerRef}
+            className="flex gap-4 overflow-x-auto p-4 h-full bg-gray-100 cursor-grab"
+            onMouseDown={handleMouseDown}
+            onMouseLeave={handleMouseLeaveOrUp}
+            onMouseUp={handleMouseLeaveOrUp}
+            onMouseMove={handleMouseMove}
+        >
             {statusColumns.map((coluna) => (
-                <div key={coluna.id} className="w-80 flex-shrink-0 bg-white rounded-lg shadow-sm flex flex-col" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, coluna)}>
+                <div key={coluna.id} className="w-80 flex-shrink-0 bg-white rounded-lg shadow-sm flex flex-col kanban-card" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, coluna)}>
                     <div className="p-3 text-sm font-semibold text-gray-700 border-b bg-gray-50 rounded-t-lg flex justify-between items-center cursor-move" draggable onDragStart={(e) => handleDragStart(e, coluna, 'column')} onDragEnd={() => setDraggedItem(null)}>
                         {editingColumnId === coluna.id ? (
                             <div className="flex w-full items-center gap-2">
@@ -193,13 +235,11 @@ export default function FunilKanban({
                             <>
                                 <h3 className="flex-grow">{coluna.nome} ({contatosPorColuna[coluna.id]?.length || 0})</h3>
                                 <div className="flex items-center gap-2">
-                                    {/* ***** INÍCIO DA CORREÇÃO ***** */}
                                     {userRole === 'Proprietário' && coluna.nome.trim().toLowerCase() === 'excluir' && (contatosPorColuna[coluna.id]?.length || 0) > 0 && (
                                         <button onClick={() => handleDeleteAll(coluna.id, contatosPorColuna[coluna.id].length)} disabled={deletingColumnId === coluna.id} className="text-red-500 hover:text-red-700 transition-colors" title={`Excluir todos os ${contatosPorColuna[coluna.id].length} cards`}>
                                             <FontAwesomeIcon icon={deletingColumnId === coluna.id ? faSpinner : faTrash} spin={deletingColumnId === coluna.id} size="sm" />
                                         </button>
                                     )}
-                                    {/* ***** FIM DA CORREÇÃO ***** */}
                                     <div className="relative">
                                         <button onClick={() => setOpenSortMenu(openSortMenu === coluna.id ? null : coluna.id)} className="text-gray-500 hover:text-blue-600 transition-colors" title="Ordenar cards"><FontAwesomeIcon icon={faSort} size="sm" /></button>
                                         {openSortMenu === coluna.id && (
@@ -210,11 +250,9 @@ export default function FunilKanban({
                                         )}
                                     </div>
                                     <button onClick={() => handleEditClick(coluna)} className="text-gray-500 hover:text-blue-600 transition-colors" title="Editar etapa"><FontAwesomeIcon icon={faEdit} size="sm" /></button>
-                                    {/* ***** INÍCIO DA CORREÇÃO ***** */}
                                     {!protectedColumns.includes(coluna.nome.trim().toLowerCase()) && (
                                         <button onClick={() => handleDeleteClick(coluna.id, coluna.nome)} className="text-gray-500 hover:text-red-600 transition-colors" title="Excluir etapa"><FontAwesomeIcon icon={faTrash} size="sm" /></button>
                                     )}
-                                    {/* ***** FIM DA CORREÇÃO ***** */}
                                 </div>
                             </>
                         )}

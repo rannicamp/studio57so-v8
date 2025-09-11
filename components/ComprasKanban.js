@@ -1,12 +1,14 @@
 'use client';
 
-import { useMemo, useState, useRef } from 'react';
+// NOVO: Adicionado useRef e useEffect para controlar o menu
+import { useMemo, useState, useRef, useEffect } from 'react'; 
 import { createClient } from '../utils/supabase/client';
 import PedidoCard from './PedidoCard';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTrash } from '@fortawesome/free-solid-svg-icons';
-import { useAuth } from '../contexts/AuthContext'; // ADICIONADO: Para identificar o usuário
+// NOVO: Adicionado o ícone de 'sort' (ordenar)
+import { faSpinner, faTrash, faSort } from '@fortawesome/free-solid-svg-icons'; 
+import { useAuth } from '../contexts/AuthContext';
 
 const statusColumns = [
     { id: 'Solicitação', title: 'Solicitação' },
@@ -21,7 +23,7 @@ const statusColumns = [
 
 export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
     const supabase = createClient();
-    const { user } = useAuth(); // ADICIONADO: Pegamos os dados do usuário logado
+    const { user } = useAuth();
     const [dragOverColumn, setDragOverColumn] = useState(null);
     const scrollContainerRef = useRef(null);
     
@@ -29,6 +31,25 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
     const [startX, setStartX] = useState(0);
     const [scrollLeft, setScrollLeft] = useState(0);
     const [isDeletingCanceled, setIsDeletingCanceled] = useState(false);
+
+    // NOVO: Estados para controlar a funcionalidade de ordenação
+    const [sorting, setSorting] = useState({}); // Guarda a ordenação de cada coluna
+    const [openSortMenu, setOpenSortMenu] = useState(null); // Controla qual menu está aberto
+    const sortMenuRef = useRef(null); // Referência para o menu para fechar ao clicar fora
+
+    // NOVO: Efeito para fechar o menu de ordenação ao clicar fora dele
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
+                setOpenSortMenu(null);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [sortMenuRef]);
+
 
     const handleMouseDown = (e) => {
         if (e.target.closest('.kanban-card') || e.target.closest('button')) {
@@ -58,6 +79,32 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
         container.scrollLeft = scrollLeft - walk;
     };
 
+    // NOVO: Opções de ordenação para os pedidos
+    const sortOptions = [
+        { value: '', label: 'Padrão (ID do Pedido)' },
+        { value: 'solicitante_asc', label: 'Solicitante (A-Z)' },
+        { value: 'solicitante_desc', label: 'Solicitante (Z-A)' },
+        { value: 'created_at_desc', label: 'Data (Mais Recente)' },
+        { value: 'created_at_asc', label: 'Data (Mais Antigo)' },
+        { value: 'valor_total_desc', label: 'Valor (Maior-Menor)' },
+        { value: 'valor_total_asc', label: 'Valor (Menor-Maior)' },
+    ];
+
+    // NOVO: Função para atualizar o estado de ordenação quando uma opção é escolhida
+    const handleSortChange = (columnId, sortValue) => {
+        if (!sortValue) {
+            const newSorting = { ...sorting };
+            delete newSorting[columnId];
+            setSorting(newSorting);
+        } else {
+            const lastUnderscoreIndex = sortValue.lastIndexOf('_');
+            const sortBy = sortValue.substring(0, lastUnderscoreIndex);
+            const order = sortValue.substring(lastUnderscoreIndex + 1);
+            setSorting(prev => ({ ...prev, [columnId]: { sortBy, order } }));
+        }
+        setOpenSortMenu(null);
+    };
+
     const groupedData = useMemo(() => {
         const groups = {};
         statusColumns.forEach(col => {
@@ -72,8 +119,39 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
                 groups[currentStatus].total += pedidoTotal;
             }
         });
+
+        // NOVO: Lógica que aplica a ordenação escolhida em cada coluna
+        Object.keys(groups).forEach(columnId => {
+            const sortConfig = sorting[columnId];
+            if (sortConfig) {
+                groups[columnId].pedidos.sort((a, b) => {
+                    const { sortBy, order } = sortConfig;
+                    let valA, valB;
+
+                    if (sortBy === 'solicitante') {
+                        valA = a.solicitante?.nome || '';
+                        valB = b.solicitante?.nome || '';
+                    } else if (sortBy === 'created_at') {
+                        valA = new Date(a.created_at);
+                        valB = new Date(b.created_at);
+                    } else if (sortBy === 'valor_total') {
+                        valA = a.itens?.reduce((sum, item) => sum + (item.custo_total_real || 0), 0) || 0;
+                        valB = b.itens?.reduce((sum, item) => sum + (item.custo_total_real || 0), 0) || 0;
+                    }
+
+                    const direction = order === 'asc' ? 1 : -1;
+                    if (valA < valB) return -1 * direction;
+                    if (valA > valB) return 1 * direction;
+                    return 0;
+                });
+            } else {
+                // Ordenação padrão por ID do pedido (mais recente primeiro)
+                groups[columnId].pedidos.sort((a, b) => b.id - a.id);
+            }
+        });
+
         return groups;
-    }, [pedidos]);
+    }, [pedidos, sorting]); // Adicionado 'sorting' como dependência
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     
@@ -145,8 +223,6 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
             setPedidos(originalPedidos);
         }
 
-        // ***** INÍCIO DA NOVA LÓGICA DO ALMOXARIFADO *****
-        // Se o novo status for "Entregue", chama a função para dar entrada no estoque
         if (newStatus === 'Entregue' && user) {
             toast.info('Processando entrada dos itens no almoxarifado...');
 
@@ -157,14 +233,12 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
 
             if (almoxarifadoError) {
                 toast.error(`Falha ao dar entrada no estoque: ${almoxarifadoError.message}`);
-                // Reverte o status se a entrada no estoque falhar
                 await supabase.from('pedidos_compra').update({ status: pedido.status }).eq('id', pedidoId);
                 setPedidos(originalPedidos);
             } else {
                 toast.success('Itens recebidos e adicionados ao almoxarifado com sucesso!');
             }
         }
-        // ***** FIM DA NOVA LÓGICA DO ALMOXARIFADO *****
     };
 
     const handleDeleteAllCanceled = async () => {
@@ -242,21 +316,47 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
                     className={`w-80 flex-shrink-0 bg-gray-100 rounded-lg shadow-sm transition-colors duration-300 flex flex-col ${dragOverColumn === column.id ? 'bg-blue-100' : ''}`}
                 >
                     <div className="p-3 text-sm font-semibold text-gray-700 border-b flex justify-between items-center">
-                        <h3>{column.title} ({groupedData[column.id]?.pedidos.length || 0})</h3>
-                        {column.id === 'Cancelado' && groupedData[column.id]?.pedidos.length > 0 && (
-                            <button
-                                onClick={handleDeleteAllCanceled}
-                                disabled={isDeletingCanceled}
-                                className="bg-red-500 text-white p-1 rounded-full text-xs hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-                                title="Excluir todos os pedidos cancelados"
-                            >
-                                {isDeletingCanceled ? (
-                                    <FontAwesomeIcon icon={faSpinner} spin size="sm" />
-                                ) : (
-                                    <FontAwesomeIcon icon={faTrash} size="sm" />
+                        {/* NOVO: Toda esta parte do cabeçalho foi modificada para incluir o botão de ordenar */}
+                        <h3 className="flex-grow">{column.title} ({groupedData[column.id]?.pedidos.length || 0})</h3>
+                        <div className="flex items-center gap-2">
+                             {column.id === 'Cancelado' && groupedData[column.id]?.pedidos.length > 0 && (
+                                <button
+                                    onClick={handleDeleteAllCanceled}
+                                    disabled={isDeletingCanceled}
+                                    className="bg-red-500 text-white p-1 rounded-full text-xs hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                                    title="Excluir todos os pedidos cancelados"
+                                >
+                                    {isDeletingCanceled ? (
+                                        <FontAwesomeIcon icon={faSpinner} spin size="sm" />
+                                    ) : (
+                                        <FontAwesomeIcon icon={faTrash} size="sm" />
+                                    )}
+                                </button>
+                            )}
+                            <div className="relative">
+                                <button 
+                                    onClick={() => setOpenSortMenu(openSortMenu === column.id ? null : column.id)} 
+                                    className="text-gray-500 hover:text-blue-600 transition-colors" 
+                                    title="Classificar/Ordenar cards"
+                                >
+                                    <FontAwesomeIcon icon={faSort} size="sm" />
+                                </button>
+                                {openSortMenu === column.id && (
+                                    <div ref={sortMenuRef} className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-20">
+                                        <p className="p-2 font-semibold text-xs text-gray-500 border-b">Ordenar por:</p>
+                                        {sortOptions.map(option => (
+                                            <button 
+                                                key={option.value} 
+                                                onClick={() => handleSortChange(column.id, option.value)} 
+                                                className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 )}
-                            </button>
-                        )}
+                            </div>
+                        </div>
                     </div>
                     <p className="font-bold text-green-700 px-3">{formatCurrency(groupedData[column.id]?.total)}</p>
 
