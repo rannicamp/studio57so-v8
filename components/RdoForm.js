@@ -1,14 +1,24 @@
+// components/RdoForm.js
+
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTruck, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
-// O PORQUÊ: Importamos a biblioteca de compressão de imagens que você instalou.
-// É ela que fará o trabalho de reduzir o tamanho dos arquivos de foto.
 import imageCompression from 'browser-image-compression';
 
+// O PORQUÊ: Alteramos as chaves para serem todas em letras minúsculas.
+// Isso é parte da solução para tornar a comparação de status insensível a maiúsculas/minúsculas.
+const STATUS_CONFIG = {
+  'em andamento': { order: 1, colorClass: 'border-l-4 border-blue-500' },
+  'aguardando material': { order: 2, colorClass: 'border-l-4 border-orange-400' },
+  'pausado': { order: 3, colorClass: 'border-l-4 border-yellow-500' },
+  'não iniciado': { order: 4, colorClass: 'border-l-4 border-gray-300' },
+  'concluído': { order: 5, colorClass: 'border-l-4 border-green-500' },
+  'cancelado': { order: 6, colorClass: 'border-l-4 border-red-500' },
+};
 
 export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const supabase = createClient();
@@ -36,6 +46,7 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const occurrenceTypes = ["Informativa", "Alerta", "Grave", "Acidente de Trabalho", "Condição Insegura"];
 
   const setupFormWithData = useCallback(async (rdoData) => {
+    // ... (toda a função setupFormWithData permanece igual)
     if (!rdoData) {
       setLoadingForm(false);
       return;
@@ -132,6 +143,7 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
     }
   }, [supabase]);
 
+  // ... (useEffect e outras funções handle... permanecem iguais)
   useEffect(() => {
     const initializeForm = async () => {
       if (initialRdoData) {
@@ -191,7 +203,7 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
       }
     };
     if (user) { 
-        initializeForm();
+      initializeForm();
     }
   }, [initialRdoData, selectedEmpreendimento, supabase, setupFormWithData, user]);
 
@@ -322,7 +334,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
 
     try {
       const compressedFile = await imageCompression(currentPhotoFile, options);
-
       const safeFileName = `${Date.now()}-${currentPhotoFile.name.replace(/\s/g, '_')}`;
       const filePath = `${rdoFormData.id}/${safeFileName}`;
 
@@ -340,9 +351,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
           diario_obra_id: rdoFormData.id,
           caminho_arquivo: fileData.path,
           descricao: currentPhotoDescription || null,
-          // O PORQUÊ (NOVA ALTERAÇÃO): Aqui está a única mudança neste arquivo.
-          // Adicionamos a propriedade 'tamanho_arquivo' para salvar o tamanho
-          // do arquivo comprimido (em bytes) no banco de dados.
           tamanho_arquivo: compressedFile.size 
         })
         .select()
@@ -379,6 +387,21 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
     setMessage('Foto removida.');
   };
 
+
+  const sortedActivityStatuses = useMemo(() => {
+    if (!Array.isArray(activityStatuses)) {
+      return [];
+    }
+    return [...activityStatuses].sort((a, b) => {
+      // O PORQUÊ: Adicionamos .toLowerCase() para que a ordenação também ignore maiúsculas/minúsculas.
+      const statusA = (a?.status || 'Não Iniciado').trim().toLowerCase();
+      const statusB = (b?.status || 'Não Iniciado').trim().toLowerCase();
+      const orderA = STATUS_CONFIG[statusA]?.order || 99;
+      const orderB = STATUS_CONFIG[statusB]?.order || 99;
+      return orderA - orderB;
+    });
+  }, [activityStatuses]);
+
   if (loadingForm) {
     return <p className="text-center mt-10">Carregando dados do RDO...</p>;
   }
@@ -393,6 +416,7 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         </div>
       )}
       <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+        {/* ... Seções do formulário (Informações Gerais, Condições, etc.)... */}
         <div className="border-b border-gray-200 pb-4">
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Informações Gerais</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -464,20 +488,38 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         <div className="border-b border-gray-200 pb-4">
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Status das Atividades</h3>
           <ul className="divide-y divide-gray-200">
-            {activityStatuses.map((activity) => (
-              <li key={activity.id} className="py-3 flex flex-col md:flex-row md:items-center gap-2">
-                <span className="font-medium w-full md:w-2/5">{activity.nome}</span>
-                <select value={activity.status || 'Não Iniciado'} onChange={(e) => handleActivityStatusChange(activity.id, e.target.value, activity.observacao)} disabled={isRdoLocked} className="p-1 border rounded-md text-sm w-full md:w-1/5">
-                  <option>Não Iniciado</option><option>Em Andamento</option><option>Concluído</option><option>Pausado</option><option>Aguardando Material</option><option>Cancelado</option>
-                </select>
-                <input type="text" placeholder="Observação..." value={activity.observacao || ''} onChange={(e) => handleActivityStatusChange(activity.id, activity.status, e.target.value)} disabled={isRdoLocked} className="block w-full md:w-2/5 p-2 border rounded-md text-sm" />
-              </li>
-            ))}
-            {activityStatuses.length === 0 && (
+            {sortedActivityStatuses.map((activity) => {
+              // ---- FERRAMENTA DE DEPURACÃO ----
+              // O PORQUÊ: Este console.log é a nossa ferramenta de investigação.
+              // Ele vai imprimir o status EXATO de cada atividade no console do navegador.
+              // Se o problema persistir, essa informação nos dará a resposta definitiva.
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`Atividade: "${activity.nome}", Status do BD: "${activity.status}"`);
+              }
+              // ---- FIM DA DEPURACÃO ----
+
+              // O PORQUÊ: A CORREÇÃO FINAL.
+              // Usamos .trim() para remover espaços e .toLowerCase() para converter para minúsculas.
+              // Agora, " Em Andamento ", "em andamento" e "EM ANDAMENTO" serão todos tratados da mesma forma.
+              const currentStatus = (activity.status || 'Não Iniciado').trim().toLowerCase();
+              const config = STATUS_CONFIG[currentStatus] || { colorClass: 'border-l-4 border-gray-200' };
+
+              return (
+                <li key={activity.id} className={`pl-4 pr-2 py-3 flex flex-col md:flex-row md:items-center gap-2 ${config.colorClass}`}>
+                  <span className="font-medium w-full md:w-2/5">{activity.nome}</span>
+                  <select value={activity.status || 'Não Iniciado'} onChange={(e) => handleActivityStatusChange(activity.id, e.target.value, activity.observacao)} disabled={isRdoLocked} className="p-1 border rounded-md text-sm w-full md:w-1/5">
+                    <option>Não Iniciado</option><option>Em Andamento</option><option>Concluído</option><option>Pausado</option><option>Aguardando Material</option><option>Cancelado</option>
+                  </select>
+                  <input type="text" placeholder="Observação..." value={activity.observacao || ''} onChange={(e) => handleActivityStatusChange(activity.id, activity.status, e.target.value)} disabled={isRdoLocked} className="block w-full md:w-2/5 p-2 border rounded-md text-sm" />
+                </li>
+              );
+            })}
+            {sortedActivityStatuses.length === 0 && (
               <p className="text-sm text-gray-500 py-2">Nenhuma atividade de obra para hoje.</p>
             )}
           </ul>
         </div>
+        {/* ... Restante do formulário (Mão de Obra, Ocorrências, Fotos)... */}
         <div className="border-b border-gray-200 pb-4">
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Mão de Obra</h3>
           <ul className="divide-y divide-gray-200">
@@ -561,6 +603,7 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
             ))}
           </div>
         </div>
+        
         {message && <p className="text-center mt-4 text-sm font-medium">{message}</p>}
       </form>
     </div>
