@@ -6,13 +6,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, faWarehouse, faFilter, faTimes, faArrowDown, faHistory, 
-    faArrowUp, faTools, faBox, faBoxOpen, faSearch 
+    faArrowUp, faTools, faBox, faBoxOpen, faSearch, faPlus // <-- NOVO: Ícone de Adicionar
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import BaixaEstoqueModal from './BaixaEstoqueModal';
 import HistoricoMovimentacoesModal from './HistoricoMovimentacoesModal';
 import RegistrarRetiradaModal from './RegistrarRetiradaModal';
-import RegistrarDevolucaoModal from './RegistrarDevolucaoModal'; // <-- NOVO: Importamos o modal de devolução
+import RegistrarDevolucaoModal from './RegistrarDevolucaoModal';
+import AdicionarMaterialManualModal from './AdicionarMaterialManualModal'; // <-- NOVO: Importamos o modal de adição
 import { useEmpreendimento } from '../../contexts/EmpreendimentoContext';
 import { useDebounce } from 'use-debounce';
 
@@ -47,7 +48,8 @@ export default function AlmoxarifadoManager() {
     const [isBaixaModalOpen, setIsBaixaModalOpen] = useState(false);
     const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
     const [isRetiradaModalOpen, setIsRetiradaModalOpen] = useState(false);
-    const [isDevolucaoModalOpen, setIsDevolucaoModalOpen] = useState(false); // <-- NOVO: Estado para o novo modal
+    const [isDevolucaoModalOpen, setIsDevolucaoModalOpen] = useState(false);
+    const [isAdicionarMaterialModalOpen, setIsAdicionarMaterialModalOpen] = useState(false); // <-- NOVO: Estado para o novo modal
     const [selectedEstoqueItem, setSelectedEstoqueItem] = useState(null);
 
     const { data: estoqueCompleto, isLoading, isError, error } = useQuery({
@@ -82,7 +84,6 @@ export default function AlmoxarifadoManager() {
     const handleOpenBaixaModal = (item) => { setSelectedEstoqueItem(item); setIsBaixaModalOpen(true); };
     const handleOpenHistoricoModal = (item) => { setSelectedEstoqueItem(item); setIsHistoricoModalOpen(true); };
     const handleOpenRetiradaModal = (item) => { setSelectedEstoqueItem(item); setIsRetiradaModalOpen(true); };
-    // AQUI A MUDANÇA: Abrimos o modal de devolução
     const handleOpenDevolucaoModal = (item) => { setSelectedEstoqueItem(item); setIsDevolucaoModalOpen(true); };
     const handleOpenBaixaQuebraModal = (item) => toast.info("Funcionalidade 'Baixa por Quebra' será implementada.");
 
@@ -126,15 +127,31 @@ export default function AlmoxarifadoManager() {
     
     return (
         <div className="space-y-4">
+            <AdicionarMaterialManualModal 
+                isOpen={isAdicionarMaterialModalOpen} 
+                onClose={() => setIsAdicionarMaterialModalOpen(false)} 
+                onSuccess={handleSuccess}
+                empreendimentoId={empreendimentoId}
+            />
             {selectedEstoqueItem && (
                 <>
                     <BaixaEstoqueModal isOpen={isBaixaModalOpen} onClose={() => setIsBaixaModalOpen(false)} estoqueItem={selectedEstoqueItem} onSuccess={handleSuccess} />
                     <HistoricoMovimentacoesModal isOpen={isHistoricoModalOpen} onClose={() => setIsHistoricoModalOpen(false)} estoqueItem={selectedEstoqueItem} />
                     <RegistrarRetiradaModal isOpen={isRetiradaModalOpen} onClose={() => setIsRetiradaModalOpen(false)} estoqueItem={selectedEstoqueItem} onSuccess={handleSuccess} />
-                    {/* <-- NOVO: Renderizamos o modal de devolução aqui */}
                     <RegistrarDevolucaoModal isOpen={isDevolucaoModalOpen} onClose={() => setIsDevolucaoModalOpen(false)} estoqueItem={selectedEstoqueItem} onSuccess={handleSuccess} />
                 </>
             )}
+
+            {/* <-- NOVO: Botão para adicionar material --> */}
+            <div className="flex justify-end">
+                <button 
+                    onClick={() => setIsAdicionarMaterialModalOpen(true)}
+                    className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                    <FontAwesomeIcon icon={faPlus} />
+                    Adicionar Material
+                </button>
+            </div>
 
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                 <div className="flex items-center justify-between">
