@@ -3,157 +3,158 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
+import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import FiltroFinanceiro from '@/components/financeiro/FiltroFinanceiro';
 
-// Funções para buscar os filtros (categorias e contas)
-const fetchFinanceFilters = async () => {
+// Função para buscar os dados dos filtros (contas, categorias, etc.)
+const fetchFilterOptions = async () => {
     const supabase = createClient();
-    const { data: categorias, error: catError } = await supabase.from('categorias_financeiras').select('id, nome, tipo');
-    if (catError) throw new Error(catError.message);
-
-    const { data: contas, error: contaError } = await supabase.from('contas_financeiras').select('id, nome');
-    if (contaError) throw new Error(contaError.message);
-
-    return { categorias, contas };
+    const [empresasRes, contasRes, categoriasRes, empreendimentosRes, contatosRes] = await Promise.all([
+        supabase.from('cadastro_empresa').select('id, nome_fantasia, razao_social'),
+        supabase.from('contas_financeiras').select('id, nome'),
+        supabase.from('categorias_financeiras').select('id, nome, parent_id'),
+        supabase.from('empreendimentos').select('id, nome'),
+        supabase.from('contatos').select('id, nome, razao_social'),
+    ]);
+    return {
+        empresas: empresasRes.data || [],
+        contas: contasRes.data || [],
+        categorias: categoriasRes.data || [],
+        empreendimentos: empreendimentosRes.data || [],
+        allContacts: contatosRes.data || [],
+    };
 };
 
-export default function ConstrutorKpiForm({ kpi, onClose }) {
-    const [titulo, setTitulo] = useState('');
-    const [descricao, setDescricao] = useState('');
-    const [modulo, setModulo] = useState('financeiro');
-    const [tipoCalculo, setTipoCalculo] = useState('soma_valores');
-    
-    // Estado para os filtros
-    const [selectedCategorias, setSelectedCategorias] = useState([]);
-    const [selectedContas, setSelectedContas] = useState([]);
-    const [tipoLancamento, setTipoLancamento] = useState(''); // 'Receita' ou 'Despesa'
-    const [periodo, setPeriodo] = useState('mes_atual');
-
+export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
     const queryClient = useQueryClient();
     const supabase = createClient();
 
-    // Busca os dados para preencher os filtros
-    const { data: filterData, isLoading: isLoadingFilters } = useQuery({
-        queryKey: ['financeFilters'],
-        queryFn: fetchFinanceFilters,
+    const [titulo, setTitulo] = useState('');
+    const [descricao, setDescricao] = useState('');
+    const [grupo, setGrupo] = useState('');
+    const [tipoCalculo, setTipoCalculo] = useState('resultado');
+    const [filters, setFilters] = useState({
+        searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [],
+        etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', favorecidoId: null,
     });
+
+    const isEditing = !!kpiToEdit;
+
+    // Busca os dados para os dropdowns dos filtros
+    const { data: filterOptions, isLoading: isLoadingOptions } = useQuery({
+        queryKey: ['financeFilterOptions'],
+        queryFn: fetchFilterOptions,
+    });
+
+    // Efeito para preencher o formulário quando estiver editando um KPI
+    useEffect(() => {
+        if (isEditing) {
+            setTitulo(kpiToEdit.titulo);
+            setDescricao(kpiToEdit.descricao || '');
+            setGrupo(kpiToEdit.grupo || '');
+            setTipoCalculo(kpiToEdit.tipo_calculo);
+            setFilters(kpiToEdit.filtros);
+        } else {
+            // Reseta para o estado inicial se não estiver editando
+            setTitulo('');
+            setDescricao('');
+            setGrupo('');
+            setTipoCalculo('resultado');
+            setFilters({
+                searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [],
+                etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', favorecidoId: null,
+            });
+        }
+    }, [kpiToEdit, isEditing]);
 
     const { mutate: saveKpi, isPending } = useMutation({
         mutationFn: async (kpiData) => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Usuário não autenticado.");
 
-            const { error } = await supabase
-                .from('kpis_personalizados')
-                .insert([{ ...kpiData, usuario_id: user.id }]);
+            const dataToSave = {
+                usuario_id: user.id,
+                titulo: kpiData.titulo,
+                descricao: kpiData.descricao,
+                grupo: kpiData.grupo,
+                tipo_calculo: kpiData.tipoCalculo,
+                filtros: kpiData.filters,
+            };
+
+            let error;
+            if (isEditing) {
+                const { error: updateError } = await supabase.from('kpis_personalizados').update(dataToSave).eq('id', kpiToEdit.id);
+                error = updateError;
+            } else {
+                const { error: insertError } = await supabase.from('kpis_personalizados').insert([{ ...dataToSave, exibir_no_painel: true }]);
+                error = insertError;
+            }
             
             if (error) throw new Error(error.message);
+            return isEditing ? 'KPI atualizado com sucesso!' : 'KPI criado com sucesso!';
         },
-        onSuccess: () => {
+        onSuccess: (message) => {
+            toast.success(message);
             queryClient.invalidateQueries({ queryKey: ['kpisPersonalizados'] });
-            onClose(); // Fecha o formulário após o sucesso
+            onDone();
         },
-        onError: (error) => {
-            alert(`Erro ao salvar KPI: ${error.message}`);
-        }
+        onError: (error) => toast.error(`Erro: ${error.message}`),
     });
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        
-        const filtros = {
-            tipo_lancamento: tipoLancamento,
-            periodo: periodo,
-            categoria_ids: selectedCategorias,
-            conta_ids: selectedContas,
-        };
-
-        saveKpi({
-            titulo,
-            descricao,
-            modulo,
-            tipo_calculo: tipoCalculo,
-            filtros: filtros,
-        });
+        saveKpi({ titulo, descricao, grupo, tipoCalculo, filters });
     };
-    
+
     return (
         <div className="p-6 bg-white rounded-lg shadow-lg border">
-            <h2 className="text-xl font-bold mb-4">{kpi ? 'Editar KPI' : 'Criar Novo KPI'}</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Informações Básicas */}
-                <div>
-                    <label htmlFor="titulo" className="block text-sm font-medium text-gray-700">Título</label>
-                    <input type="text" id="titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} required className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
-                </div>
-                <div>
-                    <label htmlFor="descricao" className="block text-sm font-medium text-gray-700">Descrição</label>
-                    <textarea id="descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} rows="2" className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></textarea>
-                </div>
+            <h2 className="text-2xl font-bold mb-4 text-gray-800">{isEditing ? `Editando KPI: ${kpiToEdit.titulo}` : 'Criar Novo KPI'}</h2>
+            
+            {isLoadingOptions ? (
+                <div className="text-center p-8"><FontAwesomeIcon icon={faSpinner} spin /> Carregando filtros...</div>
+            ) : (
+                <FiltroFinanceiro 
+                    filters={filters} 
+                    setFilters={setFilters} 
+                    {...filterOptions} 
+                />
+            )}
 
-                {/* Módulo e Cálculo */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="modulo" className="block text-sm font-medium text-gray-700">Módulo</label>
-                        <select id="modulo" value={modulo} onChange={(e) => setModulo(e.target.value)} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                            <option value="financeiro">Financeiro</option>
-                            {/* Outros módulos virão aqui (compras, rh, etc.) */}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="tipo_calculo" className="block text-sm font-medium text-gray-700">O que calcular?</label>
-                        <select id="tipo_calculo" value={tipoCalculo} onChange={(e) => setTipoCalculo(e.target.value)} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                            <option value="soma_valores">Soma dos Valores (R$)</option>
-                            <option value="contagem_registros">Número de Lançamentos</option>
-                        </select>
+            <form onSubmit={handleSubmit} className="space-y-4 mt-6">
+                <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
+                    <h3 className="text-lg font-bold text-gray-700">Detalhes do KPI</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label htmlFor="titulo" className="block text-sm font-medium">Título para o KPI *</label>
+                            <input type="text" id="titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} required placeholder="Ex: Despesas com Obras (Mês Atual)" className="mt-1 w-full p-2 border rounded-md" />
+                        </div>
+                        <div>
+                            <label htmlFor="grupo" className="block text-sm font-medium">Grupo</label>
+                            <input type="text" id="grupo" value={grupo} onChange={(e) => setGrupo(e.target.value)} placeholder="Ex: Financeiro, Comercial" className="mt-1 w-full p-2 border rounded-md" />
+                        </div>
+                        <div>
+                            <label htmlFor="tipoCalculo" className="block text-sm font-medium">O que calcular?</label>
+                            <select id="tipoCalculo" value={tipoCalculo} onChange={e => setTipoCalculo(e.target.value)} className="mt-1 w-full p-2 border rounded-md">
+                                <option value="resultado">Resultado (Receitas - Despesas)</option>
+                                <option value="receitas">Apenas Receitas</option>
+                                <option value="despesas">Apenas Despesas</option>
+                                <option value="contagem">Nº de Lançamentos</option>
+                            </select>
+                        </div>
+                        <div className="md:col-span-3">
+                            <label htmlFor="descricao" className="block text-sm font-medium">Descrição (Opcional)</label>
+                            <textarea id="descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} rows="2" placeholder="Uma breve explicação do que este indicador mede." className="mt-1 w-full p-2 border rounded-md"></textarea>
+                        </div>
                     </div>
                 </div>
-
-                <hr />
-                <h3 className="text-lg font-semibold">Filtros</h3>
                 
-                {isLoadingFilters ? <p>Carregando filtros...</p> : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Tipo de Lançamento</label>
-                            <select value={tipoLancamento} onChange={e => setTipoLancamento(e.target.value)} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-                                <option value="">Todos</option>
-                                <option value="Receita">Receita</option>
-                                <option value="Despesa">Despesa</option>
-                            </select>
-                        </div>
-                        <div>
-                             <label className="block text-sm font-medium text-gray-700">Período</label>
-                             <select value={periodo} onChange={e => setPeriodo(e.target.value)} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
-                                <option value="hoje">Hoje</option>
-                                <option value="mes_atual">Este Mês</option>
-                                <option value="ultimos_30_dias">Últimos 30 dias</option>
-                                <option value="ano_atual">Este Ano</option>
-                             </select>
-                        </div>
-                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Categorias</label>
-                            <select multiple value={selectedCategorias} onChange={e => setSelectedCategorias(Array.from(e.target.selectedOptions, option => option.value))} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm h-32">
-                                {filterData?.categorias.map(cat => <option key={cat.id} value={cat.id}>{cat.nome}</option>)}
-                            </select>
-                            <p className="text-xs text-gray-500">Segure Ctrl (ou Cmd) para selecionar mais de um.</p>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Contas</label>
-                            <select multiple value={selectedContas} onChange={e => setSelectedContas(Array.from(e.target.selectedOptions, option => option.value))} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm h-32">
-                                {filterData?.contas.map(conta => <option key={conta.id} value={conta.id}>{conta.nome}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                )}
-                
-                {/* Ações */}
-                <div className="flex justify-end gap-3 pt-4">
-                    <button type="button" onClick={onClose} className="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">Cancelar</button>
-                    <button type="submit" disabled={isPending} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400 flex items-center">
+                <div className="flex justify-end gap-3 pt-4 border-t mt-6">
+                    <button type="button" onClick={onDone} className="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">Cancelar</button>
+                    <button type="submit" disabled={isPending || !titulo} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400 flex items-center">
                         {isPending && <FontAwesomeIcon icon={faSpinner} spin className="mr-2" />}
-                        {kpi ? 'Salvar Alterações' : 'Criar KPI'}
+                        {isEditing ? 'Salvar Alterações' : 'Criar KPI'}
                     </button>
                 </div>
             </form>

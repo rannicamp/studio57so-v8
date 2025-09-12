@@ -3,6 +3,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation'; // <-- ADICIONADO
 import Sidebar from '../../components/sidebar';
 import Header from '../../components/Header';
 import { LayoutProvider } from '../../contexts/LayoutContext';
@@ -19,14 +20,32 @@ config.autoAddCss = false;
 
 function MainLayout({ children }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { isProprietario, sidebarPosition, loading: authLoading } = useAuth();
+  // MODIFICAÇÃO 1: Pegamos também o objeto 'user' para a verificação de segurança.
+  const { user, isProprietario, sidebarPosition, loading: authLoading } = useAuth();
   const { empreendimentos } = useEmpreendimento();
+  const router = useRouter(); // <-- ADICIONADO
 
   const [isGlobalActivityModalOpen, setIsGlobalActivityModalOpen] = useState(false);
   const [modalData, setModalData] = useState({ funcionarios: [], empresas: [] });
   const [isLoadingModalData, setIsLoadingModalData] = useState(false);
 
   const supabase = createClient();
+
+  // MODIFICAÇÃO 2: Adicionamos o "verificador de segurança" contra sessões fantasmas.
+  useEffect(() => {
+    // Este código roda sempre que o status de autenticação mudar.
+    if (!authLoading) {
+      // Se o carregamento terminou e, mesmo assim, NÃO temos um objeto 'user' válido...
+      if (!user) {
+        // ...significa que é uma sessão fantasma! O usuário foi deletado do banco.
+        console.error("Sessão fantasma detectada! Forçando logout.");
+        // Limpamos a sessão inválida no Supabase e redirecionamos para o login.
+        supabase.auth.signOut();
+        router.push('/login?error=Sua sessão é inválida ou expirou.');
+      }
+    }
+  }, [authLoading, user, router, supabase]);
+
 
   const fetchModalData = useCallback(async () => {
     setIsLoadingModalData(true);
@@ -59,8 +78,9 @@ function MainLayout({ children }) {
     setIsCollapsed(!isCollapsed);
   };
   
-  if (authLoading) {
-    return <div className="flex items-center justify-center h-screen">Carregando...</div>;
+  // MODIFICAÇÃO 3: Melhoramos a tela de carregamento para aguardar a verificação do usuário.
+  if (authLoading || !user) {
+    return <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">Carregando sistema...</div>;
   }
 
   const containerClasses = {
