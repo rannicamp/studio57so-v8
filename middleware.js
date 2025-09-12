@@ -13,7 +13,8 @@ export async function middleware(request) {
   // O "segurança" vai deixar passar qualquer URL que comece com um desses caminhos.
   const publicPaths = [
     '/simulador-financiamento',
-    '/cadastro-cliente'
+    '/cadastro-cliente',
+    '/cadastro' // <-- ESTA É A ÚNICA LINHA ADICIONADA
   ];
 
   if (publicPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
