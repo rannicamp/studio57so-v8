@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext'; // <-- CORREÇÃO APLICADA AQUI
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt, faFilePdf, faFileLines, faTrashAlt, faSpinner, faBrain, faShareSquare, faLock } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';

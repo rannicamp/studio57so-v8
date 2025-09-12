@@ -1,74 +1,61 @@
-import { createClient } from '../../../../utils/supabase/server';
-import { redirect } from 'next/navigation';
+"use client";
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext'; // Caminho de importação corrigido e padronizado
+import ImportacaoFinanceiraManager from '@/components/financeiro/ImportacaoFinanceiraManager'; // Componente correto importado
 import Link from 'next/link';
-import IntegrationsManager from '../../../../components/IntegrationsManager';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft, faSpinner, faLock } from '@fortawesome/free-solid-svg-icons';
 
-// Função para verificar a permissão de acesso à página
-async function checkPermissions() {
-  const supabase = createClient();
-  
-  // 1. Verifica se há um usuário logado
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/login');
-  }
+export default function ImportacaoFinanceiraPage() {
+    const router = useRouter();
+    const { hasPermission, loading: authLoading } = useAuth();
 
-  // 2. Busca o perfil do usuário para obter a função dele
-  const { data: userData, error: userError } = await supabase
-    .from('usuarios')
-    .select('funcao_id, funcoes ( nome_funcao )')
-    .eq('id', user.id)
-    .single();
+    // Verificamos a permissão específica para esta página
+    const canViewPage = hasPermission('config_financeiro_importar', 'pode_ver');
 
-  if (userError) {
-    console.error("Erro ao buscar dados do usuário:", userError);
-    redirect('/');
-  }
-  
-  // A função 'Proprietário' sempre tem acesso total
-  if (userData?.funcoes?.nome_funcao === 'Proprietário') {
-    return true;
-  }
+    useEffect(() => {
+        // Se a autenticação terminou e o usuário NÃO PODE ver a página, redireciona
+        if (!authLoading && !canViewPage) {
+            router.push('/');
+        }
+    }, [authLoading, canViewPage, router]);
 
-  // 3. Para as outras funções, verifica a permissão específica
-  const { data: permissionData, error: permissionError } = await supabase
-    .from('permissoes')
-    .select('pode_ver')
-    .eq('funcao_id', userData.funcao_id)
-    .eq('recurso', 'config_integracoes') // <--- Chave de permissão para esta página
-    .single();
+    // Enquanto o estado de autenticação está carregando, mostramos um spinner
+    if (authLoading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-500" />
+                <span className="ml-4 text-gray-600">Verificando permissões...</span>
+            </div>
+        );
+    }
 
-  if (permissionError || !permissionData?.pode_ver) {
-    redirect('/'); // Redireciona se não tiver a permissão
-  }
+    // Se o usuário não tiver permissão, mostramos uma mensagem de acesso negado
+    if (!canViewPage) {
+        return (
+            <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg">
+                <FontAwesomeIcon icon={faLock} size="3x" className="text-red-400 mb-4" />
+                <h2 className="text-2xl font-bold text-red-700">Acesso Negado</h2>
+                <p className="mt-2 text-red-600">Você não tem permissão para acessar esta página.</p>
+            </div>
+        );
+    }
 
-  return true;
-}
-
-
-export default async function IntegracoesPage() {
-    await checkPermissions(); // Executa a verificação de segurança
-
-    const supabase = createClient();
-    
-    // Se a verificação passar, busca os dados necessários para a página
-    const { data: empresas } = await supabase.from('cadastro_empresa').select('id, razao_social');
-    const { data: configs } = await supabase.from('configuracoes_whatsapp').select('*');
-
+    // Se o usuário tiver permissão, a página é renderizada normalmente
     return (
         <div className="space-y-6">
-            <Link href="/configuracoes" className="text-blue-500 hover:underline mb-4 inline-block">
-                &larr; Voltar para Configurações
+            <Link href="/configuracoes" className="text-blue-600 hover:text-blue-800 flex items-center gap-2 mb-2">
+                <FontAwesomeIcon icon={faArrowLeft} />
+                Voltar para Configurações
             </Link>
-            <h1 className="text-3xl font-bold text-gray-900">Integrações</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Importar Lançamentos do Sistema Antigo</h1>
             <p className="text-gray-600">
-                Configure as credenciais para serviços externos, como a API do WhatsApp.
+                Siga os passos para importar seus dados. O assistente irá ajudá-lo a mapear colunas e criar contas ou categorias que não existem.
             </p>
-            <div className="bg-white rounded-lg shadow p-6">
-                <IntegrationsManager 
-                    empresas={empresas || []}
-                    initialConfigs={configs || []}
-                />
+            <div className="bg-white p-6 rounded-lg shadow mt-4">
+                <ImportacaoFinanceiraManager />
             </div>
         </div>
     );
