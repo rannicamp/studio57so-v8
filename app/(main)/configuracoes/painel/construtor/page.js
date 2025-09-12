@@ -6,18 +6,18 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faSave } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faSave, faLock } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '@/contexts/AuthContext'; // Importação para usar as permissões
 
 import FiltroFinanceiro from '@/components/financeiro/FiltroFinanceiro';
 import KpiCard from '@/components/KpiCard';
 
 // =================================
-// FUNÇÕES DE BUSCA DE DADOS
+// FUNÇÕES DE BUSCA DE DADOS (permanecem as mesmas)
 // =================================
 
 const supabase = createClient();
 
-// Função para buscar os dados necessários para os filtros (empresas, contas, etc.)
 async function fetchFilterOptions() {
     const [empresasRes, contasRes, categoriasRes, empreendimentosRes, contatosRes] = await Promise.all([
         supabase.from('cadastro_empresa').select('id, nome_fantasia, razao_social'),
@@ -35,7 +35,6 @@ async function fetchFilterOptions() {
     };
 }
 
-// Função que aplica os filtros na query do Supabase (REUTILIZADA DA PÁGINA FINANCEIRA)
 const applyFiltersToQuery = (query, currentFilters) => {
     if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
     if (currentFilters.startDate) query = query.gte('data_transacao', currentFilters.startDate);
@@ -51,8 +50,6 @@ const applyFiltersToQuery = (query, currentFilters) => {
     return query;
 };
 
-
-// Função para calcular o resultado do KPI com base nos filtros
 async function calculateKpiResult({ queryKey }) {
     const [_key, filters] = queryKey;
     let query = supabase.from('lancamentos').select('valor, tipo');
@@ -69,6 +66,16 @@ async function calculateKpiResult({ queryKey }) {
 export default function ConstrutorKpiPage() {
     const queryClient = useQueryClient();
     const router = useRouter();
+    
+    // --- LÓGICA DE SEGURANÇA ADICIONADA AQUI ---
+    const { hasPermission, loading: authLoading } = useAuth();
+    const canViewPage = hasPermission('config_kpi_builder', 'pode_ver');
+
+    useEffect(() => {
+        if (!authLoading && !canViewPage) {
+            router.push('/');
+        }
+    }, [authLoading, canViewPage, router]);
 
     const [titulo, setTitulo] = useState('');
     const [descricao, setDescricao] = useState('');
@@ -80,23 +87,20 @@ export default function ConstrutorKpiPage() {
         favorecidoId: null
     });
 
-    // Busca as opções para os filtros
     const { data: filterOptions, isLoading: isLoadingOptions } = useQuery({
         queryKey: ['financeFilterOptions'],
         queryFn: fetchFilterOptions,
+        enabled: canViewPage, // Otimização: Só busca os dados se tiver permissão
     });
 
-    // Calcula o resultado do KPI em tempo real
     const { data: kpiRawData, isLoading: isLoadingKpiResult } = useQuery({
         queryKey: ['kpiBuilderResult', filters],
         queryFn: calculateKpiResult,
-        enabled: !isLoadingOptions, // Só roda depois que as opções de filtro carregarem
+        enabled: !isLoadingOptions && canViewPage, // Otimização: Só busca os dados se tiver permissão
     });
     
-    // Formata o resultado do KPI para exibição
     const kpiResult = useMemo(() => {
         if (!kpiRawData) return { total: 0, label: 'Carregando...' };
-
         const receitas = kpiRawData.filter(l => l.tipo === 'Receita').reduce((acc, l) => acc + l.valor, 0);
         const despesas = kpiRawData.filter(l => l.tipo === 'Despesa').reduce((acc, l) => acc + l.valor, 0);
         
@@ -109,8 +113,6 @@ export default function ConstrutorKpiPage() {
         }
     }, [kpiRawData, tipoCalculo]);
 
-
-    // Mutation para salvar o KPI
     const { mutate: saveKpi, isPending } = useMutation({
         mutationFn: async () => {
             if (!titulo) throw new Error("O título é obrigatório.");
@@ -130,15 +132,25 @@ export default function ConstrutorKpiPage() {
         },
         onSuccess: () => {
             toast.success('KPI criado com sucesso!');
-            router.push('/painel'); // ou para a lista de KPIs
+            router.push('/painel');
         },
         onError: (error) => {
             toast.error(`Erro ao salvar KPI: ${error.message}`);
         }
     });
 
-    if (isLoadingOptions) {
+    if (authLoading || isLoadingOptions) {
         return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando construtor...</div>;
+    }
+
+    if (!canViewPage) {
+        return (
+            <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg">
+                <FontAwesomeIcon icon={faLock} size="3x" className="text-red-400 mb-4" />
+                <h2 className="text-2xl font-bold text-red-700">Acesso Negado</h2>
+                <p className="mt-2 text-red-600">Você não tem permissão para acessar o construtor de KPIs.</p>
+            </div>
+        );
     }
 
     return (
@@ -155,7 +167,6 @@ export default function ConstrutorKpiPage() {
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Lado Esquerdo: Pré-visualização e Cálculo */}
                 <div className="bg-white p-6 rounded-lg shadow-md border space-y-4">
                     <h2 className="text-xl font-bold text-gray-700">Pré-visualização</h2>
                     <div>
@@ -184,7 +195,6 @@ export default function ConstrutorKpiPage() {
                     </div>
                 </div>
 
-                {/* Lado Direito: Salvar o KPI */}
                 <div className="bg-white p-6 rounded-lg shadow-md border space-y-4">
                     <h2 className="text-xl font-bold text-gray-700">Salvar KPI</h2>
                     <div>

@@ -1,8 +1,10 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCloudUploadAlt, faFilePdf, faFileLines, faTrashAlt, faSpinner, faBrain, faShareSquare } from '@fortawesome/free-solid-svg-icons';
+import { faCloudUploadAlt, faFilePdf, faFileLines, faTrashAlt, faSpinner, faBrain, faShareSquare, faLock } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
 // Componente para o Switch (Toggle)
@@ -14,6 +16,19 @@ const ToggleSwitch = ({ checked, onChange, disabled }) => (
 );
 
 export default function TreinamentoIAPage() {
+    const router = useRouter();
+    const { hasPermission, loading: authLoading } = useAuth();
+
+    // --- LÓGICA DE SEGURANÇA ADICIONADA AQUI ---
+    const canViewPage = hasPermission('config_treinamento_ia', 'pode_ver');
+
+    useEffect(() => {
+        if (!authLoading && !canViewPage) {
+            router.push('/');
+        }
+    }, [authLoading, canViewPage, router]);
+
+
     const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -46,11 +61,12 @@ export default function TreinamentoIAPage() {
     const removeFile = (indexToRemove) => setFiles(files.filter((_, index) => index !== indexToRemove));
 
     const fetchSystemPrompt = useCallback(async () => {
+        if (!canViewPage) return;
         setLoadingPrompt(true);
         const { data } = await supabase.from('configuracoes_ia').select('system_prompt').eq('nome', 'stella_whatsapp').single();
         if (data) setSystemPrompt(data.system_prompt);
         setLoadingPrompt(false);
-    }, [supabase]);
+    }, [supabase, canViewPage]);
 
     const handleSavePrompt = useCallback(async () => {
         setSavingPrompt(true);
@@ -60,18 +76,19 @@ export default function TreinamentoIAPage() {
     }, [supabase, systemPrompt]);
 
     const fetchEmpreendimentos = useCallback(async () => {
+        if (!canViewPage) return;
         const { data } = await supabase.from('empreendimentos').select('id, nome');
         if (data) {
             setEmpreendimentos(data);
             if (data.length > 0) setSelectedEmpreendimento(data[0].id);
         }
-    }, [supabase]);
+    }, [supabase, canViewPage]);
 
     const fetchAnexosDoEmpreendimento = useCallback(async (empreendimentoId) => {
-        if (!empreendimentoId) return;
+        if (!empreendimentoId || !canViewPage) return;
         const { data, error } = await supabase.from('empreendimento_anexos').select('id, nome_arquivo, status, created_at, usar_para_pesquisa, pode_enviar_anexo').eq('empreendimento_id', empreendimentoId).order('created_at', { ascending: false });
         if (error) { toast.error("Erro ao buscar anexos: " + error.message); setAnexos([]); } else { setAnexos(data || []); }
-    }, [supabase]);
+    }, [supabase, canViewPage]);
 
     const handleToggleAnexoPermission = async (anexoId, column, newValue) => {
         const originalAnexos = [...anexos];
@@ -107,13 +124,35 @@ export default function TreinamentoIAPage() {
     };
     
     useEffect(() => {
-        fetchEmpreendimentos();
-        fetchSystemPrompt();
-    }, [fetchEmpreendimentos, fetchSystemPrompt]);
+        if(canViewPage) {
+            fetchEmpreendimentos();
+            fetchSystemPrompt();
+        }
+    }, [canViewPage, fetchEmpreendimentos, fetchSystemPrompt]);
 
     useEffect(() => {
-        if (selectedEmpreendimento) fetchAnexosDoEmpreendimento(selectedEmpreendimento);
-    }, [selectedEmpreendimento, fetchAnexosDoEmpreendimento]);
+        if (selectedEmpreendimento && canViewPage) fetchAnexosDoEmpreendimento(selectedEmpreendimento);
+    }, [selectedEmpreendimento, canViewPage, fetchAnexosDoEmpreendimento]);
+
+    // --- BLOCOS DE RENDERIZAÇÃO CONDICIONAL ---
+    if (authLoading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-500" />
+                <span className="ml-4 text-gray-600">Verificando permissões...</span>
+            </div>
+        );
+    }
+
+    if (!canViewPage) {
+        return (
+            <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg">
+                <FontAwesomeIcon icon={faLock} size="3x" className="text-red-400 mb-4" />
+                <h2 className="text-2xl font-bold text-red-700">Acesso Negado</h2>
+                <p className="mt-2 text-red-600">Você não tem permissão para acessar esta página.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 space-y-6">
@@ -144,7 +183,6 @@ export default function TreinamentoIAPage() {
                                 {empreendimentos.map((emp) => <option key={emp.id} value={emp.id}>{emp.nome}</option>)}
                             </select>
                         </div>
-                        {/* AQUI ESTÁ A CORREÇÃO PRINCIPAL */}
                         <div onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop} className={`relative p-10 border-2 border-dashed rounded-md text-center cursor-pointer ${dragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}>
                             <input type="file" id="fileUpload" multiple className="hidden" onChange={handleFileChange} />
                             <label htmlFor="fileUpload" className="cursor-pointer flex flex-col items-center">

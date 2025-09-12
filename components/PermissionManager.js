@@ -65,17 +65,20 @@ export default function PermissionManager({ initialFuncoes }) {
         { key: 'permissoes', name: 'Permissões' },
       ]
     },
-    // --- NOVO GRUPO DE CONFIGURAÇÕES ADICIONADO AQUI ---
+    // --- GRUPO DE CONFIGURAÇÕES ATUALIZADO E COMPLETO ---
     {
       title: 'Configurações',
       resources: [
-        { key: 'config_view_usuarios', name: 'Acesso: Gestão de Usuários' },
-        { key: 'config_view_permissoes', name: 'Acesso: Permissões de Acesso' },
-        { key: 'config_view_jornadas', name: 'Acesso: Jornadas de Trabalho' },
-        { key: 'config_view_tipos_documento', name: 'Acesso: Tipos de Documento' },
-        { key: 'config_view_integracoes', name: 'Acesso: Integrações' },
-        { key: 'config_view_materiais', name: 'Acesso: Base de Materiais' },
-        { key: 'config_view_treinamento_ia', name: 'Acesso: Treinamento da IA' },
+        { key: 'config_usuarios', name: 'Gestão de Usuários' },
+        { key: 'config_permissoes', name: 'Permissões de Acesso' },
+        { key: 'config_jornadas', name: 'Jornadas de Trabalho' },
+        { key: 'config_tipos_documento', name: 'Tipos de Documento' },
+        { key: 'config_integracoes', name: 'Integrações' },
+        { key: 'config_materiais', name: 'Base de Materiais' },
+        { key: 'config_treinamento_ia', name: 'Treinamento da IA' },
+        { key: 'config_kpi_builder', name: 'Construtor de KPIs' },
+        { key: 'config_financeiro_importar', name: 'Importação Financeira' },
+        { key: 'config_menu', name: 'Personalização do Menu' },
       ]
     }
   ];
@@ -108,6 +111,10 @@ export default function PermissionManager({ initialFuncoes }) {
   };
 
   const handleMouseDown = (funcaoId, recursoKey, tipoPermissao, currentValue) => {
+    // Impede a alteração para a função 'Proprietário'
+    const funcao = funcoes.find(f => f.id === funcaoId);
+    if (funcao?.nome_funcao === 'Proprietário') return;
+
     setIsDragging(true);
     const targetValue = !currentValue;
     setDragTargetState(targetValue);
@@ -115,6 +122,10 @@ export default function PermissionManager({ initialFuncoes }) {
   };
 
   const handleMouseEnter = (funcaoId, recursoKey, tipoPermissao) => {
+    // Impede a alteração para a função 'Proprietário'
+    const funcao = funcoes.find(f => f.id === funcaoId);
+    if (funcao?.nome_funcao === 'Proprietário') return;
+      
     if (isDragging) {
       updateLocalPermission(funcaoId, recursoKey, tipoPermissao, dragTargetState);
     }
@@ -143,6 +154,10 @@ export default function PermissionManager({ initialFuncoes }) {
   };
 
   const getPermissao = (funcao, recursoKey, tipo) => {
+    // Para a função 'Proprietário', todas as permissões são consideradas como verdadeiras
+    if (funcao.nome_funcao === 'Proprietário') {
+      return true;
+    }
     const permissao = funcao.permissoes.find(p => p.recurso === recursoKey);
     return permissao ? !!permissao[tipo] : false;
   };
@@ -197,7 +212,7 @@ export default function PermissionManager({ initialFuncoes }) {
                         return (
                           <td
                             key={tipo}
-                            className={`px-2 py-4 text-center cursor-pointer ${borderClass}`}
+                            className={`px-2 py-4 text-center ${funcao.nome_funcao !== 'Proprietário' ? 'cursor-pointer' : ''} ${borderClass}`}
                             onMouseDown={() => handleMouseDown(funcao.id, recurso.key, tipo, isChecked)}
                             onMouseEnter={() => handleMouseEnter(funcao.id, recurso.key, tipo)}
                           >
