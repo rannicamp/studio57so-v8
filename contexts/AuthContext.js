@@ -4,22 +4,22 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
-import { useRouter } from 'next/navigation'; // Essencial para o redirecionamento
+import { useRouter } from 'next/navigation'; // Importa o useRouter para redirecionamento
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const supabase = createClient();
-  const router = useRouter(); // Instancia o router
-  const [user, setUser] = useState(null); // Usuário da sessão (auth.users)
-  const [userData, setUserData] = useState(null); // Nosso perfil (public.usuarios)
+  const router = useRouter(); // Instancia o router para usá-lo
+  const [user, setUser] = useState(null); // O usuário da sessão do Supabase
+  const [userData, setUserData] = useState(null); // O nosso perfil completo do public.usuarios
   const [loading, setLoading] = useState(true);
   const [isProprietario, setIsProprietario] = useState(false);
   const [canViewSalaries, setCanViewSalaries] = useState(false);
   const [permissions, setPermissions] = useState({});
   const [sidebarPosition, setSidebarPosition] = useState('left');
 
-  // Função centralizada para forçar o logout e limpar tudo
+  // Nova função centralizada para forçar o logout e limpar o estado
   const forceLogout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -28,7 +28,8 @@ export function AuthProvider({ children }) {
     setIsProprietario(false);
     setCanViewSalaries(false);
     setLoading(false);
-    router.push('/login?error=Sessão inválida ou expirada');
+    // Redireciona de forma segura para a página de login
+    router.push('/login?error=Sessão inválida ou usuário não encontrado.');
   }, [supabase, router]);
 
   const fetchProfileAndPermissions = useCallback(async (currentUser) => {
@@ -50,15 +51,15 @@ export function AuthProvider({ children }) {
       .eq('id', currentUser.id)
       .single();
 
-    // AQUI ESTÁ A MUDANÇA MAIS IMPORTANTE
+    // ---> AQUI ESTÁ A CORREÇÃO MAIS IMPORTANTE <---
     if (error || !profileData) {
-      console.error("Usuário da sessão não encontrado em public.usuarios. É um FANTASMA! Forçando logout.", error);
-      // Se o perfil não for encontrado, a sessão é inválida. Expulsa o usuário.
+      console.error("URGENTE: Usuário da sessão não foi encontrado na tabela 'usuarios'. É um fantasma! Forçando logout.", error);
+      // Se não encontrou o perfil, a sessão é inválida. EXPULSA O FANTASMA!
       await forceLogout();
-      return; // Para a execução aqui.
+      return; // Interrompe a execução para evitar que o resto do código rode
     }
 
-    // Se chegamos aqui, o usuário é válido e podemos configurar o estado.
+    // Se passou pela verificação, o usuário é legítimo. Continua normalmente.
     setUserData(profileData);
     setSidebarPosition(profileData.sidebar_position || 'left');
     
@@ -91,7 +92,6 @@ export function AuthProvider({ children }) {
     } else {
         setPermissions({});
     }
-    
     setLoading(false);
   }, [supabase, forceLogout]);
 
