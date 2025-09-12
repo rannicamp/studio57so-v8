@@ -16,7 +16,7 @@ import NotificationBell from './NotificationBell';
 export default function Header({ headerPositionClass }) {
     const router = useRouter();
     const { pageTitle } = useLayout();
-    const { user, userData, hasPermission } = useAuth();
+    const { user, userData, hasPermission } = useAuth(); // A função hasPermission ainda é necessária para outras partes do sistema
     const { empreendimentos, selectedEmpreendimento, changeEmpreendimento, loading: loadingEmpreendimento } = useEmpreendimento();
     
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -30,7 +30,6 @@ export default function Header({ headerPositionClass }) {
     // Este useEffect é ótimo para funcionalidades como "clicar fora para fechar".
     useEffect(() => {
         function handleClickOutside(event) {
-            // AQUI ESTAVA O ERRO: trocamos menu_ref por menuRef
             if (menuRef.current && !menuRef.current.contains(event.target)) {
                 setIsMenuOpen(false);
             }
@@ -39,7 +38,7 @@ export default function Header({ headerPositionClass }) {
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [menuRef]); // A dependência [menuRef] está correta
+    }, [menuRef]);
 
     const handleEmpreendimentoChange = (e) => {
         changeEmpreendimento(e.target.value);
@@ -98,14 +97,15 @@ export default function Header({ headerPositionClass }) {
                                             <span>Meu Perfil</span>
                                         </Link>
                                     </li>
-                                    {hasPermission('configuracoes', 'pode_ver') && (
-                                        <li>
-                                            <Link href="/configuracoes" className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                <FontAwesomeIcon icon={faCog} className="w-4 h-4" />
-                                                <span>Configurações</span>
-                                            </Link>
-                                        </li>
-                                    )}
+                                    
+                                    {/* ALTERAÇÃO APLICADA AQUI: A verificação de permissão foi removida para que todos os usuários vejam o link. */}
+                                    <li>
+                                        <Link href="/configuracoes" className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                            <FontAwesomeIcon icon={faCog} className="w-4 h-4" />
+                                            <span>Configurações</span>
+                                        </Link>
+                                    </li>
+                                    
                                     <li>
                                         <Link href="/configuracoes/feedback/enviar" className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                             <FontAwesomeIcon icon={faInbox} className="w-4 h-4" />
