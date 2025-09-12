@@ -32,6 +32,15 @@ async function refreshAccessToken(token) {
   }
 }
 
+// ---> INÍCIO DA CORREÇÃO <---
+// Determina se estamos no ambiente de produção
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Define o nome do cookie de forma segura
+const cookieName = isProduction 
+  ? '__Secure-next-auth.session-token' 
+  : 'next-auth.session-token';
+
 export const authOptions = {
   strategy: 'jwt',
   providers: [
@@ -59,20 +68,22 @@ export const authOptions = {
   ],
   secret: process.env.NEXTAUTH_SECRET,
   
-  // ##### INÍCIO DA NOVA LÓGICA DE COOKIES #####
+  // Lógica de cookies inteligente e flexível
   cookies: {
     sessionToken: {
-      name: `__Secure-next-auth.session-token`,
+      name: cookieName,
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: true,
-        domain: 'studio57.netlify.app' // Define o domínio exato
+        // A propriedade 'secure' será 'true' apenas em produção (HTTPS)
+        secure: isProduction,
+        // O domínio será definido apenas em produção
+        domain: isProduction ? 'studio57.netlify.app' : undefined
       }
     }
   },
-  // ##### FIM DA NOVA LÓGICA DE COOKIES #####
+  // ---> FIM DA CORREÇÃO <---
 
   callbacks: {
     async jwt({ token, account }) {
@@ -83,8 +94,13 @@ export const authOptions = {
         return token;
       }
 
-      if (Date.now() < token.accessTokenExpires) {
+      if (token.accessTokenExpires && Date.now() < token.accessTokenExpires) {
         return token;
+      }
+
+      // Evita tentar renovar tokens que não são do Facebook ou que já falharam
+      if (!token.refreshToken) {
+          return { ...token, error: "RefreshAccessTokenError" };
       }
 
       console.log("Token do Facebook expirado, tentando renovar...");
