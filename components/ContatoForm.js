@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../contexts/AuthContext'; // <--- 1. IMPORTAMOS O 'useAuth'
 import { createClient } from '../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { IMaskInput } from 'react-imask';
@@ -60,6 +61,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
     const supabase = createClient();
     const router = useRouter();
     const isEditing = Boolean(contactToEdit);
+    const { userData } = useAuth(); // <--- 2. PEGAMOS OS DADOS DO USUÁRIO LOGADO
 
     const getInitialState = useCallback(() => ({
         nome: '',
@@ -189,8 +191,19 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsLoading(true);
+
+        // ---> 3. AQUI ESTÁ A MUDANÇA MÁGICA <---
+        if (!userData?.organizacao_id) {
+            toast.error('Erro de segurança: Organização do usuário não encontrada. Por favor, faça login novamente.');
+            setIsLoading(false);
+            return;
+        }
         
         const { id, telefones, emails, ...dataToSave } = formData;
+        
+        // Adicionamos o "carimbo" da organização aos dados que serão salvos.
+        dataToSave.organizacao_id = userData.organizacao_id;
+        
         if (isEditing) delete dataToSave.origem;
         if (dataToSave.birth_date === '') dataToSave.birth_date = null;
         if (dataToSave.data_fundacao === '') dataToSave.data_fundacao = null;

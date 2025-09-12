@@ -1,3 +1,5 @@
+//components\ActivityList.js
+
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
 
@@ -99,3 +101,15 @@ export default function ActivityList({ activities, requestSort, sortConfig, onEd
     </div>
   );
 }
+
+
+// --------------------------------------------------------------------------------
+// COMENTÁRIO DO ARQUIVO
+// --------------------------------------------------------------------------------
+// Este componente é responsável por renderizar uma tabela (lista) de atividades.
+// Ele exibe os dados recebidos via props, permite a ordenação das colunas e
+// possui botões de ação (Editar, Deletar) e um seletor de status.
+// Importante: ele não executa nenhuma lógica de banco de dados, apenas chama
+// as funções ('requestSort', 'onEditClick', etc.) que são passadas pelo
+// componente pai, que é o responsável por controlar os dados.
+// --------------------------------------------------------------------------------

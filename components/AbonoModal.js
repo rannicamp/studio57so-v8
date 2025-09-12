@@ -1,12 +1,17 @@
+// components/AbonoModal.js
+
 "use client";
 
 import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext'; // <--- 1. IMPORTAMOS O 'useAuth'
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUpload } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'sonner'; // <-- Importa o toast para notificações
 
 export default function AbonoModal({ isOpen, onClose, onSave, date, employeeId }) {
   const supabase = createClient();
+  const { userData } = useAuth(); // <--- 2. PEGAMOS OS DADOS DO USUÁRIO LOGADO
   const [horas, setHoras] = useState(8);
   const [motivo, setMotivo] = useState('');
   const [file, setFile] = useState(null);
@@ -20,9 +25,17 @@ export default function AbonoModal({ isOpen, onClose, onSave, date, employeeId }
 
   const handleSave = async () => {
     setLoading(true);
+
+    // ---> 3. AQUI ESTÁ A MUDANÇA MÁGICA <---
+    // Verificação de segurança para garantir que temos a organização
+    if (!userData?.organizacao_id) {
+        toast.error('Erro de segurança: Organização do usuário não encontrada. Por favor, faça login novamente.');
+        setLoading(false);
+        return;
+    }
+
     let filePath = null;
 
-    // Se um arquivo foi selecionado, faz o upload primeiro
     if (file) {
       const fileExtension = file.name.split('.').pop();
       filePath = `documentos/${employeeId}/abono_${date}.${fileExtension}`;
@@ -32,18 +45,19 @@ export default function AbonoModal({ isOpen, onClose, onSave, date, employeeId }
         .upload(filePath, file, { upsert: true });
 
       if (uploadError) {
-        alert("Erro no upload do atestado: " + uploadError.message);
+        toast.error("Erro no upload do atestado: " + uploadError.message);
         setLoading(false);
         return;
       }
     }
 
-    // Salva o registro de abono no banco de dados
+    // Adicionamos o "carimbo" da organização ao pacote de dados
     await onSave({
       data_abono: date,
       horas_abonadas: horas,
       motivo: motivo,
       caminho_arquivo: filePath,
+      organizacao_id: userData.organizacao_id, // <-- "Carimbo" adicionado!
     });
 
     setLoading(false);

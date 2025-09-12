@@ -1,3 +1,5 @@
+// components/ActivityCalendar.js
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -117,3 +119,12 @@ export default function ActivityCalendar({ activities, onActivityClick }) {
         </div>
     );
 }
+
+// --------------------------------------------------------------------------------
+// COMENTÁRIO DO ARQUIVO
+// --------------------------------------------------------------------------------
+// Este componente é responsável por renderizar uma visualização de calendário mensal.
+// Ele recebe uma lista de 'activities' e as distribui nos dias corretos do mês.
+// O componente gerencia a navegação entre os meses e destaca o dia atual.
+// Ele não modifica dados, apenas os exibe.
+// --------------------------------------------------------------------------------
