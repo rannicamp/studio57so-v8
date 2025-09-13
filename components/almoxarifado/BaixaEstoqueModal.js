@@ -9,15 +9,28 @@ import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-// Função para buscar a lista de funcionários (sem alterações)
-const fetchFuncionarios = async (supabase) => {
-    const { data, error } = await supabase.from('funcionarios').select('id, full_name').order('full_name');
+// =================================================================================
+// ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+// O PORQUÊ: A função agora recebe o `organizacaoId` para filtrar os funcionários
+// e garantir que apenas os funcionários da organização correta sejam listados.
+// =================================================================================
+const fetchFuncionarios = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return [];
+    const { data, error } = await supabase
+        .from('funcionarios')
+        .select('id, full_name')
+        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .order('full_name');
     if (error) throw new Error("Não foi possível carregar a lista de funcionários.");
     return data;
 };
 
-// Nova função que contém a lógica de baixa no estoque
-const darBaixaEstoque = async ({ supabase, estoqueItem, quantidade, observacao, usuarioId, funcionarioId }) => {
+// =================================================================================
+// ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+// O PORQUÊ: A função agora recebe o `organizacaoId` para "etiquetar" o registro
+// de movimentação de estoque, garantindo que ele pertença à organização correta.
+// =================================================================================
+const darBaixaEstoque = async ({ supabase, estoqueItem, quantidade, observacao, usuarioId, funcionarioId, organizacaoId }) => {
     const qtdNum = parseFloat(quantidade);
 
     // 1. Atualiza a quantidade no item do estoque
@@ -39,6 +52,7 @@ const darBaixaEstoque = async ({ supabase, estoqueItem, quantidade, observacao, 
             usuario_id: usuarioId,
             observacao: observacao,
             funcionario_id: funcionarioId,
+            organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
         });
 
     if (insertError) throw insertError;
@@ -50,42 +64,43 @@ const darBaixaEstoque = async ({ supabase, estoqueItem, quantidade, observacao, 
 export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSuccess }) {
     const supabase = createClient();
     const { user } = useAuth();
-    const queryClient = useQueryClient(); // Essencial para invalidar queries
+    const organizacaoId = user?.organizacao_id; // Pegamos o ID da organização
+    const queryClient = useQueryClient();
 
     const [quantidade, setQuantidade] = useState('');
     const [observacao, setObservacao] = useState('');
     const [funcionarioId, setFuncionarioId] = useState('');
 
-    // Hook para buscar os funcionários (sem alterações)
+    // =================================================================================
+    // ATUALIZAÇÃO DE SEGURANÇA (queryKey e queryFn)
+    // O PORQUÊ: Adicionamos o `organizacaoId` à chave da query para garantir um cache
+    // único por organização e o passamos para a função de busca.
+    // =================================================================================
     const { data: funcionarios, isLoading: isLoadingFuncionarios } = useQuery({
-        queryKey: ['funcionarios'],
-        queryFn: () => fetchFuncionarios(supabase),
-        enabled: isOpen,
+        queryKey: ['funcionarios', organizacaoId],
+        queryFn: () => fetchFuncionarios(supabase, organizacaoId),
+        enabled: isOpen && !!organizacaoId,
     });
 
-    // A MÁGICA ACONTECE AQUI: useMutation!
     const baixaMutation = useMutation({
-        mutationFn: darBaixaEstoque, // A função que faz o trabalho sujo
+        mutationFn: darBaixaEstoque,
         onSuccess: () => {
-            // O que fazer quando tudo der certo
-            onSuccess(); // Chama a função de sucesso que recebemos (toast, etc)
-            onClose();   // Fecha o modal
+            onSuccess();
+            onClose();
         },
         onError: (error) => {
-            // O que fazer quando der erro
             toast.error(`Erro ao dar baixa no estoque: ${error.message}`);
         },
     });
 
-    // Limpa os campos quando o modal é fechado ou o item muda
     useEffect(() => {
         if (!isOpen) {
             setQuantidade('');
             setObservacao('');
             setFuncionarioId('');
-            baixaMutation.reset(); // Reseta o estado da mutation
+            baixaMutation.reset();
         }
-    }, [isOpen]);
+    }, [isOpen, baixaMutation]);
 
 
     const handleSave = () => {
@@ -107,7 +122,7 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
             return;
         }
         
-        // Em vez de chamar a lógica aqui, chamamos a mutation!
+        // Passamos o `organizacaoId` para a mutation
         baixaMutation.mutate({
             supabase,
             estoqueItem,
@@ -115,6 +130,7 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
             observacao,
             usuarioId: user.id,
             funcionarioId,
+            organizacaoId, // <-- Passando a "chave mestra"
         });
     };
 
@@ -164,7 +180,6 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
                 </div>
                 <div className="flex justify-end gap-4 pt-6 mt-4 border-t">
                     <button onClick={onClose} className="bg-gray-200 px-4 py-2 rounded-md">Cancelar</button>
-                    {/* O botão agora usa o estado `isPending` da mutation */}
                     <button onClick={handleSave} disabled={baixaMutation.isPending} className="bg-red-600 text-white px-4 py-2 rounded-md disabled:bg-gray-400">
                         {baixaMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Confirmar Baixa'}
                     </button>

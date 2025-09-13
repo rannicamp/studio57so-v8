@@ -1,8 +1,8 @@
-// O PORQUÊ: Importamos o 'useQuery' também neste arquivo.
+//components\RdoPhotoGallery.js
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query'; // Adicionado
+import { useQuery } from '@tanstack/react-query';
 import { createClient } from '../utils/supabase/client';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -17,14 +17,11 @@ const formatBytes = (bytes, decimals = 2) => {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 };
 
-// O PORQUÊ: A principal mudança está aqui no ImageThumbnail.
-// Removemos o 'useState' e 'useEffect' para a URL e usamos o 'useQuery'.
 const ImageThumbnail = ({ photo, onClick, className }) => {
   const supabase = createClient();
   const placeholderRef = useRef(null);
   const [isVisible, setIsVisible] = useState(false);
 
-  // O IntersectionObserver para lazy loading continua o mesmo.
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -40,11 +37,6 @@ const ImageThumbnail = ({ photo, onClick, className }) => {
     return () => { if (currentRef) observer.unobserve(currentRef); };
   }, []);
 
-  // O PORQUÊ: Esta é a nova busca com cache para a URL da imagem.
-  // 1. 'queryKey': Criamos uma etiqueta única para CADA foto, usando o caminho do arquivo. Ex: ['signedUrl', 'caminho/da/foto.jpg']
-  // 2. 'queryFn': A função que busca a URL assinada.
-  // 3. 'staleTime': Dizemos para o cache considerar esta URL "nova" por 1 hora (em milissegundos). A URL do Supabase expira em 1 hora, então faz sentido.
-  // 4. 'enabled': A busca só é disparada ('enabled: true') quando a miniatura se torna visível na tela (lazy loading).
   const { data: signedUrl, isLoading, isError } = useQuery({
     queryKey: ['signedUrl', photo.caminho_arquivo],
     queryFn: async () => {
@@ -52,11 +44,10 @@ const ImageThumbnail = ({ photo, onClick, className }) => {
       if (error) throw new Error(error.message);
       return data.signedUrl;
     },
-    staleTime: 60 * 60 * 1000, // 1 hora
+    staleTime: 60 * 60 * 1000, // 1 hour
     enabled: isVisible,
   });
 
-  // O PORQUÊ: A lógica de renderização foi simplificada para usar os estados do 'useQuery'.
   if (!isVisible || (isLoading && !signedUrl)) {
     return <div ref={placeholderRef} className="w-full h-full bg-gray-200 animate-pulse"></div>;
   }
@@ -75,7 +66,6 @@ const ImageThumbnail = ({ photo, onClick, className }) => {
   );
 };
 
-// O restante do componente principal da galeria não precisa de alterações.
 export default function RdoPhotoGallery({ photos }) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
 
@@ -95,7 +85,7 @@ export default function RdoPhotoGallery({ photos }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedImageIndex, photos.length]);
+  }, [selectedImageIndex, photos.length, goToPrevious, goToNext, closeLightbox]);
 
   return (
     <div>

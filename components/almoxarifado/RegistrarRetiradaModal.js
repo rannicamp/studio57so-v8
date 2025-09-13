@@ -9,15 +9,28 @@ import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQuery, useMutation } from '@tanstack/react-query';
 
-// Função para buscar a lista de funcionários
-const fetchFuncionarios = async (supabase) => {
-    const { data, error } = await supabase.from('funcionarios').select('id, full_name').order('full_name');
+// =================================================================================
+// ATUALIZAÇÃO DE SEGURANÇA (organizacao_id)
+// O PORQUÊ: A função agora recebe o `organizacaoId` para filtrar os funcionários
+// e garantir que apenas os funcionários da organização correta sejam listados.
+// =================================================================================
+const fetchFuncionarios = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return [];
+    const { data, error } = await supabase
+        .from('funcionarios')
+        .select('id, full_name')
+        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .order('full_name');
     if (error) throw new Error("Não foi possível carregar a lista de funcionários.");
     return data;
 };
 
-// Lógica principal: registrar a retirada do equipamento
-const registrarRetiradaEquipamento = async ({ supabase, estoqueItem, quantidade, observacao, usuarioId, funcionarioId }) => {
+// =================================================================================
+// ATUALIZAÇÃO DE SEGURANÇA (organizacao_id)
+// O PORQUÊ: A função agora recebe o `organizacaoId` para "etiquetar" o registro
+// de movimentação, garantindo que a retirada seja atribuída à organização correta.
+// =================================================================================
+const registrarRetiradaEquipamento = async ({ supabase, estoqueItem, quantidade, observacao, usuarioId, funcionarioId, organizacaoId }) => {
     const qtdNum = parseFloat(quantidade);
 
     // 1. Atualiza as quantidades no item do estoque
@@ -45,6 +58,7 @@ const registrarRetiradaEquipamento = async ({ supabase, estoqueItem, quantidade,
             usuario_id: usuarioId,
             observacao: observacao,
             funcionario_id: funcionarioId,
+            organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
         });
 
     if (insertError) throw insertError;
@@ -56,15 +70,21 @@ const registrarRetiradaEquipamento = async ({ supabase, estoqueItem, quantidade,
 export default function RegistrarRetiradaModal({ isOpen, onClose, estoqueItem, onSuccess }) {
     const supabase = createClient();
     const { user } = useAuth();
+    const organizacaoId = user?.organizacao_id; // Pegamos o ID da organização
 
     const [quantidade, setQuantidade] = useState('');
     const [observacao, setObservacao] = useState('');
     const [funcionarioId, setFuncionarioId] = useState('');
 
+    // =================================================================================
+    // ATUALIZAÇÃO DE SEGURANÇA (queryKey e queryFn)
+    // O PORQUÊ: Adicionamos o `organizacaoId` à chave da query para garantir um cache
+    // único por organização e o passamos para a função de busca.
+    // =================================================================================
     const { data: funcionarios, isLoading: isLoadingFuncionarios } = useQuery({
-        queryKey: ['funcionarios'],
-        queryFn: () => fetchFuncionarios(supabase),
-        enabled: isOpen,
+        queryKey: ['funcionarios', organizacaoId],
+        queryFn: () => fetchFuncionarios(supabase, organizacaoId),
+        enabled: isOpen && !!organizacaoId,
     });
 
     const retiradaMutation = useMutation({
@@ -107,6 +127,7 @@ export default function RegistrarRetiradaModal({ isOpen, onClose, estoqueItem, o
             return;
         }
         
+        // Passamos o `organizacaoId` para a mutation
         retiradaMutation.mutate({
             supabase,
             estoqueItem,
@@ -114,6 +135,7 @@ export default function RegistrarRetiradaModal({ isOpen, onClose, estoqueItem, o
             observacao,
             usuarioId: user.id,
             funcionarioId,
+            organizacaoId, // <-- Passando a "chave mestra"
         });
     };
 

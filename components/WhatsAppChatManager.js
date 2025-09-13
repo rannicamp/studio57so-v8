@@ -1,7 +1,11 @@
+//components\WhatsAppChatManager.js
+
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '../utils/supabase/client';
+import { useAuth } from '../contexts/AuthContext'; // 1. Importar o useAuth
+import { toast } from 'sonner'; // 2. Importar a biblioteca de notificações
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faPaperPlane, faSpinner, faUserCircle, faSearch, faAddressBook,
@@ -72,6 +76,9 @@ const MessageBubble = ({ message }) => {
 
 export default function WhatsAppChatManager({ contatos, onMarkAsRead, onNewMessageSent, onContactSelected }) {
     const supabase = createClient();
+    const { user } = useAuth(); // ADICIONADO para pegar o ID da organização
+    const organizacaoId = user?.organizacao_id; // ADICIONADO para usar no envio
+
     const [selectedContact, setSelectedContact] = useState(null);
     const [messages, setMessages] = useState([]);
     const [loadingMessages, setLoadingMessages] = useState(false);
@@ -250,14 +257,14 @@ export default function WhatsAppChatManager({ contatos, onMarkAsRead, onNewMessa
                     setAudioBlob(mp3Blob);
                     setAudioUrl(audioUrl);
                 } catch (error) {
-                    alert(`Erro ao processar o áudio: ${error.message}`);
+                    toast.error(`Erro ao processar o áudio: ${error.message}`);
                     handleCancelRecording();
                 }
             };
             mediaRecorderRef.current.start();
             setIsRecording(true);
         } catch (err) {
-            alert(`Não foi possível acessar o microfone: ${err.message}`);
+            toast.error(`Não foi possível acessar o microfone: ${err.message}`);
         }
     };
     
@@ -273,19 +280,22 @@ export default function WhatsAppChatManager({ contatos, onMarkAsRead, onNewMessa
         setAudioUrl(null); 
     };
 
-    // Lida com o envio de mensagens
     const handleSendMessage = async () => {
         if (!selectedContact || (!newMessage.trim() && !attachment && !audioBlob)) return;
-        setIsSending(true);
+
         const textToSend = newMessage; 
         const attachmentToSend = attachment; 
         const audioToSend = audioBlob;
+        
         setNewMessage(''); 
         setAttachment(null); 
         setAudioBlob(null); 
         setAudioUrl(null);
 
-        try {
+        const promise = async () => {
+            setIsSending(true);
+            if (!organizacaoId) throw new Error("A organização não foi identificada. O envio foi cancelado.");
+
             const phoneNumber = selectedContact.telefones?.[0]?.telefone;
             if (!phoneNumber) throw new Error("O contato não possui um número de telefone válido.");
             
@@ -306,22 +316,27 @@ export default function WhatsAppChatManager({ contatos, onMarkAsRead, onNewMessa
                 const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
                 if (!urlData?.publicUrl) throw new Error("Não foi possível obter a URL pública do arquivo.");
                 
-                await sendWhatsAppMedia(phoneNumber, mediaType, urlData.publicUrl, textToSend, mediaType === 'document' ? fileToSend.name : undefined);
+                await sendWhatsAppMedia(phoneNumber, mediaType, urlData.publicUrl, textToSend, organizacaoId, mediaType === 'document' ? fileToSend.name : undefined);
             } 
             else if (textToSend) { 
-                await sendWhatsAppText(phoneNumber, textToSend); 
+                await sendWhatsAppText(phoneNumber, textToSend, organizacaoId); 
             }
-            onNewMessageSent(); // Informa o pai para reordenar a lista
-        } catch (error) {
-            console.error("Falha no processo de envio:", error); 
-            alert(`Erro ao enviar: ${error.message}`);
-            setNewMessage(textToSend); 
-            setAttachment(attachmentToSend); 
-            setAudioBlob(audioToSend);
-            if (audioToSend && audioUrl) setAudioUrl(URL.createObjectURL(audioToSend));
-        } finally { 
-            setIsSending(false);
-        }
+            onNewMessageSent();
+        };
+
+        toast.promise(promise(), {
+            loading: 'Enviando mensagem...',
+            success: 'Mensagem enviada com sucesso!',
+            error: (err) => {
+                console.error("Falha no processo de envio:", err); 
+                setNewMessage(textToSend); 
+                setAttachment(attachmentToSend); 
+                setAudioBlob(audioToSend);
+                if (audioToSend && audioUrl) setAudioUrl(URL.createObjectURL(audioToSend));
+                return `Erro ao enviar: ${err.message}`;
+            },
+            finally: () => setIsSending(false),
+        });
     };
 
     const renderContactAvatar = (contact) => {

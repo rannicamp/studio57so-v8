@@ -1,3 +1,5 @@
+//components\TabelaVenda.js
+
 "use client";
 
 import { useMemo } from 'react';

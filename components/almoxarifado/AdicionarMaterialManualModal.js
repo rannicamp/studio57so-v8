@@ -9,12 +9,15 @@ import { toast } from 'sonner';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 
-// Função que executa a lógica de adição no banco de dados
-const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId, materialData }) => {
+// =================================================================================
+// ATUALIZAÇÃO DE SEGURANÇA (organizacao_id)
+// O PORQUÊ: A função agora recebe o `organizacaoId` para garantir que todas as
+// operações (criação de material, entrada em estoque, movimentação) sejam
+// "etiquetadas" e restritas à organização correta.
+// =================================================================================
+const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId, organizacaoId, materialData }) => {
     let materialId = materialData.material_id;
 
-    // Esta lógica continua robusta: se por algum motivo um material_id não for passado,
-    // ela ainda tentará criar o material. Mas o fluxo principal agora passa pela criação no frontend.
     if (!materialId) {
         const { data: novoMaterial, error: materialError } = await supabase
             .from('materiais')
@@ -23,6 +26,7 @@ const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId,
                 descricao: materialData.descricao,
                 classificacao: materialData.classificacao,
                 unidade_medida: materialData.unidade_medida,
+                organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
             })
             .select('id')
             .single();
@@ -31,7 +35,6 @@ const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId,
         materialId = novoMaterial.id;
     }
 
-    // Verificar se o item já existe no estoque deste empreendimento
     const { data: estoqueExistente, error: estoqueSelectError } = await supabase
         .from('estoque')
         .select('id, quantidade_atual')
@@ -60,6 +63,7 @@ const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId,
                 material_id: materialId,
                 quantidade_atual: materialData.quantidade,
                 unidade_medida: materialData.unidade_medida,
+                organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
             })
             .select('id')
             .single();
@@ -67,7 +71,6 @@ const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId,
         estoqueId = novoEstoque.id;
     }
 
-    // Registrar a movimentação de entrada
     const { error: movimentacaoError } = await supabase
         .from('movimentacoes_estoque')
         .insert({
@@ -76,6 +79,7 @@ const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId,
             quantidade: materialData.quantidade,
             usuario_id: usuarioId,
             observacao: `Adição manual de material: ${materialData.descricao}`,
+            organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
         });
 
     if (movimentacaoError) throw new Error(`Falha ao registrar a movimentação: ${movimentacaoError.message}`);
@@ -86,6 +90,7 @@ const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId,
 export default function AdicionarMaterialManualModal({ isOpen, onClose, onSuccess, empreendimentoId }) {
     const supabase = createClient();
     const { user } = useAuth();
+    const organizacaoId = user?.organizacao_id; // Pegamos o ID da organização
     const queryClient = useQueryClient();
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -144,9 +149,15 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
             return;
         }
         setIsSearching(true);
+        // =================================================================================
+        // ATUALIZAÇÃO DE SEGURANÇA (organização_id na busca)
+        // O PORQUÊ: A busca agora filtra também pela organização, mostrando apenas
+        // os materiais que pertencem ao usuário logado.
+        // =================================================================================
         const { data } = await supabase
             .from('materiais')
             .select('id, nome, descricao, unidade_medida, classificacao')
+            .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
             .or(`nome.ilike.%${value}%,descricao.ilike.%${value}%`)
             .limit(10);
         setSearchResults(data || []);
@@ -166,16 +177,20 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
         setSearchResults([]);
     };
 
-    // <-- NOVO: Função para criar e selecionar o material no frontend
     const handleCreateAndSelectMaterial = async () => {
         const toastId = toast.loading("Criando novo material...");
+        // =================================================================================
+        // ATUALIZAÇÃO DE SEGURANÇA (organização_id na criação)
+        // O PORQUÊ: Ao criar um novo material, já o "etiquetamos" com o ID da organização.
+        // =================================================================================
         const { data: newMaterial, error } = await supabase
             .from('materiais')
             .insert({ 
                 nome: searchTerm.trim(), 
                 descricao: searchTerm.trim(),
                 classificacao: item.classificacao,
-                unidade_medida: item.unidade_medida
+                unidade_medida: item.unidade_medida,
+                organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
             })
             .select()
             .single();
@@ -186,7 +201,7 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
         }
         
         toast.success(`Material "${newMaterial.nome}" criado com sucesso!`, { id: toastId });
-        queryClient.invalidateQueries({ queryKey: ['materiais'] });
+        queryClient.invalidateQueries({ queryKey: ['materiais', organizacaoId] });
         handleSelectMaterial(newMaterial);
     };
 
@@ -206,7 +221,7 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
             descricao: finalDescription
         };
 
-        mutation.mutate({ supabase, empreendimentoId, usuarioId: user.id, materialData: materialDataPayload });
+        mutation.mutate({ supabase, empreendimentoId, usuarioId: user.id, organizacaoId, materialData: materialDataPayload });
     };
 
     if (!isOpen) return null;
@@ -247,7 +262,6 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
                                             {material.descricao || material.nome}
                                         </div>
                                     ))}
-                                    {/* <-- NOVO: Bloco para sugerir a criação --> */}
                                     {!isSearching && searchTerm.length > 2 && searchResults.length === 0 && (
                                         <div className="p-3">
                                             <button 
@@ -255,7 +269,6 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
                                                 onClick={handleCreateAndSelectMaterial} 
                                                 className="text-blue-600 font-semibold flex items-center gap-2 w-full text-left hover:text-blue-800"
                                             > 
-                                                {/* CORREÇÃO AQUI: As aspas duplas foram trocadas por `&quot;` */}
                                                 <FontAwesomeIcon icon={faPlus} /> Criar e usar &quot;{searchTerm}&quot;
                                             </button>
                                         </div>

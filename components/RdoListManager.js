@@ -1,15 +1,16 @@
+//components\RdoListManager.js
 "use client";
 
 import { useState, useMemo } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner'; // 1. Importar a biblioteca de notificações
 
 // O componente agora recebe a propriedade 'isAdmin'
 export default function RdoListManager({ initialRdos, empreendimentosList, responsaveisList, isAdmin }) {
   const supabase = createClient();
   const router = useRouter(); 
   const [rdos, setRdos] = useState(initialRdos);
-  const [message, setMessage] = useState('');
   
   const [isFiltersVisible, setIsFiltersVisible] = useState(true);
   
@@ -37,8 +38,6 @@ export default function RdoListManager({ initialRdos, empreendimentosList, respo
       
       const matchEmpreendimento = !selectedEmpreendimento || rdo.empreendimento_id?.toString() === selectedEmpreendimento;
       
-      // O PORQUÊ: A lógica de filtro foi atualizada. Agora, comparamos
-      // o 'rdo.usuario_responsavel_id' com o ID do usuário selecionado no filtro.
       const matchResponsavel = !selectedResponsavel || rdo.usuario_responsavel_id === selectedResponsavel;
       
       const matchStartDate = !startDate || rdoDate >= new Date(startDate + 'T00:00:00');
@@ -50,17 +49,45 @@ export default function RdoListManager({ initialRdos, empreendimentosList, respo
     });
   }, [rdos, searchTerm, selectedEmpreendimento, selectedResponsavel, startDate, endDate]);
 
+  // =================================================================================
+  // ATUALIZAÇÃO DE UX (useMutation + toast)
+  // O PORQUÊ: Trocamos o `confirm` e o `setMessage` por uma lógica moderna.
+  // 1. O `toast` cria uma pequena janela de confirmação não-intrusiva.
+  // 2. O `toast.promise` gerencia as mensagens de "carregando", "sucesso" e "erro"
+  //    automaticamente, limpando o código e melhorando a experiência do usuário.
+  // =================================================================================
   const handleDeleteRdo = async (e, rdoId) => {
     e.stopPropagation();
-    if (!confirm('Tem certeza que deseja excluir este Diário de Obra?')) return;
     
-    setMessage('Excluindo RDO...');
-    const { error } = await supabase.from('diarios_obra').delete().eq('id', rdoId);
-    if (error) setMessage(`Erro ao excluir RDO: ${error.message}`);
-    else {
-      setMessage('Diário de Obra excluído com sucesso!');
-      setRdos(prevRdos => prevRdos.filter(rdo => rdo.id !== rdoId));
-    }
+    const promise = () => new Promise(async (resolve, reject) => {
+      const { error } = await supabase.from('diarios_obra').delete().eq('id', rdoId);
+      if (error) {
+        reject(error);
+      } else {
+        resolve(rdoId);
+      }
+    });
+
+    toast("Confirmar Exclusão", {
+        description: "Tem certeza que deseja excluir este Diário de Obra? Esta ação não pode ser desfeita.",
+        action: {
+            label: "Excluir",
+            onClick: () => toast.promise(promise(), {
+                loading: 'Excluindo RDO...',
+                success: (deletedId) => {
+                    setRdos(prevRdos => prevRdos.filter(rdo => rdo.id !== deletedId));
+                    return 'Diário de Obra excluído com sucesso!';
+                },
+                error: (err) => `Erro ao excluir: ${err.message}`,
+            }),
+        },
+        cancel: {
+            label: "Cancelar",
+        },
+        classNames: {
+            actionButton: 'bg-red-600',
+        },
+    });
   };
 
   const handleRowClick = (rdoId) => {
@@ -74,8 +101,8 @@ export default function RdoListManager({ initialRdos, empreendimentosList, respo
         className="text-lg font-semibold text-gray-800 flex items-center gap-2"
       >
         Filtros
-        <span className="transform transition-transform duration-200">
-          {isFiltersVisible ? '▲' : '▼'}
+        <span className={`transform transition-transform duration-200 text-xs ${isFiltersVisible ? 'rotate-180' : ''}`}>
+          ▼
         </span>
       </button>
 
@@ -87,8 +114,6 @@ export default function RdoListManager({ initialRdos, empreendimentosList, respo
               {empreendimentosList.map(emp => <option key={emp.id} value={emp.id}>{emp.nome}</option>)}
             </select>
             
-            {/* O PORQUÊ: O filtro de responsáveis agora é populado com a lista de usuários.
-                O 'value' de cada opção é o ID do usuário, e o texto é o nome completo. */}
             <select onChange={(e) => setSelectedResponsavel(e.target.value)} value={selectedResponsavel} className="p-2 border rounded-md">
               <option value="">Todos Responsáveis</option>
               {responsaveisList.map(resp => (
@@ -122,8 +147,6 @@ export default function RdoListManager({ initialRdos, empreendimentosList, respo
         </div>
       )}
 
-      {message && <div className={`p-3 rounded-md text-sm ${message.includes('Erro') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{message}</div>}
-
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -144,9 +167,6 @@ export default function RdoListManager({ initialRdos, empreendimentosList, respo
                   <td className="px-6 py-4">{new Date(rdo.data_relatorio + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                   <td className="px-6 py-4">{rdo.empreendimentos?.nome || 'N/A'}</td>
                   
-                  {/* O PORQUÊ: A célula do responsável agora exibe o nome e sobrenome do usuário.
-                      Se por algum motivo o usuário não for encontrado (ex: um RDO muito antigo),
-                      ele ainda exibe o e-mail antigo como um fallback. */}
                   <td className="px-6 py-4">
                     {rdo.usuarios ? `${rdo.usuarios.nome} ${rdo.usuarios.sobrenome}` : (rdo.responsavel_rdo || 'N/A')}
                   </td>

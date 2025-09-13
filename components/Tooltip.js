@@ -1,3 +1,4 @@
+//components\Tooltip.js
 "use client";
 
 // Adicionado o 'useCallback' para otimização

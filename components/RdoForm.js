@@ -22,6 +22,13 @@ const STATUS_CONFIG = {
 export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const supabase = createClient();
   const { hasPermission, user } = useAuth();
+  // =================================================================================
+  // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+  // O PORQUÊ: Pegamos a "chave mestra" da organização aqui para etiquetar
+  // todos os novos dados que forem criados neste RDO.
+  // =================================================================================
+  const organizacaoId = user?.organizacao_id;
+
   const [message, setMessage] = useState('');
   const [loadingForm, setLoadingForm] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -168,6 +175,16 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
           .maybeSingle();
 
         if (!rdo && !error) {
+          // =================================================================================
+          // ATUALIZAÇÃO DE SEGURANÇA (organização_id na criação)
+          // O PORQUÊ: Ao criar um RDO do zero para o dia, garantimos que ele
+          // já nasça com a "etiqueta" da organização correta.
+          // =================================================================================
+          if (!organizacaoId) {
+            toast.error("Erro de segurança: A organização do usuário não foi encontrada.");
+            setLoadingForm(false);
+            return;
+          }
           const { data: newRdo, error: insertError } = await supabase
             .from('diarios_obra')
             .insert({
@@ -177,7 +194,8 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
               condicoes_climaticas: 'Ensolarado',
               condicoes_trabalho: 'Praticável',
               status_atividades: [],
-              mao_de_obra: []
+              mao_de_obra: [],
+              organizacao_id: organizacaoId, // <-- A ETIQUETA DE SEGURANÇA NA CRIAÇÃO!
             })
             .select('*, empreendimentos(*), ocorrencias(*), rdo_fotos_uploads(*), usuarios(nome, sobrenome)')
             .single();
@@ -202,9 +220,8 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
     if (user) {
       initializeForm();
     }
-  }, [initialRdoData, selectedEmpreendimento, supabase, setupFormWithData, user]);
+  }, [initialRdoData, selectedEmpreendimento, supabase, setupFormWithData, user, organizacaoId]);
 
-  // ***** INÍCIO DA CORREÇÃO *****
   const handleMarcarEntregue = async (pedidoId) => {
     if (isRdoLocked) {
       toast.warning("Este RDO está bloqueado e não pode ser alterado.");
@@ -215,40 +232,35 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
       return;
     }
 
-    const toastId = toast.loading("Marcando pedido como entregue...");
+    const promise = async () => {
+        // 1. Marca o pedido como entregue
+        const { error: rpcError } = await supabase.rpc('marcar_pedido_entregue', {
+            p_pedido_id: pedidoId,
+            p_usuario_id: user.id
+        });
+        if (rpcError) throw new Error(`Erro ao marcar como entregue: ${rpcError.message}`);
 
-    // 1. Marca o pedido como entregue (RPC antigo)
-    const { error: rpcError } = await supabase.rpc('marcar_pedido_entregue', {
-      p_pedido_id: pedidoId,
-      p_usuario_id: user.id
+        // 2. Chama a rotina do almoxarifado
+        const { error: almoxarifadoError } = await supabase.rpc('processar_entrada_pedido_no_estoque', {
+            p_pedido_id: pedidoId,
+            p_usuario_id: user.id
+        });
+        if (almoxarifadoError) throw new Error(`Falha ao dar entrada no estoque: ${almoxarifadoError.message}`);
+        
+        return pedidoId;
+    };
+    
+    toast.promise(promise, {
+        loading: "Processando entrega do pedido...",
+        success: (id) => {
+            setPedidosPrevistos(prev => prev.map(p =>
+                p.id === id ? { ...p, status: 'Entregue' } : p
+            ));
+            return `Pedido #${id} recebido e estoque atualizado com sucesso!`;
+        },
+        error: (err) => err.message,
     });
-
-    if (rpcError) {
-      toast.error(`Erro ao marcar como entregue: ${rpcError.message}`, { id: toastId });
-      return;
-    }
-
-    // Se o passo 1 deu certo, atualiza a tela
-    setPedidosPrevistos(prev => prev.map(p =>
-      p.id === pedidoId ? { ...p, status: 'Entregue' } : p
-    ));
-    toast.success(`Pedido #${pedidoId} marcado como entregue!`, { id: toastId });
-
-    // 2. Chama a rotina do almoxarifado (lógica que estava faltando)
-    toast.info("Processando entrada dos itens no almoxarifado...");
-
-    const { error: almoxarifadoError } = await supabase.rpc('processar_entrada_pedido_no_estoque', {
-      p_pedido_id: pedidoId,
-      p_usuario_id: user.id
-    });
-
-    if (almoxarifadoError) {
-      toast.error(`Falha ao dar entrada no estoque: ${almoxarifadoError.message}`);
-    } else {
-      toast.success('Itens recebidos e adicionados ao almoxarifado com sucesso!');
-    }
   };
-  // ***** FIM DA CORREÇÃO *****
 
   const handleRdoFormChange = (e) => {
     if (isRdoLocked) return;
@@ -258,13 +270,15 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
 
   const saveSectionData = useCallback(async (data) => {
     if (!rdoFormData.id || isRdoLocked) return;
-    setMessage('Salvando...');
-    const { error } = await supabase.from('diarios_obra').update(data).eq('id', rdoFormData.id);
-    if (error) setMessage(`Erro: ${error.message}`);
-    else {
-      setMessage('Salvo!');
-      setTimeout(() => setMessage(''), 2000);
-    }
+    
+    const promise = supabase.from('diarios_obra').update(data).eq('id', rdoFormData.id).throwOnError();
+
+    toast.promise(promise, {
+        loading: 'Salvando...',
+        success: 'Salvo com sucesso!',
+        error: (err) => `Erro ao salvar: ${err.message}`
+    });
+
   }, [isRdoLocked, rdoFormData.id, supabase]);
 
   const handleActivityStatusChange = useCallback(async (activityId, newStatus, newObservation) => {
@@ -290,26 +304,46 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
 
   const handleAddOccurrence = async () => {
     if (isRdoLocked || !currentNewOccurrence.descricao.trim()) return;
-    const { data, error } = await supabase.from('ocorrencias').insert({
+    // =================================================================================
+    // ATUALIZAÇÃO DE SEGURANÇA (organização_id na criação)
+    // O PORQUÊ: Etiquetando a ocorrência no momento da sua criação.
+    // =================================================================================
+    if (!organizacaoId) {
+        toast.error("Erro de segurança: A organização do usuário não foi encontrada.");
+        return;
+    }
+
+    const promise = supabase.from('ocorrencias').insert({
       ...currentNewOccurrence,
       diario_obra_id: rdoFormData.id,
       empreendimento_id: rdoFormData.empreendimento_id,
       data_ocorrencia: new Date().toLocaleDateString('pt-BR'),
       hora_ocorrencia: new Date().toLocaleTimeString('pt-BR'),
-    }).select().single();
-    if (error) setMessage(`Erro: ${error.message}`);
-    else {
-      setAllOccurrences(prev => [...prev, data]);
-      setCurrentNewOccurrence({ tipo: 'Informativa', descricao: '' });
-      setMessage('Ocorrência adicionada!');
-    }
+      organizacao_id: organizacaoId, // <-- A ETIQUETA DE SEGURANÇA!
+    }).select().single().throwOnError();
+
+    toast.promise(promise, {
+        loading: 'Adicionando ocorrência...',
+        success: (data) => {
+            setAllOccurrences(prev => [...prev, data]);
+            setCurrentNewOccurrence({ tipo: 'Informativa', descricao: '' });
+            return 'Ocorrência adicionada!';
+        },
+        error: (err) => `Erro: ${err.message}`
+    });
   };
 
   const handleRemoveOccurrence = async (occurrenceId) => {
     if (isRdoLocked) return;
-    const { error } = await supabase.from('ocorrencias').delete().eq('id', occurrenceId);
-    if (error) setMessage(`Erro: ${error.message}`);
-    else setAllOccurrences(prev => prev.filter(occ => occ.id !== occurrenceId));
+    const promise = supabase.from('ocorrencias').delete().eq('id', occurrenceId).throwOnError();
+    toast.promise(promise, {
+        loading: 'Removendo ocorrência...',
+        success: () => {
+            setAllOccurrences(prev => prev.filter(occ => occ.id !== occurrenceId));
+            return 'Ocorrência removida.';
+        },
+        error: (err) => `Erro: ${err.message}`
+    });
   };
 
   const handleOccurrenceChange = (occurrenceId, newDescription) => {
@@ -321,17 +355,17 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
 
   const handleSaveOccurrence = async (occurrenceId, description) => {
     if (isRdoLocked) return;
-    setMessage('Salvando...');
-    const { error } = await supabase
+    const promise = supabase
       .from('ocorrencias')
       .update({ descricao: description })
-      .eq('id', occurrenceId);
-    if (error) {
-      setMessage(`Erro ao atualizar ocorrência: ${error.message}`);
-    } else {
-      setMessage('Ocorrência salva!');
-      setTimeout(() => setMessage(''), 2000);
-    }
+      .eq('id', occurrenceId)
+      .throwOnError();
+
+    toast.promise(promise, {
+        loading: 'Salvando ocorrência...',
+        success: 'Ocorrência salva!',
+        error: (err) => `Erro ao atualizar: ${err.message}`
+    });
   };
 
   const handlePhotoFileSelect = (e) => {
@@ -343,68 +377,76 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const handleAddPhoto = async () => {
     if (isRdoLocked || !currentPhotoFile) return;
 
-    setIsUploading(true);
-    setMessage('Comprimindo e enviando foto...');
+    const promise = async () => {
+        setIsUploading(true);
+        const options = { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true };
+        const compressedFile = await imageCompression(currentPhotoFile, options);
+        const safeFileName = `${Date.now()}-${currentPhotoFile.name.replace(/\s/g, '_')}`;
+        const filePath = `${rdoFormData.id}/${safeFileName}`;
 
-    const options = {
-      maxSizeMB: 1,
-      maxWidthOrHeight: 1920,
-      useWebWorker: true,
+        const { data: fileData, error: fileError } = await supabase.storage
+            .from('rdo-fotos')
+            .upload(filePath, compressedFile);
+        if (fileError) throw fileError;
+        
+        // =================================================================================
+        // ATUALIZAÇÃO DE SEGURANÇA (organização_id na criação)
+        // O PORQUÊ: Etiquetando a foto no momento do seu upload.
+        // =================================================================================
+        if (!organizacaoId) throw new Error("Organização não identificada.");
+
+        const { data: dbData, error: dbError } = await supabase
+            .from('rdo_fotos_uploads')
+            .insert({
+                diario_obra_id: rdoFormData.id,
+                caminho_arquivo: fileData.path,
+                descricao: currentPhotoDescription || null,
+                tamanho_arquivo: compressedFile.size,
+                organizacao_id: organizacaoId, // <-- A ETIQUETA DE SEGURANÇA!
+            })
+            .select()
+            .single();
+        
+        if (dbError) {
+            await supabase.storage.from('rdo-fotos').remove([fileData.path]);
+            throw dbError;
+        }
+
+        const { data: signedUrlData } = await supabase.storage.from('rdo-fotos').createSignedUrl(dbData.caminho_arquivo, 3600);
+        setAllPhotosMetadata(prev => [...prev, { ...dbData, signedUrl: signedUrlData?.signedUrl }]);
+        setCurrentPhotoFile(null);
+        setCurrentPhotoDescription('');
+        if (document.getElementById('photo-file-input')) {
+            document.getElementById('photo-file-input').value = "";
+        }
     };
 
-    try {
-      const compressedFile = await imageCompression(currentPhotoFile, options);
-      const safeFileName = `${Date.now()}-${currentPhotoFile.name.replace(/\s/g, '_')}`;
-      const filePath = `${rdoFormData.id}/${safeFileName}`;
-
-      const { data: fileData, error: fileError } = await supabase.storage
-        .from('rdo-fotos')
-        .upload(filePath, compressedFile);
-
-      if (fileError) {
-        throw fileError;
-      }
-      
-      const { data: dbData, error: dbError } = await supabase
-        .from('rdo_fotos_uploads')
-        .insert({
-          diario_obra_id: rdoFormData.id,
-          caminho_arquivo: fileData.path,
-          descricao: currentPhotoDescription || null,
-          tamanho_arquivo: compressedFile.size 
-        })
-        .select()
-        .single();
-      
-      if (dbError) {
-        await supabase.storage.from('rdo-fotos').remove([fileData.path]);
-        throw dbError;
-      }
-
-      const { data: signedUrlData } = await supabase.storage.from('rdo-fotos').createSignedUrl(dbData.caminho_arquivo, 3600);
-      setAllPhotosMetadata(prev => [...prev, { ...dbData, signedUrl: signedUrlData?.signedUrl }]);
-      setMessage('Foto adicionada com sucesso!');
-      
-      setCurrentPhotoFile(null);
-      setCurrentPhotoDescription('');
-      if (document.getElementById('photo-file-input')) {
-        document.getElementById('photo-file-input').value = "";
-      }
-
-    } catch (error) {
-      console.error('Erro no processo de adicionar foto:', error);
-      setMessage(`Erro: ${error.message}`);
-    } finally {
-      setIsUploading(false);
-    }
+    toast.promise(promise(), {
+        loading: 'Comprimindo e enviando foto...',
+        success: 'Foto adicionada com sucesso!',
+        error: (err) => {
+            console.error('Erro no processo de adicionar foto:', err);
+            return `Erro: ${err.message}`;
+        },
+        finally: () => setIsUploading(false)
+    });
   };
 
   const handleRemovePhoto = async (photoId, photoPath) => {
     if (isRdoLocked) return;
-    await supabase.storage.from('rdo-fotos').remove([photoPath]);
-    await supabase.from('rdo_fotos_uploads').delete().eq('id', photoId);
-    setAllPhotosMetadata(prev => prev.filter(p => p.id !== photoId));
-    setMessage('Foto removida.');
+    const promise = async () => {
+        await supabase.storage.from('rdo-fotos').remove([photoPath]);
+        await supabase.from('rdo_fotos_uploads').delete().eq('id', photoId);
+    };
+
+    toast.promise(promise, {
+        loading: 'Removendo foto...',
+        success: () => {
+            setAllPhotosMetadata(prev => prev.filter(p => p.id !== photoId));
+            return 'Foto removida.';
+        },
+        error: (err) => `Erro: ${err.message}`
+    });
   };
 
   const sortedActivityStatuses = useMemo(() => {

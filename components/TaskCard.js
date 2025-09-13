@@ -1,3 +1,5 @@
+//components\TaskCard.js
+
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
@@ -8,14 +10,29 @@ export default function TaskCard({ activity, onEditActivity, onDeleteActivity, o
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef(null);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const prazo = activity.data_fim_prevista ? new Date(activity.data_fim_prevista + 'T00:00:00Z') : null;
-    const isOverdue = prazo && prazo < today && activity.status !== 'Concluído';
+    // =================================================================================
+    // ATUALIZAÇÃO DA REGRA DE DATAS
+    // O PORQUÊ: Ajustamos a lógica para evitar problemas de fuso horário.
+    // 1. `todayStr`: Pegamos a data de hoje já como texto no formato 'YYYY-MM-DD'.
+    // 2. `isOverdue`: Comparamos as datas como texto. '2025-09-12' é textualmente
+    //    menor que '2025-09-13', então a lógica funciona perfeitamente sem
+    //    envolver timezones, prevenindo o erro de um dia.
+    // =================================================================================
+    const todayStr = new Date().toLocaleDateString('en-CA'); // Formato YYYY-MM-DD
+    const prazoStr = activity.data_fim_prevista;
+    const isOverdue = prazoStr && prazoStr < todayStr && activity.status !== 'Concluído';
 
+    // =================================================================================
+    // ATUALIZAÇÃO DA REGRA DE DATAS
+    // O PORQUÊ: Esta função agora segue nossa regra de ouro para datas simples.
+    // Ela trata a data como um texto, apenas dividindo a string 'YYYY-MM-DD'
+    // e remontando como 'DD/MM/YYYY', sem usar `new Date()` e evitando
+    // qualquer conversão de fuso horário.
+    // =================================================================================
     const formatDate = (dateStr) => {
-        if (!dateStr) return 'N/A';
-        return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+        if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return 'N/A';
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
     };
 
     // Função para calcular dias úteis
@@ -53,7 +70,6 @@ export default function TaskCard({ activity, onEditActivity, onDeleteActivity, o
         setIsMenuOpen(false);
     };
 
-    // Adicionado para permitir arrastar o card
     const handleDragStart = (e) => {
         e.dataTransfer.setData('activityId', activity.id);
     };
@@ -76,14 +92,12 @@ export default function TaskCard({ activity, onEditActivity, onDeleteActivity, o
                     </div>
                 </div>
                 
-                {/* ***** INÍCIO DA ADIÇÃO ***** */}
                 {activity.atividade_pai && (
                     <div className="mb-2 text-xs text-gray-500 bg-gray-100 p-1 rounded-md flex items-center gap-2">
                         <FontAwesomeIcon icon={faSitemap} className="text-gray-400" />
                         <span>Sub-tarefa de: <span className="font-semibold">{activity.atividade_pai.nome}</span></span>
                     </div>
                 )}
-                {/* ***** FIM DA ADIÇÃO ***** */}
 
                 {isOverdue && (
                     <div className="bg-red-100 text-red-700 text-xs font-bold p-1 rounded-md mb-2 flex items-center justify-center gap-2">

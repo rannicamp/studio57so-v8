@@ -1,3 +1,4 @@
+//components\almoxarifado\AlmoxarifadoManager.js
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -6,19 +7,26 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, faWarehouse, faFilter, faTimes, faArrowDown, faHistory, 
-    faArrowUp, faTools, faBox, faBoxOpen, faSearch, faPlus // <-- NOVO: Ícone de Adicionar
+    faArrowUp, faTools, faBox, faBoxOpen, faSearch, faPlus
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import BaixaEstoqueModal from './BaixaEstoqueModal';
 import HistoricoMovimentacoesModal from './HistoricoMovimentacoesModal';
 import RegistrarRetiradaModal from './RegistrarRetiradaModal';
 import RegistrarDevolucaoModal from './RegistrarDevolucaoModal';
-import AdicionarMaterialManualModal from './AdicionarMaterialManualModal'; // <-- NOVO: Importamos o modal de adição
+import AdicionarMaterialManualModal from './AdicionarMaterialManualModal';
 import { useEmpreendimento } from '../../contexts/EmpreendimentoContext';
 import { useDebounce } from 'use-debounce';
+import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
 
-const fetchEstoqueData = async (supabase, empreendimentoId) => {
-    if (!empreendimentoId || empreendimentoId === 'all') return [];
+// =================================================================================
+// ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+// O PORQUÊ: A função de busca agora também recebe o `organizacaoId` para adicionar
+// um filtro explícito na consulta. Isso cria uma dupla camada de segurança,
+// garantindo que apenas o estoque da organização correta seja exibido.
+// =================================================================================
+const fetchEstoqueData = async (supabase, empreendimentoId, organizacaoId) => {
+    if (!empreendimentoId || empreendimentoId === 'all' || !organizacaoId) return [];
 
     const { data, error } = await supabase
         .from('estoque')
@@ -27,6 +35,7 @@ const fetchEstoqueData = async (supabase, empreendimentoId) => {
             material:materiais(id, nome, descricao, classificacao)
         `)
         .eq('empreendimento_id', empreendimentoId)
+        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
         .order('material(nome)', { ascending: true });
 
     if (error) throw new Error('Falha ao buscar dados do estoque.');
@@ -37,6 +46,8 @@ const fetchEstoqueData = async (supabase, empreendimentoId) => {
 export default function AlmoxarifadoManager() {
     const supabase = createClient();
     const queryClient = useQueryClient();
+    const { user } = useAuth(); // 2. Obter o usuário para pegar o ID da organização
+    const organizacaoId = user?.organizacao_id;
 
     const { selectedEmpreendimento: empreendimentoId } = useEmpreendimento();
     
@@ -49,13 +60,18 @@ export default function AlmoxarifadoManager() {
     const [isHistoricoModalOpen, setIsHistoricoModalOpen] = useState(false);
     const [isRetiradaModalOpen, setIsRetiradaModalOpen] = useState(false);
     const [isDevolucaoModalOpen, setIsDevolucaoModalOpen] = useState(false);
-    const [isAdicionarMaterialModalOpen, setIsAdicionarMaterialModalOpen] = useState(false); // <-- NOVO: Estado para o novo modal
+    const [isAdicionarMaterialModalOpen, setIsAdicionarMaterialModalOpen] = useState(false);
     const [selectedEstoqueItem, setSelectedEstoqueItem] = useState(null);
 
+    // =================================================================================
+    // ATUALIZAÇÃO DE SEGURANÇA (queryKey e queryFn)
+    // O PORQUÊ: Adicionamos o `organizacaoId` na `queryKey` para que o cache seja
+    // único por organização, e o passamos para a função de busca.
+    // =================================================================================
     const { data: estoqueCompleto, isLoading, isError, error } = useQuery({
-        queryKey: ['estoque', empreendimentoId],
-        queryFn: () => fetchEstoqueData(supabase, empreendimentoId),
-        enabled: !!empreendimentoId && empreendimentoId !== 'all',
+        queryKey: ['estoque', empreendimentoId, organizacaoId],
+        queryFn: () => fetchEstoqueData(supabase, empreendimentoId, organizacaoId),
+        enabled: !!empreendimentoId && empreendimentoId !== 'all' && !!organizacaoId,
     });
 
     const itensFiltrados = useMemo(() => {
@@ -78,7 +94,7 @@ export default function AlmoxarifadoManager() {
 
     const handleSuccess = () => {
         toast.success("Operação realizada com sucesso!");
-        queryClient.invalidateQueries({ queryKey: ['estoque', empreendimentoId] });
+        queryClient.invalidateQueries({ queryKey: ['estoque', empreendimentoId, organizacaoId] }); // Atualiza a queryKey
     };
 
     const handleOpenBaixaModal = (item) => { setSelectedEstoqueItem(item); setIsBaixaModalOpen(true); };
@@ -142,7 +158,6 @@ export default function AlmoxarifadoManager() {
                 </>
             )}
 
-            {/* <-- NOVO: Botão para adicionar material --> */}
             <div className="flex justify-end">
                 <button 
                     onClick={() => setIsAdicionarMaterialModalOpen(true)}

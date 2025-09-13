@@ -9,11 +9,15 @@ import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useMutation } from '@tanstack/react-query';
 
-// Lógica principal: registrar a devolução do equipamento
-const registrarDevolucaoEquipamento = async ({ supabase, estoqueItem, quantidade, observacao, usuarioId }) => {
+// =================================================================================
+// ATUALIZAÇÃO DE SEGURANÇA (organizacao_id)
+// O PORQUÊ: A função agora recebe o `organizacaoId` para "etiquetar" o registro
+// de movimentação, garantindo que a devolução seja atribuída à organização correta.
+// =================================================================================
+const registrarDevolucaoEquipamento = async ({ supabase, estoqueItem, quantidade, observacao, usuarioId, organizacaoId }) => {
     const qtdNum = parseFloat(quantidade);
 
-    // 1. Atualiza as quantidades no item do estoque (lógica inversa da retirada)
+    // 1. Atualiza as quantidades no item do estoque
     const novaQuantidadeAtual = estoqueItem.quantidade_atual + qtdNum;
     const novaQuantidadeEmUso = estoqueItem.quantidade_em_uso - qtdNum;
     
@@ -37,7 +41,7 @@ const registrarDevolucaoEquipamento = async ({ supabase, estoqueItem, quantidade
             quantidade: qtdNum,
             usuario_id: usuarioId,
             observacao: observacao,
-            // funcionario_id não é estritamente necessário na devolução, mas pode ser adicionado se a regra de negócio exigir
+            organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
         });
 
     if (insertError) throw insertError;
@@ -49,6 +53,7 @@ const registrarDevolucaoEquipamento = async ({ supabase, estoqueItem, quantidade
 export default function RegistrarDevolucaoModal({ isOpen, onClose, estoqueItem, onSuccess }) {
     const supabase = createClient();
     const { user } = useAuth();
+    const organizacaoId = user?.organizacao_id; // Pegamos o ID da organização
 
     const [quantidade, setQuantidade] = useState('');
     const [observacao, setObservacao] = useState('');
@@ -56,8 +61,8 @@ export default function RegistrarDevolucaoModal({ isOpen, onClose, estoqueItem, 
     const devolucaoMutation = useMutation({
         mutationFn: registrarDevolucaoEquipamento,
         onSuccess: () => {
-            onSuccess(); // Invalida a query e mostra o toast de sucesso
-            onClose();   // Fecha o modal
+            onSuccess();
+            onClose();
         },
         onError: (error) => {
             toast.error(`Erro ao registrar devolução: ${error.message}`);
@@ -88,12 +93,14 @@ export default function RegistrarDevolucaoModal({ isOpen, onClose, estoqueItem, 
             return;
         }
         
+        // Passamos o `organizacaoId` para a mutation
         devolucaoMutation.mutate({
             supabase,
             estoqueItem,
             quantidade,
             observacao,
             usuarioId: user.id,
+            organizacaoId, // <-- Passando a "chave mestra"
         });
     };
 

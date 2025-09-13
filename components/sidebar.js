@@ -1,3 +1,4 @@
+//components\sidebar.js
 "use client";
 
 import { useState } from 'react';
@@ -16,11 +17,19 @@ import { useAuth } from '../contexts/AuthContext';
 import { createClient } from '../utils/supabase/client';
 import Tooltip from './Tooltip';
 
-const fetchEmpreendimentos = async () => {
+// =================================================================================
+// ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+// O PORQUÊ: A função agora exige a `organizacaoId`. Isso garante que a consulta
+// ao banco de dados seja filtrada, trazendo APENAS os empreendimentos que
+// pertencem à organização do usuário logado. É a nossa "parede" de segurança.
+// =================================================================================
+const fetchEmpreendimentos = async (organizacaoId) => {
+    if (!organizacaoId) return []; // Se não houver organização, não busca nada.
     const supabase = createClient();
     const { data, error } = await supabase
         .from('empreendimentos')
         .select('id, nome')
+        .eq('organizacao_id', organizacaoId) // <-- A ETIQUETA DE SEGURANÇA!
         .order('nome');
 
     if (error) {
@@ -31,11 +40,21 @@ const fetchEmpreendimentos = async () => {
 };
 
 export default function Sidebar({ isCollapsed, toggleSidebar }) {
-    const { hasPermission, sidebarPosition } = useAuth();
-    
+    const { hasPermission, sidebarPosition, user } = useAuth(); // Pegamos o 'user' para ter o ID da organização
+    const organizacaoId = user?.organizacao_id;
+
+    // =================================================================================
+    // ATUALIZAÇÃO DE SEGURANÇA (queryKey e queryFn)
+    // O PORQUÊ:
+    // 1. `queryKey`: Adicionamos `organizacaoId` à chave. Isso garante que o cache
+    //    de dados seja único para cada organização.
+    // 2. `queryFn`: Passamos o `organizacaoId` para a função de busca.
+    // 3. `enabled`: A busca só é executada se o `organizacaoId` estiver disponível.
+    // =================================================================================
     const { data: empreendimentos = [] } = useQuery({
-        queryKey: ['empreendimentosMenu'],
-        queryFn: fetchEmpreendimentos
+        queryKey: ['empreendimentosMenu', organizacaoId],
+        queryFn: () => fetchEmpreendimentos(organizacaoId),
+        enabled: !!organizacaoId
     });
 
     const [isEmpreendimentosOpen, setIsEmpreendimentosOpen] = useState(true);
@@ -93,7 +112,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             items: [
                 { href: '/orcamento', label: 'Orçamentação', icon: faDollarSign, recurso: 'orcamento' },
                 { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart, recurso: 'pedidos' },
-                // ***** NOVO LINK ADICIONADO AQUI *****
                 { href: '/almoxarifado', label: 'Almoxarifado', icon: faBoxOpen, recurso: 'almoxarifado' },
                 { href: '/rdo/gerenciador', label: 'Diário de Obra', icon: faClipboardList, recurso: 'rdo' },
                 { href: '/atividades', label: 'Atividades', icon: faTasks, recurso: 'atividades' },
