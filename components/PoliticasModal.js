@@ -1,3 +1,4 @@
+//components/PoliticasModal.js
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -5,13 +6,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faCheckCircle, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 export default function PoliticasModal() {
   const { user, userData, loading: authLoading } = useAuth();
   const supabase = createClient();
 
   const [showModal, setShowModal] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [hasRejected, setHasRejected] = useState(false);
 
   useEffect(() => {
@@ -22,26 +24,32 @@ export default function PoliticasModal() {
     }
   }, [user, userData, authLoading]);
 
-  const handleAccept = async () => {
-    if (!user) return;
-    setIsSaving(true);
-    
-    const { error } = await supabase
-      .from('usuarios')
-      .update({
-        aceitou_termos: true,
-        data_aceite_termos: new Date().toISOString(),
-      })
-      .eq('id', user.id);
+  const acceptTermsMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Usuário não autenticado.");
+      
+      const { error } = await supabase
+        .from('usuarios')
+        .update({
+          aceitou_termos: true,
+          data_aceite_termos: new Date().toISOString(),
+        })
+        .eq('id', user.id);
 
-    if (error) {
-      alert("Ocorreu um erro ao salvar sua aceitação. Por favor, tente novamente.");
-      console.error(error);
-    } else {
+      if (error) throw error;
+    },
+    onSuccess: () => {
       setShowModal(false);
-      window.location.reload(); 
-    }
-    setIsSaving(false);
+      window.location.reload();
+    },
+  });
+
+  const handleAccept = () => {
+    toast.promise(acceptTermsMutation.mutateAsync(), {
+      loading: 'Salvando sua aceitação...',
+      success: 'Termos aceitos com sucesso! Atualizando...',
+      error: (err) => `Erro ao salvar: ${err.message}`,
+    });
   };
 
   const handleReject = () => {
@@ -73,7 +81,7 @@ export default function PoliticasModal() {
         <div className="prose max-w-none overflow-y-auto pr-4 border-y py-4 max-h-[65vh]">
           
           <h2>Termos de Uso do Sistema Studio 57</h2>
-          <p className="text-sm">Última atualização: 07 de agosto de 2025</p>
+          <p className="text-sm">Última atualização: 13 de setembro de 2025</p>
           <p>Bem-vindo ao Sistema de Gestão Integrada do Studio 57. Ao acessar e utilizar esta plataforma, você concorda em cumprir e estar sujeito aos seguintes termos e condições de uso.</p>
           
           <h3>1. Contas de Usuário</h3>
@@ -89,13 +97,12 @@ export default function PoliticasModal() {
           <p>O software, design, layout e todos os componentes do sistema são propriedade intelectual do Studio 57 e protegidos por leis de direitos autorais.</p>
 
           <h3>5. Limitação de Responsabilidade</h3>
-          {/* CORREÇÃO APLICADA AQUI */}
           <p>O sistema é fornecido &apos;como está&apos;. O Studio 57 não se responsabiliza por perdas de dados ou danos resultantes do uso (ou da incapacidade de uso) da plataforma.</p>
 
           <hr />
 
           <h2>Política de Privacidade</h2>
-          <p className="text-sm">Última atualização: 07 de agosto de 2025</p>
+          <p className="text-sm">Última atualização: 13 de setembro de 2025</p>
 
           <h3>1. Coleta de Dados</h3>
           <p>Coletamos informações que você nos fornece diretamente, incluindo dados de identificação, financeiros, profissionais e conteúdo gerado pelo usuário (uploads, mensagens).</p>
@@ -108,7 +115,7 @@ export default function PoliticasModal() {
             {!hasRejected && (
                 <button
                     onClick={handleReject}
-                    disabled={isSaving}
+                    disabled={acceptTermsMutation.isPending}
                     className="w-full md:w-auto bg-gray-200 text-gray-800 font-bold py-3 px-10 rounded-md hover:bg-gray-300 transition-colors"
                 >
                     Não aceito
@@ -117,11 +124,11 @@ export default function PoliticasModal() {
 
             <button
                 onClick={handleAccept}
-                disabled={isSaving}
+                disabled={acceptTermsMutation.isPending}
                 className="w-full md:w-auto bg-green-600 text-white font-bold py-3 px-10 rounded-md hover:bg-green-700 disabled:bg-gray-400 transition-colors flex items-center justify-center gap-2"
             >
-                {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheckCircle} />}
-                {isSaving ? 'Salvando...' : 'Li e aceito os termos'}
+                {acceptTermsMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheckCircle} />}
+                {acceptTermsMutation.isPending ? 'Salvando...' : 'Li e aceito os termos'}
             </button>
         </div>
       </div>

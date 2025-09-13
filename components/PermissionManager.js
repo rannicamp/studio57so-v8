@@ -1,3 +1,4 @@
+//components/PermissionManager.js
 "use client";
 
 import { useState, Fragment, useEffect, useRef } from 'react';
@@ -65,7 +66,6 @@ export default function PermissionManager({ initialFuncoes }) {
         { key: 'permissoes', name: 'Permissões' },
       ]
     },
-    // --- GRUPO DE CONFIGURAÇÕES ATUALIZADO E COMPLETO ---
     {
       title: 'Configurações',
       resources: [
@@ -111,7 +111,6 @@ export default function PermissionManager({ initialFuncoes }) {
   };
 
   const handleMouseDown = (funcaoId, recursoKey, tipoPermissao, currentValue) => {
-    // Impede a alteração para a função 'Proprietário'
     const funcao = funcoes.find(f => f.id === funcaoId);
     if (funcao?.nome_funcao === 'Proprietário') return;
 
@@ -122,7 +121,6 @@ export default function PermissionManager({ initialFuncoes }) {
   };
 
   const handleMouseEnter = (funcaoId, recursoKey, tipoPermissao) => {
-    // Impede a alteração para a função 'Proprietário'
     const funcao = funcoes.find(f => f.id === funcaoId);
     if (funcao?.nome_funcao === 'Proprietário') return;
       
@@ -154,7 +152,6 @@ export default function PermissionManager({ initialFuncoes }) {
   };
 
   const getPermissao = (funcao, recursoKey, tipo) => {
-    // Para a função 'Proprietário', todas as permissões são consideradas como verdadeiras
     if (funcao.nome_funcao === 'Proprietário') {
       return true;
     }

@@ -1,11 +1,14 @@
+//components/PontoImporter.js
 "use client";
 
 import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUpload, faFileCsv, faCheckCircle, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 
-// Componente para exibir o status da importação de uma linha
 const StatusIndicator = ({ status, message }) => {
     if (status === 'success') {
         return <span className="text-green-600 flex items-center gap-1 text-xs"><FontAwesomeIcon icon={faCheckCircle} /> Pronto</span>;
@@ -16,8 +19,12 @@ const StatusIndicator = ({ status, message }) => {
     return null;
 };
 
-export default function PontoImporter({ employees, onImport, showToast }) {
+export default function PontoImporter({ employees, onImport }) {
   const supabase = createClient();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const organizacaoId = user?.organizacao_id;
+
   const [file, setFile] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedRecords, setProcessedRecords] = useState([]);
@@ -33,7 +40,7 @@ export default function PontoImporter({ employees, onImport, showToast }) {
     setIsProcessing(true);
     setProcessedRecords([]);
     setSummary({ ready: 0, errors: 0 });
-    showToast('Lendo e processando o arquivo...', 'info');
+    toast.info('Lendo e processando o arquivo...');
 
     const content = await selectedFile.text();
     const lines = content.split(/\r\n|\n/).filter(line => line.trim() !== '');
@@ -95,61 +102,64 @@ export default function PontoImporter({ employees, onImport, showToast }) {
     const errorCount = allDisplayRecords.length - readyCount;
     setSummary({ ready: readyCount, errors: errorCount });
 
-    showToast(`Arquivo processado: ${readyCount} registros prontos, ${errorCount} com erros.`, 'info');
+    toast.info(`Arquivo processado: ${readyCount} registros prontos, ${errorCount} com erros.`);
     setIsProcessing(false);
   };
 
-  const handleImport = async () => {
+  const importMutation = useMutation({
+    mutationFn: async (records) => {
+        if (!organizacaoId) throw new Error("Organização não identificada.");
+
+        const recordsForDb = records.map(rec => ({
+            funcionario_id: rec.funcionario_id,
+            data_hora: rec.data_hora.toISOString(),
+            tipo_registro: rec.tipo_registro,
+            observacao: 'Importado via arquivo TXT',
+            organizacao_id: organizacaoId, 
+        }));
+        
+        const { error } = await supabase.rpc('importar_registros_ponto_se_vazio', {
+            novos_registros: recordsForDb
+        });
+
+        if (error) throw error;
+        return records.length;
+    },
+    onSuccess: (count) => {
+        queryClient.invalidateQueries({ queryKey: ['registros_ponto'] });
+        setFile(null);
+        setProcessedRecords([]);
+        setSummary({ ready: 0, errors: 0 });
+        if (onImport) onImport();
+    },
+  });
+
+  const handleImport = () => {
     const recordsToInsert = processedRecords.filter(r => r.status === 'success');
     if (recordsToInsert.length === 0) {
-      showToast('Nenhum registro válido para importar.', 'error');
+      toast.error('Nenhum registro válido para importar.');
       return;
     }
-    
-    setIsProcessing(true);
-    showToast(`Importando ${recordsToInsert.length} registros...`, 'info');
-    
-    const recordsForDb = recordsToInsert.map(rec => ({
-      funcionario_id: rec.funcionario_id,
-      data_hora: rec.data_hora.toISOString(),
-      tipo_registro: rec.tipo_registro,
-      observacao: 'Importado via arquivo TXT'
-    }));
 
-    // ***** INÍCIO DA MODIFICAÇÃO *****
-    // Chama a nova função segura no banco de dados que não sobrescreve dados
-    const { error } = await supabase.rpc('importar_registros_ponto_se_vazio', {
-        novos_registros: recordsForDb
+    toast.promise(importMutation.mutateAsync(recordsToInsert), {
+        loading: `Importando ${recordsToInsert.length} registros...`,
+        success: (count) => `${count} registros foram importados com sucesso! Campos já preenchidos foram ignorados.`,
+        error: (err) => `Erro ao importar: ${err.message}`,
     });
-    // ***** FIM DA MODIFICAÇÃO *****
-
-    if (error) {
-      showToast(`Erro ao importar os registros: ${error.message}`, 'error');
-      console.error(error);
-    } else {
-      showToast(`${recordsToInsert.length} registros foram importados com sucesso! Campos já preenchidos foram ignorados.`, 'success');
-      setFile(null);
-      setProcessedRecords([]);
-      setSummary({ ready: 0, errors: 0 });
-      if (onImport) onImport();
-    }
-    setIsProcessing(false);
   };
 
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-lg shadow-md">
-        {/* ***** INÍCIO DA MODIFICAÇÃO: Textos atualizados ***** */}
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Importar Ponto (.txt)</h2>
         <p className="text-sm text-gray-600 mb-4">
           Selecione o arquivo de ponto. O sistema irá adicionar as batidas de ponto apenas nos campos que estiverem vazios. <strong>Registros manuais ou já existentes não serão sobrescritos.</strong>
         </p>
-        {/* ***** FIM DA MODIFICAÇÃO ***** */}
         <input
           type="file"
           accept=".txt"
           onChange={handleFileChange}
-          disabled={isProcessing}
+          disabled={isProcessing || importMutation.isPending}
           className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100 disabled:opacity-50"
         />
       </div>
@@ -187,15 +197,14 @@ export default function PontoImporter({ employees, onImport, showToast }) {
             </table>
           </div>
           <div className="mt-6 text-right">
-            {/* ***** INÍCIO DA MODIFICAÇÃO: Textos atualizados ***** */}
             <button
               onClick={handleImport}
-              disabled={isProcessing || summary.ready === 0}
-              className="bg-green-600 text-white px-6 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              disabled={isProcessing || importMutation.isPending || summary.ready === 0}
+              className="bg-green-600 text-white px-6 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {isProcessing ? 'Importando...' : `Confirmar e Importar ${summary.ready} Registros`}
+              {importMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faUpload} />}
+              {importMutation.isPending ? 'Importando...' : `Confirmar e Importar ${summary.ready} Registros`}
             </button>
-            {/* ***** FIM DA MODIFICAÇÃO ***** */}
           </div>
         </div>
       )}

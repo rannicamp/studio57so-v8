@@ -1,12 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faPlus, faPenToSquare, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useAuth } from '../contexts/AuthContext'; // Onde Fica a Chave Mestra (organização)
 
+// =================================================================================
+// O PORQUÊ DA MUDANÇA (useAuth):
+// Para garantir que cada "apartamento" veja apenas sua própria "mobília",
+// precisamos saber a qual organização o usuário pertence. O `useAuth` nos dá
+// essa informação crucial (a "chave mestra" ou `organizacao_id`).
+// =================================================================================
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight || !text || !highlight.trim()) {
         return <span>{text}</span>;
@@ -28,10 +35,18 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     );
 };
 
-const fetchEtapas = async (supabase) => {
+// =================================================================================
+// ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+// O PORQUÊ: Adicionamos o `organizacaoId` como um cadeado. Agora, esta função
+// só vai buscar as etapas que pertencem à organização do usuário logado.
+// É a nossa "parede" de segurança em ação na leitura de dados.
+// =================================================================================
+const fetchEtapas = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return [];
     const { data, error } = await supabase
         .from('etapa_obra')
         .select('id, nome_etapa, codigo_etapa')
+        .eq('organizacao_id', organizacaoId) // <-- A ETIQUETA DE SEGURANÇA!
         .order('codigo_etapa');
 
     if (error) {
@@ -41,13 +56,19 @@ const fetchEtapas = async (supabase) => {
     return data || [];
 };
 
-const fetchSubetapas = async (supabase, etapaId) => {
-    if (!etapaId) return [];
+// =================================================================================
+// ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+// O PORQUÊ: Mesma lógica da busca de etapas. Só buscamos subetapas que
+// pertencem à organização do usuário. Mais uma "parede" erguida.
+// =================================================================================
+const fetchSubetapas = async (supabase, etapaId, organizacaoId) => {
+    if (!etapaId || !organizacaoId) return [];
     
     const { data, error } = await supabase
         .from('subetapas')
         .select('id, nome_subetapa')
         .eq('etapa_id', etapaId)
+        .eq('organizacao_id', organizacaoId) // <-- A ETIQUETA DE SEGURANÇA!
         .order('nome_subetapa');
 
     if (error) {
@@ -75,13 +96,14 @@ const getInitialState = () => ({
 export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
+    const { user } = useAuth(); // Pegando a "chave mestra" da organização
+    const organizacaoId = user?.organizacao_id;
     const isEditing = Boolean(itemToEdit);
     
     const [filteredSubetapas, setFilteredSubetapas] = useState([]);
     const [subetapaSearch, setSubetapaSearch] = useState('');
     const [isSubetapaDropdownOpen, setIsSubetapaDropdownOpen] = useState(false);
-    const [isCreatingSubetapa, setIsCreatingSubetapa] = useState(false);
-
+    
     const [item, setItem] = useState(getInitialState);
     const [isItemSelected, setIsItemSelected] = useState(false);
     const [materialSearchResults, setMaterialSearchResults] = useState([]);
@@ -94,16 +116,22 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
     
     const [newMaterialClassification, setNewMaterialClassification] = useState('Insumo');
 
+    // =================================================================================
+    // ATUALIZAÇÃO DE SEGURANÇA (queryKey com organização_id)
+    // O PORQUÊ: Adicionamos `organizacaoId` à `queryKey`. Isso garante que o cache
+    // de dados (o que o React Query guarda na memória) seja único para cada
+    // organização. Assim, a organização A nunca verá dados cacheados da B.
+    // =================================================================================
     const { data: etapas = [], isLoading: isLoadingEtapas } = useQuery({
-        queryKey: ['etapas'],
-        queryFn: () => fetchEtapas(supabase),
-        enabled: isOpen,
+        queryKey: ['etapas', organizacaoId],
+        queryFn: () => fetchEtapas(supabase, organizacaoId),
+        enabled: isOpen && !!organizacaoId,
     });
 
     const { data: subetapas = [] } = useQuery({
-        queryKey: ['subetapas', item.etapa_id],
-        queryFn: () => fetchSubetapas(supabase, item.etapa_id),
-        enabled: isOpen && !!item.etapa_id,
+        queryKey: ['subetapas', item.etapa_id, organizacaoId],
+        queryFn: () => fetchSubetapas(supabase, item.etapa_id, organizacaoId),
+        enabled: isOpen && !!item.etapa_id && !!organizacaoId,
     });
 
 
@@ -167,18 +195,35 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         }
     }, [subetapaSearch, subetapas]);
 
+    // =================================================================================
+    // ATUALIZAÇÃO DE SEGURANÇA (organização_id na busca)
+    // O PORQUÊ: Adicionamos `.eq('organizacao_id', organizacaoId)` na busca de
+    // materiais. Simples e eficaz: o sistema só vai procurar e mostrar materiais
+    // que pertencem à organização do usuário.
+    // =================================================================================
     const handleMaterialSearchChange = async (e) => {
         const value = e.target.value;
         setSearchTerm(value);
         if (value.length < 2) { setMaterialSearchResults([]); return; }
         setIsSearching(prev => ({ ...prev, material: true }));
-        // O PORQUÊ: A busca agora é feita na coluna 'descricao'.
-        const { data, error } = await supabase.from('materiais').select('id, descricao, unidade_medida, preco_unitario, nome').ilike('descricao', `%${value}%`).limit(10);
+        
+        const { data, error } = await supabase
+            .from('materiais')
+            .select('id, descricao, unidade_medida, preco_unitario, nome')
+            .eq('organizacao_id', organizacaoId) // <-- A ETIQUETA DE SEGURANÇA!
+            .ilike('descricao', `%${value}%`)
+            .limit(10);
+
         if (error) console.error("Erro na busca de materiais:", error);
         setMaterialSearchResults(data || []);
         setIsSearching(prev => ({ ...prev, material: false }));
     };
     
+    // =================================================================================
+    // ATUALIZAÇÃO DE SEGURANÇA (organização_id na busca)
+    // O PORQUÊ: Exatamente a mesma lógica da busca de materiais, agora aplicada
+    // aos fornecedores. Segurança e privacidade em todas as pontas.
+    // =================================================================================
     const handleFornecedorSearchChange = async (e) => {
         const value = e.target.value;
         setFornecedorSearchTerm(value);
@@ -189,8 +234,9 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         const { data, error } = await supabase
             .from('contatos')
             .select('id, nome, razao_social, nome_fantasia')
-            .or(`nome.ilike.%${value}%,razao_social.ilike.%${value}%,nome_fantasia.ilike.%${value}%`)
+            .eq('organizacao_id', organizacaoId) // <-- A ETIQUETA DE SEGURANÇA!
             .eq('tipo_contato', 'Fornecedor')
+            .or(`nome.ilike.%${value}%,razao_social.ilike.%${value}%,nome_fantasia.ilike.%${value}%`)
             .limit(10);
 
         if (error) {
@@ -204,33 +250,57 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
     };
 
     const handleSelectMaterial = (material) => {
-        // O PORQUÊ: Priorizamos a 'descricao' ao preencher o campo.
         setItem(prev => ({ ...prev, material_id: material.id, descricao_item: material.descricao || material.nome, unidade_medida: material.unidade_medida || 'unid.' }));
         setIsItemSelected(true);
         setMaterialSearchResults([]);
         setSearchTerm(material.descricao || material.nome);
     };
 
-    const handleCreateAndSelectMaterial = async () => {
-        const toastId = toast.loading("Criando novo material...");
-        const { data: newMaterial, error } = await supabase
-            .from('materiais')
-            .insert({ 
-                nome: searchTerm.trim(), 
-                descricao: searchTerm.trim(),
-                classificacao: newMaterialClassification 
-            })
-            .select()
-            .single();
+    // =================================================================================
+    // ATUALIZAÇÃO DE SEGURANÇA (organização_id na criação)
+    // O PORQUÊ: Este é o momento de "etiquetar a mobília nova". Ao criar um material,
+    // garantimos que ele receba a `organizacao_id` correta. Assim, ele já nasce
+    // pertencendo ao "apartamento" certo.
+    // =================================================================================
+    const createMaterialMutation = useMutation({
+        mutationFn: async ({ nome, descricao, classificacao }) => {
+            const { data, error } = await supabase
+                .from('materiais')
+                .insert({ 
+                    nome, 
+                    descricao,
+                    classificacao, 
+                    organizacao_id: organizacaoId // <-- A ETIQUETA DE SEGURANÇA NA CRIAÇÃO!
+                })
+                .select()
+                .single();
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: (newMaterial) => {
+            queryClient.invalidateQueries({ queryKey: ['materiais', organizacaoId] });
+            handleSelectMaterial(newMaterial);
+        },
+    });
     
-        if (error) {
-            toast.error(`Erro ao criar material: ${error.message}`, { id: toastId });
+    const handleCreateAndSelectMaterial = async () => {
+        if (!organizacaoId) {
+            toast.error("A organização não foi identificada. Não é possível criar o material.");
             return;
         }
         
-        toast.success(`Material "${newMaterial.nome}" criado com sucesso!`, { id: toastId });
-        queryClient.invalidateQueries({ queryKey: ['materiais'] });
-        handleSelectMaterial(newMaterial);
+        toast.promise(
+            createMaterialMutation.mutateAsync({
+                nome: searchTerm.trim(),
+                descricao: searchTerm.trim(),
+                classificacao: newMaterialClassification
+            }),
+            {
+                loading: "Criando novo material...",
+                success: (newMaterial) => `Material "${newMaterial.nome}" criado com sucesso!`,
+                error: (error) => `Erro ao criar material: ${error.message}`
+            }
+        );
     };
 
     const handleResetItemSelection = () => {
@@ -261,21 +331,50 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         setSubetapaSearch(subetapa.nome_subetapa);
         setIsSubetapaDropdownOpen(false);
     };
+    
+    // =================================================================================
+    // MELHORIA DE UX E SEGURANÇA (useMutation + toast.promise)
+    // O PORQUÊ: Aqui, modernizamos a "decoração" e reforçamos a "fundação".
+    // 1. `useMutation`: Padroniza como criamos dados, facilitando a manutenção.
+    // 2. `toast.promise`: Dá ao usuário um feedback claro e elegante sobre o que está
+    //    acontecendo (Salvando..., Sucesso!, Erro.).
+    // 3. `organizacao_id`: Etiquetamos a nova subetapa na criação.
+    // =================================================================================
+    const createSubetapaMutation = useMutation({
+        mutationFn: async ({ nome, etapa_id }) => {
+            const { data, error } = await supabase
+                .from('subetapas')
+                .insert({ 
+                    nome_subetapa: nome, 
+                    etapa_id: etapa_id,
+                    organizacao_id: organizacaoId // <-- ETIQUETA DE SEGURANÇA NA CRIAÇÃO!
+                })
+                .select()
+                .single();
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: (newSubetapa) => {
+            queryClient.invalidateQueries({ queryKey: ['subetapas', item.etapa_id, organizacaoId] });
+            handleSelectSubetapa(newSubetapa);
+        },
+    });
 
     const handleCreateSubetapa = async () => {
-        if (!subetapaSearch.trim() || !item.etapa_id) return;
-        const subetapaNome = subetapaSearch.trim();
-        setIsCreatingSubetapa(true);
-        const { data: newSubetapa, error } = await supabase.from('subetapas').insert({ nome_subetapa: subetapaNome, etapa_id: item.etapa_id }).select().single();
-        setIsCreatingSubetapa(false);
-        if (error) {
-            toast.error(`Erro ao criar subetapa: ${error.message}`);
-        } else {
-            toast.success("Subetapa criada com sucesso!");
-            handleSelectSubetapa(newSubetapa);
-        }
-    };
+        if (!subetapaSearch.trim() || !item.etapa_id || !organizacaoId) return;
 
+        toast.promise(
+            createSubetapaMutation.mutateAsync({
+                nome: subetapaSearch.trim(),
+                etapa_id: item.etapa_id
+            }),
+            {
+                loading: 'Criando subetapa...',
+                success: 'Subetapa criada com sucesso!',
+                error: (error) => `Erro ao criar subetapa: ${error.message}`
+            }
+        );
+    };
 
     const handleSaveClick = async () => {
         if (!isItemSelected && !searchTerm) { setMessage('A descrição do item é obrigatória.'); return; }
@@ -302,7 +401,10 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
 
         delete itemToSave.fornecedor_nome;
         
-        const result = await onSave(itemToSave);
+        // A lógica de `onSave` acontece no componente pai (`[id]/page.js`), 
+        // então a `organizacao_id` será adicionada lá, no momento de salvar o pedido completo.
+        // Isso está correto para manter a consistência.
+        const result = await onSave(itemToSave); 
         setIsSaving(false);
         if (result.success) { onClose(); } 
         else { setMessage(result.error || 'Ocorreu um erro desconhecido.'); }
@@ -314,10 +416,10 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl max-h-[95vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
-                     <h3 className="text-xl font-bold">{isEditing ? 'Editar Item do Pedido' : 'Adicionar Item ao Pedido'}</h3>
-                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" title="Fechar">
-                         <FontAwesomeIcon icon={faTimes} />
-                     </button>
+                    <h3 className="text-xl font-bold">{isEditing ? 'Editar Item do Pedido' : 'Adicionar Item ao Pedido'}</h3>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl" title="Fechar">
+                        <FontAwesomeIcon icon={faTimes} />
+                    </button>
                 </div>
                 {message && <p className="text-sm text-red-500 mb-4">{message}</p>}
                 <div className="space-y-4">
@@ -344,18 +446,27 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
                                 {!isSearching.material && searchTerm.length > 2 && materialSearchResults.length === 0 && (
                                     <div className="absolute z-20 w-full bg-white border rounded-md shadow-lg p-3 space-y-3">
                                         <div>
-                                          <label className="block text-xs font-medium mb-1">Classificar novo material como:</label>
-                                          <select 
-                                              value={newMaterialClassification} 
-                                              onChange={(e) => setNewMaterialClassification(e.target.value)}
-                                              className="w-full p-2 border rounded-md text-sm"
-                                          >
-                                              <option value="Insumo">Insumo (Consumível)</option>
-                                              <option value="Equipamento">Equipamento (Retornável)</option>
-                                          </select>
+                                            <label className="block text-xs font-medium mb-1">Classificar novo material como:</label>
+                                            <select 
+                                                value={newMaterialClassification} 
+                                                onChange={(e) => setNewMaterialClassification(e.target.value)}
+                                                className="w-full p-2 border rounded-md text-sm"
+                                            >
+                                                <option value="Insumo">Insumo (Consumível)</option>
+                                                <option value="Equipamento">Equipamento (Retornável)</option>
+                                            </select>
                                         </div>
-                                        <button type="button" onClick={handleCreateAndSelectMaterial} className="text-blue-600 font-semibold flex items-center gap-2"> 
-                                            <FontAwesomeIcon icon={faPlus} /> Criar e usar &quot;{searchTerm}&quot; 
+                                        <button 
+                                            type="button" 
+                                            onClick={handleCreateAndSelectMaterial} 
+                                            disabled={createMaterialMutation.isPending}
+                                            className="text-blue-600 font-semibold flex items-center gap-2 disabled:text-gray-400"
+                                        > 
+                                            {createMaterialMutation.isPending ? (
+                                                <><FontAwesomeIcon icon={faSpinner} spin /> Criando...</>
+                                            ) : (
+                                                <><FontAwesomeIcon icon={faPlus} /> Criar e usar &quot;{searchTerm}&quot;</>
+                                            )}
                                         </button>
                                     </div>
                                 )}
@@ -425,8 +536,11 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
                                         <li className='p-2 text-sm text-gray-500'>Nenhuma subetapa encontrada.</li>
                                     )}
                                     {subetapaSearch && !filteredSubetapas.some(s => s.nome_subetapa.toLowerCase() === subetapaSearch.toLowerCase()) && (
-                                        <li onMouseDown={handleCreateSubetapa} className="p-2 border-t bg-green-50 hover:bg-green-100 cursor-pointer flex items-center gap-2">
-                                            {isCreatingSubetapa ? (
+                                        <li 
+                                            onMouseDown={handleCreateSubetapa} 
+                                            className="p-2 border-t bg-green-50 hover:bg-green-100 cursor-pointer flex items-center gap-2"
+                                        >
+                                            {createSubetapaMutation.isPending ? (
                                                 <><FontAwesomeIcon icon={faSpinner} spin /> Criando...</>
                                             ) : (
                                                 <><FontAwesomeIcon icon={faPlus} className="text-green-600" /> <span className="text-green-800 font-semibold">Criar: &quot;{subetapaSearch}&quot;</span></>
