@@ -7,9 +7,10 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEllipsisV, faStickyNote, faBullhorn, faHome, faTasks, faPhone, faUserTie, faSpinner, faTimes, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/utils/supabase/client';
+import { useAuth } from '@/utils/supabase/auth'; // 1. Importar o useAuth
+import { useQuery } from '@tanstack/react-query'; // 2. Importar o useQuery
 import { toast } from 'sonner';
 
-// Hook para debounce (atrasar a execução de uma função)
 const useDebounce = (value, delay) => {
     const [debouncedValue, setDebouncedValue] = useState(value);
     useEffect(() => {
@@ -35,41 +36,45 @@ export default function ContatoCardCRM({
     onAssociateCorretor,
     onCardClick,
     onAddActivity,
-    onDeleteCard // ***** INÍCIO DA CORREÇÃO *****
+    onDeleteCard
 }) {
-    // ***** FIM DA CORREÇÃO *****
     const supabase = createClient();
+    const { user } = useAuth(); // 3. Obter o usuário para o organizacaoId
+    const organizacaoId = user?.organizacao_id;
+
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
     const corretorDropdownRef = useRef(null);
 
     const [isEditingCorretor, setIsEditingCorretor] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
-    const [isSearching, setIsSearching] = useState(false);
     const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
     const [isAddingProduct, setIsAddingProduct] = useState(false);
     const [selectedProductId, setSelectedProductId] = useState('');
 
-    useEffect(() => {
-        const searchCorretores = async () => {
-            if (debouncedSearchTerm) {
-                setIsSearching(true);
-                const { data, error } = await supabase.rpc('buscar_contatos_geral', { p_search_term: debouncedSearchTerm });
-                if (error) {
-                    console.error("Erro ao buscar corretores:", error);
-                    toast.error("Falha na busca de corretores.");
-                } else {
-                    setSearchResults(data || []);
-                }
-                setIsSearching(false);
-            } else {
-                setSearchResults([]);
+    // =================================================================================
+    // ATUALIZAÇÃO DE PADRÃO E SEGURANÇA (useEffect -> useQuery)
+    // O PORQUÊ: Substituímos a busca manual por `useQuery`. Ele gerencia os estados
+    // de loading e error automaticamente. A busca agora também envia o `organizacaoId`,
+    // garantindo que apenas corretores da organização correta sejam retornados.
+    // =================================================================================
+    const { data: searchResults = [], isLoading: isSearching } = useQuery({
+        queryKey: ['searchCorretores', debouncedSearchTerm, organizacaoId],
+        queryFn: async () => {
+            const { data, error } = await supabase.rpc('buscar_contatos_geral', { 
+                p_search_term: debouncedSearchTerm,
+                p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+            });
+            if (error) {
+                console.error("Erro ao buscar corretores:", error);
+                toast.error("Falha na busca de corretores.");
+                return [];
             }
-        };
-        searchCorretores();
-    }, [debouncedSearchTerm, supabase]);
+            return data || [];
+        },
+        enabled: !!debouncedSearchTerm && !!organizacaoId, // A busca só é ativada se houver termo e organização
+    });
     
     useEffect(() => {
         function handleClickOutside(event) {
@@ -106,17 +111,25 @@ export default function ContatoCardCRM({
         setIsAddingProduct(false);
     };
 
-    // ***** INÍCIO DA CORREÇÃO *****
     const handleDeleteCardClick = (e) => {
         e.stopPropagation();
-        if (window.confirm(`Tem certeza que deseja excluir o card #${cardNumber} (${displayName}) do funil? O contato não será apagado.`)) {
-            onDeleteCard(funilEntry.id);
-        }
+        // =================================================================================
+        // ATUALIZAÇÃO DE UX (troca de window.confirm por toast)
+        // O PORQUÊ: Uma confirmação mais elegante e integrada à interface.
+        // =================================================================================
+        toast("Confirmar Exclusão do Card", {
+            description: `Tem certeza que deseja excluir o card #${cardNumber} (${displayName}) do funil? O contato não será apagado.`,
+            action: {
+                label: "Excluir Card",
+                onClick: () => onDeleteCard(funilEntry.id),
+            },
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' },
+        });
         setIsDropdownOpen(false);
     };
-    // ***** FIM DA CORREÇÃO *****
 
-    const handleSelectCorretor = (corretorId) => { onAssociateCorretor(funilEntry.id, corretorId); setIsEditingCorretor(false); setSearchTerm(''); setSearchResults([]); };
+    const handleSelectCorretor = (corretorId) => { onAssociateCorretor(funilEntry.id, corretorId); setIsEditingCorretor(false); setSearchTerm(''); };
     const handleClearCorretor = () => onAssociateCorretor(funilEntry.id, null);
     const formatDate = (dateString) => dateString ? format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'N/A';
     const truncateMessage = (message, len=70) => message && message.length > len ? `${message.substring(0, len)}...` : message || 'Nenhuma mensagem recente';
@@ -137,11 +150,9 @@ export default function ContatoCardCRM({
                         <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1">
                             <button onClick={handleAddActivityClick} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"><FontAwesomeIcon icon={faTasks} className="mr-2" /> Adicionar Atividade</button>
                             <button onClick={(e) => { e.stopPropagation(); handleOpenNotes(); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"><FontAwesomeIcon icon={faStickyNote} className="mr-2" /> Ver/Adicionar Notas</button>
-                            {/* ***** INÍCIO DA CORREÇÃO ***** */}
                             <div className="border-t border-gray-200 my-1"></div>
                             <button onClick={handleDeleteCardClick} className="block w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"><FontAwesomeIcon icon={faTrash} className="mr-2" /> Excluir Card</button>
                             <div className="border-t border-gray-200 my-1"></div>
-                            {/* ***** FIM DA CORREÇÃO ***** */}
                             <p className="px-3 py-2 text-xs text-gray-500 border-b">Mover para:</p>
                             {allColumns.filter(col => col.id !== currentColumnId).map(column => (<button key={column.id} onClick={(e) => { e.stopPropagation(); handleMoveClick(column.id); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">{column.nome}</button>))}
                         </div>

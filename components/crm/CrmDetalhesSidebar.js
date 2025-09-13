@@ -1,16 +1,17 @@
+//components\crm\CrmDetalhesSidebar.js
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faStickyNote, faTasks, faSpinner, faPlus, faPhone, faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, faSave, faBullhorn, faUserTie, faCalculator, faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Imports atualizados
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// Esta função trata a data como texto, evitando problemas com fuso horário.
 const formatDateString = (dateStr) => {
     if (!dateStr || !dateStr.includes('-')) return 'Não definido';
     const [year, month, day] = dateStr.split('-');
@@ -52,24 +53,51 @@ const MetaFormData = ({ data }) => {
     );
 };
 
+// =================================================================================
+// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
+// O PORQUÊ: Centralizamos a busca de dados em uma função para useQuery e adicionamos
+// o filtro de segurança `organizacaoId` em todas as consultas.
+// =================================================================================
+const fetchSidebarData = async (supabase, contatoId, organizacaoId) => {
+    if (!contatoId || !organizacaoId) return null;
+
+    const notesPromise = supabase.from('crm_notas').select('*, usuarios(nome, sobrenome)').eq('contato_id', contatoId).eq('organizacao_id', organizacaoId).order('created_at', { ascending: false });
+    const activitiesPromise = supabase.from('activities').select('*').eq('contato_id', contatoId).eq('organizacao_id', organizacaoId).order('data_inicio_prevista', { ascending: true });
+    const simulationsPromise = supabase.from('simulacoes').select('id, created_at, status, valor_venda').eq('contato_id', contatoId).eq('organizacao_id', organizacaoId).order('created_at', { ascending: false });
+
+    const [{ data: notesData, error: notesError }, { data: activitiesData, error: activitiesError }, { data: simulationsData, error: simulationsError }] = await Promise.all([notesPromise, activitiesPromise, simulationsPromise]);
+
+    if (notesError || activitiesError || simulationsError) {
+        console.error({ notesError, activitiesError, simulationsError });
+        throw new Error("Erro ao carregar detalhes do contato.");
+    }
+
+    return { notes: notesData || [], activities: activitiesData || [], simulations: simulationsData || [] };
+};
+
 export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddActivity, onEditActivity, onContactUpdate, refreshKey }) {
     const supabase = createClient();
     const { user } = useAuth();
-    
+    const organizacaoId = user?.organizacao_id;
+    const queryClient = useQueryClient();
+
     const contato = funilEntry?.contatos;
     const corretor = funilEntry?.corretores;
     const contatoNoFunilId = funilEntry?.id;
 
-    const [notes, setNotes] = useState([]);
-    const [activities, setActivities] = useState([]);
-    const [simulations, setSimulations] = useState([]);
     const [newNoteContent, setNewNoteContent] = useState('');
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState({});
     const [editingNoteId, setEditingNoteId] = useState(null);
     const [editingNoteContent, setEditingNoteContent] = useState('');
+
+    const { data: sidebarData, isLoading: loading } = useQuery({
+        queryKey: ['crmSidebarData', contato?.id, organizacaoId, refreshKey],
+        queryFn: () => fetchSidebarData(supabase, contato?.id, organizacaoId),
+        enabled: !!open && !!contato?.id && !!organizacaoId,
+    });
+    
+    const { notes = [], activities = [], simulations = [] } = sidebarData || {};
 
     const initializeEditData = useCallback((c) => {
         if (!c) return;
@@ -84,104 +112,72 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
         });
     }, []);
 
-    const fetchData = useCallback(async () => {
-        if (!contato?.id) return;
-        setLoading(true);
-
-        try {
-            const notesPromise = supabase.from('crm_notas').select('*, usuarios(nome, sobrenome)').eq('contato_id', contato.id).order('created_at', { ascending: false });
-            const activitiesPromise = supabase.from('activities').select('*').eq('contato_id', contato.id).order('data_inicio_prevista', { ascending: true });
-            const simulationsPromise = supabase.from('simulacoes').select('id, created_at, status, valor_venda').eq('contato_id', contato.id).order('created_at', { ascending: false });
-
-            const [{ data: notesData, error: notesError }, { data: activitiesData, error: activitiesError }, { data: simulationsData, error: simulationsError }] = await Promise.all([notesPromise, activitiesPromise, simulationsPromise]);
-
-            if (notesError) throw notesError;
-            if (activitiesError) throw activitiesError;
-            if (simulationsError) throw simulationsError;
-
-            setNotes(notesData || []);
-            setActivities(activitiesData || []);
-            setSimulations(simulationsData || []);
-        } catch (error) {
-            toast.error("Erro ao carregar detalhes do contato.");
-            console.error("Erro no fetchData:", error);
-        } finally {
-            setLoading(false);
-        }
-    }, [contato, supabase]);
-
-    // ***** INÍCIO DA CORREÇÃO *****
-    // Efeito para buscar dados quando o sidebar abrir ou a chave de atualização mudar
-    useEffect(() => {
-        if (open && contato) {
-            fetchData();
-        }
-    }, [open, contato, fetchData, refreshKey]);
-
-    // Efeito para inicializar/resetar o formulário APENAS quando o contato mudar
     useEffect(() => {
         if (contato) {
             initializeEditData(contato);
-            setIsEditing(false); // Garante que o modo de edição seja desativado ao trocar de contato
+            setIsEditing(false);
         }
-    }, [contato?.id, initializeEditData]); // Depende apenas do ID do contato
-    // ***** FIM DA CORREÇÃO *****
+    }, [contato?.id, initializeEditData]);
+    
+    // =================================================================================
+    // ATUALIZAÇÃO DE PADRÃO E SEGURANÇA (useMutation)
+    // O PORQUÊ: Cada ação de escrita agora tem sua própria `mutation`. Isso padroniza
+    // o código, melhora o feedback com `toast`, e garante que o `organizacaoId`
+    // seja aplicado em todas as operações de segurança.
+    // =================================================================================
+    const saveContactMutation = useMutation({
+        mutationFn: async (updatedData) => {
+            const { nome, razao_social, cpf, cnpj, origem, telefone, email } = updatedData;
+            // Atualiza o contato principal
+            const { error: contactError } = await supabase.from('contatos').update({ nome, razao_social, cpf, cnpj, origem }).eq('id', contato.id);
+            if (contactError) throw contactError;
 
-    const handleEditChange = (e) => setEditData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+            // Lógica para upsert de telefone e email, garantindo a `organizacao_id`
+            if (telefone) await supabase.from('telefones').upsert({ id: contato.telefones?.[0]?.id, contato_id: contato.id, telefone, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'id' });
+            if (email) await supabase.from('emails').upsert({ id: contato.emails?.[0]?.id, contato_id: contato.id, email, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'id' });
+        },
+        onSuccess: () => {
+            setIsEditing(false);
+            onContactUpdate();
+            toast.success("Contato atualizado com sucesso!");
+        },
+        onError: (error) => toast.error(`Erro ao salvar: ${error.message}`)
+    });
 
-    const handleSave = async () => {
-        setSaving(true);
-        const { nome, razao_social, cpf, cnpj, origem, telefone, email } = editData;
-        
-        const updatePromises = [];
-
-        // Atualiza contato principal
-        updatePromises.push(
-            supabase.from('contatos').update({ nome, razao_social, cpf, cnpj, origem }).eq('id', contato.id)
-        );
-
-        // Atualiza ou insere telefone
-        const telId = contato.telefones?.[0]?.id;
-        if (telefone) {
-            if (telId) {
-                updatePromises.push(supabase.from('telefones').update({ telefone }).eq('id', telId));
-            } else {
-                updatePromises.push(supabase.from('telefones').insert({ contato_id: contato.id, telefone, tipo: 'Principal' }));
-            }
+    const addNoteMutation = useMutation({
+        mutationFn: (noteContent) => supabase.from('crm_notas').insert({ contato_id: contato.id, contato_no_funil_id: contatoNoFunilId, conteudo: noteContent, usuario_id: user.id, organizacao_id: organizacaoId }).throwOnError(),
+        onSuccess: () => {
+            setNewNoteContent('');
+            queryClient.invalidateQueries({ queryKey: ['crmSidebarData', contato?.id, organizacaoId] });
         }
-        
-        // Atualiza ou insere email
-        const emailId = contato.emails?.[0]?.id;
-        if (email) {
-            if (emailId) {
-                updatePromises.push(supabase.from('emails').update({ email }).eq('id', emailId));
-            } else {
-                updatePromises.push(supabase.from('emails').insert({ contato_id: contato.id, email, tipo: 'Principal' }));
-            }
+    });
+    
+    const crudMutation = useMutation({
+        mutationFn: async ({ action, table, data, id }) => {
+            let query;
+            if (action === 'update') query = supabase.from(table).update(data).eq('id', id).eq('organizacao_id', organizacaoId);
+            else if (action === 'delete') query = supabase.from(table).delete().eq('id', id).eq('organizacao_id', organizacaoId);
+            const { error } = await query;
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['crmSidebarData', contato?.id, organizacaoId] });
         }
+    });
 
-        toast.promise(Promise.all(updatePromises), {
-            loading: 'Salvando...',
-            success: () => {
-                setSaving(false);
-                setIsEditing(false);
-                onContactUpdate(); // Atualiza a lista principal
-                return "Contato atualizado com sucesso!";
-            },
-            error: (err) => {
-                setSaving(false);
-                console.error("Erro ao salvar:", err);
-                return `Erro ao salvar: ${err.message || 'Ocorreu um problema.'}`;
-            }
+    const handleSave = () => saveContactMutation.mutate(editData);
+    const handleAddNote = () => !addNoteMutation.isPending && newNoteContent.trim() && addNoteMutation.mutate(newNoteContent);
+    const handleCompleteActivity = (activityId) => crudMutation.mutate({ action: 'update', table: 'activities', data: { status: 'Concluído' }, id: activityId });
+    const handleSaveNoteEdit = (noteId) => crudMutation.mutate({ action: 'update', table: 'crm_notas', data: { conteudo: editingNoteContent }, id: noteId, onSuccess: () => setEditingNoteId(null) });
+
+    const createDeleteHandler = (itemType, itemId) => {
+        toast(`Confirmar Exclusão`, {
+            description: `Tem certeza que deseja excluir este item?`,
+            action: { label: "Excluir", onClick: () => crudMutation.mutate({ action: 'delete', table: itemType, id: itemId }) },
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' }
         });
     };
-    
-    const handleAddNote = async () => { if (!newNoteContent.trim()) return; setSaving(true); const { error } = await supabase.from('crm_notas').insert({ contato_id: contato.id, contato_no_funil_id: contatoNoFunilId, conteudo: newNoteContent, usuario_id: user.id }); if (error) { toast.error(error.message); } else { setNewNoteContent(''); fetchData(); } setSaving(false); };
-    const handleCompleteActivity = async (activityId) => { const { error } = await supabase.from('activities').update({ status: 'Concluído' }).eq('id', activityId); if (error) toast.error(error.message); else fetchData(); };
-    const handleDeleteActivity = async (activityId) => { if (window.confirm('Tem certeza?')) { const { error } = await supabase.from('activities').delete().eq('id', activityId); if (error) toast.error(error.message); else fetchData(); }};
-    const handleStartEditingNote = (note) => { setEditingNoteId(note.id); setEditingNoteContent(note.conteudo); };
-    const handleSaveNoteEdit = async (noteId) => { setSaving(true); const { error } = await supabase.from('crm_notas').update({ conteudo: editingNoteContent }).eq('id', noteId); if (error) toast.error(error.message); else { setEditingNoteId(null); setEditingNoteContent(''); fetchData(); } setSaving(false); };
-    const handleDeleteNote = async (noteId) => { if (window.confirm('Tem certeza?')) { const { error } = await supabase.from('crm_notas').delete().eq('id', noteId); if (error) toast.error(error.message); else fetchData(); }};
 
     if (!open || !contato) return null;
 
@@ -206,9 +202,9 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
                                     <h4 className="font-semibold text-gray-700">Detalhes do Contato</h4>
                                     {isEditing ? (
                                         <div className="flex items-center gap-2">
-                                            <button onClick={() => { setIsEditing(false); initializeEditData(contato); }} disabled={saving} className="text-sm font-semibold text-gray-600 hover:text-gray-800">Cancelar</button>
-                                            <button onClick={handleSave} disabled={saving} className="text-sm font-semibold bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
-                                                {saving ? <FontAwesomeIcon icon={faSpinner} spin/> : <FontAwesomeIcon icon={faSave} />} Salvar
+                                            <button onClick={() => { setIsEditing(false); initializeEditData(contato); }} disabled={saveContactMutation.isPending} className="text-sm font-semibold text-gray-600 hover:text-gray-800">Cancelar</button>
+                                            <button onClick={handleSave} disabled={saveContactMutation.isPending} className="text-sm font-semibold bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
+                                                {saveContactMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin/> : <FontAwesomeIcon icon={faSave} />} Salvar
                                             </button>
                                         </div>
                                     ) : (
@@ -218,11 +214,11 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
                                 <dl className="grid grid-cols-1 gap-y-4">
                                     {isEditing ? (
                                         <>
-                                            <EditableField label="Nome/Razão Social" value={editData.nome || editData.razao_social} name={contato.personalidade_juridica === 'Pessoa Física' ? 'nome' : 'razao_social'} onChange={handleEditChange} icon={faIdCard} />
-                                            <EditableField label="Telefone" value={editData.telefone} name="telefone" onChange={handleEditChange} icon={faPhone} />
-                                            <EditableField label="Email" value={editData.email} name="email" onChange={handleEditChange} icon={faEnvelope} />
-                                            <EditableField label="CPF/CNPJ" value={editData.cpf || editData.cnpj} name={contato.personalidade_juridica === 'Pessoa Física' ? 'cpf' : 'cnpj'} onChange={handleEditChange} icon={faIdCard} />
-                                            <EditableField label="Origem" value={editData.origem} name="origem" onChange={handleEditChange} icon={faGlobe} />
+                                            <EditableField label="Nome/Razão Social" value={editData.nome || editData.razao_social} name={contato.personalidade_juridica === 'Pessoa Física' ? 'nome' : 'razao_social'} onChange={(e) => setEditData(prev => ({ ...prev, [e.target.name]: e.target.value }))} icon={faIdCard} />
+                                            <EditableField label="Telefone" value={editData.telefone} name="telefone" onChange={(e) => setEditData(prev => ({ ...prev, telefone: e.target.value }))} icon={faPhone} />
+                                            <EditableField label="Email" value={editData.email} name="email" onChange={(e) => setEditData(prev => ({ ...prev, email: e.target.value }))} icon={faEnvelope} />
+                                            <EditableField label="CPF/CNPJ" value={editData.cpf || editData.cnpj} name={contato.personalidade_juridica === 'Pessoa Física' ? 'cpf' : 'cnpj'} onChange={(e) => setEditData(prev => ({ ...prev, [e.target.name]: e.target.value }))} icon={faIdCard} />
+                                            <EditableField label="Origem" value={editData.origem} name="origem" onChange={(e) => setEditData(prev => ({ ...prev, origem: e.target.value }))} icon={faGlobe} />
                                         </>
                                     ) : (
                                         <>
@@ -271,14 +267,12 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
                                         <div key={act.id} className="p-2 bg-white rounded-md text-sm border flex justify-between items-center group">
                                             <div className="flex-1">
                                                 <p className="font-semibold">{act.nome}</p>
-                                                <p className="text-xs text-gray-500">
-                                                    Prazo: {formatDateString(act.data_fim_prevista)}
-                                                </p>
+                                                <p className="text-xs text-gray-500">Prazo: {formatDateString(act.data_fim_prevista)}</p>
                                             </div>
                                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 {act.status !== 'Concluído' && <button onClick={() => handleCompleteActivity(act.id)} className="text-green-500 hover:text-green-700" title="Marcar como concluída"><FontAwesomeIcon icon={faCheckCircle} /></button>}
                                                 <button onClick={() => onEditActivity(act)} className="text-gray-500 hover:text-blue-700" title="Editar"><FontAwesomeIcon icon={faPen} /></button>
-                                                <button onClick={() => handleDeleteActivity(act.id)} className="text-gray-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
+                                                <button onClick={() => createDeleteHandler('activities', act.id)} className="text-gray-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
                                             </div>
                                         </div>
                                     )) : <p className="text-xs text-gray-500 text-center py-4">Nenhuma atividade agendada.</p>}
@@ -290,8 +284,8 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
                                 <div className="space-y-3">
                                     <div className="relative">
                                         <textarea value={newNoteContent} onChange={(e) => setNewNoteContent(e.target.value)} placeholder="Adicionar uma nota..." className="w-full p-2 border rounded-md text-sm" rows={3}></textarea>
-                                        <button onClick={handleAddNote} disabled={saving || !newNoteContent.trim()} className="absolute bottom-2 right-2 bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-blue-700 disabled:bg-gray-400">
-                                            {saving ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Salvar'}
+                                        <button onClick={handleAddNote} disabled={addNoteMutation.isPending || !newNoteContent.trim()} className="absolute bottom-2 right-2 bg-blue-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-blue-700 disabled:bg-gray-400">
+                                            {addNoteMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Salvar'}
                                         </button>
                                     </div>
                                     <div className="space-y-2 max-h-56 overflow-y-auto border rounded-md p-2 bg-gray-50">
@@ -302,7 +296,7 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
                                                         <textarea value={editingNoteContent} onChange={(e) => setEditingNoteContent(e.target.value)} className="w-full p-1 border rounded" rows={3}/>
                                                         <div className="flex justify-end gap-2 mt-1">
                                                             <button onClick={() => setEditingNoteId(null)} className="text-xs">Cancelar</button>
-                                                            <button onClick={() => handleSaveNoteEdit(note.id)} className="text-xs font-semibold text-blue-600">{saving ? 'Salvando...' : 'Salvar'}</button>
+                                                            <button onClick={() => handleSaveNoteEdit(note.id)} className="text-xs font-semibold text-blue-600">{crudMutation.isPending ? 'Salvando...' : 'Salvar'}</button>
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -311,8 +305,8 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
                                                         <div className="flex justify-between items-center mt-1">
                                                             <p className="text-xs text-gray-500">{note.usuarios?.nome} - {format(new Date(note.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}</p>
                                                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <button onClick={() => handleStartEditingNote(note)} className="text-gray-500 hover:text-blue-700" title="Editar"><FontAwesomeIcon icon={faPen} /></button>
-                                                                <button onClick={() => handleDeleteNote(note.id)} className="text-gray-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
+                                                                <button onClick={() => { setEditingNoteId(note.id); setEditingNoteContent(note.conteudo); }} className="text-gray-500 hover:text-blue-700" title="Editar"><FontAwesomeIcon icon={faPen} /></button>
+                                                                <button onClick={() => createDeleteHandler('crm_notas', note.id)} className="text-gray-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
                                                             </div>
                                                         </div>
                                                     </>

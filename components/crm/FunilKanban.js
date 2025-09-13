@@ -5,19 +5,36 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import ContatoCardCRM from './ContatoCardCRM';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faSort, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { useMutation } from '@tanstack/react-query'; // 1. Importar useMutation
+import { toast } from 'sonner';
 
+// =================================================================================
+// ATUALIZAÇÃO DE PADRÃO (useMutation)
+// O PORQUÊ: Modernizamos este sub-componente para usar `useMutation`, eliminando
+// o controle manual de estado de `isSaving` e permitindo um feedback mais claro
+// ao usuário através do `toast.promise`.
+// =================================================================================
 const AddColumn = ({ onCreate }) => {
     const [isCreating, setIsCreating] = useState(false);
     const [newColumnName, setNewColumnName] = useState("");
-    const [isSaving, setIsSaving] = useState(false);
 
-    const handleSave = async () => {
-        if (!newColumnName.trim()) return;
-        setIsSaving(true);
-        await onCreate(newColumnName);
-        setIsSaving(false);
-        setNewColumnName("");
-        setIsCreating(false);
+    const createColumnMutation = useMutation({
+        mutationFn: async (columnName) => {
+            if (!columnName.trim()) throw new Error("O nome da etapa não pode ser vazio.");
+            await onCreate(columnName);
+        },
+        onSuccess: () => {
+            setNewColumnName("");
+            setIsCreating(false);
+        },
+    });
+
+    const handleSave = () => {
+        toast.promise(createColumnMutation.mutateAsync(newColumnName), {
+            loading: 'Criando nova etapa...',
+            success: 'Etapa criada com sucesso!',
+            error: (err) => err.message
+        });
     };
 
     return (
@@ -26,9 +43,9 @@ const AddColumn = ({ onCreate }) => {
                 <div className="p-3 bg-gray-200 rounded-lg">
                     <input type="text" placeholder="Nome da nova etapa" className="w-full p-2 border border-gray-300 rounded mb-2 text-sm" value={newColumnName} onChange={(e) => setNewColumnName(e.target.value)} autoFocus />
                     <div className="flex gap-2 justify-end">
-                        <button className="px-3 py-1 rounded text-sm" onClick={() => setIsCreating(false)} disabled={isSaving}>Cancelar</button>
-                        <button className="px-3 py-1 bg-blue-600 text-white rounded text-sm" onClick={handleSave} disabled={isSaving}>
-                            {isSaving ? "Salvando..." : "Salvar"}
+                        <button className="px-3 py-1 rounded text-sm" onClick={() => setIsCreating(false)} disabled={createColumnMutation.isPending}>Cancelar</button>
+                        <button className="px-3 py-1 bg-blue-600 text-white rounded text-sm disabled:bg-gray-400" onClick={handleSave} disabled={createColumnMutation.isPending}>
+                            {createColumnMutation.isPending ? "Salvando..." : "Salvar"}
                         </button>
                     </div>
                 </div>
@@ -71,7 +88,6 @@ export default function FunilKanban({
     const sortMenuRef = useRef(null);
     const [deletingColumnId, setDeletingColumnId] = useState(null);
     
-    // ADICIONADO: Estados e ref para a funcionalidade de arrastar para rolar
     const scrollContainerRef = useRef(null);
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
@@ -91,9 +107,7 @@ export default function FunilKanban({
         };
     }, [sortMenuRef]);
 
-    // ADICIONADO: Funções para controlar o arrastar do mouse
     const handleMouseDown = (e) => {
-        // Impede o arrastar se o clique for em um card ou botão
         if (e.target.closest('.kanban-card') || e.target.closest('button')) {
             return;
         }
@@ -101,14 +115,14 @@ export default function FunilKanban({
         const container = scrollContainerRef.current;
         setStartX(e.pageX - container.offsetLeft);
         setScrollLeft(container.scrollLeft);
-        container.style.cursor = 'grabbing'; // Muda o cursor para "agarrando"
+        container.style.cursor = 'grabbing';
     };
 
     const handleMouseLeaveOrUp = () => {
         if (!isDragging) return;
         setIsDragging(false);
         if (scrollContainerRef.current) {
-            scrollContainerRef.current.style.cursor = 'grab'; // Volta o cursor para a "mãozinha"
+            scrollContainerRef.current.style.cursor = 'grab';
         }
     };
 
@@ -120,7 +134,6 @@ export default function FunilKanban({
         const walk = (x - startX); 
         container.scrollLeft = scrollLeft - walk;
     };
-
 
     const handleDragStart = (e, item, type) => {
         e.stopPropagation();
@@ -157,16 +170,41 @@ export default function FunilKanban({
     const handleEditClick = (coluna) => { setEditingColumnId(coluna.id); setEditedColumnName(coluna.nome); };
     const handleSaveEdit = async (columnId) => { if (!editedColumnName.trim()) return; await onEditColumn(columnId, editedColumnName); setEditingColumnId(null); setEditedColumnName(""); };
     const handleCancelEdit = () => { setEditingColumnId(null); setEditedColumnName(""); };
-    const handleDeleteClick = (columnId, columnName) => { if (window.confirm(`Tem certeza que deseja deletar a etapa "${columnName}"? Todos os contatos nela serão movidos para a primeira etapa.`)) { onDeleteColumn(columnId); } };
-    const handleMoveCardFromDropdown = (contatoNoFunilId, newColumnId) => { onStatusChange(contatoNoFunilId, newColumnId); };
     
-    const handleDeleteAll = async (columnId, count) => {
-        if (window.confirm(`Tem certeza que deseja excluir permanentemente os ${count} cards desta coluna? Esta ação não pode ser desfeita.`)) {
-            setDeletingColumnId(columnId);
-            await onDeleteAllCardsInColumn(columnId);
-            setDeletingColumnId(null);
-        }
+    // =================================================================================
+    // ATUALIZAÇÃO DE UX (troca de window.confirm por toast)
+    // O PORQUÊ: Substituímos o alerta nativo por uma notificação toast, que é mais
+    // bonita e não interrompe o fluxo do usuário.
+    // =================================================================================
+    const handleDeleteClick = (columnId, columnName) => {
+        toast("Confirmar Exclusão da Etapa", {
+            description: `Tem certeza que deseja deletar a etapa "${columnName}"? Todos os contatos nela serão movidos para a primeira etapa.`,
+            action: {
+                label: "Excluir Etapa",
+                onClick: () => onDeleteColumn(columnId),
+            },
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' },
+        });
     };
+    
+    const handleDeleteAll = (columnId, count) => {
+        toast("Excluir Todos os Cards", {
+            description: `Tem certeza que deseja excluir permanentemente os ${count} cards desta coluna? Esta ação não pode ser desfeita.`,
+            action: {
+                label: "Excluir Tudo",
+                onClick: async () => {
+                    setDeletingColumnId(columnId);
+                    await onDeleteAllCardsInColumn(columnId);
+                    setDeletingColumnId(null);
+                },
+            },
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' },
+        });
+    };
+    
+    const handleMoveCardFromDropdown = (contatoNoFunilId, newColumnId) => { onStatusChange(contatoNoFunilId, newColumnId); };
     
     const handleSortChange = (colunaId, sortValue) => {
         if (!sortValue) {
@@ -213,7 +251,6 @@ export default function FunilKanban({
     }, [contatos, statusColumns, sorting]);
 
     return (
-        // ADICIONADO: Propriedades ref, className e onMouse... para ativar o arrastar
         <div 
             ref={scrollContainerRef}
             className="flex gap-4 overflow-x-auto p-4 h-full bg-gray-100 cursor-grab"
@@ -278,7 +315,7 @@ export default function FunilKanban({
                         ))}
                     </div>
                     <div className="p-2 border-t mt-auto">
-                        <button onClick={() => onAddContact()} className="w-full text-center text-sm p-2 rounded-md text-gray-600 hover:bg-gray-300 hover:text-gray-800 transition-colors">
+                        <button onClick={() => onAddContact(coluna.id)} className="w-full text-center text-sm p-2 rounded-md text-gray-600 hover:bg-gray-300 hover:text-gray-800 transition-colors">
                             <FontAwesomeIcon icon={faPlus} className="mr-2" /> Adicionar Contato
                         </button>
                     </div>

@@ -1,83 +1,101 @@
 // components/crm/CrmNotesModal.js
 "use client";
 
-import { useState, useEffect, useCallback } from 'react'; // Importar useCallback
+import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faPaperPlane, faSpinner, faStickyNote } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Imports atualizados
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+// =================================================================================
+// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
+// O PORQUÊ: Esta função agora busca os dados para o useQuery e envia o
+// `organizacaoId` para a API, garantindo que apenas as notas da
+// organização correta sejam retornadas.
+// =================================================================================
+const fetchNotes = async (contatoNoFunilId, organizacaoId) => {
+    if (!contatoNoFunilId || !organizacaoId) return [];
+
+    const response = await fetch('/api/crm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'getNotes',
+            contatoNoFunilId,
+            organizacaoId, // <-- Enviando a "chave mestra" de segurança
+        }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+        throw new Error(result.error || "Erro ao buscar notas.");
+    }
+    return result;
+};
+
 export default function CrmNotesModal({ isOpen, onClose, contatoNoFunilId, contatoId }) {
     const { user } = useAuth();
-    const [notes, setNotes] = useState([]);
+    const organizacaoId = user?.organizacao_id;
+    const queryClient = useQueryClient();
+
     const [newNoteContent, setNewNoteContent] = useState('');
-    const [isLoadingNotes, setIsLoadingNotes] = useState(true);
-    const [isSavingNote, setIsSavingNote] = useState(false);
 
-    // CORREÇÃO: A função foi envolvida em useCallback
-    const fetchNotes = useCallback(async () => {
-        if (!contatoNoFunilId || !isOpen) {
-            setNotes([]);
-            setIsLoadingNotes(false);
-            return;
-        }
-        setIsLoadingNotes(true);
-        try {
-            const response = await fetch(`/api/crm?context=notes&contatoNoFunilId=${contatoNoFunilId}`);
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || "Erro ao buscar notas.");
+    // =================================================================================
+    // ATUALIZAÇÃO DE PADRÃO (useState + useEffect -> useQuery)
+    // O PORQUÊ: Substituímos a lógica antiga por useQuery. Ele gerencia o loading,
+    // erros e o cache dos dados de forma automática.
+    // =================================================================================
+    const { data: notes = [], isLoading: isLoadingNotes, isError, error } = useQuery({
+        queryKey: ['crmNotes', contatoNoFunilId, organizacaoId],
+        queryFn: () => fetchNotes(contatoNoFunilId, organizacaoId),
+        enabled: isOpen && !!contatoNoFunilId && !!organizacaoId,
+    });
+    
+    // =================================================================================
+    // ATUALIZAÇÃO DE PADRÃO E SEGURANÇA (useMutation)
+    // O PORQUÊ: Encapsulamos a lógica de criação em um `useMutation`.
+    // O payload agora inclui o `organizacaoId` para garantir que a nova nota
+    // seja "etiquetada" corretamente.
+    // =================================================================================
+    const addNoteMutation = useMutation({
+        mutationFn: async (conteudo) => {
+            if (!conteudo.trim() || !user?.id || !organizacaoId) {
+                throw new Error("Dados insuficientes para criar a nota.");
             }
-            setNotes(result);
-        } catch (error) {
-            console.error("Erro ao buscar notas:", error);
-            toast.error(`Não foi possível carregar as notas. Detalhes: ${error.message}`);
-        } finally {
-            setIsLoadingNotes(false);
-        }
-    }, [contatoNoFunilId, isOpen]); // Dependências do useCallback
-
-    // CORREÇÃO: Adicionada a dependência 'fetchNotes'
-    useEffect(() => {
-        fetchNotes();
-    }, [isOpen, contatoNoFunilId, fetchNotes]);
-
-    const handleAddNote = async () => {
-        if (!newNoteContent.trim() || isSavingNote || !user?.id) return;
-
-        setIsSavingNote(true);
-        try {
             const payload = {
                 action: 'createNote',
                 contato_no_funil_id: contatoNoFunilId,
                 contato_id: contatoId,
-                conteudo: newNoteContent,
-                usuario_id: user.id
+                conteudo,
+                usuario_id: user.id,
+                organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
             };
-
             const response = await fetch('/api/crm', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
             const result = await response.json();
-
             if (!response.ok) {
                 throw new Error(result.error || "Erro ao adicionar nota.");
             }
-            
+            return result;
+        },
+        onSuccess: () => {
             setNewNoteContent('');
-            toast.success('Nota adicionada com sucesso!');
-            fetchNotes();
-        } catch (error) {
-            console.error("Erro ao adicionar nota:", error);
-            toast.error(`Não foi possível adicionar a nota. Detalhes: ${error.message}`);
-        } finally {
-            setIsSavingNote(false);
-        }
+            // Invalida a query para forçar o useQuery a buscar os dados novamente
+            queryClient.invalidateQueries({ queryKey: ['crmNotes', contatoNoFunilId, organizacaoId] });
+        },
+    });
+
+    const handleAddNote = () => {
+        toast.promise(addNoteMutation.mutateAsync(newNoteContent), {
+            loading: 'Salvando nota...',
+            success: 'Nota adicionada com sucesso!',
+            error: (err) => `Erro ao salvar: ${err.message}`,
+        });
     };
 
     if (!isOpen) return null;
@@ -99,20 +117,20 @@ export default function CrmNotesModal({ isOpen, onClose, contatoNoFunilId, conta
                         placeholder="Adicione uma nova nota..."
                         value={newNoteContent}
                         onChange={(e) => setNewNoteContent(e.target.value)}
-                        disabled={isSavingNote}
+                        disabled={addNoteMutation.isPending}
                     ></textarea>
                     <div className="flex justify-end mt-2">
                         <button
                             onClick={handleAddNote}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center text-sm"
-                            disabled={isSavingNote || !newNoteContent.trim()}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center text-sm disabled:bg-gray-400"
+                            disabled={addNoteMutation.isPending || !newNoteContent.trim()}
                         >
-                            {isSavingNote ? (
+                            {addNoteMutation.isPending ? (
                                 <FontAwesomeIcon icon={faSpinner} spin className="mr-2" />
                             ) : (
                                 <FontAwesomeIcon icon={faPaperPlane} className="mr-2" />
                             )}
-                            {isSavingNote ? "Salvando..." : "Adicionar Nota"}
+                            {addNoteMutation.isPending ? "Salvando..." : "Adicionar Nota"}
                         </button>
                     </div>
                 </div>
@@ -123,6 +141,8 @@ export default function CrmNotesModal({ isOpen, onClose, contatoNoFunilId, conta
                             <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-400" />
                             <span className="ml-3 text-gray-600">Carregando notas...</span>
                         </div>
+                    ) : isError ? (
+                        <p className="text-center text-red-500 py-8">{error.message}</p>
                     ) : notes.length === 0 ? (
                         <p className="text-center text-gray-500 py-8">Nenhuma nota encontrada para este contato.</p>
                     ) : (
