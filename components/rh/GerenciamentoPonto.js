@@ -1,4 +1,3 @@
-// components/rh/GerenciamentoPonto.js
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -10,6 +9,7 @@ import { faSpinner, faFileImport, faTimes, faCheckCircle, faExclamationCircle, f
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 
+// O Toast customizado pode ser mantido, sem alterações.
 const Toast = ({ message, type, onclose }) => {
     useEffect(() => { const timer = setTimeout(onclose, 4000); return () => clearTimeout(timer); }, [onclose]);
     const styles = { success: { bg: 'bg-green-500', icon: faCheckCircle }, error: { bg: 'bg-red-500', icon: faExclamationCircle }, info: { bg: 'bg-blue-500', icon: faInfoCircle } };
@@ -32,18 +32,33 @@ const ImporterModal = ({ isOpen, onClose, children }) => {
     );
 };
 
-const fetchAllEmployees = async () => {
+// O PORQUÊ: A função de busca agora é isolada e segura, recebendo a organizacao_id.
+const fetchAllEmployees = async (organizacao_id) => {
+    if (!organizacao_id) return [];
     const supabase = createClient();
-    const { data, error } = await supabase.from('funcionarios').select('id, full_name, numero_ponto').order('full_name');
+    // BLINDADO: Adicionado o filtro .eq('organizacao_id', organizacao_id)
+    const { data, error } = await supabase
+        .from('funcionarios')
+        .select('id, full_name, numero_ponto')
+        .eq('organizacao_id', organizacao_id) // <-- Filtro de segurança
+        .order('full_name');
+        
     if (error) throw new Error('Não foi possível carregar a lista de funcionários.');
     return data || [];
 };
 
 export default function GerenciamentoPonto() {
-    const { hasPermission } = useAuth();
+    const { hasPermission, organizacao_id } = useAuth(); // BLINDADO: Pegamos a organização
     const canCreate = hasPermission('ponto', 'pode_criar');
     const canEdit = hasPermission('ponto', 'pode_editar');
-    const { data: employees = [], isLoading, error, refetch: refetchEmployees } = useQuery({ queryKey: ['employeesPonto'], queryFn: fetchAllEmployees });
+    
+    // PADRÃO OURO: Refinamos o useQuery para depender da organizacao_id.
+    const { data: employees = [], isLoading, error, refetch: refetchEmployees } = useQuery({ 
+        queryKey: ['employeesPonto', organizacao_id], 
+        queryFn: () => fetchAllEmployees(organizacao_id),
+        enabled: !!organizacao_id, // A query só é executada se a organização existir.
+    });
+
     const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
     const [selectedMonth, setSelectedMonth] = useState('');
     const [isImporterOpen, setIsImporterOpen] = useState(false);
