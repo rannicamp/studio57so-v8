@@ -1,16 +1,23 @@
+//components\financeiro\ConciliacaoManager.js
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUpload, faLink, faFileImport, faCheckCircle, faMagic, faPlus, faExclamationTriangle, faEraser } from '@fortawesome/free-solid-svg-icons';
 import LancamentoFormModal from './LancamentoFormModal';
 import { useDebouncedCallback } from 'use-debounce';
 import { toast } from 'sonner';
 
+// =================================================================================
+// ATUALIZAÇÃO DA REGRA DE DATAS
+// O PORQUÊ: Esta função agora segue nossa regra de ouro para datas simples,
+// tratando a data como texto para evitar problemas de fuso horário.
+// =================================================================================
 const formatDate = (dateStr) => {
-    if (!dateStr || !dateStr.includes('-')) return 'N/A';
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr.split('T')[0])) return 'N/A';
     const [year, month, day] = dateStr.split('T')[0].split('-');
     return `${day}/${month}/${year}`;
 };
@@ -22,25 +29,34 @@ const getColorForPair = (pairId) => {
     return colors[pairId % colors.length];
 };
 
-const fetchLancamentosSistema = async (supabase, contaId) => {
-    if (!contaId) return [];
-    const { data, error } = await supabase.from('lancamentos').select('*').eq('conta_id', contaId).eq('conciliado', false).in('status', ['Pago', 'Pendente']);
+// =================================================================================
+// ATUALIZAÇÃO DE SEGURANÇA (organizacao_id)
+// O PORQUÊ: A busca de lançamentos agora é filtrada pela organização.
+// =================================================================================
+const fetchLancamentosSistema = async (supabase, contaId, organizacaoId) => {
+    if (!contaId || !organizacaoId) return [];
+    const { data, error } = await supabase
+        .from('lancamentos')
+        .select('*')
+        .eq('conta_id', contaId)
+        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .eq('conciliado', false)
+        .in('status', ['Pago', 'Pendente']);
     if (error) throw new Error(error.message);
     return data;
 };
 
 export default function ConciliacaoManager({ contas }) {
     const supabase = createClient();
+    const { user } = useAuth(); // 2. Obter o usuário para o organizacaoId
+    const organizacaoId = user?.organizacao_id;
 
-    // ***** INÍCIO DA ATUALIZAÇÃO 1/2 *****
-    // Ao iniciar o componente, ele verifica se há uma conta salva na sessão.
     const [selectedContaId, setSelectedContaId] = useState(() => {
         if (typeof window !== 'undefined') {
             return sessionStorage.getItem('lastSelectedConciliationAccountId') || '';
         }
         return '';
     });
-    // ***** FIM DA ATUALIZAÇÃO 1/2 *****
 
     const [file, setFile] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -87,14 +103,17 @@ export default function ConciliacaoManager({ contas }) {
         return () => window.removeEventListener('resize', calculateLines);
     }, [conciliationState.matches, conciliationState.sistema, conciliationState.extrato, calculateLines]);
 
+    // =================================================================================
+    // ATUALIZAÇÃO DE SEGURANÇA (queryKey e queryFn)
+    // O PORQUÊ: A query agora inclui o `organizacaoId` para um cache seguro e
+    // chama a função de busca com o filtro de segurança.
+    // =================================================================================
     const { refetch: refetchLancamentos } = useQuery({
-        queryKey: ['lancamentosSistema', selectedContaId],
-        queryFn: () => fetchLancamentosSistema(supabase, selectedContaId),
+        queryKey: ['lancamentosSistema', selectedContaId, organizacaoId],
+        queryFn: () => fetchLancamentosSistema(supabase, selectedContaId, organizacaoId),
         enabled: false,
     });
     
-    // ***** INÍCIO DA ATUALIZAÇÃO 2/2 *****
-    // Salva o ID da conta selecionada na sessão para persistir entre navegações.
     useEffect(() => {
         if (selectedContaId) {
             sessionStorage.setItem('lastSelectedConciliationAccountId', selectedContaId);
@@ -102,7 +121,6 @@ export default function ConciliacaoManager({ contas }) {
             sessionStorage.removeItem('lastSelectedConciliationAccountId');
         }
     }, [selectedContaId]);
-    // ***** FIM DA ATUALIZAÇÃO 2/2 *****
 
     useEffect(() => {
         if (selectedContaId && (conciliationState.extrato.length > 0 || conciliationState.sistema.length > 0)) {
@@ -123,8 +141,6 @@ export default function ConciliacaoManager({ contas }) {
             setConciliationState({ extrato: [], sistema: [], matches: [] });
         }
     }, [selectedContaId]);
-
-    // ... (restante do código permanece inalterado)
 
     const handleFileChange = (event) => {
         const selectedFile = event.target.files[0];
@@ -228,7 +244,16 @@ export default function ConciliacaoManager({ contas }) {
 
         try {
             for (const item of updates) {
-                const { error } = await supabase.from('lancamentos').update(item.updates).eq('id', item.id);
+                // =================================================================================
+                // ATUALIZAÇÃO DE SEGURANÇA (organizacao_id)
+                // O PORQUÊ: A atualização agora também verifica o `organizacao_id` para
+                // garantir que estamos conciliando um lançamento da organização correta.
+                // =================================================================================
+                const { error } = await supabase
+                    .from('lancamentos')
+                    .update(item.updates)
+                    .eq('id', item.id)
+                    .eq('organizacao_id', organizacaoId); // <-- FILTRO DE SEGURANÇA!
                 if (error) throw error;
             }
             toast.success(`${updates.length} lançamentos foram conciliados com sucesso!`, { id: toastId });

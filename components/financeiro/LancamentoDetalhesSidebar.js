@@ -1,8 +1,6 @@
 // components/financeiro/LancamentoDetalhesSidebar.js
-
 "use client";
 
-// CORREÇÃO AQUI: Adicionamos o 'useState' na importação do React
 import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -13,17 +11,20 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
-// Função para formatar datas simples (YYYY-MM-DD) sem problemas de fuso horário
+// =================================================================================
+// ATUALIZAÇÃO DA REGRA DE DATAS
+// O PORQUÊ: Corrigimos esta função para seguir nossa regra de ouro. Agora, ela
+// trata a data como texto, dividindo 'YYYY-MM-DD' e remontando como 'DD/MM/YYYY',
+// o que elimina completamente o risco de erros de fuso horário.
+// =================================================================================
 const formatDateString = (dateStr) => {
-    if (!dateStr || !dateStr.includes('-')) return 'Não definido';
-    // Adiciona T00:00:00Z para tratar a data como UTC e evitar problemas de fuso
-    const date = new Date(dateStr + 'T00:00:00Z');
-    return date.toLocaleDateString('pt-BR');
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return 'Não definido';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
 };
 
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
-// Componente reutilizável para exibir um campo de informação
 const InfoField = ({ label, value, icon, valueClassName = '' }) => (
     <div>
         <dt className="text-xs font-semibold text-gray-500 flex items-center gap-2 uppercase">
@@ -34,7 +35,6 @@ const InfoField = ({ label, value, icon, valueClassName = '' }) => (
     </div>
 );
 
-// Componente para exibir os anexos
 const AnexosSection = ({ anexos }) => {
     const supabase = createClient();
     const [loadingUrl, setLoadingUrl] = useState(null);
@@ -43,7 +43,7 @@ const AnexosSection = ({ anexos }) => {
         if (!caminho_arquivo) return;
         setLoadingUrl(caminho_arquivo);
         try {
-            const { data, error } = await supabase.storage.from('documentos-financeiro').createSignedUrl(caminho_arquivo, 3600); // URL válida por 1 hora
+            const { data, error } = await supabase.storage.from('documentos-financeiro').createSignedUrl(caminho_arquivo, 3600);
             if (error) throw error;
             if (data?.signedUrl) {
                 window.open(data.signedUrl, '_blank');

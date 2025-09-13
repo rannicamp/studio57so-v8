@@ -1,3 +1,4 @@
+//components\financeiro\FiltroFinanceiro.js
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -9,9 +10,11 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
+import { useQuery } from '@tanstack/react-query'; // 2. Importar o useQuery
+import { toast } from 'sonner'; // 3. Importar o toast
 import MultiSelectDropdown from './MultiSelectDropdown';
 
-// Componente para destacar texto (usado na busca de favorecido)
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
     const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -24,6 +27,21 @@ const initialFilterState = {
     etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', favorecidoId: null,
 };
 
+// =================================================================================
+// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
+// O PORQUÊ: Função de busca isolada para `useQuery`, agora com filtro de organização.
+// =================================================================================
+const fetchEtapas = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return [];
+    const { data, error } = await supabase
+        .from('etapa_obra')
+        .select('id, nome_etapa')
+        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .order('nome_etapa');
+    if (error) throw new Error("Falha ao buscar etapas.");
+    return data || [];
+};
+
 export default function FiltroFinanceiro({
     filters,
     setFilters,
@@ -34,28 +52,43 @@ export default function FiltroFinanceiro({
     allContacts
 }) {
     const supabase = createClient();
+    const { user } = useAuth(); // 4. Obter o usuário para o organizacaoId
+    const organizacaoId = user?.organizacao_id;
+
     const [filtersVisible, setFiltersVisible] = useState(true);
     const [savedFilters, setSavedFilters] = useState([]);
     const [newFilterName, setNewFilterName] = useState('');
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
     const filterMenuRef = useRef(null);
     const [activePeriodFilter, setActivePeriodFilter] = useState('');
-    const [etapas, setEtapas] = useState([]);
-
+    
     const [favorecidoSearchTerm, setFavorecidoSearchTerm] = useState('');
     const [favorecidoSearchResults, setFavorecidoSearchResults] = useState([]);
     const favorecidoInputRef = useRef(null);
+    
+    // =================================================================================
+    // ATUALIZAÇÃO DE PADRÃO E SEGURANÇA (useQuery para Etapas)
+    // =================================================================================
+    const { data: etapas = [] } = useQuery({
+        queryKey: ['etapas', organizacaoId],
+        queryFn: () => fetchEtapas(supabase, organizacaoId),
+        enabled: !!organizacaoId,
+    });
 
-    // Lógica para buscar favorecidos
     const handleFavorecidoSearch = useCallback(async (term) => {
         setFavorecidoSearchTerm(term);
         if (term.length < 2) {
             setFavorecidoSearchResults([]);
             return;
         }
-        const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term });
+        if (!organizacaoId) return; // Checagem de segurança
+        // ATUALIZAÇÃO DE SEGURANÇA na busca de contatos
+        const { data } = await supabase.rpc('buscar_contatos_geral', { 
+            p_search_term: term,
+            p_organizacao_id: organizacaoId // <-- FILTRO DE SEGURANÇA!
+        });
         setFavorecidoSearchResults(data || []);
-    }, [supabase]);
+    }, [supabase, organizacaoId]);
 
     const handleSelectFavorecido = (contato) => {
         handleFilterChange('favorecidoId', contato.id);
@@ -78,12 +111,7 @@ export default function FiltroFinanceiro({
     useEffect(() => {
         const loadedFilters = JSON.parse(localStorage.getItem('savedFinancialFilters') || '[]');
         setSavedFilters(loadedFilters);
-        const fetchExtraData = async () => {
-            const { data: etapasData } = await supabase.from('etapa_obra').select('id, nome_etapa').order('nome_etapa');
-            setEtapas(etapasData || []);
-        }
-        fetchExtraData();
-    }, [supabase]);
+    }, []);
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -103,12 +131,30 @@ export default function FiltroFinanceiro({
     
     const clearFilters = () => { setFilters(initialFilterState); setFavorecidoSearchTerm(''); setActivePeriodFilter(''); };
 
-    // Funções para Salvar, Carregar e Gerenciar filtros salvos
-    const handleSaveFilter = () => { if (!newFilterName.trim()) { alert('Por favor, dê um nome para o filtro.'); return; } const isFavorited = savedFilters.find(f => f.name === newFilterName)?.isFavorite || false; const updatedSavedFilters = savedFilters.filter(f => f.name !== newFilterName); const newSavedFilter = { name: newFilterName, settings: filters, isFavorite: isFavorited }; setSavedFilters([...updatedSavedFilters, newSavedFilter]); localStorage.setItem('savedFinancialFilters', JSON.stringify([...updatedSavedFilters, newSavedFilter])); setNewFilterName(''); alert(`Filtro "${newFilterName}" salvo!`); };
-    const handleUpdateFilter = (filterName) => { const updated = savedFilters.map(f => f.name === filterName ? { ...f, settings: filters } : f); setSavedFilters(updated); localStorage.setItem('savedFinancialFilters', JSON.stringify(updated)); alert(`Filtro "${filterName}" atualizado com sucesso!`); };
+    // =================================================================================
+    // ATUALIZAÇÃO DE UX (troca de alert por toast)
+    // O PORQUÊ: Uma notificação mais elegante e consistente com o resto do sistema.
+    // =================================================================================
+    const handleSaveFilter = () => { if (!newFilterName.trim()) { toast.warning('Por favor, dê um nome para o filtro.'); return; } const isFavorited = savedFilters.find(f => f.name === newFilterName)?.isFavorite || false; const updatedSavedFilters = savedFilters.filter(f => f.name !== newFilterName); const newSavedFilter = { name: newFilterName, settings: filters, isFavorite: isFavorited }; setSavedFilters([...updatedSavedFilters, newSavedFilter]); localStorage.setItem('savedFinancialFilters', JSON.stringify([...updatedSavedFilters, newSavedFilter])); setNewFilterName(''); toast.success(`Filtro "${newFilterName}" salvo!`); };
+    const handleUpdateFilter = (filterName) => { const updated = savedFilters.map(f => f.name === filterName ? { ...f, settings: filters } : f); setSavedFilters(updated); localStorage.setItem('savedFinancialFilters', JSON.stringify(updated)); toast.success(`Filtro "${filterName}" atualizado com sucesso!`); };
     const handleToggleFavorite = (filterName) => { const updated = savedFilters.map(f => f.name === filterName ? { ...f, isFavorite: !f.isFavorite } : f); setSavedFilters(updated); localStorage.setItem('savedFinancialFilters', JSON.stringify(updated)); };
     const handleLoadFilter = (filterSettings) => { setFilters({ ...initialFilterState, ...filterSettings }); setIsFilterMenuOpen(false); setActivePeriodFilter(''); };
-    const handleDeleteFilter = (filterNameToDelete) => { if (!window.confirm(`Tem certeza que deseja excluir o filtro "${filterNameToDelete}"?`)) return; const updatedSavedFilters = savedFilters.filter(f => f.name !== filterNameToDelete); setSavedFilters(updatedSavedFilters); localStorage.setItem('savedFinancialFilters', JSON.stringify(updatedSavedFilters)); };
+    const handleDeleteFilter = (filterNameToDelete) => { 
+        toast("Confirmar Exclusão", {
+            description: `Tem certeza que deseja excluir o filtro "${filterNameToDelete}"?`,
+            action: {
+                label: "Excluir",
+                onClick: () => {
+                    const updatedSavedFilters = savedFilters.filter(f => f.name !== filterNameToDelete);
+                    setSavedFilters(updatedSavedFilters);
+                    localStorage.setItem('savedFinancialFilters', JSON.stringify(updatedSavedFilters));
+                    toast.success("Filtro excluído.");
+                },
+            },
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' }
+        });
+    };
     
     const statusOptions = [{ id: 'Pago', text: 'Paga' }, { id: 'Pendente', text: 'A Pagar' }, { id: 'Atrasada', text: 'Atrasada' }].map(s => ({...s, nome: s.text}));
     const months = [ {id: "01", nome: "Janeiro"}, {id: "02", nome: "Fevereiro"}, {id: "03", nome: "Março"}, {id: "04", nome: "Abril"}, {id: "05", nome: "Maio"}, {id: "06", nome: "Junho"}, {id: "07", nome: "Julho"}, {id: "08", nome: "Agosto"}, {id: "09", nome: "Setembro"}, {id: "10", nome: "Outubro"}, {id: "11", nome: "Novembro"}, {id: "12", nome: "Dezembro"} ];

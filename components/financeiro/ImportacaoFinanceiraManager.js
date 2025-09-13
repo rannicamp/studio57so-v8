@@ -1,13 +1,16 @@
+//components\financeiro\ImportacaoFinanceiraManager.js
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query'; // Importado
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileCsv, faSpinner, faArrowRight, faCogs, faMagic, faCheckCircle, faPlusCircle, faBan, faExclamationTriangle, faBuilding } from '@fortawesome/free-solid-svg-icons';
 import Papa from 'papaparse';
+import { toast } from 'sonner';
 
-// Componente para um único passo no assistente
+// Componentes Step e ProgressBar (mantidos como estão)
 const Step = ({ number, title, isActive, isCompleted }) => (
     <div className="flex items-center">
         <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${isCompleted ? 'bg-green-500 text-white' : (isActive ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-600')}`}>
@@ -17,7 +20,6 @@ const Step = ({ number, title, isActive, isCompleted }) => (
     </div>
 );
 
-// Componente da Barra de Progresso
 const ProgressBar = ({ current, total }) => {
     const percentage = total > 0 ? (current / total) * 100 : 0;
     return (
@@ -32,31 +34,50 @@ const ProgressBar = ({ current, total }) => {
     );
 };
 
+// =================================================================================
+// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
+// O PORQUÊ: Funções de busca isoladas para useQuery, agora com filtro de organização.
+// =================================================================================
+const fetchSystemData = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return { empresas: [], contas: [], categorias: [], empreendimentos: [], contatos: [] };
+    
+    const [empresasRes, contasRes, categoriasRes, empreendimentosRes, contatosRes] = await Promise.all([
+        supabase.from('cadastro_empresa').select('id, nome_fantasia, razao_social').eq('organizacao_id', organizacaoId),
+        supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', organizacaoId),
+        supabase.from('categorias_financeiras').select('id, nome, parent_id').eq('organizacao_id', organizacaoId),
+        supabase.from('empreendimentos').select('id, nome').eq('organizacao_id', organizacaoId),
+        supabase.from('contatos').select('id, nome, razao_social').eq('organizacao_id', organizacaoId)
+    ]);
+
+    const sortByName = (a, b) => (a.nome || a.razao_social).localeCompare(b.nome || b.razao_social);
+
+    return {
+        empresas: (empresasRes.data || []).sort(sortByName),
+        contas: (contasRes.data || []).sort(sortByName),
+        categorias: (categoriasRes.data || []).sort(sortByName),
+        empreendimentos: (empreendimentosRes.data || []).sort(sortByName),
+        contatos: (contatosRes.data || []).sort(sortByName),
+    };
+};
+
 
 export default function ImportacaoFinanceiraManager() {
     const supabase = createClient();
     const { user } = useAuth();
-    const [step, setStep] = useState(1);
-    
-    const [empresas, setEmpresas] = useState([]);
-    const [selectedEmpresaId, setSelectedEmpresaId] = useState('');
+    const organizacaoId = user?.organizacao_id;
 
+    const [step, setStep] = useState(1);
+    const [selectedEmpresaId, setSelectedEmpresaId] = useState('');
     const [file, setFile] = useState(null);
     const [fileHeaders, setFileHeaders] = useState([]);
     const [fileData, setFileData] = useState([]);
-    
     const [mappings, setMappings] = useState({});
     const [unmappedData, setUnmappedData] = useState({ contas: new Set(), categorias: new Map(), empreendimentos: new Set(), contatos: new Set() });
     const [dataResolutions, setDataResolutions] = useState({ contas: {}, categorias: {}, empreendimentos: {}, contatos: {} });
-    
-    const [systemData, setSystemData] = useState({ contas: [], categorias: [], empreendimentos: [], contatos: [] });
-    
     const [isProcessing, setIsProcessing] = useState(false);
     const [message, setMessage] = useState('');
     const [progress, setProgress] = useState({ current: 0, total: 0 });
-    
     const [importResults, setImportResults] = useState({ success: [], failed: [], ignored: [] });
-
 
     const dbColumns = [
         { key: 'data_transacao', label: 'Data da Transação *' },
@@ -72,42 +93,17 @@ export default function ImportacaoFinanceiraManager() {
         { key: 'conta_destino_nome', label: 'CONTA DESTINO (Transferência)' },
     ];
     
-    useEffect(() => {
-        const fetchEmpresas = async () => {
-            const { data, error } = await supabase
-                .from('cadastro_empresa')
-                .select('id, nome_fantasia, razao_social');
-            if (error) {
-                console.error('Erro ao buscar empresas:', error);
-                setMessage('Erro ao carregar a lista de empresas.');
-            } else {
-                setEmpresas(data);
-            }
-        };
-        fetchEmpresas();
-    }, [supabase]);
-
-    const loadSystemData = useCallback(async () => {
-        setIsProcessing(true);
-        const [contasRes, categoriasRes, empreendimentosRes, contatosRes] = await Promise.all([
-            supabase.from('contas_financeiras').select('id, nome'),
-            supabase.from('categorias_financeiras').select('id, nome, parent_id'),
-            supabase.from('empreendimentos').select('id, nome'),
-            supabase.from('contatos').select('id, nome, razao_social')
-        ]);
-        
-        const sortByName = (a, b) => (a.nome || a.razao_social).localeCompare(b.nome || b.razao_social);
-        setSystemData({
-            contas: (contasRes.data || []).sort(sortByName),
-            categorias: (categoriasRes.data || []).sort(sortByName),
-            empreendimentos: (empreendimentosRes.data || []).sort(sortByName),
-            contatos: (contatosRes.data || []).sort(sortByName)
-        });
-
-        setIsProcessing(false);
-    }, [supabase]);
-
-    useEffect(() => { loadSystemData(); }, [loadSystemData]);
+    // =================================================================================
+    // ATUALIZAÇÃO DE PADRÃO (useState + useEffect -> useQuery)
+    // O PORQUÊ: Busca todos os dados iniciais de uma vez com useQuery.
+    // =================================================================================
+    const { data: systemData, isLoading: isLoadingSystemData, refetch: refetchSystemData } = useQuery({
+        queryKey: ['importacaoFinanceiraData', organizacaoId],
+        queryFn: () => fetchSystemData(supabase, organizacaoId),
+        enabled: !!organizacaoId,
+    });
+    
+    const { empresas = [], contas = [], categorias = [], empreendimentos = [], contatos = [] } = systemData || {};
 
     const handleFileSelect = (event) => {
         const selectedFile = event.target.files[0];
@@ -172,7 +168,7 @@ export default function ImportacaoFinanceiraManager() {
             if (!catPath) continue;
             const parts = catPath.split(/[\/]/).map(p => p.trim());
             const subCategoryName = parts[parts.length - 1];
-            const exists = systemData.categorias.some(sysCat => sysCat.nome.toLowerCase() === subCategoryName.toLowerCase());
+            const exists = categorias.some(sysCat => sysCat.nome.toLowerCase() === subCategoryName.toLowerCase());
             if (!exists) {
                 unmappedCategorias.set(catPath, tipo);
             }
@@ -189,10 +185,10 @@ export default function ImportacaoFinanceiraManager() {
         unmappedData.contatos.forEach(name => initialResolutions.contatos[name] = autoResolve('contatos', name));
 
         setUnmappedData({
-            contas: filterNewItems(systemData.contas, uniqueContas),
+            contas: filterNewItems(contas, uniqueContas),
             categorias: unmappedCategorias,
-            empreendimentos: filterNewItems(systemData.empreendimentos, uniqueEmpreendimentos),
-            contatos: filterNewItems(systemData.contatos, uniqueContatos)
+            empreendimentos: filterNewItems(empreendimentos, uniqueEmpreendimentos),
+            contatos: filterNewItems(contatos, uniqueContatos)
         });
         setDataResolutions(initialResolutions);
         setStep(3);
@@ -223,9 +219,17 @@ export default function ImportacaoFinanceiraManager() {
             setMessage(`Criando ${itemsToInsert.length} novo(s) item(ns) do tipo: ${type}...`);
             setProgress({ current: 0, total: itemsToInsert.length });
             
-            const tableName = type === 'contatos' ? 'contatos' : (type === 'empreendimentos' ? 'empreendimentos' : `contas_financeiras`);
-            const itemsWithEmpresaId = itemsToInsert.map(item => ({ ...item, empresa_id: selectedEmpresaId }));
-            const { error } = await supabase.from(tableName).insert(itemsWithEmpresaId);
+            const tableNameMap = {
+                contas: 'contas_financeiras',
+                contatos: 'contatos',
+                empreendimentos: 'empreendimentos',
+            };
+            const tableName = tableNameMap[type];
+
+            // Adiciona a organizacao_id em todos os novos itens
+            const itemsWithOrg = itemsToInsert.map(item => ({ ...item, organizacao_id: organizacaoId, empresa_id: selectedEmpresaId }));
+            
+            const { error } = await supabase.from(tableName).insert(itemsWithOrg);
             
             setProgress({ current: itemsToInsert.length, total: itemsToInsert.length });
             if (error) {
@@ -247,24 +251,26 @@ export default function ImportacaoFinanceiraManager() {
         if (categoriasToCreate.length > 0) {
             setMessage(`Criando ${categoriasToCreate.length} nova(s) categoria(s)...`);
             setProgress({ current: 0, total: categoriasToCreate.length });
-            await loadSystemData();
+            await refetchSystemData();
+            const currentSystemData = queryClient.getQueryData(['importacaoFinanceiraData', organizacaoId]);
+            
             for (const catPath of categoriasToCreate) {
                 const parts = catPath.split(/[\/]/).map(p => p.trim());
                 let parentId = null;
                 const tipoCategoria = unmappedData.categorias.get(catPath);
                 
                 for (const part of parts) {
-                    let existingCat = systemData.categorias.find(c => c.nome.toLowerCase() === part.toLowerCase() && c.parent_id === parentId);
+                    let existingCat = currentSystemData.categorias.find(c => c.nome.toLowerCase() === part.toLowerCase() && c.parent_id === parentId);
                     if (!existingCat) {
-                        const { data: newCat } = await supabase.from('categorias_financeiras').insert({ nome: part, tipo: tipoCategoria, parent_id: parentId }).select().single();
-                        if (newCat) { parentId = newCat.id; systemData.categorias.push(newCat); }
+                        const { data: newCat } = await supabase.from('categorias_financeiras').insert({ nome: part, tipo: tipoCategoria, parent_id: parentId, organizacao_id: organizacaoId }).select().single();
+                        if (newCat) { parentId = newCat.id; currentSystemData.categorias.push(newCat); }
                     } else { parentId = existingCat.id; }
                 }
                 setProgress(prev => ({ ...prev, current: prev.current + 1 }));
             }
         }
         
-        await loadSystemData();
+        await refetchSystemData();
         setMessage("Criação de novos itens concluída! Preparando para importação...");
         await new Promise(res => setTimeout(res, 1500));
         setStep(4);
@@ -272,8 +278,8 @@ export default function ImportacaoFinanceiraManager() {
     };
 
     const processStep4 = async () => {
-        if (!user) {
-            setMessage('Erro: Usuário não autenticado. Por favor, faça login novamente.');
+        if (!user || !organizacaoId) {
+            setMessage('Erro: Usuário ou Organização não identificados.');
             setIsProcessing(false);
             return;
         }
@@ -284,13 +290,14 @@ export default function ImportacaoFinanceiraManager() {
         
         const lancamentosParaInserir = [];
         const lancamentosFalhados = [];
+        const currentSystemData = queryClient.getQueryData(['importacaoFinanceiraData', organizacaoId]);
 
         const getItemId = (type, name) => {
             if (!name) return null;
             const resolution = dataResolutions[type]?.[name.trim()];
             if (resolution?.action === 'map' && resolution.mapToId) return resolution.mapToId;
             if (resolution?.action === 'ignore') return null;
-            const existing = systemData[type].find(item => (item.nome || item.razao_social)?.toLowerCase() === name.trim().toLowerCase());
+            const existing = currentSystemData[type].find(item => (item.nome || item.razao_social)?.toLowerCase() === name.trim().toLowerCase());
             return existing?.id || null;
         };
         
@@ -335,28 +342,21 @@ export default function ImportacaoFinanceiraManager() {
                 tipoLancamento = 'Receita';
             }
 
-            // --- INÍCIO DA CORREÇÃO ---
-            let statusFinal = 'Pendente'; // Define o padrão
+            let statusFinal = 'Pendente';
             const statusDoArquivo = (row[mappings.status] || '').toLowerCase().trim();
-            
-            // Verifica se o status do arquivo contém "pago" ou "conciliado"
             if (statusDoArquivo.includes('pago') || statusDoArquivo.includes('conciliado')) {
                 statusFinal = 'Pago';
             }
-            
-            // Força o status para 'Pago' se for uma transferência, pois elas são imediatas
             if (tipoLancamento === 'Transferência') {
                 statusFinal = 'Pago';
             }
-            // --- FIM DA CORREÇÃO ---
-
 
             const lancamento = {
                 data_transacao,
                 descricao: row[mappings.descricao] || 'Sem descrição',
                 valor: Math.abs(valor),
                 tipo: tipoLancamento,
-                status: statusFinal, // Usa a nova variável corrigida
+                status: statusFinal,
                 conta_id: conta_id,
                 conta_destino_id: conta_destino_id,
                 categoria_id: getItemId('categorias', row[mappings.categoria_nome]),
@@ -364,7 +364,8 @@ export default function ImportacaoFinanceiraManager() {
                 empreendimento_id: getItemId('empreendimentos', row[mappings.empreendimento_nome]),
                 empresa_id: selectedEmpresaId,
                 criado_por_usuario_id: user.id,
-                observacao: row[mappings.observacao]
+                observacao: row[mappings.observacao],
+                organizacao_id: organizacaoId // <-- ETIQUETA DE SEGURANÇA!
             };
 
             lancamentosParaInserir.push(lancamento);
@@ -417,7 +418,7 @@ export default function ImportacaoFinanceiraManager() {
             )}
             {step === 1 && (
                 <div className="text-center space-y-6 p-8 border-dashed border-2 rounded-lg">
-                     <FontAwesomeIcon icon={faBuilding} className="text-5xl text-gray-400 mb-2"/>
+                    <FontAwesomeIcon icon={faBuilding} className="text-5xl text-gray-400 mb-2"/>
                     <h3 className="text-xl font-semibold">Iniciando a Importação Financeira</h3>
                     <p className="text-sm text-gray-600">Siga os passos para importar seus lançamentos.</p>
                     <div className="max-w-md mx-auto text-left">
@@ -497,7 +498,7 @@ export default function ImportacaoFinanceiraManager() {
                                     ))}
                                 </div>
                             </fieldset>
-                         );
+                          );
                      })}
                      <button onClick={processStep3} className="bg-blue-600 text-white px-6 py-2 rounded-md">Avançar</button>
                 </div>

@@ -1,20 +1,26 @@
+//components\financeiro\CategoriasManager.js
 "use client";
 
 import { useState, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSpinner, faPenToSquare, faTrash } from '@fortawesome/free-solid-svg-icons';
 import CategoriaFormModal from './CategoriaFormModal';
 
-// Função de busca de dados foi movida para fora do componente.
-// Isso a torna mais reutilizável e organizada.
-const fetchCategorias = async () => {
-    const supabase = createClient();
+// =================================================================================
+// ATUALIZAÇÃO DE SEGURANÇA (organizacao_id)
+// O PORQUÊ: A função de busca agora é filtrada pela organização, garantindo
+// que apenas as categorias da empresa correta sejam exibidas.
+// =================================================================================
+const fetchCategorias = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return [];
     const { data, error } = await supabase
         .from('categorias_financeiras')
         .select('*')
+        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
         .order('nome');
     
     if (error) {
@@ -25,31 +31,36 @@ const fetchCategorias = async () => {
 
 export default function CategoriasManager() {
     const queryClient = useQueryClient();
+    const supabase = createClient();
+    const { user } = useAuth(); // 2. Obter o usuário para o organizacaoId
+    const organizacaoId = user?.organizacao_id;
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategoria, setEditingCategoria] = useState(null);
     const [defaultModalType, setDefaultModalType] = useState('Despesa');
 
-    // useQuery: O novo "garçom" para buscar os dados.
-    // Ele gerencia o loading, erros e cache automaticamente.
     const { data: categorias = [], isLoading, error: fetchError } = useQuery({
-        queryKey: ['categorias_financeiras'], // Chave única para identificar essa busca
-        queryFn: fetchCategorias,             // Função que executa a busca
+        // A queryKey agora inclui o organizacaoId para um cache seguro
+        queryKey: ['categorias_financeiras', organizacaoId],
+        queryFn: () => fetchCategorias(supabase, organizacaoId),
+        enabled: !!organizacaoId, // A busca só é ativada se tivermos o ID da organização
     });
 
-    // useMutation para salvar (criar ou atualizar) uma categoria.
     const saveMutation = useMutation({
         mutationFn: async (formData) => {
-            const supabase = createClient();
+            if (!organizacaoId) throw new Error("Organização não identificada.");
             const isEditing = Boolean(formData.id);
             let error;
 
             if (isEditing) {
                 const { id, ...updateData } = formData;
-                const { error: updateError } = await supabase.from('categorias_financeiras').update(updateData).eq('id', id);
+                // Adiciona o filtro de segurança no update
+                const { error: updateError } = await supabase.from('categorias_financeiras').update(updateData).eq('id', id).eq('organizacao_id', organizacaoId);
                 error = updateError;
             } else {
                 delete formData.id;
-                const { error: insertError } = await supabase.from('categorias_financeiras').insert(formData);
+                // Adiciona a "etiqueta de segurança" na criação
+                const { error: insertError } = await supabase.from('categorias_financeiras').insert({ ...formData, organizacao_id: organizacaoId });
                 error = insertError;
             }
 
@@ -59,27 +70,29 @@ export default function CategoriasManager() {
             return isEditing;
         },
         onSuccess: (isEditing) => {
-            // Quando a operação tem sucesso, invalida a query para buscar os dados atualizados.
-            queryClient.invalidateQueries({ queryKey: ['categorias_financeiras'] });
+            queryClient.invalidateQueries({ queryKey: ['categorias_financeiras', organizacaoId] });
             toast.success(`Categoria ${isEditing ? 'atualizada' : 'criada'} com sucesso!`);
-            setIsModalOpen(false); // Fecha o modal após o sucesso
+            setIsModalOpen(false);
         },
         onError: (error) => {
             toast.error(`Erro ao salvar: ${error.message}`);
         }
     });
 
-    // useMutation para deletar uma categoria.
     const deleteMutation = useMutation({
         mutationFn: async (id) => {
-            const supabase = createClient();
-            const { error } = await supabase.rpc('delete_category_and_children', { p_category_id: id });
+            if (!organizacaoId) throw new Error("Organização não identificada.");
+            // Passamos o organizacaoId para a função do banco de dados
+            const { error } = await supabase.rpc('delete_category_and_children', { 
+                p_category_id: id,
+                p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+            });
             if (error) {
                 throw new Error(error.message);
             }
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['categorias_financeiras'] });
+            queryClient.invalidateQueries({ queryKey: ['categorias_financeiras', organizacaoId] });
             toast.success('Categoria e subcategorias excluídas com sucesso.');
         },
         onError: (error) => {
@@ -89,13 +102,23 @@ export default function CategoriasManager() {
 
     const handleSaveCategoria = async (formData) => {
         await saveMutation.mutateAsync(formData);
-        // Retornamos 'true' para compatibilidade com o modal, embora o fechamento agora seja no onSuccess.
         return true;
     };
     
+    // =================================================================================
+    // ATUALIZAÇÃO DE UX (troca de window.confirm por toast)
+    // O PORQUÊ: Substituímos o alerta nativo por uma notificação mais elegante.
+    // =================================================================================
     const handleDeleteCategoria = (id) => {
-        if (!window.confirm("Atenção! Excluir uma categoria principal também excluirá todas as suas subcategorias. Deseja continuar?")) return;
-        deleteMutation.mutate(id);
+        toast("Confirmar Exclusão", {
+            description: "Atenção! Excluir uma categoria principal também excluirá todas as suas subcategorias. Deseja continuar?",
+            action: {
+                label: "Excluir",
+                onClick: () => deleteMutation.mutate(id)
+            },
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' }
+        });
     };
 
     const categoryTree = useMemo(() => {

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faExchangeAlt, faEye } from '@fortawesome/free-solid-svg-icons';
 
@@ -10,69 +12,70 @@ const formatDate = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toLoc
 
 export default function TransferenciaFinder() {
     const supabase = createClient();
-    const [loading, setLoading] = useState(true);
-    const [possibleTransfers, setPossibleTransfers] = useState([]);
-    const [message, setMessage] = useState('');
+    const { organizacao_id } = useAuth(); // BLINDADO: Pegando o organizacao_id
+
     const [selectedGroup, setSelectedGroup] = useState(null);
 
-    useEffect(() => {
-        const findTransfers = async () => {
-            setLoading(true);
-            setMessage('');
-            
-            // ***** CORREÇÃO ***** Adicionamos a sintaxe específica !conta_id para resolver a ambiguidade
-            const { data, error } = await supabase
-                .from('lancamentos')
-                .select('*, conta:contas_financeiras!conta_id(nome)')
-                .in('tipo', ['Receita', 'Despesa'])
-                .order('data_transacao', { ascending: false });
+    // PADRÃO OURO: Lógica de busca de dados com useQuery
+    const fetchPossibleTransfers = async () => {
+        if (!organizacao_id) return []; // Não busca nada se a organização não estiver disponível
 
-            if (error) {
-                setMessage('Erro ao buscar lançamentos: ' + error.message);
-                setLoading(false);
-                return;
+        // BLINDADO: Adicionado o filtro .eq('organizacao_id', organizacao_id)
+        const { data, error } = await supabase
+            .from('lancamentos')
+            .select('*, conta:contas_financeiras!conta_id(nome)')
+            .eq('organizacao_id', organizacao_id) // Segurança
+            .in('tipo', ['Receita', 'Despesa'])
+            .is('transferencia_id', null) // Ignora transferências já conciliadas
+            .order('data_transacao', { ascending: false });
+
+        if (error) {
+            throw new Error('Erro ao buscar lançamentos: ' + error.message);
+        }
+
+        // A lógica de agrupamento permanece a mesma
+        const groups = new Map();
+        data.forEach(lancamento => {
+            const key = `${lancamento.data_transacao}_${Math.abs(lancamento.valor).toFixed(2)}`;
+            if (!groups.has(key)) {
+                groups.set(key, []);
             }
+            groups.get(key).push(lancamento);
+        });
 
-            const groups = new Map();
-            data.forEach(lancamento => {
-                const key = `${lancamento.data_transacao}_${Math.abs(lancamento.valor).toFixed(2)}`;
-                if (!groups.has(key)) {
-                    groups.set(key, []);
-                }
-                groups.get(key).push(lancamento);
-            });
+        const potentialGroups = [];
+        groups.forEach((lancamentosDoGrupo, key) => {
+            const contasUnicas = new Set(lancamentosDoGrupo.map(l => l.conta_id));
+            if (lancamentosDoGrupo.length > 1 && contasUnicas.size > 1) {
+                potentialGroups.push({
+                    key,
+                    data: lancamentosDoGrupo[0].data_transacao,
+                    valor: Math.abs(lancamentosDoGrupo[0].valor),
+                    lancamentos: lancamentosDoGrupo
+                });
+            }
+        });
 
-            const potentialGroups = [];
-            groups.forEach((lancamentosDoGrupo, key) => {
-                const contasUnicas = new Set(lancamentosDoGrupo.map(l => l.conta_id));
-                if (lancamentosDoGrupo.length > 1 && contasUnicas.size > 1) {
-                    potentialGroups.push({
-                        key,
-                        data: lancamentosDoGrupo[0].data_transacao,
-                        valor: Math.abs(lancamentosDoGrupo[0].valor),
-                        lancamentos: lancamentosDoGrupo
-                    });
-                }
-            });
+        return potentialGroups;
+    };
 
-            setPossibleTransfers(potentialGroups);
-            setLoading(false);
-        };
-
-        findTransfers();
-    }, [supabase]);
+    const { data: possibleTransfers = [], isLoading, error } = useQuery({
+        queryKey: ['possibleTransfers', organizacao_id],
+        queryFn: fetchPossibleTransfers,
+        enabled: !!organizacao_id, // A query só roda quando o organizacao_id estiver disponível
+    });
 
     const handleViewDetails = (group) => {
         setSelectedGroup(group);
     }
 
-    if (loading) {
+    if (isLoading) {
         return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando e analisando lançamentos...</div>;
     }
 
     return (
         <div className="space-y-6">
-            {message && <p className="text-center font-semibold text-red-600">{message}</p>}
+            {error && <p className="text-center font-semibold text-red-600">{error.message}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="border rounded-lg max-h-[70vh] overflow-y-auto">
@@ -104,12 +107,12 @@ export default function TransferenciaFinder() {
                     {selectedGroup ? (
                         <div className="p-4 space-y-3">
                            {selectedGroup.lancamentos.map(lancamento => (
-                               <div key={lancamento.id} className={`p-3 rounded-md border-l-4 ${lancamento.tipo === 'Receita' ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}>
-                                   <p className="font-bold">{lancamento.descricao}</p>
-                                   <p className="text-sm"><span className="font-semibold">Conta:</span> {lancamento.conta.nome}</p>
-                                   <p className="text-sm"><span className="font-semibold">Tipo:</span> {lancamento.tipo}</p>
-                                   <p className="text-sm"><span className="font-semibold">Valor:</span> {formatCurrency(lancamento.valor)}</p>
-                               </div>
+                                <div key={lancamento.id} className={`p-3 rounded-md border-l-4 ${lancamento.tipo === 'Receita' ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}>
+                                    <p className="font-bold">{lancamento.descricao}</p>
+                                    <p className="text-sm"><span className="font-semibold">Conta:</span> {lancamento.conta.nome}</p>
+                                    <p className="text-sm"><span className="font-semibold">Tipo:</span> {lancamento.tipo}</p>
+                                    <p className="text-sm"><span className="font-semibold">Valor:</span> {formatCurrency(lancamento.valor)}</p>
+                                </div>
                            ))}
                         </div>
                     ) : (

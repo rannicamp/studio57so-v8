@@ -1,26 +1,35 @@
+//components\financeiro\ExtratoManager.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faFilter, faCalendarDay, faCalendarWeek, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 import MultiSelectDropdown from './MultiSelectDropdown';
+import { toast } from 'sonner'; // Adicionado para substituir o alert
 
 const formatCurrency = (value) => {
     if (value === null || value === undefined || isNaN(value)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
+
+// =================================================================================
+// ATUALIZAÇÃO DA REGRA DE DATAS
+// O PORQUÊ: Esta função agora segue nossa regra de ouro para datas simples,
+// tratando a data como um texto para evitar problemas de fuso horário.
+// =================================================================================
 const formatDate = (dateStr) => {
-    if (!dateStr) return 'N/A';
-    const date = new Date(dateStr + 'T00:00:00Z');
-    return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr.split('T')[0])) return 'N/A';
+    const [year, month, day] = dateStr.split('T')[0].split('-');
+    return `${day}/${month}/${year}`;
 };
 
 export default function ExtratoManager({ contas, onEdit }) {
     const supabase = createClient();
+    const { user } = useAuth(); // 2. Obter o usuário para o organizacaoId
+    const organizacaoId = user?.organizacao_id;
     
-    // ***** INÍCIO DA CORREÇÃO 1/3 *****
-    // O estado inicial agora tenta carregar os dados salvos no sessionStorage.
     const [filters, setFilters] = useState(() => {
         if (typeof window === 'undefined') {
             return { contaIds: [], startDate: '', endDate: '' };
@@ -38,12 +47,10 @@ export default function ExtratoManager({ contas, onEdit }) {
         const savedState = sessionStorage.getItem('lastExtratoState');
         return savedState ? JSON.parse(savedState).saldoAnterior : 0;
     });
-    // ***** FIM DA CORREÇÃO 1/3 *****
 
     const [loading, setLoading] = useState(false);
     const [activePeriodFilter, setActivePeriodFilter] = useState('month');
 
-    // Define o período inicial para o mês atual, SOMENTE se não houver dados salvos.
     useEffect(() => {
         const savedState = sessionStorage.getItem('lastExtratoState');
         if (!savedState) {
@@ -83,10 +90,11 @@ export default function ExtratoManager({ contas, onEdit }) {
     const fetchExtrato = useCallback(async () => {
         if (!filters.contaIds || filters.contaIds.length === 0) {
             setExtratoItens([]);
-            // ***** INÍCIO DA CORREÇÃO 2/3 *****
-            // Limpa o estado salvo se a busca for inválida
             sessionStorage.removeItem('lastExtratoState');
-            // ***** FIM DA CORREÇÃO 2/3 *****
+            return;
+        }
+        if (!organizacaoId) {
+            toast.error("Erro de segurança: Organização não identificada.");
             return;
         }
         setLoading(true);
@@ -94,8 +102,17 @@ export default function ExtratoManager({ contas, onEdit }) {
         setSaldoAnterior(0);
 
         try {
+            // =================================================================================
+            // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+            // O PORQUÊ: Passamos o `organizacaoId` para a função do banco de dados,
+            // garantindo que o cálculo do saldo seja seguro e restrito à organização.
+            // =================================================================================
             const saldoPromises = filters.contaIds.map(contaId => 
-                supabase.rpc('calcular_saldo_anterior', { p_conta_id: contaId, p_data_inicio: filters.startDate })
+                supabase.rpc('calcular_saldo_anterior', { 
+                    p_conta_id: contaId, 
+                    p_data_inicio: filters.startDate,
+                    p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+                })
             );
             const saldosResponses = await Promise.all(saldoPromises);
 
@@ -106,10 +123,16 @@ export default function ExtratoManager({ contas, onEdit }) {
             });
             setSaldoAnterior(saldoInicialTotal);
 
+            // =================================================================================
+            // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+            // O PORQUÊ: A busca de lançamentos agora é duplamente filtrada pela
+            // organização, garantindo a total privacidade dos dados financeiros.
+            // =================================================================================
             const { data: lancamentos, error: lancamentosError } = await supabase
                 .from('lancamentos')
                 .select('*, favorecido:contatos!favorecido_contato_id(*), categoria:categorias_financeiras(*)')
                 .in('conta_id', filters.contaIds)
+                .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
                 .gte('data_pagamento', filters.startDate)
                 .lte('data_pagamento', filters.endDate)
                 .in('status', ['Pago', 'Conciliado'])
@@ -133,24 +156,22 @@ export default function ExtratoManager({ contas, onEdit }) {
 
             setExtratoItens(itensProcessados);
 
-            // ***** INÍCIO DA CORREÇÃO 3/3 *****
-            // Salva o resultado da busca bem-sucedida no sessionStorage
             const stateToSave = {
                 filters,
                 extratoItens: itensProcessados,
                 saldoAnterior: saldoInicialTotal
             };
             sessionStorage.setItem('lastExtratoState', JSON.stringify(stateToSave));
-            // ***** FIM DA CORREÇÃO 3/3 *****
 
         } catch (error) {
             console.error("Erro ao gerar extrato:", error);
-            alert(`Erro ao buscar dados do extrato: ${error.message}`);
+            // ATUALIZAÇÃO DE UX (troca de alert por toast)
+            toast.error(`Erro ao buscar dados do extrato: ${error.message}`);
         } finally {
             setLoading(false);
         }
 
-    }, [filters.contaIds, filters.startDate, filters.endDate, supabase]);
+    }, [filters.contaIds, filters.startDate, filters.endDate, supabase, organizacaoId]);
 
     const saldoFinal = extratoItens.length > 0 ? extratoItens[extratoItens.length - 1].saldo : saldoAnterior;
 

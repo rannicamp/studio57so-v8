@@ -1,8 +1,7 @@
-//components\financeiro\LancamentoFormModal.js
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -35,12 +34,13 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     );
 };
 
+
 export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initialData, empresas = [] }) {
     const supabase = createClient();
-    const { user } = useAuth();
+    const queryClient = useQueryClient();
+    const { user, organizacao_id } = useAuth(); // Pegamos o organizacao_id do contexto
     const isEditing = Boolean(initialData?.id);
     
-    // ALTERADO: O estado inicial agora usa um array `anexos` para múltiplos arquivos
     const getInitialState = () => ({
         descricao: '', valor: '', data_transacao: new Date().toISOString().split('T')[0],
         tipo: 'Despesa', form_type: 'simples', status: 'Pendente', conta_id: null, categoria_id: null,
@@ -49,53 +49,156 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         numero_parcelas: 2, data_primeiro_vencimento: new Date().toISOString().split('T')[0],
         frequencia: 'Mensal', recorrencia_data_inicio: new Date().toISOString().split('T')[0], recorrencia_data_fim: null,
         novo_favorecido: null,
-        anexos: [], // NOVO: Array para novos arquivos a serem enviados
-        anexos_preexistentes: [], // NOVO: Array para arquivos que já existem (na edição)
+        anexos: [], 
+        anexos_preexistentes: [],
         data_pagamento: null,
         conta_origem_id: null,
         conta_destino_id: null,
     });
 
     const [formData, setFormData] = useState(getInitialState());
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState('');
-    
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [aiFile, setAiFile] = useState(null);
-
-    const [contas, setContas] = useState([]);
-    const [categorias, setCategorias] = useState([]);
-    const [empreendimentos, setEmpreendimentos] = useState([]);
-    const [etapas, setEtapas] = useState([]);
-    const [tiposDocumento, setTiposDocumento] = useState([]);
-    
     const [favorecidoSearchTerm, setFavorecidoSearchTerm] = useState('');
     const [favorecidoSearchResults, setFavorecidoSearchResults] = useState([]);
     const [isSearchingFavorecido, setIsSearchingFavorecido] = useState(false);
     const [searchAttempted, setSearchAttempted] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
-    
-    useEffect(() => {
-        const fetchDropdownData = async () => {
-            setLoading(true);
-            const { data: contasData } = await supabase.from('contas_financeiras').select('id, nome').order('nome');
-            setContas(contasData || []);
-            const { data: categoriasData } = await supabase.from('categorias_financeiras').select('id, nome, tipo').order('nome');
-            setCategorias(categoriasData || []);
-            const { data: empreendimentosData } = await supabase.from('empreendimentos').select('id, nome, empresa_id:empresa_proprietaria_id').order('nome');
-            setEmpreendimentos(empreendimentosData || []);
-            const { data: etapasData } = await supabase.from('etapa_obra').select('id, nome_etapa').order('nome_etapa');
-            setEtapas(etapasData || []);
-            const { data: tiposDocData } = await supabase.from('documento_tipos').select('*').order('sigla');
-            setTiposDocumento(tiposDocData || []);
-            setLoading(false);
-        };
+    const [aiFile, setAiFile] = useState(null); // Estado para o arquivo da IA não foi removido
+    const [isAnalyzing, setIsAnalyzing] = useState(false); // Estado para o arquivo da IA não foi removido
 
+
+    // PADRÃO OURO: Buscando dados com useQuery e garantindo a segurança com organizacao_id
+    const fetchDropdownData = async () => {
+        if (!organizacao_id) return null;
+
+        const { data: contasData, error: contasError } = await supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', organizacao_id).order('nome');
+        if (contasError) throw new Error(contasError.message);
+
+        const { data: categoriasData, error: categoriasError } = await supabase.from('categorias_financeiras').select('id, nome, tipo').eq('organizacao_id', organizacao_id).order('nome');
+        if (categoriasError) throw new Error(categoriasError.message);
+
+        const { data: empreendimentosData, error: empreendimentosError } = await supabase.from('empreendimentos').select('id, nome, empresa_id:empresa_proprietaria_id').eq('organizacao_id', organizacao_id).order('nome');
+        if (empreendimentosError) throw new Error(empreendimentosError.message);
+
+        const { data: etapasData, error: etapasError } = await supabase.from('etapa_obra').select('id, nome_etapa').eq('organizacao_id', organizacao_id).order('nome_etapa');
+        if (etapasError) throw new Error(etapasError.message);
+
+        const { data: tiposDocData, error: tiposDocError } = await supabase.from('documento_tipos').select('*').eq('organizacao_id', organizacao_id).order('sigla');
+        if (tiposDocError) throw new Error(tiposDocError.message);
+
+        return { contas: contasData, categorias: categoriasData, empreendimentos: empreendimentosData, etapas: etapasData, tiposDocumento: tiposDocData };
+    };
+
+    const { data: dropdownData, isLoading: isLoadingDropdowns, error: dropdownError } = useQuery({
+        queryKey: ['lancamentoDropdowns', organizacao_id],
+        queryFn: fetchDropdownData,
+        enabled: isOpen && !!organizacao_id, // A query só é executada se o modal estiver aberto e houver um organizacao_id
+        staleTime: 5 * 60 * 1000, // 5 minutos
+    });
+    
+    // PADRÃO OURO: Centralizando toda a lógica de salvar com useMutation
+    const mutation = useMutation({
+        mutationFn: async (formData) => {
+            if (!user || !organizacao_id) throw new Error("Usuário não autenticado ou organização não encontrada.");
+
+            const valorNumerico = parseFloat(String(formData.valor || '0')) || 0;
+            let favorecidoFinalId = formData.favorecido_contato_id;
+
+            // Cria um novo contato (favorecido) se necessário, com organizacao_id
+            if (formData.novo_favorecido && formData.novo_favorecido.nome) {
+                const { data: novoContato, error: contatoError } = await supabase.from('contatos').insert({ 
+                    nome: formData.novo_favorecido.nome, 
+                    tipo_contato: 'Fornecedor',
+                    organizacao_id: organizacao_id // Segurança
+                }).select().single();
+                if (contatoError) throw contatoError;
+                favorecidoFinalId = novoContato.id;
+            }
+
+            const baseData = {
+                descricao: formData.descricao,
+                status: formData.status,
+                categoria_id: formData.categoria_id,
+                empreendimento_id: formData.empreendimento_id,
+                etapa_id: formData.etapa_id,
+                empresa_id: formData.empresa_id,
+                observacao: formData.observacoes,
+                favorecido_contato_id: favorecidoFinalId,
+                criado_por_usuario_id: user.id,
+                organizacao_id: organizacao_id, // Segurança
+            };
+
+            let lancamentoPrincipal;
+            let error = null;
+
+            // Lógica para Edição
+            if (isEditing) {
+                const { data, error: updateError } = await supabase.from('lancamentos').update({ 
+                    ...baseData, 
+                    tipo: formData.tipo, 
+                    conta_id: formData.conta_id, 
+                    valor: valorNumerico, 
+                    data_vencimento: formData.data_vencimento, 
+                    data_pagamento: formData.data_pagamento 
+                }).eq('id', formData.id).select().single();
+                error = updateError;
+                lancamentoPrincipal = data;
+            } else {
+                // Lógicas para Criação (Simples, parcelado, etc.)
+                // Por enquanto, apenas o 'simples' criará o lançamento principal. Outros tipos precisam ser implementados.
+                if (formData.form_type === 'simples') {
+                     const { data, error: insertError } = await supabase.from('lancamentos').insert({ 
+                        ...baseData, 
+                        tipo: formData.tipo, 
+                        conta_id: formData.conta_id, 
+                        valor: valorNumerico, 
+                        data_transacao: formData.data_transacao, 
+                        data_vencimento: formData.data_vencimento, 
+                        data_pagamento: formData.data_pagamento 
+                    }).select().single();
+                    error = insertError;
+                    lancamentoPrincipal = data;
+                }
+                // TODO: Implementar lógicas de parcelado, recorrente e transferência aqui
+            }
+            if (error) throw error;
+            if (!lancamentoPrincipal) throw new Error("Não foi possível obter os dados do lançamento salvo.");
+            
+            // Lógica para upload de múltiplos anexos, com organizacao_id
+            if (formData.anexos.length > 0) {
+                const uploadPromises = formData.anexos.map(async (anexo) => {
+                    if (!anexo.file) return;
+                    
+                    const file = anexo.file;
+                    const fileName = `${crypto.randomUUID()}-${file.name}`;
+                    const filePath = `public/${organizacao_id}/${lancamentoPrincipal.id}/${fileName}`;
+                    
+                    const { error: uploadError } = await supabase.storage.from('documentos-financeiro').upload(filePath, file);
+                    if (uploadError) throw new Error(`Falha no upload do anexo ${file.name}: ${uploadError.message}`);
+
+                    const { error: insertAnexoError } = await supabase.from('lancamentos_anexos').insert({
+                        lancamento_id: lancamentoPrincipal.id,
+                        caminho_arquivo: filePath,
+                        nome_arquivo: file.name,
+                        descricao: anexo.descricao,
+                        tipo_documento_id: anexo.tipo_documento_id,
+                        organizacao_id: organizacao_id // Segurança
+                    });
+                    if (insertAnexoError) throw new Error(`Falha ao salvar anexo ${file.name} no banco: ${insertAnexoError.message}`);
+                });
+                await Promise.all(uploadPromises);
+            }
+            return lancamentoPrincipal;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['lancamentos']); // Invalida a query da lista de lançamentos para auto-atualizar
+            if (onSuccess) onSuccess();
+            setTimeout(onClose, 1500);
+        },
+    });
+
+    useEffect(() => {
         if (isOpen) {
-            fetchDropdownData();
-            setMessage('');
             if (initialData) {
-                // ALTERADO: Lógica para carregar múltiplos anexos pré-existentes
                 const dataToLoad = { 
                     ...initialData, 
                     observacoes: initialData.observacao || '',
@@ -103,8 +206,8 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     data_transacao: initialData.data_transacao ? new Date(initialData.data_transacao).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                     data_vencimento: initialData.data_vencimento ? new Date(initialData.data_vencimento).toISOString().split('T')[0] : null,
                     data_pagamento: initialData.data_pagamento ? new Date(initialData.data_pagamento).toISOString().split('T')[0] : null,
-                    anexos_preexistentes: initialData.anexos || [], // Carrega todos os anexos existentes
-                    anexos: [], // Limpa a lista de novos anexos
+                    anexos_preexistentes: initialData.anexos || [],
+                    anexos: [],
                 };
                 setFormData({ ...getInitialState(), ...dataToLoad });
                 if(initialData.favorecido) {
@@ -121,111 +224,23 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             setSearchAttempted(false);
             setAiFile(null);
         }
-    }, [isOpen, initialData, supabase]);
+    }, [isOpen, initialData]);
 
-    // ALTERADO: Lógica de envio foi reestruturada para lidar com múltiplos anexos
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
-        setLoading(true);
-        setMessage('Salvando, por favor aguarde...');
-
-        try {
-            if (!user) throw new Error("Usuário não autenticado.");
-
-            const valorNumerico = parseFloat(String(formData.valor || '0')) || 0;
-            let favorecidoFinalId = formData.favorecido_contato_id;
-
-            if (formData.novo_favorecido && formData.novo_favorecido.nome) {
-                const { data: novoContato, error: contatoError } = await supabase.from('contatos').insert({ nome: formData.novo_favorecido.nome, tipo_contato: 'Fornecedor' }).select().single();
-                if (contatoError) throw contatoError;
-                favorecidoFinalId = novoContato.id;
-            }
-
-            const baseData = {
-                descricao: formData.descricao,
-                status: formData.status,
-                categoria_id: formData.categoria_id,
-                empreendimento_id: formData.empreendimento_id,
-                etapa_id: formData.etapa_id,
-                empresa_id: formData.empresa_id,
-                observacao: formData.observacoes,
-                favorecido_contato_id: favorecidoFinalId,
-                criado_por_usuario_id: user.id,
-            };
-
-            let lancamentoPrincipal;
-            let error = null;
-
-            if (isEditing) {
-                const { data, error: updateError } = await supabase.from('lancamentos').update({ ...baseData, tipo: formData.tipo, conta_id: formData.conta_id, valor: valorNumerico, data_vencimento: formData.data_vencimento, data_pagamento: formData.data_pagamento }).eq('id', formData.id).select().single();
-                error = updateError;
-                lancamentoPrincipal = data;
-            } else {
-                if (formData.form_type === 'transferencia') {
-                    // Lógica de transferência (não anexa arquivos aqui)
-                } else if (formData.form_type === 'parcelado') {
-                    // Lógica de parcelamento (não anexa arquivos aqui)
-                } else if (formData.form_type === 'recorrente') {
-                    // Lógica de recorrência (não anexa arquivos aqui)
-                } else { // Simples
-                    const { data, error: insertError } = await supabase.from('lancamentos').insert({ ...baseData, tipo: formData.tipo, conta_id: formData.conta_id, valor: valorNumerico, data_transacao: formData.data_transacao, data_vencimento: formData.data_vencimento, data_pagamento: formData.data_pagamento }).select().single();
-                    error = insertError;
-                    lancamentoPrincipal = data;
-                }
-            }
-            if (error) throw error;
-            
-            // NOVO: Lógica para upload de múltiplos anexos
-            if (lancamentoPrincipal && formData.anexos.length > 0) {
-                setMessage(`Salvando anexos... (0/${formData.anexos.length})`);
-                const uploadPromises = formData.anexos.map(async (anexo, index) => {
-                    if (!anexo.file) return;
-                    
-                    const file = anexo.file;
-                    const fileName = `${crypto.randomUUID()}-${file.name}`;
-                    const filePath = `public/${lancamentoPrincipal.id}/${fileName}`;
-                    
-                    const { error: uploadError } = await supabase.storage.from('documentos-financeiro').upload(filePath, file);
-                    if (uploadError) throw new Error(`Falha no upload do anexo ${file.name}: ${uploadError.message}`);
-
-                    const { error: insertAnexoError } = await supabase.from('lancamentos_anexos').insert({
-                        lancamento_id: lancamentoPrincipal.id,
-                        caminho_arquivo: filePath,
-                        nome_arquivo: file.name,
-                        descricao: anexo.descricao,
-                        tipo_documento_id: anexo.tipo_documento_id
-                    });
-                    if (insertAnexoError) throw new Error(`Falha ao salvar anexo ${file.name} no banco: ${insertAnexoError.message}`);
-
-                    setMessage(`Salvando anexos... (${index + 1}/${formData.anexos.length})`);
-                });
-                
-                await Promise.all(uploadPromises);
-            }
-
-            setMessage(`Lançamento(s) salvo(s) com sucesso!`);
-            if (onSuccess) onSuccess();
-            setTimeout(onClose, 1500);
-
-        } catch (error) {
-            const detailedError = `ERRO: ${error.message}.`;
-            setMessage(detailedError);
-            console.error("FALHA AO SALVAR:", error);
-        } finally {
-            setLoading(false);
-        }
+        toast.promise(mutation.mutateAsync(formData), {
+            loading: 'Salvando lançamento...',
+            success: 'Lançamento salvo com sucesso!',
+            error: (err) => `Erro ao salvar: ${err.message}`,
+        });
     };
 
-    const handleAiFileChange = (e) => { if (e.target.files && e.target.files[0]) { setAiFile(e.target.files[0]); } };
-    const handleAiExtract = async () => { /* Código existente sem alteração */ };
-    
     const handleChange = (e) => {
         const { name, value } = e.target;
         let newFormData = { ...formData, [name]: value === '' ? null : value };
         
-        if (name === 'form_type' && value === 'transferencia') {
-            newFormData.tipo = 'Despesa'; 
-        } else if (name === 'form_type' && value !== 'transferencia') {
+        if (name === 'form_type' && value === 'transferencia') newFormData.tipo = 'Despesa'; 
+        else if (name === 'form_type' && value !== 'transferencia') {
             if (formData.form_type === 'transferencia') newFormData.tipo = 'Despesa';
         }
         
@@ -233,26 +248,35 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             newFormData.data_pagamento = new Date().toISOString().split('T')[0]; 
         }
         if (name === 'empreendimento_id') { 
-            if (value) { const emp = empreendimentos.find(e => e.id == value); newFormData.empresa_id = emp?.empresa_id || null; } 
+            if (value && dropdownData?.empreendimentos) { const emp = dropdownData.empreendimentos.find(e => e.id == value); newFormData.empresa_id = emp?.empresa_id || null; } 
             else { newFormData.empresa_id = null; } 
             newFormData.etapa_id = null;
         }
         setFormData(newFormData);
     };
     
-    const handleFavorecidoSearch = async (e) => { const value = e.target.value; setSearchAttempted(true); setFavorecidoSearchTerm(value); if (value.length < 2) { setFavorecidoSearchResults([]); return; } setIsSearchingFavorecido(true); const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: value }); setFavorecidoSearchResults(data || []); setIsSearchingFavorecido(false); };
+    // Busca de favorecido agora também envia o organizacao_id
+    const handleFavorecidoSearch = async (e) => { 
+        const value = e.target.value; 
+        setSearchAttempted(true); 
+        setFavorecidoSearchTerm(value); 
+        if (value.length < 2 || !organizacao_id) { 
+            setFavorecidoSearchResults([]); 
+            return; 
+        } 
+        setIsSearchingFavorecido(true); 
+        const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: value, p_organizacao_id: organizacao_id }); 
+        setFavorecidoSearchResults(data || []); 
+        setIsSearchingFavorecido(false); 
+    };
+
     const handleSelectFavorecido = (contato) => { setFormData(prev => ({ ...prev, favorecido_contato_id: contato.id, novo_favorecido: null })); setFavorecidoSearchTerm(contato.nome || contato.razao_social); setFavorecidoSearchResults([]); };
     const handleClearFavorecido = () => { setFormData(prev => ({ ...prev, favorecido_contato_id: null, novo_favorecido: null })); setFavorecidoSearchTerm(''); };
     const handleAddNewFavorecido = () => { setFormData(prev => ({ ...prev, favorecido_contato_id: null, novo_favorecido: { nome: favorecidoSearchTerm } })); setFavorecidoSearchTerm(favorecidoSearchTerm); setFavorecidoSearchResults([]); };
     
-    // ALTERADO: Adiciona múltiplos arquivos ao estado
     const handleAnexoChange = (files) => {
         if (files && files.length > 0) {
-            const newAnexos = Array.from(files).map(file => ({
-                file,
-                descricao: '',
-                tipo_documento_id: null
-            }));
+            const newAnexos = Array.from(files).map(file => ({ file, descricao: '', tipo_documento_id: null }));
             setFormData(prev => ({ ...prev, anexos: [...prev.anexos, ...newAnexos] }));
         }
     };
@@ -262,30 +286,24 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     
     const handleViewAnexo = async (caminho_arquivo) => { if (!caminho_arquivo) return; const { data } = await supabase.storage.from('documentos-financeiro').createSignedUrl(caminho_arquivo, 3600); if (data?.signedUrl) window.open(data.signedUrl, '_blank'); };
     
-    // ALTERADO: Remove um anexo pré-existente
     const handleRemoveAnexoPreexistente = async (anexoId, caminho_arquivo, index) => {
         if (!window.confirm("Isso excluirá o anexo permanentemente. Deseja continuar?")) return;
         
-        setLoading(true);
-        await supabase.from('lancamentos_anexos').delete().eq('id', anexoId);
-        await supabase.storage.from('documentos-financeiro').remove([caminho_arquivo]);
-        setLoading(false);
+        const promise = async () => {
+            await supabase.from('lancamentos_anexos').delete().eq('id', anexoId);
+            await supabase.storage.from('documentos-financeiro').remove([caminho_arquivo]);
+            setFormData(prev => ({ ...prev, anexos_preexistentes: prev.anexos_preexistentes.filter((_, i) => i !== index) }));
+        };
 
-        setFormData(prev => ({
-            ...prev,
-            anexos_preexistentes: prev.anexos_preexistentes.filter((_, i) => i !== index)
-        }));
+        toast.promise(promise(), {
+            loading: 'Removendo anexo...',
+            success: 'Anexo removido!',
+            error: 'Falha ao remover anexo.'
+        });
     };
 
-    // NOVO: Remove um novo anexo da lista antes do upload
-    const handleRemoveNewAnexo = (indexToRemove) => {
-        setFormData(prev => ({
-            ...prev,
-            anexos: prev.anexos.filter((_, index) => index !== indexToRemove)
-        }));
-    };
+    const handleRemoveNewAnexo = (indexToRemove) => { setFormData(prev => ({ ...prev, anexos: prev.anexos.filter((_, index) => index !== indexToRemove) })); };
 
-    // NOVO: Atualiza a descrição ou tipo de um novo anexo
     const handleNewAnexoDataChange = (index, field, value) => {
         setFormData(prev => {
             const newAnexos = [...prev.anexos];
@@ -294,122 +312,119 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         });
     };
 
+    // Funções de IA (não modificadas)
+    const handleAiFileChange = (e) => { if (e.target.files && e.target.files[0]) { setAiFile(e.target.files[0]); } };
+    const handleAiExtract = async () => { /* Código existente sem alteração */ };
+
+
     if (!isOpen) return null;
-    const filteredCategorias = categorias.filter(c => c.tipo === formData.tipo);
+    const filteredCategorias = dropdownData?.categorias?.filter(c => c.tipo === formData.tipo) || [];
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl max-h-[95vh] overflow-y-auto">
                 <h3 className="text-xl font-bold mb-4 text-center">{isEditing ? 'Editar Lançamento' : 'Novo Lançamento'}</h3>
-                {message && <p className={`text-center p-3 rounded-md text-sm font-semibold mb-4 ${message.includes('ERRO') ? 'bg-red-100 text-red-800' : 'bg-blue-50 text-blue-800'}`}>{message}</p>}
                 
+                {isLoadingDropdowns && <p className="text-center p-3 rounded-md text-sm font-semibold mb-4 bg-blue-50 text-blue-800"><FontAwesomeIcon icon={faSpinner} spin /> Carregando dados...</p>}
+                {dropdownError && <p className="text-center p-3 rounded-md text-sm font-semibold mb-4 bg-red-100 text-red-800">Erro ao carregar dados: {dropdownError.message}</p>}
+
                 <form onSubmit={handleSubmit} className="space-y-6">
-                         <div className="flex flex-col md:flex-row gap-6 p-2 bg-gray-100 rounded-lg">
-                             <div className="flex-1 space-y-2">
-                                 <label className="text-sm font-semibold text-center text-gray-600 block">Natureza</label>
-                                 <div className="flex gap-2">
-                                     <TipoToggleButton label="Despesa" icon={faArrowDown} isActive={formData.tipo === 'Despesa' && formData.form_type !== 'transferencia'} onClick={() => { if(isEditing) return; handleChange({ target: { name: 'tipo', value: 'Despesa' }})}} colorClass="bg-red-500 hover:bg-red-600" />
-                                     <TipoToggleButton label="Receita" icon={faArrowUp} isActive={formData.tipo === 'Receita' && formData.form_type !== 'transferencia'} onClick={() => { if(isEditing) return; handleChange({ target: { name: 'tipo', value: 'Receita' }})}} colorClass="bg-green-500 hover:bg-green-600" />
-                                 </div>
-                             </div>
-                             {!isEditing && (
-                                 <div className="flex-1 space-y-2">
-                                     <label className="text-sm font-semibold text-center text-gray-600 block">Estrutura</label>
-                                     <div className="flex gap-2">
-                                         <TipoToggleButton label="Simples" icon={faReceipt} isActive={formData.form_type === 'simples'} onClick={() => handleChange({ target: { name: 'form_type', value: 'simples' }})} />
-                                         <TipoToggleButton label="Parcelado" icon={faCalendarAlt} isActive={formData.form_type === 'parcelado'} onClick={() => handleChange({ target: { name: 'form_type', value: 'parcelado' }})} />
-                                         <TipoToggleButton label="Recorrente" icon={faRetweet} isActive={formData.form_type === 'recorrente'} onClick={() => handleChange({ target: { name: 'form_type', value: 'recorrente' }})} />
-                                         <TipoToggleButton label="Transferência" icon={faExchangeAlt} isActive={formData.form_type === 'transferencia'} onClick={() => handleChange({ target: { name: 'form_type', value: 'transferencia' }})} colorClass="bg-yellow-500 hover:bg-yellow-600 text-gray-800" />
-                                     </div>
-                                 </div>
-                             )}
-                         </div>
-                         <div className="space-y-4 pt-4 border-t">
-                             <input type="text" name="descricao" value={formData.descricao || ''} onChange={handleChange} required placeholder="Descrição do Lançamento *" className="w-full p-2 border rounded-md" />
-                             
-                             {/* ... Seções de Parcelado, Recorrente, Simples (sem alterações)... */}
-                             
-                             {/* Seções de campos (sem alterações) */}
-                             {formData.form_type === 'parcelado' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes do Parcelamento</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor Total *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Nº de Parcelas *</label> <input type="number" min="2" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">1º Vencimento *</label> <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
-                             {formData.form_type === 'recorrente' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes da Recorrência</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor Mensal *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Início *</label> <input type="date" name="recorrencia_data_inicio" value={formData.recorrencia_data_inicio} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Fim (Opcional)</label> <input type="date" name="recorrencia_data_fim" value={formData.recorrencia_data_fim || ''} onChange={handleChange} className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
-                             {(formData.form_type === 'simples' || formData.form_type === 'transferencia') && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div> <label className="block text-sm font-medium">Valor *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleChange({target: {name: 'valor', value: unmaskedValue}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">{formData.form_type === 'transferencia' ? 'Data da Transferência *' : 'Data de Vencimento *'}</label> <input type="date" name="data_vencimento" value={formData.data_vencimento || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> )}
-                             {isEditing && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div> <label className="block text-sm font-medium">Status</label> <select name="status" value={formData.status || 'Pendente'} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"> <option value="Pendente">Pendente</option> <option value="Pago">Pago</option> </select> </div> {formData.status === 'Pago' && ( <div className="animate-fade-in"> <label className="block text-sm font-medium">Data do Pagamento</label> <input type="date" name="data_pagamento" value={formData.data_pagamento || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md bg-green-50" /> </div> )} </div> )}
-                             {formData.form_type === 'transferencia' ? ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Contas da Transferência</legend> <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2"> <div><label className="block text-sm font-medium">De (Origem)*</label><select name="conta_origem_id" value={formData.conta_origem_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div> <div><label className="block text-sm font-medium">Para (Destino)*</label><select name="conta_destino_id" value={formData.conta_destino_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{contas.filter(c => c.id !== formData.conta_origem_id).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div> </div> </fieldset> ) : ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div><label className="block text-sm font-medium">Conta*</label><select name="conta_id" value={formData.conta_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div> <div><label className="block text-sm font-medium">Categoria</label><select name="categoria_id" value={formData.categoria_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{filteredCategorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div> <div className="md:col-span-2 relative"> <label className="block text-sm font-medium">Favorecido / Fornecedor</label> <input type="text" value={favorecidoSearchTerm} onChange={handleFavorecidoSearch} disabled={!!formData.favorecido_contato_id} placeholder={formData.favorecido_contato_id ? '' : 'Digite para buscar...'} className="mt-1 w-full p-2 border rounded-md" /> {formData.favorecido_contato_id && ( <button type="button" onClick={handleClearFavorecido} className="absolute right-2 top-8 text-gray-500 hover:text-red-600"><FontAwesomeIcon icon={faTimes} /></button> )} {favorecidoSearchTerm && !formData.favorecido_contato_id && ( <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg"> {isSearchingFavorecido && <li className="px-4 py-2 text-gray-500">Buscando...</li>} {!isSearchingFavorecido && searchAttempted && favorecidoSearchResults.length === 0 && ( <li className="px-4 py-2 text-center text-gray-500">Nenhum resultado. <button type="button" onClick={handleAddNewFavorecido} className="text-blue-600 hover:underline font-semibold ml-2">Adicionar Novo?</button></li> )} {favorecidoSearchResults.map(contato => ( <li key={contato.id} onClick={() => handleSelectFavorecido(contato)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={contato.nome || contato.razao_social} highlight={favorecidoSearchTerm} /></li> ))} </ul> )} </div> <div><label className="block text-sm font-medium">Empresa</label><select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!!formData.empreendimento_id}><option value="">Nenhuma</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}</select></div> <div><label className="block text-sm font-medium">Empreendimento</label><select name="empreendimento_id" value={formData.empreendimento_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Nenhum</option>{empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></div> <div><label className="block text-sm font-medium">Etapa da Obra</label><select name="etapa_id" value={formData.etapa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!formData.empreendimento_id}><option value="">Nenhuma</option>{etapas.map(e => <option key={e.id} value={e.id}>{e.nome_etapa}</option>)}</select></div> </div> )}
+                    <div className="flex flex-col md:flex-row gap-6 p-2 bg-gray-100 rounded-lg">
+                        <div className="flex-1 space-y-2">
+                            <label className="text-sm font-semibold text-center text-gray-600 block">Natureza</label>
+                            <div className="flex gap-2">
+                                <TipoToggleButton label="Despesa" icon={faArrowDown} isActive={formData.tipo === 'Despesa' && formData.form_type !== 'transferencia'} onClick={() => { if(isEditing) return; handleChange({ target: { name: 'tipo', value: 'Despesa' }})}} colorClass="bg-red-500 hover:bg-red-600" />
+                                <TipoToggleButton label="Receita" icon={faArrowUp} isActive={formData.tipo === 'Receita' && formData.form_type !== 'transferencia'} onClick={() => { if(isEditing) return; handleChange({ target: { name: 'tipo', value: 'Receita' }})}} colorClass="bg-green-500 hover:bg-green-600" />
+                            </div>
+                        </div>
+                        {!isEditing && (
+                            <div className="flex-1 space-y-2">
+                                <label className="text-sm font-semibold text-center text-gray-600 block">Estrutura</label>
+                                <div className="flex gap-2">
+                                    <TipoToggleButton label="Simples" icon={faReceipt} isActive={formData.form_type === 'simples'} onClick={() => handleChange({ target: { name: 'form_type', value: 'simples' }})} />
+                                    <TipoToggleButton label="Parcelado" icon={faCalendarAlt} isActive={formData.form_type === 'parcelado'} onClick={() => handleChange({ target: { name: 'form_type', value: 'parcelado' }})} />
+                                    <TipoToggleButton label="Recorrente" icon={faRetweet} isActive={formData.form_type === 'recorrente'} onClick={() => handleChange({ target: { name: 'form_type', value: 'recorrente' }})} />
+                                    <TipoToggleButton label="Transferência" icon={faExchangeAlt} isActive={formData.form_type === 'transferencia'} onClick={() => handleChange({ target: { name: 'form_type', value: 'transferencia' }})} colorClass="bg-yellow-500 hover:bg-yellow-600 text-gray-800" />
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
-                             {/* ALTERADO: Seção de Anexos completamente refeita */}
-                             <div className="pt-4 border-t">
-                                 <label className="block text-sm font-medium mb-2">Anexos</label>
-                                 
-                                 {/* Lista de anexos pré-existentes (modo edição) */}
-                                 {formData.anexos_preexistentes.length > 0 && (
-                                     <div className="space-y-2 mb-4">
-                                         <p className="text-xs font-semibold text-gray-600">Anexos Salvos:</p>
-                                         {formData.anexos_preexistentes.map((anexo, index) => (
-                                             <div key={anexo.id} className="p-2 border rounded-md bg-gray-50 flex items-center justify-between text-sm">
-                                                 <div className="flex items-center gap-2">
-                                                     <FontAwesomeIcon icon={faFileLines} className="text-gray-600" />
-                                                     <span>{anexo.nome_arquivo}</span>
-                                                 </div>
-                                                 <div className="flex items-center gap-4">
-                                                     <button type="button" onClick={() => handleViewAnexo(anexo.caminho_arquivo)} className="text-blue-600 hover:text-blue-800"><FontAwesomeIcon icon={faEye} title="Visualizar Anexo" /></button>
-                                                     <button type="button" onClick={() => handleRemoveAnexoPreexistente(anexo.id, anexo.caminho_arquivo, index)} className="text-red-600 hover:text-red-800"><FontAwesomeIcon icon={faTrashAlt} title="Remover Anexo" /></button>
-                                                 </div>
-                                             </div>
-                                         ))}
-                                     </div>
-                                 )}
+                    <div className="space-y-4 pt-4 border-t">
+                        <input type="text" name="descricao" value={formData.descricao || ''} onChange={handleChange} required placeholder="Descrição do Lançamento *" className="w-full p-2 border rounded-md" />
+                        
+                        {/* Seções de campos (sem alterações) */}
+                        {formData.form_type === 'parcelado' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes do Parcelamento</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor Total *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Nº de Parcelas *</label> <input type="number" min="2" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">1º Vencimento *</label> <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
+                        {formData.form_type === 'recorrente' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes da Recorrência</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor Mensal *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Início *</label> <input type="date" name="recorrencia_data_inicio" value={formData.recorrencia_data_inicio} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Fim (Opcional)</label> <input type="date" name="recorrencia_data_fim" value={formData.recorrencia_data_fim || ''} onChange={handleChange} className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
+                        {(formData.form_type === 'simples' || formData.form_type === 'transferencia' || isEditing) && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div> <label className="block text-sm font-medium">Valor *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleChange({target: {name: 'valor', value: unmaskedValue}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">{formData.form_type === 'transferencia' ? 'Data da Transferência *' : 'Data de Vencimento *'}</label> <input type="date" name="data_vencimento" value={formData.data_vencimento || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> )}
+                        {isEditing && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div> <label className="block text-sm font-medium">Status</label> <select name="status" value={formData.status || 'Pendente'} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"> <option value="Pendente">Pendente</option> <option value="Pago">Pago</option> </select> </div> {formData.status === 'Pago' && ( <div className="animate-fade-in"> <label className="block text-sm font-medium">Data do Pagamento</label> <input type="date" name="data_pagamento" value={formData.data_pagamento || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md bg-green-50" /> </div> )} </div> )}
 
-                                 {/* Área de Upload */}
-                                 <div onDragEnter={handleDragEvents} onDragLeave={handleDragEvents} onDragOver={handleDragEvents} onDrop={handleDrop} className={`p-6 border-2 border-dashed rounded-md text-center cursor-pointer ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white'}`}>
-                                     <input type="file" id="anexo-upload" className="hidden" multiple onChange={(e) => handleAnexoChange(e.target.files)} />
-                                     <label htmlFor="anexo-upload" className="cursor-pointer">
-                                         <FontAwesomeIcon icon={faUpload} className="text-gray-500 text-2xl mb-2" />
-                                         <p className="text-sm text-gray-600">Arraste e solte arquivos aqui, ou <span className="font-semibold text-blue-600">clique para selecionar</span>.</p>
-                                     </label>
-                                 </div>
-                                 
-                                 {/* Lista de novos anexos a serem enviados */}
-                                 {formData.anexos.length > 0 && (
-                                     <div className="space-y-3 mt-4">
-                                         <p className="text-xs font-semibold text-gray-600">Novos Anexos para Envio:</p>
-                                         {formData.anexos.map((anexo, index) => (
-                                             <div key={index} className="p-3 border rounded-md bg-blue-50 space-y-2 animate-fade-in">
-                                                 <div className="flex items-center justify-between text-sm font-semibold">
-                                                     <div className="flex items-center gap-2">
-                                                         <FontAwesomeIcon icon={faPaperclip} className="text-gray-600" />
-                                                         <span>{anexo.file.name}</span>
-                                                     </div>
-                                                     <button type="button" onClick={() => handleRemoveNewAnexo(index)} className="text-red-600 hover:text-red-800"><FontAwesomeIcon icon={faTrashAlt} title="Remover" /></button>
-                                                 </div>
-                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                     <input 
-                                                        type="text" 
-                                                        value={anexo.descricao} 
-                                                        onChange={(e) => handleNewAnexoDataChange(index, 'descricao', e.target.value)} 
-                                                        placeholder="Descrição do anexo" 
-                                                        className="w-full p-2 border rounded-md text-sm" 
-                                                     />
-                                                     <select 
-                                                        value={anexo.tipo_documento_id || ''} 
-                                                        onChange={(e) => handleNewAnexoDataChange(index, 'tipo_documento_id', e.target.value)} 
-                                                        className="w-full p-2 border rounded-md text-sm"
-                                                     >
-                                                         <option value="">Tipo de Documento...</option>
-                                                         {tiposDocumento.map(tipo => <option key={tipo.id} value={tipo.id}>{tipo.sigla} - {tipo.descricao}</option>)}
-                                                     </select>
-                                                 </div>
-                                             </div>
-                                         ))}
-                                     </div>
-                                 )}
-                             </div>
-                         </div>
-                         <div className="flex justify-end gap-4 pt-4 border-t">
-                             <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                             <button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
-                                 {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : (isEditing ? 'Salvar Alterações' : 'Criar Lançamento')}
-                             </button>
-                         </div>
+                        {formData.form_type === 'transferencia' ? ( 
+                            <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Contas da Transferência</legend> <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2"> <div><label className="block text-sm font-medium">De (Origem)*</label><select name="conta_origem_id" value={formData.conta_origem_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{dropdownData?.contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div> <div><label className="block text-sm font-medium">Para (Destino)*</label><select name="conta_destino_id" value={formData.conta_destino_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{dropdownData?.contas.filter(c => c.id !== formData.conta_origem_id).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div> </div> </fieldset> 
+                        ) : ( 
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div><label className="block text-sm font-medium">Conta*</label><select name="conta_id" value={formData.conta_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{dropdownData?.contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div> <div><label className="block text-sm font-medium">Categoria</label><select name="categoria_id" value={formData.categoria_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{filteredCategorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div> <div className="md:col-span-2 relative"> <label className="block text-sm font-medium">Favorecido / Fornecedor</label> <input type="text" value={favorecidoSearchTerm} onChange={handleFavorecidoSearch} disabled={!!formData.favorecido_contato_id} placeholder={formData.favorecido_contato_id ? '' : 'Digite para buscar...'} className="mt-1 w-full p-2 border rounded-md" /> {formData.favorecido_contato_id && ( <button type="button" onClick={handleClearFavorecido} className="absolute right-2 top-8 text-gray-500 hover:text-red-600"><FontAwesomeIcon icon={faTimes} /></button> )} {favorecidoSearchTerm && !formData.favorecido_contato_id && ( <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg"> {isSearchingFavorecido && <li className="px-4 py-2 text-gray-500">Buscando...</li>} {!isSearchingFavorecido && searchAttempted && favorecidoSearchResults.length === 0 && ( <li className="px-4 py-2 text-center text-gray-500">Nenhum resultado. <button type="button" onClick={handleAddNewFavorecido} className="text-blue-600 hover:underline font-semibold ml-2">Adicionar Novo?</button></li> )} {favorecidoSearchResults.map(contato => ( <li key={contato.id} onClick={() => handleSelectFavorecido(contato)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={contato.nome || contato.razao_social} highlight={favorecidoSearchTerm} /></li> ))} </ul> )} </div> <div><label className="block text-sm font-medium">Empresa</label><select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!!formData.empreendimento_id}><option value="">Nenhuma</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}</select></div> <div><label className="block text-sm font-medium">Empreendimento</label><select name="empreendimento_id" value={formData.empreendimento_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Nenhum</option>{dropdownData?.empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></div> <div><label className="block text-sm font-medium">Etapa da Obra</label><select name="etapa_id" value={formData.etapa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!formData.empreendimento_id}><option value="">Nenhuma</option>{dropdownData?.etapas.map(e => <option key={e.id} value={e.id}>{e.nome_etapa}</option>)}</select></div> </div> 
+                        )}
+
+                        <div className="pt-4 border-t">
+                            <label className="block text-sm font-medium mb-2">Anexos</label>
+                            
+                            {formData.anexos_preexistentes.length > 0 && (
+                                <div className="space-y-2 mb-4">
+                                    <p className="text-xs font-semibold text-gray-600">Anexos Salvos:</p>
+                                    {formData.anexos_preexistentes.map((anexo, index) => (
+                                        <div key={anexo.id} className="p-2 border rounded-md bg-gray-50 flex items-center justify-between text-sm">
+                                            <div className="flex items-center gap-2">
+                                                <FontAwesomeIcon icon={faFileLines} className="text-gray-600" />
+                                                <span>{anexo.nome_arquivo}</span>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <button type="button" onClick={() => handleViewAnexo(anexo.caminho_arquivo)} className="text-blue-600 hover:text-blue-800"><FontAwesomeIcon icon={faEye} title="Visualizar Anexo" /></button>
+                                                <button type="button" onClick={() => handleRemoveAnexoPreexistente(anexo.id, anexo.caminho_arquivo, index)} className="text-red-600 hover:text-red-800"><FontAwesomeIcon icon={faTrashAlt} title="Remover Anexo" /></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div onDragEnter={handleDragEvents} onDragLeave={handleDragEvents} onDragOver={handleDragEvents} onDrop={handleDrop} className={`p-6 border-2 border-dashed rounded-md text-center cursor-pointer ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white'}`}>
+                                <input type="file" id="anexo-upload" className="hidden" multiple onChange={(e) => handleAnexoChange(e.target.files)} />
+                                <label htmlFor="anexo-upload" className="cursor-pointer">
+                                    <FontAwesomeIcon icon={faUpload} className="text-gray-500 text-2xl mb-2" />
+                                    <p className="text-sm text-gray-600">Arraste e solte arquivos aqui, ou <span className="font-semibold text-blue-600">clique para selecionar</span>.</p>
+                                </label>
+                            </div>
+                            
+                            {formData.anexos.length > 0 && (
+                                <div className="space-y-3 mt-4">
+                                    <p className="text-xs font-semibold text-gray-600">Novos Anexos para Envio:</p>
+                                    {formData.anexos.map((anexo, index) => (
+                                        <div key={index} className="p-3 border rounded-md bg-blue-50 space-y-2 animate-fade-in">
+                                            <div className="flex items-center justify-between text-sm font-semibold">
+                                                <div className="flex items-center gap-2">
+                                                    <FontAwesomeIcon icon={faPaperclip} className="text-gray-600" />
+                                                    <span>{anexo.file.name}</span>
+                                                </div>
+                                                <button type="button" onClick={() => handleRemoveNewAnexo(index)} className="text-red-600 hover:text-red-800"><FontAwesomeIcon icon={faTrashAlt} title="Remover" /></button>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                <input type="text" value={anexo.descricao} onChange={(e) => handleNewAnexoDataChange(index, 'descricao', e.target.value)} placeholder="Descrição do anexo" className="w-full p-2 border rounded-md text-sm" />
+                                                <select value={anexo.tipo_documento_id || ''} onChange={(e) => handleNewAnexoDataChange(index, 'tipo_documento_id', e.target.value)} className="w-full p-2 border rounded-md text-sm">
+                                                    <option value="">Tipo de Documento...</option>
+                                                    {dropdownData?.tiposDocumento.map(tipo => <option key={tipo.id} value={tipo.id}>{tipo.sigla} - {tipo.descricao}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-4 pt-4 border-t">
+                        <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                        <button type="submit" disabled={mutation.isPending || isLoadingDropdowns} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
+                            {mutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : (isEditing ? 'Salvar Alterações' : 'Criar Lançamento')}
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>

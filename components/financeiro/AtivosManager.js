@@ -1,50 +1,66 @@
 // components/financeiro/AtivosManager.js
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
+import { useQuery } from '@tanstack/react-query'; // 2. Importar o useQuery
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// --- CORREÇÃO AQUI: Adicionamos o faDollarSign ---
 import { faSpinner, faBuilding, faFileSignature, faUser, faLandmark, faDollarSign } from '@fortawesome/free-solid-svg-icons';
 import KpiCard from '../KpiCard';
 import Link from 'next/link';
 
 // Funções de formatação
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-const formatDate = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR') : 'N/A';
+const formatDate = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : 'N/A';
+
+// =================================================================================
+// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
+// O PORQUÊ: Esta função agora busca os dados para o useQuery e inclui o filtro
+// de segurança `organizacaoId`, garantindo que apenas os ativos da
+// organização correta sejam retornados.
+// =================================================================================
+const fetchAtivos = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return [];
+    
+    const { data, error } = await supabase
+        .from('contrato_permutas')
+        .select(`
+            *,
+            contrato:contratos (
+                id,
+                contato:contato_id ( nome, razao_social ),
+                empreendimento:empreendimentos ( nome )
+            )
+        `)
+        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .order('data_registro', { ascending: false });
+
+    if (error) {
+        console.error("Erro ao buscar ativos:", error);
+        throw new Error("Falha ao carregar os ativos.");
+    }
+    return data || [];
+};
 
 export default function AtivosManager() {
     const supabase = createClient();
-    const [ativos, setAtivos] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { user } = useAuth(); // 3. Obter o usuário para o organizacaoId
+    const organizacaoId = user?.organizacao_id;
+    
     const [searchTerm, setSearchTerm] = useState('');
 
-    const fetchAtivos = useCallback(async () => {
-        setLoading(true);
-        const { data, error } = await supabase
-            .from('contrato_permutas')
-            .select(`
-                *,
-                contrato:contratos (
-                    id,
-                    contato:contato_id ( nome, razao_social ),
-                    empreendimento:empreendimentos ( nome )
-                )
-            `)
-            .order('data_registro', { ascending: false });
-
-        if (error) {
-            console.error("Erro ao buscar ativos:", error);
-            // toast.error("Falha ao carregar os ativos."); // Removido para evitar dependência desnecessária
-        } else {
-            setAtivos(data || []);
-        }
-        setLoading(false);
-    }, [supabase]);
-
-    useEffect(() => {
-        fetchAtivos();
-    }, [fetchAtivos]);
+    // =================================================================================
+    // ATUALIZAÇÃO DE PADRÃO (useState + useEffect -> useQuery)
+    // O PORQUÊ: Substituímos a lógica antiga por useQuery. Ele gerencia o loading,
+    // erros e o cache dos dados de forma automática. A `queryKey` inclui o
+    // `organizacaoId` para um cache seguro por organização.
+    // =================================================================================
+    const { data: ativos = [], isLoading: loading, isError, error } = useQuery({
+        queryKey: ['ativos', organizacaoId],
+        queryFn: () => fetchAtivos(supabase, organizacaoId),
+        enabled: !!organizacaoId, // A busca só é ativada quando o ID da organização existe
+    });
 
     const filteredAtivos = useMemo(() => {
         if (!searchTerm) return ativos;
@@ -67,6 +83,10 @@ export default function AtivosManager() {
 
     if (loading) {
         return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando ativos...</div>;
+    }
+
+    if (isError) {
+        return <div className="text-center p-10 text-red-500">Erro ao carregar dados: {error.message}</div>;
     }
 
     return (
