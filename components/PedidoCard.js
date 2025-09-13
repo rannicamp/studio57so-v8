@@ -3,6 +3,7 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faCalendarAlt, faTag, faEllipsisV, faDollarSign, faExclamationTriangle, faTruck, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 
 export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allStatusColumns, hasPendingInvoice, onCardClick }) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -13,13 +14,12 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-    // A função de clique agora chama a prop 'onCardClick'
     const handleCardClick = (e) => {
         if (e.target.closest('.action-button')) {
             e.stopPropagation();
             return;
         }
-        onCardClick(pedido); // Chama a função vinda da página principal
+        onCardClick(pedido);
     };
 
     const handleStatusMenuChange = (newStatus) => {
@@ -29,9 +29,16 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
     
     const handleDuplicateClick = (e) => {
         e.stopPropagation();
-        if (window.confirm(`Deseja criar uma cópia do pedido "${pedido.titulo || `#${pedido.id}`}"?`)) {
-            onDuplicate(pedido.id);
-        }
+        // Por que: Substituímos o window.confirm por um toast de confirmação mais moderno e amigável.
+        toast.warning(`Deseja criar uma cópia do pedido "${pedido.titulo || `#${pedido.id}`}"?`, {
+            action: {
+                label: "Duplicar",
+                onClick: () => onDuplicate(pedido.id) // A função do pai mostrará o toast de sucesso/erro.
+            },
+            cancel: {
+                label: "Cancelar"
+            }
+        });
     };
 
     const handleDragStart = (e) => {
@@ -39,13 +46,16 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
     };
 
     const totalItens = pedido.itens?.length || 0;
+    // Para data_solicitacao (timestamp), o uso de new Date() é seguro e correto.
     const dataSolicitacaoFormatada = new Date(pedido.data_solicitacao).toLocaleDateString('pt-BR');
 
+    // Por que: Simplificamos e tornamos mais segura a formatação da data_entrega_prevista (date), tratando-a como texto.
     const formatDataEntrega = (dateStr) => {
-      if (!dateStr) return 'N/A';
-      const [year, month, day] = dateStr.split('-');
-      const localDate = new Date(year, month - 1, day);
-      return localDate.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+      if (!dateStr || !/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+          return 'N/A';
+      }
+      const [year, month, day] = dateStr.split('T')[0].split('-');
+      return `${day}/${month}/${year}`;
     };
 
     const dataEntregaFormatada = formatDataEntrega(pedido.data_entrega_prevista);
@@ -57,7 +67,7 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
         <div 
             draggable="true"
             onDragStart={handleDragStart}
-            onClick={handleCardClick} // Usa a nova função de clique
+            onClick={handleCardClick}
             className={`bg-white rounded-md shadow p-3 border-l-4 ${borderClass} hover:shadow-lg transition-shadow duration-200 cursor-pointer kanban-card`}
         >
             <div>

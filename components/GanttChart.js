@@ -4,10 +4,15 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSort, faSortUp, faSortDown, faHistory, faCircle, faCalendarDay } from '@fortawesome/free-solid-svg-icons';
 
-// Funções e componentes auxiliares (sem alterações)
-const formatDate = (dateStr) => {
-    if (!dateStr) return 'N/A';
-    return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+// Por que: Substituímos a função original por esta versão mais segura,
+// que formata a data tratando-a como texto, para garantir que não haja
+// problemas com fuso horário, seguindo nossa regra principal.
+const formatDate = (dateString) => {
+    if (!dateString || !/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+        return 'N/A';
+    }
+    const [year, month, day] = dateString.split('T')[0].split('-');
+    return `${day}/${month}/${year}`;
 };
 
 const DayColumn = ({ date }) => {
@@ -94,14 +99,12 @@ export default function GanttChart({ activities }) {
 
         const entries = Object.entries(groups);
         if (sortConfig.key === 'tipo_atividade') {
-            entries.sort(([keyA], [keyB]) => sortConfig.direction === 'ascending' ? keyA.localeCompare(keyB) : keyB.localeCompare(A));
+            entries.sort(([keyA], [keyB]) => sortConfig.direction === 'ascending' ? keyA.localeCompare(keyB) : keyB.localeCompare(keyA));
         }
 
         return { sortedGroupEntries: entries, deliveryTasks, timelineDates: dates, totalDays: dates.length, todayMarkerPosition };
     }, [activities, sortConfig]);
     
-    // CORREÇÃO: A função `scrollToToday` foi movida para dentro do `useEffect`
-    // e o `useEffect` agora tem as dependências corretas.
     useEffect(() => {
         const scrollToToday = () => {
             const container = scrollContainerRef.current;
@@ -121,7 +124,7 @@ export default function GanttChart({ activities }) {
         }, 100);
 
         return () => clearTimeout(timer);
-    }, [todayMarkerPosition]); // A dependência agora está correta.
+    }, [todayMarkerPosition]);
 
 
     const daysSinceStart = (date) => {
@@ -216,7 +219,7 @@ export default function GanttChart({ activities }) {
                              <div key="delivery-category">
                                 <div className="w-full p-2 border-b border-t-2 border-blue-200 bg-blue-50"><h4 className="font-bold text-blue-800 text-sm uppercase truncate">ENTREGA DE PEDIDOS</h4></div>
                                 {deliveryTasks.map((task) => (
-                                     <div key={task.id} className="p-3 border-b border-gray-100 min-h-[60px] flex flex-col justify-center">
+                                    <div key={task.id} className="p-3 border-b border-gray-100 min-h-[60px] flex flex-col justify-center">
                                         <div className="font-medium text-gray-800 text-sm truncate" title={task.nome}>{task.nome}</div>
                                         <div className="text-xs text-gray-500">Previsto: {formatDate(task.data_inicio_prevista)} - {formatDate(task.data_fim_prevista)}</div>
                                         {task.data_inicio_real && <div className="text-xs text-blue-600">Real: {formatDate(task.data_inicio_real)} - {formatDate(task.data_fim_real)}</div>}

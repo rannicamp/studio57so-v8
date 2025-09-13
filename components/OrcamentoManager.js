@@ -7,7 +7,8 @@ import OrcamentoDetalhes from './OrcamentoDetalhes';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner'; // <-- MUDANÇA AQUI: importando do sonner
+import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext'; // Por que: Importamos para ter acesso aos dados do usuário, como a organização.
 
 // --- Componente do Modal (sem alteração na sua lógica interna) ---
 const NovoOrcamentoModal = ({ isOpen, onClose, onSave, empreendimentoNome }) => {
@@ -37,7 +38,7 @@ const NovoOrcamentoModal = ({ isOpen, onClose, onSave, empreendimentoNome }) => 
                 <div className="flex justify-end gap-4 pt-6 mt-4 border-t">
                     <button onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
                     <button onClick={handleSubmit} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-                         Criar Orçamento
+                        Criar Orçamento
                     </button>
                 </div>
             </div>
@@ -50,18 +51,21 @@ const OrcamentoManager = () => {
     const supabase = createClient();
     const queryClient = useQueryClient();
     const { selectedEmpreendimento, empreendimentos } = useEmpreendimento();
+    const { userData } = useAuth(); // Por que: Pegamos os dados do usuário para identificar a organização.
     
     const [selectedOrcamento, setSelectedOrcamento] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const fetchOrcamentos = async () => {
-        if (!selectedEmpreendimento || selectedEmpreendimento === 'all') {
+        const orgId = userData?.organizacao_id;
+        if (!selectedEmpreendimento || selectedEmpreendimento === 'all' || !orgId) {
             return [];
         }
         const { data, error } = await supabase
             .from('orcamentos')
             .select('*')
             .eq('empreendimento_id', selectedEmpreendimento)
+            .eq('organizacao_id', orgId) // Por que: Adicionamos a checagem de organização para segurança extra.
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -71,18 +75,24 @@ const OrcamentoManager = () => {
     };
 
     const { data: orcamentos, isLoading: loadingOrcamentos, error } = useQuery({
-        queryKey: ['orcamentos', selectedEmpreendimento],
+        queryKey: ['orcamentos', selectedEmpreendimento, userData?.organizacao_id], // Por que: Adicionamos o ID da organização à chave da query para garantir que ela seja refeita se a organização mudar.
         queryFn: fetchOrcamentos,
-        enabled: !!selectedEmpreendimento && selectedEmpreendimento !== 'all',
+        enabled: !!selectedEmpreendimento && selectedEmpreendimento !== 'all' && !!userData?.organizacao_id,
     });
 
     const createOrcamentoMutation = useMutation({
         mutationFn: async (orcamentoData) => {
+            const orgId = userData?.organizacao_id;
+            if (!orgId) {
+                throw new Error("Organização não identificada. Não é possível criar o orçamento.");
+            }
+
             const { data, error } = await supabase
                 .from('orcamentos')
                 .insert({
                     ...orcamentoData,
-                    empreendimento_id: selectedEmpreendimento
+                    empreendimento_id: selectedEmpreendimento,
+                    organizacao_id: orgId // Por que: Garantimos que o novo orçamento seja criado na organização correta.
                 })
                 .select()
                 .single();
@@ -93,12 +103,12 @@ const OrcamentoManager = () => {
             return data;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['orcamentos', selectedEmpreendimento] });
-            toast.success('Orçamento criado com sucesso!'); // <-- MUDANÇA AQUI: usando toast.success do sonner
+            queryClient.invalidateQueries({ queryKey: ['orcamentos', selectedEmpreendimento, userData?.organizacao_id] });
+            toast.success('Orçamento criado com sucesso!');
             setIsModalOpen(false);
         },
         onError: (err) => {
-            toast.error(err.message); // <-- MUDANÇA AQUI: usando toast.error do sonner
+            toast.error(err.message);
         }
     });
 
@@ -120,7 +130,7 @@ const OrcamentoManager = () => {
                 </h2>
                 <button
                     onClick={() => setIsModalOpen(true)}
-                    disabled={!selectedEmpreendimento || selectedEmpreendimento === 'all'}
+                    disabled={!selectedEmpreendimento || selectedEmpreendimento === 'all' || createOrcamentoMutation.isPending}
                     className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                     <FontAwesomeIcon icon={faPlus} />

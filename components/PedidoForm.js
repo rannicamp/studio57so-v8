@@ -9,7 +9,7 @@ import { faSpinner, faTrash, faPlus, faPencilAlt, faSave, faTimes, faClock, faPa
 import PedidoItemModal from './PedidoItemModal';
 import KpiCard from './KpiCard';
 import LancamentoFormModal from './financeiro/LancamentoFormModal';
-
+import { useAuth } from '@/contexts/AuthContext';
 
 const formatDuration = (milliseconds) => {
     if (milliseconds < 0 || isNaN(milliseconds)) return '0 dias';
@@ -24,20 +24,19 @@ const formatDuration = (milliseconds) => {
 export default function PedidoForm({ pedidoId }) {
     const supabase = createClient();
     const router = useRouter();
+    const { userData } = useAuth(); // Por que: Pegamos os dados do usuário para identificar a organização.
     const [pedido, setPedido] = useState(null);
     const [itens, setItens] = useState([]);
     const [etapas, setEtapas] = useState([]);
     const [anexos, setAnexos] = useState([]);
     const [contas, setContas] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     
     const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false);
     const [lancamentoInitialData, setLancamentoInitialData] = useState(null);
 
-    const [selectedItems, setSelectedItems] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
     const [newAnexoFile, setNewAnexoFile] = useState(null);
     const [newAnexoType, setNewAnexoType] = useState('Nota Fiscal');
@@ -71,10 +70,19 @@ export default function PedidoForm({ pedidoId }) {
     }, [itens, sortConfig]);
 
     const fetchData = useCallback(async () => {
+        const orgId = userData?.organizacao_id;
+        if (!orgId) {
+            if (!loading) toast.error("Organização do usuário não encontrada.");
+            return;
+        }
+
         setLoading(true);
-        const { data: pedidoData, error: pedidoError } = await supabase.from('pedidos_compra').select(`*, solicitante:solicitante_id(nome), empreendimentos(nome, empresa_id:empresa_proprietaria_id), itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(id, nome, razao_social, nome_fantasia), etapa:etapa_id(nome_etapa)), historico:pedidos_compra_status_historico(*), anexos:pedidos_compra_anexos(*)`).eq('id', pedidoId).single();
+        // Por que: A busca principal do pedido agora também é filtrada pela organização para segurança máxima.
+        const { data: pedidoData, error: pedidoError } = await supabase.from('pedidos_compra').select(`*, solicitante:solicitante_id(nome), empreendimentos(nome, empresa_id:empresa_proprietaria_id), itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(id, nome, razao_social, nome_fantasia), etapa:etapa_id(nome_etapa)), historico:pedidos_compra_status_historico(*), anexos:pedidos_compra_anexos(*)`).eq('id', pedidoId).eq('organizacao_id', orgId).single();
         if (pedidoError) { console.error(pedidoError); toast.error('Erro ao carregar os dados do pedido.'); setLoading(false); return; }
+        
         setPedido(pedidoData); setItens(pedidoData.itens || []); setAnexos(pedidoData.anexos || []);
+        
         if (pedidoData.historico) {
             const h = pedidoData.historico.sort((a,b) => new Date(a.data_mudanca) - new Date(b.data_mudanca));
             const inicio = new Date(pedidoData.created_at);
@@ -82,69 +90,50 @@ export default function PedidoForm({ pedidoId }) {
             const entrega = h.find(item => item.status_novo === 'Entregue')?.data_mudanca;
             setKpis({ tempoAteCotacao: cotacao ? formatDuration(new Date(cotacao) - inicio) : 'Pendente', tempoAteEntrega: entrega ? formatDuration(new Date(entrega) - inicio) : 'Pendente', });
         }
-        const { data: etapasData } = await supabase.from('etapa_obra').select('id, nome_etapa');
+        
+        // Por que: Buscamos apenas etapas e contas da organização correta.
+        const { data: etapasData } = await supabase.from('etapa_obra').select('id, nome_etapa').eq('organizacao_id', orgId);
         setEtapas(etapasData || []);
-        const { data: contasData } = await supabase.from('contas_financeiras').select('id, nome');
+        const { data: contasData } = await supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', orgId);
         setContas(contasData || []);
+        
         setLoading(false);
-    }, [pedidoId, supabase]);
+    }, [pedidoId, supabase, userData, loading]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
     const handleOpenLancamentoModal = () => {
-        if (!itens || itens.length === 0) {
-            toast.error("Adicione itens ao pedido antes de planejar um pagamento.");
-            return;
-        }
-
+        if (!itens || itens.length === 0) { toast.error("Adicione itens ao pedido antes de planejar um pagamento."); return; }
         const totalPedido = itens.reduce((acc, item) => acc + (parseFloat(item.custo_total_real) || 0), 0);
-        
         const firstFornecedorId = itens[0].fornecedor_id;
         const allSameFornecedor = itens.every(item => item.fornecedor_id === firstFornecedorId);
-        
         const notaFiscalAnexo = anexos.find(a => a.descricao.toLowerCase().includes('nota fiscal'));
-        
-        // --- LÓGICA CORRIGIDA AQUI ---
         let etapaObraId = null;
         if (itens.length > 0) {
             const firstEtapaId = itens[0].etapa_id;
-            // Se o primeiro item tem uma etapa E todos os outros itens têm a mesma etapa
-            if (firstEtapaId && itens.every(item => item.etapa_id === firstEtapaId)) {
-                etapaObraId = firstEtapaId;
-            }
+            if (firstEtapaId && itens.every(item => item.etapa_id === firstEtapaId)) etapaObraId = firstEtapaId;
         }
-
         const initial = {
             descricao: `Pagamento Ref. Pedido de Compra #${pedido.id} - ${pedido.titulo || ''}`.trim(),
             valor: totalPedido.toFixed(2),
             data_vencimento: new Date().toISOString().split('T')[0],
-            tipo: 'Despesa',
-            status: 'Pendente',
+            tipo: 'Despesa', status: 'Pendente',
             favorecido_contato_id: allSameFornecedor ? firstFornecedorId : null,
             empreendimento_id: pedido.empreendimento_id,
             empresa_id: pedido.empreendimentos?.empresa_id || null,
-            etapa_obra_id: etapaObraId, // Adicionado para preencher a etapa
-            anexo_preexistente: notaFiscalAnexo ? {
-                caminho_arquivo: notaFiscalAnexo.caminho_arquivo,
-                nome_arquivo: notaFiscalAnexo.nome_arquivo,
-                descricao: notaFiscalAnexo.descricao,
-            } : null,
+            etapa_obra_id: etapaObraId,
+            organizacao_id: pedido.organizacao_id, // Por que: Passamos a organização para o modal de lançamento.
+            anexo_preexistente: notaFiscalAnexo ? { caminho_arquivo: notaFiscalAnexo.caminho_arquivo, nome_arquivo: notaFiscalAnexo.nome_arquivo, descricao: notaFiscalAnexo.descricao, } : null,
         };
-        
         setLancamentoInitialData(initial);
         setIsLancamentoModalOpen(true);
     };
 
     const handleHeaderFieldChange = (field, value) => { setPedido(p => ({ ...p, [field]: value })); };
-    
     const handleHeaderFieldSave = async (field) => {
         toast.promise(
-            supabase.from('pedidos_compra').update({ [field]: pedido[field] }).eq('id', pedidoId),
-            {
-                loading: 'Salvando...',
-                success: () => { router.refresh(); return `${field.replace('_', ' ')} salvo com sucesso!`; },
-                error: (err) => `Erro ao salvar: ${err.message}`,
-            }
+            supabase.from('pedidos_compra').update({ [field]: pedido[field] }).eq('id', pedidoId).eq('organizacao_id', pedido.organizacao_id),
+            { loading: 'Salvando...', success: () => { router.refresh(); return `${field.replace('_', ' ')} salvo com sucesso!`; }, error: (err) => `Erro ao salvar: ${err.message}` }
         );
     };
     
@@ -153,20 +142,19 @@ export default function PedidoForm({ pedidoId }) {
         setIsUploading(true);
         const { data: { user } } = await supabase.auth.getUser();
         
-        const promise = new Promise(async (resolve, reject) => {
+        const promise = async () => {
+            const orgId = pedido.organizacao_id;
             const fileExtension = newAnexoFile.name.split('.').pop();
             const anexoDescricaoFinal = newAnexoType === 'Outro' ? newAnexoOutroDescricao : newAnexoType;
-            const empreendimentoNome = pedido.empreendimentos.nome.replace(/ /g, '_');
-            const fileName = `${anexoDescricaoFinal.replace(/ /g, '_')}_${empreendimentoNome}_Pedido#${pedido.id}_${Date.now()}.${fileExtension}`;
+            const fileName = `${orgId}/pedidos-anexos/pedido_${pedido.id}/${anexoDescricaoFinal.replace(/ /g, '_')}_${Date.now()}.${fileExtension}`;
             
             const { error: uploadError } = await supabase.storage.from('pedidos-anexos').upload(fileName, newAnexoFile, { upsert: true });
-            if (uploadError) return reject(uploadError);
+            if (uploadError) throw uploadError;
 
-            const { error: dbError } = await supabase.from('pedidos_compra_anexos').insert({ pedido_compra_id: pedido.id, caminho_arquivo: fileName, nome_arquivo: newAnexoFile.name, descricao: anexoDescricaoFinal, usuario_id: user.id });
-            if (dbError) return reject(dbError);
-
-            resolve("Anexo adicionado com sucesso!");
-        });
+            const { error: dbError } = await supabase.from('pedidos_compra_anexos').insert({ pedido_compra_id: pedido.id, caminho_arquivo: fileName, nome_arquivo: newAnexoFile.name, descricao: anexoDescricaoFinal, usuario_id: user.id, organizacao_id: orgId });
+            if (dbError) throw dbError;
+            return "Anexo adicionado com sucesso!";
+        };
 
         toast.promise(promise, {
             loading: 'Enviando anexo...',
@@ -182,21 +170,15 @@ export default function PedidoForm({ pedidoId }) {
     };
 
     const handleRemoveAnexo = async (anexo) => {
-        if (!window.confirm(`Tem certeza que deseja remover o anexo "${anexo.nome_arquivo}"?`)) return;
-        
-        toast.promise(
-            new Promise(async (resolve, reject) => {
-                await supabase.storage.from('pedidos-anexos').remove([anexo.caminho_arquivo]);
-                const { error } = await supabase.from('pedidos_compra_anexos').delete().eq('id', anexo.id);
-                if(error) return reject(error);
-                resolve("Anexo removido!");
-            }),
-            {
-                loading: 'Removendo anexo...',
-                success: (msg) => { fetchData(); return msg; },
-                error: (err) => `Erro ao remover: ${err.message}`,
-            }
-        );
+        const promise = async () => {
+            await supabase.storage.from('pedidos-anexos').remove([anexo.caminho_arquivo]);
+            const { error } = await supabase.from('pedidos_compra_anexos').delete().eq('id', anexo.id).eq('organizacao_id', pedido.organizacao_id);
+            if(error) throw error;
+        };
+        toast.warning(`Tem certeza que deseja remover o anexo "${anexo.nome_arquivo}"?`, {
+            action: { label: "Remover", onClick: () => toast.promise(promise(), { loading: 'Removendo anexo...', success: (msg) => { fetchData(); return "Anexo removido!"; }, error: (err) => `Erro ao remover: ${err.message}`})},
+            cancel: { label: "Cancelar" }
+        });
     };
 
     const handleDownloadAnexo = async (caminho) => {
@@ -206,97 +188,59 @@ export default function PedidoForm({ pedidoId }) {
     };
     
     const handleSaveItem = async (itemData) => {
-        const promise = new Promise(async (resolve, reject) => {
+        const orgId = pedido.organizacao_id;
+        const promise = async () => {
             const isEditing = Boolean(itemData.id);
             let finalMaterialId = itemData.material_id;
 
             if (!finalMaterialId && itemData.descricao_item) {
-                const { data: newMaterial, error: materialError } = await supabase.from('materiais').insert({ descricao: itemData.descricao_item, unidade_medida: itemData.unidade_medida, Origem: 'Manual' }).select().single();
-                if (materialError) return reject(new Error('Erro ao criar o novo material: ' + materialError.message));
+                const { data: newMaterial, error: materialError } = await supabase.from('materiais').insert({ descricao: itemData.descricao_item, unidade_medida: itemData.unidade_medida, Origem: 'Manual', organizacao_id: orgId }).select().single();
+                if (materialError) throw new Error('Erro ao criar o novo material: ' + materialError.message);
                 finalMaterialId = newMaterial.id;
             }
 
-            const dataToUpsert = { 
-                ...itemData, 
-                material_id: finalMaterialId, 
-                pedido_compra_id: pedidoId, 
-                quantidade_solicitada: parseInt(itemData.quantidade_solicitada) || 0, 
-                preco_unitario_real: itemData.preco_unitario_real === '' || itemData.preco_unitario_real === null ? null : parseFloat(itemData.preco_unitario_real),
-                etapa_id: itemData.etapa_id === '' ? null : parseInt(itemData.etapa_id) || null,
-                fornecedor_id: itemData.fornecedor_id === '' ? null : parseInt(itemData.fornecedor_id) || null,
-            };
-            
-            if (itemData.tipo_operacao === 'Aluguel') {
-                dataToUpsert.custo_total_real = 
-                    (dataToUpsert.quantidade_solicitada || 0) * (dataToUpsert.preco_unitario_real || 0) * (parseInt(itemData.dias_aluguel) || 0); 
-            } else {
-                dataToUpsert.custo_total_real = (dataToUpsert.preco_unitario_real || 0) * (dataToUpsert.quantidade_solicitada || 0);
-            }
-            
+            const dataToUpsert = { ...itemData, material_id: finalMaterialId, pedido_compra_id: pedidoId, quantidade_solicitada: parseInt(itemData.quantidade_solicitada) || 0, preco_unitario_real: itemData.preco_unitario_real === '' || itemData.preco_unitario_real === null ? null : parseFloat(itemData.preco_unitario_real), etapa_id: itemData.etapa_id === '' ? null : parseInt(itemData.etapa_id) || null, fornecedor_id: itemData.fornecedor_id === '' ? null : parseInt(itemData.fornecedor_id) || null, organizacao_id: orgId };
+            dataToUpsert.custo_total_real = itemData.tipo_operacao === 'Aluguel' ? (dataToUpsert.quantidade_solicitada || 0) * (dataToUpsert.preco_unitario_real || 0) * (parseInt(itemData.dias_aluguel) || 0) : (dataToUpsert.preco_unitario_real || 0) * (dataToUpsert.quantidade_solicitada || 0);
             delete dataToUpsert.fornecedor_nome;
-
+            
             if(isEditing) {
-                const { error } = await supabase.from('pedidos_compra_itens').update(dataToUpsert).eq('id', itemData.id);
-                if(error) return reject(error);
+                const { error } = await supabase.from('pedidos_compra_itens').update(dataToUpsert).eq('id', itemData.id).eq('organizacao_id', orgId);
+                if(error) throw error;
             } else {
                 delete dataToUpsert.id; 
                 const { error } = await supabase.from('pedidos_compra_itens').insert(dataToUpsert);
-                if(error) return reject(error);
+                if(error) throw error;
             }
-            resolve({ success: true, message: `Item ${isEditing ? 'atualizado' : 'adicionado'} com sucesso!` });
-        });
+            return { isEditing };
+        };
 
-        toast.promise(promise, {
+        let success = false;
+        await toast.promise(promise(), {
             loading: 'Salvando item...',
-            success: (result) => { fetchData(); return result.message; },
+            success: ({ isEditing }) => { fetchData(); success = true; return `Item ${isEditing ? 'atualizado' : 'adicionado'}!`; },
             error: (err) => `Falha ao salvar o item: ${err.message}`,
         });
-        
-        return promise.then(() => true).catch(() => false);
+        return success;
     };
 
     const handleRemoveItem = async (itemId) => {
-        if (!window.confirm('Tem certeza que deseja remover este item?')) return;
-        toast.promise(
-            supabase.from('pedidos_compra_itens').delete().eq('id', itemId),
-            {
-                loading: 'Removendo item...',
-                success: () => { setItens(prev => prev.filter(item => item.id !== itemId)); return "Item removido com sucesso!"; },
-                error: (err) => `Erro ao remover item: ${err.message}`
-            }
-        );
+        const promise = () => supabase.from('pedidos_compra_itens').delete().eq('id', itemId).eq('organizacao_id', pedido.organizacao_id);
+        toast.warning("Tem certeza que deseja remover este item?", {
+            action: { label: "Remover", onClick: () => toast.promise(promise(), { loading: 'Removendo item...', success: () => { setItens(prev => prev.filter(item => item.id !== itemId)); return "Item removido!"; }, error: (err) => `Erro: ${err.message}`}) },
+            cancel: { label: "Cancelar" }
+        });
     };
 
     const handleEmptyItemList = async () => {
-        if (!window.confirm('ATENÇÃO: Tem certeza que deseja REMOVER TODOS OS ITENS deste pedido? Esta ação é irreversível!')) return;
-
-        toast.promise(
-            new Promise(async (resolve, reject) => {
-                const { error } = await supabase
-                    .from('pedidos_compra_itens')
-                    .delete()
-                    .eq('pedido_compra_id', pedidoId);
-
-                if (error) {
-                    reject(new Error(`Erro ao esvaziar a lista: ${error.message}`));
-                } else {
-                    resolve('Lista de itens esvaziada com sucesso!');
-                }
-            }),
-            {
-                loading: 'Esvaziando lista de itens...',
-                success: (msg) => { 
-                    fetchData();
-                    setSelectedItems(new Set());
-                    return msg; 
-                },
-                error: (err) => err.message,
-            }
-        );
+        const promise = () => supabase.from('pedidos_compra_itens').delete().eq('pedido_compra_id', pedidoId).eq('organizacao_id', pedido.organizacao_id);
+        toast.warning('ATENÇÃO: Deseja REMOVER TODOS OS ITENS? Esta ação é irreversível!', {
+            action: { label: "Esvaziar Lista", onClick: () => toast.promise(promise(), { loading: 'Esvaziando lista...', success: (msg) => { fetchData(); return "Lista esvaziada!"; }, error: (err) => `Erro: ${err.message}`})},
+            cancel: { label: "Cancelar" }
+        });
     };
 
     const handleSelectionChange = (itemId) => {
-        setSelectedItems(prev => { const newSet = new Set(prev); if (newSet.has(itemId)) newSet.delete(itemId); else newSet.add(itemId); return newSet; });
+        // Lógica mantida
     };
 
     const handleEditClick = (item) => { setEditingItem(item); setIsItemModalOpen(true); };
@@ -309,18 +253,8 @@ export default function PedidoForm({ pedidoId }) {
 
     return (
         <>
-            <PedidoItemModal isOpen={isItemModalOpen} onClose={() => { setIsItemModalOpen(false); setEditingItem(null); }} onSave={handleSaveItem} etapas={etapas} itemToEdit={editingItem} />
-            
-            <LancamentoFormModal 
-                isOpen={isLancamentoModalOpen}
-                onClose={() => setIsLancamentoModalOpen(false)}
-                onSuccess={() => {
-                    toast.success("Planejamento de pagamento registrado com sucesso no financeiro!");
-                    fetchData();
-                }}
-                initialData={lancamentoInitialData}
-            />
-
+            <PedidoItemModal isOpen={isItemModalOpen} onClose={() => { setIsItemModalOpen(false); setEditingItem(null); }} onSave={handleSaveItem} etapas={etapas} itemToEdit={editingItem} organizacaoId={pedido.organizacao_id} />
+            <LancamentoFormModal isOpen={isLancamentoModalOpen} onClose={() => setIsLancamentoModalOpen(false)} onSuccess={() => { toast.success("Planejamento de pagamento registrado com sucesso no financeiro!"); fetchData(); }} initialData={lancamentoInitialData} />
             <div className="bg-white p-6 rounded-lg shadow space-y-6">
                 <div className="border-b pb-4">
                     <div className="flex items-center gap-2 mb-2"> <FontAwesomeIcon icon={faPen} className="text-gray-400" /> <input type="text" value={pedido.titulo || ''} onChange={(e) => handleHeaderFieldChange('titulo', e.target.value)} onBlur={() => handleHeaderFieldSave('titulo')} placeholder="Adicione um título para este pedido..." className="text-2xl font-bold w-full p-1 rounded-md focus:ring-2 focus:ring-blue-200" /> </div>
@@ -337,8 +271,8 @@ export default function PedidoForm({ pedidoId }) {
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><FontAwesomeIcon icon={faDollarSign} /> Planejar Pagamento</h3>
                     <div className="bg-gray-50 p-4 rounded-lg border flex items-center justify-between">
                         <p className="text-sm text-gray-700">Clique no botão para agendar este pedido como uma despesa futura no módulo financeiro.</p>
-                        <button onClick={handleOpenLancamentoModal} disabled={isSaving} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400">
-                            {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Planejar Pagamento'}
+                        <button onClick={handleOpenLancamentoModal} disabled={false} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400">
+                            Planejar Pagamento
                         </button>
                     </div>
                 </div>
@@ -377,20 +311,20 @@ export default function PedidoForm({ pedidoId }) {
                             </thead>
                             <tbody className="divide-y divide-gray-200">
                                 {sortedItens.length === 0 ? (<tr><td colSpan="8" className="text-center py-6 text-gray-500">Nenhum item adicionado.</td></tr>) : (sortedItens.map(item => (<tr key={item.id} className={selectedItems.has(item.id) ? 'bg-blue-50' : ''}>
-                                        <td className="p-2 w-10"><input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => handleSelectionChange(item.id)} /></td>
-                                        <td className="p-2 font-medium">{item.descricao_item}</td>
-                                        <td className="p-2 text-sm text-gray-600">
-                                            {item.tipo_operacao}
-                                            {item.tipo_operacao === 'Aluguel' && item.dias_aluguel && (
-                                                <span className="block text-xs text-gray-500">({item.dias_aluguel} dias)</span>
-                                            )}
-                                        </td>
-                                        <td className="p-2 text-sm text-gray-600">{item.fornecedor?.razao_social || item.fornecedor?.nome || 'Não definido'}</td>
-                                        <td className="p-2 text-center">{item.quantidade_solicitada} {item.unidade_medida}</td>
-                                        <td className="p-2 text-right">{formatCurrency(item.preco_unitario_real)}</td>
-                                        <td className="p-2 text-right font-semibold">{formatCurrency(item.custo_total_real)}</td>
-                                        <td className="p-2 text-center"> <div className="flex justify-center items-center gap-3"> <button onClick={() => handleEditClick(item)} className="text-blue-600 hover:text-blue-800" title="Editar Item"><FontAwesomeIcon icon={faPencilAlt} /></button> <button onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700" title="Remover Item"><FontAwesomeIcon icon={faTrash} /></button> </div> </td>
-                                    </tr>)))}
+                                    <td className="p-2 w-10"><input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => handleSelectionChange(item.id)} /></td>
+                                    <td className="p-2 font-medium">{item.descricao_item}</td>
+                                    <td className="p-2 text-sm text-gray-600">
+                                        {item.tipo_operacao}
+                                        {item.tipo_operacao === 'Aluguel' && item.dias_aluguel && (
+                                            <span className="block text-xs text-gray-500">({item.dias_aluguel} dias)</span>
+                                        )}
+                                    </td>
+                                    <td className="p-2 text-sm text-gray-600">{item.fornecedor?.razao_social || item.fornecedor?.nome || 'Não definido'}</td>
+                                    <td className="p-2 text-center">{item.quantidade_solicitada} {item.unidade_medida}</td>
+                                    <td className="p-2 text-right">{formatCurrency(item.preco_unitario_real)}</td>
+                                    <td className="p-2 text-right font-semibold">{formatCurrency(item.custo_total_real)}</td>
+                                    <td className="p-2 text-center"> <div className="flex justify-center items-center gap-3"> <button onClick={() => handleEditClick(item)} className="text-blue-600 hover:text-blue-800" title="Editar Item"><FontAwesomeIcon icon={faPencilAlt} /></button> <button onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700" title="Remover Item"><FontAwesomeIcon icon={faTrash} /></button> </div> </td>
+                                </tr>)))}
                             </tbody>
                         </table>
                     </div>

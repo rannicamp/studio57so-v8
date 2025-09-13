@@ -1,4 +1,3 @@
-// components/FolhaPonto.js
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -18,11 +17,14 @@ import { toast } from 'sonner';
 
 const supabase = createClient();
 
-const Toast = ({ message, type, onclose }) => {
-    useEffect(() => { const timer = setTimeout(onclose, 4000); return () => clearTimeout(timer); }, [onclose]);
-    const styles = { success: { bg: 'bg-green-500', icon: faCheckCircle }, error: { bg: 'bg-red-500', icon: faExclamationCircle }, info: { bg: 'bg-blue-500', icon: faInfoCircle } };
-    const currentStyle = styles[type] || styles.info;
-    return ( <div className={`fixed bottom-5 right-5 flex items-center p-4 rounded-lg shadow-lg text-white ${currentStyle.bg} animate-fade-in-up z-50 no-print`}> <FontAwesomeIcon icon={currentStyle.icon} className="mr-3 text-xl" /> <span>{message}</span> </div> );
+// Por que: Adicionamos este helper para padronizar a formatação de datas
+// em todo o sistema, tratando-as como texto para evitar erros de fuso horário.
+const formatSimpleDate = (dateString) => {
+    if (!dateString || !/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+        return 'N/A';
+    }
+    const [year, month, day] = dateString.split('T')[0].split('-');
+    return `${day}/${month}/${year}`;
 };
 
 const formatMinutesToHours = (totalMinutes) => {
@@ -82,7 +84,6 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     const [employee, setEmployee] = useState(null);
     const [timesheetData, setTimesheetData] = useState({});
     const [holidays, setHolidays] = useState([]);
-    const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
     const [isProcessing, setIsProcessing] = useState(true);
     const [editingCell, setEditingCell] = useState(null);
     const [abonoTypes, setAbonoTypes] = useState([]);
@@ -104,12 +105,10 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     const selectedSignatory = useMemo(() => {
         if (!selectedSignatoryId || proprietarios.length === 0) return { name: 'N/A', cpf: 'N/A' };
         const signatory = proprietarios.find(p => p.id === selectedSignatoryId);
-        return signatory 
+        return signatory
             ? { name: `${signatory.nome || ''} ${signatory.sobrenome || ''}`.trim(), cpf: signatory.funcionario?.cpf || 'N/A' }
             : { name: 'N/A', cpf: 'N/A' };
     }, [selectedSignatoryId, proprietarios]);
-
-    const showToast = (message, type = 'info') => setToast({ show: true, message, type });
 
     const calculateTotalHours = useCallback((dayData) => {
         return calculateTotalHoursForEmployee(dayData, employee);
@@ -123,12 +122,14 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             const firstDayOfMonth = `${year}-${monthNum}-01`;
             const lastDayOfMonth = new Date(year, monthNum, 0).toISOString().split('T')[0];
             
-            const { data: allHolidays, error: holidayError } = await supabase.from('feriados').select('data_feriado, tipo');
-            if (holidayError) throw new Error(`Erro ao buscar feriados: ${holidayError.message}`);
-            setHolidays(allHolidays || []);
-
+            const { data: employeeData, error: empError } = await supabase.from('funcionarios').select('*, admission_date, demission_date, cpf, foto_url, organizacao_id, jornada:jornadas(*, detalhes:jornada_detalhes(*))').eq('id', employeeId).single();
+            if (empError) throw new Error(`Erro ao buscar dados do funcionário: ${empError.message}`);
+            
+            const organizacaoId = employeeData.organizacao_id;
+            if (!organizacaoId) throw new Error("Funcionário não está associado a uma organização.");
+            
             const [
-                { data: employeeData, error: empError },
+                { data: allHolidays, error: holidayError },
                 { data: pontosData },
                 { data: abonosDoMes },
                 { data: historicoData },
@@ -136,7 +137,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 { data: saldoBancoData, error: saldoError },
                 { data: feriasData, error: feriasError }
             ] = await Promise.all([
-                supabase.from('funcionarios').select('*, admission_date, demission_date, cpf, foto_url, jornada:jornadas(*, detalhes:jornada_detalhes(*))').eq('id', employeeId).single(),
+                supabase.from('feriados').select('data_feriado, tipo').eq('organizacao_id', organizacaoId),
                 supabase.from('pontos').select('*, editado_por_usuario_id:usuarios(nome, sobrenome)').eq('funcionario_id', employeeId).gte('data_hora', `${firstDayOfMonth}T00:00:00`).lte('data_hora', `${lastDayOfMonth}T23:59:59`),
                 supabase.from('abonos').select('*, criado_por_usuario_id:usuarios(nome, sobrenome)').eq('funcionario_id', employeeId).gte('data_abono', firstDayOfMonth).lte('data_abono', lastDayOfMonth),
                 supabase.from('historico_salarial').select('*').eq('funcionario_id', employeeId).order('data_inicio_vigencia', { ascending: true }),
@@ -145,10 +146,11 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 supabase.rpc('get_dias_ferias_gozados_ano', { p_funcionario_id: employeeId, p_ano: parseInt(year) })
             ]);
 
-            if (empError) throw new Error(`Erro ao buscar dados do funcionário: ${empError.message}`);
+            if (holidayError) throw new Error(`Erro ao buscar feriados: ${holidayError.message}`);
             if (saldoError) throw new Error(`Erro ao buscar saldo do banco de horas: ${saldoError.message}`);
             if (feriasError) throw new Error(`Erro ao buscar saldo de férias: ${feriasError.message}`);
             
+            setHolidays(allHolidays || []);
             setSaldoBancoHoras(saldoBancoData || 0);
             setFeriasGozadas(feriasData || 0);
             setEmployee(employeeData);
@@ -156,8 +158,8 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             setIsMonthClosed(!!fechamentoData);
 
             if (employeeData.foto_url) {
-                const { data: urlData } = await supabase.storage.from('funcionarios-documentos').createSignedUrl(employeeData.foto_url, 3600);
-                employeeData.foto_url = urlData?.signedUrl;
+                const { data: { publicUrl } } = await supabase.storage.from('funcionarios-documentos').getPublicUrl(employeeData.foto_url.replace('https://oqjbfbcyyjbmnkgrhtgx.supabase.co/storage/v1/object/public/funcionarios-documentos/', ''));
+                employeeData.foto_url = publicUrl;
             }
             
             const processedAbonos = {}; (abonosDoMes || []).forEach(abono => { processedAbonos[abono.data_abono] = abono; }); setAbonosData(processedAbonos);
@@ -170,7 +172,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 const fieldMap = { 'Entrada': 'entrada', 'Inicio_Intervalo': 'inicio_intervalo', 'Fim_Intervalo': 'fim_intervalo', 'Saida': 'saida' };
                 const field = fieldMap[ponto.tipo_registro];
                 if (field) {
-                    processedData[dateStr][field] = utcDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    processedData[dateStr][field] = utcDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
                     if (ponto.editado_manualmente && ponto.editado_por_usuario_id) {
                         processedData[dateStr][`${field}_manual`] = true;
                         const editorNome = `${ponto.editado_por_usuario_id.nome || ''} ${ponto.editado_por_usuario_id.sobrenome || ''}`.trim();
@@ -196,14 +198,15 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     
     useEffect(() => {
         const fetchInitialData = async () => {
-            const { data: abonoTypesData } = await supabase.from('abono_tipos').select('id, descricao');
+            if (!userData?.organizacao_id) return;
+            const { data: abonoTypesData } = await supabase.from('abono_tipos').select('id, descricao').eq('organizacao_id', userData.organizacao_id);
             setAbonoTypes(abonoTypesData || []);
             const { data: { user: authUser } } = await supabase.auth.getUser();
             if (authUser) {
                 const { data: userDataFromDb } = await supabase.from('usuarios').select('id, nome, sobrenome').eq('id', authUser.id).single();
                 if (userDataFromDb) setCurrentUser({ id: userDataFromDb.id, nome: `${userDataFromDb.nome} ${userDataFromDb.sobrenome}`.trim() });
             }
-            const { data: proprietariosData } = await supabase.from('usuarios').select('id, nome, sobrenome, funcionario:funcionarios(cpf), funcoes!inner(nome_funcao)').eq('funcoes.nome_funcao', 'Proprietário');
+            const { data: proprietariosData } = await supabase.from('usuarios').select('id, nome, sobrenome, funcionario:funcionarios(cpf), funcoes!inner(nome_funcao)').eq('funcoes.nome_funcao', 'Proprietário').eq('organizacao_id', userData.organizacao_id);
             setProprietarios(proprietariosData || []);
             if (isUserProprietario && user) { setSelectedSignatoryId(user.id); } 
             else if (proprietariosData?.length > 0) { setSelectedSignatoryId(proprietariosData[0].id); }
@@ -397,71 +400,93 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     }, [timesheetData, employee, holidays, month, isProcessing, abonosData]);
 
     const handleCellEdit = (date, field) => { if (isProcessing || !canEdit || isMonthClosed) return; setEditingCell({ date, field }); };
+    
     const handleSaveEdit = async (e, date, field) => { 
         e.preventDefault();
-        if (!currentUser) { showToast("Não foi possível identificar o usuário.", "error"); return; }
-        let newValue = e.target.elements[0].value; setEditingCell(null); setIsProcessing(true);
-        if (field === 'abono') {
-            const abonoRecord = { funcionario_id: employeeId, data_abono: date, tipo_abono_id: newValue ? parseInt(newValue) : null, criado_por_usuario_id: currentUser.id, horas_abonadas: 8, };
-            const existingAbono = abonosData[date]; let error;
-            if (existingAbono && !newValue) { ({ error } = await supabase.from('abonos').delete().eq('id', existingAbono.id)); } 
-            else if (newValue) { ({ error } = await supabase.from('abonos').upsert(abonoRecord, { onConflict: 'funcionario_id, data_abono', ignoreDuplicates: false })); }
-            showToast(error ? `Erro: ${error.message}` : 'Abono salvo!', error ? 'error' : 'success');
-        } else if (field === 'observacao') {
-            const { data: pontoEntrada } = await supabase.from('pontos').select('id').eq('funcionario_id', employeeId).eq('tipo_registro', 'Entrada').like('data_hora', `${date}%`).limit(1).single();
-            if (pontoEntrada) { const { error } = await supabase.from('pontos').update({ observacao: newValue }).eq('id', pontoEntrada.id); showToast(error ? `Erro: ${error.message}` : 'Observação salva!', error ? 'error' : 'success'); } 
-            else { showToast('Não há registro de entrada para adicionar observação.', 'info'); }
-        } else {
-            const tipo_registro = { 'entrada': 'Entrada', 'inicio_intervalo': 'Inicio_Intervalo', 'fim_intervalo': 'Fim_Intervalo', 'saida': 'Saida' }[field];
-            const startOfDay = `${date}T00:00:00`; const endOfDay = `${date}T23:59:59.999`; let error;
-            const { data: existingRecord } = await supabase.from('pontos').select('id').eq('funcionario_id', employeeId).eq('tipo_registro', tipo_registro).gte('data_hora', startOfDay).lte('data_hora', endOfDay).maybeSingle();
-            if (!newValue) { if (existingRecord) { ({ error } = await supabase.from('pontos').delete().eq('id', existingRecord.id)); showToast(error ? `Erro: ${error.message}` : 'Registro removido.', error ? 'error' : 'success'); } } 
-            else {
-                const localDate = new Date(`${date}T${newValue}`);
-                const recordData = { funcionario_id: employeeId, tipo_registro, data_hora: localDate.toISOString(), editado_manualmente: true, editado_por_usuario_id: currentUser.id };
-                if (existingRecord) { ({ error } = await supabase.from('pontos').update(recordData).eq('id', existingRecord.id)); } 
-                else { ({ error } = await supabase.from('pontos').insert(recordData)); }
-                showToast(error ? `Erro: ${error.message}` : 'Alteração salva!', error ? 'error' : 'success');
+        const value = e.target.elements[0].value;
+        setEditingCell(null);
+        if (!currentUser) { toast.error("Não foi possível identificar o usuário."); return; }
+
+        const promise = async () => {
+            if (field === 'abono') {
+                const abonoRecord = { 
+                    funcionario_id: employeeId, 
+                    data_abono: date, 
+                    tipo_abono_id: value ? parseInt(value) : null, 
+                    criado_por_usuario_id: currentUser.id, 
+                    horas_abonadas: 8,
+                    organizacao_id: employee.organizacao_id 
+                };
+                const existingAbono = abonosData[date];
+                let { error } = existingAbono && !value
+                    ? await supabase.from('abonos').delete().eq('id', existingAbono.id)
+                    : await supabase.from('abonos').upsert(abonoRecord, { onConflict: 'funcionario_id, data_abono' });
+                if (error) throw error;
+            } else if (field === 'observacao') {
+                const { data: pontoEntrada } = await supabase.from('pontos').select('id').eq('funcionario_id', employeeId).eq('tipo_registro', 'Entrada').like('data_hora', `${date}%`).limit(1).single();
+                if (pontoEntrada) {
+                    const { error } = await supabase.from('pontos').update({ observacao: value }).eq('id', pontoEntrada.id);
+                    if (error) throw error;
+                } else {
+                    throw new Error('Não há registro de entrada para adicionar observação.');
+                }
+            } else {
+                const tipo_registro = { 'entrada': 'Entrada', 'inicio_intervalo': 'Inicio_Intervalo', 'fim_intervalo': 'Fim_Intervalo', 'saida': 'Saida' }[field];
+                const { data: existingRecord } = await supabase.from('pontos').select('id').eq('funcionario_id', employeeId).eq('tipo_registro', tipo_registro).like('data_hora', `${date}%`).maybeSingle();
+                
+                let error;
+                if (!value) {
+                    if (existingRecord) ({ error } = await supabase.from('pontos').delete().eq('id', existingRecord.id));
+                } else {
+                    const localDate = new Date(`${date}T${value}`);
+                    const recordData = { 
+                        funcionario_id: employeeId, 
+                        tipo_registro, 
+                        data_hora: localDate.toISOString(), 
+                        editado_manualmente: true, 
+                        editado_por_usuario_id: currentUser.id,
+                        organizacao_id: employee.organizacao_id 
+                    };
+                    ({ error } = existingRecord
+                        ? await supabase.from('pontos').update(recordData).eq('id', existingRecord.id)
+                        : await supabase.from('pontos').insert(recordData));
+                }
+                if (error) throw error;
             }
-        }
-        await loadTimesheetData(); setIsProcessing(false);
+        };
+
+        toast.promise(promise(), {
+            loading: 'Salvando alteração...',
+            success: () => { loadTimesheetData(); return 'Alteração salva com sucesso!'; },
+            error: (err) => `Erro: ${err.message}`
+        });
     };
 
     const handleCloseMonth = async () => {
-        setActionLoading(true);
-        
-        const promise = new Promise(async (resolve, reject) => {
+        const promise = async () => {
             const [year, monthNum] = month.split('-');
             const mes_referencia = `${year}-${monthNum}-01`;
-
             const { error } = await supabase.from('banco_de_horas').insert({
                 funcionario_id: employeeId,
                 mes_referencia: mes_referencia,
                 saldo_minutos: monthlyBalance.total,
-                status: 'Fechado'
+                status: 'Fechado',
+                organizacao_id: employee.organizacao_id
             });
-
             if (error) {
-                if (error.code === '23505') {
-                    return reject(new Error('O saldo para este mês já foi fechado anteriormente.'));
-                }
-                return reject(error);
+                if (error.code === '23505') throw new Error('O saldo para este mês já foi fechado anteriormente.');
+                throw error;
             }
-            resolve('Saldo do mês arquivado com sucesso no banco de horas!');
-        });
-
-        toast.promise(promise, {
+            return 'Saldo do mês arquivado com sucesso no banco de horas!';
+        };
+        toast.promise(promise(), {
             loading: 'Fechando e arquivando saldo do mês...',
-            success: (message) => {
-                loadTimesheetData();
-                return message;
-            },
+            success: (message) => { loadTimesheetData(); return message; },
             error: (err) => `Erro ao fechar o mês: ${err.message}`,
-            finally: () => setActionLoading(false)
         });
     };
     
-    const handlePayOrDeduct = async () => {
+    const handlePayOrDeduct = () => {
         const valorFinal = kpiData.valorAPagar.replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
         const valorFinalNumerico = parseFloat(valorFinal);
     
@@ -469,61 +494,59 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             toast.error("Não foi possível calcular o valor final do pagamento.");
             return;
         }
+
+        const confirmAction = () => {
+            const promise = async () => {
+                const [year, monthNum] = month.split('-');
+                const mes_competencia = `${year}-${monthNum}-01`;
         
-        const actionText = `ajustar o pagamento para ${kpiData.valorAPagar} e fechar o saldo do banco de horas`;
-        if (!window.confirm(`Tem certeza que deseja ${actionText}? Esta ação irá atualizar o lançamento financeiro provisionado.`)) {
-            return;
-        }
+                const { data: lancamento, error: findError } = await supabase
+                    .from('lancamentos')
+                    .select('id')
+                    .eq('funcionario_id', employeeId)
+                    .eq('mes_competencia', mes_competencia)
+                    .eq('organizacao_id', employee.organizacao_id)
+                    .maybeSingle();
         
-        setActionLoading(true);
-        
-        const promise = new Promise(async (resolve, reject) => {
-            const [year, monthNum] = month.split('-');
-            const mes_competencia = `${year}-${monthNum}-01`;
-    
-            const { data: lancamento, error: findError } = await supabase
-                .from('lancamentos')
-                .select('id')
-                .eq('funcionario_id', employeeId)
-                .eq('mes_competencia', mes_competencia)
-                .maybeSingle();
-    
-            if (findError) return reject(new Error(`Erro ao buscar lançamento provisionado: ${findError.message}`));
-            if (!lancamento) return reject(new Error('Nenhum lançamento de salário provisionado foi encontrado para este mês. Verifique se o provisionamento foi executado.'));
-            
-            const { error: updateError } = await supabase
-                .from('lancamentos')
-                .update({ 
+                if (findError) throw new Error(`Erro ao buscar lançamento provisionado: ${findError.message}`);
+                if (!lancamento) throw new Error('Nenhum lançamento de salário provisionado foi encontrado para este mês.');
+                
+                const { error: updateError } = await supabase.from('lancamentos').update({ 
                     valor: valorFinalNumerico,
                     status: 'Pago',
                     data_pagamento: new Date().toISOString()
-                })
-                .eq('id', lancamento.id);
-    
-            if (updateError) return reject(new Error(`Erro ao atualizar lançamento financeiro: ${updateError.message}`));
-    
-            const { error: bancoError } = await supabase.from('banco_de_horas').insert({
-                funcionario_id: employeeId,
-                mes_referencia: mes_competencia,
-                saldo_minutos: monthlyBalance.total,
-                status: 'Pago'
+                }).eq('id', lancamento.id);
+        
+                if (updateError) throw new Error(`Erro ao atualizar lançamento financeiro: ${updateError.message}`);
+        
+                const { error: bancoError } = await supabase.from('banco_de_horas').insert({
+                    funcionario_id: employeeId,
+                    mes_referencia: mes_competencia,
+                    saldo_minutos: monthlyBalance.total,
+                    status: 'Pago',
+                    organizacao_id: employee.organizacao_id
+                });
+                
+                if (bancoError && bancoError.code !== '23505') throw new Error(`Erro ao fechar banco de horas: ${bancoError.message}`);
+        
+                return 'Lançamento financeiro atualizado e saldo do mês fechado com sucesso!';
+            };
+
+            toast.promise(promise(), {
+                loading: 'Processando fechamento do mês...',
+                success: (message) => { loadTimesheetData(); return message; },
+                error: (err) => `Erro na operação: ${err.message}`,
             });
-            
-            if (bancoError && bancoError.code !== '23505') { 
-               return reject(new Error(`Erro ao fechar banco de horas: ${bancoError.message}`));
-            }
-    
-            resolve('Lançamento financeiro atualizado e saldo do mês fechado com sucesso!');
-        });
-    
-        toast.promise(promise, {
-            loading: 'Processando fechamento do mês...',
-            success: (message) => {
-                loadTimesheetData();
-                return message;
+        };
+
+        toast.warning(`Tem certeza que deseja ajustar o pagamento para ${kpiData.valorAPagar} e fechar o mês?`, {
+            action: {
+                label: 'Confirmar',
+                onClick: confirmAction
             },
-            error: (err) => `Erro na operação: ${err.message}`,
-            finally: () => setActionLoading(false)
+            cancel: {
+                label: 'Cancelar'
+            }
         });
     };
     
@@ -533,8 +556,6 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     return (
         <div className="printable-area space-y-4">
             <style jsx global>{`@media print { @page { size: A4 portrait; margin: 0.8cm; } body * { visibility: hidden; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } .printable-area, .printable-area * { visibility: visible; } .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; } .no-print { display: none !important; } .print-header { display: block !important; } .print-header-info h3 { font-size: 1.1rem !important; } .kpi-container-on-print { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 0.5rem; font-size: 8pt; border: 1px solid #eee; padding: 4px; border-radius: 6px; } table { font-size: 7.5pt !important; width: 100%; border-collapse: collapse !important; margin-top: 0.5rem; } th, td { border: 1px solid #ccc !important; padding: 2px !important; text-align: center; } .signature-section { margin-top: 1.5cm !important; page-break-inside: avoid; } }`}</style>
-            
-            {toast.show && <Toast message={toast.message} type={toast.type} onclose={() => setToast({ ...toast, show: false })} />}
             
             {pendingDays.length > 0 && (
                 <div className="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-md no-print">
@@ -620,7 +641,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
                             return (
                                 <tr key={dateString} className={rowClass}>
-                                    <td className="border p-2 text-center">{new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</td>
+                                    <td className="border p-2 text-center">{formatSimpleDate(dateString)}</td>
                                     <td className="border p-2 text-center">{weekDays[dateInMonth.getUTCDay()]} {feriadoDoDia && '(Feriado)'}</td>
                                     {['entrada', 'inicio_intervalo', 'fim_intervalo', 'saida'].map(field => {
                                         const jornadaDoDia = employee.jornada?.detalhes.find(j => j.dia_semana === dateInMonth.getUTCDay());
@@ -662,7 +683,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                             );
                         })}
                     </tbody>
-                    <tfoot>
+                    <tfoot >
                         <tr className="bg-gray-200 font-bold">
                             <td colSpan="7" className="text-right px-4 py-2 uppercase text-sm">Total Saldo do Mês:</td>
                             <td colSpan="3" className={`text-center px-4 py-2 text-lg ${monthlyBalance.total > 0 ? 'text-green-700' : (monthlyBalance.total < 0 ? 'text-red-700' : 'text-gray-800')}`}>

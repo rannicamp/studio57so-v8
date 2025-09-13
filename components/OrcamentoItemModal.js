@@ -1,9 +1,10 @@
-"use client";
+'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'sonner';
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight || !text) return <span>{text}</span>;
@@ -22,7 +23,7 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     );
 };
 
-export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, itemToEdit }) {
+export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, itemToEdit, organizacaoId }) {
     const supabase = createClient();
     const isEditing = Boolean(itemToEdit?.id);
     const subetapaInputRef = useRef(null);
@@ -36,10 +37,8 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
     const [filteredSubetapas, setFilteredSubetapas] = useState([]);
     const [subetapaSearch, setSubetapaSearch] = useState('');
     const [isSubetapaDropdownOpen, setIsSubetapaDropdownOpen] = useState(false);
-
     const [loading, setLoading] = useState(false);
     const [loadingSubetapas, setLoadingSubetapas] = useState(false);
-    const [message, setMessage] = useState('');
     const [searchResults, setSearchResults] = useState({ descricao: [], categoria: [], unidade: [] });
     const [isSearching, setIsSearching] = useState(false);
     
@@ -48,7 +47,6 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
             const initialData = isEditing ? { ...itemToEdit, categoria: itemToEdit.categoria || 'Materiais', unidade: itemToEdit.unidade || 'unid.' } : getInitialState();
             setFormData(initialData);
             setSearchResults({ descricao: [], categoria: [], unidade: [] });
-            setMessage('');
             setSubetapaSearch('');
             setIsSubetapaDropdownOpen(false);
         }
@@ -67,6 +65,7 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
             
             if (error) {
                 console.error("Erro ao buscar subetapas:", error);
+                toast.error("Erro ao buscar subetapas.");
                 setSubetapas([]);
             } else {
                 setSubetapas(data || []);
@@ -111,15 +110,19 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
         setFormData(prev => ({ ...prev, [field]: value }));
         if (field === 'descricao' && value.length < 2) { setSearchResults(prev => ({...prev, [field]: []})); return; }
         if (field !== 'descricao' && value.length < 1) { setSearchResults(prev => ({...prev, [field]: []})); return; }
+        if (!organizacaoId) return; // Não busca se não tiver organização
 
         setIsSearching(true);
-        let data, error;
-        if (field === 'descricao') { ({ data, error } = await supabase.from('materiais').select('id, descricao, unidade_medida, preco_unitario, categoria:Grupo').ilike('descricao', `%${value}%`).limit(10)); }
-        else if (field === 'categoria') { ({ data, error } = await supabase.from('materiais').select('Grupo').ilike('Grupo', `%${value}%`).limit(5)); }
-        else if (field === 'unidade') { ({ data, error } = await supabase.from('materiais').select('unidade_medida').ilike('unidade_medida', `%${value}%`).limit(5)); }
+        let query = supabase.from('materiais').select('*').eq('organizacao_id', organizacaoId); // Por que: Filtro de organização adicionado.
+
+        if (field === 'descricao') { query = query.select('id, descricao, unidade_medida, preco_unitario, categoria:Grupo').ilike('descricao', `%${value}%`).limit(10); }
+        else if (field === 'categoria') { query = query.select('Grupo').ilike('Grupo', `%${value}%`).limit(5); }
+        else if (field === 'unidade') { query = query.select('unidade_medida').ilike('unidade_medida', `%${value}%`).limit(5); }
         else { setIsSearching(false); return; }
 
+        const { data, error } = await query;
         if (error) console.error(`Erro na busca de ${field}:`, error);
+        
         let uniqueResults = [];
         if (data) {
             if(field === 'categoria') uniqueResults = [...new Set(data.map(item => item.Grupo).filter(Boolean))];
@@ -148,31 +151,40 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
     const handleCreateSubetapa = async () => {
         if (!subetapaSearch || !formData.etapa_id) return;
         
-        setLoading(true);
-        const { data: newSubetapa, error } = await supabase
-            .from('subetapas')
-            .insert({ nome_subetapa: subetapaSearch, etapa_id: formData.etapa_id })
-            .select()
-            .single();
-        setLoading(false);
+        const promise = async () => {
+            if (!organizacaoId) throw new Error("Organização não identificada.");
+            // Por que: Adicionamos a organização ao criar a subetapa.
+            const { data: newSubetapa, error } = await supabase
+                .from('subetapas')
+                .insert({ nome_subetapa: subetapaSearch, etapa_id: formData.etapa_id, organizacao_id: organizacaoId })
+                .select()
+                .single();
+            if (error) throw error;
+            return newSubetapa;
+        };
 
-        if (error) {
-            setMessage('Erro ao criar subetapa: ' + error.message);
-        } else {
-            setSubetapas(prev => [...prev, newSubetapa]);
-            handleSelectSubetapa(newSubetapa);
-        }
+        toast.promise(promise(), {
+            loading: 'Criando subetapa...',
+            success: (newSubetapa) => {
+                setSubetapas(prev => [...prev, newSubetapa]);
+                handleSelectSubetapa(newSubetapa);
+                return 'Subetapa criada com sucesso!';
+            },
+            error: (err) => `Erro ao criar subetapa: ${err.message}`
+        });
     };
     
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.descricao) { setMessage('A descrição do item é obrigatória.'); return; }
+        if (!formData.descricao) { 
+            toast.error('A descrição do item é obrigatória.'); 
+            return; 
+        }
         setLoading(true);
         const success = await onSave(formData);
         setLoading(false);
 
         if (success) {
-            setMessage('Item salvo com sucesso!');
             if (!isEditing) {
                 setFormData(getInitialState());
                 setSubetapaSearch('');
@@ -180,8 +192,6 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
             } else {
                 onClose();
             }
-        } else {
-            setMessage('Erro ao salvar o item.');
         }
     };
 
@@ -213,8 +223,7 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
                                         <li className='p-2 text-sm text-gray-500'>Nenhuma subetapa encontrada.</li>
                                     )}
                                     {subetapaSearch && !filteredSubetapas.some(s => s.nome_subetapa.toLowerCase() === subetapaSearch.toLowerCase()) && (
-                                         // CORREÇÃO APLICADA AQUI
-                                        <li onMouseDown={handleCreateSubetapa} className="p-2 border-t bg-green-50 hover:bg-green-100 cursor-pointer flex items-center gap-2"><FontAwesomeIcon icon={faPlus} className="text-green-600" /><span className="text-green-800 font-semibold">Criar subetapa: &quot;{subetapaSearch}&quot;</span></li>
+                                      <li onMouseDown={handleCreateSubetapa} className="p-2 border-t bg-green-50 hover:bg-green-100 cursor-pointer flex items-center gap-2"><FontAwesomeIcon icon={faPlus} className="text-green-600" /><span className="text-green-800 font-semibold">Criar subetapa: &quot;{subetapaSearch}&quot;</span></li>
                                     )}
                                 </ul>
                             )}
@@ -222,7 +231,6 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="block text-sm font-medium">Quantidade</label><input type="number" name="quantidade" min="0" step="0.01" value={formData.quantidade || 1} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md" /></div><div><label className="block text-sm font-medium">Preço Unitário</label><input type="number" name="preco_unitario" min="0" step="0.01" value={formData.preco_unitario || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" /></div></div>
                     <div className="flex justify-end gap-4 pt-4"><button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button><button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">{loading ? <FontAwesomeIcon icon={faSpinner} spin /> : (isEditing ? 'Salvar Alterações' : 'Adicionar Item')}</button></div>
-                    {message && <p className="text-center text-sm mt-2 p-2 bg-blue-50 text-blue-700 rounded-md">{message}</p>}
                 </form>
             </div>
         </div>

@@ -7,6 +7,17 @@ import { IMaskInput } from 'react-imask';
 import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserCircle, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'sonner';
+
+// Por que: Adicionamos este helper para formatar datas no formato 'YYYY-MM-DD'
+// para 'DD/MM/YYYY' de forma segura, sem causar problemas com fuso horário.
+const formatSimpleDate = (dateString) => {
+    if (!dateString || !/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+        return 'N/A';
+    }
+    const [year, month, day] = dateString.split('T')[0].split('-');
+    return `${day}/${month}/${year}`;
+};
 
 // Componente para exibir um campo de informação no modo de visualização
 const InfoField = ({ label, value }) => (
@@ -33,11 +44,12 @@ const EditField = ({ label, name, value, onChange, type = "text", required = fal
 );
 
 // Componente para um campo de input com máscara (CPF, Telefone, etc.)
-const EditMaskedField = ({ label, name, value, onAccept, onBlur, mask, required = false }) => (
+const EditMaskedField = ({ label, name, value, onAccept, onBlur, mask, blocks, required = false }) => (
      <div>
         <label htmlFor={name} className="block text-sm font-medium text-gray-700">{label}</label>
         <IMaskInput
             mask={mask}
+            blocks={blocks}
             id={name}
             name={name}
             value={value || ''}
@@ -58,7 +70,6 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
   const [isEditing, setIsEditing] = useState(false);
   const [employee, setEmployee] = useState(initialEmployee);
   const [formData, setFormData] = useState(initialEmployee || {});
-  const [message, setMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(initialEmployee?.foto_url || null);
 
@@ -75,12 +86,12 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
     const cepLimpo = cep.replace(/\D/g, '');
     if (cepLimpo.length !== 8) return;
 
-    setMessage('Buscando CEP...');
-    try {
+    const promise = () => new Promise(async (resolve, reject) => {
+      try {
         const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-        if (!response.ok) throw new Error('CEP não encontrado');
+        if (!response.ok) throw new Error('CEP não encontrado na base de dados.');
         const data = await response.json();
-        if (data.erro) throw new Error('CEP não encontrado');
+        if (data.erro) throw new Error('CEP inválido ou não encontrado.');
 
         setFormData(prev => ({
             ...prev,
@@ -89,12 +100,17 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
             city: data.localidade,
             state: data.uf
         }));
-        setMessage('Endereço preenchido!');
-    } catch (error) {
-        setMessage(error.message);
-    } finally {
-        setTimeout(() => setMessage(''), 3000);
-    }
+        resolve(data);
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    toast.promise(promise, {
+        loading: 'Buscando CEP...',
+        success: 'Endereço preenchido!',
+        error: (err) => err.message,
+    });
   };
   
   const handlePhotoChange = async (event) => {
@@ -102,75 +118,69 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
     if (!file) return;
 
     setIsUploading(true);
-    setMessage('Enviando foto...');
 
-    // Cria um nome de arquivo único para evitar conflitos
-    const fileExtension = file.name.split('.').pop();
-    const newFileName = `public/${employee.id}-${Date.now()}.${fileExtension}`;
-    
-    // Deleta a foto antiga se ela existir, para não acumular lixo
-    if (formData.foto_url) {
-        const oldFilePath = formData.foto_url.split('/funcionarios-documentos/')[1];
-        if (oldFilePath) {
-            await supabase.storage.from('funcionarios-documentos').remove([oldFilePath]);
+    const promise = () => new Promise(async (resolve, reject) => {
+        const fileExtension = file.name.split('.').pop();
+        const newFileName = `public/${employee.id}-${Date.now()}.${fileExtension}`;
+        
+        if (formData.foto_url) {
+            const oldFilePath = formData.foto_url.split('/funcionarios-documentos/')[1];
+            if (oldFilePath) {
+                await supabase.storage.from('funcionarios-documentos').remove([oldFilePath]);
+            }
         }
-    }
 
-    const { data, error } = await supabase.storage
-        .from('funcionarios-documentos')
-        .upload(newFileName, file);
+        const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('funcionarios-documentos')
+            .upload(newFileName, file);
+        
+        if (uploadError) {
+            return reject(uploadError);
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('funcionarios-documentos')
+            .getPublicUrl(uploadData.path);
+
+        setFormData(prev => ({ ...prev, foto_url: publicUrl }));
+        setPhotoPreview(publicUrl);
+        resolve(publicUrl);
+    });
     
-    if (error) {
-        setMessage('Erro no upload: ' + error.message);
-        setIsUploading(false);
-        return;
-    }
-
-    // Pega a URL pública da nova imagem
-    const { data: { publicUrl } } = supabase.storage
-        .from('funcionarios-documentos')
-        .getPublicUrl(data.path);
-
-    // Atualiza os dados do formulário e a prévia da imagem
-    setFormData(prev => ({ ...prev, foto_url: publicUrl }));
-    setPhotoPreview(publicUrl);
-    
-    setMessage('Foto carregada. Clique em "Salvar Alterações" para confirmar.');
-    setIsUploading(false);
+    toast.promise(promise, {
+        loading: 'Enviando foto...',
+        success: 'Foto carregada! Salve as alterações para confirmar.',
+        error: (err) => `Erro no upload: ${err.message}`,
+        finally: () => setIsUploading(false)
+    });
   };
 
   const handleSaveChanges = async () => {
-    setMessage('Salvando...');
-    
-    const { 
-        id,
-        created_at,
-        cadastro_empresa, 
-        empreendimentos, 
-        documentos_funcionarios, 
-        ...updateData 
-    } = formData;
+    const promise = async () => {
+        const { id, created_at, cadastro_empresa, empreendimentos, documentos_funcionarios, ...updateData } = formData;
+        
+        const { data, error } = await supabase
+          .from('funcionarios')
+          .update(updateData)
+          .eq('id', employee.id)
+          .select(`*, cadastro_empresa(*), empreendimentos(*), documentos_funcionarios(*)`)
+          .single();
 
-    const { data, error } = await supabase
-      .from('funcionarios')
-      .update(updateData)
-      .eq('id', employee.id)
-      .select(`
-        *,
-        cadastro_empresa (*),
-        empreendimentos (*),
-        documentos_funcionarios (*)
-      `)
-      .single();
-    
-    if (error) {
-      setMessage(`Erro ao salvar: ${error.message}`);
-      console.error(error);
-    } else {
-      setMessage('Funcionário atualizado com sucesso!');
-      setEmployee(data); // Atualiza os dados exibidos no modo de visualização
-      setIsEditing(false); // Sai do modo de edição
-    }
+        if (error) {
+            console.error(error);
+            throw error;
+        }
+
+        setEmployee(data);
+        setIsEditing(false);
+        return data;
+    };
+
+    toast.promise(promise, {
+        loading: 'Salvando alterações...',
+        success: 'Funcionário atualizado com sucesso!',
+        error: (err) => `Erro ao salvar: ${err.message}`,
+    });
   };
 
   return (
@@ -181,7 +191,7 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
         </h2>
         <div>
             {isEditing && (
-                <button onClick={() => setIsEditing(false)} className="text-sm text-gray-600 hover:text-gray-900 mr-4 font-semibold">
+                <button onClick={() => { setIsEditing(false); setFormData(employee); }} className="text-sm text-gray-600 hover:text-gray-900 mr-4 font-semibold">
                     Cancelar
                 </button>
             )}
@@ -194,8 +204,6 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
         </div>
       </div>
       
-      {message && <p className="text-center font-medium mt-4">{message}</p>}
-
       {isEditing ? (
         // --- MODO DE EDIÇÃO ---
         <div className="space-y-10">
@@ -279,7 +287,7 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
              </fieldset>
         </div>
       ) : (
-      // --- MODO DE VISUALIZAÇÃO ---
+        // --- MODO DE VISUALIZAÇÃO ---
         <div className="space-y-8">
             <div className="flex items-center gap-4">
                 {employee.foto_url ? (
@@ -294,7 +302,8 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
                 <InfoField label="Cargo" value={employee.contract_role} />
                 <InfoField label="Empresa" value={employee.cadastro_empresa?.razao_social} />
                 <InfoField label="Empreendimento Atual" value={employee.empreendimentos?.nome} />
-                <InfoField label="Data de Admissão" value={employee.admission_date ? new Date(employee.admission_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}/>
+                {/* Por que: Aplicamos o helper para formatar a data corretamente no modo de visualização. */}
+                <InfoField label="Data de Admissão" value={formatSimpleDate(employee.admission_date)}/>
                 <InfoField label="Telefone" value={employee.phone} />
                 <InfoField label="Email" value={employee.email} />
                 <InfoField label="Status" value={employee.status} />

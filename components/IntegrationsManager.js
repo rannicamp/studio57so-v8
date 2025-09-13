@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faKey, faSave, faLink, faUnlink } from '@fortawesome/free-solid-svg-icons';
 import { faFacebook } from '@fortawesome/free-brands-svg-icons';
 import { useSession, signIn, signOut } from 'next-auth/react';
+import { toast } from 'sonner';
 
 export default function IntegrationsManager({ empresas, initialConfigs }) {
     const supabase = createClient();
@@ -13,7 +14,6 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
     const [configs, setConfigs] = useState(initialConfigs);
     const [formData, setFormData] = useState({});
     const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState('');
 
     // Hook do NextAuth para verificar a sessão do Facebook/Meta
     const { data: session, status } = useSession(); // 'status' pode ser 'loading', 'authenticated', ou 'unauthenticated'
@@ -47,35 +47,47 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
     const handleSave = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setMessage('Salvando...');
-        
-        const dataToSave = { ...formData, empresa_id: selectedEmpresaId };
-        delete dataToSave.id;
 
-        const { error } = await supabase
-            .from('configuracoes_whatsapp')
-            .upsert(dataToSave, { onConflict: 'empresa_id' }); 
+        const promise = async () => {
+            const dataToSave = { ...formData, empresa_id: selectedEmpresaId };
+            delete dataToSave.id;
 
-        if (error) {
-            console.error('Erro ao salvar:', error);
-            setMessage(`Erro ao salvar: ${error.message}`);
-        } else {
-            setMessage('Configurações salvas com sucesso!');
-            const newConfigs = configs.filter(c => c.empresa_id != dataToSave.empresa_id);
-            setConfigs([...newConfigs, dataToSave]);
-        }
-        setLoading(false);
+            const { data, error } = await supabase
+                .from('configuracoes_whatsapp')
+                .upsert(dataToSave, { onConflict: 'empresa_id' })
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Erro ao salvar:', error);
+                throw error;
+            }
+            return data;
+        };
+
+        toast.promise(promise(), {
+            loading: 'Salvando configurações...',
+            success: (savedData) => {
+                const newConfigs = configs.filter(c => c.empresa_id != savedData.empresa_id);
+                setConfigs([...newConfigs, savedData]);
+                setLoading(false);
+                return 'Configurações salvas com sucesso!';
+            },
+            error: (err) => {
+                setLoading(false);
+                return `Erro ao salvar: ${err.message}`;
+            },
+        });
     };
 
     return (
         <div className="space-y-6">
-            {/* Seção do WhatsApp (sem alterações) */}
+            {/* Seção do WhatsApp */}
             <div className="space-y-6">
                 <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
                     <FontAwesomeIcon icon={faKey} />
                     Configuração da API do WhatsApp
                 </h2>
-                {message && <p className="text-center text-sm p-2 bg-blue-50 text-blue-800 rounded-md">{message}</p>}
                 <form onSubmit={handleSave} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700">1. Selecione a Empresa</label>
@@ -112,7 +124,7 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
                 </form>
             </div>
 
-            {/* --- SEÇÃO DA META/FACEBOOK ATUALIZADA --- */}
+            {/* --- SEÇÃO DA META/FACEBOOK --- */}
             <div className="border-t pt-6 mt-6">
                 <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
                     <FontAwesomeIcon icon={faFacebook} className="text-blue-600" />
@@ -121,9 +133,6 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
                 <p className="text-sm text-gray-600 mt-2 mb-4">
                     Conecte sua conta da Meta para que o sistema capture automaticamente os leads gerados pelos seus anúncios de formulário.
                 </p>
-
-                {/* --- CORREÇÃO APLICADA AQUI --- */}
-                {/* Agora o componente lida com os 3 estados possíveis: carregando, autenticado e não autenticado */}
                 
                 {status === 'loading' && (
                     <div className="text-center p-4">
@@ -157,7 +166,6 @@ export default function IntegrationsManager({ empresas, initialConfigs }) {
                         </button>
                     </div>
                 )}
-                {/* --- FIM DA CORREÇÃO --- */}
             </div>
         </div>
     );

@@ -1,3 +1,5 @@
+//components\KpiCard.js
+
 "use client";
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';

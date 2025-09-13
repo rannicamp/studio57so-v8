@@ -9,7 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserCircle, faSpinner, faClock, faDollarSign } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
-// NOVO: Componente para o modal de alteração de salário
+// Componente para o modal de alteração de salário
 const HistoricoSalarialModal = ({ isOpen, onClose, onSave, funcionarioId }) => {
     const supabase = createClient();
     const { user } = useAuth();
@@ -82,7 +82,7 @@ const HistoricoSalarialModal = ({ isOpen, onClose, onSave, funcionarioId }) => {
 export default function FuncionarioForm({ companies, empreendimentos, initialData, jornadas }) {
     const supabase = createClient();
     const router = useRouter();
-    const { canViewSalaries } = useAuth();
+    const { canViewSalaries, userData } = useAuth(); // Pegamos o userData do contexto de autenticação
     const isEditing = Boolean(initialData);
 
     const getInitialState = () => ({
@@ -103,20 +103,15 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     const [salarioAtual, setSalarioAtual] = useState({ salario_base: null, valor_diaria: null });
 
     useEffect(() => {
-        const getSignedUrlForPhoto = async () => {
-            if (initialData?.foto_url) {
-                if (initialData.foto_url.startsWith('blob:') || initialData.foto_url.includes('supabase.co')) {
-                    setPhotoPreview(initialData.foto_url);
-                } else {
-                    const bucket = initialData.foto_url.includes('documentos/') ? 'funcionarios-documentos' : 'avatars';
-                    const { data } = await supabase.storage.from(bucket).createSignedUrl(initialData.foto_url, 3600);
-                    setPhotoPreview(data?.signedUrl);
-                }
-            }
-        };
-        
-        const fetchSalarioAtual = async () => {
+        const fetchRelatedData = async () => {
             if (initialData?.id) {
+                // Fetch Photo URL
+                if (initialData.foto_url) {
+                    const { data } = await supabase.storage.from('funcionarios-documentos').getPublicUrl(initialData.foto_url);
+                    setPhotoPreview(data?.publicUrl);
+                }
+                
+                // Fetch Current Salary
                 const { data, error } = await supabase
                     .from('historico_salarial')
                     .select('salario_base, valor_diaria')
@@ -132,9 +127,8 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
         };
 
         if (isEditing) {
-            getSignedUrlForPhoto();
             setFormData(initialData);
-            fetchSalarioAtual();
+            fetchRelatedData();
         }
     }, [initialData, supabase, isEditing]);
 
@@ -158,7 +152,14 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     };
     
     const handleSaveHistoricoSalarial = async (novoHistorico) => {
-        const { error } = await supabase.from('historico_salarial').insert(novoHistorico);
+        // Por que: Adicionamos o organizacao_id para garantir que o histórico salarial
+        // seja salvo na organização correta do funcionário.
+        const dataToSave = {
+            ...novoHistorico,
+            organizacao_id: formData.organizacao_id
+        };
+
+        const { error } = await supabase.from('historico_salarial').insert(dataToSave);
 
         if (error) {
             toast.error(`Erro ao registrar alteração: ${error.message}`);
@@ -176,6 +177,13 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
         setIsUploading(true);
     
         const promise = new Promise(async (resolve, reject) => {
+            // Por que: Pegamos o ID da organização do usuário logado. É crucial para criar
+            // novos registros na organização correta.
+            const orgId = userData?.organizacao_id;
+            if (!orgId) {
+                return reject(new Error("Não foi possível identificar a organização do usuário."));
+            }
+
             let finalFotoPath = formData.foto_url;
             let finalContatoId = formData.contato_id;
     
@@ -185,8 +193,10 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
                     cpf: formData.cpf,
                     personalidade_juridica: 'Pessoa Física',
                     tipo_contato: 'Fornecedor',
+                    // Por que: Associamos o novo contato à organização do usuário.
+                    organizacao_id: orgId
                 };
-                const { data: existingContact } = await supabase.from('contatos').select('id').eq('cpf', formData.cpf).single();
+                const { data: existingContact } = await supabase.from('contatos').select('id').eq('cpf', formData.cpf).eq('organizacao_id', orgId).single();
     
                 if (existingContact) {
                     finalContatoId = existingContact.id;
@@ -202,7 +212,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
             if (newPhotoFile) {
                 const fileExtension = newPhotoFile.name.split('.').pop();
                 const employeeIdForPath = formData.id || 'novo_funcionario';
-                const filePath = `documentos/${employeeIdForPath}/foto_perfil_${Date.now()}.${fileExtension}`;
+                const filePath = `${orgId}/documentos/${employeeIdForPath}/foto_perfil_${Date.now()}.${fileExtension}`;
                 const { data: uploadData, error: uploadError } = await supabase.storage.from('funcionarios-documentos').upload(filePath, newPhotoFile, { upsert: true });
                 if (uploadError) return reject(new Error(`Erro no upload da foto: ${uploadError.message}`));
                 finalFotoPath = uploadData.path;
@@ -216,7 +226,9 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
             const { id, created_at, cadastro_empresa, empreendimentos, documentos_funcionarios, ...dbData } = {
                 ...dataToSave,
                 foto_url: finalFotoPath,
-                contato_id: finalContatoId
+                contato_id: finalContatoId,
+                // Por que: Garantimos que o funcionário seja criado ou atualizado com o ID da organização.
+                organizacao_id: isEditing ? formData.organizacao_id : orgId
             };
     
             if (isEditing) {
@@ -266,7 +278,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     };
 
     const formatCurrency = (value) => value ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value) : 'Não definido';
-  
+ 
     return (
       <div className="bg-white rounded-lg shadow p-6">
         <HistoricoSalarialModal 
@@ -277,7 +289,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
         />
 
         <h1 className="text-3xl font-bold mb-6 text-gray-900">{isEditing ? `Editando Funcionário: ${initialData?.full_name || ''}` : 'Cadastro de Novo Funcionário'}</h1>
-  
+ 
         <form onSubmit={handleSubmit} className="space-y-8">
             <fieldset className="border-t border-gray-900/10 pt-8">
                 <h2 className="text-xl font-semibold text-gray-800">Foto de Perfil</h2>
@@ -341,7 +353,6 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
                 </div>
             </fieldset>
 
-            {/* ***** INÍCIO DA SEÇÃO CORRIGIDA ***** */}
             <fieldset className="border-t border-gray-900/10 pt-8">
                 <h2 className="text-xl font-semibold text-gray-800">Dados Contratuais e Jornada</h2>
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -384,8 +395,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
                     </div>
                 </div>
             </fieldset>
-            {/* ***** FIM DA SEÇÃO CORRIGIDA ***** */}
-
+            
             {canViewSalaries && (
               <fieldset className="border-t border-gray-900/10 pt-8">
                 <div className="flex justify-between items-center">
@@ -452,7 +462,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
                   {isUploading ? <><FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> Salvando...</> : (isEditing ? 'Salvar Alterações' : 'Salvar Funcionário')}
                 </button>
             </div>
-      </form>
-    </div>
+        </form>
+      </div>
     );
 }
