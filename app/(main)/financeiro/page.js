@@ -1,8 +1,6 @@
-// app/(main)/financeiro/page.js
-
 "use client";
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useLayout } from '../../../contexts/LayoutContext';
 import { createClient } from '../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -10,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faCogs, faShieldAlt, faCalculator, faSpinner, faLock, faBalanceScale, faSitemap, faHandshake, faLandmark, faBuilding, faFileInvoice } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faCogs, faShieldAlt, faSpinner, faLock, faBalanceScale, faSitemap, faHandshake, faLandmark, faBuilding, faFileInvoice } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
 import LancamentosManager from '../../../components/financeiro/LancamentosManager';
@@ -18,23 +16,27 @@ import ContasManager from '../../../components/financeiro/ContasManager';
 import AtivosManager from '../../../components/financeiro/AtivosManager';
 import LancamentoFormModal from '../../../components/financeiro/LancamentoFormModal';
 import ExtratoManager from '../../../components/financeiro/ExtratoManager';
-// NOVO: Importamos o novo sidebar de detalhes que criamos
 import LancamentoDetalhesSidebar from '../../../components/financeiro/LancamentoDetalhesSidebar';
 
-// =================================
-// FUNÇÕES DE BUSCA DE DADOS (API)
-// =================================
+// ==========================================================
+// FUNÇÕES DE BUSCA DE DADOS (API) - AGORA SEGURAS
+// O PORQUÊ: Todas as funções agora recebem 'organizacao_id'
+// e a utilizam para filtrar os resultados, garantindo que
+// um usuário só veja os dados da sua própria organização.
+// ==========================================================
 
 const supabase = createClient();
 
-async function fetchInitialData() {
+async function fetchInitialData(organizacao_id) {
+    if (!organizacao_id) return { empresas: [], contas: [], categorias: [], empreendimentos: [], allContacts: [], funcionarios: [] };
+
     const [empresasRes, contasRes, categoriasRes, empreendimentosRes, contatosRes, funcionariosRes] = await Promise.all([
-        supabase.from('cadastro_empresa').select('*').order('nome_fantasia'),
-        supabase.from('contas_financeiras').select('*, empresa:cadastro_empresa!empresa_id(id, nome_fantasia, razao_social), conta_debito_fatura:contas_financeiras!conta_debito_fatura_id(id, nome)').order('nome'),
-        supabase.from('categorias_financeiras').select('*').order('nome'),
-        supabase.from('empreendimentos').select('*, empresa:cadastro_empresa!empresa_proprietaria_id(nome_fantasia, razao_social)').order('nome'),
-        supabase.from('contatos').select('id, nome, razao_social').order('nome'),
-        supabase.from('funcionarios').select('id, full_name').order('full_name')
+        supabase.from('cadastro_empresa').select('*').eq('organizacao_id', organizacao_id).order('nome_fantasia'),
+        supabase.from('contas_financeiras').select('*, empresa:cadastro_empresa!empresa_id(id, nome_fantasia, razao_social), conta_debito_fatura:contas_financeiras!conta_debito_fatura_id(id, nome)').eq('organizacao_id', organizacao_id).order('nome'),
+        supabase.from('categorias_financeiras').select('*').eq('organizacao_id', organizacao_id).order('nome'),
+        supabase.from('empreendimentos').select('*, empresa:cadastro_empresa!empresa_proprietaria_id(nome_fantasia, razao_social)').eq('organizacao_id', organizacao_id).order('nome'),
+        supabase.from('contatos').select('id, nome, razao_social').eq('organizacao_id', organizacao_id).order('nome'),
+        supabase.from('funcionarios').select('id, full_name').eq('organizacao_id', organizacao_id).order('full_name')
     ]);
 
     return {
@@ -48,6 +50,7 @@ async function fetchInitialData() {
 }
 
 const applyFiltersToQuery = (query, currentFilters) => {
+    // Esta função auxiliar não precisa de organizacao_id pois o filtro principal já foi aplicado antes.
     if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
     
     if (currentFilters.startDate || currentFilters.endDate) {
@@ -60,7 +63,7 @@ const applyFiltersToQuery = (query, currentFilters) => {
     }
 
     if (currentFilters.empresaIds?.length > 0) query = query.in('empresa_id', currentFilters.empresaIds);
-    if (currentFilters.contaIds?.length > 0) { query = query.in('conta_id', currentFilters.contaIds); }
+    if (currentFilters.contaIds?.length > 0) query = query.in('conta_id', currentFilters.contaIds);
     if (currentFilters.categoriaIds?.length > 0) query = query.in('categoria_id', currentFilters.categoriaIds);
     if (currentFilters.empreendimentoIds?.length > 0) query = query.in('empreendimento_id', currentFilters.empreendimentoIds);
     if (currentFilters.etapaIds?.length > 0) query = query.in('etapa_id', currentFilters.etapaIds);
@@ -69,33 +72,32 @@ const applyFiltersToQuery = (query, currentFilters) => {
     if (currentFilters.status?.length > 0) {
         const today = new Date().toISOString().split('T')[0];
         const orConditions = [];
-        const hasPago = currentFilters.status.includes('Pago');
-        const hasPendente = currentFilters.status.includes('Pendente');
-        const hasAtrasada = currentFilters.status.includes('Atrasada');
-        const hasAReceber = currentFilters.status.includes('A Receber');
-        const otherStatus = currentFilters.status.filter(s => !['Pago', 'Pendente', 'Atrasada', 'A Receber'].includes(s));
-        if(otherStatus.length > 0) { orConditions.push(`status.in.(${otherStatus.join(',')})`); }
-        if(hasPago) orConditions.push(`status.eq.Pago`);
-        if (hasPendente) { orConditions.push(`and(status.eq.Pendente,tipo.eq.Despesa,data_vencimento.gte.${today})`); }
-        if (hasAtrasada) { orConditions.push(`and(status.eq.Pendente,data_vencimento.lt.${today})`); }
-        if (hasAReceber) { orConditions.push(`and(tipo.eq.Receita,status.eq.Pendente,data_vencimento.gte.${today})`); }
-        if (orConditions.length > 0) { query = query.or(orConditions.join(',')); }
+        currentFilters.status.forEach(status => {
+            if (status === 'Pago') orConditions.push('status.eq.Pago');
+            if (status === 'Pendente') orConditions.push(`and(status.eq.Pendente,tipo.eq.Despesa,data_vencimento.gte.${today})`);
+            if (status === 'Atrasada') orConditions.push(`and(status.eq.Pendente,data_vencimento.lt.${today})`);
+            if (status === 'A Receber') orConditions.push(`and(tipo.eq.Receita,status.eq.Pendente,data_vencimento.gte.${today})`);
+        });
+        if (orConditions.length > 0) query = query.or(orConditions.join(','));
     }
 
-    if (currentFilters.tipo?.length > 0) { query = query.in('tipo', currentFilters.tipo); }
+    if (currentFilters.tipo?.length > 0) query = query.in('tipo', currentFilters.tipo);
     return query;
 };
 
 async function fetchLancamentos({ queryKey }) {
-    const [_key, { filters, currentPage, itemsPerPage, sortConfig }] = queryKey;
+    const [_key, { filters, currentPage, itemsPerPage, sortConfig, organizacao_id }] = queryKey;
+    if (!organizacao_id) return { data: [], count: 0 };
     
     const from = (currentPage - 1) * itemsPerPage;
     const to = from + itemsPerPage - 1;
 
     const selectString = `*, data_pagamento, conta:contas_financeiras!conta_id(*, empresa:cadastro_empresa!empresa_id(id, nome_fantasia, razao_social)), categoria:categorias_financeiras(*), favorecido:contatos!favorecido_contato_id(*), empreendimento:empreendimentos(*, empresa:cadastro_empresa!empresa_proprietaria_id(id, nome_fantasia, razao_social)), anexos:lancamentos_anexos(*)`;
     
-    let query = supabase.from('lancamentos').select(selectString, { count: 'exact' }).order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' }).range(from, to);
-    query = applyFiltersToQuery(query, filters);
+    // BLINDADO: Filtro de segurança aplicado ANTES dos filtros do usuário.
+    let query = supabase.from('lancamentos').select(selectString, { count: 'exact' }).eq('organizacao_id', organizacao_id);
+    query = applyFiltersToQuery(query, filters); // Aplica filtros adicionais
+    query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' }).range(from, to);
     
     const { data, error, count } = await query;
     if (error) throw new Error(error.message);
@@ -104,24 +106,27 @@ async function fetchLancamentos({ queryKey }) {
 }
 
 async function fetchLancamentosKpi({ queryKey }) {
-    const [_key, { filters }] = queryKey;
-    let query = supabase.from('lancamentos').select('valor, tipo');
+    const [_key, { filters, organizacao_id }] = queryKey;
+    if (!organizacao_id) return [];
+
+    // BLINDADO: Filtro de segurança aplicado ANTES dos filtros do usuário.
+    let query = supabase.from('lancamentos').select('valor, tipo').eq('organizacao_id', organizacao_id);
     query = applyFiltersToQuery(query, filters);
+
     const { data, error } = await query;
     if (error) throw new Error(error.message);
     return data || [];
 }
 
 async function fetchTodosLancamentosParaSaldos({ queryKey }) {
-    const [_key, contas] = queryKey;
-    if (!contas || contas.length === 0) return [];
+    const [_key, { organizacao_id }] = queryKey;
+    if (!organizacao_id) return [];
     
-    const empresaIds = [...new Set(contas.map(c => c.empresa_id).filter(Boolean))];
-    let query = supabase.from('lancamentos').select('valor, tipo, status, conciliado, conta_id').or('status.eq.Pago,conciliado.eq.true');
-          
-    if (empresaIds.length > 0) {
-        query = query.in('empresa_id', empresaIds);
-    }
+    // BLINDADO: Filtro de segurança aplicado.
+    let query = supabase.from('lancamentos')
+        .select('valor, tipo, status, conciliado, conta_id')
+        .eq('organizacao_id', organizacao_id)
+        .or('status.eq.Pago,conciliado.eq.true');
 
     const { data, error } = await query;
     if (error) throw new Error(error.message);
@@ -136,106 +141,59 @@ export default function FinanceiroPage() {
     const { setPageTitle } = useLayout();
     const router = useRouter();
     const queryClient = useQueryClient();
-    const { hasPermission, loading: authLoading } = useAuth();
+    const { hasPermission, loading: authLoading, organizacao_id } = useAuth(); // Pegamos o organizacao_id aqui
     
     const canViewPage = hasPermission('financeiro', 'pode_ver');
     const canCreate = hasPermission('financeiro', 'pode_criar');
 
-    const [activeTab, setActiveTab] = useState('contas');
+    const [activeTab, setActiveTab] = useState('lancamentos');
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingLancamento, setEditingLancamento] = useState(null);
-    
-    // NOVO: Estados para controlar o sidebar de detalhes
     const [isDetailsSidebarOpen, setIsDetailsSidebarOpen] = useState(false);
     const [selectedLancamento, setSelectedLancamento] = useState(null);
     
-    const [currentPage, setCurrentPage] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const savedState = sessionStorage.getItem('lancamentosState');
-            return savedState ? JSON.parse(savedState).currentPage : 1;
-        }
-        return 1;
-    });
-
-    const [itemsPerPage, setItemsPerPage] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const savedState = sessionStorage.getItem('lancamentosState');
-            return savedState ? JSON.parse(savedState).itemsPerPage : 150;
-        }
-        return 150;
-    });
-
-    const [sortConfig, setSortConfig] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const savedState = sessionStorage.getItem('lancamentosState');
-            return savedState ? JSON.parse(savedState).sortConfig : { key: 'data_vencimento', direction: 'descending' };
-        }
-        return { key: 'data_vencimento', direction: 'descending' };
-    });
-    
-    const [filters, setFilters] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const savedState = sessionStorage.getItem('lancamentosState');
-            if (savedState) {
-                return JSON.parse(savedState).filters;
-            }
-        }
-        return { 
-            searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [], 
-            etapaIds: [], status: [], tipo: [], startDate: '', 
-            endDate: new Date().toISOString().split('T')[0],
-            month: '', year: '', favorecidoId: null 
-        };
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(150);
+    const [sortConfig, setSortConfig] = useState({ key: 'data_vencimento', direction: 'descending' });
+    const [filters, setFilters] = useState({ 
+        searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [], 
+        etapaIds: [], status: [], tipo: [], startDate: '', 
+        endDate: new Date().toISOString().split('T')[0],
+        month: '', year: '', favorecidoId: null 
     });
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const stateToSave = {
-                filters,
-                currentPage,
-                itemsPerPage,
-                sortConfig
-            };
-            sessionStorage.setItem('lancamentosState', JSON.stringify(stateToSave));
-        }
-    }, [filters, currentPage, itemsPerPage, sortConfig]);
-
-    useEffect(() => {
-      if (!authLoading && canViewPage) {
-        setPageTitle('GESTÃO FINANCEIRA');
-      }
-    }, [authLoading, canViewPage, setPageTitle]);
-    
-    useEffect(() => { 
-        if (!authLoading && !canViewPage) { 
+        if (!authLoading && canViewPage) {
+            setPageTitle('GESTÃO FINANCEIRA');
+        } else if (!authLoading && !canViewPage) {
             router.push('/'); 
-        } 
-    }, [authLoading, canViewPage, router]);
+        }
+    }, [authLoading, canViewPage, setPageTitle, router]);
 
     const { data: initialData, isLoading: isLoadingInitialData } = useQuery({
-        queryKey: ['initialFinanceData'],
-        queryFn: fetchInitialData,
-        enabled: canViewPage,
+        queryKey: ['initialFinanceData', organizacao_id],
+        queryFn: () => fetchInitialData(organizacao_id),
+        enabled: canViewPage && !!organizacao_id,
     });
     const { empresas = [], contas = [], categorias = [], empreendimentos = [], allContacts = [], funcionarios = [] } = initialData || {};
 
     const { data: lancamentosData, isLoading: isLoadingLancamentos } = useQuery({
-        queryKey: ['lancamentos', { filters, currentPage, itemsPerPage, sortConfig }],
+        queryKey: ['lancamentos', { filters, currentPage, itemsPerPage, sortConfig, organizacao_id }],
         queryFn: fetchLancamentos,
-        enabled: canViewPage && activeTab === 'lancamentos',
+        enabled: canViewPage && activeTab === 'lancamentos' && !!organizacao_id,
     });
     const { data: lancamentos = [], count: totalCount = 0 } = lancamentosData || {};
     
     const { data: lancamentosFiltradosKpi = [] } = useQuery({
-        queryKey: ['lancamentosKpi', { filters }],
+        queryKey: ['lancamentosKpi', { filters, organizacao_id }],
         queryFn: fetchLancamentosKpi,
-        enabled: canViewPage && activeTab === 'lancamentos',
+        enabled: canViewPage && activeTab === 'lancamentos' && !!organizacao_id,
     });
 
     const { data: todosLancamentosParaSaldos = [] } = useQuery({
-        queryKey: ['saldosData', contas],
+        queryKey: ['saldosData', { organizacao_id }],
         queryFn: fetchTodosLancamentosParaSaldos,
-        enabled: canViewPage && !!contas && contas.length > 0,
+        enabled: canViewPage && !!organizacao_id && (activeTab === 'contas' || activeTab === 'extrato'),
     });
 
     const deleteLancamentoMutation = useMutation({
@@ -244,20 +202,26 @@ export default function FinanceiroPage() {
             if (error) throw new Error(error.message);
         },
         onSuccess: () => {
-            toast.success('Lançamento excluído com sucesso!');
             queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
             queryClient.invalidateQueries({ queryKey: ['lancamentosKpi'] });
             queryClient.invalidateQueries({ queryKey: ['saldosData'] });
         },
-        onError: (error) => {
-            toast.error(`Erro ao excluir lançamento: ${error.message}`);
-        }
     });
 
     const handleDeleteLancamento = (id) => {
-        if (window.confirm("Tem certeza que deseja excluir este lançamento?")) {
-            deleteLancamentoMutation.mutate(id);
-        }
+        toast("Confirmar exclusão", {
+            description: "Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita.",
+            action: {
+                label: "Excluir",
+                onClick: () => toast.promise(deleteLancamentoMutation.mutateAsync(id), {
+                    loading: 'Excluindo...',
+                    success: 'Lançamento excluído!',
+                    error: (err) => `Erro: ${err.message}`,
+                })
+            },
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' }
+        });
     };
 
     const handleSuccessForm = () => {
@@ -270,14 +234,13 @@ export default function FinanceiroPage() {
     const handleOpenAddModal = () => { setEditingLancamento(null); setIsFormModalOpen(true); };
     const handleOpenEditModal = (lancamento) => { setEditingLancamento(lancamento); setIsFormModalOpen(true); };
     
-    // NOVO: Funções para controlar o sidebar de detalhes
     const handleViewLancamentoDetails = (lancamento) => {
         setSelectedLancamento(lancamento);
         setIsDetailsSidebarOpen(true);
     };
     const handleCloseDetailsSidebar = () => {
         setIsDetailsSidebarOpen(false);
-        setTimeout(() => setSelectedLancamento(null), 300); // Atraso para a animação de saída
+        setTimeout(() => setSelectedLancamento(null), 300);
     };
 
     const TabButton = ({ tabName, label, icon }) => ( 
@@ -297,13 +260,7 @@ export default function FinanceiroPage() {
     return (
         <div className="space-y-6">
             <LancamentoFormModal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} onSuccess={handleSuccessForm} initialData={editingLancamento} empresas={empresas} />
-            
-            {/* NOVO: Renderiza o sidebar de detalhes aqui. Ele fica invisível até ser ativado. */}
-            <LancamentoDetalhesSidebar 
-                open={isDetailsSidebarOpen}
-                onClose={handleCloseDetailsSidebar}
-                lancamento={selectedLancamento}
-            />
+            <LancamentoDetalhesSidebar open={isDetailsSidebarOpen} onClose={handleCloseDetailsSidebar} lancamento={selectedLancamento} />
             
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900 uppercase">Painel Financeiro</h1>
@@ -311,7 +268,6 @@ export default function FinanceiroPage() {
                     <Link href="/financeiro/categorias" className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faSitemap} /> Categorias</Link>
                     <Link href="/financeiro/conciliacao" className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faHandshake} /> Conciliação</Link>
                     <Link href="/financeiro/auditoria" title="Painel de Auditoria" className="text-gray-400 hover:text-orange-500"><FontAwesomeIcon icon={faShieldAlt} /></Link> 
-                    <Link href="/financeiro/kpi-builder" className="bg-cyan-500 text-white px-4 py-2 rounded-md hover:bg-cyan-600 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faCalculator} /> KPIs</Link> 
                     <Link href="/configuracoes/financeiro/importar" className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faCogs} /> Assistente</Link> 
                     {canCreate && (<button onClick={handleOpenAddModal} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 uppercase text-xs"><FontAwesomeIcon icon={faPlus} /> Novo Lançamento</button>)}
                 </div>
@@ -319,8 +275,8 @@ export default function FinanceiroPage() {
             
             <div className="border-b border-gray-200 bg-white shadow-sm rounded-t-lg">
                 <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">
-                    <TabButton tabName="extrato" label="Extrato" icon={faFileInvoice} />
                     <TabButton tabName="lancamentos" label="Lançamentos" icon={faBalanceScale} />
+                    <TabButton tabName="extrato" label="Extrato" icon={faFileInvoice} />
                     <TabButton tabName="contas" label="Contas" icon={faBuilding} />
                     <TabButton tabName="ativos" label="Ativos" icon={faLandmark} />
                 </nav>
@@ -351,12 +307,11 @@ export default function FinanceiroPage() {
                         totalCount={totalCount}
                         onEdit={handleOpenEditModal}
                         onDelete={handleDeleteLancamento}
-                        onUpdate={() => queryClient.invalidateQueries({ queryKey: ['lancamentos'] })}
-                        // NOVO: Passamos a função para o LancamentosManager para ser acionada no clique da linha
+                        onUpdate={handleSuccessForm}
                         onRowClick={handleViewLancamentoDetails}
                     />
                 )}
-                {activeTab === 'contas' && <ContasManager initialContas={contas} allLancamentos={todosLancamentosParaSaldos} onUpdate={() => queryClient.invalidateQueries({ queryKey: ['initialFinanceData'] })} empresas={empresas} />}
+                {activeTab === 'contas' && <ContasManager initialContas={contas} allLancamentos={todosLancamentosParaSaldos} onUpdate={handleSuccessForm} empresas={empresas} />}
                 {activeTab === 'ativos' && <AtivosManager />}
             </div>
         </div>

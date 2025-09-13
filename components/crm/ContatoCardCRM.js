@@ -1,4 +1,3 @@
-// components/crm/ContatoCardCRM.js
 "use client";
 
 import { format } from 'date-fns';
@@ -6,9 +5,9 @@ import { ptBR } from 'date-fns/locale';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEllipsisV, faStickyNote, faBullhorn, faHome, faTasks, faPhone, faUserTie, faSpinner, faTimes, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
-import { createClient } from '@/utils/supabase/client';
-import { useAuth } from '@/utils/supabase/auth'; // 1. Importar o useAuth
-import { useQuery } from '@tanstack/react-query'; // 2. Importar o useQuery
+import { createClient } from '../../utils/supabase/client'; // Corrigido o caminho
+import { useAuth } from '../../contexts/AuthContext'; // CORREÇÃO APLICADA AQUI: Caminho correto para o hook de autenticação
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 const useDebounce = (value, delay) => {
@@ -39,8 +38,7 @@ export default function ContatoCardCRM({
     onDeleteCard
 }) {
     const supabase = createClient();
-    const { user } = useAuth(); // 3. Obter o usuário para o organizacaoId
-    const organizacaoId = user?.organizacao_id;
+    const { user, organizacao_id } = useAuth(); // Obtemos o usuário e a organizacao_id diretamente do hook
 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -53,18 +51,12 @@ export default function ContatoCardCRM({
     const [isAddingProduct, setIsAddingProduct] = useState(false);
     const [selectedProductId, setSelectedProductId] = useState('');
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE PADRÃO E SEGURANÇA (useEffect -> useQuery)
-    // O PORQUÊ: Substituímos a busca manual por `useQuery`. Ele gerencia os estados
-    // de loading e error automaticamente. A busca agora também envia o `organizacaoId`,
-    // garantindo que apenas corretores da organização correta sejam retornados.
-    // =================================================================================
     const { data: searchResults = [], isLoading: isSearching } = useQuery({
-        queryKey: ['searchCorretores', debouncedSearchTerm, organizacaoId],
+        queryKey: ['searchCorretores', debouncedSearchTerm, organizacao_id],
         queryFn: async () => {
             const { data, error } = await supabase.rpc('buscar_contatos_geral', { 
                 p_search_term: debouncedSearchTerm,
-                p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+                p_organizacao_id: organizacao_id // <-- "Chave mestra" de segurança
             });
             if (error) {
                 console.error("Erro ao buscar corretores:", error);
@@ -73,7 +65,7 @@ export default function ContatoCardCRM({
             }
             return data || [];
         },
-        enabled: !!debouncedSearchTerm && !!organizacaoId, // A busca só é ativada se houver termo e organização
+        enabled: !!debouncedSearchTerm && !!organizacao_id,
     });
     
     useEffect(() => {
@@ -113,10 +105,6 @@ export default function ContatoCardCRM({
 
     const handleDeleteCardClick = (e) => {
         e.stopPropagation();
-        // =================================================================================
-        // ATUALIZAÇÃO DE UX (troca de window.confirm por toast)
-        // O PORQUÊ: Uma confirmação mais elegante e integrada à interface.
-        // =================================================================================
         toast("Confirmar Exclusão do Card", {
             description: `Tem certeza que deseja excluir o card #${cardNumber} (${displayName}) do funil? O contato não será apagado.`,
             action: {
