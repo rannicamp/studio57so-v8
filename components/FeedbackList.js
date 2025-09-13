@@ -1,14 +1,18 @@
+// components/FeedbackList.js
+
 "use client";
 
-import { useState } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'sonner';
 
-export default function FeedbackList({ initialFeedbacks }) {
+export default function FeedbackList() {
     const supabase = createClient();
-    const [feedbacks, setFeedbacks] = useState(initialFeedbacks);
-    const [loadingId, setLoadingId] = useState(null);
+    const queryClient = useQueryClient();
+    const { userData } = useAuth();
 
     const statusOptions = ['Aberto', 'Em Análise', 'Resolvido', 'Ignorado'];
     const statusColors = {
@@ -18,21 +22,39 @@ export default function FeedbackList({ initialFeedbacks }) {
         'Ignorado': 'bg-gray-100 text-gray-800'
     };
 
-    const handleStatusChange = async (id, newStatus) => {
-        setLoadingId(id);
-        const { data, error } = await supabase
-            .from('feedback')
-            .update({ status: newStatus })
-            .eq('id', id)
-            .select()
-            .single();
+    const { data: feedbacks = [], isLoading, isError } = useQuery({
+        queryKey: ['feedbacks', userData?.organizacao_id],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('feedback')
+                .select('*, usuario:usuarios(nome)')
+                .eq('organizacao_id', userData.organizacao_id)
+                .order('created_at', { ascending: false });
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        enabled: !!userData?.organizacao_id,
+    });
 
-        if (error) {
-            alert('Erro ao atualizar o status: ' + error.message);
-        } else {
-            setFeedbacks(prev => prev.map(f => (f.id === id ? { ...f, status: newStatus } : f)));
+    const { mutate: updateStatus, isPending: isUpdating, variables: updateVariables } = useMutation({
+        mutationFn: async ({ id, newStatus }) => {
+            const { error } = await supabase
+                .from('feedback')
+                .update({ status: newStatus })
+                .eq('id', id);
+            if (error) throw new Error(error.message);
+        },
+        onSuccess: () => {
+            toast.success('Status atualizado!');
+            queryClient.invalidateQueries({ queryKey: ['feedbacks'] });
+        },
+        onError: (error) => {
+            toast.error(`Erro: ${error.message}`);
         }
-        setLoadingId(null);
+    });
+
+    const handleStatusChange = (id, newStatus) => {
+        updateStatus({ id, newStatus });
     };
 
     const formatDate = (dateString) => {
@@ -41,6 +63,24 @@ export default function FeedbackList({ initialFeedbacks }) {
             hour: '2-digit', minute: '2-digit'
         });
     };
+
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center p-8">
+                <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-500" />
+                <span className="ml-4 text-lg text-gray-600">Carregando feedbacks...</span>
+            </div>
+        );
+    }
+
+    if (isError) {
+        return (
+            <div className="flex justify-center items-center p-8 bg-red-50 border border-red-200 rounded-md">
+                <FontAwesomeIcon icon={faExclamationTriangle} size="2x" className="text-red-500" />
+                <span className="ml-4 text-lg text-red-700">Ocorreu um erro ao buscar os feedbacks.</span>
+            </div>
+        );
+    }
 
     return (
         <div className="overflow-x-auto">
@@ -62,7 +102,7 @@ export default function FeedbackList({ initialFeedbacks }) {
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{item.pagina || 'N/A'}</td>
                             <td className="px-6 py-4 text-sm text-gray-800" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.descricao}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                {loadingId === item.id ? (
+                                {isUpdating && updateVariables?.id === item.id ? (
                                     <FontAwesomeIcon icon={faSpinner} spin />
                                 ) : (
                                     <select
@@ -88,3 +128,14 @@ export default function FeedbackList({ initialFeedbacks }) {
         </div>
     );
 }
+
+// --------------------------------------------------------------------------------
+// RESUMO DO ARQUIVO
+// --------------------------------------------------------------------------------
+// Este componente exibe uma lista de feedbacks enviados pelos usuários da
+// organização. Ele foi refatorado para buscar os dados dinamicamente com `useQuery`,
+// garantindo que a lista esteja sempre atualizada. A funcionalidade de alterar
+// o status de um feedback agora utiliza `useMutation`, o que simplifica o código,
+// melhora a experiência do usuário com feedback visual e atualiza a UI
+// automaticamente após a alteração ser concluída no banco de dados.
+// --------------------------------------------------------------------------------

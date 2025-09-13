@@ -12,7 +12,40 @@ import {
 import KpiCard from './KpiCard';
 import { toast } from 'sonner';
 
-// --- SUB-COMPONENTES (Originais mantidos) ---
+// --- HELPERS DE FORMATAÇÃO DE DATA ---
+// Por que: Centralizamos a lógica de formatação de datas aqui para garantir consistência e
+// seguir a regra de ouro sobre fusos horários.
+
+/**
+ * Formata datas simples (ex: '2025-09-13') para '13/09/2025'.
+ * Trata a data como texto para evitar erros de fuso horário.
+ * @param {string} dateString A data no formato YYYY-MM-DD.
+ * @returns {string} A data formatada como DD/MM/YYYY ou 'N/A'.
+ */
+const formatSimpleDate = (dateString) => {
+    // Verifica se a string de data existe e se parece com 'YYYY-MM-DD'.
+    if (!dateString || !/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+        return 'N/A';
+    }
+    // Pega a parte da data (ignora a hora se houver) e divide em ano, mês e dia.
+    const [year, month, day] = dateString.split('T')[0].split('-');
+    // Remonta no formato brasileiro.
+    return `${day}/${month}/${year}`;
+};
+
+/**
+ * Formata timestamps completos (que incluem hora e fuso horário) para o padrão local.
+ * @param {string} dateString O timestamp.
+ * @returns {string} A data formatada ou 'N/A'.
+ */
+const formatTimestamp = (dateString) => {
+    if (!dateString) return 'N/A';
+    // Para timestamps, podemos usar new Date() com segurança, pois a informação de fuso já está presente.
+    return new Date(dateString).toLocaleDateString('pt-BR');
+};
+
+
+// --- SUB-COMPONENTES ---
 
 const InfoField = ({ label, value, fullWidth = false }) => (
     <div className={fullWidth ? "md:col-span-2" : ""}>
@@ -57,7 +90,7 @@ const CadastroChecklist = ({ employee }) => {
     );
 };
 
-const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeName, onUpdate }) => {
+const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeName, organizacaoId, onUpdate }) => {
     const supabase = createClient();
     const [documentos, setDocumentos] = useState(initialDocuments || []);
     const [tiposDocumento, setTiposDocumento] = useState([]);
@@ -92,7 +125,8 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
 
     const handleUpload = async () => {
         if (!newFile || !newFileType) {
-            alert('Por favor, selecione um arquivo e um tipo de documento.');
+            // Por que: Usamos toast.error para uma notificação mais amigável que o alert.
+            toast.error('Por favor, selecione um arquivo e um tipo de documento.');
             return;
         }
         setIsUploading(true);
@@ -105,18 +139,29 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
         const { error: uploadError } = await supabase.storage.from('funcionarios-documentos').upload(newFileName, newFile, { upsert: true });
 
         if (uploadError) {
-            alert('Erro no upload: ' + uploadError.message);
+            toast.error('Erro no upload: ' + uploadError.message);
         } else {
-            await supabase.from('documentos_funcionarios').insert({
+            // Por que: Adicionamos o 'organizacao_id' para garantir que o novo documento
+            // seja associado à organização correta, seguindo a regra principal do sistema.
+            const { error: insertError } = await supabase.from('documentos_funcionarios').insert({
                 funcionario_id: employeeId,
                 nome_documento: tipoSelecionado.descricao,
                 caminho_arquivo: newFileName,
-                tipo_documento_id: newFileType
+                tipo_documento_id: newFileType,
+                organizacao_id: organizacaoId
             });
-            setNewFile(null);
-            setNewFileType('');
-            if (fileInputRef.current) fileInputRef.current.value = "";
-            onUpdate();
+
+            if (insertError) {
+                toast.error(`Erro ao salvar registro: ${insertError.message}`);
+                // Se der erro no banco, removemos o arquivo que já subiu para não deixar lixo.
+                await supabase.storage.from('funcionarios-documentos').remove([newFileName]);
+            } else {
+                toast.success('Documento enviado com sucesso!');
+                setNewFile(null);
+                setNewFileType('');
+                if (fileInputRef.current) fileInputRef.current.value = "";
+                onUpdate(); // Atualiza a lista na tela.
+            }
         }
         setIsUploading(false);
     };
@@ -124,14 +169,38 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
     const handleView = async (filePath) => {
         const { data } = await supabase.storage.from('funcionarios-documentos').createSignedUrl(filePath, 3600);
         if (data?.signedUrl) window.open(data.signedUrl, '_blank');
-        else alert('Não foi possível gerar a URL do documento.');
+        else toast.error('Não foi possível gerar a URL do documento.');
     };
 
     const handleDelete = async (doc) => {
-        if (!window.confirm(`Tem certeza que deseja excluir o documento "${doc.nome_documento}"?`)) return;
-        await supabase.storage.from('funcionarios-documentos').remove([doc.caminho_arquivo]);
-        await supabase.from('documentos_funcionarios').delete().eq('id', doc.id);
-        onUpdate();
+        // Por que: Esta função cria a lógica de exclusão como uma "promessa".
+        // Isso permite que o toast.promise mostre mensagens de "carregando", "sucesso" e "erro".
+        const deleteAction = async () => {
+            const { error: storageError } = await supabase.storage.from('funcionarios-documentos').remove([doc.caminho_arquivo]);
+            if (storageError) throw new Error(`Erro no storage: ${storageError.message}`);
+
+            const { error: dbError } = await supabase.from('documentos_funcionarios').delete().eq('id', doc.id);
+            if (dbError) throw new Error(`Erro no banco: ${dbError.message}`);
+
+            onUpdate(); // Atualiza a lista na tela.
+        };
+
+        // Por que: Trocamos o 'window.confirm' por um toast mais elegante.
+        // Ele mostra uma mensagem de aviso com botões de ação, melhorando a experiência do usuário.
+        toast.warning(`Tem certeza que deseja excluir o documento "${doc.nome_documento}"?`, {
+            action: {
+                label: 'Confirmar Exclusão',
+                onClick: () => toast.promise(deleteAction(), {
+                    loading: 'Excluindo documento...',
+                    success: 'Documento excluído com sucesso!',
+                    error: (err) => `Erro ao excluir: ${err.message}`
+                })
+            },
+            cancel: {
+                label: 'Cancelar'
+            },
+            duration: 10000, // Damos 10 segundos para o usuário decidir.
+        });
     };
 
     return (
@@ -164,7 +233,8 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
                                 <FontAwesomeIcon icon={getFileIcon(doc.caminho_arquivo)} className="text-2xl text-gray-500" />
                                 <div>
                                     <p className="font-semibold">{doc.nome_documento}</p>
-                                    <p className="text-xs text-gray-500">Enviado em: {new Date(doc.data_upload).toLocaleDateString('pt-BR')}</p>
+                                    {/* Por que: Usando o helper formatTimestamp para consistência. */}
+                                    <p className="text-xs text-gray-500">Enviado em: {formatTimestamp(doc.data_upload)}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-4">
@@ -233,8 +303,7 @@ const FinanceiroSection = ({ lancamentos, onEditLancamento }) => {
     );
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-    const formatDate = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR') : 'N/A';
-
+    
     if (lancamentos.length === 0) {
         return <p className="text-center text-gray-500 py-4">Nenhum lançamento financeiro encontrado para este funcionário.</p>;
     }
@@ -257,7 +326,8 @@ const FinanceiroSection = ({ lancamentos, onEditLancamento }) => {
                         const dataExibida = lanc.status === 'Pago' ? lanc.data_pagamento : lanc.data_vencimento || lanc.data_transacao;
                         return (
                             <tr key={lanc.id}>
-                                <td className="px-4 py-2 whitespace-nowrap">{formatDate(dataExibida)}</td>
+                                {/* Por que: Usando o helper formatSimpleDate para consistência e segurança. */}
+                                <td className="px-4 py-2 whitespace-nowrap">{formatSimpleDate(dataExibida)}</td>
                                 <td className="px-4 py-2">{lanc.descricao}</td>
                                 <td className="px-4 py-2">{lanc.categoria?.nome || 'N/A'}</td>
                                 <td className={`px-4 py-2 text-right font-semibold ${lanc.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(lanc.valor)}</td>
@@ -434,9 +504,6 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
         const fetchSalarioAtual = async () => {
             if (employee?.id) {
                 setLoadingSalario(true);
-                // ##### CORREÇÃO APLICADA AQUI #####
-                // A busca agora é feita diretamente na tabela 'historico_salarial',
-                // ordenando pela data de vigência de forma decrescente e pegando apenas o primeiro.
                 const { data, error } = await supabase
                     .from('historico_salarial')
                     .select('salario_base, valor_diaria')
@@ -614,19 +681,21 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                             <InfoField label="Valor Diária" value={loadingSalario ? '...' : formatCurrency(salarioAtual.valor_diaria)} />
                             <InfoField label="CPF" value={employee.cpf} />
                             <InfoField label="RG" value={employee.rg} />
-                            <InfoField label="Data de Nascimento" value={employee.birth_date ? new Date(employee.birth_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'} />
+                            {/* Por que: Usando o helper formatSimpleDate para formatar corretamente e evitar erros de fuso. */}
+                            <InfoField label="Data de Nascimento" value={formatSimpleDate(employee.birth_date)} />
                             <InfoField label="Estado Civil" value={employee.estado_civil} />
                             <InfoField label="Telefone" value={employee.phone} />
                             <InfoField label="Email" value={employee.email} />
                             <InfoField label="Empresa Contratante" value={employee.cadastro_empresa?.razao_social} />
                             <InfoField label="Empreendimento Atual" value={employee.empreendimentos?.nome} />
-                            <InfoField label="Data de Admissão" value={employee.admission_date ? new Date(employee.admission_date + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}/>
+                             {/* Por que: Usando o helper formatSimpleDate para formatar corretamente e evitar erros de fuso. */}
+                            <InfoField label="Data de Admissão" value={formatSimpleDate(employee.admission_date)}/>
                             <InfoField label="Endereço" value={`${employee.address_street || ''}, ${employee.address_number || ''} - ${employee.neighborhood || ''}, ${employee.city || ''}`} fullWidth={true}/>
                             <InfoField label="Observações" value={employee.observations} fullWidth={true} />
                         </dl>
                     )}
                     {activeTab === 'contracheque' && <ContrachequeSection employee={employee} salarioAtual={salarioAtual} />}
-                    {activeTab === 'documentos' && ( <DocumentosSection documentos={allDocuments} employeeId={employee.id} employeeName={employee.full_name} onUpdate={onUpdate} /> )}
+                    {activeTab === 'documentos' && ( <DocumentosSection documentos={allDocuments} employeeId={employee.id} employeeName={employee.full_name} organizacaoId={employee.organizacao_id} onUpdate={onUpdate} /> )}
                     {activeTab === 'financeiro' && ( <FinanceiroSection lancamentos={lancamentos} onEditLancamento={onEditLancamento} /> )}
                     {activeTab === 'checklist' && ( <CadastroChecklist employee={employee} /> )}
                 </div>
