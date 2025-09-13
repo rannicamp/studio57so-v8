@@ -1,7 +1,9 @@
+//components\contatos\MergeModal.js
 "use client";
 
 import { useState, useEffect } from 'react';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUsers, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
@@ -69,6 +71,9 @@ const MergeField = ({ field, contacts, finalContact, setFinalContact }) => {
 
 export default function MergeModal({ isOpen, onClose, contactsToMerge, onMergeComplete }) {
     const supabase = createClient();
+    const { user } = useAuth(); // 2. Obter o usuário para pegar o ID da organização
+    const organizacaoId = user?.organizacao_id;
+
     const [finalContact, setFinalContact] = useState({});
     const [primaryContactId, setPrimaryContactId] = useState(null);
     const [isMerging, setIsMerging] = useState(false);
@@ -78,7 +83,6 @@ export default function MergeModal({ isOpen, onClose, contactsToMerge, onMergeCo
             const initialPrimary = contactsToMerge[0];
             setPrimaryContactId(initialPrimary.id);
 
-            // Combina todos os telefones e emails para a seleção inicial
             const allTelefones = contactsToMerge.flatMap(c => c.telefones || []);
             const uniqueTelefones = Array.from(new Map(allTelefones.map(item => [item.telefone, item])).values());
             
@@ -105,11 +109,14 @@ export default function MergeModal({ isOpen, onClose, contactsToMerge, onMergeCo
     ];
 
     const handleMerge = async () => {
+        if (!organizacaoId) {
+            toast.error("Erro de segurança: Organização não identificada.");
+            return;
+        }
         setIsMerging(true);
         const promise = new Promise(async (resolve, reject) => {
             const secondaryContactIds = contactsToMerge.map(c => c.id).filter(id => id !== primaryContactId);
             
-            // Prepara o objeto final para o update, garantindo que apenas colunas da tabela 'contatos' sejam enviadas
             const finalDataForUpdate = {
                 nome: finalContact.nome || null,
                 razao_social: finalContact.razao_social || null,
@@ -118,14 +125,19 @@ export default function MergeModal({ isOpen, onClose, contactsToMerge, onMergeCo
                 tipo_contato: finalContact.tipo_contato || null,
             };
 
-            // ***** AQUI ESTÁ A MUDANÇA PRINCIPAL *****
-            // Chamamos a nova função RPC com todos os dados necessários
+            // =================================================================================
+            // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+            // O PORQUÊ: Passamos o `organizacaoId` para a função do banco de dados.
+            // Isso garante que a operação de fusão e religação de referências ocorra
+            // de forma segura, apenas dentro da organização correta.
+            // =================================================================================
             const { data, error } = await supabase.rpc('merge_contacts_and_relink_all_references', {
                 p_primary_contact_id: primaryContactId,
                 p_secondary_contact_ids: secondaryContactIds,
                 p_final_data: finalDataForUpdate,
                 p_final_telefones: finalContact.telefones || [],
-                p_final_emails: finalContact.emails || []
+                p_final_emails: finalContact.emails || [],
+                p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
             });
 
             if (error) reject(new Error(error.message));
@@ -183,7 +195,7 @@ export default function MergeModal({ isOpen, onClose, contactsToMerge, onMergeCo
                                 <p><strong>Telefones:</strong> {(finalContact.telefones || []).map(t => t.telefone).join(', ')}</p>
                                 <p><strong>Emails:</strong> {(finalContact.emails || []).map(e => e.email).join(', ')}</p>
                             </div>
-                       </div>
+                        </div>
                     </div>
                 </div>
 

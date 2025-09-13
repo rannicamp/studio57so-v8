@@ -1,3 +1,4 @@
+//components\atividades\AtividadeDetalhesSidebar.js
 "use client";
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';

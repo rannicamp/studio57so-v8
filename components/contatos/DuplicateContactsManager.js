@@ -1,7 +1,9 @@
+//components\contatos\DuplicateContactsManager.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
 import { formatPhoneNumber } from '../../utils/formatters';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUsers, faIdCard, faBuilding, faPhone, faEnvelope, faSpinner, faLink, faBolt } from '@fortawesome/free-solid-svg-icons';
@@ -9,14 +11,29 @@ import { toast } from 'sonner';
 
 export default function DuplicateContactsManager() {
     const supabase = createClient();
+    const { user } = useAuth(); // 2. Obter o usuário para pegar o ID da organização
+    const organizacaoId = user?.organizacao_id;
+
     const [duplicateGroups, setDuplicateGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [mergingGroupId, setMergingGroupId] = useState(null);
     const [isMergingAll, setIsMergingAll] = useState(false);
 
     const fetchDuplicates = useCallback(() => {
+        if (!organizacaoId) return; // Não busca se não tiver a organização
         setLoading(true);
-        const promise = fetch('/api/contatos/duplicates', { cache: 'no-store' })
+        // =================================================================================
+        // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+        // O PORQUÊ: A busca por duplicatas agora envia o `organizacaoId` para a API.
+        // Isso garante que a API irá procurar por duplicatas apenas nos contatos
+        // que pertencem à organização do usuário.
+        // =================================================================================
+        const promise = fetch('/api/contatos/duplicates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ organizacaoId }), // <-- Enviando a "chave mestra"
+            cache: 'no-store' 
+        })
           .then(res => {
               if (!res.ok) {
                   return res.json().then(err => { throw new Error(err.error || 'Erro na resposta da API') });
@@ -34,61 +51,86 @@ export default function DuplicateContactsManager() {
             error: (err) => `Falha ao carregar: ${err.message}`,
             finally: () => setLoading(false)
         });
-    }, []);
+    }, [organizacaoId]); // Adicionado organizacaoId como dependência
 
     useEffect(() => {
         fetchDuplicates();
     }, [fetchDuplicates]);
 
-    const handleMerge = async (group) => {
-        if (!window.confirm(`Tem certeza que deseja mesclar ${group.contatos.length} contatos encontrados pelo ${group.type}: "${group.value}"? Esta ação não pode ser desfeita.`)) {
-            return;
-        }
-        setMergingGroupId(group.value);
-        
-        const contactIds = group.contatos.map(c => c.id);
+    const handleMerge = (group) => {
+        // =================================================================================
+        // ATUALIZAÇÃO DE UX (troca de window.confirm por toast)
+        // O PORQUÊ: Uma confirmação mais elegante e integrada à interface.
+        // =================================================================================
+        toast("Confirmar Fusão", {
+            description: `Tem certeza que deseja mesclar ${group.contatos.length} contatos encontrados pelo ${group.type}: "${group.value}"? Esta ação não pode ser desfeita.`,
+            action: {
+                label: "Confirmar Fusão",
+                onClick: () => {
+                    setMergingGroupId(group.value);
+                    const contactIds = group.contatos.map(c => c.id);
+                    
+                    // =================================================================================
+                    // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+                    // O PORQUÊ: Passamos o `organizacaoId` para a função do banco de dados.
+                    // Isso garante que a operação de fusão ocorra de forma segura,
+                    // apenas dentro da organização correta.
+                    // =================================================================================
+                    const promise = supabase.rpc('auto_merge_contacts_and_relink', {
+                        p_contact_ids: contactIds,
+                        p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+                    });
 
-        const promise = supabase.rpc('auto_merge_contacts_and_relink', {
-            p_contact_ids: contactIds
-        });
-
-        toast.promise(promise, {
-            loading: `Mesclando grupo: ${group.value}...`,
-            success: (response) => {
-                fetchDuplicates();
-                return response.data;
+                    toast.promise(promise, {
+                        loading: `Mesclando grupo: ${group.value}...`,
+                        success: (response) => {
+                            fetchDuplicates();
+                            return response.data;
+                        },
+                        error: (err) => `Erro ao mesclar: ${err.message}`,
+                        finally: () => setMergingGroupId(null)
+                    });
+                }
             },
-            error: (err) => `Erro ao mesclar: ${err.message}`,
-            finally: () => setMergingGroupId(null)
+            cancel: { label: "Cancelar" }
         });
     };
 
-    const handleMergeAll = async () => {
-        if (!window.confirm(`Tem certeza que deseja mesclar TODOS os ${duplicateGroups.length} grupos de contatos duplicados? Esta ação é irreversível e pode levar alguns segundos.`)) {
-            return;
-        }
-        setIsMergingAll(true);
-        
-        const mergeAllPromise = (async () => {
-            for (let i = 0; i < duplicateGroups.length; i++) {
-                const group = duplicateGroups[i];
-                const contactIds = group.contatos.map(c => c.id);
-                const { error } = await supabase.rpc('auto_merge_contacts_and_relink', { p_contact_ids: contactIds });
-                if (error) {
-                    throw new Error(`Erro no grupo "${group.value}": ${error.message}. Operação interrompida.`);
-                }
-            }
-            return `Todos os ${duplicateGroups.length} grupos foram mesclados com sucesso!`;
-        })();
+    const handleMergeAll = () => {
+        toast("Confirmar Fusão de Todos os Grupos", {
+            description: `Tem certeza que deseja mesclar TODOS os ${duplicateGroups.length} grupos de contatos duplicados? Esta ação é irreversível e pode levar alguns segundos.`,
+            action: {
+                label: "Confirmar e Mesclar Tudo",
+                onClick: () => {
+                    setIsMergingAll(true);
+                    const mergeAllPromise = (async () => {
+                        for (let i = 0; i < duplicateGroups.length; i++) {
+                            const group = duplicateGroups[i];
+                            const contactIds = group.contatos.map(c => c.id);
+                            const { error } = await supabase.rpc('auto_merge_contacts_and_relink', { 
+                                p_contact_ids: contactIds,
+                                p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+                            });
+                            if (error) {
+                                throw new Error(`Erro no grupo "${group.value}": ${error.message}. Operação interrompida.`);
+                            }
+                        }
+                        return `Todos os ${duplicateGroups.length} grupos foram mesclados com sucesso!`;
+                    })();
 
-        toast.promise(mergeAllPromise, {
-            loading: 'Iniciando mesclagem de todos os grupos...',
-            success: (message) => {
-                fetchDuplicates();
-                return message;
+                    toast.promise(mergeAllPromise, {
+                        loading: 'Iniciando mesclagem de todos os grupos...',
+                        success: (message) => {
+                            fetchDuplicates();
+                            return message;
+                        },
+                        error: (err) => err.message,
+                        finally: () => setIsMergingAll(false)
+                    });
+                }
             },
-            error: (err) => err.message,
-            finally: () => setIsMergingAll(false)
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' }
         });
     };
 

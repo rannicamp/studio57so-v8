@@ -1,5 +1,4 @@
-// Local do Arquivo: components/comercial/AdsManager.js
-
+// components/comercial/AdsManager.js
 "use client";
 
 import { useState } from 'react';
@@ -8,17 +7,29 @@ import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faChartBar, faBullhorn } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
+import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
 
 // Função para formatar moeda
 const formatCurrency = (value, currency) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: currency || 'BRL' }).format(value || 0);
 }
 
-// ========= FUNÇÕES DE BUSCA DE DADOS (agora separadas) =========
+// =================================================================================
+// ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+// O PORQUÊ: Todas as funções de busca agora recebem e enviam o `organizacaoId`
+// para a nossa API interna. Isso permite que o backend saiba qual conta da Meta
+// (e qual token de acesso) deve ser usado para a requisição, garantindo que os
+// dados de uma organização não se misturem com os de outra.
+// =================================================================================
 
 // 1. Busca as Contas de Anúncio
-const fetchAdAccounts = async () => {
-    const response = await fetch('/api/meta/ad-accounts');
+const fetchAdAccounts = async (organizacaoId) => {
+    if (!organizacaoId) return [];
+    const response = await fetch('/api/meta/ad-accounts', { // Alterado para POST para enviar o ID
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizacaoId }),
+    });
     if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Falha ao buscar contas de anúncio');
@@ -27,12 +38,12 @@ const fetchAdAccounts = async () => {
 };
 
 // 2. Busca as Campanhas de uma conta específica
-const fetchCampaigns = async (adAccountId) => {
-    if (!adAccountId) return [];
+const fetchCampaigns = async (adAccountId, organizacaoId) => {
+    if (!adAccountId || !organizacaoId) return [];
     const response = await fetch('/api/meta/campaigns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adAccountId }),
+        body: JSON.stringify({ adAccountId, organizacaoId }),
     });
     if (!response.ok) {
         const errorData = await response.json();
@@ -42,12 +53,12 @@ const fetchCampaigns = async (adAccountId) => {
 };
 
 // 3. Busca os Anúncios de uma campanha específica
-const fetchAds = async (campaignId) => {
-    if (!campaignId) return [];
+const fetchAds = async (campaignId, organizacaoId) => {
+    if (!campaignId || !organizacaoId) return [];
     const response = await fetch('/api/meta/ads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignId }),
+        body: JSON.stringify({ campaignId, organizacaoId }),
     });
     if (!response.ok) {
         const errorData = await response.json();
@@ -59,23 +70,24 @@ const fetchAds = async (campaignId) => {
 
 export default function AdsManager() {
     const { data: session, status: sessionStatus } = useSession();
-    
-    // ##### INÍCIO DA LINHA DE DETETIVE #####
-    // Esta linha vai nos mostrar no console do navegador o que está acontecendo com a sessão.
-    console.log("Status da Sessão:", sessionStatus, "Dados da Sessão:", session);
-    // ##### FIM DA LINHA DE DETETIVE #####
+    const { user } = useAuth(); // 2. Obter o usuário para pegar o ID da organização
+    const organizacaoId = user?.organizacao_id;
 
-    // Estados para o que está selecionado na tela
+    console.log("Status da Sessão:", sessionStatus, "Dados da Sessão:", session);
+
     const [selectedAdAccountId, setSelectedAdAccountId] = useState('');
     const [selectedCampaignId, setSelectedCampaignId] = useState('');
 
-    // ========= QUERIES (a nova forma de buscar dados) =========
-
-    // Query para buscar as contas de anúncio. Roda automaticamente.
+    // =================================================================================
+    // ATUALIZAÇÃO DE SEGURANÇA (queryKey e queryFn)
+    // O PORQUÊ: Adicionamos `organizacaoId` à `queryKey` e o passamos para a função
+    // de busca (`queryFn`), além de garantir que a busca só ocorra (`enabled`)
+    // quando tivermos todas as informações necessárias.
+    // =================================================================================
     const { data: adAccounts = [], isLoading: isLoadingAccounts, isError: isErrorAccounts, error: errorAccounts } = useQuery({
-        queryKey: ['adAccounts'],
-        queryFn: fetchAdAccounts,
-        enabled: sessionStatus === 'authenticated', // Só executa se estiver autenticado
+        queryKey: ['adAccounts', organizacaoId],
+        queryFn: () => fetchAdAccounts(organizacaoId),
+        enabled: sessionStatus === 'authenticated' && !!organizacaoId,
         onSuccess: (data) => {
             if (!selectedAdAccountId && data && data.length > 0) {
                 setSelectedAdAccountId(data[0].id);
@@ -83,18 +95,16 @@ export default function AdsManager() {
         },
     });
 
-    // Query para buscar as campanhas. Roda apenas quando um 'selectedAdAccountId' existir.
     const { data: campaigns = [], isLoading: isLoadingCampaigns } = useQuery({
-        queryKey: ['campaigns', selectedAdAccountId],
-        queryFn: () => fetchCampaigns(selectedAdAccountId),
-        enabled: !!selectedAdAccountId,
+        queryKey: ['campaigns', selectedAdAccountId, organizacaoId],
+        queryFn: () => fetchCampaigns(selectedAdAccountId, organizacaoId),
+        enabled: !!selectedAdAccountId && !!organizacaoId,
     });
 
-    // Query para buscar os anúncios. Roda apenas quando uma 'selectedCampaignId' existir.
     const { data: ads = [], isLoading: isLoadingAds } = useQuery({
-        queryKey: ['ads', selectedCampaignId],
-        queryFn: () => fetchAds(selectedCampaignId),
-        enabled: !!selectedCampaignId,
+        queryKey: ['ads', selectedCampaignId, organizacaoId],
+        queryFn: () => fetchAds(selectedCampaignId, organizacaoId),
+        enabled: !!selectedCampaignId && !!organizacaoId,
     });
 
 
@@ -108,7 +118,6 @@ export default function AdsManager() {
                 <p className="mb-4">Por favor, conecte sua conta da Meta para gerenciar seus anúncios.</p>
                 {session && session.error === 'RefreshAccessTokenError' && <p className="text-red-500 mb-4">Sua sessão expirou. Por favor, conecte-se novamente.</p>}
                 
-                {/* ##### AQUI ESTÁ A MUDANÇA ##### */}
                 <button onClick={() => signIn('facebook', { callbackUrl: '/comercial/anuncios' })} className="bg-blue-800 text-white px-4 py-2 rounded-md hover:bg-blue-900 flex items-center gap-2 mx-auto">
                     <FontAwesomeIcon icon={faMeta} /> Conectar com a Meta
                 </button>

@@ -1,30 +1,43 @@
+//components\contatos\LinkEmployeesToContacts.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faLink, faCheckCircle, faTimesCircle } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'sonner';
 
 export default function LinkEmployeesToContacts() {
     const supabase = createClient();
+    const { user } = useAuth(); // 2. Obter o usuário para pegar o ID da organização
+    const organizacaoId = user?.organizacao_id;
+
     const [unlinkedEmployees, setUnlinkedEmployees] = useState([]);
     const [potentialMatches, setPotentialMatches] = useState({});
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState(null);
-    const [message, setMessage] = useState('');
-
+    
     const fetchData = useCallback(async () => {
+        if (!organizacaoId) { // Só executa se tiver a organização
+            setLoading(false);
+            return;
+        }
         setLoading(true);
-        setMessage('');
 
-        // 1. Busca funcionários que ainda não têm um `contato_id`
+        // =================================================================================
+        // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+        // O PORQUÊ: A busca por funcionários agora é filtrada pela `organizacao_id`,
+        // garantindo que estamos trabalhando apenas com os funcionários da empresa correta.
+        // =================================================================================
         const { data: employees, error: empError } = await supabase
             .from('funcionarios')
             .select('id, full_name, cpf, phone')
+            .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
             .is('contato_id', null);
 
         if (empError) {
-            setMessage(`Erro ao buscar funcionários: ${empError.message}`);
+            toast.error(`Erro ao buscar funcionários: ${empError.message}`);
             setLoading(false);
             return;
         }
@@ -32,18 +45,23 @@ export default function LinkEmployeesToContacts() {
         const validEmployees = employees.filter(e => e.cpf || e.full_name || e.phone);
         setUnlinkedEmployees(validEmployees);
         
-        // 2. Para cada funcionário, chama a função inteligente que criamos no banco de dados
         if (validEmployees.length > 0) {
             const matches = {};
             for (const emp of validEmployees) {
+                // =================================================================================
+                // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+                // O PORQUÊ: Passamos o `organizacaoId` para a função do banco de dados.
+                // Isso garante que a busca por contatos correspondentes também seja
+                // restrita à organização correta.
+                // =================================================================================
                 const { data, error } = await supabase.rpc('sugerir_vinculo_funcionario_contato', {
                     p_cpf: emp.cpf,
                     p_nome: emp.full_name,
-                    p_telefone: emp.phone
+                    p_telefone: emp.phone,
+                    p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
                 });
 
                 if (!error && data) {
-                    // Ordena os resultados para dar prioridade ao CPF
                     data.sort((a, b) => {
                         if (a.motivo.includes('CPF')) return -1;
                         if (b.motivo.includes('CPF')) return 1;
@@ -56,29 +74,35 @@ export default function LinkEmployeesToContacts() {
         }
         
         setLoading(false);
-    }, [supabase]);
+    }, [supabase, organizacaoId]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
 
+    // =================================================================================
+    // ATUALIZAÇÃO DE UX (toast.promise)
+    // O PORQUÊ: A lógica de vincular agora usa `toast.promise` para um feedback
+    // claro e automático de "carregando", "sucesso" e "erro".
+    // =================================================================================
     const handleLink = async (employeeId, contactId) => {
         setProcessingId(employeeId);
-        setMessage(`Vinculando funcionário ID ${employeeId}...`);
 
-        const { error } = await supabase
+        const promise = supabase
             .from('funcionarios')
             .update({ contato_id: contactId })
-            .eq('id', employeeId);
+            .eq('id', employeeId)
+            .throwOnError();
 
-        if (error) {
-            setMessage(`Erro ao vincular: ${error.message}`);
-        } else {
-            setMessage('Funcionário vinculado com sucesso!');
-            fetchData(); // Recarrega os dados para atualizar a lista
-        }
-        setProcessingId(null);
-        setTimeout(() => setMessage(''), 4000);
+        toast.promise(promise, {
+            loading: `Vinculando funcionário ID ${employeeId}...`,
+            success: () => {
+                fetchData(); // Recarrega os dados para atualizar a lista
+                return 'Funcionário vinculado com sucesso!';
+            },
+            error: (err) => `Erro ao vincular: ${err.message}`,
+            finally: () => setProcessingId(null),
+        });
     };
 
     if (loading) {
@@ -95,11 +119,13 @@ export default function LinkEmployeesToContacts() {
             <p className="text-sm text-gray-600 bg-gray-50 p-4 border rounded-lg">
                 Esta ferramenta busca por funcionários que ainda não estão conectados a um registro de &quot;Contato&quot; no sistema. A correspondência é sugerida por <strong>CPF</strong>, <strong>Nome</strong> ou <strong>Telefone</strong>. Clique em &quot;Vincular&quot; para criar a ponte entre os dois cadastros.
             </p>
-            {message && <div className={`p-3 text-center rounded-md font-semibold ${message.includes('Erro') ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>{message}</div>}
 
             {unlinkedEmployees.length === 0 ? (
                 <div className="text-center p-10 bg-white rounded-lg shadow">
-                    <h2 className="text-2xl font-bold text-green-600">Nenhum funcionário sem vínculo encontrado!</h2>
+                    <h2 className="text-2xl font-bold text-green-600 flex items-center justify-center gap-2">
+                        <FontAwesomeIcon icon={faCheckCircle} />
+                        Nenhum funcionário sem vínculo encontrado!
+                    </h2>
                     <p className="mt-2 text-gray-600">Todos os seus funcionários já estão conectados a um contato.</p>
                 </div>
             ) : (

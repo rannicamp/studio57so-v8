@@ -3,22 +3,32 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { useAuth } from '@/contexts/AuthContext'; // 1. Importar o useAuth
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUpload, faFileLines, faTrashAlt, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
 export default function AtividadeAnexos({ activityId }) {
     const supabase = createClient();
+    const { user } = useAuth(); // 2. Obter o usuário para pegar o ID da organização
+    const organizacaoId = user?.organizacao_id;
+
     const [anexos, setAnexos] = useState([]);
     const [uploading, setUploading] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
 
     const fetchAnexos = useCallback(async () => {
-        if (!activityId) return;
+        if (!activityId || !organizacaoId) return;
+        // =================================================================================
+        // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+        // O PORQUÊ: Adicionamos o filtro por `organizacao_id` para garantir que
+        // apenas os anexos da organização correta sejam buscados e exibidos.
+        // =================================================================================
         const { data, error } = await supabase
             .from('activity_anexos')
             .select('*')
             .eq('activity_id', activityId)
+            .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
             .order('created_at', { ascending: true });
         
         if (error) {
@@ -26,7 +36,7 @@ export default function AtividadeAnexos({ activityId }) {
         } else {
             setAnexos(data || []);
         }
-    }, [activityId, supabase]);
+    }, [activityId, supabase, organizacaoId]);
 
     useEffect(() => {
         fetchAnexos();
@@ -35,6 +45,10 @@ export default function AtividadeAnexos({ activityId }) {
     const handleFilesUpload = useCallback(async (files) => {
         if (!activityId) {
             toast.error("É necessário salvar a atividade antes de anexar arquivos.");
+            return;
+        }
+        if (!organizacaoId) {
+            toast.error("Erro de segurança: Organização não identificada.");
             return;
         }
 
@@ -50,7 +64,12 @@ export default function AtividadeAnexos({ activityId }) {
             if (uploadError) {
                 throw new Error(`Falha no upload do arquivo ${file.name}: ${uploadError.message}`);
             }
-
+            
+            // =================================================================================
+            // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+            // O PORQUÊ: Ao registrar o anexo no banco, "etiquetamos" ele com
+            // o `organizacao_id` para garantir que ele pertença à organização correta.
+            // =================================================================================
             const { error: insertError } = await supabase
                 .from('activity_anexos')
                 .insert({
@@ -59,6 +78,7 @@ export default function AtividadeAnexos({ activityId }) {
                     file_path: filePath,
                     file_type: file.type,
                     file_size: file.size,
+                    organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
                 });
 
             if (insertError) {
@@ -83,7 +103,7 @@ export default function AtividadeAnexos({ activityId }) {
         } finally {
             setUploading(false);
         }
-    }, [activityId, supabase, fetchAnexos]);
+    }, [activityId, supabase, fetchAnexos, organizacaoId]);
 
     const handleDragEvents = (e) => {
         e.preventDefault();
@@ -101,28 +121,39 @@ export default function AtividadeAnexos({ activityId }) {
         setIsDragging(false);
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             handleFilesUpload(e.dataTransfer.files);
-            // Limpa a lista de arquivos para evitar re-uploads acidentais
             e.dataTransfer.clearData();
         }
     };
 
     const handleDelete = async (anexo) => {
-        if (!window.confirm(`Tem certeza que deseja excluir o anexo "${anexo.file_name}"?`)) {
-            return;
-        }
-        
-        // Deleta o arquivo do storage
-        await supabase.storage.from('activity-anexos').remove([anexo.file_path]);
+        const promise = async () => {
+            // Deleta o arquivo do storage
+            await supabase.storage.from('activity-anexos').remove([anexo.file_path]);
 
-        // Deleta o registro do banco
-        const { error: dbError } = await supabase.from('activity_anexos').delete().eq('id', anexo.id);
+            // Deleta o registro do banco
+            const { error: dbError } = await supabase.from('activity_anexos').delete().eq('id', anexo.id);
 
-        if (dbError) {
-            toast.error('Erro ao remover o registro do anexo: ' + dbError.message);
-        } else {
-            toast.success('Anexo excluído com sucesso!');
-            fetchAnexos();
-        }
+            if (dbError) {
+                throw new Error('Erro ao remover o registro do anexo: ' + dbError.message);
+            }
+        };
+
+        toast("Confirmar Exclusão", {
+            description: `Tem certeza que deseja excluir o anexo "${anexo.file_name}"?`,
+            action: {
+                label: "Excluir",
+                onClick: () => toast.promise(promise(), {
+                    loading: 'Excluindo anexo...',
+                    success: () => {
+                        fetchAnexos();
+                        return 'Anexo excluído com sucesso!';
+                    },
+                    error: (err) => err.message,
+                })
+            },
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' }
+        });
     };
     
     const formatFileSize = (bytes) => {
