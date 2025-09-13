@@ -1,15 +1,17 @@
+// components/EmpreendimentoDetails.js
+
 'use client';
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// CORREÇÃO: O nome do ícone foi corrigido de faMagicSparkles para faWandMagicSparkles
-import { faBuilding, faRulerCombined, faBoxOpen, faFileLines, faUpload, faSpinner, faTrash, faEye, faSort, faSortUp, faSortDown, faVideo, faCloudUploadAlt, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
+import { faBuilding, faRulerCombined, faBoxOpen, faFileLines, faUpload, faSpinner, faTrash, faEye, faSort, faSortUp, faSortDown, faCloudUploadAlt, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/utils/supabase/client';
+import { useAuth } from '@/contexts/AuthContext'; // <--- 1. IMPORTAMOS O 'useAuth'
 import { toast } from 'sonner';
 
-// --- SUB-COMPONENTES (Todos preservados) ---
+// --- SUB-COMPONENTES ---
 
 function InfoField({ label, value, fullWidth = false }) {
   if (value === null || value === undefined || value === '') return null;
@@ -33,7 +35,8 @@ function KpiCard({ title, value, icon, colorClass = 'text-blue-500' }) {
   );
 }
 
-const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, categoria }) => {
+// ---> 2. ATUALIZAMOS O UPLOADER PARA RECEBER O ID DA ORGANIZAÇÃO <---
+const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, categoria, organizacaoId }) => {
     const supabase = createClient();
     const [file, setFile] = useState(null);
     const [descricao, setDescricao] = useState('');
@@ -50,6 +53,12 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, catego
     const handleUpload = async () => {
         if (!file || !tipoId) { toast.error("Por favor, selecione um tipo de documento e um arquivo."); return; }
         if (!categoria) { toast.error("Erro: A categoria da aba não foi definida."); return; }
+        // ---> 3. ADICIONAMOS A VERIFICAÇÃO DE SEGURANÇA <---
+        if (!organizacaoId) {
+            toast.error("Erro de segurança: Organização não identificada. Por favor, faça login novamente.");
+            return;
+        }
+
         setIsUploading(true);
         const tipoSelecionado = allowedTipos.find(t => t.id == tipoId);
         const sigla = tipoSelecionado?.sigla || 'DOC';
@@ -58,7 +67,18 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, catego
         const promise = new Promise(async (resolve, reject) => {
             const { error: uploadError } = await supabase.storage.from('empreendimento-anexos').upload(newFileName, file, { upsert: true });
             if (uploadError) return reject(uploadError);
-            const { data, error: dbError } = await supabase.from('empreendimento_anexos').insert({ empreendimento_id: empreendimentoId, caminho_arquivo: newFileName, nome_arquivo: file.name, descricao: descricao, tipo_documento_id: tipoId, categoria_aba: categoria }).select().single();
+
+            // ---> 4. ADICIONAMOS O "CARIMBO" DA ORGANIZAÇÃO AO SALVAR O ANEXO <---
+            const { data, error: dbError } = await supabase.from('empreendimento_anexos').insert({ 
+                empreendimento_id: empreendimentoId, 
+                caminho_arquivo: newFileName, 
+                nome_arquivo: file.name, 
+                descricao: descricao, 
+                tipo_documento_id: tipoId, 
+                categoria_aba: categoria,
+                organizacao_id: organizacaoId // <-- CARIMBO ADICIONADO!
+            }).select().single();
+
             if (dbError) return reject(dbError);
             fetch('/api/empreendimentos/process-anexo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ anexoId: data.id }) }).catch(err => console.error("Erro ao chamar API de processamento da IA:", err));
             resolve({msg: "Anexo enviado! A IA começará a estudá-lo.", newAnexo: data});
@@ -94,6 +114,7 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, catego
 };
 
 const TabelaVendas = ({ produtos, empreendimentoId }) => {
+    // ... (código interno da TabelaVendas não precisa de alteração)
     const [sortConfig, setSortConfig] = useState({ key: 'unidade', direction: 'ascending' });
     const requestSort = (key) => { let direction = 'ascending'; if (sortConfig.key === key && sortConfig.direction === 'ascending') { direction = 'descending'; } setSortConfig({ key, direction }); };
     const sortedProdutos = useMemo(() => { let sortableItems = [...produtos]; if (sortConfig.key !== null) { sortableItems.sort((a, b) => { const valA = a[sortConfig.key]; const valB = b[sortConfig.key]; if (valA === null || valA === undefined) return 1; if (valB === null || valB === undefined) return -1; if (sortConfig.key === 'valor_venda_calculado' || sortConfig.key === 'area_privativa') { const numA = parseFloat(valA) || 0; const numB = parseFloat(valB) || 0; return sortConfig.direction === 'ascending' ? numA - numB : numB - numA; } if (String(valA).toLowerCase() < String(valB).toLowerCase()) { return sortConfig.direction === 'ascending' ? -1 : 1; } if (String(valA).toLowerCase() > String(valB).toLowerCase()) { return sortConfig.direction === 'ascending' ? 1 : -1; } return 0; }); } return sortableItems; }, [produtos, sortConfig]);
@@ -106,32 +127,27 @@ const TabelaVendas = ({ produtos, empreendimentoId }) => {
 };
 
 const ListaAnexos = ({ anexos, onDelete }) => {
+    // ... (código interno da ListaAnexos não precisa de alteração)
     if (!anexos || anexos.length === 0) return <p className="text-center text-gray-500 py-4 mt-4">Nenhum documento nesta categoria.</p>;
-    return (
-        <div className="space-y-3 mt-4">
-            {anexos.map(anexo => (<div key={anexo.id} className="bg-white p-3 rounded-md border flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors"><div className="flex items-center gap-4 min-w-0"><FontAwesomeIcon icon={faFileLines} className="text-xl text-gray-500 flex-shrink-0" /><div className="flex-grow min-w-0"><p className="font-medium text-gray-800 truncate" title={anexo.nome_arquivo}>{anexo.nome_arquivo}</p><p className="text-xs text-gray-500">{anexo.descricao || anexo.tipo?.descricao || 'Sem descrição'}</p></div></div><div className="flex items-center gap-4 flex-shrink-0"><a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800" title="Visualizar"><FontAwesomeIcon icon={faEye} /></a><button onClick={() => onDelete(anexo.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button></div></div>))}
-        </div>
-    );
+    return ( <div className="space-y-3 mt-4"> {anexos.map(anexo => (<div key={anexo.id} className="bg-white p-3 rounded-md border flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors"><div className="flex items-center gap-4 min-w-0"><FontAwesomeIcon icon={faFileLines} className="text-xl text-gray-500 flex-shrink-0" /><div className="flex-grow min-w-0"><p className="font-medium text-gray-800 truncate" title={anexo.nome_arquivo}>{anexo.nome_arquivo}</p><p className="text-xs text-gray-500">{anexo.descricao || anexo.tipo?.descricao || 'Sem descrição'}</p></div></div><div className="flex items-center gap-4 flex-shrink-0"><a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800" title="Visualizar"><FontAwesomeIcon icon={faEye} /></a><button onClick={() => onDelete(anexo.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button></div></div>))} </div> );
 };
 
 const GaleriaMarketing = ({ anexos, onDelete }) => {
+    // ... (código interno da GaleriaMarketing não precisa de alteração)
     if (!anexos || anexos.length === 0) return <p className="text-center text-gray-500 py-4 mt-4">Nenhum item de marketing encontrado.</p>;
     const isVideo = (path) => /\.(mp4|webm|ogg)$/i.test(path || '');
-    return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-            {anexos.map(anexo => (<div key={anexo.id} className="relative group rounded-lg overflow-hidden shadow-lg border">{isVideo(anexo.caminho_arquivo) ? (<video controls src={anexo.public_url} className="w-full h-48 object-cover bg-black">Seu navegador não suporta o elemento de vídeo.</video>) : (anexo.public_url && <img src={anexo.public_url} alt={anexo.nome_arquivo} className="w-full h-48 object-cover"/>)}<div className="absolute top-0 right-0 p-1 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-black/80"><FontAwesomeIcon icon={faEye} /></a><button onClick={() => onDelete(anexo.id)} className="bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-black/80"><FontAwesomeIcon icon={faTrash} /></button></div>{(anexo.descricao || anexo.tipo?.descricao) && (<div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate">{anexo.descricao || anexo.tipo.descricao}</div>)}</div>))}
-        </div>
-    );
+    return ( <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4"> {anexos.map(anexo => (<div key={anexo.id} className="relative group rounded-lg overflow-hidden shadow-lg border">{isVideo(anexo.caminho_arquivo) ? (<video controls src={anexo.public_url} className="w-full h-48 object-cover bg-black">Seu navegador não suporta o elemento de vídeo.</video>) : (anexo.public_url && <img src={anexo.public_url} alt={anexo.nome_arquivo} className="w-full h-48 object-cover"/>)}<div className="absolute top-0 right-0 p-1 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-black/80"><FontAwesomeIcon icon={faEye} /></a><button onClick={() => onDelete(anexo.id)} className="bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-black/80"><FontAwesomeIcon icon={faTrash} /></button></div>{(anexo.descricao || anexo.tipo?.descricao) && (<div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate">{anexo.descricao || anexo.tipo.descricao}</div>)}</div>))} </div> );
 };
 
 
-// --- COMPONENTE PRINCIPAL (COM A NOVA FUNCIONALIDADE INTEGRADA) ---
+// --- COMPONENTE PRINCIPAL ---
 
 export default function EmpreendimentoDetails({ empreendimento, corporateEntities = [], proprietariaOptions = [], produtos = [], initialAnexos, documentoTipos, initialQuadroDeAreas }) {
   const [activeTab, setActiveTab] = useState('dados_gerais');
   const [anexos, setAnexos] = useState(initialAnexos);
   const supabase = createClient();
   const router = useRouter();
+  const { userData } = useAuth(); // <-- Pega os dados do usuário logado
 
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [summary, setSummary] = useState('');
@@ -289,7 +305,7 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
                <div className="pt-6 border-t"><h3 className="text-xl font-semibold text-gray-800 mb-4">Endereço</h3><div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"><InfoField label="CEP" value={empreendimento.cep} /><InfoField label="Rua" value={empreendimento.address_street} /><InfoField label="Número" value={empreendimento.address_number} /><InfoField label="Complemento" value={empreendimento.address_complement} /><InfoField label="Bairro" value={empreendimento.neighborhood} /><InfoField label="Cidade" value={empreendimento.city} /><InfoField label="Estado" value={empreendimento.state} /></div></div>
                <div className="pt-6 border-t"><h3 className="text-xl font-semibold text-gray-800 mb-4">Características Construtivas</h3><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><InfoField label="Área Total do Terreno" value={formattedTerrenoAreaTotal} /><InfoField label="Tipo de Estrutura" value={empreendimento.estrutura_tipo} /><InfoField label="Tipo de Alvenaria" value={empreendimento.alvenaria_tipo} /><InfoField label="Detalhes da Cobertura" value={empreendimento.cobertura_detalhes} fullWidth={true}/></div></div>
                {initialQuadroDeAreas && initialQuadroDeAreas.length > 0 && (
-                 <div className="pt-6 border-t"><h3 className="text-xl font-semibold text-gray-800 mb-4">Quadro de Áreas</h3><table className="min-w-full bg-white border rounded-lg"><thead className="bg-gray-100"><tr><th className="py-2 px-4 text-left text-sm font-semibold">Pavimento</th><th className="py-2 px-4 text-right text-sm font-semibold">Área (m²)</th></tr></thead><tbody>{initialQuadroDeAreas.map((item) => (<tr key={item.id} className="border-t"><td className="py-2 px-4">{item.pavimento_nome}</td><td className="py-2 px-4 text-right">{item.area_m2} m²</td></tr>))}<tr className="bg-gray-100 font-bold"><td className="py-2 px-4 text-left">Total</td><td className="py-2 px-4 text-right">{initialQuadroDeAreas.reduce((sum, item) => sum + parseFloat(item.area_m2 || 0), 0).toFixed(2)} m²</td></tr></tbody></table></div>
+                <div className="pt-6 border-t"><h3 className="text-xl font-semibold text-gray-800 mb-4">Quadro de Áreas</h3><table className="min-w-full bg-white border rounded-lg"><thead className="bg-gray-100"><tr><th className="py-2 px-4 text-left text-sm font-semibold">Pavimento</th><th className="py-2 px-4 text-right text-sm font-semibold">Área (m²)</th></tr></thead><tbody>{initialQuadroDeAreas.map((item) => (<tr key={item.id} className="border-t"><td className="py-2 px-4">{item.pavimento_nome}</td><td className="py-2 px-4 text-right">{item.area_m2} m²</td></tr>))}<tr className="bg-gray-100 font-bold"><td className="py-2 px-4 text-left">Total</td><td className="py-2 px-4 text-right">{initialQuadroDeAreas.reduce((sum, item) => sum + parseFloat(item.area_m2 || 0), 0).toFixed(2)} m²</td></tr></tbody></table></div>
                )}
            </div>
         )}
@@ -300,19 +316,19 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
             <div className="space-y-6 animate-fade-in">
                 {activeTab === 'documentos_juridicos' && (
                     <>
-                        <AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="juridico" />
+                        <AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="juridico" organizacaoId={userData?.organizacao_id} />
                         <ListaAnexos anexos={anexos.filter(a => a.categoria_aba === 'juridico')} onDelete={handleDeleteAnexo} />
                     </>
                 )}
                 {activeTab === 'documentos_gerais' && (
                     <>
-                        <AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="geral" />
+                        <AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="geral" organizacaoId={userData?.organizacao_id} />
                         <ListaAnexos anexos={anexos.filter(a => a.categoria_aba === 'geral')} onDelete={handleDeleteAnexo} />
                     </>
                 )}
                 {activeTab === 'marketing' && (
-                      <>
-                        <AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="marketing" />
+                    <>
+                        <AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="marketing" organizacaoId={userData?.organizacao_id} />
                         <GaleriaMarketing anexos={anexos.filter(a => a.categoria_aba === 'marketing')} onDelete={handleDeleteAnexo} />
                     </>
                 )}

@@ -1,10 +1,14 @@
+// components/ContatoImporter.js
+
 "use client";
 
 import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext'; // <--- 1. IMPORTAMOS O 'useAuth'
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUpload, faFileCsv, faDownload } from '@fortawesome/free-solid-svg-icons';
 import Papa from 'papaparse';
+import { toast } from 'sonner'; // <-- Importa o toast para notificações
 
 const dbColumns = [
     { key: 'personalidade_juridica', label: 'Personalidade Jurídica (PF/PJ)' },
@@ -19,9 +23,7 @@ const dbColumns = [
     { key: 'inscricao_municipal', label: 'Inscrição Municipal' },
     { key: 'responsavel_legal', label: 'Responsável Legal' },
     { key: 'data_fundacao', label: 'Data de Fundação (AAAA-MM-DD)' },
-    // ***** INÍCIO DA CORREÇÃO *****
     { key: 'pessoa_contato', label: 'Pessoa de Contato' },
-    // ***** FIM DA CORREÇÃO *****
     // Dados PF
     { key: 'cpf', label: 'CPF' },
     { key: 'rg', label: 'RG' },
@@ -49,6 +51,7 @@ const CSV_MODEL_HEADER = dbColumns.map(c => c.key).join(';');
 
 export default function ContatoImporter({ isOpen, onClose, onImportComplete }) {
   const supabase = createClient();
+  const { userData } = useAuth(); // <--- 2. PEGAMOS OS DADOS DO USUÁRIO LOGADO
   const [file, setFile] = useState(null);
   const [headers, setHeaders] = useState([]);
   const [mappings, setMappings] = useState({});
@@ -99,6 +102,13 @@ export default function ContatoImporter({ isOpen, onClose, onImportComplete }) {
 
   const processAndImport = async () => {
     if (!file) { setMessage('Nenhum arquivo selecionado.'); return; }
+    
+    // ---> 3. AQUI ESTÁ A MUDANÇA MÁGICA <---
+    if (!userData?.organizacao_id) {
+        toast.error('Erro de segurança: Organização do usuário não encontrada. Por favor, faça login novamente.');
+        return;
+    }
+
     setIsProcessing(true); setMessage('Analisando arquivo...'); setErrorDetails([]);
 
     const mappedType = Object.keys(mappings).find(key => mappings[key] === 'tipo_contato');
@@ -134,6 +144,9 @@ export default function ContatoImporter({ isOpen, onClose, onImportComplete }) {
                 const rowData = dataToImport[i];
                 const { telefones, emails, ...contatoData } = rowData;
                 
+                // Adicionamos o "carimbo" da organização em cada linha a ser importada.
+                contatoData.organizacao_id = userData.organizacao_id;
+
                 if (contatoData.tipo_contato) contatoData.tipo_contato = capitalizeFirstLetter(contatoData.tipo_contato);
                 if (contatoData.personalidade_juridica) contatoData.personalidade_juridica = capitalizeFirstLetter(contatoData.personalidade_juridica);
                 else contatoData.personalidade_juridica = contatoData.cnpj ? 'Pessoa Jurídica' : 'Pessoa Física';
@@ -166,28 +179,28 @@ export default function ContatoImporter({ isOpen, onClose, onImportComplete }) {
         <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Importar Contatos via CSV</h2>
             <div className="mb-4">
-              <label htmlFor="file-upload" className="block text-sm font-medium text-gray-700 mb-2">1. Selecione o arquivo CSV</label>
-              <div className="flex gap-4">
-                <input id="file-upload" type="file" accept=".csv" onChange={handleFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100" />
-                <button onClick={handleDownloadTemplate} className="flex-shrink-0 bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-700 flex items-center gap-2 text-sm"> <FontAwesomeIcon icon={faDownload} /> Modelo </button>
-              </div>
+                <label htmlFor="file-upload" className="block text-sm font-medium text-gray-700 mb-2">1. Selecione o arquivo CSV</label>
+                <div className="flex gap-4">
+                    <input id="file-upload" type="file" accept=".csv" onChange={handleFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100" />
+                    <button onClick={handleDownloadTemplate} className="flex-shrink-0 bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-700 flex items-center gap-2 text-sm"> <FontAwesomeIcon icon={faDownload} /> Modelo </button>
+                </div>
             </div>
             {headers.length > 0 && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">2. Mapeamento de Colunas</h3>
-                <p className="text-sm text-gray-600 mb-3">Vincule as colunas do seu arquivo (esquerda) com as colunas do sistema (direita).</p>
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                  {headers.map((header) => (
-                    <div key={header} className="grid grid-cols-2 gap-4 items-center">
-                      <div className="font-medium text-gray-800 bg-gray-100 p-2 rounded truncate"> {header} </div>
-                      <select value={mappings[header] || ''} onChange={(e) => handleMappingChange(header, e.target.value)} className="block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                        <option value="">Ignorar esta coluna</option>
-                        {dbColumns.map((col) => ( <option key={col.key} value={col.key}> {col.label} </option> ))}
-                      </select>
+                <div className="mb-4">
+                    <h3 className="text-lg font-semibold mb-2">2. Mapeamento de Colunas</h3>
+                    <p className="text-sm text-gray-600 mb-3">Vincule as colunas do seu arquivo (esquerda) com as colunas do sistema (direita).</p>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                        {headers.map((header) => (
+                            <div key={header} className="grid grid-cols-2 gap-4 items-center">
+                                <div className="font-medium text-gray-800 bg-gray-100 p-2 rounded truncate"> {header} </div>
+                                <select value={mappings[header] || ''} onChange={(e) => handleMappingChange(header, e.target.value)} className="block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                                    <option value="">Ignorar esta coluna</option>
+                                    {dbColumns.map((col) => ( <option key={col.key} value={col.key}> {col.label} </option> ))}
+                                </select>
+                            </div>
+                        ))}
                     </div>
-                  ))}
                 </div>
-              </div>
             )}
             {message && <p className={`text-sm font-semibold p-3 rounded-md mb-4 ${errorDetails.length > 0 ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>{message}</p>}
             {errorDetails.length > 0 && (
@@ -197,13 +210,22 @@ export default function ContatoImporter({ isOpen, onClose, onImportComplete }) {
                 </div>
             )}
             <div className="flex justify-end space-x-3 mt-6">
-              <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"> Cancelar </button>
-              <button onClick={processAndImport} disabled={isProcessing || headers.length === 0} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300 flex items-center gap-2">
-                {isProcessing ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faUpload} />}
-                {isProcessing ? 'Importando...' : 'Importar Dados'}
-              </button>
+                <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"> Cancelar </button>
+                <button onClick={processAndImport} disabled={isProcessing || headers.length === 0} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300 flex items-center gap-2">
+                    {isProcessing ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faUpload} />}
+                    {isProcessing ? 'Importando...' : 'Importar Dados'}
+                </button>
             </div>
         </div>
     </div>
   );
 }
+
+// --------------------------------------------------------------------------------
+// COMENTÁRIO DO ARQUIVO
+// --------------------------------------------------------------------------------
+// Este componente cria um modal para importação de contatos em massa via arquivo CSV.
+// Ele lida com o upload do arquivo, o mapeamento das colunas do CSV para as colunas
+// do banco de dados, a validação dos dados e a inserção em lote na tabela 'contatos'
+// e tabelas relacionadas ('telefones', 'emails').
+// --------------------------------------------------------------------------------

@@ -1,3 +1,5 @@
+//components\ComprasKanban.js
+
 'use client';
 
 // NOVO: Adicionado useRef e useEffect para controlar o menu

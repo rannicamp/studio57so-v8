@@ -41,7 +41,7 @@ const InfoField = ({ label, value, icon }) => (
 // COMPONENTE PRINCIPAL DO SIDEBAR
 export default function ContatoDetalhesSidebar({ open, onClose, contato, onActionComplete, onAddActivity, onEditActivity }) {
     const supabase = createClient();
-    const { user } = useAuth();
+    const { user, userData } = useAuth(); // <--- 1. PEGAMOS O 'userData' PARA TER O 'organizacao_id'
     
     const [notes, setNotes] = useState([]);
     const [activities, setActivities] = useState([]);
@@ -126,7 +126,33 @@ export default function ContatoDetalhesSidebar({ open, onClose, contato, onActio
         });
     };
     
-    const handleAddNote = async () => { if (!newNoteContent.trim()) return; setSaving(true); const { error } = await supabase.from('crm_notas').insert({ contato_id: contato.id, conteudo: newNoteContent, usuario_id: user.id }); if (error) { toast.error(error.message); } else { setNewNoteContent(''); fetchData(); } setSaving(false); };
+    // ---> 2. AQUI ESTÁ A MUDANÇA MÁGICA <---
+    const handleAddNote = async () => { 
+        if (!newNoteContent.trim()) return; 
+        
+        // Verificação de segurança
+        if (!userData?.organizacao_id) {
+            toast.error('Erro de segurança: Organização do usuário não encontrada.');
+            return;
+        }
+
+        setSaving(true); 
+        const { error } = await supabase.from('crm_notas').insert({ 
+            contato_id: contato.id, 
+            conteudo: newNoteContent, 
+            usuario_id: user.id,
+            organizacao_id: userData.organizacao_id // <-- Adiciona o "carimbo" da organização!
+        }); 
+        
+        if (error) { 
+            toast.error(error.message); 
+        } else { 
+            setNewNoteContent(''); 
+            fetchData(); 
+        } 
+        setSaving(false); 
+    };
+
     const handleCompleteActivity = async (activityId) => { const { error } = await supabase.from('activities').update({ status: 'Concluído' }).eq('id', activityId); if (error) toast.error(error.message); else fetchData(); };
     const handleDeleteActivity = async (activityId) => { if (window.confirm('Tem certeza?')) { const { error } = await supabase.from('activities').delete().eq('id', activityId); if (error) toast.error(error.message); else fetchData(); }};
     const handleStartEditingNote = (note) => { setEditingNoteId(note.id); setEditingNoteContent(note.conteudo); };
@@ -253,3 +279,13 @@ export default function ContatoDetalhesSidebar({ open, onClose, contato, onActio
         </div>
     );
 }
+
+// --------------------------------------------------------------------------------
+// COMENTÁRIO DO ARQUIVO
+// --------------------------------------------------------------------------------
+// Este componente é uma barra lateral (sidebar) que desliza para a direita para
+// mostrar informações detalhadas de um contato específico. Ele exibe os dados
+// principais do contato e permite uma edição rápida desses dados. Além disso,
+// ele possui seções para visualizar, adicionar e gerenciar atividades e notas
+// relacionadas diretamente a esse contato, servindo como um mini-dashboard.
+// --------------------------------------------------------------------------------

@@ -1,6 +1,9 @@
+//components\AtividadeModal.js
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAuth } from '../contexts/AuthContext'; // <--- 1. IMPORTAMOS O 'useAuth'
 import { createClient } from '../utils/supabase/client';
 import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
 import { toast } from 'sonner';
@@ -49,6 +52,7 @@ function addBusinessDays(startDate, days) {
 
 export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activityToEdit, selectedEmpreendimento, funcionarios, allEmpresas, initialContatoId }) {
     const supabase = createClient();
+    const { userData } = useAuth(); // <--- 2. PEGAMOS OS DADOS DO USUÁRIO LOGADO
     const { empreendimentos: allEmpreendimentos, loading: empreendimentosLoading } = useEmpreendimento();
     const [etapas, setEtapas] = useState([]);
     const [subetapas, setSubetapas] = useState([]);
@@ -290,13 +294,23 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
     const handleCreateSubetapa = async () => {
         if (!subetapaSearch.trim() || !formData.etapa_id) return;
 
+        // ---> 3. AQUI ESTÁ A MUDANÇA MÁGICA PARA SUBETAPAS <---
+        if (!userData?.organizacao_id) {
+            toast.error('Erro de segurança: Organização do usuário não encontrada.');
+            return;
+        }
+
         const subetapaNome = subetapaSearch.trim();
         setIsCreatingSubetapa(true);
 
         const promise = new Promise(async (resolve, reject) => {
             const { data: newSubetapa, error } = await supabase
                 .from('subetapas')
-                .insert({ nome_subetapa: subetapaNome, etapa_id: formData.etapa_id })
+                .insert({ 
+                    nome_subetapa: subetapaNome, 
+                    etapa_id: formData.etapa_id,
+                    organizacao_id: userData.organizacao_id // <-- Adiciona o carimbo!
+                })
                 .select()
                 .single();
 
@@ -326,8 +340,8 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!currentUserId) {
-            toast.error("Erro: Usuário não autenticado.");
+        if (!currentUserId || !userData?.organizacao_id) { // <-- Verificação de segurança adicional
+            toast.error("Erro: Usuário não autenticado ou organização não encontrada.");
             return;
         }
 
@@ -349,6 +363,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 empreendimento_id: formData.empreendimento_id || null,
                 contato_id: formData.contato_id,
                 atividade_pai_id: formData.atividade_pai_id || null,
+                organizacao_id: userData.organizacao_id, // <-- Adiciona o carimbo!
             };
 
             if (dadosParaSalvar.empreendimento_id) {
@@ -448,16 +463,16 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                              <div className="relative">
                                   <FontAwesomeIcon icon={faSitemap} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                   <input 
-                                      type="text" 
-                                      name="parent_search"
-                                      value={parentActivitySearch} 
-                                      onChange={handleChange}
-                                      placeholder="Digite para buscar a atividade principal..." 
-                                      className="mt-1 w-full p-2 pl-10 border rounded-md"
+                                    type="text" 
+                                    name="parent_search"
+                                    value={parentActivitySearch} 
+                                    onChange={handleChange}
+                                    placeholder="Digite para buscar a atividade principal..." 
+                                    className="mt-1 w-full p-2 pl-10 border rounded-md"
                                    />
                                   {selectedParent && (
                                       <button type="button" onClick={handleClearParent} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-red-600">
-                                           <FontAwesomeIcon icon={faTimes} />
+                                          <FontAwesomeIcon icon={faTimes} />
                                       </button>
                                   )}
                             </div>
@@ -552,8 +567,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                                             ) : (
                                                 <>
                                                     <FontAwesomeIcon icon={faPlus} className="text-green-600" />
-                                                     {/* CORREÇÃO APLICADA AQUI */}
-                                                    <span className="text-green-800 font-semibold">Criar: &quot;{subetapaSearch}&quot;</span>
+                                                     <span className="text-green-800 font-semibold">Criar: &quot;{subetapaSearch}&quot;</span>
                                                 </>
                                             )}
                                         </li>

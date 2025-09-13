@@ -1,20 +1,24 @@
+//components\CondicoesPagamento.js
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '../contexts/AuthContext'; // <--- 1. IMPORTAMOS O 'useAuth'
 import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTrash, faPlus, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
+import { toast } from 'sonner'; // <-- Adicionado para notificações mais elegantes
 
 
 export default function CondicoesPagamento({ empreendimentoId, initialConfig, onUpdate }) {
     const supabase = createClient();
+    const { userData } = useAuth(); // <--- 2. PEGAMOS OS DADOS DO USUÁRIO LOGADO
     const [config, setConfig] = useState(initialConfig || {});
     const [parcelasAdicionais, setParcelasAdicionais] = useState(initialConfig?.parcelas_adicionais || []);
     const [novaParcela, setNovaParcela] = useState({ valor: '', data_pagamento: '' });
     
     const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState('');
 
     useEffect(() => {
         const initial = initialConfig || {
@@ -41,7 +45,7 @@ export default function CondicoesPagamento({ empreendimentoId, initialConfig, on
     
     const handleAddParcelaAdicional = async () => {
         if (!novaParcela.valor || !novaParcela.data_pagamento || !config.id) {
-            alert('Para adicionar uma parcela, primeiro salve as condições de pagamento gerais e depois preencha o valor e a data da parcela adicional.');
+            toast.warning('Para adicionar uma parcela, primeiro salve as condições de pagamento gerais e depois preencha o valor e a data da parcela adicional.');
             return;
         }
         
@@ -54,36 +58,50 @@ export default function CondicoesPagamento({ empreendimentoId, initialConfig, on
             });
 
         if (error) {
-            setMessage('Erro ao adicionar parcela: ' + error.message);
+            toast.error('Erro ao adicionar parcela: ' + error.message);
         } else {
+            toast.success('Parcela adicional adicionada!');
             setNovaParcela({ valor: '', data_pagamento: '' });
             onUpdate();
         }
     };
     
     const handleRemoveParcelaAdicional = async (id) => {
-        await supabase.from('parcelas_adicionais').delete().eq('id', id);
-        onUpdate();
+        const { error } = await supabase.from('parcelas_adicionais').delete().eq('id', id);
+        if (error) {
+            toast.error('Erro ao remover parcela: ' + error.message);
+        } else {
+            toast.success('Parcela adicional removida.');
+            onUpdate();
+        }
     };
 
     const handleSave = async () => {
         setSaving(true);
-        setMessage('Salvando...');
+
+        // ---> 3. AQUI ESTÁ A MUDANÇA MÁGICA <---
+        if (!userData?.organizacao_id) {
+            toast.error('Erro de segurança: Organização do usuário não encontrada. Por favor, faça login novamente.');
+            setSaving(false);
+            return;
+        }
 
         const { id, created_at, parcelas_adicionais, ...dataToUpsert } = config;
+
+        // Adicionamos o "carimbo" da organização aos dados que serão salvos.
+        dataToUpsert.organizacao_id = userData.organizacao_id;
 
         const { error } = await supabase
             .from('configuracoes_venda')
             .upsert({ ...dataToUpsert, empreendimento_id: empreendimentoId }, { onConflict: 'empreendimento_id' });
 
         if (error) {
-            setMessage('Erro ao salvar: ' + error.message);
+            toast.error('Erro ao salvar: ' + error.message);
         } else {
-            setMessage('Condições de pagamento salvas com sucesso!');
+            toast.success('Condições de pagamento salvas com sucesso!');
             onUpdate();
         }
         setSaving(false);
-        setTimeout(() => setMessage(''), 3000);
     };
 
     const totalPercent = useMemo(() => {
@@ -192,8 +210,16 @@ export default function CondicoesPagamento({ empreendimentoId, initialConfig, on
                         {saving ? <><FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> Salvando...</> : 'Salvar Condições'}
                     </button>
                 </div>
-                 {message && <p className="text-center text-sm font-semibold">{message}</p>}
             </div>
         </div>
     );
 }
+
+// --------------------------------------------------------------------------------
+// COMENTÁRIO DO ARQUIVO
+// --------------------------------------------------------------------------------
+// Este componente é um formulário para gerenciar as condições de pagamento padrão
+// de um empreendimento específico (tabela 'configuracoes_venda'). Ele permite
+// definir percentuais e prazos para entrada, parcelas de obra e saldo, além de
+// gerenciar parcelas adicionais (intermediárias) vinculadas a essa configuração.
+// --------------------------------------------------------------------------------

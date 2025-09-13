@@ -239,3 +239,14 @@ export default function ContatoList({ initialContatos, onActionComplete, onRowCl
     </div>
   );
 }
+
+// --------------------------------------------------------------------------------
+// COMENTÁRIO DO ARQUIVO
+// --------------------------------------------------------------------------------
+// Este componente é a interface principal para listar e gerenciar contatos.
+// Ele renderiza uma tabela com funcionalidades de busca, filtro por tipo,
+// ordenação de colunas e seleção de colunas visíveis. Permite ações em massa,
+// como deletar ou mesclar contatos selecionados. A edição de um contato
+// é roteada para outra página, e a visualização de detalhes é feita através
+// do 'onRowClick', que geralmente abre uma sidebar.
+// --------------------------------------------------------------------------------

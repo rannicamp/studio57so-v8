@@ -1,31 +1,69 @@
+// components/EmpreendimentoForm.js
+
 'use client';
 
+// --------------------------------------------------------------------------------
+// IMPORTAÇÕES
+// --------------------------------------------------------------------------------
+// Hooks do React para gerenciar estado (useState), efeitos colaterais (useEffect, useCallback)
 import { useState, useEffect, useCallback } from 'react';
+// Hook do Next.js para navegação entre páginas
 import { useRouter } from 'next/navigation';
+// Função para criar um cliente Supabase no lado do cliente
 import { createClient } from '../utils/supabase/client';
+// Biblioteca para exibir notificações (toasts) elegantes
 import { toast } from 'sonner';
+// Ícones da biblioteca FontAwesome
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTimes, faSearch } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTimes } from '@fortawesome/free-solid-svg-icons';
+// Componente para criar máscaras de input (ex: CEP)
 import { IMaskInput } from 'react-imask';
+// Componente personalizado para upload de arquivos com análise de IA
 import FileUploadWithAI from './FileUploadWithAI';
+// Hooks da biblioteca TanStack Query para gerenciar estado do servidor
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+// Hook do nosso contexto de autenticação para pegar dados do usuário logado
+import { useAuth } from '../contexts/AuthContext';
 
+
+// --------------------------------------------------------------------------------
+// COMPONENTE PRINCIPAL
+// --------------------------------------------------------------------------------
 export default function EmpreendimentoForm({ empreendimento, corporateEntities = [], proprietariaOptions = [] }) {
+  // --------------------------------------------------------------------------------
+  // ESTADOS DO COMPONENTE
+  // --------------------------------------------------------------------------------
+  // Armazena todos os dados do formulário do empreendimento
   const [formData, setFormData] = useState({});
-  const [loading, setLoading] = useState(false);
+  // Controla o estado de carregamento de APIs externas, como a de CEP
   const [isApiLoading, setIsApiLoading] = useState(false);
+  // Armazena os termos de busca para incorporadora e construtora
+  const [searchTerms, setSearchTerms] = useState({ incorporadora: '', construtora: '' });
+  // Armazena os resultados da busca para incorporadora e construtora
+  const [searchResults, setSearchResults] = useState({ incorporadora: [], construtora: [] });
+  // Controla o estado de "buscando..." para os campos de incorporadora e construtora
+  const [isSearching, setIsSearching] = useState({ incorporadora: false, construtora: false });
 
+  // --------------------------------------------------------------------------------
+  // HOOKS E VARIÁVEIS
+  // --------------------------------------------------------------------------------
+  // Hook para navegação
   const router = useRouter();
+  // Cria uma instância do cliente Supabase
   const supabase = createClient();
-
+  // Hook para acessar o Query Client do TanStack Query, usado para invalidar caches
+  const queryClient = useQueryClient();
+  // **AQUI ESTÁ A NOSSA MÁGICA!** Pega os dados do usuário logado do nosso contexto
+  const { userData } = useAuth();
+  
+  // Variável booleana para verificar se estamos editando um empreendimento existente
   const isEditing = Boolean(empreendimento);
 
-  // --- INÍCIO DA ALTERAÇÃO ---
-  // Estados para controlar a busca de Incorporadora e Construtora
-  const [searchTerms, setSearchTerms] = useState({ incorporadora: '', construtora: '' });
-  const [searchResults, setSearchResults] = useState({ incorporadora: [], construtora: [] });
-  const [isSearching, setIsSearching] = useState({ incorporadora: false, construtora: false });
-  // --- FIM DA ALTERAÇÃO ---
-
+  // --------------------------------------------------------------------------------
+  // EFEITO INICIAL (useEffect)
+  // --------------------------------------------------------------------------------
+  // Roda quando o componente é montado ou quando 'empreendimento' ou 'corporateEntities' mudam.
+  // Sua função é preencher o formulário com os dados existentes se estivermos editando.
   useEffect(() => {
     const initialState = {
       nome: empreendimento?.nome || '',
@@ -55,7 +93,6 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
     };
     setFormData(initialState);
     
-    // --- INÍCIO DA ALTERAÇÃO ---
     // Preenche os nomes da incorporadora e construtora no estado de busca ao carregar
     if (empreendimento) {
         const incorporadora = corporateEntities.find(e => e.id === empreendimento.incorporadora_id);
@@ -65,20 +102,24 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
             construtora: construtora ? (construtora.nome || construtora.razao_social) : ''
         });
     }
-    // --- FIM DA ALTERAÇÃO ---
-
   }, [empreendimento, corporateEntities]);
   
+  // --------------------------------------------------------------------------------
+  // FUNÇÕES DE MANIPULAÇÃO DE DADOS (HANDLERS)
+  // --------------------------------------------------------------------------------
+
+  // Função para lidar com mudanças em inputs com máscara
   const handleMaskedChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Função genérica para lidar com mudanças na maioria dos inputs do formulário
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
   
-  // --- INÍCIO DAS NOVAS FUNÇÕES ---
+  // Função para buscar contatos (incorporadora/construtora) dinamicamente
   const handleSearchChange = async (type, term) => {
     setSearchTerms(prev => ({ ...prev, [type]: term }));
     if (term.length < 2) {
@@ -91,29 +132,33 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
       .from('contatos')
       .select('id, nome, razao_social, nome_fantasia')
       .or(`nome.ilike.%${term}%,razao_social.ilike.%${term}%,nome_fantasia.ilike.%${term}%`)
+      .eq('organizacao_id', userData.organizacao_id) // Garante que só busque contatos da mesma organização
       .limit(10);
       
     if (error) {
       console.error(`Erro ao buscar ${type}:`, error);
+      toast.error(`Falha ao buscar ${type}.`);
     } else {
       setSearchResults(prev => ({ ...prev, [type]: data || [] }));
     }
     setIsSearching(prev => ({ ...prev, [type]: false }));
   };
   
+  // Função chamada quando uma entidade (incorporadora/construtora) é selecionada da lista de busca
   const handleSelectEntity = (type, entity) => {
     setFormData(prev => ({ ...prev, [`${type}_id`]: entity.id }));
     setSearchTerms(prev => ({ ...prev, [type]: entity.razao_social || entity.nome }));
-    setSearchResults(prev => ({ ...prev, [type]: [] }));
+    setSearchResults(prev => ({ ...prev, [type]: [] })); // Limpa os resultados da busca
   };
 
+  // Função para limpar a seleção de uma entidade
   const handleClearEntity = (type) => {
     setFormData(prev => ({ ...prev, [`${type}_id`]: null }));
     setSearchTerms(prev => ({ ...prev, [type]: '' }));
     setSearchResults(prev => ({ ...prev, [type]: [] }));
   };
-  // --- FIM DAS NOVAS FUNÇÕES ---
 
+  // Função para buscar o endereço a partir do CEP usando uma API externa
   const handleCepBlur = useCallback(async (e) => {
     const cep = e.target.value?.replace(/\D/g, '');
     if (cep?.length !== 8) return;
@@ -133,6 +178,7 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
     });
   }, []);
 
+  // Função chamada quando a análise de IA do documento (matrícula) é completada
   const handleAnalysisComplete = (data) => {
       setFormData(prev => ({
         ...prev,
@@ -141,33 +187,57 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
       toast.success('Campos preenchidos pela IA! Por favor, revise os dados.');
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    const dataToSubmit = { ...formData };
-    
-    const promise = new Promise(async (resolve, reject) => {
-        if (empreendimento) {
-            const { error } = await supabase.from('empreendimentos').update(dataToSubmit).eq('id', empreendimento.id);
-            if (error) reject(error); else resolve();
-        } else {
-            const { data, error } = await supabase.from('empreendimentos').insert(dataToSubmit).select().single();
-            if (error) reject(error); else resolve(data);
-        }
-    });
-    toast.promise(promise, {
-      loading: 'Salvando...',
-      success: (data) => {
-        setLoading(false);
-        const newId = data ? data.id : empreendimento.id;
-        router.push(`/empreendimentos/${newId}`);
-        router.refresh();
-        return `Empreendimento salvo com sucesso!`;
-      },
-      error: (err) => { setLoading(false); return `Erro: ${err.message}`; },
-    });
+  // --------------------------------------------------------------------------------
+  // MUTATION (useMutation) - A FORMA MODERNA DE SALVAR DADOS
+  // --------------------------------------------------------------------------------
+  // Este hook do TanStack Query gerencia todo o ciclo de vida de uma mutação de dados:
+  // - Ele nos dá o estado de 'isPending' (carregando).
+  // - Ele chama a função 'mutationFn' para fazer a alteração no banco.
+  // - Em caso de sucesso ('onSuccess'), ele executa ações como invalidar queries e navegar.
+  // - Em caso de erro ('onError'), ele exibe uma notificação de erro.
+  const { mutate: saveEmpreendimento, isPending: isSaving } = useMutation({
+    mutationFn: async (data) => {
+      // **O CARIMBO DA ORGANIZAÇÃO!**
+      // Adicionamos o 'organizacao_id' do usuário logado aos dados que serão salvos.
+      const dataToSubmit = { 
+        ...data, 
+        organizacao_id: userData.organizacao_id 
+      };
+
+      if (isEditing) {
+        // Se estiver editando, faz um 'update'
+        const { error } = await supabase.from('empreendimentos').update(dataToSubmit).eq('id', empreendimento.id);
+        if (error) throw error;
+        return empreendimento.id; // Retorna o ID existente
+      } else {
+        // Se for um novo registro, faz um 'insert'
+        const { data: newData, error } = await supabase.from('empreendimentos').insert(dataToSubmit).select().single();
+        if (error) throw error;
+        return newData.id; // Retorna o ID do novo registro
+      }
+    },
+    onSuccess: (savedId) => {
+      // Ações a serem executadas após o sucesso da mutação
+      toast.success('Empreendimento salvo com sucesso!');
+      // Invalida a query de empreendimentos para garantir que a lista seja atualizada na próxima vez que for acessada
+      queryClient.invalidateQueries({ queryKey: ['empreendimentos'] });
+      // Redireciona para a página de detalhes do empreendimento salvo
+      router.push(`/empreendimentos/${savedId}`);
+      router.refresh();
+    },
+    onError: (error) => {
+      // Exibe uma notificação de erro caso a mutação falhe
+      toast.error(`Erro ao salvar: ${error.message}`);
+    }
+  });
+
+  // Função chamada quando o formulário é submetido
+  const handleSubmit = (e) => {
+    e.preventDefault(); // Previne o comportamento padrão de recarregar a página
+    saveEmpreendimento(formData); // Chama a função de mutação para salvar os dados
   };
 
+  // Prompt que será enviado para a IA analisar a matrícula do imóvel
   const promptAnaliseMatricula = `
     Analise a imagem da matrícula do imóvel e extraia as seguintes informações no formato JSON:
     - "nome_empreendimento": O nome oficial do empreendimento ou condomínio.
@@ -181,17 +251,22 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
     - "state": O estado (UF) do imóvel.
     `;
 
+  // --------------------------------------------------------------------------------
+  // RENDERIZAÇÃO DO COMPONENTE (JSX)
+  // --------------------------------------------------------------------------------
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       
+      {/* Componente de Upload com IA, exibido apenas na criação de um novo empreendimento */}
       {!isEditing && (
         <FileUploadWithAI 
-            onAnalysisComplete={handleAnalysisComplete}
-            analysisEndpoint="/api/empreendimentos/analyze-document"
-            prompt={promptAnaliseMatricula}
+          onAnalysisComplete={handleAnalysisComplete}
+          analysisEndpoint="/api/empreendimentos/analyze-document"
+          prompt={promptAnaliseMatricula}
         />
       )}
 
+      {/* Seção: Dados Gerais */}
       <fieldset>
         <legend className="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Dados Gerais</legend>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -209,6 +284,7 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
         </div>
       </fieldset>
       
+      {/* Seção: Endereço */}
       <fieldset>
         <legend className="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Endereço</legend>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
@@ -222,11 +298,12 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
         </div>
       </fieldset>
       
+      {/* Seção: Dados de Registro e Prazos */}
       <fieldset>
         <legend className="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Dados de Registro e Prazos</legend>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-            <div className="md:col-span-2"><label className="block text-sm font-medium">Nome Oficial (Cartório)</label><input type="text" name="nome_empreendimento" value={formData.nome_empreendimento || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"/></div>
             <div><label className="block text-sm font-medium">Área do Terreno (m²)</label><input type="number" step="0.01" name="terreno_area_total" value={formData.terreno_area_total || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"/></div>
+            <div className="md:col-span-2"><label className="block text-sm font-medium">Nome Oficial (Cartório)</label><input type="text" name="nome_empreendimento" value={formData.nome_empreendimento || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"/></div>
             <div><label className="block text-sm font-medium">Nº da Matrícula</label><input type="text" name="matricula_numero" value={formData.matricula_numero || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"/></div>
             <div className="md:col-span-2"><label className="block text-sm font-medium">Cartório de Registro</label><input type="text" name="matricula_cartorio" value={formData.matricula_cartorio || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"/></div>
             <div><label className="block text-sm font-medium">Data de Início</label><input type="date" name="data_inicio" value={formData.data_inicio || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"/></div>
@@ -234,6 +311,7 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
         </div>
       </fieldset>
       
+      {/* Seção: Entidades Envolvidas */}
       <fieldset>
         <legend className="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Entidades Envolvidas</legend>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -270,7 +348,7 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
             <div className="relative">
                 <label className="block text-sm font-medium">Construtora</label>
                 {formData.construtora_id ? (
-                     <div className="flex items-center justify-between mt-1 w-full p-2 border rounded-md bg-gray-100">
+                      <div className="flex items-center justify-between mt-1 w-full p-2 border rounded-md bg-gray-100">
                         <span className="font-semibold text-gray-800">{searchTerms.construtora}</span>
                         <button type="button" onClick={() => handleClearEntity('construtora')} className="text-red-500 hover:text-red-700"><FontAwesomeIcon icon={faTimes}/></button>
                     </div>
@@ -289,6 +367,7 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
         </div>
       </fieldset>
       
+      {/* Seção: Características Construtivas */}
       <fieldset>
         <legend className="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Características Construtivas</legend>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -298,12 +377,33 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
         </div>
       </fieldset>
 
+      {/* Botões de Ação */}
       <div className="flex justify-end gap-4 pt-4 border-t">
         <button type="button" onClick={() => router.back()} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-        <button type="submit" disabled={loading || isApiLoading} className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2">
-          {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : (empreendimento ? 'Salvar Alterações' : 'Salvar e Continuar')}
+        <button type="submit" disabled={isSaving || isApiLoading} className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2">
+          {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : (empreendimento ? 'Salvar Alterações' : 'Salvar e Continuar')}
         </button>
       </div>
     </form>
   );
 }
+
+
+// --------------------------------------------------------------------------------
+// COMENTÁRIO DO ARQUIVO
+// --------------------------------------------------------------------------------
+// Este componente é o formulário para CRIAR e EDITAR um "Empreendimento".
+//
+// Funcionalidades Principais:
+// - Gerencia um formulário complexo com várias seções de dados.
+// - Na criação, permite o upload de um documento (matrícula do imóvel) para
+//   análise por Inteligência Artificial, que preenche alguns campos automaticamente.
+// - Possui um campo de busca de CEP que preenche os dados de endereço.
+// - Inclui campos de busca dinâmicos para selecionar a "Incorporadora" e a
+//   "Construtora" a partir da tabela de contatos, garantindo que os dados sejam consistentes.
+// - Utiliza o hook `useAuth` para obter o `organizacao_id` do usuário logado e
+//   associa-lo a cada novo empreendimento, garantindo o isolamento dos dados.
+// - A lógica de salvar os dados foi refatorada para usar o hook `useMutation` do
+//   TanStack Query, que centraliza o estado de carregamento (loading), sucesso e erro,
+//   além de invalidar o cache para manter a interface sempre atualizada.
+// --------------------------------------------------------------------------------

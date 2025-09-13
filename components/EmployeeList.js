@@ -1,3 +1,5 @@
+// components/EmployeeList.js
+
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -250,3 +252,13 @@ export default function EmployeeList({ initialEmployees }) {
     </div>
   );
 }
+
+// --------------------------------------------------------------------------------
+// COMENTÁRIO DO ARQUIVO
+// --------------------------------------------------------------------------------
+// Este componente é a interface principal para gerenciar a lista de funcionários.
+// Ele exibe KPIs (indicadores) sobre os funcionários, um campo de busca, e duas
+// seções sanfonadas (accordion) que separam os funcionários ativos dos demitidos.
+// A tabela de funcionários em si é renderizada por um sub-componente (EmployeeTable).
+// A principal ação de modificação de dados aqui é a demissão de um funcionário.
+// --------------------------------------------------------------------------------
