@@ -1,13 +1,15 @@
+//components\contratos\ContratoForm.js
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
+import { useQuery } from '@tanstack/react-query'; // 2. Importar o useQuery
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faSearch, faTimes } from '@fortawesome/free-solid-svg-icons';
 
-// Componente para destacar texto (reutilizado)
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
     const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -15,13 +17,28 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     return (<span>{parts.map((part, i) => regex.test(part) ? <mark key={i} className="bg-yellow-200">{part}</mark> : <span key={i}>{part}</span>)}</span>);
 };
 
+// =================================================================================
+// ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+// O PORQUÊ: Esta função agora busca empreendimentos apenas da organização do usuário.
+// =================================================================================
+const fetchEmpreendimentos = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return [];
+    const { data, error } = await supabase
+        .from('empreendimentos')
+        .select('id, nome')
+        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .order('nome');
+    if (error) throw new Error("Falha ao buscar empreendimentos.");
+    return data || [];
+};
+
 export default function ContratoForm() {
     const supabase = createClient();
     const router = useRouter();
-    const [loading, setLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
+    const { user } = useAuth(); // 3. Obter o usuário para o organizacaoId
+    const organizacaoId = user?.organizacao_id;
 
-    const [empreendimentos, setEmpreendimentos] = useState([]);
+    const [isSaving, setIsSaving] = useState(false);
     const [produtosDisponiveis, setProdutosDisponiveis] = useState([]);
     
     const [formData, setFormData] = useState({
@@ -36,15 +53,16 @@ export default function ContratoForm() {
     const [searchTerms, setSearchTerms] = useState({ comprador: '', corretor: '' });
     const [searchResults, setSearchResults] = useState({ comprador: [], corretor: [] });
     
-    useEffect(() => {
-        const fetchInitialData = async () => {
-            setLoading(true);
-            const { data: empreendimentosData } = await supabase.from('empreendimentos').select('id, nome').order('nome');
-            setEmpreendimentos(empreendimentosData || []);
-            setLoading(false);
-        };
-        fetchInitialData();
-    }, [supabase]);
+    // =================================================================================
+    // ATUALIZAÇÃO DE PADRÃO (useState + useEffect -> useQuery)
+    // O PORQUÊ: Usamos useQuery para buscar os empreendimentos. É mais limpo,
+    // gerencia o estado de loading e erro automaticamente e utiliza cache.
+    // =================================================================================
+    const { data: empreendimentos = [], isLoading: loading } = useQuery({
+        queryKey: ['empreendimentosContrato', organizacaoId],
+        queryFn: () => fetchEmpreendimentos(supabase, organizacaoId),
+        enabled: !!organizacaoId,
+    });
 
     const handleFormChange = (e) => {
         const { name, value } = e.target;
@@ -84,22 +102,24 @@ export default function ContratoForm() {
             setSearchResults(prev => ({ ...prev, [type]: [] }));
             return;
         }
-        const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term });
+        // =================================================================================
+        // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+        // O PORQUÊ: A busca por contatos agora também é filtrada pela organização.
+        // =================================================================================
+        const { data } = await supabase.rpc('buscar_contatos_geral', { 
+            p_search_term: term,
+            p_organizacao_id: organizacaoId // <-- FILTRO DE SEGURANÇA!
+        });
         setSearchResults(prev => ({ ...prev, [type]: data || [] }));
-    }, [supabase]);
+    }, [supabase, organizacaoId]);
 
-    // --- FUNÇÃO CORRIGIDA ---
     const handleSelectContato = (type, contato) => {
-        // Se o tipo for 'comprador', o nome do campo é 'contato_id'.
-        // Se for 'corretor', o nome do campo é 'corretor_id'.
         const fieldName = type === 'comprador' ? 'contato_id' : 'corretor_id';
-        
         setFormData(prev => ({ ...prev, [fieldName]: contato.id }));
         setSearchTerms(prev => ({ ...prev, [type]: contato.nome || contato.razao_social }));
         setSearchResults(prev => ({ ...prev, [type]: [] }));
     };
 
-    // --- FUNÇÃO CORRIGIDA ---
     const handleClearContato = (type) => {
         const fieldName = type === 'comprador' ? 'contato_id' : 'corretor_id';
         setFormData(prev => ({ ...prev, [fieldName]: null }));
@@ -113,9 +133,18 @@ export default function ContratoForm() {
             toast.error("Selecione o Produto e o Comprador antes de salvar.");
             return;
         }
+        if (!organizacaoId) {
+            toast.error("Erro de segurança: Organização não identificada.");
+            return;
+        }
         setIsSaving(true);
         
         const promise = new Promise(async (resolve, reject) => {
+            // =================================================================================
+            // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+            // O PORQUÊ: Ao criar o contrato, "etiquetamos" o registro com o ID da
+            // organização, garantindo que ele pertença à empresa correta.
+            // =================================================================================
             const { data: newContract, error: contractError } = await supabase
                 .from('contratos')
                 .insert({
@@ -125,7 +154,8 @@ export default function ContratoForm() {
                     corretor_id: formData.corretor_id,
                     data_venda: formData.data_venda,
                     valor_final_venda: formData.valor_final_venda,
-                    status_contrato: 'Em assinatura'
+                    status_contrato: 'Em assinatura',
+                    organizacao_id: organizacaoId // <-- ETIQUETA DE SEGURANÇA!
                 })
                 .select('id')
                 .single();
@@ -156,7 +186,6 @@ export default function ContratoForm() {
     };
 
     const renderContatoSearch = (type, label) => {
-        // --- LÓGICA CORRIGIDA ---
         const fieldName = type === 'comprador' ? 'contato_id' : 'corretor_id';
         const contatoId = formData[fieldName];
         const searchTerm = searchTerms[type];

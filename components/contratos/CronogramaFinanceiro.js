@@ -9,7 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faTrash, faSpinner, faSave, faFileInvoiceDollar, faExclamationTriangle, faPen, faTimes, faCopy, faExchangeAlt, faLink, faPrint } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 import PlanoPagamentoPrint from './PlanoPagamentoPrint';
-import { useAuth } from '../../contexts/AuthContext'; // Importar o hook de autenticação
+import { useAuth } from '../../contexts/AuthContext';
 
 // --- FUNÇÕES DE FORMATAÇÃO E ESTILO ---
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -33,7 +33,13 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
     const { id: contratoId, contrato_parcelas: parcelas, contrato_permutas: permutas, valor_final_venda: valorTotalContrato } = contrato;
     
     const supabase = createClient();
-    const { user, userData } = useAuth(); // Usar o contexto para pegar dados do usuário logado
+    const { user, userData } = useAuth();
+    // =================================================================================
+    // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+    // O PORQUÊ: Pegamos a "chave mestra" da organização aqui para usar em todas as
+    // operações de banco de dados, garantindo a segurança dos dados.
+    // =================================================================================
+    const organizacaoId = user?.organizacao_id;
 
     const [localParcelas, setLocalParcelas] = useState(parcelas || []);
     const [localPermutas, setLocalPermutas] = useState(permutas || []);
@@ -44,37 +50,38 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
     const [loading, setLoading] = useState(false);
     const [isProvisioning, setIsProvisioning] = useState(false);
 
-    // --- NOVOS ESTADOS PARA ASSINATURA ---
     const [proprietarios, setProprietarios] = useState([]);
     const [selectedSignatoryId, setSelectedSignatoryId] = useState('');
     const [geradoPor, setGeradoPor] = useState('');
     const isUserProprietario = userData?.funcoes?.nome_funcao === 'Proprietário';
 
-    // --- CARREGA DADOS DOS PROPRIETÁRIOS ---
     useEffect(() => {
         const fetchInitialData = async () => {
+            if (!organizacaoId) return;
+            // =================================================================================
+            // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+            // O PORQUÊ: A busca por proprietários agora é filtrada pela organização.
+            // =================================================================================
             const { data: proprietariosData } = await supabase
                 .from('usuarios')
                 .select('id, nome, sobrenome, funcionario:funcionarios(cpf), funcoes!inner(nome_funcao)')
+                .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
                 .eq('funcoes.nome_funcao', 'Proprietário');
             
             setProprietarios(proprietariosData || []);
 
-            // Define o assinante padrão
             if (isUserProprietario && user) {
                 setSelectedSignatoryId(user.id);
             } else if (proprietariosData?.length > 0) {
                 setSelectedSignatoryId(proprietariosData[0].id);
             }
-            // Define quem está gerando o documento
             if (userData) {
                 setGeradoPor(`${userData.nome} ${userData.sobrenome}`);
             }
         };
         fetchInitialData();
-    }, [supabase, user, userData, isUserProprietario]);
+    }, [supabase, user, userData, isUserProprietario, organizacaoId]);
     
-    // --- MEMORIZA O ASSINANTE SELECIONADO ---
     const selectedSignatory = useMemo(() => {
         if (!selectedSignatoryId || proprietarios.length === 0) return null;
         const signatory = proprietarios.find(p => p.id === selectedSignatoryId);
@@ -86,7 +93,6 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
             : null;
     }, [selectedSignatoryId, proprietarios]);
 
-
     useEffect(() => { setLocalParcelas(parcelas || []); setLocalPermutas(permutas || []); }, [parcelas, permutas]);
 
     const totalParcelas = useMemo(() => localParcelas.reduce((sum, p) => sum + parseFloat(p.valor_parcela || 0), 0), [localParcelas]);
@@ -96,7 +102,11 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
 
     const handleProvisionarLancamentos = async () => {
         setIsProvisioning(true);
-        const promise = supabase.rpc('provisionar_parcelas_contrato', { p_contrato_id: contratoId });
+        // Passamos o organizacaoId para a função do banco
+        const promise = supabase.rpc('provisionar_parcelas_contrato', { 
+            p_contrato_id: contratoId,
+            p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+        });
         toast.promise(promise, {
             loading: 'Provisionando lançamentos...',
             success: (response) => { onUpdate(); return "Lançamentos provisionados com sucesso!"; },
@@ -110,12 +120,13 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
             toast.error("Preencha todos os campos para adicionar a parcela.");
             return;
         }
+        if (!organizacaoId) { toast.error("Organização não identificada."); return; }
         setLoading(true);
         const valorNumerico = parseFloat(newParcela.valor_parcela) || 0;
-        const { data: insertedData, error: insertError } = await supabase.from('contrato_parcelas').insert({ contrato_id: contratoId, ...newParcela, valor_parcela: valorNumerico }).select().single();
+        const { data: insertedData, error: insertError } = await supabase.from('contrato_parcelas').insert({ contrato_id: contratoId, ...newParcela, valor_parcela: valorNumerico, organizacao_id: organizacaoId }).select().single();
         if (insertError) { toast.error("Erro ao adicionar parcela: " + insertError.message); setLoading(false); return; }
         toast.success("Parcela adicionada ao contrato!");
-        const { error: syncError } = await supabase.rpc('sincronizar_parcela_com_lancamento', { p_parcela_id: insertedData.id });
+        const { error: syncError } = await supabase.rpc('sincronizar_parcela_com_lancamento', { p_parcela_id: insertedData.id, p_organizacao_id: organizacaoId });
         if (syncError) { toast.warning("Parcela salva, mas houve um erro ao criar o lançamento financeiro: " + syncError.message); } else { toast.success("Lançamento financeiro criado/vinculado automaticamente!"); }
         setNewParcela({ descricao: '', tipo: 'Adicional', data_vencimento: '', valor_parcela: '' });
         onUpdate();
@@ -129,58 +140,88 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
         const { error: updateError } = await supabase.from('contrato_parcelas').update(updateData).eq('id', parcelaId);
         if (updateError) { toast.error("Erro ao salvar: " + updateError.message); setLoading(false); return; }
         toast.success("Parcela atualizada!");
-        const { error: syncError } = await supabase.rpc('sincronizar_parcela_com_lancamento', { p_parcela_id: parcelaId });
+        const { error: syncError } = await supabase.rpc('sincronizar_parcela_com_lancamento', { p_parcela_id: parcelaId, p_organizacao_id: organizacaoId });
         if (syncError) { toast.warning("Parcela salva, mas houve um erro ao sincronizar com o financeiro: " + syncError.message); } else { toast.success("Lançamento financeiro atualizado automaticamente!"); }
         setEditingParcelaId(null);
         onUpdate();
         setLoading(false);
     };
     
-    const handleDeleteParcela = async (parcelaId) => {
-        if (!window.confirm("Tem certeza? O lançamento financeiro vinculado (se houver) também será excluído.")) return;
-        setLoading(true);
-        const promise = supabase.rpc('excluir_parcela_e_lancamento', { p_parcela_id: parcelaId });
-        toast.promise(promise, {
-            loading: 'Excluindo parcela e vínculo...',
-            success: () => { onUpdate(); return "Parcela excluída com sucesso."; },
-            error: (err) => `Erro: ${err.message}`,
-            finally: () => setLoading(false)
+    const handleDeleteParcela = (parcelaId) => {
+        toast("Confirmar Exclusão", {
+            description: "Tem certeza? O lançamento financeiro vinculado (se houver) também será excluído.",
+            action: {
+                label: "Excluir",
+                onClick: () => {
+                    setLoading(true);
+                    const promise = supabase.rpc('excluir_parcela_e_lancamento', { p_parcela_id: parcelaId, p_organizacao_id: organizacaoId });
+                    toast.promise(promise, {
+                        loading: 'Excluindo parcela e vínculo...',
+                        success: () => { onUpdate(); return "Parcela excluída com sucesso."; },
+                        error: (err) => `Erro: ${err.message}`,
+                        finally: () => setLoading(false)
+                    });
+                }
+            },
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' }
         });
     };
     
-    const handleDuplicateParcela = async (parcelaId) => {
-        if (!window.confirm("Deseja criar uma cópia desta parcela?")) return;
-        const promise = new Promise(async (resolve, reject) => {
-            const { data, error } = await supabase.rpc('duplicar_parcela_contrato', { p_parcela_id: parcelaId });
-            if (error) return reject(new Error(error.message));
-            if (data && data.success) resolve(data.message);
-            else reject(new Error(data.message || 'Erro desconhecido.'));
-        });
-        toast.promise(promise, {
-            loading: 'Duplicando...',
-            success: (message) => { onUpdate(); return message; },
-            error: (err) => `Erro: ${err.message}`
+    const handleDuplicateParcela = (parcelaId) => {
+        toast("Confirmar Duplicação", {
+            description: "Deseja criar uma cópia desta parcela?",
+            action: {
+                label: "Duplicar",
+                onClick: () => {
+                    const promise = new Promise(async (resolve, reject) => {
+                        const { data, error } = await supabase.rpc('duplicar_parcela_contrato', { p_parcela_id: parcelaId, p_organizacao_id: organizacaoId });
+                        if (error) return reject(new Error(error.message));
+                        if (data && data.success) resolve(data.message);
+                        else reject(new Error(data.message || 'Erro desconhecido.'));
+                    });
+                    toast.promise(promise, {
+                        loading: 'Duplicando...',
+                        success: (message) => { onUpdate(); return message; },
+                        error: (err) => `Erro: ${err.message}`
+                    });
+                }
+            },
+            cancel: { label: "Cancelar" }
         });
     };
 
     const handleAddPermuta = async () => {
         if (!newPermuta.descricao || !newPermuta.valor_permutado || !newPermuta.data_registro) return toast.error("Preencha todos os campos da permuta.");
+        if (!organizacaoId) { toast.error("Organização não identificada."); return; }
         setLoading(true);
         const valorString = String(newPermuta.valor_permutado || '');
         const valorNumerico = parseFloat(valorString.replace(/[^0-9,]/g, '').replace(',', '.')) || 0;
-        const { error } = await supabase.from('contrato_permutas').insert({ contrato_id: contratoId, descricao: newPermuta.descricao, valor_permutado: valorNumerico, data_registro: newPermuta.data_registro });
+        const { error } = await supabase.from('contrato_permutas').insert({ contrato_id: contratoId, descricao: newPermuta.descricao, valor_permutado: valorNumerico, data_registro: newPermuta.data_registro, organizacao_id: organizacaoId });
         if (error) { toast.error("Erro: " + error.message); } 
         else { toast.success("Permuta adicionada!"); setNewPermuta({ descricao: '', valor_permutado: '', data_registro: new Date().toISOString().split('T')[0] }); onUpdate(); }
         setLoading(false);
     };
 
-    const handleDeletePermuta = async (permutaId) => {
-        if (!window.confirm("Tem certeza?")) return;
-        setLoading(true);
-        const { error } = await supabase.from('contrato_permutas').delete().eq('id', permutaId);
-        if (error) { toast.error("Erro: " + error.message); }
-        else { toast.success("Permuta excluída."); onUpdate(); }
-        setLoading(false);
+    const handleDeletePermuta = (permutaId) => {
+        toast("Confirmar Exclusão", {
+            description: "Tem certeza que deseja excluir esta permuta?",
+            action: {
+                label: "Excluir",
+                onClick: () => {
+                    setLoading(true);
+                    const promise = supabase.from('contrato_permutas').delete().eq('id', permutaId);
+                    toast.promise(promise, {
+                        loading: 'Excluindo permuta...',
+                        success: () => { onUpdate(); return "Permuta excluída."; },
+                        error: (err) => `Erro: ${err.message}`,
+                        finally: () => setLoading(false)
+                    });
+                }
+            },
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' }
+        });
     };
     
     const handleStartEditingParcela = (parcela) => { setEditingParcelaId(parcela.id); setEditingParcelaData(parcela); };
@@ -189,7 +230,6 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
     
     return (
         <div className="printable-container">
-            {/* --- CSS CORRIGIDO PARA EVITAR PÁGINA EM BRANCO --- */}
             <style jsx global>{`
                 @media print {
                     @page { 
@@ -278,8 +318,7 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
                      <div className="flex justify-between items-center">
                         <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2"><FontAwesomeIcon icon={faFileInvoiceDollar} /> Cronograma de Parcelas</h3>
                         <div className="flex items-center gap-2">
-                             {/* --- SELETOR DE ASSINANTE --- */}
-                             <select value={selectedSignatoryId} onChange={(e) => setSelectedSignatoryId(e.target.value)} className="p-2 border rounded-md text-sm bg-gray-50">
+                            <select value={selectedSignatoryId} onChange={(e) => setSelectedSignatoryId(e.target.value)} className="p-2 border rounded-md text-sm bg-gray-50">
                                 <option value="" disabled>Assinatura do Responsável</option>
                                 {proprietarios.map(p => <option key={p.id} value={p.id}>{p.nome} {p.sobrenome}</option>)}
                             </select>

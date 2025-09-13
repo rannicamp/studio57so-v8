@@ -4,6 +4,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
+import { useMutation, useQueryClient } from '@tanstack/react-query'; // Importado useMutation
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -19,7 +21,6 @@ import CronogramaFinanceiro from './CronogramaFinanceiro';
 import PlanoPagamentoContrato from './PlanoPagamentoContrato';
 import KpiCard from '../KpiCard';
 
-// Componente para destacar texto
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
     const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -27,7 +28,6 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     return (<span>{parts.map((part, i) => regex.test(part) ? <mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark> : <span key={i}>{part}</span>)}</span>);
 };
 
-// Componente para campos de busca
 const SearchableField = ({ label, selectedName, onClear, children }) => {
     return (
         <div>
@@ -48,27 +48,43 @@ const SearchableField = ({ label, selectedName, onClear, children }) => {
 
 export default function FichaContrato({ initialContratoData, onUpdate }) {
     const supabase = createClient();
+    const { user } = useAuth(); // Obter o usuário para o organizacaoId
+    const organizacaoId = user?.organizacao_id;
+    const queryClient = useQueryClient();
+
     const [contrato, setContrato] = useState(initialContratoData);
     const [activeTab, setActiveTab] = useState('resumo');
     
     const [produtosDisponiveis, setProdutosDisponiveis] = useState([]);
-    const [loading, setLoading] = useState({});
-
+    
     const [searchTerms, setSearchTerms] = useState({ comprador: '', corretor: '' });
     const [searchResults, setSearchResults] = useState({ comprador: [], corretor: [] });
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toISOString().split('T')[0] : '';
+    
+    // ATUALIZAÇÃO DA REGRA DE DATAS
+    const formatDateForDisplay = (dateStr) => {
+        if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return 'N/A';
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
+    };
 
     useEffect(() => {
         const fetchRelatedData = async () => {
-            if (contrato.empreendimento_id) {
-                const { data: produtosData } = await supabase.from('produtos_empreendimento').select('id, unidade, tipo, valor_venda_calculado').eq('empreendimento_id', contrato.empreendimento_id).eq('status', 'Disponível');
+            if (contrato.empreendimento_id && organizacaoId) {
+                // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+                const { data: produtosData } = await supabase
+                    .from('produtos_empreendimento')
+                    .select('id, unidade, tipo, valor_venda_calculado')
+                    .eq('empreendimento_id', contrato.empreendimento_id)
+                    .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+                    .eq('status', 'Disponível');
                 setProdutosDisponiveis(produtosData || []);
             }
         };
         fetchRelatedData();
-    }, [supabase, contrato.empreendimento_id]);
+    }, [supabase, contrato.empreendimento_id, organizacaoId]);
     
     useEffect(() => {
         setContrato(initialContratoData);
@@ -87,16 +103,31 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
             valorTotal: formatCurrency(valorTotal),
             totalPago: formatCurrency(totalPago),
             saldoDevedor: formatCurrency(saldoDevedor),
-            proximaParcela: proximaParcela ? `${formatCurrency(proximaParcela.valor_parcela)} em ${new Date(proximaParcela.data_vencimento + 'T00:00:00Z').toLocaleDateString('pt-BR')}` : 'Nenhuma'
+            // ATUALIZAÇÃO DA REGRA DE DATAS
+            proximaParcela: proximaParcela ? `${formatCurrency(proximaParcela.valor_parcela)} em ${formatDateForDisplay(proximaParcela.data_vencimento)}` : 'Nenhuma'
         };
     }, [contrato]);
+    
+    // ATUALIZAÇÃO DE PADRÃO (useMutation)
+    const updateFieldMutation = useMutation({
+        mutationFn: async ({ fieldName, value }) => {
+            const { error } = await supabase
+                .from('contratos')
+                .update({ [fieldName]: value || null })
+                .eq('id', contrato.id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            toast.success("Campo atualizado com sucesso!");
+            onUpdate(); // Chama a função do pai para recarregar tudo
+        },
+        onError: (error) => {
+            toast.error(`Erro ao salvar: ${error.message}`);
+        }
+    });
 
-    const handleFieldUpdate = async (fieldName, value) => {
-        setLoading(prev => ({...prev, [fieldName]: true}));
-        const { error } = await supabase.from('contratos').update({ [fieldName]: value || null }).eq('id', contrato.id);
-        if (error) { toast.error(`Erro ao salvar: ${error.message}`); } 
-        else { toast.success(`Campo atualizado!`); onUpdate(); }
-        setLoading(prev => ({...prev, [fieldName]: false}));
+    const handleFieldUpdate = (fieldName, value) => {
+        updateFieldMutation.mutate({ fieldName, value });
     };
 
     const handleProductChange = async (newProductId) => {
@@ -123,9 +154,13 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
     const handleSearchContato = useCallback(async (type, term) => {
         setSearchTerms(prev => ({ ...prev, [type]: term }));
         if (term.length < 2) { setSearchResults(prev => ({ ...prev, [type]: [] })); return; }
-        const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term });
+        // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+        const { data } = await supabase.rpc('buscar_contatos_geral', { 
+            p_search_term: term,
+            p_organizacao_id: organizacaoId // <-- FILTRO DE SEGURANÇA!
+        });
         setSearchResults(prev => ({ ...prev, [type]: data || [] }));
-    }, [supabase]);
+    }, [supabase, organizacaoId]);
 
     const handleSelectContato = (type, contato) => {
         const fieldName = type === 'comprador' ? 'contato_id' : 'corretor_id';
@@ -134,7 +169,7 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
         setSearchTerms(prev => ({ ...prev, [type]: '' }));
     };
 
-     const handleClearContato = (type) => {
+    const handleClearContato = (type) => {
         const fieldName = type === 'comprador' ? 'contato_id' : 'corretor_id';
         handleFieldUpdate(fieldName, null);
     };
@@ -155,7 +190,7 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                         <p className="text-gray-600"><strong>Produto:</strong> Unidade {contrato.produto?.unidade} ({contrato.empreendimento?.nome})</p>
                     </div>
                      <div>
-                         <span className={`px-3 py-1 text-sm font-semibold rounded-full ${contrato.status_contrato === 'Rascunho' ? 'bg-gray-100 text-gray-800' : contrato.status_contrato === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                        <span className={`px-3 py-1 text-sm font-semibold rounded-full ${contrato.status_contrato === 'Rascunho' ? 'bg-gray-100 text-gray-800' : contrato.status_contrato === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                             {contrato.status_contrato}
                         </span>
                     </div>
@@ -187,7 +222,7 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                                 label="Cliente / Comprador" 
                                 selectedName={contrato.contato?.nome || contrato.contato?.razao_social} 
                                 onClear={() => handleClearContato('comprador')}
-                             >
+                            >
                                 <div className="relative">
                                     <input type="text" value={searchTerms.comprador} onChange={(e) => handleSearchContato('comprador', e.target.value)} placeholder="Buscar cliente..." className="w-full p-2 border rounded-md" />
                                     {searchResults.comprador.length > 0 && <ul className="absolute z-20 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto">{searchResults.comprador.map(c => <li key={c.id} onClick={() => handleSelectContato('comprador', c)} className="p-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={c.nome || c.razao_social} highlight={searchTerms.comprador} /></li>)}</ul>}
@@ -221,7 +256,7 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                         <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t">
                              <div>
                                 <label className="block text-sm font-medium text-gray-600">Data da Venda</label>
-                                <input type="date" value={formatDate(contrato.data_venda)} onChange={(e) => setContrato(prev => ({...prev, data_venda: e.target.value}))} onBlur={(e) => handleFieldUpdate('data_venda', e.target.value)} disabled={loading['data_venda']} className="mt-1 w-full p-2 border rounded-md"/>
+                                <input type="date" value={formatDate(contrato.data_venda)} onChange={(e) => setContrato(prev => ({...prev, data_venda: e.target.value}))} onBlur={(e) => handleFieldUpdate('data_venda', e.target.value)} disabled={updateFieldMutation.isPending} className="mt-1 w-full p-2 border rounded-md"/>
                             </div>
                              <div>
                                 <label className="block text-sm font-medium text-gray-600">Valor Efetivo da Venda</label>
@@ -233,10 +268,10 @@ export default function FichaContrato({ initialContratoData, onUpdate }) {
                                         value={String(contrato.valor_final_venda || '')}
                                         onAccept={(value) => setContrato(prev => ({...prev, valor_final_venda: value}))}
                                         onBlur={(e) => handleFieldUpdate('valor_final_venda', e.target.value.replace(/[^0-9,]/g, '').replace(',', '.'))}
-                                        disabled={loading['valor_final_venda']}
+                                        disabled={updateFieldMutation.isPending}
                                         className="mt-1 w-full p-2 border rounded-md"
                                     />
-                                    {loading['valor_final_venda'] && <FontAwesomeIcon icon={faSpinner} spin className="absolute right-3 top-3 text-gray-400"/>}
+                                    {updateFieldMutation.isPending && <FontAwesomeIcon icon={faSpinner} spin className="absolute right-3 top-3 text-gray-400"/>}
                                 </div>
                             </div>
                         </fieldset>

@@ -1,3 +1,4 @@
+//components\contratos\ContratoAnexos.js
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -10,6 +11,12 @@ import { toast } from 'sonner';
 export default function ContratoAnexos({ contratoId, onUpdate }) {
     const supabase = createClient();
     const { user } = useAuth();
+    // =================================================================================
+    // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+    // O PORQUÊ: Pegamos a "chave mestra" da organização aqui para usar em todas as
+    // operações de banco de dados, garantindo a segurança dos dados.
+    // =================================================================================
+    const organizacaoId = user?.organizacao_id;
     
     const [anexos, setAnexos] = useState([]);
     const [loadingAnexos, setLoadingAnexos] = useState(true);
@@ -21,12 +28,18 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
 
     useEffect(() => {
         const fetchAnexos = async () => {
-            if (!contratoId) return;
+            if (!contratoId || !organizacaoId) return;
             setLoadingAnexos(true);
+            // =================================================================================
+            // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+            // O PORQUÊ: Adicionamos o filtro `.eq('organizacao_id', organizacaoId)` para
+            // garantir que a busca traga apenas os anexos da organização correta.
+            // =================================================================================
             const { data, error } = await supabase
                 .from('contrato_anexos')
                 .select('*')
                 .eq('contrato_id', contratoId)
+                .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
                 .order('created_at', { ascending: false });
             
             if (error) {
@@ -37,31 +50,35 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
             setLoadingAnexos(false);
         };
         fetchAnexos();
-    }, [contratoId, supabase]);
+    }, [contratoId, supabase, organizacaoId]); // Adicionamos organizacaoId como dependência
 
     const handleUpload = async () => {
         if (!file) {
             toast.error("Por favor, selecione um arquivo.");
             return;
         }
-        if (!user) {
-            toast.error("Usuário não autenticado.");
+        if (!user || !organizacaoId) {
+            toast.error("Usuário ou organização não autenticados.");
             return;
         }
 
         setIsUploading(true);
         const promise = new Promise(async (resolve, reject) => {
             const fileExtension = file.name.split('.').pop();
-            const newFileName = `contrato_${contratoId}/${tipoDocumento.replace(/ /g, '_')}_${Date.now()}.${fileExtension}`;
+            // Adicionamos o organizacaoId ao caminho do arquivo para uma camada extra de isolamento no storage
+            const newFileName = `${organizacaoId}/contrato_${contratoId}/${tipoDocumento.replace(/ /g, '_')}_${Date.now()}.${fileExtension}`;
 
-            // --- CORREÇÃO APLICADA AQUI ---
-            // O nome do bucket foi corrigido de 'documentos-contratos' para 'empreendimento-anexos'
             const { error: uploadError } = await supabase.storage
                 .from('empreendimento-anexos')
                 .upload(newFileName, file);
             
             if (uploadError) return reject(uploadError);
 
+            // =================================================================================
+            // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+            // O PORQUÊ: Ao inserir o registro do anexo no banco, "etiquetamos" ele com
+            // o `organizacao_id` para garantir que ele pertença à organização correta.
+            // =================================================================================
             const { data: newAnexo, error: dbError } = await supabase
                 .from('contrato_anexos')
                 .insert({
@@ -69,7 +86,8 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
                     caminho_arquivo: newFileName,
                     nome_arquivo: file.name,
                     tipo_documento: tipoDocumento,
-                    usuario_id: user.id
+                    usuario_id: user.id,
+                    organizacao_id: organizacaoId // <-- ETIQUETA DE SEGURANÇA!
                 })
                 .select()
                 .single();
@@ -84,7 +102,7 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
             loading: 'Enviando arquivo...',
             success: (msg) => {
                 setFile(null);
-                fileInputRef.current.value = "";
+                if(fileInputRef.current) fileInputRef.current.value = "";
                 return msg;
             },
             error: (err) => `Erro ao enviar: ${err.message}`,
@@ -93,30 +111,37 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
     };
 
     const handleDelete = async (anexo) => {
-        if (!window.confirm(`Tem certeza que deseja excluir o arquivo "${anexo.nome_arquivo}"?`)) return;
-        
-        toast.promise(
-            new Promise(async (resolve, reject) => {
-                // --- CORREÇÃO APLICADA AQUI ---
-                // O nome do bucket também foi corrigido aqui para a exclusão
-                await supabase.storage.from('empreendimento-anexos').remove([anexo.caminho_arquivo]);
-                const { error } = await supabase.from('contrato_anexos').delete().eq('id', anexo.id);
-                if (error) return reject(error);
-                setAnexos(prev => prev.filter(a => a.id !== anexo.id));
-                resolve("Anexo excluído com sucesso!");
-            }),
-            {
-                loading: 'Excluindo anexo...',
-                success: (msg) => msg,
-                error: (err) => `Erro ao excluir: ${err.message}`,
-            }
-        );
+        // =================================================================================
+        // ATUALIZAÇÃO DE UX (troca de window.confirm por toast)
+        // O PORQUÊ: Uma confirmação mais elegante e segura para uma ação destrutiva.
+        // =================================================================================
+        toast("Confirmar Exclusão", {
+            description: `Tem certeza que deseja excluir o arquivo "${anexo.nome_arquivo}"?`,
+            action: {
+                label: "Excluir",
+                onClick: () => {
+                    const promise = new Promise(async (resolve, reject) => {
+                        await supabase.storage.from('empreendimento-anexos').remove([anexo.caminho_arquivo]);
+                        const { error } = await supabase.from('contrato_anexos').delete().eq('id', anexo.id);
+                        if (error) return reject(error);
+                        setAnexos(prev => prev.filter(a => a.id !== anexo.id));
+                        resolve("Anexo excluído com sucesso!");
+                    });
+                    
+                    toast.promise(promise, {
+                        loading: 'Excluindo anexo...',
+                        success: (msg) => msg,
+                        error: (err) => `Erro ao excluir: ${err.message}`,
+                    });
+                }
+            },
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' }
+        });
     };
 
     const handleView = async (caminho) => {
-        // --- CORREÇÃO APLICADA AQUI ---
-        // E finalmente, aqui, para a visualização
-        const { data } = await supabase.storage.from('empreendimento-anexos').createSignedUrl(caminho, 60); // URL válida por 1 minuto
+        const { data } = await supabase.storage.from('empreendimento-anexos').createSignedUrl(caminho, 60);
         if (data?.signedUrl) {
             window.open(data.signedUrl, '_blank');
         } else {

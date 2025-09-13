@@ -1,5 +1,4 @@
 // Caminho: components/contratos/PlanoPagamentoContrato.js
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -8,36 +7,63 @@ import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faCalculator } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
+import { useAuth } from '../../contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query'; // 1. Importar useQuery
+
+// --- FUNÇÕES DE FORMATAÇÃO E ESTILO ---
+const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+
+// =================================================================================
+// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
+// O PORQUÊ: Esta função agora busca os dados para o useQuery e inclui o filtro
+// de segurança `organizacaoId`, garantindo que o plano correto seja retornado.
+// =================================================================================
+const fetchPlanoPagamento = async (supabase, contratoId, organizacaoId) => {
+    if (!contratoId || !organizacaoId) return null;
+    
+    const { data, error } = await supabase
+        .rpc('garantir_simulacao_para_contrato', { 
+            p_contrato_id: contratoId,
+            p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+        })
+        .single();
+
+    if (error) {
+        toast.error('Falha ao carregar o plano de pagamento: ' + error.message);
+        throw new Error(error.message);
+    }
+    return data;
+};
 
 export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess }) {
     const supabase = createClient();
+    const { user } = useAuth(); // 2. Obter o usuário para o organizacaoId
+    const organizacaoId = user?.organizacao_id;
+
     const [plano, setPlano] = useState(null);
-    const [loading, setLoading] = useState(true);
+    
+    // =================================================================================
+    // ATUALIZAÇÃO DE PADRÃO (useState + useEffect -> useQuery)
+    // O PORQUÊ: Substituímos a lógica antiga por useQuery. Ele gerencia o loading,
+    // erros e o cache dos dados de forma automática.
+    // =================================================================================
+    const { data: fetchedPlano, isLoading: loading, isError } = useQuery({
+        queryKey: ['planoPagamento', contrato.id, organizacaoId],
+        queryFn: () => fetchPlanoPagamento(supabase, contrato.id, organizacaoId),
+        enabled: !!contrato.id && !!organizacaoId,
+    });
 
     useEffect(() => {
-        const fetchPlano = async () => {
-            if (!contrato.id) return;
-            setLoading(true);
-            
-            const { data, error } = await supabase
-                .rpc('garantir_simulacao_para_contrato', { p_contrato_id: contrato.id })
-                .single();
-
-            if (error) {
-                toast.error('Falha ao carregar o plano de pagamento: ' + error.message);
-            } else {
-                setPlano(data);
-            }
-            setLoading(false);
-        };
-        fetchPlano();
-    }, [contrato.id, supabase]);
+        if (fetchedPlano) {
+            setPlano(fetchedPlano);
+        }
+    }, [fetchedPlano]);
 
     const baseValue = useMemo(() => parseFloat(contrato.valor_final_venda) || 0, [contrato.valor_final_venda]);
 
     const handlePlanoChange = (name, value) => {
         const newPlanoState = { ...plano };
-        const numericValue = parseFloat(value) || 0;
+        const numericValue = parseFloat(String(value).replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
 
         if (name.includes('_percentual')) {
             const valueFieldName = name.replace('_percentual', '_valor');
@@ -59,30 +85,43 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
         setPlano(newPlanoState);
     };
 
-    const handleSaveAndRecalculate = async () => {
-        if (!window.confirm("Isso irá apagar as parcelas pendentes e gerar um novo cronograma. Deseja continuar?")) {
-            return;
-        }
+    const handleSaveAndRecalculate = () => {
+        toast("Confirmar Recálculo", {
+            description: "Isso irá apagar as parcelas pendentes e gerar um novo cronograma. Deseja continuar?",
+            action: {
+                label: "Confirmar e Recalcular",
+                onClick: () => {
+                    if (!organizacaoId) {
+                        toast.error("Erro de segurança: Organização não identificada.");
+                        return;
+                    }
+                    const promise = new Promise(async (resolve, reject) => {
+                        const { id, ...updateData } = plano;
+                        
+                        const { error: saveError } = await supabase.from('simulacoes').update(updateData).eq('id', id);
+                        if (saveError) return reject(saveError);
+                        
+                        const { data: novasParcelas, error: rpcError } = await supabase.rpc('regerar_parcelas_contrato', { 
+                            p_contrato_id: contrato.id,
+                            p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+                        });
+                        if (rpcError) return reject(rpcError);
 
-        const promise = new Promise(async (resolve, reject) => {
-            const { id, ...updateData } = plano;
-            
-            const { error: saveError } = await supabase.from('simulacoes').update(updateData).eq('id', id);
-            if (saveError) return reject(saveError);
-            
-            const { data: novasParcelas, error: rpcError } = await supabase.rpc('regerar_parcelas_contrato', { p_contrato_id: contrato.id });
-            if (rpcError) return reject(rpcError);
+                        resolve({ msg: "Plano salvo e cronograma recalculado!", novasParcelas });
+                    });
 
-            resolve({ msg: "Plano salvo e cronograma recalculado!", novasParcelas });
-        });
-
-        toast.promise(promise, {
-            loading: 'Salvando e recalculando...',
-            success: (result) => {
-                onRecalculateSuccess(result.novasParcelas);
-                return result.msg;
+                    toast.promise(promise, {
+                        loading: 'Salvando e recalculando...',
+                        success: (result) => {
+                            onRecalculateSuccess(result.novasParcelas);
+                            return result.msg;
+                        },
+                        error: (err) => `Erro: ${err.message}`
+                    });
+                }
             },
-            error: (err) => `Erro: ${err.message}`
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' }
         });
     };
     
@@ -90,7 +129,7 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
         return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin /> Carregando plano...</div>;
     }
 
-    if (!plano) {
+    if (isError || !plano) {
         return <div className="text-center p-10 text-red-500">Não foi possível carregar ou criar o plano de pagamento.</div>;
     }
 
@@ -103,11 +142,9 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
                 </button>
             </div>
 
-            {/* ***** LAYOUT MELHORADO COM FIELDSET E GRID ***** */}
             <fieldset className="space-y-6">
                 <legend className="text-lg font-semibold text-gray-700 sr-only">Valores e Condições</legend>
                 
-                {/* Seção de Desconto */}
                 <div className="p-4 border rounded-lg bg-gray-50">
                     <h4 className="font-semibold text-gray-600 mb-3">Desconto</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -122,7 +159,6 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
                     </div>
                 </div>
 
-                {/* Seção de Entrada */}
                 <div className="p-4 border rounded-lg bg-gray-50">
                     <h4 className="font-semibold text-gray-600 mb-3">Entrada</h4>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -133,7 +169,6 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
                     </div>
                 </div>
 
-                {/* Seção de Parcelas de Obra */}
                  <div className="p-4 border rounded-lg bg-gray-50">
                     <h4 className="font-semibold text-gray-600 mb-3">Parcelas de Obra</h4>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

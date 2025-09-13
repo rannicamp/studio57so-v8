@@ -1,8 +1,10 @@
+//components\contratos\ContratoList.js
 "use client";
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faTrash, faCopy, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
@@ -12,6 +14,8 @@ export default function ContratoList({ initialContratos }) {
     const [searchTerm, setSearchTerm] = useState('');
     const router = useRouter();
     const supabase = createClient();
+    const { user } = useAuth(); // 2. Obter o usuário para pegar o ID da organização
+    const organizacaoId = user?.organizacao_id;
     
     const [sortConfig, setSortConfig] = useState({ key: 'data_venda', direction: 'descending' });
 
@@ -31,8 +35,8 @@ export default function ContratoList({ initialContratos }) {
                 const cliente = c.contato?.nome || c.contato?.razao_social || '';
                 const produto = c.produto?.unidade || '';
                 const empreendimento = c.empreendimento?.nome || '';
-                const corretor = c.corretor?.nome || ''; // Adicionado corretor na busca
-                const numeroContrato = c.id?.toString() || ''; // Adicionado nº do contrato na busca
+                const corretor = c.corretor?.nome || '';
+                const numeroContrato = c.id?.toString() || '';
                 return (
                     cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     produto.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -60,7 +64,7 @@ export default function ContratoList({ initialContratos }) {
                         valA = a.empreendimento?.nome || '';
                         valB = b.empreendimento?.nome || '';
                         break;
-                    case 'corretor': // Adicionada lógica de ordenação para corretor
+                    case 'corretor':
                         valA = a.corretor?.nome || '';
                         valB = b.corretor?.nome || '';
                         break;
@@ -69,7 +73,6 @@ export default function ContratoList({ initialContratos }) {
                         valB = b[sortConfig.key];
                 }
 
-                // Tratamento para valores numéricos e de texto
                 if (typeof valA === 'number' && typeof valB === 'number') {
                     if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
                     if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
@@ -85,7 +88,6 @@ export default function ContratoList({ initialContratos }) {
         return items;
     }, [contratos, searchTerm, sortConfig]);
     
-    // ATENÇÃO: Corrigi esta função para evitar bugs de fuso horário, conforme nossa regra.
     const formatDate = (dateString) => {
         if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
             return 'N/A';
@@ -96,49 +98,74 @@ export default function ContratoList({ initialContratos }) {
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-    const handleDuplicate = async (e, contratoParaDuplicar) => {
+    const handleDuplicate = (e, contratoParaDuplicar) => {
         e.stopPropagation();
 
-        if (!window.confirm(`Deseja criar uma cópia do contrato da Unidade ${contratoParaDuplicar.produto?.unidade}? Um novo contrato será criado como rascunho.`)) {
-            return;
-        }
-        
-        const promise = supabase.rpc('duplicar_contrato_e_detalhes', {
-            p_contrato_id: contratoParaDuplicar.id
-        });
+        toast("Confirmar Duplicação", {
+            description: `Deseja criar uma cópia do contrato da Unidade ${contratoParaDuplicar.produto?.unidade}? Um novo contrato será criado como rascunho.`,
+            action: {
+                label: "Duplicar",
+                onClick: () => {
+                    // =================================================================================
+                    // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+                    // O PORQUÊ: Passamos o `organizacaoId` para a função do banco de dados
+                    // para garantir que a duplicação ocorra de forma segura.
+                    // =================================================================================
+                    const promise = supabase.rpc('duplicar_contrato_e_detalhes', {
+                        p_contrato_id: contratoParaDuplicar.id,
+                        p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+                    });
 
-        toast.promise(promise, {
-            loading: 'Duplicando contrato...',
-            success: (response) => {
-                supabase.from('contratos')
-                    .select(`*, contato:contato_id ( nome, razao_social ), produto:produto_id ( unidade, tipo ), empreendimento:empreendimento_id ( nome )`)
-                    .order('created_at', { ascending: false })
-                    .then(({ data }) => setContratos(data || []));
-                
-                return response.message;
+                    toast.promise(promise, {
+                        loading: 'Duplicando contrato...',
+                        success: (response) => {
+                            // Atualiza a lista de contratos de forma segura
+                            supabase.from('contratos')
+                                .select(`*, contato:contato_id ( nome, razao_social ), produto:produto_id ( unidade, tipo ), empreendimento:empreendimento_id ( nome ), corretor:corretor_id(nome)`)
+                                .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+                                .order('created_at', { ascending: false })
+                                .then(({ data }) => setContratos(data || []));
+                            
+                            return response.message;
+                        },
+                        error: (err) => `Erro ao duplicar: ${err.message}`
+                    });
+                }
             },
-            error: (err) => `Erro ao duplicar: ${err.message}`
+            cancel: { label: "Cancelar" }
         });
     };
 
-    const handleDelete = async (e, contratoParaExcluir) => {
+    const handleDelete = (e, contratoParaExcluir) => {
         e.stopPropagation();
 
-        if (!window.confirm(`Tem certeza que deseja excluir o contrato para a Unidade ${contratoParaExcluir.produto?.unidade}? Esta ação não pode ser desfeita.`)) {
-            return;
-        }
+        toast("Confirmar Exclusão", {
+            description: `Tem certeza que deseja excluir o contrato para a Unidade ${contratoParaExcluir.produto?.unidade}? Esta ação não pode ser desfeita.`,
+            action: {
+                label: "Excluir",
+                onClick: () => {
+                    // =================================================================================
+                    // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
+                    // O PORQUÊ: Passamos o `organizacaoId` para a função do banco de dados
+                    // para garantir que a exclusão ocorra de forma segura.
+                    // =================================================================================
+                    const promise = supabase.rpc('excluir_contrato_e_liberar_unidade', {
+                        p_contrato_id: contratoParaExcluir.id,
+                        p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+                    });
 
-        const promise = supabase.rpc('excluir_contrato_e_liberar_unidade', {
-            p_contrato_id: contratoParaExcluir.id
-        });
-
-        toast.promise(promise, {
-            loading: 'Excluindo contrato...',
-            success: (data) => {
-                setContratos(prevContratos => prevContratos.filter(c => c.id !== contratoParaExcluir.id));
-                return data;
+                    toast.promise(promise, {
+                        loading: 'Excluindo contrato...',
+                        success: (data) => {
+                            setContratos(prevContratos => prevContratos.filter(c => c.id !== contratoParaExcluir.id));
+                            return data;
+                        },
+                        error: (err) => `Erro ao excluir: ${err.message}`
+                    });
+                }
             },
-            error: (err) => `Erro ao excluir: ${err.message}`
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' }
         });
     };
 
@@ -171,7 +198,6 @@ export default function ContratoList({ initialContratos }) {
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            {/* NOVAS COLUNAS ADICIONADAS AQUI */}
                             <SortableHeader label="Nº Contrato" sortKey="id" />
                             <SortableHeader label="Cliente" sortKey="cliente" />
                             <SortableHeader label="Produto" sortKey="produto" />
@@ -190,9 +216,8 @@ export default function ContratoList({ initialContratos }) {
                     <tbody className="bg-white divide-y divide-gray-200">
                         {sortedAndFilteredContratos.map((contrato) => (
                             <tr key={contrato.id} className="hover:bg-gray-50">
-                                {/* NOVAS CÉLULAS ADICIONADAS AQUI */}
                                 <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-700">{contrato.id}</td>
-                                <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => router.push(`/contratos/${contrato.id}`)}>
+                                <td className="px-6 py-4 whitespace-nowrap cursor-pointer hover:text-blue-600" onClick={() => router.push(`/contratos/${contrato.id}`)}>
                                     {contrato.contato?.nome || contrato.contato?.razao_social || 'N/A'}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">Unidade {contrato.produto?.unidade || 'N/A'}</td>
