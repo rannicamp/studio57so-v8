@@ -2,21 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { createClient } from '@/utils/supabase/client';
+import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
-import FiltroFinanceiro from '@/components/financeiro/FiltroFinanceiro';
+import FiltroFinanceiro from '../financeiro/FiltroFinanceiro';
 
-// Função para buscar os dados dos filtros (contas, categorias, etc.)
-const fetchFilterOptions = async () => {
+// O PORQUÊ: A função agora recebe 'organizacao_id' para garantir que apenas
+// as opções da organização correta sejam carregadas nos filtros.
+const fetchFilterOptions = async (organizacao_id) => {
+    if (!organizacao_id) return { empresas: [], contas: [], categorias: [], empreendimentos: [], allContacts: [] };
+
     const supabase = createClient();
     const [empresasRes, contasRes, categoriasRes, empreendimentosRes, contatosRes] = await Promise.all([
-        supabase.from('cadastro_empresa').select('id, nome_fantasia, razao_social'),
-        supabase.from('contas_financeiras').select('id, nome'),
-        supabase.from('categorias_financeiras').select('id, nome, parent_id'),
-        supabase.from('empreendimentos').select('id, nome'),
-        supabase.from('contatos').select('id, nome, razao_social'),
+        supabase.from('cadastro_empresa').select('id, nome_fantasia, razao_social').eq('organizacao_id', organizacao_id),
+        supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', organizacao_id),
+        supabase.from('categorias_financeiras').select('id, nome, parent_id').eq('organizacao_id', organizacao_id),
+        supabase.from('empreendimentos').select('id, nome').eq('organizacao_id', organizacao_id),
+        supabase.from('contatos').select('id, nome, razao_social').eq('organizacao_id', organizacao_id),
     ]);
     return {
         empresas: empresasRes.data || [],
@@ -30,6 +34,7 @@ const fetchFilterOptions = async () => {
 export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
     const queryClient = useQueryClient();
     const supabase = createClient();
+    const { user, organizacao_id } = useAuth(); // BLINDADO: Pegamos o usuário e a organização
 
     const [titulo, setTitulo] = useState('');
     const [descricao, setDescricao] = useState('');
@@ -42,13 +47,14 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
 
     const isEditing = !!kpiToEdit;
 
-    // Busca os dados para os dropdowns dos filtros
     const { data: filterOptions, isLoading: isLoadingOptions } = useQuery({
-        queryKey: ['financeFilterOptions'],
-        queryFn: fetchFilterOptions,
+        // O PORQUÊ: Adicionamos 'organizacao_id' à chave da query para que o React Query
+        // armazene em cache e busque os dados corretamente para cada organização.
+        queryKey: ['financeFilterOptions', organizacao_id],
+        queryFn: () => fetchFilterOptions(organizacao_id),
+        enabled: !!organizacao_id, // A busca só é ativada quando a organização estiver disponível
     });
 
-    // Efeito para preencher o formulário quando estiver editando um KPI
     useEffect(() => {
         if (isEditing) {
             setTitulo(kpiToEdit.titulo);
@@ -57,7 +63,6 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
             setTipoCalculo(kpiToEdit.tipo_calculo);
             setFilters(kpiToEdit.filtros);
         } else {
-            // Reseta para o estado inicial se não estiver editando
             setTitulo('');
             setDescricao('');
             setGrupo('');
@@ -71,9 +76,9 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
 
     const { mutate: saveKpi, isPending } = useMutation({
         mutationFn: async (kpiData) => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("Usuário não autenticado.");
+            if (!user || !organizacao_id) throw new Error("Usuário ou organização não autenticada.");
 
+            // BLINDADO: Adicionamos 'organizacao_id' ao objeto que será salvo no banco.
             const dataToSave = {
                 usuario_id: user.id,
                 titulo: kpiData.titulo,
@@ -81,6 +86,7 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
                 grupo: kpiData.grupo,
                 tipo_calculo: kpiData.tipoCalculo,
                 filtros: kpiData.filters,
+                organizacao_id: organizacao_id, // <-- A "fechadura" de segurança
             };
 
             let error;

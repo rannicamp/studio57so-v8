@@ -1,12 +1,13 @@
 "use client";
 
 import { useQuery } from '@tanstack/react-query';
-import { createClient } from '@/utils/supabase/client';
+import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
 import KpiCard from '../KpiCard';
 import { faSpinner, faChartPie } from '@fortawesome/free-solid-svg-icons';
 import { useMemo } from 'react';
 
-// Função que aplica os filtros (a mesma que usamos no construtor)
+// A função de aplicar filtros permanece a mesma, pois a segurança é garantida antes.
 const applyFiltersToQuery = (query, currentFilters) => {
     if (!currentFilters) return query;
     if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
@@ -23,12 +24,16 @@ const applyFiltersToQuery = (query, currentFilters) => {
     return query;
 };
 
-// Função que busca e calcula o valor de UM kpi
+// O PORQUÊ: A função agora recebe 'organizacao_id' para garantir que os cálculos
+// sejam feitos apenas com os dados da organização correta.
 async function calculateKpiValue({ queryKey }) {
-    const [_key, kpiDefinition] = queryKey;
+    const [_key, kpiDefinition, organizacao_id] = queryKey;
+    if (!organizacao_id) return []; // Retorna vazio se não houver organização
+
     const supabase = createClient();
 
-    let query = supabase.from('lancamentos').select('valor, tipo');
+    // BLINDADO: A query agora é filtrada por 'organizacao_id' antes de qualquer outro filtro.
+    let query = supabase.from('lancamentos').select('valor, tipo').eq('organizacao_id', organizacao_id);
     query = applyFiltersToQuery(query, kpiDefinition.filtros);
 
     const { data, error } = await query;
@@ -38,10 +43,14 @@ async function calculateKpiValue({ queryKey }) {
 }
 
 export default function CustomKpiCard({ kpi }) {
-    // Cada card busca seu próprio dado de forma independente
+    const { organizacao_id } = useAuth(); // BLINDADO: Pegamos a organização
+
     const { data: rawData, isLoading, isError } = useQuery({
-        queryKey: ['customKpiValue', kpi], // Chave única para este KPI específico
+        // O PORQUÊ: A chave da query agora inclui o 'organizacao_id' para garantir
+        // que os dados de cada organização sejam cacheados separadamente.
+        queryKey: ['customKpiValue', kpi, organizacao_id],
         queryFn: calculateKpiValue,
+        enabled: !!organizacao_id, // A query só roda se a organização existir.
     });
 
     const formattedValue = useMemo(() => {

@@ -1,21 +1,24 @@
 "use client";
 
 import { useQuery } from '@tanstack/react-query';
-import { createClient } from '@/utils/supabase/client';
+import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import CustomKpiCard from './CustomKpiCard';
 import { useMemo } from 'react';
 
-const fetchVisibleKpiDefinitions = async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+// O PORQUÊ: A função agora busca os KPIs pela 'organizacao_id',
+// garantindo que todos na mesma equipe vejam e compartilhem os mesmos KPIs.
+const fetchVisibleKpiDefinitions = async (organizacao_id) => {
+    if (!organizacao_id) return [];
 
+    const supabase = createClient();
+    
     const { data, error } = await supabase
         .from('kpis_personalizados')
         .select('*')
-        .eq('usuario_id', user.id)
+        .eq('organizacao_id', organizacao_id) // BLINDADO: Filtro de segurança principal
         .eq('exibir_no_painel', true)
         .order('grupo')
         .order('created_at', { ascending: true });
@@ -25,9 +28,13 @@ const fetchVisibleKpiDefinitions = async () => {
 };
 
 export default function CustomKpiSection() {
+    const { organizacao_id } = useAuth(); // BLINDADO: Pegamos a organização
+
     const { data: kpis, isLoading, isError, error } = useQuery({
-        queryKey: ['customKpiDefinitions'],
-        queryFn: fetchVisibleKpiDefinitions,
+        // O PORQUÊ: Adicionamos 'organizacao_id' à chave para cachear os dados por organização.
+        queryKey: ['customKpiDefinitions', organizacao_id],
+        queryFn: () => fetchVisibleKpiDefinitions(organizacao_id),
+        enabled: !!organizacao_id, // A query só roda quando a organização está disponível.
     });
 
     const groupedKpis = useMemo(() => {
@@ -49,7 +56,7 @@ export default function CustomKpiSection() {
         return <div className="text-red-500">Erro ao carregar KPIs: {error.message}</div>;
     }
     if (!kpis || kpis.length === 0) {
-        return null;
+        return null; // Não renderiza nada se não houver KPIs para mostrar.
     }
 
     return (
