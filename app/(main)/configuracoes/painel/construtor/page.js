@@ -1,3 +1,5 @@
+//app\(main)\configuracoes\painel\construtor\page.js
+
 "use client";
 
 // 1. IMPORTAMOS O NOSSO GERENCIADOR INTELIGENTE

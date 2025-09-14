@@ -1,58 +1,79 @@
+// app/(main)/empreendimentos/[id]/page.js
 import { createClient } from '@/utils/supabase/server';
 import EmpreendimentoDetails from '@/components/EmpreendimentoDetails';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
-// Garante que os dados da página sejam sempre buscados do servidor, sem cache.
 export const dynamic = 'force-dynamic';
 
 export default async function ViewEmpreendimentoPage({ params }) {
-  const { id } = params;
-  const supabase = createClient();
+    const { id } = params;
+    const supabase = createClient();
 
-  // 1. Buscar dados do empreendimento
-  const { data: empreendimento, error: empreendimentoError } = await supabase
-    .from('empreendimentos')
-    .select('*')
-    .eq('id', id)
-    .single();
+    // =================================================================================
+    // CORREÇÃO DE SEGURANÇA (organização_id)
+    // O PORQUÊ: O primeiro passo é sempre identificar o usuário e sua organização.
+    // Sem isso, não podemos garantir a segurança dos dados.
+    // =================================================================================
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        redirect('/login');
+    }
+    const { data: userProfile } = await supabase.from('usuarios').select('organizacao_id').eq('id', user.id).single();
+    const organizacaoId = userProfile?.organizacao_id;
 
-  if (empreendimentoError || !empreendimento) {
-    notFound();
-  }
+    if (!organizacaoId) {
+        // Se não houver organização, não há como buscar dados de forma segura.
+        return <p className="p-4 text-red-500">Erro: Organização do usuário não encontrada.</p>;
+    }
 
-  // 2. Buscar entidades corporativas (para Incorporadora/Construtora)
-  const { data: corporateEntities } = await supabase.rpc('get_corporate_entities');
+    // 1. Buscar dados do empreendimento, AGORA COM FILTRO DE SEGURANÇA
+    const { data: empreendimento, error: empreendimentoError } = await supabase
+        .from('empreendimentos')
+        .select('*')
+        .eq('id', id)
+        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA CRÍTICO!
+        .single();
 
-  // 3. Buscar empresas (para Empresa Proprietária)
-  const { data: proprietariaOptions } = await supabase.from('cadastro_empresa').select('id, nome_fantasia, razao_social');
+    if (empreendimentoError || !empreendimento) {
+        notFound();
+    }
 
-  // 4. Buscar produtos do empreendimento
-  const { data: produtos } = await supabase.from('produtos_empreendimento').select('*').eq('empreendimento_id', id);
+    // 2. Buscar entidades corporativas, AGORA PASSANDO O FILTRO DE SEGURANÇA
+    // ATENÇÃO: A função 'get_corporate_entities' no banco PRECISA ser alterada para usar este parâmetro.
+    const { data: corporateEntities } = await supabase.rpc('get_corporate_entities', { p_organizacao_id: organizacaoId });
 
-  // 5. Buscar TODOS os tipos de documento para o formulário de upload
-  const { data: documentoTipos } = await supabase.from('documento_tipos').select('*').order('sigla');
+    // 3. Buscar empresas, AGORA COM FILTRO DE SEGURANÇA
+    const { data: proprietariaOptions } = await supabase.from('cadastro_empresa').select('id, nome_fantasia, razao_social').eq('organizacao_id', organizacaoId);
 
-  // 6. Buscar anexos e gerar URLs assinadas no servidor
-  const { data: anexosData } = await supabase.from('empreendimento_anexos').select(`*, tipo:documento_tipos(*)`).eq('empreendimento_id', empreendimento.id);
-  const anexosComUrl = await Promise.all(
-    (anexosData || []).map(async anexo => {
-      const { data } = await supabase.storage.from('empreendimento-anexos').createSignedUrl(anexo.caminho_arquivo, 3600);
-      return { ...anexo, public_url: data?.signedUrl };
-    })
-  );
+    // 4. Buscar produtos do empreendimento, AGORA COM FILTRO DE SEGURANÇA
+    const { data: produtos } = await supabase.from('produtos_empreendimento').select('*').eq('empreendimento_id', id).eq('organizacao_id', organizacaoId);
 
-  // 7. Buscar quadro de áreas
-  const { data: quadroDeAreas } = await supabase.from('quadro_de_areas').select('*').eq('empreendimento_id', empreendimento.id).order('ordem');
+    // 5. Buscar tipos de documento, AGORA COM FILTRO DE SEGURANÇA
+    const { data: documentoTipos } = await supabase.from('documento_tipos').select('*').eq('organizacao_id', organizacaoId).order('sigla');
 
-  return (
-    <EmpreendimentoDetails
-      empreendimento={empreendimento}
-      corporateEntities={corporateEntities || []}
-      proprietariaOptions={proprietariaOptions || []}
-      produtos={produtos || []}
-      initialAnexos={anexosComUrl || []}
-      documentoTipos={documentoTipos || []}
-      initialQuadroDeAreas={quadroDeAreas || []}
-    />
-  );
+    // 6. Buscar anexos, AGORA COM FILTRO DE SEGURANÇA
+    const { data: anexosData } = await supabase.from('empreendimento_anexos').select(`*, tipo:documento_tipos(*)`).eq('empreendimento_id', empreendimento.id).eq('organizacao_id', organizacaoId);
+    
+    // A geração de URLs assinadas não precisa de alteração, pois já depende dos anexos filtrados
+    const anexosComUrl = await Promise.all(
+        (anexosData || []).map(async anexo => {
+            const { data } = await supabase.storage.from('empreendimento-anexos').createSignedUrl(anexo.caminho_arquivo, 3600);
+            return { ...anexo, public_url: data?.signedUrl };
+        })
+    );
+
+    // 7. Buscar quadro de áreas (este é o único que não podemos filtrar diretamente ainda)
+    const { data: quadroDeAreas } = await supabase.from('quadro_de_areas').select('*').eq('empreendimento_id', empreendimento.id).order('ordem');
+
+    return (
+        <EmpreendimentoDetails
+            empreendimento={empreendimento}
+            corporateEntities={corporateEntities || []}
+            proprietariaOptions={proprietariaOptions || []}
+            produtos={produtos || []}
+            initialAnexos={anexosComUrl || []}
+            documentoTipos={documentoTipos || []}
+            initialQuadroDeAreas={quadroDeAreas || []}
+        />
+    );
 }

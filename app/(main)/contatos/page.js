@@ -9,21 +9,29 @@ import ContatoList from '../../../components/ContatoList';
 import ContatoImporter from '../../../components/ContatoImporter';
 import KpiCard from '../../../components/KpiCard'; 
 import { useLayout } from '../../../contexts/LayoutContext';
+import { useAuth } from '../../../contexts/AuthContext'; // 1. Importar para pegar a organização
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileImport, faCopy, faSpinner, faWandMagicSparkles, faUsers, faGlobeAmericas, faPhoneSlash, faFileExport } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import ContatoDetalhesSidebar from '../../../components/ContatoDetalhesSidebar';
-// CORREÇÃO AQUI: Ajustamos o caminho para o correto, conforme você indicou
 import ActivityModal from '../../../components/AtividadeModal';
 
-const fetchContatos = async () => {
+// =================================================================================
+// CORREÇÃO DE SEGURANÇA (organização_id)
+// O PORQUÊ: A função agora exige o `organizacaoId` e o usa para filtrar a busca,
+// garantindo que apenas os contatos da organização correta sejam retornados.
+// =================================================================================
+const fetchContatos = async (organizacaoId) => {
     const supabase = createClient();
+    if (!organizacaoId) return []; // Se não houver organização, não busca nada
+
     const { data, error } = await supabase
-      .from('contatos')
-      .select('*, telefones ( id, telefone, country_code ), emails ( id, email )')
-      .order('nome');
+        .from('contatos')
+        .select('*, telefones ( id, telefone, country_code ), emails ( id, email )')
+        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .order('nome');
 
     if (error) {
         throw new Error(error.message);
@@ -33,6 +41,9 @@ const fetchContatos = async () => {
 
 export default function GerenciamentoContatosPage() {
     const { setPageTitle } = useLayout();
+    const { user } = useAuth(); // Pegamos o usuário
+    const organizacaoId = user?.organizacao_id; // E sua organização
+
     const [isImporterOpen, setIsImporterOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isDetailsSidebarOpen, setIsDetailsSidebarOpen] = useState(false);
@@ -43,23 +54,29 @@ export default function GerenciamentoContatosPage() {
     const [editingActivity, setEditingActivity] = useState(null);
     const [currentContactForActivity, setCurrentContactForActivity] = useState(null);
 
-
+    // =================================================================================
+    // ATUALIZAÇÃO DE SEGURANÇA E BOAS PRÁTICAS
+    // O PORQUÊ: A queryKey agora inclui `organizacaoId` para ser única, e a query
+    // só é ativada (`enabled`) quando o `organizacaoId` está disponível.
+    // =================================================================================
     const { data: contatos = [], isLoading, error } = useQuery({
-        queryKey: ['contatos'],
-        queryFn: fetchContatos,
+        queryKey: ['contatos', organizacaoId],
+        queryFn: () => fetchContatos(organizacaoId),
+        enabled: !!organizacaoId, // Só busca os dados se o organizacaoId existir
         onError: (err) => {
             toast.error(`Erro ao carregar contatos: ${err.message}`);
         }
     });
     
     useState(() => {
-      setPageTitle('Gerenciamento de Contatos');
+        setPageTitle('Gerenciamento de Contatos');
     }, [setPageTitle]);
 
     const handleExportToGoogle = async () => {
         setIsExporting(true);
         const exportPromise = new Promise(async (resolve, reject) => {
             try {
+                // A API de exportação também precisa ser corrigida para usar o organizacao_id
                 const response = await fetch('/api/contatos/export');
                 if (!response.ok) {
                     const errorData = await response.json();
@@ -97,7 +114,7 @@ export default function GerenciamentoContatosPage() {
     }, [contatos]);
     
     const handleActionComplete = () => {
-        queryClient.invalidateQueries({ queryKey: ['contatos'] });
+        queryClient.invalidateQueries({ queryKey: ['contatos', organizacaoId] });
         if (selectedContato) {
             const updatedContact = contatos.find(c => c.id === selectedContato.id);
             if (updatedContact) {
@@ -140,11 +157,11 @@ export default function GerenciamentoContatosPage() {
     };
 
     if (isLoading) {
-      return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-400" /><p className="mt-3 text-gray-600">Carregando contatos...</p></div>
+        return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-400" /><p className="mt-3 text-gray-600">Carregando contatos...</p></div>
     }
     
     if (error) {
-      return <div className="text-center p-10 bg-red-50 text-red-700 rounded-lg"><p>Não foi possível carregar os contatos.</p><p className="text-sm">{error.message}</p></div>
+        return <div className="text-center p-10 bg-red-50 text-red-700 rounded-lg"><p>Não foi possível carregar os contatos.</p><p className="text-sm">{error.message}</p></div>
     }
 
     return (
@@ -156,9 +173,9 @@ export default function GerenciamentoContatosPage() {
                 <ActivityModal
                     isOpen={isActivityModalOpen}
                     onClose={handleCloseActivityModal}
-                    onSuccess={handleActivitySuccess}
-                    contato={currentContactForActivity}
-                    initialData={editingActivity}
+                    onActivityAdded={handleActivitySuccess} // Corrigido para onActivityAdded
+                    activityToEdit={editingActivity}
+                    initialContatoId={currentContactForActivity?.id} // Passa o ID do contato
                 />
             )}
 

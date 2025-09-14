@@ -1,57 +1,89 @@
+// app/(main)/empreendimentos/[id]/produtos/page.js
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { createClient } from '../../../../../utils/supabase/client';
 import Link from 'next/link';
 import { useParams, notFound } from 'next/navigation';
+import { useAuth } from '../../../../../contexts/AuthContext'; // 1. Importar useAuth
+import { useQuery } from '@tanstack/react-query'; // 2. Importar useQuery
 import ProdutoList from '../../../../../components/ProdutoList';
 import CondicoesPagamento from '../../../../../components/CondicoesPagamento';
 import TabelaVenda from '../../../../../components/TabelaVenda';
 import Accordion from '../../../../../components/Accordion';
-import KpiCard from '../../../../../components/KpiCard'; // Importando o KpiCard
+import KpiCard from '../../../../../components/KpiCard';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faChartLine, faTags, faTag, faCheckCircle, faLockOpen, faBullseye } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faChartLine, faTags, faTag, faBullseye, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+
+// =================================================================================
+// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
+// O PORQUÊ: A busca foi isolada e agora exige o `organizacaoId` para filtrar TODAS
+// as consultas, garantindo que o usuário só veja dados do empreendimento que
+// pertence à sua organização.
+// =================================================================================
+const fetchComercializacaoData = async (supabase, empreendimentoId, organizacaoId) => {
+    if (!empreendimentoId || !organizacaoId) return null;
+
+    const [empreendimentoRes, produtosRes, configRes] = await Promise.all([
+        supabase.from('empreendimentos').select('nome').eq('id', empreendimentoId).eq('organizacao_id', organizacaoId).single(),
+        supabase.from('produtos_empreendimento').select('*').eq('empreendimento_id', empreendimentoId).eq('organizacao_id', organizacaoId).order('unidade'),
+        supabase.from('configuracoes_venda').select('*, parcelas_adicionais(*)').eq('empreendimento_id', empreendimentoId).eq('organizacao_id', organizacaoId).maybeSingle()
+    ]);
+
+    if (empreendimentoRes.error) {
+        // Se o erro for 'PGRST116', significa que não encontrou o empreendimento (ou não pertence à org)
+        if (empreendimentoRes.error.code === 'PGRST116') {
+            throw new Error('Empreendimento não encontrado ou você não tem permissão para acessá-lo.');
+        }
+        throw new Error(`Erro ao buscar empreendimento: ${empreendimentoRes.error.message}`);
+    }
+
+    if (produtosRes.error) throw new Error(`Erro ao buscar produtos: ${produtosRes.error.message}`);
+    if (configRes.error) throw new Error(`Erro ao buscar configurações: ${configRes.error.message}`);
+
+    return {
+        empreendimento: empreendimentoRes.data,
+        produtos: produtosRes.data || [],
+        config: configRes.data || { empreendimento_id: empreendimentoId, parcelas_adicionais: [] }
+    };
+};
+
 
 export default function ProdutosPage() {
     const supabase = createClient();
     const params = useParams();
     const { id: empreendimentoId } = params;
+    const { user } = useAuth();
+    const organizacaoId = user?.organizacao_id;
 
-    const [empreendimento, setEmpreendimento] = useState(null);
-    const [produtos, setProdutos] = useState([]);
-    const [config, setConfig] = useState({});
-    const [loading, setLoading] = useState(true);
+    // =================================================================================
+    // ATUALIZAÇÃO DE PADRÃO (useState + useEffect -> useQuery)
+    // O PORQUÊ: `useQuery` gerencia o estado de carregamento, erros e cache de
+    // forma mais eficiente, simplificando o nosso código.
+    // =================================================================================
+    const { data, isLoading: loading, isError, error, refetch } = useQuery({
+        queryKey: ['comercializacaoData', empreendimentoId, organizacaoId],
+        queryFn: () => fetchComercializacaoData(supabase, empreendimentoId, organizacaoId),
+        enabled: !!empreendimentoId && !!organizacaoId,
+        retry: false,
+    });
+    
+    const { empreendimento, produtos = [], config } = data || {};
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        
-        const { data: empreendimentoData, error: empreendimentoError } = await supabase.from('empreendimentos').select('nome').eq('id', empreendimentoId).single();
-        if (empreendimentoError) return notFound();
-        setEmpreendimento(empreendimentoData);
-
-        const { data: produtosData } = await supabase.from('produtos_empreendimento').select('*').eq('empreendimento_id', empreendimentoId).order('unidade');
-        setProdutos(produtosData || []);
-        
-        const { data: configData } = await supabase.from('configuracoes_venda').select('*, parcelas_adicionais(*)').eq('empreendimento_id', empreendimentoId).maybeSingle();
-        setConfig(configData || { empreendimento_id: empreendimentoId, parcelas_adicionais: [] });
-        
-        setLoading(false);
-    }, [supabase, empreendimentoId]);
-
-    useEffect(() => { if (empreendimentoId) fetchData(); }, [empreendimentoId, fetchData]);
+    // Se o erro for de "não encontrado", chama a página 404
+    if (isError && error.message.includes('Empreendimento não encontrado')) {
+        notFound();
+    }
 
     const kpiData = useMemo(() => {
         const totalUnidades = produtos.length;
         if (totalUnidades === 0) {
             return { vgvTotal: 'R$ 0,00', totalUnidades: 0, unidadesVendidas: 0, unidadesDisponiveis: 0, unidadesReservadas: 0, taxaVendas: '0.00%', ticketMedio: 'R$ 0,00' };
         }
-
         const vendidas = produtos.filter(p => p.status === 'Vendido');
         const reservadas = produtos.filter(p => p.status === 'Reservado');
-        
         const vgvTotal = produtos.reduce((acc, p) => acc + (parseFloat(p.valor_venda_calculado) || 0), 0);
         const valorVendido = vendidas.reduce((acc, p) => acc + (parseFloat(p.valor_venda_calculado) || 0), 0);
-        
         return {
             vgvTotal: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(vgvTotal),
             totalUnidades,
@@ -66,6 +98,16 @@ export default function ProdutosPage() {
     if (loading || !empreendimento) {
         return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
     }
+    
+    if (isError) {
+        return (
+             <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg">
+                <FontAwesomeIcon icon={faExclamationTriangle} size="3x" className="text-red-400 mb-4" />
+                <h2 className="text-2xl font-bold text-red-600">Erro ao Carregar</h2>
+                <p className="mt-2 text-red-700">{error.message}</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -78,7 +120,6 @@ export default function ProdutosPage() {
                 </h1>
             </div>
 
-            {/* Nova Seção de KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 <KpiCard title="VGV Total" value={kpiData.vgvTotal} icon={faChartLine} color="blue" />
                 <KpiCard title="Unidades Vendidas" value={`${kpiData.unidadesVendidas} / ${kpiData.totalUnidades}`} icon={faTag} color="green" />
@@ -91,7 +132,7 @@ export default function ProdutosPage() {
                     initialProdutos={produtos} 
                     empreendimentoId={empreendimentoId} 
                     initialConfig={config}
-                    onUpdate={fetchData} 
+                    onUpdate={refetch} 
                 />
             </Accordion>
 
@@ -99,7 +140,7 @@ export default function ProdutosPage() {
                 <CondicoesPagamento
                     empreendimentoId={empreendimentoId}
                     initialConfig={config}
-                    onUpdate={fetchData} 
+                    onUpdate={refetch} 
                 />
             </Accordion>
             

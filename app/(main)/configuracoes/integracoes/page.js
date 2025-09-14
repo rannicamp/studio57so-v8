@@ -1,22 +1,55 @@
+// app/(main)/configuracoes/integracoes/page.js
+
 import { createClient } from '../../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import IntegrationsManager from '../../../../components/IntegrationsManager';
+import { getOrganizationId } from '@/utils/getOrganizationId'; // Helper para buscar a organização
 
 export default async function IntegracoesPage() {
     const supabase = createClient();
 
-    // Proteção de Rota
+    // 1. Proteção de Rota - Verifica se o usuário está logado
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         redirect('/login');
     }
 
-    // Busca as empresas para popular o formulário
-    const { data: empresas } = await supabase.from('cadastro_empresa').select('id, razao_social');
+    // =================================================================================
+    // CORREÇÃO DE SEGURANÇA (organização_id)
+    // O PORQUÊ: Precisamos saber a qual organização o usuário pertence para
+    // buscar apenas os dados relevantes e seguros para ele.
+    // =================================================================================
+    const organizacaoId = await getOrganizationId(user.id);
+    if (!organizacaoId) {
+        // Se não encontrar a organização, pode ser um erro ou um usuário novo
+        // Aqui, evitamos vazar dados mostrando uma página vazia ou de erro.
+        return (
+            <div className="p-4 text-center text-red-600">
+                Erro: Organização do usuário não encontrada.
+            </div>
+        );
+    }
+
+    // =================================================================================
+    // CORREÇÃO DE SEGURANÇA (organização_id)
+    // O PORQUÊ: Adicionamos o filtro `.eq('organizacao_id', organizacaoId)`
+    // para garantir que estamos buscando APENAS as empresas da organização do usuário.
+    // =================================================================================
+    const { data: empresas } = await supabase
+        .from('cadastro_empresa')
+        .select('id, razao_social')
+        .eq('organizacao_id', organizacaoId); // <-- FILTRO DE SEGURANÇA!
     
-    // Busca as configurações já existentes
-    const { data: configs } = await supabase.from('configuracoes_whatsapp').select('*');
+    // =================================================================================
+    // CORREÇÃO DE SEGURANÇA (organização_id)
+    // O PORQUÊ: O mesmo filtro é aplicado aqui para buscar APENAS as configurações
+    // de WhatsApp que pertencem à organização correta.
+    // =================================================================================
+    const { data: configs } = await supabase
+        .from('configuracoes_whatsapp')
+        .select('*')
+        .eq('organizacao_id', organizacaoId); // <-- FILTRO DE SEGURANÇA!
 
     return (
         <div className="space-y-6">
