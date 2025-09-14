@@ -1,3 +1,5 @@
+// app/(main)/atividades/page.js
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -116,12 +118,9 @@ export default function AtividadesPage() {
 
     const fetchAllActivities = useCallback(async () => {
         setLoading(true);
-        // ***** INÍCIO DA ALTERAÇÃO *****
-        // Agora, a busca também traz os dados da atividade-pai
         const { data, error } = await supabase
             .from('activities')
             .select('*, empreendimentos(empresa_proprietaria_id), anexos:activity_anexos(*), atividade_pai:atividade_pai_id(id, nome)');
-        // ***** FIM DA ALTERAÇÃO *****
         
         if (error) {
             console.error("Erro ao buscar todas as atividades:", error);
@@ -132,33 +131,61 @@ export default function AtividadesPage() {
         setLoading(false);
     }, [supabase]);
 
+    // =================================================================================
+    // AQUI ESTÁ A CORREÇÃO PRINCIPAL
+    // O PORQUÊ: A lógica de filtragem anterior era conflitante e não combinava
+    // os diferentes filtros de forma correta. Esta nova versão unifica todas as
+    // regras de forma clara e sequencial, garantindo que uma atividade só
+    // apareça se passar por TODAS as condições de filtro ativas.
+    // =================================================================================
     useEffect(() => {
-        let activitiesToDisplay = [];
+        const activitiesToDisplay = allActivities
+            .filter(act => {
+                // 1. Filtro principal pelo Empreendimento selecionado no contexto (topo da página)
+                if (selectedEmpreendimento !== 'all' && act.empreendimento_id != selectedEmpreendimento) {
+                    return false;
+                }
 
-        activitiesToDisplay = allActivities.filter(act => {
-            if (selectedEmpreendimento !== 'all' && act.empreendimento_id != selectedEmpreendimento) {
-                return false;
-            }
-            if (selectedEmpreendimento === 'all') {
-                 const empresaMatch = !filters.empresa || (act.empreendimentos && act.empreendimentos.empresa_proprietaria_id == filters.empresa);
-                 const empreendimentoMatch = !filters.empreendimento || act.empreendimento_id == filters.empreendimento;
-                 if (!empresaMatch || !empreendimentoMatch) return false;
-            }
-            const responsavelMatch = !filters.responsavel || act.funcionario_id == filters.responsavel;
-            const statusMatch = filters.status.length === 0 || filters.status.includes(act.status);
-            const dateMatch = !filters.selectedDate || (
-                act.data_inicio_prevista && act.data_fim_prevista &&
-                filters.selectedDate >= act.data_inicio_prevista &&
-                filters.selectedDate <= act.data_fim_prevista
-            );
-            return responsavelMatch && statusMatch && dateMatch;
-        });
+                // 2. Filtros da barra de filtros (só são aplicados se "Todos os Empreendimentos" estiver selecionado)
+                if (selectedEmpreendimento === 'all') {
+                    // Filtro por Empresa
+                    if (filters.empresa && (!act.empreendimentos || act.empreendimentos.empresa_proprietaria_id != filters.empresa)) {
+                        return false;
+                    }
+                    // Filtro por Empreendimento específico na barra de filtros
+                    if (filters.empreendimento && act.empreendimento_id != filters.empreendimento) {
+                        return false;
+                    }
+                }
 
-        activitiesToDisplay.sort((a, b) => {
-            if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
-            if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
-            return 0;
-        });
+                // 3. Filtros gerais que se aplicam sempre
+                // Filtro por Responsável
+                if (filters.responsavel && act.funcionario_id != filters.responsavel) {
+                    return false;
+                }
+
+                // Filtro por Status
+                if (filters.status.length > 0 && !filters.status.includes(act.status)) {
+                    return false;
+                }
+
+                // Filtro por Data
+                if (filters.selectedDate && !(
+                    act.data_inicio_prevista && act.data_fim_prevista &&
+                    filters.selectedDate >= act.data_inicio_prevista &&
+                    filters.selectedDate <= act.data_fim_prevista
+                )) {
+                    return false;
+                }
+                
+                // Se a atividade passou por todos os testes, ela será exibida!
+                return true;
+            })
+            .sort((a, b) => {
+                if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
+                if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
+                return 0;
+            });
 
         setFilteredActivities(activitiesToDisplay);
     }, [selectedEmpreendimento, allActivities, filters, sortConfig]);
@@ -183,44 +210,60 @@ export default function AtividadesPage() {
 
     const handleDuplicateActivity = (activityToDuplicate) => {
         if (!canCreate) { toast.error("Você não tem permissão para criar atividades."); return; }
-        if (!window.confirm(`Deseja criar uma cópia da atividade "${activityToDuplicate.nome}"?`)) { return; }
         
-        const promise = new Promise(async (resolve, reject) => {
-            const { id, created_at, updated_at, empreendimentos, anexos, atividade_pai, ...newActivityData } = activityToDuplicate;
-            
-            newActivityData.nome = `${activityToDuplicate.nome} (Cópia)`;
-            newActivityData.status = 'Não Iniciado';
-            newActivityData.data_inicio_real = null;
-            newActivityData.data_fim_real = null;
-            newActivityData.data_fim_original = null;
-            newActivityData.criado_por_usuario_id = user?.id;
-            
-            const { error } = await supabase.from('activities').insert(newActivityData);
-            
-            if (error) {
-                reject(new Error(error.message));
-            } else {
-                resolve("Atividade duplicada com sucesso!");
-            }
-        });
+        toast("Confirmar Duplicação", {
+            description: `Deseja criar uma cópia da atividade "${activityToDuplicate.nome}"?`,
+            action: {
+                label: "Duplicar",
+                onClick: () => {
+                    const promise = new Promise(async (resolve, reject) => {
+                        const { id, created_at, updated_at, empreendimentos, anexos, atividade_pai, ...newActivityData } = activityToDuplicate;
+                        
+                        newActivityData.nome = `${activityToDuplicate.nome} (Cópia)`;
+                        newActivityData.status = 'Não Iniciado';
+                        newActivityData.data_inicio_real = null;
+                        newActivityData.data_fim_real = null;
+                        newActivityData.data_fim_original = null;
+                        newActivityData.criado_por_usuario_id = user?.id;
+                        
+                        const { error } = await supabase.from('activities').insert(newActivityData);
+                        
+                        if (error) {
+                            reject(new Error(error.message));
+                        } else {
+                            resolve("Atividade duplicada com sucesso!");
+                        }
+                    });
 
-        toast.promise(promise, {
-            loading: 'Duplicando atividade...',
-            success: (msg) => { fetchAllActivities(); return msg; },
-            error: (err) => `Erro: ${err.message}`,
+                    toast.promise(promise, {
+                        loading: 'Duplicando atividade...',
+                        success: (msg) => { fetchAllActivities(); return msg; },
+                        error: (err) => `Erro: ${err.message}`,
+                    });
+                }
+            },
+            cancel: { label: "Cancelar" }
         });
     };
 
     const handleDeleteClick = async (activityId) => {
-        if (window.confirm('Tem certeza que deseja deletar esta atividade?')) {
-            const { error } = await supabase.from('activities').delete().eq('id', activityId);
-            if (error) toast.error(`Erro ao deletar: ${error.message}`);
-            else {
-                toast.success('Atividade deletada com sucesso!');
-                fetchAllActivities();
-                setIsSidebarOpen(false);
-            }
-        }
+         toast("Confirmar Exclusão", {
+            description: 'Tem certeza que deseja deletar esta atividade?',
+            action: {
+                label: "Deletar",
+                onClick: async () => {
+                    const { error } = await supabase.from('activities').delete().eq('id', activityId);
+                    if (error) toast.error(`Erro ao deletar: ${error.message}`);
+                    else {
+                        toast.success('Atividade deletada com sucesso!');
+                        fetchAllActivities();
+                        setIsSidebarOpen(false);
+                    }
+                }
+            },
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' }
+        });
     };
 
     const handleStatusChange = async (activityId, newStatus) => {
@@ -360,7 +403,7 @@ export default function AtividadesPage() {
                         {activeTab === 'kanban' && <KanbanBoard activities={filteredActivities} onEditActivity={handleCardClick} onStatusChange={handleStatusChange} canEdit={canEdit} onDeleteActivity={handleDeleteClick} onDuplicateActivity={handleDuplicateActivity} />}
                         {activeTab === 'list' && <ActivityList activities={filteredActivities} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} />}
                         {activeTab === 'gantt' && <GanttChart activities={filteredActivities} onEditActivity={handleEditClick} />}
-                        {activeTab === 'calendar' && <ActivityCalendar activities={filteredActivities} onActivityClick={handleEditClick} />}
+                        {activeTab === 'calendar' && <ActivityCalendar activities={filteredActivities} onActivityClick={handleCardClick} />}
                     </>
                 )}
             </div>
