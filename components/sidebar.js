@@ -1,4 +1,4 @@
-//components\sidebar.js
+//components/sidebar.js
 "use client";
 
 import { useState } from 'react';
@@ -17,19 +17,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { createClient } from '../utils/supabase/client';
 import Tooltip from './Tooltip';
 
-// =================================================================================
-// ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-// O PORQUÊ: A função agora exige a `organizacaoId`. Isso garante que a consulta
-// ao banco de dados seja filtrada, trazendo APENAS os empreendimentos que
-// pertencem à organização do usuário logado. É a nossa "parede" de segurança.
-// =================================================================================
 const fetchEmpreendimentos = async (organizacaoId) => {
-    if (!organizacaoId) return []; // Se não houver organização, não busca nada.
+    if (!organizacaoId) return [];
     const supabase = createClient();
     const { data, error } = await supabase
         .from('empreendimentos')
         .select('id, nome')
-        .eq('organizacao_id', organizacaoId) // <-- A ETIQUETA DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId)
         .order('nome');
 
     if (error) {
@@ -40,17 +34,16 @@ const fetchEmpreendimentos = async (organizacaoId) => {
 };
 
 export default function Sidebar({ isCollapsed, toggleSidebar }) {
-    const { hasPermission, sidebarPosition, user } = useAuth(); // Pegamos o 'user' para ter o ID da organização
+    // =================================================================================
+    // CORREÇÃO FINAL
+    // O PORQUÊ: Removemos 'sidebarPosition' da desestruturação principal e agora
+    // a pegamos diretamente do objeto 'user' unificado, que é a fonte correta
+    // da informação após nossa refatoração do AuthContext.
+    // =================================================================================
+    const { hasPermission, user } = useAuth();
     const organizacaoId = user?.organizacao_id;
+    const sidebarPosition = user?.sidebar_position || 'left';
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE SEGURANÇA (queryKey e queryFn)
-    // O PORQUÊ:
-    // 1. `queryKey`: Adicionamos `organizacaoId` à chave. Isso garante que o cache
-    //    de dados seja único para cada organização.
-    // 2. `queryFn`: Passamos o `organizacaoId` para a função de busca.
-    // 3. `enabled`: A busca só é executada se o `organizacaoId` estiver disponível.
-    // =================================================================================
     const { data: empreendimentos = [] } = useQuery({
         queryKey: ['empreendimentosMenu', organizacaoId],
         queryFn: () => fetchEmpreendimentos(organizacaoId),
@@ -129,7 +122,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         const allItems = navSections.flatMap(section => section.items || []);
 
         return (
-            <aside className={`bg-white shadow-lg h-[65px] w-full fixed left-0 ${positionClass} z-50 flex items-center justify-center px-4`}>
+            <aside className={`bg-white shadow-lg h-[65px] w-full fixed left-0 ${positionClass} z-40 flex items-center justify-center px-4`}>
                 <div className="absolute left-4">
                     <Link href="/">
                         <img src={logoIconUrl} alt="Logo Studio 57" className="h-8 w-auto" />
@@ -158,7 +151,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
     }
 
     return (
-        <aside className={`bg-white shadow-lg h-full fixed top-0 z-50 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
+        <aside className={`bg-white shadow-lg h-full fixed top-0 z-40 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
             <div className="flex items-center justify-center h-[65px] border-b border-gray-200 flex-shrink-0">
                 <Link href="/">
                     <img src={isCollapsed ? logoIconUrl : logoUrl} alt="Logo Studio 57" className={`transition-all duration-300 ${isCollapsed ? 'h-8' : 'h-10'} w-auto`} />

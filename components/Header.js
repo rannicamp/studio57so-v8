@@ -1,3 +1,4 @@
+// components/Header.js
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -16,18 +17,22 @@ import NotificationBell from './NotificationBell';
 export default function Header({ headerPositionClass }) {
     const router = useRouter();
     const { pageTitle } = useLayout();
-    const { user, userData, hasPermission } = useAuth(); // A função hasPermission ainda é necessária para outras partes do sistema
+    // =================================================================================
+    // CORREÇÃO AQUI
+    // O PORQUÊ: Removemos o 'userData' e agora usamos apenas o 'user' unificado.
+    // Todas as informações, como nome e foto, virão diretamente dele.
+    // =================================================================================
+    const { user } = useAuth(); 
     const { empreendimentos, selectedEmpreendimento, changeEmpreendimento, loading: loadingEmpreendimento } = useEmpreendimento();
     
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef(null);
 
     // Otimização: Calculamos o nome e a foto diretamente, sem precisar de estado extra.
-    const firstName = userData?.nome?.split(' ')[0];
+    const firstName = user?.nome?.split(' ')[0];
     const userName = firstName || user?.email;
-    const userPhoto = userData?.avatar_url || null;
+    const userPhoto = user?.avatar_url || null;
 
-    // Este useEffect é ótimo para funcionalidades como "clicar fora para fechar".
     useEffect(() => {
         function handleClickOutside(event) {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -98,7 +103,6 @@ export default function Header({ headerPositionClass }) {
                                         </Link>
                                     </li>
                                     
-                                    {/* ALTERAÇÃO APLICADA AQUI: A verificação de permissão foi removida para que todos os usuários vejam o link. */}
                                     <li>
                                         <Link href="/configuracoes" className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                             <FontAwesomeIcon icon={faCog} className="w-4 h-4" />

@@ -1,3 +1,4 @@
+// app/(main)/financeiro/page.js
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -17,13 +18,6 @@ import AtivosManager from '../../../components/financeiro/AtivosManager';
 import LancamentoFormModal from '../../../components/financeiro/LancamentoFormModal';
 import ExtratoManager from '../../../components/financeiro/ExtratoManager';
 import LancamentoDetalhesSidebar from '../../../components/financeiro/LancamentoDetalhesSidebar';
-
-// ==========================================================
-// FUNÇÕES DE BUSCA DE DADOS (API) - AGORA SEGURAS
-// O PORQUÊ: Todas as funções agora recebem 'organizacao_id'
-// e a utilizam para filtrar os resultados, garantindo que
-// um usuário só veja os dados da sua própria organização.
-// ==========================================================
 
 const supabase = createClient();
 
@@ -50,7 +44,6 @@ async function fetchInitialData(organizacao_id) {
 }
 
 const applyFiltersToQuery = (query, currentFilters) => {
-    // Esta função auxiliar não precisa de organizacao_id pois o filtro principal já foi aplicado antes.
     if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
     
     if (currentFilters.startDate || currentFilters.endDate) {
@@ -85,6 +78,12 @@ const applyFiltersToQuery = (query, currentFilters) => {
     return query;
 };
 
+// ==========================================================
+// MUDANÇA PARA TESTE
+// O PORQUÊ: Simplificamos a busca para `select('*')`. Se os
+// lançamentos aparecerem agora, confirma que o problema é
+// uma ligação com dados de outra organização.
+// ==========================================================
 async function fetchLancamentos({ queryKey }) {
     const [_key, { filters, currentPage, itemsPerPage, sortConfig, organizacao_id }] = queryKey;
     if (!organizacao_id) return { data: [], count: 0 };
@@ -92,11 +91,11 @@ async function fetchLancamentos({ queryKey }) {
     const from = (currentPage - 1) * itemsPerPage;
     const to = from + itemsPerPage - 1;
 
-    const selectString = `*, data_pagamento, conta:contas_financeiras!conta_id(*, empresa:cadastro_empresa!empresa_id(id, nome_fantasia, razao_social)), categoria:categorias_financeiras(*), favorecido:contatos!favorecido_contato_id(*), empreendimento:empreendimentos(*, empresa:cadastro_empresa!empresa_proprietaria_id(id, nome_fantasia, razao_social)), anexos:lancamentos_anexos(*)`;
+    // LINHA ALTERADA PARA O TESTE:
+    const selectString = `*`;
     
-    // BLINDADO: Filtro de segurança aplicado ANTES dos filtros do usuário.
     let query = supabase.from('lancamentos').select(selectString, { count: 'exact' }).eq('organizacao_id', organizacao_id);
-    query = applyFiltersToQuery(query, filters); // Aplica filtros adicionais
+    query = applyFiltersToQuery(query, filters);
     query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' }).range(from, to);
     
     const { data, error, count } = await query;
@@ -105,11 +104,11 @@ async function fetchLancamentos({ queryKey }) {
     return { data: data || [], count: count || 0 };
 }
 
+
 async function fetchLancamentosKpi({ queryKey }) {
     const [_key, { filters, organizacao_id }] = queryKey;
     if (!organizacao_id) return [];
 
-    // BLINDADO: Filtro de segurança aplicado ANTES dos filtros do usuário.
     let query = supabase.from('lancamentos').select('valor, tipo').eq('organizacao_id', organizacao_id);
     query = applyFiltersToQuery(query, filters);
 
@@ -122,7 +121,6 @@ async function fetchTodosLancamentosParaSaldos({ queryKey }) {
     const [_key, { organizacao_id }] = queryKey;
     if (!organizacao_id) return [];
     
-    // BLINDADO: Filtro de segurança aplicado.
     let query = supabase.from('lancamentos')
         .select('valor, tipo, status, conciliado, conta_id')
         .eq('organizacao_id', organizacao_id)
@@ -133,15 +131,13 @@ async function fetchTodosLancamentosParaSaldos({ queryKey }) {
     return data || [];
 }
 
-// =================================
-// COMPONENTE DA PÁGINA
-// =================================
-
 export default function FinanceiroPage() {
     const { setPageTitle } = useLayout();
     const router = useRouter();
     const queryClient = useQueryClient();
-    const { hasPermission, loading: authLoading, organizacao_id } = useAuth(); // Pegamos o organizacao_id aqui
+    const { hasPermission, loading: authLoading, user } = useAuth();
+    console.log("DEDO-DURO 2.0:", { user });
+    const organizacao_id = user?.organizacao_id;
     
     const canViewPage = hasPermission('financeiro', 'pode_ver');
     const canCreate = hasPermission('financeiro', 'pode_criar');
@@ -158,7 +154,7 @@ export default function FinanceiroPage() {
     const [filters, setFilters] = useState({ 
         searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [], 
         etapaIds: [], status: [], tipo: [], startDate: '', 
-        endDate: new Date().toISOString().split('T')[0],
+        endDate: '', // Removido o padrão para ajudar no teste
         month: '', year: '', favorecidoId: null 
     });
 
@@ -197,8 +193,8 @@ export default function FinanceiroPage() {
     });
 
     const deleteLancamentoMutation = useMutation({
-        mutationFn: async (id) => {
-            const { error } = await supabase.from('lancamentos').delete().eq('id', id);
+        mutationFn: async ({ id, organizacaoId }) => {
+            const { error } = await supabase.from('lancamentos').delete().eq('id', id).eq('organizacao_id', organizacaoId);
             if (error) throw new Error(error.message);
         },
         onSuccess: () => {
@@ -213,7 +209,7 @@ export default function FinanceiroPage() {
             description: "Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita.",
             action: {
                 label: "Excluir",
-                onClick: () => toast.promise(deleteLancamentoMutation.mutateAsync(id), {
+                onClick: () => toast.promise(deleteLancamentoMutation.mutateAsync({ id, organizacaoId: organizacao_id }), {
                     loading: 'Excluindo...',
                     success: 'Lançamento excluído!',
                     error: (err) => `Erro: ${err.message}`,
