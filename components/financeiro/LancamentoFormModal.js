@@ -1,3 +1,4 @@
+//components\financeiro\LancamentoFormModal.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -62,11 +63,10 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     const [isSearchingFavorecido, setIsSearchingFavorecido] = useState(false);
     const [searchAttempted, setSearchAttempted] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
-    const [aiFile, setAiFile] = useState(null); // Estado para o arquivo da IA não foi removido
-    const [isAnalyzing, setIsAnalyzing] = useState(false); // Estado para o arquivo da IA não foi removido
+    const [aiFile, setAiFile] = useState(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
 
 
-    // PADRÃO OURO: Buscando dados com useQuery e garantindo a segurança com organizacao_id
     const fetchDropdownData = async () => {
         if (!organizacao_id) return null;
 
@@ -91,11 +91,10 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     const { data: dropdownData, isLoading: isLoadingDropdowns, error: dropdownError } = useQuery({
         queryKey: ['lancamentoDropdowns', organizacao_id],
         queryFn: fetchDropdownData,
-        enabled: isOpen && !!organizacao_id, // A query só é executada se o modal estiver aberto e houver um organizacao_id
-        staleTime: 5 * 60 * 1000, // 5 minutos
+        enabled: isOpen && !!organizacao_id,
+        staleTime: 5 * 60 * 1000,
     });
     
-    // PADRÃO OURO: Centralizando toda a lógica de salvar com useMutation
     const mutation = useMutation({
         mutationFn: async (formData) => {
             if (!user || !organizacao_id) throw new Error("Usuário não autenticado ou organização não encontrada.");
@@ -103,12 +102,11 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             const valorNumerico = parseFloat(String(formData.valor || '0')) || 0;
             let favorecidoFinalId = formData.favorecido_contato_id;
 
-            // Cria um novo contato (favorecido) se necessário, com organizacao_id
             if (formData.novo_favorecido && formData.novo_favorecido.nome) {
                 const { data: novoContato, error: contatoError } = await supabase.from('contatos').insert({ 
                     nome: formData.novo_favorecido.nome, 
                     tipo_contato: 'Fornecedor',
-                    organizacao_id: organizacao_id // Segurança
+                    organizacao_id: organizacao_id
                 }).select().single();
                 if (contatoError) throw contatoError;
                 favorecidoFinalId = novoContato.id;
@@ -124,13 +122,12 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 observacao: formData.observacoes,
                 favorecido_contato_id: favorecidoFinalId,
                 criado_por_usuario_id: user.id,
-                organizacao_id: organizacao_id, // Segurança
+                organizacao_id: organizacao_id,
             };
 
             let lancamentoPrincipal;
             let error = null;
 
-            // Lógica para Edição
             if (isEditing) {
                 const { data, error: updateError } = await supabase.from('lancamentos').update({ 
                     ...baseData, 
@@ -143,10 +140,55 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 error = updateError;
                 lancamentoPrincipal = data;
             } else {
-                // Lógicas para Criação (Simples, parcelado, etc.)
-                // Por enquanto, apenas o 'simples' criará o lançamento principal. Outros tipos precisam ser implementados.
-                if (formData.form_type === 'simples') {
-                     const { data, error: insertError } = await supabase.from('lancamentos').insert({ 
+                // =================================================================================
+                // INÍCIO DA CORREÇÃO DO BUG
+                // O PORQUÊ: Adicionamos a lógica que faltava para o tipo 'transferencia'.
+                // =================================================================================
+                if (formData.form_type === 'transferencia') {
+                    const transferenciaId = crypto.randomUUID();
+                    
+                    // 1. Cria a DESPESA na conta de origem
+                    const { data: despesaData, error: despesaError } = await supabase
+                        .from('lancamentos')
+                        .insert({
+                            ...baseData,
+                            descricao: `Tranf. para ${dropdownData?.contas.find(c => c.id === formData.conta_destino_id)?.nome}: ${formData.descricao}`,
+                            tipo: 'Despesa',
+                            conta_id: formData.conta_origem_id,
+                            valor: valorNumerico,
+                            data_transacao: formData.data_vencimento,
+                            data_vencimento: formData.data_vencimento,
+                            data_pagamento: formData.data_vencimento,
+                            status: 'Conciliado',
+                            transferencia_id: transferenciaId,
+                        })
+                        .select()
+                        .single();
+                    
+                    if (despesaError) {
+                        error = despesaError;
+                    } else {
+                        lancamentoPrincipal = despesaData; // <-- Atribui o lançamento principal para anexos
+                        
+                        // 2. Cria a RECEITA na conta de destino
+                        const { error: receitaError } = await supabase
+                            .from('lancamentos')
+                            .insert({
+                                ...baseData,
+                                descricao: `Tranf. de ${dropdownData?.contas.find(c => c.id === formData.conta_origem_id)?.nome}: ${formData.descricao}`,
+                                tipo: 'Receita',
+                                conta_id: formData.conta_destino_id,
+                                valor: valorNumerico,
+                                data_transacao: formData.data_vencimento,
+                                data_vencimento: formData.data_vencimento,
+                                data_pagamento: formData.data_vencimento,
+                                status: 'Conciliado',
+                                transferencia_id: transferenciaId,
+                            });
+                        if (receitaError) error = receitaError;
+                    }
+                } else if (formData.form_type === 'simples') {
+                    const { data, error: insertError } = await supabase.from('lancamentos').insert({ 
                         ...baseData, 
                         tipo: formData.tipo, 
                         conta_id: formData.conta_id, 
@@ -158,12 +200,14 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     error = insertError;
                     lancamentoPrincipal = data;
                 }
-                // TODO: Implementar lógicas de parcelado, recorrente e transferência aqui
+                // TODO: Implementar lógicas de parcelado e recorrente aqui
+                // =================================================================================
+                // FIM DA CORREÇÃO DO BUG
+                // =================================================================================
             }
             if (error) throw error;
             if (!lancamentoPrincipal) throw new Error("Não foi possível obter os dados do lançamento salvo.");
             
-            // Lógica para upload de múltiplos anexos, com organizacao_id
             if (formData.anexos.length > 0) {
                 const uploadPromises = formData.anexos.map(async (anexo) => {
                     if (!anexo.file) return;
@@ -181,7 +225,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                         nome_arquivo: file.name,
                         descricao: anexo.descricao,
                         tipo_documento_id: anexo.tipo_documento_id,
-                        organizacao_id: organizacao_id // Segurança
+                        organizacao_id: organizacao_id
                     });
                     if (insertAnexoError) throw new Error(`Falha ao salvar anexo ${file.name} no banco: ${insertAnexoError.message}`);
                 });
@@ -190,7 +234,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             return lancamentoPrincipal;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries(['lancamentos']); // Invalida a query da lista de lançamentos para auto-atualizar
+            queryClient.invalidateQueries({queryKey: ['lancamentos']});
             if (onSuccess) onSuccess();
             setTimeout(onClose, 1500);
         },
@@ -255,7 +299,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         setFormData(newFormData);
     };
     
-    // Busca de favorecido agora também envia o organizacao_id
     const handleFavorecidoSearch = async (e) => { 
         const value = e.target.value; 
         setSearchAttempted(true); 
@@ -312,7 +355,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         });
     };
 
-    // Funções de IA (não modificadas)
     const handleAiFileChange = (e) => { if (e.target.files && e.target.files[0]) { setAiFile(e.target.files[0]); } };
     const handleAiExtract = async () => { /* Código existente sem alteração */ };
 
@@ -353,7 +395,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     <div className="space-y-4 pt-4 border-t">
                         <input type="text" name="descricao" value={formData.descricao || ''} onChange={handleChange} required placeholder="Descrição do Lançamento *" className="w-full p-2 border rounded-md" />
                         
-                        {/* Seções de campos (sem alterações) */}
                         {formData.form_type === 'parcelado' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes do Parcelamento</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor Total *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Nº de Parcelas *</label> <input type="number" min="2" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">1º Vencimento *</label> <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
                         {formData.form_type === 'recorrente' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes da Recorrência</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor Mensal *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Início *</label> <input type="date" name="recorrencia_data_inicio" value={formData.recorrencia_data_inicio} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Fim (Opcional)</label> <input type="date" name="recorrencia_data_fim" value={formData.recorrencia_data_fim || ''} onChange={handleChange} className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
                         {(formData.form_type === 'simples' || formData.form_type === 'transferencia' || isEditing) && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div> <label className="block text-sm font-medium">Valor *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleChange({target: {name: 'valor', value: unmaskedValue}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">{formData.form_type === 'transferencia' ? 'Data da Transferência *' : 'Data de Vencimento *'}</label> <input type="date" name="data_vencimento" value={formData.data_vencimento || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> )}
