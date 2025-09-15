@@ -3,22 +3,18 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
-import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
+import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faFilter, faCalendarDay, faCalendarWeek, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
+// O PORQUÊ: Adicionamos os ícones de lápis e lixeira para a nova coluna de ações.
+import { faSpinner, faFilter, faCalendarDay, faCalendarWeek, faCalendarAlt, faPenToSquare, faTrashAlt } from '@fortawesome/free-solid-svg-icons';
 import MultiSelectDropdown from './MultiSelectDropdown';
-import { toast } from 'sonner'; // Adicionado para substituir o alert
+import { toast } from 'sonner';
 
 const formatCurrency = (value) => {
     if (value === null || value === undefined || isNaN(value)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
-// =================================================================================
-// ATUALIZAÇÃO DA REGRA DE DATAS
-// O PORQUÊ: Esta função agora segue nossa regra de ouro para datas simples,
-// tratando a data como um texto para evitar problemas de fuso horário.
-// =================================================================================
 const formatDate = (dateStr) => {
     if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr.split('T')[0])) return 'N/A';
     const [year, month, day] = dateStr.split('T')[0].split('-');
@@ -27,7 +23,7 @@ const formatDate = (dateStr) => {
 
 export default function ExtratoManager({ contas, onEdit }) {
     const supabase = createClient();
-    const { user } = useAuth(); // 2. Obter o usuário para o organizacaoId
+    const { user, hasPermission } = useAuth(); // Adicionado 'hasPermission' para o botão de excluir
     const organizacaoId = user?.organizacao_id;
     
     const [filters, setFilters] = useState(() => {
@@ -102,16 +98,11 @@ export default function ExtratoManager({ contas, onEdit }) {
         setSaldoAnterior(0);
 
         try {
-            // =================================================================================
-            // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-            // O PORQUÊ: Passamos o `organizacaoId` para a função do banco de dados,
-            // garantindo que o cálculo do saldo seja seguro e restrito à organização.
-            // =================================================================================
             const saldoPromises = filters.contaIds.map(contaId => 
                 supabase.rpc('calcular_saldo_anterior', { 
                     p_conta_id: contaId, 
                     p_data_inicio: filters.startDate,
-                    p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+                    p_organizacao_id: organizacaoId
                 })
             );
             const saldosResponses = await Promise.all(saldoPromises);
@@ -123,16 +114,11 @@ export default function ExtratoManager({ contas, onEdit }) {
             });
             setSaldoAnterior(saldoInicialTotal);
 
-            // =================================================================================
-            // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-            // O PORQUÊ: A busca de lançamentos agora é duplamente filtrada pela
-            // organização, garantindo a total privacidade dos dados financeiros.
-            // =================================================================================
             const { data: lancamentos, error: lancamentosError } = await supabase
                 .from('lancamentos')
-                .select('*, favorecido:contatos!favorecido_contato_id(*), categoria:categorias_financeiras(*)')
+                .select('*, favorecido:contatos!favorecido_contato_id(*), categoria:categorias_financeiras(*), anexos:lancamentos_anexos(*)')
                 .in('conta_id', filters.contaIds)
-                .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+                .eq('organizacao_id', organizacaoId)
                 .gte('data_pagamento', filters.startDate)
                 .lte('data_pagamento', filters.endDate)
                 .in('status', ['Pago', 'Conciliado'])
@@ -165,13 +151,41 @@ export default function ExtratoManager({ contas, onEdit }) {
 
         } catch (error) {
             console.error("Erro ao gerar extrato:", error);
-            // ATUALIZAÇÃO DE UX (troca de alert por toast)
             toast.error(`Erro ao buscar dados do extrato: ${error.message}`);
         } finally {
             setLoading(false);
         }
 
     }, [filters.contaIds, filters.startDate, filters.endDate, supabase, organizacaoId]);
+
+    // O PORQUÊ: Nova função para lidar com a exclusão de um lançamento.
+    const handleDeleteLancamento = (lancamento) => {
+        const promise = async () => {
+            const { error } = await supabase
+                .from('lancamentos')
+                .delete()
+                .eq('id', lancamento.id)
+                .eq('organizacao_id', organizacaoId); // <-- Segurança!
+            if (error) throw error;
+        };
+
+        toast.warning(`Deseja realmente excluir o lançamento "${lancamento.descricao}"?`, {
+            action: {
+                label: "Excluir",
+                onClick: () => toast.promise(promise(), {
+                    loading: 'Excluindo lançamento...',
+                    success: () => {
+                        fetchExtrato(); // <-- Atualiza a lista após excluir
+                        return 'Lançamento excluído com sucesso!';
+                    },
+                    error: (err) => `Erro ao excluir: ${err.message}`,
+                }),
+            },
+            cancel: {
+                label: "Cancelar",
+            },
+        });
+    };
 
     const saldoFinal = extratoItens.length > 0 ? extratoItens[extratoItens.length - 1].saldo : saldoAnterior;
 
@@ -222,39 +236,50 @@ export default function ExtratoManager({ contas, onEdit }) {
                         <tr>
                             <th className="px-4 py-3 text-left font-bold uppercase w-1/12">ID</th>
                             <th className="px-4 py-3 text-left font-bold uppercase w-1/12">Data</th>
-                            <th className="px-4 py-3 text-left font-bold uppercase w-4/12">Descrição</th>
-                            <th className="px-4 py-3 text-right font-bold uppercase w-2/12">Entrada</th>
-                            <th className="px-4 py-3 text-right font-bold uppercase w-2/12">Saída</th>
+                            <th className="px-4 py-3 text-left font-bold uppercase w-3/12">Descrição</th>
+                            <th className="px-4 py-3 text-right font-bold uppercase w-1/12">Entrada</th>
+                            <th className="px-4 py-3 text-right font-bold uppercase w-1/12">Saída</th>
                             <th className="px-4 py-3 text-right font-bold uppercase w-2/12">Saldo</th>
+                            <th className="px-4 py-3 text-center font-bold uppercase w-1/12">Ações</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         <tr className="bg-gray-50 font-semibold">
+                            {/* O PORQUÊ: Corrigido o colSpan e adicionada célula vazia para alinhar a coluna de ações */}
                             <td className="px-4 py-2" colSpan="5">SALDO ANTERIOR EM {formatDate(filters.startDate)}</td>
                             <td className="px-4 py-2 text-right">{formatCurrency(saldoAnterior)}</td>
+                            <td className="px-4 py-2"></td>
                         </tr>
                         {loading ? (
-                            <tr><td colSpan="6" className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></td></tr>
+                            <tr><td colSpan="7" className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></td></tr>
                         ) : extratoItens.length > 0 ? (
                             extratoItens.map((item) => (
-                                <tr key={item.id} onClick={() => onEdit(item)} className="cursor-pointer hover:bg-blue-50">
+                                <tr key={item.id} className="hover:bg-blue-50">
                                     <td className="px-4 py-2 font-mono text-xs text-gray-500">{item.id}</td>
                                     <td className="px-4 py-2">{formatDate(item.data_pagamento)}</td>
                                     <td className="px-4 py-2">{item.descricao}</td>
-                                    <td className="px-4 py-2 text-right text-green-600">
-                                        {item.entrada > 0 ? formatCurrency(item.entrada) : ''}
-                                    </td>
-                                    <td className="px-4 py-2 text-right text-red-600">
-                                        {item.saida > 0 ? formatCurrency(item.saida) : ''}
-                                    </td>
-                                    <td className={`px-4 py-2 text-right font-semibold ${item.saldo < 0 ? 'text-red-600' : 'text-gray-800'}`}>
-                                        {formatCurrency(item.saldo)}
+                                    <td className="px-4 py-2 text-right text-green-600">{item.entrada > 0 ? formatCurrency(item.entrada) : ''}</td>
+                                    <td className="px-4 py-2 text-right text-red-600">{item.saida > 0 ? formatCurrency(item.saida) : ''}</td>
+                                    <td className={`px-4 py-2 text-right font-semibold ${item.saldo < 0 ? 'text-red-600' : 'text-gray-800'}`}>{formatCurrency(item.saldo)}</td>
+                                    <td className="px-4 py-2 text-center">
+                                        <div className="flex justify-center items-center gap-4">
+                                            {/* O PORQUÊ: Botão de editar */}
+                                            <button onClick={() => onEdit(item)} className="text-blue-600 hover:text-blue-800" title="Editar Lançamento">
+                                                <FontAwesomeIcon icon={faPenToSquare} />
+                                            </button>
+                                            {/* O PORQUÊ: Novo botão de excluir com verificação de permissão */}
+                                            {hasPermission('financeiro', 'pode_excluir') && (
+                                                <button onClick={() => handleDeleteLancamento(item)} className="text-red-500 hover:text-red-700" title="Excluir Lançamento">
+                                                    <FontAwesomeIcon icon={faTrashAlt} />
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="6" className="text-center py-10 text-gray-500">
+                                <td colSpan="7" className="text-center py-10 text-gray-500">
                                     Nenhum lançamento encontrado para o período e conta selecionados.
                                 </td>
                             </tr>
@@ -264,6 +289,7 @@ export default function ExtratoManager({ contas, onEdit }) {
                             <td className={`px-4 py-3 text-right ${saldoFinal < 0 ? 'text-red-600' : 'text-gray-900'}`}>
                                 {formatCurrency(saldoFinal)}
                             </td>
+                            <td className="px-4 py-3"></td>
                         </tr>
                     </tbody>
                 </table>
