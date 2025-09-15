@@ -39,7 +39,7 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
 export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initialData, empresas = [] }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
-    const { user, organizacao_id } = useAuth(); // Pegamos o organizacao_id do contexto
+    const { user, organizacao_id } = useAuth();
     const isEditing = Boolean(initialData?.id);
     
     const getInitialState = () => ({
@@ -140,51 +140,36 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 error = updateError;
                 lancamentoPrincipal = data;
             } else {
-                // =================================================================================
-                // INÍCIO DA CORREÇÃO DO BUG
-                // O PORQUÊ: Adicionamos a lógica que faltava para o tipo 'transferencia'.
-                // =================================================================================
                 if (formData.form_type === 'transferencia') {
                     const transferenciaId = crypto.randomUUID();
-                    
-                    // 1. Cria a DESPESA na conta de origem
-                    const { data: despesaData, error: despesaError } = await supabase
-                        .from('lancamentos')
-                        .insert({
+                    const { data: despesaData, error: despesaError } = await supabase.from('lancamentos').insert({
+                        ...baseData,
+                        descricao: `Tranf. para ${dropdownData?.contas.find(c => c.id === formData.conta_destino_id)?.nome}: ${formData.descricao}`,
+                        tipo: 'Despesa',
+                        conta_id: formData.conta_origem_id,
+                        valor: valorNumerico,
+                        data_transacao: formData.data_vencimento,
+                        data_vencimento: formData.data_vencimento,
+                        data_pagamento: formData.data_vencimento,
+                        status: 'Conciliado',
+                        transferencia_id: transferenciaId,
+                    }).select().single();
+                    if (despesaError) {
+                        error = despesaError;
+                    } else {
+                        lancamentoPrincipal = despesaData;
+                        const { error: receitaError } = await supabase.from('lancamentos').insert({
                             ...baseData,
-                            descricao: `Tranf. para ${dropdownData?.contas.find(c => c.id === formData.conta_destino_id)?.nome}: ${formData.descricao}`,
-                            tipo: 'Despesa',
-                            conta_id: formData.conta_origem_id,
+                            descricao: `Tranf. de ${dropdownData?.contas.find(c => c.id === formData.conta_origem_id)?.nome}: ${formData.descricao}`,
+                            tipo: 'Receita',
+                            conta_id: formData.conta_destino_id,
                             valor: valorNumerico,
                             data_transacao: formData.data_vencimento,
                             data_vencimento: formData.data_vencimento,
                             data_pagamento: formData.data_vencimento,
                             status: 'Conciliado',
                             transferencia_id: transferenciaId,
-                        })
-                        .select()
-                        .single();
-                    
-                    if (despesaError) {
-                        error = despesaError;
-                    } else {
-                        lancamentoPrincipal = despesaData; // <-- Atribui o lançamento principal para anexos
-                        
-                        // 2. Cria a RECEITA na conta de destino
-                        const { error: receitaError } = await supabase
-                            .from('lancamentos')
-                            .insert({
-                                ...baseData,
-                                descricao: `Tranf. de ${dropdownData?.contas.find(c => c.id === formData.conta_origem_id)?.nome}: ${formData.descricao}`,
-                                tipo: 'Receita',
-                                conta_id: formData.conta_destino_id,
-                                valor: valorNumerico,
-                                data_transacao: formData.data_vencimento,
-                                data_vencimento: formData.data_vencimento,
-                                data_pagamento: formData.data_vencimento,
-                                status: 'Conciliado',
-                                transferencia_id: transferenciaId,
-                            });
+                        });
                         if (receitaError) error = receitaError;
                     }
                 } else if (formData.form_type === 'simples') {
@@ -200,10 +185,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     error = insertError;
                     lancamentoPrincipal = data;
                 }
-                // TODO: Implementar lógicas de parcelado e recorrente aqui
-                // =================================================================================
-                // FIM DA CORREÇÃO DO BUG
-                // =================================================================================
             }
             if (error) throw error;
             if (!lancamentoPrincipal) throw new Error("Não foi possível obter os dados do lançamento salvo.");
@@ -211,11 +192,9 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             if (formData.anexos.length > 0) {
                 const uploadPromises = formData.anexos.map(async (anexo) => {
                     if (!anexo.file) return;
-                    
                     const file = anexo.file;
                     const fileName = `${crypto.randomUUID()}-${file.name}`;
                     const filePath = `public/${organizacao_id}/${lancamentoPrincipal.id}/${fileName}`;
-                    
                     const { error: uploadError } = await supabase.storage.from('documentos-financeiro').upload(filePath, file);
                     if (uploadError) throw new Error(`Falha no upload do anexo ${file.name}: ${uploadError.message}`);
 
@@ -279,13 +258,31 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         });
     };
 
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO DO BUG
+    // O PORQUÊ: Adicionamos a lógica para encontrar e pré-selecionar a categoria
+    // 'Transferência' quando o tipo de formulário muda.
+    // =================================================================================
     const handleChange = (e) => {
         const { name, value } = e.target;
         let newFormData = { ...formData, [name]: value === '' ? null : value };
         
-        if (name === 'form_type' && value === 'transferencia') newFormData.tipo = 'Despesa'; 
-        else if (name === 'form_type' && value !== 'transferencia') {
-            if (formData.form_type === 'transferencia') newFormData.tipo = 'Despesa';
+        if (name === 'form_type' && value === 'transferencia') {
+            newFormData.tipo = 'Despesa'; 
+            // Procura a categoria 'Transferência' (insensível a maiúsculas/minúsculas)
+            const transferenciaCategory = dropdownData?.categorias?.find(c => c.nome.toLowerCase() === 'transferência');
+            if (transferenciaCategory) {
+                newFormData.categoria_id = transferenciaCategory.id;
+            }
+        } else if (name === 'form_type' && value !== 'transferencia') {
+            if (formData.form_type === 'transferencia') {
+                newFormData.tipo = 'Despesa';
+                // Limpa a categoria se estava como 'Transferência'
+                const transferenciaCategory = dropdownData?.categorias?.find(c => c.nome.toLowerCase() === 'transferência');
+                if (formData.categoria_id === transferenciaCategory?.id) {
+                    newFormData.categoria_id = null;
+                }
+            }
         }
         
         if (name === 'status' && value === 'Pago' && !newFormData.data_pagamento) { 
@@ -298,6 +295,9 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         }
         setFormData(newFormData);
     };
+    // =================================================================================
+    // FIM DA CORREÇÃO
+    // =================================================================================
     
     const handleFavorecidoSearch = async (e) => { 
         const value = e.target.value; 

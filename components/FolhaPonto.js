@@ -1,3 +1,4 @@
+//components\FolhaPonto.js
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -17,8 +18,6 @@ import { toast } from 'sonner';
 
 const supabase = createClient();
 
-// Por que: Adicionamos este helper para padronizar a formatação de datas
-// em todo o sistema, tratando-as como texto para evitar erros de fuso horário.
 const formatSimpleDate = (dateString) => {
     if (!dateString || !/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
         return 'N/A';
@@ -80,7 +79,7 @@ const calculateTotalHoursForEmployee = (dayData, employee) => {
 };
 
 export default function FolhaPonto({ employeeId, month, canEdit }) {
-    const { user, userData } = useAuth();
+    const { user } = useAuth();
     const [employee, setEmployee] = useState(null);
     const [timesheetData, setTimesheetData] = useState({});
     const [holidays, setHolidays] = useState([]);
@@ -93,7 +92,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     const [proprietarios, setProprietarios] = useState([]);
     const [selectedSignatoryId, setSelectedSignatoryId] = useState('');
     const [geradoPor, setGeradoPor] = useState('');
-    const isUserProprietario = userData?.funcoes?.nome_funcao === 'Proprietário';
+    const isUserProprietario = user?.funcoes?.nome_funcao === 'Proprietário';
     const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     const [isAjusteModalOpen, setIsAjusteModalOpen] = useState(false);
     const [historicoSalarial, setHistoricoSalarial] = useState([]);
@@ -198,30 +197,28 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     
     useEffect(() => {
         const fetchInitialData = async () => {
-            if (!userData?.organizacao_id) return;
-            const { data: abonoTypesData } = await supabase.from('abono_tipos').select('id, descricao').eq('organizacao_id', userData.organizacao_id);
+            if (!user?.organizacao_id) return;
+            const { data: abonoTypesData } = await supabase.from('abono_tipos').select('id, descricao').eq('organizacao_id', user.organizacao_id);
             setAbonoTypes(abonoTypesData || []);
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            if (authUser) {
-                const { data: userDataFromDb } = await supabase.from('usuarios').select('id, nome, sobrenome').eq('id', authUser.id).single();
-                if (userDataFromDb) setCurrentUser({ id: userDataFromDb.id, nome: `${userDataFromDb.nome} ${userDataFromDb.sobrenome}`.trim() });
+            
+            if (user.id) {
+                setCurrentUser({ id: user.id, nome: `${user.nome} ${user.sobrenome}`.trim() });
             }
-            const { data: proprietariosData } = await supabase.from('usuarios').select('id, nome, sobrenome, funcionario:funcionarios(cpf), funcoes!inner(nome_funcao)').eq('funcoes.nome_funcao', 'Proprietário').eq('organizacao_id', userData.organizacao_id);
+            const { data: proprietariosData } = await supabase.from('usuarios').select('id, nome, sobrenome, funcionario:funcionarios(cpf), funcoes!inner(nome_funcao)').eq('funcoes.nome_funcao', 'Proprietário').eq('organizacao_id', user.organizacao_id);
             setProprietarios(proprietariosData || []);
             if (isUserProprietario && user) { setSelectedSignatoryId(user.id); } 
             else if (proprietariosData?.length > 0) { setSelectedSignatoryId(proprietariosData[0].id); }
-            if (userData) { setGeradoPor(`${userData.nome} ${userData.sobrenome}`); }
+            if (user) { setGeradoPor(`${user.nome} ${user.sobrenome}`); }
         };
         fetchInitialData();
-    }, [supabase, user, userData, isUserProprietario]);
+    }, [supabase, user, isUserProprietario]);
 
     const monthlyBalance = useMemo(() => {
         const dailyBalances = {};
         let total = 0;
         if (!month || !employee || isProcessing) return { dailyBalances, total };
         const [year, monthNum] = month.split('-').map(Number);
-        const today = new Date();
-        today.setHours(0,0,0,0);
+        const today = new Date(); today.setHours(0,0,0,0);
         const lastDayOfMonth = new Date(Date.UTC(year, monthNum, 0));
         const firstDayOfMonth = new Date(Date.UTC(year, monthNum - 1, 1));
         const admissionDate = employee.admission_date ? new Date(employee.admission_date + 'T00:00:00Z') : null;
@@ -367,8 +364,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     useEffect(() => {
         if (!employee?.jornada?.detalhes || isProcessing) return;
         const [year, monthNum] = month.split('-').map(Number);
-        const today = new Date();
-        today.setHours(0,0,0,0);
+        const today = new Date(); today.setHours(0,0,0,0);
         const lastDayToCheck = new Date() < new Date(year, monthNum, 0) ? today : new Date(year, monthNum, 0);
         const firstDayOfMonth = new Date(Date.UTC(year, monthNum - 1, 1));
         const pending = [];
@@ -438,15 +434,23 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 if (!value) {
                     if (existingRecord) ({ error } = await supabase.from('pontos').delete().eq('id', existingRecord.id));
                 } else {
-                    const localDate = new Date(`${date}T${value}`);
+                    // =================================================================================
+                    // INÍCIO DA CORREÇÃO DO BUG DE FUSO HORÁRIO
+                    // O PORQUÊ: Criamos a data diretamente em formato UTC (adicionando 'Z') para
+                    // evitar que o toISOString() subtraia horas com base no fuso local.
+                    // =================================================================================
+                    const utcDate = new Date(`${date}T${value}:00.000Z`);
                     const recordData = { 
                         funcionario_id: employeeId, 
                         tipo_registro, 
-                        data_hora: localDate.toISOString(), 
+                        data_hora: utcDate.toISOString(), // Agora a data está correta
                         editado_manualmente: true, 
                         editado_por_usuario_id: currentUser.id,
                         organizacao_id: employee.organizacao_id 
                     };
+                    // =================================================================================
+                    // FIM DA CORREÇÃO
+                    // =================================================================================
                     ({ error } = existingRecord
                         ? await supabase.from('pontos').update(recordData).eq('id', existingRecord.id)
                         : await supabase.from('pontos').insert(recordData));
@@ -499,7 +503,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             const promise = async () => {
                 const [year, monthNum] = month.split('-');
                 const mes_competencia = `${year}-${monthNum}-01`;
-        
+    
                 const { data: lancamento, error: findError } = await supabase
                     .from('lancamentos')
                     .select('id')
@@ -507,7 +511,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                     .eq('mes_competencia', mes_competencia)
                     .eq('organizacao_id', employee.organizacao_id)
                     .maybeSingle();
-        
+    
                 if (findError) throw new Error(`Erro ao buscar lançamento provisionado: ${findError.message}`);
                 if (!lancamento) throw new Error('Nenhum lançamento de salário provisionado foi encontrado para este mês.');
                 
@@ -516,9 +520,9 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                     status: 'Pago',
                     data_pagamento: new Date().toISOString()
                 }).eq('id', lancamento.id);
-        
+    
                 if (updateError) throw new Error(`Erro ao atualizar lançamento financeiro: ${updateError.message}`);
-        
+    
                 const { error: bancoError } = await supabase.from('banco_de_horas').insert({
                     funcionario_id: employeeId,
                     mes_referencia: mes_competencia,
@@ -528,7 +532,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 });
                 
                 if (bancoError && bancoError.code !== '23505') throw new Error(`Erro ao fechar banco de horas: ${bancoError.message}`);
-        
+    
                 return 'Lançamento financeiro atualizado e saldo do mês fechado com sucesso!';
             };
 
@@ -692,7 +696,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                         </tr>
                     </tfoot>
                 </table>
-                 {isMonthClosed ? (
+                {isMonthClosed ? (
                     <div className="p-4 bg-green-100 text-green-800 text-center font-semibold no-print">
                         <FontAwesomeIcon icon={faCheckCircle} /> Este mês já foi fechado e o pagamento ajustado.
                     </div>
