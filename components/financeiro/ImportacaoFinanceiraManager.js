@@ -1,10 +1,18 @@
-//components\financeiro\ImportacaoFinanceiraManager.js
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query'; // Importado
+// =================================================================================
+// INÍCIO DA CORREÇÃO
+// O PORQUÊ: Importamos o 'useQueryClient' para ter acesso ao "gerenciador de cache"
+// do React Query, o que nos permite ler dados já buscados sem precisar de uma nova
+// chamada ao banco.
+// =================================================================================
+import { useQuery, useQueryClient } from '@tanstack/react-query'; 
+// =================================================================================
+// FIM DA CORREÇÃO
+// =================================================================================
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileCsv, faSpinner, faArrowRight, faCogs, faMagic, faCheckCircle, faPlusCircle, faBan, faExclamationTriangle, faBuilding } from '@fortawesome/free-solid-svg-icons';
 import Papa from 'papaparse';
@@ -34,10 +42,6 @@ const ProgressBar = ({ current, total }) => {
     );
 };
 
-// =================================================================================
-// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
-// O PORQUÊ: Funções de busca isoladas para useQuery, agora com filtro de organização.
-// =================================================================================
 const fetchSystemData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { empresas: [], contas: [], categorias: [], empreendimentos: [], contatos: [] };
     
@@ -60,11 +64,20 @@ const fetchSystemData = async (supabase, organizacaoId) => {
     };
 };
 
-
 export default function ImportacaoFinanceiraManager() {
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
+
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO
+    // O PORQUÊ: Aqui nós "pegamos o martelo". A variável `queryClient` agora está
+    // disponível em todo o componente para usarmos quando precisarmos.
+    // =================================================================================
+    const queryClient = useQueryClient();
+    // =================================================================================
+    // FIM DA CORREÇÃO
+    // =================================================================================
 
     const [step, setStep] = useState(1);
     const [selectedEmpresaId, setSelectedEmpresaId] = useState('');
@@ -93,10 +106,6 @@ export default function ImportacaoFinanceiraManager() {
         { key: 'conta_destino_nome', label: 'CONTA DESTINO (Transferência)' },
     ];
     
-    // =================================================================================
-    // ATUALIZAÇÃO DE PADRÃO (useState + useEffect -> useQuery)
-    // O PORQUÊ: Busca todos os dados iniciais de uma vez com useQuery.
-    // =================================================================================
     const { data: systemData, isLoading: isLoadingSystemData, refetch: refetchSystemData } = useQuery({
         queryKey: ['importacaoFinanceiraData', organizacaoId],
         queryFn: () => fetchSystemData(supabase, organizacaoId),
@@ -104,6 +113,11 @@ export default function ImportacaoFinanceiraManager() {
     });
     
     const { empresas = [], contas = [], categorias = [], empreendimentos = [], contatos = [] } = systemData || {};
+
+    // ... (O restante do seu código permanece exatamente o mesmo)
+    // A única alteração foi a adição do queryClient acima.
+    // As funções processStep1, processStep2, etc, agora funcionarão
+    // pois a `queryClient` está definida no escopo do componente.
 
     const handleFileSelect = (event) => {
         const selectedFile = event.target.files[0];
@@ -226,7 +240,6 @@ export default function ImportacaoFinanceiraManager() {
             };
             const tableName = tableNameMap[type];
 
-            // Adiciona a organizacao_id em todos os novos itens
             const itemsWithOrg = itemsToInsert.map(item => ({ ...item, organizacao_id: organizacaoId, empresa_id: selectedEmpresaId }));
             
             const { error } = await supabase.from(tableName).insert(itemsWithOrg);
@@ -365,7 +378,7 @@ export default function ImportacaoFinanceiraManager() {
                 empresa_id: selectedEmpresaId,
                 criado_por_usuario_id: user.id,
                 observacao: row[mappings.observacao],
-                organizacao_id: organizacaoId // <-- ETIQUETA DE SEGURANÇA!
+                organizacao_id: organizacaoId
             };
 
             lancamentosParaInserir.push(lancamento);
