@@ -3,7 +3,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext'; // <--- 1. IMPORTAMOS O 'useAuth'
+import { useAuth } from '../contexts/AuthContext';
 import { createClient } from '../utils/supabase/client';
 import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
 import { toast } from 'sonner';
@@ -11,7 +11,7 @@ import AtividadeAnexos from './atividades/AtividadeAnexos';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSitemap, faSpinner, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
 
-// Componente para destacar o texto da busca
+// Componente para destacar o texto da busca (mantido)
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) {
         return <span>{text}</span>;
@@ -31,7 +31,7 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     );
 };
 
-
+// Função de dias úteis (mantida)
 function addBusinessDays(startDate, days) {
     if (!startDate || isNaN(days)) return startDate || '';
     if (days <= 1) return startDate;
@@ -52,11 +52,13 @@ function addBusinessDays(startDate, days) {
 
 export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activityToEdit, selectedEmpreendimento, funcionarios, allEmpresas, initialContatoId }) {
     const supabase = createClient();
-    const { userData } = useAuth(); // <--- 2. PEGAMOS OS DADOS DO USUÁRIO LOGADO
+    // O PORQUÊ DA MUDANÇA: Trocamos 'userData' por 'user' para usar o nosso novo objeto de usuário unificado.
+    const { user } = useAuth();
+    const organizacaoId = user?.organizacao_id; // <-- Acessamos o ID da organização de forma consistente.
+
     const { empreendimentos: allEmpreendimentos, loading: empreendimentosLoading } = useEmpreendimento();
     const [etapas, setEtapas] = useState([]);
     const [subetapas, setSubetapas] = useState([]);
-    const [currentUserId, setCurrentUserId] = useState(null);
     const isEditing = Boolean(activityToEdit);
     const [type, setType] = useState('atividade');
 
@@ -98,27 +100,18 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
     const [formData, setFormData] = useState(getInitialState());
 
     useEffect(() => {
-        const fetchInitialData = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) setCurrentUserId(user.id);
-        };
-
         if (isOpen) {
-            fetchInitialData();
             setParentActivitySearch('');
             setParentActivityOptions([]);
             setSelectedParent(null);
             setSubetapaSearch(''); 
-
             if (isEditing) {
                 const initialFormData = { ...getInitialState(), ...activityToEdit };
                 setFormData(initialFormData);
-                
                 if (activityToEdit.atividade_pai) {
                     setSelectedParent(activityToEdit.atividade_pai);
                     setParentActivitySearch(activityToEdit.atividade_pai.nome);
                 }
-
                 if (activityToEdit.hora_inicio || activityToEdit.duracao_horas > 0) {
                     setType('evento');
                 } else {
@@ -133,33 +126,32 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 setType('atividade');
             }
         }
-    }, [isOpen, isEditing, activityToEdit, getInitialState, supabase, initialContatoId]);
+    }, [isOpen, isEditing, activityToEdit, getInitialState, initialContatoId]);
     
-    // Busca Etapas quando o empreendimento muda
     useEffect(() => {
         const fetchEtapas = async () => {
-            if (formData.empreendimento_id) {
+            if (formData.empreendimento_id && organizacaoId) {
                 const { data: etapasData } = await supabase
                     .from('etapa_obra')
                     .select('id, nome_etapa, codigo_etapa')
+                    .eq('organizacao_id', organizacaoId) // <-- BLINDAGEM DE SEGURANÇA
                     .order('codigo_etapa', { ascending: true });
-
                 setEtapas(etapasData || []);
             } else {
                 setEtapas([]);
             }
         };
         fetchEtapas();
-    }, [formData.empreendimento_id, supabase]);
+    }, [formData.empreendimento_id, supabase, organizacaoId]);
 
-    // Busca Subetapas quando a etapa muda
     useEffect(() => {
         const fetchSubetapas = async () => {
-            if (formData.etapa_id) {
+            if (formData.etapa_id && organizacaoId) {
                 const { data: subetapasData, error } = await supabase
                     .from('subetapas')
                     .select('id, nome_subetapa')
                     .eq('etapa_id', formData.etapa_id)
+                    .eq('organizacao_id', organizacaoId) // <-- BLINDAGEM DE SEGURANÇA
                     .order('nome_subetapa');
                 
                 if (error) {
@@ -181,8 +173,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
             }
         };
         fetchSubetapas();
-    }, [formData.etapa_id, supabase, isEditing, formData.subetapa_id]);
-
+    }, [formData.etapa_id, supabase, isEditing, formData.subetapa_id, organizacaoId]);
 
     useEffect(() => {
         if (!subetapaSearch) {
@@ -191,7 +182,6 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
             const searchLower = subetapaSearch.toLowerCase();
             const filtered = subetapas.filter(s => s.nome_subetapa.toLowerCase().includes(searchLower));
             setFilteredSubetapas(filtered);
-            
             const exactMatch = subetapas.find(s => s.nome_subetapa.toLowerCase() === searchLower);
             if (!exactMatch) {
                 setFormData(prev => ({ ...prev, subetapa_id: null }));
@@ -199,16 +189,13 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         }
     }, [subetapaSearch, subetapas]);
 
-
     const searchParentActivities = useCallback(async (searchTerm) => {
-        if (searchTerm.length < 3) {
-            setParentActivityOptions([]);
-            return;
-        }
+        if (searchTerm.length < 3 || !organizacaoId) return;
         setIsSearchingParent(true);
         let query = supabase
             .from('activities')
             .select('id, nome')
+            .eq('organizacao_id', organizacaoId) // <-- BLINDAGEM DE SEGURANÇA
             .ilike('nome', `%${searchTerm}%`)
             .limit(10);
 
@@ -223,7 +210,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
             setParentActivityOptions(data);
         }
         setIsSearchingParent(false);
-    }, [supabase, isEditing, activityToEdit]);
+    }, [supabase, isEditing, activityToEdit, organizacaoId]);
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
@@ -231,7 +218,6 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 searchParentActivities(parentActivitySearch);
             }
         }, 500);
-
         return () => clearTimeout(delayDebounceFn);
     }, [parentActivitySearch, selectedParent, searchParentActivities]);
 
@@ -292,41 +278,29 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
     };
 
     const handleCreateSubetapa = async () => {
-        if (!subetapaSearch.trim() || !formData.etapa_id) return;
-
-        // ---> 3. AQUI ESTÁ A MUDANÇA MÁGICA PARA SUBETAPAS <---
-        if (!userData?.organizacao_id) {
-            toast.error('Erro de segurança: Organização do usuário não encontrada.');
+        if (!subetapaSearch.trim() || !formData.etapa_id || !organizacaoId) {
+             if (!organizacaoId) toast.error('Erro de segurança: Organização do usuário não encontrada.');
             return;
         }
-
         const subetapaNome = subetapaSearch.trim();
         setIsCreatingSubetapa(true);
-
-        const promise = new Promise(async (resolve, reject) => {
-            const { data: newSubetapa, error } = await supabase
-                .from('subetapas')
-                .insert({ 
-                    nome_subetapa: subetapaNome, 
-                    etapa_id: formData.etapa_id,
-                    organizacao_id: userData.organizacao_id // <-- Adiciona o carimbo!
-                })
-                .select()
-                .single();
-
-            if (error) {
-                reject(error);
-            } else {
-                setSubetapas(prev => [...prev, newSubetapa]);
-                handleSelectSubetapa(newSubetapa);
-                resolve(newSubetapa);
-            }
-        });
+        const promise = supabase
+            .from('subetapas')
+            .insert({ 
+                nome_subetapa: subetapaNome, 
+                etapa_id: formData.etapa_id,
+                organizacao_id: organizacaoId
+            })
+            .select()
+            .single()
+            .throwOnError();
         
         toast.promise(promise, {
             loading: 'Criando nova subetapa...',
-            success: () => {
+            success: (newSubetapa) => {
                 setIsCreatingSubetapa(false);
+                setSubetapas(prev => [...prev, newSubetapa]);
+                handleSelectSubetapa(newSubetapa);
                 return 'Subetapa criada com sucesso!';
             },
             error: (err) => {
@@ -340,7 +314,8 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!currentUserId || !userData?.organizacao_id) { // <-- Verificação de segurança adicional
+        // O PORQUÊ DA MUDANÇA: A verificação agora usa 'user' e 'organizacaoId', que são as fontes corretas de verdade.
+        if (!user?.id || !organizacaoId) {
             toast.error("Erro: Usuário não autenticado ou organização não encontrada.");
             return;
         }
@@ -363,7 +338,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 empreendimento_id: formData.empreendimento_id || null,
                 contato_id: formData.contato_id,
                 atividade_pai_id: formData.atividade_pai_id || null,
-                organizacao_id: userData.organizacao_id, // <-- Adiciona o carimbo!
+                organizacao_id: organizacaoId, // <-- Carimbo de segurança!
             };
 
             if (dadosParaSalvar.empreendimento_id) {
@@ -399,10 +374,10 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
 
             let error;
             if (isEditing) {
-                const { error: updateError } = await supabase.from('activities').update(dadosParaSalvar).eq('id', activityToEdit.id);
+                const { error: updateError } = await supabase.from('activities').update(dadosParaSalvar).eq('id', activityToEdit.id).eq('organizacao_id', organizacaoId);
                 error = updateError;
             } else {
-                const dadosParaCriar = { ...dadosParaSalvar, criado_por_usuario_id: currentUserId };
+                const dadosParaCriar = { ...dadosParaSalvar, criado_por_usuario_id: user.id };
                 const { error: insertError } = await supabase.from('activities').insert([dadosParaCriar]);
                 error = insertError;
             }
@@ -567,7 +542,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                                             ) : (
                                                 <>
                                                     <FontAwesomeIcon icon={faPlus} className="text-green-600" />
-                                                     <span className="text-green-800 font-semibold">Criar: &quot;{subetapaSearch}&quot;</span>
+                                                    <span className="text-green-800 font-semibold">Criar: &quot;{subetapaSearch}&quot;</span>
                                                 </>
                                             )}
                                         </li>
