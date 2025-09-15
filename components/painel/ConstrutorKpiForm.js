@@ -1,3 +1,4 @@
+// components/kpi/ConstrutorKpiForm.js
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -9,8 +10,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import FiltroFinanceiro from '../financeiro/FiltroFinanceiro';
 
-// O PORQUÊ: A função agora recebe 'organizacao_id' para garantir que apenas
-// as opções da organização correta sejam carregadas nos filtros.
 const fetchFilterOptions = async (organizacao_id) => {
     if (!organizacao_id) return { empresas: [], contas: [], categorias: [], empreendimentos: [], allContacts: [] };
 
@@ -34,7 +33,7 @@ const fetchFilterOptions = async (organizacao_id) => {
 export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
     const queryClient = useQueryClient();
     const supabase = createClient();
-    const { user, organizacao_id } = useAuth(); // BLINDADO: Pegamos o usuário e a organização
+    const { user, organizacao_id } = useAuth();
 
     const [titulo, setTitulo] = useState('');
     const [descricao, setDescricao] = useState('');
@@ -48,11 +47,9 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
     const isEditing = !!kpiToEdit;
 
     const { data: filterOptions, isLoading: isLoadingOptions } = useQuery({
-        // O PORQUÊ: Adicionamos 'organizacao_id' à chave da query para que o React Query
-        // armazene em cache e busque os dados corretamente para cada organização.
         queryKey: ['financeFilterOptions', organizacao_id],
         queryFn: () => fetchFilterOptions(organizacao_id),
-        enabled: !!organizacao_id, // A busca só é ativada quando a organização estiver disponível
+        enabled: !!organizacao_id,
     });
 
     useEffect(() => {
@@ -78,7 +75,6 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
         mutationFn: async (kpiData) => {
             if (!user || !organizacao_id) throw new Error("Usuário ou organização não autenticada.");
 
-            // BLINDADO: Adicionamos 'organizacao_id' ao objeto que será salvo no banco.
             const dataToSave = {
                 usuario_id: user.id,
                 titulo: kpiData.titulo,
@@ -86,12 +82,22 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
                 grupo: kpiData.grupo,
                 tipo_calculo: kpiData.tipoCalculo,
                 filtros: kpiData.filters,
-                organizacao_id: organizacao_id, // <-- A "fechadura" de segurança
+                organizacao_id: organizacao_id,
+                // =================================================================================
+                // INÍCIO DA CORREÇÃO
+                // O PORQUÊ: A coluna 'modulo' na tabela é obrigatória (NOT NULL).
+                // Adicionamos o valor fixo 'Financeiro' para cumprir essa exigência
+                // e permitir que a regra de segurança do banco de dados seja satisfeita.
+                // =================================================================================
+                modulo: 'Financeiro', 
+                // =================================================================================
+                // FIM DA CORREÇÃO
+                // =================================================================================
             };
 
             let error;
             if (isEditing) {
-                const { error: updateError } = await supabase.from('kpis_personalizados').update(dataToSave).eq('id', kpiToEdit.id);
+                const { error: updateError } = await supabase.from('kpis_personalizados').update(dataToSave).eq('id', kpiToEdit.id).eq('organizacao_id', organizacao_id);
                 error = updateError;
             } else {
                 const { error: insertError } = await supabase.from('kpis_personalizados').insert([{ ...dataToSave, exibir_no_painel: true }]);
@@ -103,7 +109,8 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
         },
         onSuccess: (message) => {
             toast.success(message);
-            queryClient.invalidateQueries({ queryKey: ['kpisPersonalizados'] });
+            queryClient.invalidateQueries({ queryKey: ['customKpiDefinitions', organizacao_id] });
+            queryClient.invalidateQueries({ queryKey: ['kpisPersonalizados', organizacao_id] });
             onDone();
         },
         onError: (error) => toast.error(`Erro: ${error.message}`),
