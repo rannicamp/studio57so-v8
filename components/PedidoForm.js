@@ -1,4 +1,4 @@
-//components/PedidoForm.js
+// components/PedidoForm.js
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -183,11 +183,60 @@ export default function PedidoForm({ pedidoId }) {
 
     const saveItemMutation = useMutation({
         ...mutationOptions,
-        mutationFn: async (itemData) => { /* ... (lógica interna da função original) ... */ },
-        onSuccess: (data, variables) => {
+        mutationFn: async (itemData) => {
+            const isEditing = !!itemData.id;
+            
+            const cleanedData = { ...itemData };
+
+            // =================================================================================
+            // INÍCIO DA NOVA CORREÇÃO
+            // O PORQUÊ: Garantir que campos numéricos vazios sejam enviados como `null` 
+            // (valor nulo) e não como texto vazio (''). Isso evita o erro do banco de dados.
+            // =================================================================================
+            cleanedData.preco_unitario_real = cleanedData.preco_unitario_real === '' || cleanedData.preco_unitario_real === null ? null : parseFloat(cleanedData.preco_unitario_real);
+            cleanedData.dias_aluguel = cleanedData.dias_aluguel === '' || cleanedData.dias_aluguel === null ? null : parseInt(cleanedData.dias_aluguel, 10);
+            
+            // O campo 'quantidade_solicitada' é obrigatório (not null), então garantimos que ele seja ao menos 1.
+            cleanedData.quantidade_solicitada = parseFloat(cleanedData.quantidade_solicitada) || 1;
+            // =================================================================================
+            // FIM DA NOVA CORREÇÃO
+            // =================================================================================
+            
+            const custoTotal = (cleanedData.quantidade_solicitada || 0) * (cleanedData.preco_unitario_real || 0);
+
+            const dataToSave = {
+                ...cleanedData,
+                pedido_compra_id: pedidoId,
+                organizacao_id: organizacaoId,
+                custo_total_real: custoTotal,
+            };
+
+            let response;
+            if (isEditing) {
+                response = await supabase
+                    .from('pedidos_compra_itens')
+                    .update(dataToSave)
+                    .eq('id', itemData.id)
+                    .eq('organizacao_id', organizacaoId)
+                    .select()
+                    .single();
+            } else {
+                delete dataToSave.id;
+                response = await supabase
+                    .from('pedidos_compra_itens')
+                    .insert(dataToSave)
+                    .select()
+                    .single();
+            }
+            
+            const { data, error } = response;
+            if (error) throw error;
+            return { data, isEditing };
+        },
+        onSuccess: (result) => {
             mutationOptions.onSuccess();
-            const { isEditing } = variables; // Assumindo que a mutationFn retorna isso
-            toast.success(`Item ${isEditing ? 'atualizado' : 'adicionado'}!`);
+            const { isEditing } = result;
+            toast.success(`Item ${isEditing ? 'atualizado' : 'adicionado'} com sucesso!`);
             setIsItemModalOpen(false);
             setEditingItem(null);
         },
@@ -208,7 +257,6 @@ export default function PedidoForm({ pedidoId }) {
         onError: (err) => toast.error(`Erro ao esvaziar a lista: ${err.message}`),
     });
 
-    // O PORQUÊ: Handlers são mantidos, mas agora invocam as mutations, simplificando seu corpo.
     const handleHeaderFieldChange = (field, value) => { setPedidoHeader(p => ({ ...p, [field]: value })); };
     const handleHeaderFieldSave = async (field) => { updateHeaderMutation.mutate({ [field]: pedidoHeader[field] }); };
     
@@ -223,13 +271,8 @@ export default function PedidoForm({ pedidoId }) {
 
     const handleDownloadAnexo = async (caminho) => { /* ... (lógica original mantida) ... */ };
 
-    const handleSaveItem = async (itemData) => {
-        try {
-            await saveItemMutation.mutateAsync(itemData);
-            return true;
-        } catch (e) {
-            return false;
-        }
+    const handleSaveItem = (itemData) => {
+        saveItemMutation.mutate(itemData);
     };
     
     const handleRemoveItem = (itemId) => {
@@ -250,7 +293,6 @@ export default function PedidoForm({ pedidoId }) {
     const handleSelectionChange = (itemId) => { /* ... (lógica original mantida) ... */ };
     const handleEditClick = (item) => { setEditingItem(item); setIsItemModalOpen(true); };
 
-    // O PORQUÊ: O retorno visual (JSX) é 100% fiel ao original.
     if (isLoading) return <div className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>;
     if (isError) return <div className="text-center py-10 text-red-600">{error.message}</div>;
     if (!pedido || !pedidoHeader) return <div className="text-center py-10">Pedido não encontrado ou você não tem permissão para acessá-lo.</div>;
@@ -260,7 +302,7 @@ export default function PedidoForm({ pedidoId }) {
 
     return (
         <>
-            <PedidoItemModal isOpen={isItemModalOpen} onClose={() => { setIsItemModalOpen(false); setEditingItem(null); }} onSave={handleSaveItem} etapas={etapas} itemToEdit={editingItem} organizacaoId={pedido.organizacao_id} />
+            <PedidoItemModal isOpen={isItemModalOpen} onClose={() => { setIsItemModalOpen(false); setEditingItem(null); }} onSave={handleSaveItem} itemToEdit={editingItem} pedidoId={pedidoId} />
             <LancamentoFormModal isOpen={isLancamentoModalOpen} onClose={() => setIsLancamentoModalOpen(false)} onSuccess={() => { toast.success("Planejamento de pagamento registrado com sucesso no financeiro!"); queryClient.invalidateQueries({ queryKey: ['pedido', pedidoId, organizacaoId] }) }} initialData={lancamentoInitialData} />
             <div className="bg-white p-6 rounded-lg shadow space-y-6">
                 <div className="border-b pb-4">

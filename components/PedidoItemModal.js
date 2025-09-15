@@ -1,3 +1,4 @@
+// components/PedidoItemModal.js
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,14 +7,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faPlus, faPenToSquare, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { useAuth } from '../contexts/AuthContext'; // Onde Fica a Chave Mestra (organização)
+import { useAuth } from '../contexts/AuthContext';
 
-// =================================================================================
-// O PORQUÊ DA MUDANÇA (useAuth):
-// Para garantir que cada "apartamento" veja apenas sua própria "mobília",
-// precisamos saber a qual organização o usuário pertence. O `useAuth` nos dá
-// essa informação crucial (a "chave mestra" ou `organizacao_id`).
-// =================================================================================
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight || !text || !highlight.trim()) {
         return <span>{text}</span>;
@@ -35,18 +30,12 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     );
 };
 
-// =================================================================================
-// ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-// O PORQUÊ: Adicionamos o `organizacaoId` como um cadeado. Agora, esta função
-// só vai buscar as etapas que pertencem à organização do usuário logado.
-// É a nossa "parede" de segurança em ação na leitura de dados.
-// =================================================================================
 const fetchEtapas = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
     const { data, error } = await supabase
         .from('etapa_obra')
         .select('id, nome_etapa, codigo_etapa')
-        .eq('organizacao_id', organizacaoId) // <-- A ETIQUETA DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId)
         .order('codigo_etapa');
 
     if (error) {
@@ -56,11 +45,6 @@ const fetchEtapas = async (supabase, organizacaoId) => {
     return data || [];
 };
 
-// =================================================================================
-// ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-// O PORQUÊ: Mesma lógica da busca de etapas. Só buscamos subetapas que
-// pertencem à organização do usuário. Mais uma "parede" erguida.
-// =================================================================================
 const fetchSubetapas = async (supabase, etapaId, organizacaoId) => {
     if (!etapaId || !organizacaoId) return [];
     
@@ -68,7 +52,7 @@ const fetchSubetapas = async (supabase, etapaId, organizacaoId) => {
         .from('subetapas')
         .select('id, nome_subetapa')
         .eq('etapa_id', etapaId)
-        .eq('organizacao_id', organizacaoId) // <-- A ETIQUETA DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId)
         .order('nome_subetapa');
 
     if (error) {
@@ -96,7 +80,7 @@ const getInitialState = () => ({
 export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
-    const { user } = useAuth(); // Pegando a "chave mestra" da organização
+    const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
     const isEditing = Boolean(itemToEdit);
     
@@ -116,12 +100,6 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
     
     const [newMaterialClassification, setNewMaterialClassification] = useState('Insumo');
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE SEGURANÇA (queryKey com organização_id)
-    // O PORQUÊ: Adicionamos `organizacaoId` à `queryKey`. Isso garante que o cache
-    // de dados (o que o React Query guarda na memória) seja único para cada
-    // organização. Assim, a organização A nunca verá dados cacheados da B.
-    // =================================================================================
     const { data: etapas = [], isLoading: isLoadingEtapas } = useQuery({
         queryKey: ['etapas', organizacaoId],
         queryFn: () => fetchEtapas(supabase, organizacaoId),
@@ -195,12 +173,6 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         }
     }, [subetapaSearch, subetapas]);
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE SEGURANÇA (organização_id na busca)
-    // O PORQUÊ: Adicionamos `.eq('organizacao_id', organizacaoId)` na busca de
-    // materiais. Simples e eficaz: o sistema só vai procurar e mostrar materiais
-    // que pertencem à organização do usuário.
-    // =================================================================================
     const handleMaterialSearchChange = async (e) => {
         const value = e.target.value;
         setSearchTerm(value);
@@ -210,7 +182,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         const { data, error } = await supabase
             .from('materiais')
             .select('id, descricao, unidade_medida, preco_unitario, nome')
-            .eq('organizacao_id', organizacaoId) // <-- A ETIQUETA DE SEGURANÇA!
+            .eq('organizacao_id', organizacaoId)
             .ilike('descricao', `%${value}%`)
             .limit(10);
 
@@ -219,11 +191,6 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         setIsSearching(prev => ({ ...prev, material: false }));
     };
     
-    // =================================================================================
-    // ATUALIZAÇÃO DE SEGURANÇA (organização_id na busca)
-    // O PORQUÊ: Exatamente a mesma lógica da busca de materiais, agora aplicada
-    // aos fornecedores. Segurança e privacidade em todas as pontas.
-    // =================================================================================
     const handleFornecedorSearchChange = async (e) => {
         const value = e.target.value;
         setFornecedorSearchTerm(value);
@@ -234,7 +201,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         const { data, error } = await supabase
             .from('contatos')
             .select('id, nome, razao_social, nome_fantasia')
-            .eq('organizacao_id', organizacaoId) // <-- A ETIQUETA DE SEGURANÇA!
+            .eq('organizacao_id', organizacaoId)
             .eq('tipo_contato', 'Fornecedor')
             .or(`nome.ilike.%${value}%,razao_social.ilike.%${value}%,nome_fantasia.ilike.%${value}%`)
             .limit(10);
@@ -256,12 +223,6 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         setSearchTerm(material.descricao || material.nome);
     };
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE SEGURANÇA (organização_id na criação)
-    // O PORQUÊ: Este é o momento de "etiquetar a mobília nova". Ao criar um material,
-    // garantimos que ele receba a `organizacao_id` correta. Assim, ele já nasce
-    // pertencendo ao "apartamento" certo.
-    // =================================================================================
     const createMaterialMutation = useMutation({
         mutationFn: async ({ nome, descricao, classificacao }) => {
             const { data, error } = await supabase
@@ -270,7 +231,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
                     nome, 
                     descricao,
                     classificacao, 
-                    organizacao_id: organizacaoId // <-- A ETIQUETA DE SEGURANÇA NA CRIAÇÃO!
+                    organizacao_id: organizacaoId
                 })
                 .select()
                 .single();
@@ -332,14 +293,6 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         setIsSubetapaDropdownOpen(false);
     };
     
-    // =================================================================================
-    // MELHORIA DE UX E SEGURANÇA (useMutation + toast.promise)
-    // O PORQUÊ: Aqui, modernizamos a "decoração" e reforçamos a "fundação".
-    // 1. `useMutation`: Padroniza como criamos dados, facilitando a manutenção.
-    // 2. `toast.promise`: Dá ao usuário um feedback claro e elegante sobre o que está
-    //    acontecendo (Salvando..., Sucesso!, Erro.).
-    // 3. `organizacao_id`: Etiquetamos a nova subetapa na criação.
-    // =================================================================================
     const createSubetapaMutation = useMutation({
         mutationFn: async ({ nome, etapa_id }) => {
             const { data, error } = await supabase
@@ -347,7 +300,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
                 .insert({ 
                     nome_subetapa: nome, 
                     etapa_id: etapa_id,
-                    organizacao_id: organizacaoId // <-- ETIQUETA DE SEGURANÇA NA CRIAÇÃO!
+                    organizacao_id: organizacaoId
                 })
                 .select()
                 .single();
@@ -376,15 +329,17 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         );
     };
 
-    const handleSaveClick = async () => {
-        if (!isItemSelected && !searchTerm) { setMessage('A descrição do item é obrigatória.'); return; }
+    const handleSaveClick = () => {
+        if (!isItemSelected && !searchTerm) { 
+            setMessage('A descrição do item é obrigatória.'); 
+            return; 
+        }
         
         if (item.tipo_operacao === 'Aluguel' && (!item.dias_aluguel || item.dias_aluguel <= 0)) {
             setMessage('Para aluguel, a quantidade de dias é obrigatória e deve ser maior que zero.');
             return;
         }
 
-        setIsSaving(true);
         setMessage('');
         const itemToSave = { ...item };
         
@@ -401,13 +356,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
 
         delete itemToSave.fornecedor_nome;
         
-        // A lógica de `onSave` acontece no componente pai (`[id]/page.js`), 
-        // então a `organizacao_id` será adicionada lá, no momento de salvar o pedido completo.
-        // Isso está correto para manter a consistência.
-        const result = await onSave(itemToSave); 
-        setIsSaving(false);
-        if (result.success) { onClose(); } 
-        else { setMessage(result.error || 'Ocorreu um erro desconhecido.'); }
+        onSave(itemToSave);
     };
 
     if (!isOpen) return null;

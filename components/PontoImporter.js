@@ -56,8 +56,17 @@ export default function PontoImporter({ employees, onImport }) {
 
       if (datePart && timePart) {
           const [day, month, year] = datePart.split('/');
-          const isoDateTime = `${year}-${month}-${day}T${timePart}`;
+          // =================================================================================
+          // INÍCIO DA CORREÇÃO DO BUG DE FUSO HORÁRIO (IMPORTAÇÃO)
+          // O PORQUÊ: Adicionamos 'Z' ao final da string de data/hora. Isso força o
+          // Javascript a tratar o horário como UTC desde o início, impedindo que ele
+          // adicione horas extras com base no fuso horário local.
+          // =================================================================================
+          const isoDateTime = `${year}-${month}-${day}T${timePart}:00.000Z`; 
           const date = new Date(isoDateTime);
+          // =================================================================================
+          // FIM DA CORREÇÃO
+          // =================================================================================
           
           const employeeInfo = employeeMap.get(numeroPonto);
           recordsFromFile.push({
