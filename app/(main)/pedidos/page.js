@@ -1,143 +1,121 @@
+// app/(main)/pedidos/page.js
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import ComprasKanban from '../../../components/ComprasKanban';
 import { useLayout } from '../../../contexts/LayoutContext';
 import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext';
+import { useAuth } from '@/contexts/AuthContext'; // 1. Importar o hook de autenticação
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faBoxOpen, faClock, faHourglassHalf, faClipboardList } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
 import KpiCard from '@/components/KpiCard';
 import PedidoDetalhesSidebar from '@/components/pedidos/PedidoDetalhesSidebar';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 2. Importar hooks do React Query
+import { toast } from 'sonner';
+
+// O PORQUÊ: Centralizamos toda a lógica de busca de dados em uma única função assíncrona.
+// Isso limpa o componente e permite que o React Query gerencie o estado de forma eficiente.
+const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
+    if (!organizacaoId) throw new Error("Organização não identificada.");
+
+    // Busca de Solicitantes (usuários)
+    const { data: solData, error: solError } = await supabase
+        .from('usuarios')
+        .select('id, nome, sobrenome')
+        .eq('organizacao_id', organizacaoId)
+        .order('nome');
+    if (solError) throw new Error(`Falha ao carregar solicitantes: ${solError.message}`);
+
+    // Query base para Pedidos
+    let query = supabase
+        .from('pedidos_compra')
+        .select(`
+            *,
+            titulo,
+            turno_entrega,
+            empreendimentos(nome),
+            solicitante:solicitante_id(id, nome),
+            itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(nome, razao_social)),
+            anexos:pedidos_compra_anexos(descricao)
+        `)
+        .eq('organizacao_id', organizacaoId); // <-- Filtro de segurança principal
+
+    if (empreendimentoId && empreendimentoId !== 'all') {
+        query = query.eq('empreendimento_id', empreendimentoId);
+    }
+
+    const { data: pedidosData, error: pedidosError } = await query.order('data_solicitacao', { ascending: false });
+    if (pedidosError) throw new Error(`Falha ao carregar pedidos: ${pedidosError.message}`);
+
+    return { solicitantes: solData || [], pedidos: pedidosData || [] };
+};
 
 export default function PedidosPage() {
     const { setPageTitle } = useLayout();
     const { selectedEmpreendimento, empreendimentos } = useEmpreendimento();
-    const [pedidos, setPedidos] = useState([]);
-    const [solicitantes, setSolicitantes] = useState([]);
-    
+    const { user } = useAuth(); // 3. Obter o usuário logado
+    const organizacaoId = user?.organizacao_id; // 4. Obter o ID da organização
+
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSolicitante, setSelectedSolicitante] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-
-    const [kpiData, setKpiData] = useState({
-        totalPedidos: 0,
-        tempoMedioCotacao: 'N/A',
-        tempoMedioEntrega: 'N/A',
-        pedidosComPendencia: 0,
-    });
-
-    // Novos estados para o sidebar
+    const [kpiData, setKpiData] = useState({ totalPedidos: 0, tempoMedioCotacao: 'N/A', tempoMedioEntrega: 'N/A', pedidosComPendencia: 0 });
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [selectedPedido, setSelectedPedido] = useState(null);
 
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
     const supabase = createClient();
     const router = useRouter();
+    const queryClient = useQueryClient();
 
     useEffect(() => {
         setPageTitle('Painel de Compras');
-        const fetchSolicitantes = async () => {
-            const { data: solData, error: solError } = await supabase.from('usuarios').select('id, nome, sobrenome').order('nome');
-             if (solError) {
-                setError(prev => prev + ' Falha ao carregar solicitantes.');
-            } else {
-                setSolicitantes(solData || []);
-            }
-        };
-        fetchSolicitantes();
-    }, [setPageTitle, supabase]);
+    }, [setPageTitle]);
 
-    const fetchPedidos = useCallback(async () => {
-        setLoading(true);
-        setError('');
+    // O PORQUÊ: Substituímos useState/useEffect por useQuery para buscar todos os dados da página.
+    // Ele gerencia loading, erros e cache automaticamente. A query é refeita se o empreendimento ou organização mudar.
+    const { data, isLoading, isError, error } = useQuery({
+        queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento],
+        queryFn: () => fetchPainelData(supabase, organizacaoId, selectedEmpreendimento),
+        enabled: !!organizacaoId, // Só executa a busca quando o ID da organização estiver disponível.
+    });
 
-        // ***** INÍCIO DA ALTERAÇÃO *****
-        // A busca de itens agora inclui os dados do fornecedor
-        let query = supabase
-            .from('pedidos_compra')
-            .select(`
-                *,
-                titulo,
-                turno_entrega,
-                empreendimentos(nome),
-                solicitante:solicitante_id(id, nome),
-                itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(nome, razao_social)),
-                anexos:pedidos_compra_anexos(descricao)
-            `);
-        // ***** FIM DA ALTERAÇÃO *****
-
-        if (selectedEmpreendimento && selectedEmpreendimento !== 'all') {
-            query = query.eq('empreendimento_id', selectedEmpreendimento);
-        }
-
-        query = query.order('data_solicitacao', { ascending: false });
-
-        const { data, error } = await query;
-
-        if (error) {
-            console.error(error);
-            setError('Falha ao carregar os pedidos.');
-        } else {
-            setPedidos(data || []);
-        }
-        setLoading(false);
-    }, [selectedEmpreendimento, supabase]);
-
-
-    useEffect(() => {
-        fetchPedidos();
-    }, [fetchPedidos]);
+    const pedidos = data?.pedidos || [];
+    const solicitantes = data?.solicitantes || [];
 
     const filteredPedidos = useMemo(() => {
+        // A lógica de filtro do lado do cliente permanece a mesma.
         return pedidos.filter(pedido => {
-            if (selectedSolicitante && pedido.solicitante?.id !== selectedSolicitante) {
-                return false;
-            }
+            if (selectedSolicitante && pedido.solicitante?.id !== selectedSolicitante) return false;
             const pedidoDate = new Date(pedido.data_solicitacao);
-            if (startDate && new Date(startDate) > pedidoDate) {
-                return false;
-            }
-            if (endDate && new Date(endDate) < pedidoDate) {
-                return false;
-            }
-            if (searchTerm.trim() !== '' && !pedido.itens.some(item => 
-                item.descricao_item?.toLowerCase().includes(searchTerm.toLowerCase()))) {
-                return false;
-            }
+            if (startDate && new Date(startDate) > pedidoDate) return false;
+            if (endDate && new Date(endDate) < pedidoDate) return false;
+            if (searchTerm.trim() !== '' && !pedido.itens.some(item => item.descricao_item?.toLowerCase().includes(searchTerm.toLowerCase()))) return false;
             return true;
         });
     }, [pedidos, searchTerm, selectedSolicitante, startDate, endDate]);
 
     useEffect(() => {
+        // Lógica de cálculo de KPIs mantida, mas agora usa os dados do useQuery.
         const calculateKpis = async () => {
             if (filteredPedidos.length === 0) {
                 setKpiData({ totalPedidos: 0, tempoMedioCotacao: 'N/A', tempoMedioEntrega: 'N/A', pedidosComPendencia: 0 });
                 return;
             }
 
-            const comPendencia = filteredPedidos.filter(p => 
-                p.status === 'Realizado' && !p.anexos.some(a => a.descricao === 'Nota Fiscal')
-            ).length;
+            const comPendencia = filteredPedidos.filter(p => p.status === 'Realizado' && !p.anexos.some(a => a.descricao === 'Nota Fiscal')).length;
 
             const { data: historicos, error } = await supabase
                 .from('pedidos_compra_status_historico')
                 .select('pedido_compra_id, status_novo, data_mudanca')
                 .in('pedido_compra_id', filteredPedidos.map(p => p.id));
             
-            if (error) {
-                console.error("Erro ao buscar histórico para KPIs", error);
-                return;
-            }
-
-            let totalDiasCotacao = 0;
-            let countCotacao = 0;
-            let totalDiasEntrega = 0;
-            let countEntrega = 0;
-
+            if (error) { console.error("Erro ao buscar histórico para KPIs", error); return; }
+            
+            // ... (resto da lógica de cálculo dos KPIs permanece idêntica)
+            let totalDiasCotacao = 0, countCotacao = 0, totalDiasEntrega = 0, countEntrega = 0;
             const historicosPorPedido = historicos.reduce((acc, h) => {
                 if (!acc[h.pedido_compra_id]) acc[h.pedido_compra_id] = [];
                 acc[h.pedido_compra_id].push(h);
@@ -149,18 +127,8 @@ export default function PedidosPage() {
                 const dataRealizado = new Date(pedido.data_solicitacao);
                 const dataCotacao = h.find(item => item.status_novo === 'Em Cotação')?.data_mudanca;
                 const dataEntregue = h.find(item => item.status_novo === 'Entregue')?.data_mudanca;
-                
-                if (dataRealizado && dataCotacao) {
-                    const diffTime = new Date(dataCotacao) - dataRealizado;
-                    totalDiasCotacao += diffTime / (1000 * 60 * 60 * 24);
-                    countCotacao++;
-                }
-                
-                if (dataCotacao && dataEntregue) {
-                    const diffTime = new Date(dataEntregue) - new Date(dataCotacao);
-                    totalDiasEntrega += diffTime / (1000 * 60 * 60 * 24);
-                    countEntrega++;
-                }
+                if (dataRealizado && dataCotacao) { const diffTime = new Date(dataCotacao) - dataRealizado; totalDiasCotacao += diffTime / (1000 * 60 * 60 * 24); countCotacao++; }
+                if (dataCotacao && dataEntregue) { const diffTime = new Date(dataEntregue) - new Date(dataCotacao); totalDiasEntrega += diffTime / (1000 * 60 * 60 * 24); countEntrega++; }
             }
             
             setKpiData({
@@ -170,34 +138,42 @@ export default function PedidosPage() {
                 pedidosComPendencia: comPendencia,
             });
         };
-
         calculateKpis();
     }, [filteredPedidos, supabase]);
-    
-    const handleCreateNewPedido = async () => {
-        if (!selectedEmpreendimento || selectedEmpreendimento === 'all') {
-            alert('Por favor, selecione um empreendimento específico no cabeçalho para criar um novo pedido.');
-            return;
-        }
-        const { data: { user } } = await supabase.auth.getUser();
-        const { data: newPedido, error } = await supabase
-            .from('pedidos_compra')
-            .insert({
-                empreendimento_id: selectedEmpreendimento,
-                solicitante_id: user.id,
-                status: 'Pedido Realizado'
-            })
-            .select()
-            .single();
 
-        if (error) {
-            alert('Erro ao criar novo pedido: ' + error.message);
-        } else {
+    // O PORQUÊ: A criação de um novo pedido agora usa useMutation para ser mais robusta e segura.
+    const createPedidoMutation = useMutation({
+        mutationFn: async () => {
+            if (!selectedEmpreendimento || selectedEmpreendimento === 'all') {
+                throw new Error('Por favor, selecione um empreendimento específico para criar um novo pedido.');
+            }
+            if (!organizacaoId || !user?.id) {
+                throw new Error('Usuário ou Organização não autenticada.');
+            }
+
+            const { data: newPedido, error } = await supabase
+                .from('pedidos_compra')
+                .insert({
+                    empreendimento_id: selectedEmpreendimento,
+                    solicitante_id: user.id,
+                    organizacao_id: organizacaoId, // <-- Ponto de segurança na escrita!
+                    status: 'Pedido Realizado'
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+            return newPedido;
+        },
+        onSuccess: (newPedido) => {
+            toast.success(`Novo pedido #${newPedido.id} criado!`);
             router.push(`/pedidos/${newPedido.id}`);
+        },
+        onError: (err) => {
+            toast.error(`Erro ao criar pedido: ${err.message}`);
         }
-    };
+    });
 
-    // Funções para controlar o sidebar
     const handleCardClick = (pedido) => {
         setSelectedPedido(pedido);
         setIsSidebarOpen(true);
@@ -208,14 +184,13 @@ export default function PedidosPage() {
         setSelectedPedido(null);
     };
 
-
     return (
         <div className="space-y-6">
             <PedidoDetalhesSidebar 
                 open={isSidebarOpen}
                 onClose={handleCloseSidebar}
                 pedido={selectedPedido}
-                onUpdate={fetchPedidos}
+                onUpdate={() => queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento] })}
             />
 
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -223,10 +198,11 @@ export default function PedidosPage() {
                     {empreendimentos.find(e => e.id == selectedEmpreendimento)?.nome || 'Todos os Empreendimentos'}
                 </h2>
                 <button
-                    onClick={handleCreateNewPedido}
+                    onClick={() => createPedidoMutation.mutate()}
+                    disabled={createPedidoMutation.isPending}
                     className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 w-full md:w-auto"
                 >
-                    + Nova Solicitação
+                    {createPedidoMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : '+ Nova Solicitação'}
                 </button>
             </div>
             
@@ -257,17 +233,17 @@ export default function PedidosPage() {
                  </div>
             </div>
 
-            {loading ? (
+            {isLoading ? (
                 <div className="text-center py-10">
                     <FontAwesomeIcon icon={faSpinner} spin size="2x" />
                     <p>Carregando pedidos...</p>
                 </div>
-            ) : error ? (
-                <p className="text-center text-red-500">{error}</p>
+            ) : isError ? (
+                <p className="text-center text-red-500">{error.message}</p>
             ) : (
                 <ComprasKanban 
                     pedidos={filteredPedidos} 
-                    setPedidos={setPedidos}
+                    setPedidos={() => queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento] })} // Passa uma função para refetch
                     onCardClick={handleCardClick}
                 />
             )}

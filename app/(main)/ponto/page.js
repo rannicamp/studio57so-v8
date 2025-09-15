@@ -37,12 +37,16 @@ const ImporterModal = ({ isOpen, onClose, children }) => {
     );
 };
 
-// Busca agora também o campo 'status'
-const fetchAllEmployees = async () => {
+
+// O PORQUÊ DA MUDANÇA: A função agora recebe 'organizacaoId' como parâmetro para poder filtrar a busca.
+const fetchAllEmployees = async (organizacaoId) => {
+    if (!organizacaoId) return []; // Se não houver organização, não retorna nada.
+
     const supabase = createClient();
     const { data, error } = await supabase
         .from('funcionarios')
-        .select('id, full_name, numero_ponto, status') // status é necessário para a filtragem
+        .select('id, full_name, numero_ponto, status')
+        .eq('organizacao_id', organizacaoId) // <-- PONTO CRÍTICO DE SEGURANÇA ADICIONADO!
         .order('full_name');
     
     if (error) {
@@ -53,15 +57,20 @@ const fetchAllEmployees = async () => {
 
 export default function PontoPage() {
     const router = useRouter();
-    const { hasPermission, loading: authLoading } = useAuth();
+    // O PORQUÊ: Pegamos o 'user' para ter acesso ao 'organizacao_id'.
+    const { user, hasPermission, loading: authLoading } = useAuth();
+    const organizacaoId = user?.organizacao_id;
 
     const canViewPage = hasPermission('ponto', 'pode_ver');
     const canCreate = hasPermission('ponto', 'pode_criar');
     const canEdit = hasPermission('ponto', 'pode_editar');
 
+    // O PORQUÊ DA MUDANÇA: A queryKey agora inclui 'organizacaoId' para ser única por organização.
+    // A queryFn agora passa o 'organizacaoId' para a função de busca.
     const { data: employees = [], isLoading, error, refetch: refetchEmployees } = useQuery({
-        queryKey: ['employeesPonto'],
-        queryFn: fetchAllEmployees
+        queryKey: ['employeesPonto', organizacaoId],
+        queryFn: () => fetchAllEmployees(organizacaoId),
+        enabled: !!organizacaoId, // A busca só é ativada quando o 'organizacaoId' estiver disponível.
     });
 
     const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
@@ -70,10 +79,8 @@ export default function PontoPage() {
     const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
     const showToast = (message, type = 'info') => setToast({ show: true, message, type });
 
-    // ***** INÍCIO DA CORREÇÃO: Lógica de separação ajustada *****
     const activeEmployees = employees.filter(emp => emp.status !== 'Demitido');
     const dismissedEmployees = employees.filter(emp => emp.status === 'Demitido');
-    // ***** FIM DA CORREÇÃO *****
 
     useEffect(() => {
         const today = new Date();
@@ -158,7 +165,6 @@ export default function PontoPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                     <div>
                         <label htmlFor="employee-select" className="block text-sm font-medium text-gray-700">Funcionário</label>
-                        {/* ***** INÍCIO DA CORREÇÃO: Dropdown atualizado ***** */}
                         <select 
                             id="employee-select" 
                             value={selectedEmployeeId} 
@@ -167,12 +173,10 @@ export default function PontoPage() {
                         >
                             <option value="">-- Selecione um funcionário --</option>
                             
-                            {/* Renderiza funcionários ativos e outros status (exceto demitidos) */}
                             {activeEmployees.map(emp => (
                                 <option key={emp.id} value={emp.id}>{emp.full_name}</option>
                             ))}
                             
-                            {/* Se houver demitidos, cria um grupo separado para eles */}
                             {dismissedEmployees.length > 0 && (
                                 <optgroup label="--- Funcionários Demitidos ---">
                                     {dismissedEmployees.map(emp => (
@@ -181,7 +185,6 @@ export default function PontoPage() {
                                 </optgroup>
                             )}
                         </select>
-                         {/* ***** FIM DA CORREÇÃO ***** */}
                     </div>
                     <div>
                         <label htmlFor="month-select" className="block text-sm font-medium text-gray-700">Mês/Ano</label>

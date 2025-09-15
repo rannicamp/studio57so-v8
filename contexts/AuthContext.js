@@ -12,18 +12,10 @@ export function AuthProvider({ children }) {
     const supabase = createClient();
     const router = useRouter();
     
-    // =================================================================================
-    // MUDANÇA PRINCIPAL
-    // O PORQUÊ: Agora teremos um único 'user' que será o objeto COMPLETO,
-    // combinando os dados de autenticação com os dados do nosso banco (public.usuarios).
-    // O 'userData' não será mais exposto diretamente, para evitar confusão.
-    // =================================================================================
-    const [user, setUser] = useState(null); // Este será o nosso usuário unificado.
+    const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isProprietario, setIsProprietario] = useState(false);
     const [permissions, setPermissions] = useState({});
-    
-    // O organizacao_id agora é um estado de primeiro nível para fácil acesso
     const [organizacao_id, setOrganizacaoId] = useState(null);
 
     const forceLogout = useCallback(async () => {
@@ -60,18 +52,13 @@ export function AuthProvider({ children }) {
             return;
         }
         
-        // =================================================================================
-        // A MÁGICA ACONTECE AQUI!
-        // O PORQUÊ: Estamos combinando o usuário da autenticação (currentUser) com o
-        // nosso perfil do banco (profileData) em um único objeto.
-        // =================================================================================
         const combinedUser = {
-            ...currentUser, // Dados de auth: id, email, etc.
-            ...profileData, // Nossos dados: nome, funcao, e o mais importante, organizacao_id!
+            ...currentUser,
+            ...profileData,
         };
 
         setUser(combinedUser);
-        setOrganizacaoId(profileData.organizacao_id); // Armazena a organização para acesso rápido
+        setOrganizacaoId(profileData.organizacao_id);
         
         const userRole = profileData?.funcoes;
         const isUserProprietario = userRole?.nome_funcao === 'Proprietário';
@@ -100,7 +87,6 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             const currentUser = session?.user;
-            // A gente não seta o 'user' aqui diretamente mais, a função fetch cuida disso.
             fetchProfileAndPermissions(currentUser);
         });
 
@@ -109,13 +95,27 @@ export function AuthProvider({ children }) {
         };
     }, [supabase, fetchProfileAndPermissions]);
 
+    // =================================================================================
+    // NOVA FUNÇÃO ADICIONADA
+    // O PORQUÊ: Esta função permite que qualquer componente (como o ProfileForm)
+    // peça ao AuthContext para recarregar os dados do usuário do banco,
+    // garantindo que todo o aplicativo esteja sempre sincronizado sem um reload.
+    // =================================================================================
+    const refreshAuthUser = useCallback(async () => {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (currentUser) {
+            await fetchProfileAndPermissions(currentUser);
+        }
+    }, [supabase, fetchProfileAndPermissions]);
+
+
     const hasPermission = (recurso, permissao) => {
         if (isProprietario) return true;
         return permissions[recurso]?.[permissao] || false;
     };
     
-    // O 'value' agora fornece o 'user' unificado e o 'organizacao_id' de fácil acesso.
-    const value = { user, loading, isProprietario, permissions, hasPermission, organizacao_id };
+    // O 'value' agora também exporta a nossa nova função 'refreshAuthUser'
+    const value = { user, loading, isProprietario, permissions, hasPermission, organizacao_id, refreshAuthUser };
     
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

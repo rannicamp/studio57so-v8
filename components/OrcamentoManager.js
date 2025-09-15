@@ -1,3 +1,4 @@
+//components\OrcamentoManager.js
 'use client';
 
 import { useState } from 'react';
@@ -8,7 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext'; // Por que: Importamos para ter acesso aos dados do usuário, como a organização.
+import { useAuth } from '@/contexts/AuthContext';
 
 // --- Componente do Modal (sem alteração na sua lógica interna) ---
 const NovoOrcamentoModal = ({ isOpen, onClose, onSave, empreendimentoNome }) => {
@@ -51,21 +52,24 @@ const OrcamentoManager = () => {
     const supabase = createClient();
     const queryClient = useQueryClient();
     const { selectedEmpreendimento, empreendimentos } = useEmpreendimento();
-    const { userData } = useAuth(); // Por que: Pegamos os dados do usuário para identificar a organização.
+    // O PORQUÊ DA MUDANÇA: Padronizando para 'user' para manter consistência com outros componentes.
+    const { user } = useAuth(); 
     
     const [selectedOrcamento, setSelectedOrcamento] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    // O PORQUÊ: O ID da organização é pego diretamente do objeto 'user'.
+    const organizacaoId = user?.organizacao_id;
+
     const fetchOrcamentos = async () => {
-        const orgId = userData?.organizacao_id;
-        if (!selectedEmpreendimento || selectedEmpreendimento === 'all' || !orgId) {
+        if (!selectedEmpreendimento || selectedEmpreendimento === 'all' || !organizacaoId) {
             return [];
         }
         const { data, error } = await supabase
             .from('orcamentos')
             .select('*')
             .eq('empreendimento_id', selectedEmpreendimento)
-            .eq('organizacao_id', orgId) // Por que: Adicionamos a checagem de organização para segurança extra.
+            .eq('organizacao_id', organizacaoId) // Blindagem de segurança na leitura.
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -75,15 +79,14 @@ const OrcamentoManager = () => {
     };
 
     const { data: orcamentos, isLoading: loadingOrcamentos, error } = useQuery({
-        queryKey: ['orcamentos', selectedEmpreendimento, userData?.organizacao_id], // Por que: Adicionamos o ID da organização à chave da query para garantir que ela seja refeita se a organização mudar.
+        queryKey: ['orcamentos', selectedEmpreendimento, organizacaoId], // Chave da query usa a variável.
         queryFn: fetchOrcamentos,
-        enabled: !!selectedEmpreendimento && selectedEmpreendimento !== 'all' && !!userData?.organizacao_id,
+        enabled: !!selectedEmpreendimento && selectedEmpreendimento !== 'all' && !!organizacaoId,
     });
 
     const createOrcamentoMutation = useMutation({
         mutationFn: async (orcamentoData) => {
-            const orgId = userData?.organizacao_id;
-            if (!orgId) {
+            if (!organizacaoId) {
                 throw new Error("Organização não identificada. Não é possível criar o orçamento.");
             }
 
@@ -92,7 +95,7 @@ const OrcamentoManager = () => {
                 .insert({
                     ...orcamentoData,
                     empreendimento_id: selectedEmpreendimento,
-                    organizacao_id: orgId // Por que: Garantimos que o novo orçamento seja criado na organização correta.
+                    organizacao_id: organizacaoId // Blindagem de segurança na escrita.
                 })
                 .select()
                 .single();
@@ -103,7 +106,7 @@ const OrcamentoManager = () => {
             return data;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['orcamentos', selectedEmpreendimento, userData?.organizacao_id] });
+            queryClient.invalidateQueries({ queryKey: ['orcamentos', selectedEmpreendimento, organizacaoId] });
             toast.success('Orçamento criado com sucesso!');
             setIsModalOpen(false);
         },

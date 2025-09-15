@@ -52,8 +52,9 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const occurrenceTypes = ["Informativa", "Alerta", "Grave", "Acidente de Trabalho", "Condição Insegura"];
 
   const setupFormWithData = useCallback(async (rdoData) => {
-    if (!rdoData) {
+    if (!rdoData || !organizacaoId) {
       setLoadingForm(false);
+      if(!organizacaoId) toast.error("Erro de segurança: Organização não identificada.");
       return;
     }
     setLoadingForm(true);
@@ -82,14 +83,16 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         .from('pedidos_compra')
         .select('id, justificativa, status, itens:pedidos_compra_itens(descricao_item)')
         .eq('empreendimento_id', empreendimentoId)
-        .eq('data_entrega_prevista', rdoData.data_relatorio);
+        .eq('data_entrega_prevista', rdoData.data_relatorio)
+        .eq('organizacao_id', organizacaoId);
       setPedidosPrevistos(pedidosData || []);
 
       const { data: pastRdos } = await supabase
         .from('diarios_obra')
         .select('status_atividades')
         .eq('empreendimento_id', empreendimentoId)
-        .lt('data_relatorio', rdoData.data_relatorio);
+        .lt('data_relatorio', rdoData.data_relatorio)
+        .eq('organizacao_id', organizacaoId);
 
       const completedActivityIds = new Set();
       if (pastRdos) {
@@ -105,7 +108,8 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
       const { data: activitiesData } = await supabase
         .from('activities')
         .select('id, nome, status, tipo_atividade')
-        .eq('empreendimento_id', empreendimentoId);
+        .eq('empreendimento_id', empreendimentoId)
+        .eq('organizacao_id', organizacaoId);
 
       const filteredActivities = (activitiesData || []).filter(act =>
         act.tipo_atividade !== 'Entrega de Pedido' &&
@@ -113,7 +117,12 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         !completedActivityIds.has(act.id)
       );
 
-      const { data: employeesData } = await supabase.from('funcionarios').select('id, full_name, status').eq('empreendimento_atual_id', empreendimentoId);
+      const { data: employeesData } = await supabase
+        .from('funcionarios')
+        .select('id, full_name, status')
+        .eq('empreendimento_atual_id', empreendimentoId)
+        .eq('organizacao_id', organizacaoId);
+        
       const activeEmployees = (employeesData || []).filter(emp => emp.status === 'Ativo');
 
       const savedMaoDeObra = rdoData.mao_de_obra || [];
@@ -146,15 +155,22 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
     } finally {
       setLoadingForm(false);
     }
-  }, [supabase]);
+  }, [supabase, organizacaoId]);
 
   useEffect(() => {
     const initializeForm = async () => {
+      if (!organizacaoId) {
+        toast.error("Erro de segurança: A organização do usuário não foi encontrada.");
+        setLoadingForm(false);
+        return;
+      }
+
       if (initialRdoData) {
         const { data: fullRdoData, error } = await supabase
           .from('diarios_obra')
           .select('*, empreendimentos(*), ocorrencias(*), rdo_fotos_uploads(*), usuarios(nome, sobrenome)')
           .eq('id', initialRdoData.id)
+          .eq('organizacao_id', organizacaoId)
           .single();
 
         if (error) {
@@ -172,19 +188,10 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
           .select('*, empreendimentos(*), ocorrencias(*), rdo_fotos_uploads(*), usuarios(nome, sobrenome)')
           .eq('empreendimento_id', selectedEmpreendimento.id)
           .eq('data_relatorio', today)
+          .eq('organizacao_id', organizacaoId)
           .maybeSingle();
 
         if (!rdo && !error) {
-          // =================================================================================
-          // ATUALIZAÇÃO DE SEGURANÇA (organização_id na criação)
-          // O PORQUÊ: Ao criar um RDO do zero para o dia, garantimos que ele
-          // já nasça com a "etiqueta" da organização correta.
-          // =================================================================================
-          if (!organizacaoId) {
-            toast.error("Erro de segurança: A organização do usuário não foi encontrada.");
-            setLoadingForm(false);
-            return;
-          }
           const { data: newRdo, error: insertError } = await supabase
             .from('diarios_obra')
             .insert({
@@ -195,7 +202,7 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
               condicoes_trabalho: 'Praticável',
               status_atividades: [],
               mao_de_obra: [],
-              organizacao_id: organizacaoId, // <-- A ETIQUETA DE SEGURANÇA NA CRIAÇÃO!
+              organizacao_id: organizacaoId,
             })
             .select('*, empreendimentos(*), ocorrencias(*), rdo_fotos_uploads(*), usuarios(nome, sobrenome)')
             .single();
@@ -227,30 +234,30 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
       toast.warning("Este RDO está bloqueado e não pode ser alterado.");
       return;
     }
-    if (!user) {
-      toast.error("Usuário não autenticado. Não é possível realizar esta ação.");
+    if (!user || !organizacaoId) {
+      toast.error("Usuário ou organização não autenticada. Não é possível realizar esta ação.");
       return;
     }
 
     const promise = async () => {
-        // 1. Marca o pedido como entregue
         const { error: rpcError } = await supabase.rpc('marcar_pedido_entregue', {
             p_pedido_id: pedidoId,
-            p_usuario_id: user.id
+            p_usuario_id: user.id,
+            p_organizacao_id: organizacaoId
         });
         if (rpcError) throw new Error(`Erro ao marcar como entregue: ${rpcError.message}`);
 
-        // 2. Chama a rotina do almoxarifado
         const { error: almoxarifadoError } = await supabase.rpc('processar_entrada_pedido_no_estoque', {
             p_pedido_id: pedidoId,
-            p_usuario_id: user.id
+            p_usuario_id: user.id,
+            p_organizacao_id: organizacaoId
         });
         if (almoxarifadoError) throw new Error(`Falha ao dar entrada no estoque: ${almoxarifadoError.message}`);
         
         return pedidoId;
     };
     
-    toast.promise(promise, {
+    toast.promise(promise(), {
         loading: "Processando entrega do pedido...",
         success: (id) => {
             setPedidosPrevistos(prev => prev.map(p =>
@@ -269,9 +276,14 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   };
 
   const saveSectionData = useCallback(async (data) => {
-    if (!rdoFormData.id || isRdoLocked) return;
+    if (!rdoFormData.id || isRdoLocked || !organizacaoId) return;
     
-    const promise = supabase.from('diarios_obra').update(data).eq('id', rdoFormData.id).throwOnError();
+    const promise = supabase
+        .from('diarios_obra')
+        .update(data)
+        .eq('id', rdoFormData.id)
+        .eq('organizacao_id', organizacaoId)
+        .throwOnError();
 
     toast.promise(promise, {
         loading: 'Salvando...',
@@ -279,15 +291,19 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         error: (err) => `Erro ao salvar: ${err.message}`
     });
 
-  }, [isRdoLocked, rdoFormData.id, supabase]);
+  }, [isRdoLocked, rdoFormData.id, supabase, organizacaoId]);
 
   const handleActivityStatusChange = useCallback(async (activityId, newStatus, newObservation) => {
-    if (isRdoLocked) return;
+    if (isRdoLocked || !organizacaoId) return;
     const updatedStatuses = activityStatuses.map(act => act.id === activityId ? { ...act, status: newStatus, observacao: newObservation } : act);
     setActivityStatuses(updatedStatuses);
     saveSectionData({ status_atividades: updatedStatuses });
-    await supabase.from('activities').update({ status: newStatus }).eq('id', activityId);
-  }, [activityStatuses, saveSectionData, supabase, isRdoLocked]);
+    await supabase
+        .from('activities')
+        .update({ status: newStatus })
+        .eq('id', activityId)
+        .eq('organizacao_id', organizacaoId);
+  }, [activityStatuses, saveSectionData, supabase, isRdoLocked, organizacaoId]);
 
   const handleEmployeeChange = useCallback(async (employeeId, field, value) => {
     if (isRdoLocked) return;
@@ -303,13 +319,8 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   };
 
   const handleAddOccurrence = async () => {
-    if (isRdoLocked || !currentNewOccurrence.descricao.trim()) return;
-    // =================================================================================
-    // ATUALIZAÇÃO DE SEGURANÇA (organização_id na criação)
-    // O PORQUÊ: Etiquetando a ocorrência no momento da sua criação.
-    // =================================================================================
-    if (!organizacaoId) {
-        toast.error("Erro de segurança: A organização do usuário não foi encontrada.");
+    if (isRdoLocked || !currentNewOccurrence.descricao.trim() || !organizacaoId) {
+        if(!organizacaoId) toast.error("Erro de segurança: A organização do usuário não foi encontrada.");
         return;
     }
 
@@ -319,7 +330,7 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
       empreendimento_id: rdoFormData.empreendimento_id,
       data_ocorrencia: new Date().toLocaleDateString('pt-BR'),
       hora_ocorrencia: new Date().toLocaleTimeString('pt-BR'),
-      organizacao_id: organizacaoId, // <-- A ETIQUETA DE SEGURANÇA!
+      organizacao_id: organizacaoId,
     }).select().single().throwOnError();
 
     toast.promise(promise, {
@@ -334,8 +345,14 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   };
 
   const handleRemoveOccurrence = async (occurrenceId) => {
-    if (isRdoLocked) return;
-    const promise = supabase.from('ocorrencias').delete().eq('id', occurrenceId).throwOnError();
+    if (isRdoLocked || !organizacaoId) return;
+    const promise = supabase
+        .from('ocorrencias')
+        .delete()
+        .eq('id', occurrenceId)
+        .eq('organizacao_id', organizacaoId)
+        .throwOnError();
+
     toast.promise(promise, {
         loading: 'Removendo ocorrência...',
         success: () => {
@@ -354,11 +371,12 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   };
 
   const handleSaveOccurrence = async (occurrenceId, description) => {
-    if (isRdoLocked) return;
+    if (isRdoLocked || !organizacaoId) return;
     const promise = supabase
       .from('ocorrencias')
       .update({ descricao: description })
       .eq('id', occurrenceId)
+      .eq('organizacao_id', organizacaoId)
       .throwOnError();
 
     toast.promise(promise, {
@@ -375,7 +393,10 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   };
 
   const handleAddPhoto = async () => {
-    if (isRdoLocked || !currentPhotoFile) return;
+    if (isRdoLocked || !currentPhotoFile || !organizacaoId) {
+        if(!organizacaoId) toast.error("Organização não identificada.");
+        return;
+    }
 
     const promise = async () => {
         setIsUploading(true);
@@ -389,12 +410,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
             .upload(filePath, compressedFile);
         if (fileError) throw fileError;
         
-        // =================================================================================
-        // ATUALIZAÇÃO DE SEGURANÇA (organização_id na criação)
-        // O PORQUÊ: Etiquetando a foto no momento do seu upload.
-        // =================================================================================
-        if (!organizacaoId) throw new Error("Organização não identificada.");
-
         const { data: dbData, error: dbError } = await supabase
             .from('rdo_fotos_uploads')
             .insert({
@@ -402,7 +417,7 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
                 caminho_arquivo: fileData.path,
                 descricao: currentPhotoDescription || null,
                 tamanho_arquivo: compressedFile.size,
-                organizacao_id: organizacaoId, // <-- A ETIQUETA DE SEGURANÇA!
+                organizacao_id: organizacaoId,
             })
             .select()
             .single();
@@ -433,13 +448,19 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   };
 
   const handleRemovePhoto = async (photoId, photoPath) => {
-    if (isRdoLocked) return;
+    if (isRdoLocked || !organizacaoId) return;
     const promise = async () => {
+        // A política de RLS do Storage já deve garantir a segurança aqui,
+        // mas a exclusão do registro no banco de dados precisa do filtro.
         await supabase.storage.from('rdo-fotos').remove([photoPath]);
-        await supabase.from('rdo_fotos_uploads').delete().eq('id', photoId);
+        await supabase
+            .from('rdo_fotos_uploads')
+            .delete()
+            .eq('id', photoId)
+            .eq('organizacao_id', organizacaoId);
     };
 
-    toast.promise(promise, {
+    toast.promise(promise(), {
         loading: 'Removendo foto...',
         success: () => {
             setAllPhotosMetadata(prev => prev.filter(p => p.id !== photoId));
