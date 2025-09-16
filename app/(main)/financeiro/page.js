@@ -1,4 +1,3 @@
-// app/(main)/financeiro/page.js
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -78,12 +77,6 @@ const applyFiltersToQuery = (query, currentFilters) => {
     return query;
 };
 
-// ==========================================================
-// MUDANÇA PARA TESTE
-// O PORQUÊ: Simplificamos a busca para `select('*')`. Se os
-// lançamentos aparecerem agora, confirma que o problema é
-// uma ligação com dados de outra organização.
-// ==========================================================
 async function fetchLancamentos({ queryKey }) {
     const [_key, { filters, currentPage, itemsPerPage, sortConfig, organizacao_id }] = queryKey;
     if (!organizacao_id) return { data: [], count: 0 };
@@ -91,19 +84,36 @@ async function fetchLancamentos({ queryKey }) {
     const from = (currentPage - 1) * itemsPerPage;
     const to = from + itemsPerPage - 1;
 
-    // LINHA ALTERADA PARA O TESTE:
-    const selectString = `*`;
+    // ==========================================================
+    // INÍCIO DA CORREÇÃO
+    // O PORQUÊ: Adicionamos a dica "!empresa_id" para dizer ao Supabase
+    // exatamente como a tabela 'lancamentos' se conecta com a 'cadastro_empresa'.
+    // Isso remove a ambiguidade e garante que o nome da empresa seja buscado.
+    // ==========================================================
+    const selectString = `
+        *,
+        conta:contas_financeiras(nome),
+        categoria:categorias_financeiras(nome),
+        favorecido:contatos(nome, razao_social),
+        empresa:cadastro_empresa!empresa_id(nome_fantasia, razao_social),
+        empreendimento:empreendimentos(nome)
+    `;
+    // ==========================================================
+    // FIM DA CORREÇÃO
+    // ==========================================================
     
     let query = supabase.from('lancamentos').select(selectString, { count: 'exact' }).eq('organizacao_id', organizacao_id);
     query = applyFiltersToQuery(query, filters);
     query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' }).range(from, to);
     
     const { data, error, count } = await query;
-    if (error) throw new Error(error.message);
+    if (error) {
+        console.error("Erro ao buscar lançamentos:", error);
+        throw new Error(error.message);
+    }
     
     return { data: data || [], count: count || 0 };
 }
-
 
 async function fetchLancamentosKpi({ queryKey }) {
     const [_key, { filters, organizacao_id }] = queryKey;
@@ -136,7 +146,6 @@ export default function FinanceiroPage() {
     const router = useRouter();
     const queryClient = useQueryClient();
     const { hasPermission, loading: authLoading, user } = useAuth();
-    console.log("DEDO-DURO 2.0:", { user });
     const organizacao_id = user?.organizacao_id;
     
     const canViewPage = hasPermission('financeiro', 'pode_ver');
@@ -154,7 +163,7 @@ export default function FinanceiroPage() {
     const [filters, setFilters] = useState({ 
         searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [], 
         etapaIds: [], status: [], tipo: [], startDate: '', 
-        endDate: '', // Removido o padrão para ajudar no teste
+        endDate: '',
         month: '', year: '', favorecidoId: null 
     });
 

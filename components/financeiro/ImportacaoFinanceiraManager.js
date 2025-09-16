@@ -3,22 +3,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
-// =================================================================================
-// INÍCIO DA CORREÇÃO
-// O PORQUÊ: Importamos o 'useQueryClient' para ter acesso ao "gerenciador de cache"
-// do React Query, o que nos permite ler dados já buscados sem precisar de uma nova
-// chamada ao banco.
-// =================================================================================
 import { useQuery, useQueryClient } from '@tanstack/react-query'; 
-// =================================================================================
-// FIM DA CORREÇÃO
-// =================================================================================
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileCsv, faSpinner, faArrowRight, faCogs, faMagic, faCheckCircle, faPlusCircle, faBan, faExclamationTriangle, faBuilding } from '@fortawesome/free-solid-svg-icons';
 import Papa from 'papaparse';
 import { toast } from 'sonner';
 
-// Componentes Step e ProgressBar (mantidos como estão)
 const Step = ({ number, title, isActive, isCompleted }) => (
     <div className="flex items-center">
         <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${isCompleted ? 'bg-green-500 text-white' : (isActive ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-600')}`}>
@@ -68,16 +58,7 @@ export default function ImportacaoFinanceiraManager() {
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
-
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: Aqui nós "pegamos o martelo". A variável `queryClient` agora está
-    // disponível em todo o componente para usarmos quando precisarmos.
-    // =================================================================================
     const queryClient = useQueryClient();
-    // =================================================================================
-    // FIM DA CORREÇÃO
-    // =================================================================================
 
     const [step, setStep] = useState(1);
     const [selectedEmpresaId, setSelectedEmpresaId] = useState('');
@@ -103,7 +84,7 @@ export default function ImportacaoFinanceiraManager() {
         { key: 'empreendimento_nome', label: 'Empreendimento/Obra (Nome)' },
         { key: 'status', label: 'Situação (Pago/Pendente)' },
         { key: 'observacao', label: 'Observação' },
-        { key: 'conta_destino_nome', label: 'CONTA DESTINO (Transferência)' },
+        { key: 'conta_destino_nome', label: 'CONTA DESTINO (para Transferência)' },
     ];
     
     const { data: systemData, isLoading: isLoadingSystemData, refetch: refetchSystemData } = useQuery({
@@ -114,11 +95,7 @@ export default function ImportacaoFinanceiraManager() {
     
     const { empresas = [], contas = [], categorias = [], empreendimentos = [], contatos = [] } = systemData || {};
 
-    // ... (O restante do seu código permanece exatamente o mesmo)
-    // A única alteração foi a adição do queryClient acima.
-    // As funções processStep1, processStep2, etc, agora funcionarão
-    // pois a `queryClient` está definida no escopo do componente.
-
+    // ... (funções handleFileSelect, processStep1, processStep2, etc. sem alterações) ...
     const handleFileSelect = (event) => {
         const selectedFile = event.target.files[0];
         if (selectedFile) {
@@ -304,6 +281,7 @@ export default function ImportacaoFinanceiraManager() {
         const lancamentosParaInserir = [];
         const lancamentosFalhados = [];
         const currentSystemData = queryClient.getQueryData(['importacaoFinanceiraData', organizacaoId]);
+        const transferenciaCategory = currentSystemData.categorias.find(c => c.nome.toLowerCase() === 'transferência');
 
         const getItemId = (type, name) => {
             if (!name) return null;
@@ -347,44 +325,86 @@ export default function ImportacaoFinanceiraManager() {
                 continue;
             }
 
-            let tipoLancamento = 'Despesa';
-            const tipoFromFile = (row[mappings.tipo] || '').toLowerCase();
-            if (conta_destino_id) {
-                tipoLancamento = 'Transferência';
-            } else if (['receita', 'credito', 'crédito', 'entrada'].some(term => tipoFromFile.includes(term))) {
-                tipoLancamento = 'Receita';
-            }
-
-            let statusFinal = 'Pendente';
-            const statusDoArquivo = (row[mappings.status] || '').toLowerCase().trim();
-            if (statusDoArquivo.includes('pago') || statusDoArquivo.includes('conciliado')) {
-                statusFinal = 'Pago';
-            }
-            if (tipoLancamento === 'Transferência') {
-                statusFinal = 'Pago';
-            }
-
-            const lancamento = {
+            // ==========================================================
+            // INÍCIO DA CORREÇÃO DA LÓGICA DE TRANSFERÊNCIA
+            // O PORQUÊ: Implementamos a lógica correta que você descreveu.
+            // Se 'conta_destino_id' existir, criamos DOIS lançamentos
+            // (um de despesa, um de receita) com o mesmo 'transferencia_id'.
+            // Caso contrário, criamos um lançamento simples.
+            // ==========================================================
+            
+            const baseData = {
                 data_transacao,
-                descricao: row[mappings.descricao] || 'Sem descrição',
                 valor: Math.abs(valor),
-                tipo: tipoLancamento,
-                status: statusFinal,
-                conta_id: conta_id,
-                conta_destino_id: conta_destino_id,
-                categoria_id: getItemId('categorias', row[mappings.categoria_nome]),
-                favorecido_contato_id: getItemId('contatos', row[mappings.contato_nome]),
                 empreendimento_id: getItemId('empreendimentos', row[mappings.empreendimento_nome]),
                 empresa_id: selectedEmpresaId,
                 criado_por_usuario_id: user.id,
                 observacao: row[mappings.observacao],
-                organizacao_id: organizacaoId
+                organizacao_id: organizacaoId,
+                // Campos que podem ser diferentes entre despesa/receita da transferência
+                favorecido_contato_id: getItemId('contatos', row[mappings.contato_nome]),
+                categoria_id: getItemId('categorias', row[mappings.categoria_nome]),
             };
+            
+            if (conta_destino_id) {
+                // É UMA TRANSFERÊNCIA
+                const transferenciaId = crypto.randomUUID();
+                const contaOrigemNome = currentSystemData.contas.find(c => c.id === conta_id)?.nome || row[mappings.conta_nome];
+                const contaDestinoNome = currentSystemData.contas.find(c => c.id === conta_destino_id)?.nome || row[mappings.conta_destino_nome];
 
-            lancamentosParaInserir.push(lancamento);
+                // 1. Lançamento de Despesa (Saída)
+                lancamentosParaInserir.push({
+                    ...baseData,
+                    descricao: `Tranf. para ${contaDestinoNome}: ${row[mappings.descricao] || ''}`,
+                    tipo: 'Despesa',
+                    conta_id: conta_id,
+                    status: 'Conciliado',
+                    data_vencimento: data_transacao,
+                    data_pagamento: data_transacao,
+                    transferencia_id: transferenciaId,
+                    categoria_id: transferenciaCategory?.id || baseData.categoria_id // Usa a categoria 'Transferência' se existir
+                });
+
+                // 2. Lançamento de Receita (Entrada)
+                lancamentosParaInserir.push({
+                    ...baseData,
+                    descricao: `Tranf. de ${contaOrigemNome}: ${row[mappings.descricao] || ''}`,
+                    tipo: 'Receita',
+                    conta_id: conta_destino_id,
+                    status: 'Conciliado',
+                    data_vencimento: data_transacao,
+                    data_pagamento: data_transacao,
+                    transferencia_id: transferenciaId,
+                    categoria_id: transferenciaCategory?.id || baseData.categoria_id // Usa a categoria 'Transferência' se existir
+                });
+
+            } else {
+                // É UM LANÇAMENTO SIMPLES
+                const tipoFromFile = (row[mappings.tipo] || '').toLowerCase();
+                const tipoLancamento = ['receita', 'credito', 'crédito', 'entrada'].some(term => tipoFromFile.includes(term)) ? 'Receita' : 'Despesa';
+                
+                let statusFinal = 'Pendente';
+                const statusDoArquivo = (row[mappings.status] || '').toLowerCase().trim();
+                if (statusDoArquivo.includes('pago') || statusDoArquivo.includes('conciliado')) {
+                    statusFinal = 'Pago';
+                }
+
+                lancamentosParaInserir.push({
+                    ...baseData,
+                    descricao: row[mappings.descricao] || 'Sem descrição',
+                    tipo: tipoLancamento,
+                    status: statusFinal,
+                    conta_id: conta_id,
+                    data_vencimento: data_transacao,
+                    data_pagamento: statusFinal === 'Pago' ? data_transacao : null,
+                });
+            }
+            // ==========================================================
+            // FIM DA CORREÇÃO
+            // ==========================================================
         }
 
-        setMessage(`Enviando ${lancamentosParaInserir.length} lançamentos para o sistema...`);
+        setMessage(`Enviando ${lancamentosParaInserir.length} registros para o sistema...`);
 
         if (lancamentosParaInserir.length > 0) {
             const { data, error } = await supabase
@@ -394,14 +414,14 @@ export default function ImportacaoFinanceiraManager() {
 
             if (error) {
                 setMessage(`Erro crítico na importação: ${error.message}`);
-                setImportResults({ success: [], failed: lancamentosParaInserir.map(row => ({ row, error: error.message })), ignored: [] });
+                setImportResults({ success: [], failed: lancamentosParaInserir.map((row, i) => ({ row, error: error.message, originalRow: fileData[i] })), ignored: [] });
             } else {
                 setImportResults({
                     success: data.map(row => ({ row, details: 'Importado com sucesso' })),
                     failed: lancamentosFalhados,
                     ignored: []
                 });
-                setMessage(`${data.length} lançamentos foram importados com sucesso!`);
+                setMessage(`${data.length} registros foram importados com sucesso!`);
             }
         } else {
             setMessage('Nenhum lançamento válido para importar após a validação.');

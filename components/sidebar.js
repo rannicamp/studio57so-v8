@@ -1,4 +1,3 @@
-//components/sidebar.js
 "use client";
 
 import { useState } from 'react';
@@ -10,7 +9,14 @@ import {
     faClipboardList, faCog, faChevronLeft, faChevronRight, faClock,
     faAddressBook, faDollarSign, faShoppingCart,
     faInbox, faBullseye, faFileSignature, faCalculator,
-    faChevronDown, faBoxOpen
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO
+    // O PORQUÊ: Adicionamos o novo ícone para a Orçamentação.
+    // =================================================================================
+    faChevronDown, faBoxOpen, faFileInvoiceDollar
+    // =================================================================================
+    // FIM DA CORREÇÃO
+    // =================================================================================
 } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -34,12 +40,6 @@ const fetchEmpreendimentos = async (organizacaoId) => {
 };
 
 export default function Sidebar({ isCollapsed, toggleSidebar }) {
-    // =================================================================================
-    // CORREÇÃO FINAL
-    // O PORQUÊ: Removemos 'sidebarPosition' da desestruturação principal e agora
-    // a pegamos diretamente do objeto 'user' unificado, que é a fonte correta
-    // da informação após nossa refatoração do AuthContext.
-    // =================================================================================
     const { hasPermission, user } = useAuth();
     const organizacaoId = user?.organizacao_id;
     const sidebarPosition = user?.sidebar_position || 'left';
@@ -103,7 +103,15 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         {
             title: 'Obra',
             items: [
-                { href: '/orcamento', label: 'Orçamentação', icon: faDollarSign, recurso: 'orcamento' },
+                // =================================================================================
+                // INÍCIO DA CORREÇÃO
+                // O PORQUÊ: Trocamos o ícone de 'faDollarSign' para 'faFileInvoiceDollar'
+                // para diferenciar visualmente "Orçamentação" de "Financeiro".
+                // =================================================================================
+                { href: '/orcamento', label: 'Orçamentação', icon: faFileInvoiceDollar, recurso: 'orcamento' },
+                // =================================================================================
+                // FIM DA CORREÇÃO
+                // =================================================================================
                 { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart, recurso: 'pedidos' },
                 { href: '/almoxarifado', label: 'Almoxarifado', icon: faBoxOpen, recurso: 'almoxarifado' },
                 { href: '/rdo/gerenciador', label: 'Diário de Obra', icon: faClipboardList, recurso: 'rdo' },
