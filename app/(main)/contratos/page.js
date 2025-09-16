@@ -1,129 +1,142 @@
 // app/(main)/contratos/page.js
 "use client";
 
-import { useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import Link from 'next/link';
-import { useLayout } from '../../../contexts/LayoutContext';
-import { useAuth } from '../../../contexts/AuthContext'; // 1. Importar para pegar a organização
-import { useQuery, useQueryClient } from '@tanstack/react-query'; // 2. Importar useQuery
+import { useAuth } from '../../../contexts/AuthContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faFileInvoiceDollar, faStore, faArrowUpRightDots, faCalendarCheck } from '@fortawesome/free-solid-svg-icons';
 import ContratoList from '../../../components/contratos/ContratoList';
 import KpiCard from '../../../components/KpiCard';
+import FiltroContratos from '../../../components/contratos/FiltroContratos';
+import { useDebounce } from 'use-debounce';
 
-// =================================================================================
-// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
-// O PORQUÊ: A busca foi isolada e agora exige o `organizacaoId` para filtrar os
-// contratos, garantindo que cada usuário veja apenas os dados de sua empresa.
-// =================================================================================
-const fetchContratos = async (supabase, organizacaoId) => {
+const fetchFilterData = async (organizacaoId) => {
+    if (!organizacaoId) return { clientes: [], corretores: [], produtos: [], empreendimentos: [] };
+    const supabase = createClient();
+    
+    // O PORQUÊ: Agora chamamos a nova função que busca apenas clientes com contratos.
+    const [clientesRes, corretoresRes, produtosRes, empreendimentosRes] = await Promise.all([
+        supabase.rpc('get_clientes_com_contrato', { p_organizacao_id: organizacaoId }),
+        supabase.from('contatos').select('id, nome, razao_social').eq('organizacao_id', organizacaoId).eq('tipo_contato', 'Corretor'),
+        supabase.from('produtos_empreendimento').select('id, tipo, unidade').eq('organizacao_id', organizacaoId),
+        supabase.from('empreendimentos').select('id, nome').eq('organizacao_id', organizacaoId),
+    ]);
+    
+    return {
+        clientes: clientesRes.data || [],
+        corretores: corretoresRes.data || [],
+        produtos: produtosRes.data || [],
+        empreendimentos: empreendimentosRes.data || [],
+    };
+};
+
+const fetchContratos = async (organizacaoId, filters, sortConfig) => {
     if (!organizacaoId) return [];
-
-    const { data, error } = await supabase
-        .from('contratos')
-        .select(`
-            *,
-            contato:contato_id ( nome, razao_social ),
-            produto:produto_id ( unidade, tipo ),
-            empreendimento:empreendimento_id ( nome ),
-            corretor:corretor_id ( nome ) 
-        `)
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
-        .order('created_at', { ascending: false });
+    const supabase = createClient();
+    
+    const { data, error } = await supabase.rpc('consultar_contratos_filtrados', {
+        p_organizacao_id: organizacaoId,
+        p_search_term: filters.searchTerm || null,
+        p_cliente_ids: filters.clienteId?.length > 0 ? filters.clienteId : null,
+        p_corretor_ids: filters.corretorId?.length > 0 ? filters.corretorId : null,
+        p_produto_ids: filters.produtoId?.length > 0 ? filters.produtoId : null,
+        p_empreendimento_ids: filters.empreendimentoId?.length > 0 ? filters.empreendimentoId : null,
+        p_status: filters.status?.length > 0 ? filters.status : null,
+        p_start_date: filters.startDate || null,
+        p_end_date: filters.endDate || null
+    })
+    .order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' });
 
     if (error) {
-        console.error("Erro ao buscar contratos:", error);
+        console.error("Erro ao buscar contratos via RPC: ", error);
         throw new Error(error.message);
     }
-    return data || [];
+    return data;
 };
 
 export default function ContratosPage() {
-    const { setPageTitle } = useLayout();
-    const supabase = createClient();
+    const { user } = useAuth();
+    const organizacaoId = user?.organizacao_id;
     const queryClient = useQueryClient();
-    const { user } = useAuth(); // Pegamos o usuário
-    const organizacaoId = user?.organizacao_id; // E sua organização
 
-    useEffect(() => {
-        setPageTitle("Gestão de Contratos");
-    }, [setPageTitle]);
+    const [filters, setFilters] = useState({
+        searchTerm: '', clienteId: [], corretorId: [], produtoId: [], empreendimentoId: [],
+        status: [], startDate: '', endDate: ''
+    });
+    const [sortConfig, setSortConfig] = useState({ key: 'data_venda', direction: 'descending' });
+    const [debouncedFilters] = useDebounce(filters, 500);
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE PADRÃO (useState + useEffect -> useQuery)
-    // O PORQUÊ: `useQuery` gerencia o estado de carregamento, erros e cache de
-    // forma mais eficiente, simplificando o nosso código.
-    // =================================================================================
-    const { data: contratos = [], isLoading: loading, isError, error } = useQuery({
-        queryKey: ['contratos', organizacaoId],
-        queryFn: () => fetchContratos(supabase, organizacaoId),
+    const { data: filterData, isLoading: isLoadingFilterData } = useQuery({
+        queryKey: ['contratosFilterData', organizacaoId],
+        queryFn: () => fetchFilterData(organizacaoId),
         enabled: !!organizacaoId,
     });
-    
-    // Os KPIs agora são calculados com useMemo para performance, usando os dados seguros do useQuery.
+
+    const { data: contratos, isLoading: isLoadingContratos } = useQuery({
+        queryKey: ['contratos', organizacaoId, debouncedFilters, sortConfig],
+        queryFn: () => fetchContratos(organizacaoId, debouncedFilters, sortConfig),
+        enabled: !!organizacaoId,
+    });
+
     const kpiData = useMemo(() => {
-        const totalVendido = contratos.reduce((acc, contrato) => acc + (contrato.valor_final_venda || 0), 0);
+        if (!contratos) return { totalVendido: 0, unidadesVendidas: 0, ticketMedio: 0, ultimaVenda: null };
+        const totalVendido = contratos.reduce((acc, c) => acc + (c.valor_final_venda || 0), 0);
         const unidadesVendidas = contratos.length;
         const ticketMedio = unidadesVendidas > 0 ? totalVendido / unidadesVendidas : 0;
-        const ultimaVenda = contratos.length > 0
-            ? new Date(Math.max(...contratos.map(c => new Date(c.created_at))))
-            : null;
-        
+        const ultimaVenda = contratos.length > 0 ? contratos.map(c => new Date(c.data_venda)).sort((a, b) => b - a)[0] : null;
         return { totalVendido, unidadesVendidas, ticketMedio, ultimaVenda };
     }, [contratos]);
 
-    const handleActionComplete = () => {
-        // Invalida a query para forçar a busca de dados atualizados
-        queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId] });
+    const isLoading = isLoadingFilterData || isLoadingContratos;
+    
+    const requestSort = (key) => {
+        let direction = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
     };
 
-    if (loading) {
-        return (
-            <div className="text-center p-10">
-                <FontAwesomeIcon icon={faSpinner} spin size="2x" />
-            </div>
-        );
-    }
-    
-    if (isError) {
-        return <p className="p-4 text-center text-red-500">Erro ao carregar contratos: {error.message}</p>
+    if (isLoading) {
+        return <div className="p-6 text-center"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>;
     }
 
     return (
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <KpiCard 
-                    title="Valor Total (VGV)" 
-                    value={`R$ ${kpiData.totalVendido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
-                    icon={faFileInvoiceDollar} 
-                />
-                <KpiCard 
-                    title="Unidades Vendidas" 
-                    value={kpiData.unidadesVendidas} 
-                    icon={faStore} 
-                />
-                <KpiCard 
-                    title="Ticket Médio" 
-                    value={`R$ ${kpiData.ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
-                    icon={faArrowUpRightDots} 
-                />
-                <KpiCard 
-                    title="Última Venda" 
-                    value={kpiData.ultimaVenda ? new Date(kpiData.ultimaVenda).toLocaleDateString('pt-BR') : 'N/A'} 
-                    icon={faCalendarCheck} 
-                />
-            </div>
-
+        <div className="p-4 md:p-6 lg:p-8 space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-gray-900">Todos os Contratos</h1>
-                <Link href="/contratos/cadastro" className="bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600">
+                 <h1 className="text-3xl font-bold text-gray-900">Gestão de Contratos</h1>
+                 <Link href="/contratos/cadastro" className="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700">
                     + Novo Contrato
                 </Link>
             </div>
-            <div className="bg-white rounded-lg shadow p-6">
-                <ContratoList initialContratos={contratos} onActionComplete={handleActionComplete} />
+            
+            <FiltroContratos
+                filters={filters}
+                setFilters={setFilters}
+                clientes={filterData?.clientes || []}
+                corretores={filterData?.corretores || []}
+                produtos={filterData?.produtos || []}
+                empreendimentos={filterData?.empreendimentos || []}
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <KpiCard title="Total Vendido (Filtro)" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalVendido)} icon={faFileInvoiceDollar} />
+                <KpiCard title="Unidades Vendidas (Filtro)" value={kpiData.unidadesVendidas} icon={faStore} />
+                <KpiCard title="Ticket Médio (Filtro)" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.ticketMedio)} icon={faArrowUpRightDots} />
+                <KpiCard title="Última Venda (Filtro)" value={kpiData.ultimaVenda ? kpiData.ultimaVenda.toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : 'N/A'} icon={faCalendarCheck} />
             </div>
+
+            <ContratoList 
+                contratos={contratos || []}
+                sortConfig={sortConfig}
+                requestSort={requestSort}
+                onUpdate={() => {
+                    queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, debouncedFilters, sortConfig] });
+                }}
+            />
         </div>
     );
 }

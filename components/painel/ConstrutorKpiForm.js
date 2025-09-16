@@ -10,7 +10,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faFilter } from '@fortawesome/free-solid-svg-icons';
 import FiltroFinanceiro from '../financeiro/FiltroFinanceiro';
 
-// -- MANUTENÇÃO: A busca de dados para o filtro financeiro permanece a mesma --
 const fetchFilterOptions = async (organizacao_id) => {
     if (!organizacao_id) return { empresas: [], contas: [], categorias: [], empreendimentos: [], allContacts: [] };
     const supabase = createClient();
@@ -35,25 +34,14 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
     const supabase = createClient();
     const { user, organizacao_id } = useAuth();
 
-    // =================================================================================
-    // INÍCIO DA EVOLUÇÃO (FASE 3)
-    // O PORQUÊ: Adicionamos novos estados para controlar o novo construtor.
-    // 'module' define qual a fonte de dados (financeiro, contratos, etc.).
-    // 'operation' define o que fazer (somar, contar).
-    // 'genericFilters' guardará os filtros para os novos módulos.
-    // =================================================================================
-    const [module, setModule] = useState('financeiro'); // 'financeiro' ou 'generico'
-    const [operation, setOperation] = useState('COUNT'); // 'COUNT' ou 'SUM'
+    const [module, setModule] = useState('financeiro');
+    const [operation, setOperation] = useState('COUNT');
     const [genericFilters, setGenericFilters] = useState({});
-    // =================================================================================
-    // FIM DA EVOLUÇÃO
-    // =================================================================================
     
     const [titulo, setTitulo] = useState('');
     const [descricao, setDescricao] = useState('');
     const [grupo, setGrupo] = useState('');
 
-    // O estado 'financialFilters' continua existindo para os KPIs financeiros
     const [financialFilters, setFinancialFilters] = useState({
         searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [],
         etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', favorecidoId: null,
@@ -67,9 +55,6 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
         enabled: !!organizacao_id,
     });
     
-    // O PORQUÊ: Este useEffect agora é mais inteligente. Ele lê o KPI que está
-    // sendo editado e configura o formulário corretamente, seja para um
-    // KPI financeiro antigo ou para um novo KPI genérico.
     useEffect(() => {
         if (isEditing) {
             setTitulo(kpiToEdit.titulo);
@@ -85,7 +70,6 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
                 setFinancialFilters(kpiToEdit.filtros || {});
             }
         } else {
-            // Reseta para o padrão ao criar um novo KPI
             setTitulo('');
             setDescricao('');
             setGrupo('');
@@ -105,22 +89,24 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
 
             let dataToSave;
 
-            // O PORQUÊ: Prepara o "pacote" de dados correto para salvar,
-            // dependendo do módulo que você escolheu.
             if (module === 'financeiro') {
                  dataToSave = {
                     tipo_kpi: 'financeiro',
                     titulo: kpiData.titulo,
                     descricao: kpiData.descricao,
                     grupo: kpiData.grupo,
-                    tipo_calculo: kpiData.tipoCalculo, // Campo legado para KPIs financeiros
+                    tipo_calculo: kpiData.tipoCalculo,
                     filtros: kpiData.filters,
-                    // Campos do novo modelo ficam nulos
                     operacao: null,
                     tabela_fonte: null,
                     coluna_alvo: null,
+                    // ======================================================================
+                    // CORREÇÃO AQUI
+                    // O PORQUÊ: Adicionamos o campo 'modulo' obrigatório.
+                    // ======================================================================
+                    modulo: 'Financeiro',
                 };
-            } else { // Módulo Genérico (Contratos)
+            } else {
                 dataToSave = {
                     tipo_kpi: 'generico',
                     titulo: kpiData.titulo,
@@ -130,15 +116,18 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
                     tabela_fonte: 'contratos',
                     coluna_alvo: kpiData.operation === 'SUM' ? 'valor_final_venda' : null,
                     filtros: kpiData.genericFilters,
-                    tipo_calculo: 'generico', // Apenas para manter consistência
+                    tipo_calculo: 'generico',
+                    // ======================================================================
+                    // CORREÇÃO AQUI
+                    // O PORQUÊ: Adicionamos o campo 'modulo' obrigatório.
+                    // ======================================================================
+                    modulo: 'Contratos',
                 };
             }
             
-            // Adiciona dados comuns
             dataToSave.usuario_id = user.id;
             dataToSave.organizacao_id = organizacao_id;
             
-            // A lógica de delete-then-insert que já funciona
             if (isEditing) {
                 const { error: deleteError } = await supabase.from('kpis_personalizados').delete().eq('id', kpiToEdit.id);
                 if (deleteError) throw new Error(`Falha ao deletar o KPI antigo: ${deleteError.message}`);
@@ -168,15 +157,12 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
             descricao, 
             grupo, 
             operation,
-            // Passa os filtros corretos dependendo do módulo
             filters: financialFilters, 
             genericFilters: genericFilters,
-            // Passa o 'tipo_calculo' apenas para o financeiro
-            tipoCalculo: 'resultado' // Este valor é do seletor financeiro que não estamos mais mostrando
+            tipoCalculo: 'resultado'
         });
     };
     
-    // Função para atualizar os filtros genéricos
     const handleGenericFilterChange = (key, value) => {
         setGenericFilters(prev => ({ ...prev, [key]: value }));
     };
@@ -186,7 +172,6 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
             <h2 className="text-2xl font-bold mb-4 text-gray-800">{isEditing ? `Editando KPI: ${kpiToEdit.titulo}` : 'Criar Novo KPI'}</h2>
             
             <form onSubmit={handleSubmit} className="space-y-6">
-                {/* -- DETALHES GERAIS DO KPI -- */}
                 <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                     <h3 className="text-lg font-bold text-gray-700">1. Detalhes do KPI</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -205,7 +190,6 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
                     </div>
                 </div>
 
-                {/* -- SELEÇÃO DO MÓDULO E CÁLCULO -- */}
                 <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                     <h3 className="text-lg font-bold text-gray-700">2. Fonte de Dados e Cálculo</h3>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -228,7 +212,6 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
                     </div>
                 </div>
                 
-                {/* -- FILTROS (RENDERIZAÇÃO CONDICIONAL) -- */}
                 {module === 'financeiro' ? (
                     isLoadingOptions ? <div className="text-center p-8"><FontAwesomeIcon icon={faSpinner} spin /> Carregando filtros...</div> : <FiltroFinanceiro filters={financialFilters} setFilters={setFinancialFilters} {...filterOptions} />
                 ) : (

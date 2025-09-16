@@ -1,209 +1,106 @@
-//components\contratos\ContratoList.js
+// components/contratos/ContratoList.js
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../utils/supabase/client';
-import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
+import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faTrash, faCopy, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-export default function ContratoList({ initialContratos }) {
-    const [contratos, setContratos] = useState(initialContratos);
-    const [searchTerm, setSearchTerm] = useState('');
+export default function ContratoList({ contratos, sortConfig, requestSort, onUpdate }) {
     const router = useRouter();
     const supabase = createClient();
-    const { user } = useAuth(); // 2. Obter o usuário para pegar o ID da organização
+    const queryClient = useQueryClient();
+    const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
-    
-    const [sortConfig, setSortConfig] = useState({ key: 'data_venda', direction: 'descending' });
 
-    const requestSort = (key) => {
-        let direction = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
+    const [editingStatusId, setEditingStatusId] = useState(null);
+
+    const updateStatusMutation = useMutation({
+        mutationFn: async ({ id, newStatus }) => {
+            const { error } = await supabase
+                .from('contratos')
+                .update({ status_contrato: newStatus })
+                .eq('id', id)
+                .eq('organizacao_id', organizacaoId);
+            if (error) throw new Error(error.message);
+        },
+        onSuccess: () => {
+            toast.success("Status do contrato atualizado!");
+            if (onUpdate) onUpdate();
+        },
+        onError: (error) => {
+            toast.error(`Falha ao atualizar status: ${error.message}`);
+        },
+        onSettled: () => {
+            setEditingStatusId(null);
         }
-        setSortConfig({ key, direction });
+    });
+
+    const handleStatusChange = (id, newStatus) => {
+        updateStatusMutation.mutate({ id, newStatus });
     };
 
-    const sortedAndFilteredContratos = useMemo(() => {
-        let items = [...contratos];
-        
-        if (searchTerm) {
-            items = items.filter(c => {
-                const cliente = c.contato?.nome || c.contato?.razao_social || '';
-                const produto = c.produto?.unidade || '';
-                const empreendimento = c.empreendimento?.nome || '';
-                const corretor = c.corretor?.nome || '';
-                const numeroContrato = c.id?.toString() || '';
-                return (
-                    cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    produto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    empreendimento.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    corretor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    numeroContrato.includes(searchTerm.toLowerCase())
-                );
-            });
-        }
-
-        if (sortConfig.key) {
-            items.sort((a, b) => {
-                let valA, valB;
-
-                switch (sortConfig.key) {
-                    case 'cliente':
-                        valA = a.contato?.nome || a.contato?.razao_social || '';
-                        valB = b.contato?.nome || b.contato?.razao_social || '';
-                        break;
-                    case 'produto':
-                        valA = a.produto?.unidade || '';
-                        valB = b.produto?.unidade || '';
-                        break;
-                    case 'empreendimento':
-                        valA = a.empreendimento?.nome || '';
-                        valB = b.empreendimento?.nome || '';
-                        break;
-                    case 'corretor':
-                        valA = a.corretor?.nome || '';
-                        valB = b.corretor?.nome || '';
-                        break;
-                    default:
-                        valA = a[sortConfig.key];
-                        valB = b[sortConfig.key];
-                }
-
-                if (typeof valA === 'number' && typeof valB === 'number') {
-                    if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
-                    if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
-                } else {
-                    if (String(valA).toLowerCase() < String(valB).toLowerCase()) return sortConfig.direction === 'ascending' ? -1 : 1;
-                    if (String(valA).toLowerCase() > String(valB).toLowerCase()) return sortConfig.direction === 'ascending' ? 1 : -1;
-                }
-                
-                return 0;
-            });
-        }
-
-        return items;
-    }, [contratos, searchTerm, sortConfig]);
-    
     const formatDate = (dateString) => {
-        if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-            return 'N/A';
-        }
+        if (!dateString) return 'N/A';
         const [year, month, day] = dateString.split('-');
         return `${day}/${month}/${year}`;
     };
 
-    const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
-    const handleDuplicate = (e, contratoParaDuplicar) => {
+    const handleDuplicate = (e, contrato) => {
         e.stopPropagation();
-
-        toast("Confirmar Duplicação", {
-            description: `Deseja criar uma cópia do contrato da Unidade ${contratoParaDuplicar.produto?.unidade}? Um novo contrato será criado como rascunho.`,
-            action: {
-                label: "Duplicar",
-                onClick: () => {
-                    // =================================================================================
-                    // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-                    // O PORQUÊ: Passamos o `organizacaoId` para a função do banco de dados
-                    // para garantir que a duplicação ocorra de forma segura.
-                    // =================================================================================
-                    const promise = supabase.rpc('duplicar_contrato_e_detalhes', {
-                        p_contrato_id: contratoParaDuplicar.id,
-                        p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
-                    });
-
-                    toast.promise(promise, {
-                        loading: 'Duplicando contrato...',
-                        success: (response) => {
-                            // Atualiza a lista de contratos de forma segura
-                            supabase.from('contratos')
-                                .select(`*, contato:contato_id ( nome, razao_social ), produto:produto_id ( unidade, tipo ), empreendimento:empreendimento_id ( nome ), corretor:corretor_id(nome)`)
-                                .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
-                                .order('created_at', { ascending: false })
-                                .then(({ data }) => setContratos(data || []));
-                            
-                            return response.message;
-                        },
-                        error: (err) => `Erro ao duplicar: ${err.message}`
-                    });
-                }
-            },
-            cancel: { label: "Cancelar" }
+        toast.promise(supabase.rpc('duplicar_contrato_e_detalhes', { p_contrato_id: contrato.id, p_organizacao_id: organizacaoId }), {
+            loading: 'Duplicando contrato...',
+            success: () => { if(onUpdate) onUpdate(); return "Contrato duplicado!"; },
+            error: (err) => `Erro: ${err.message}`
         });
     };
 
-    const handleDelete = (e, contratoParaExcluir) => {
+    const handleDelete = (e, contrato) => {
         e.stopPropagation();
-
-        toast("Confirmar Exclusão", {
-            description: `Tem certeza que deseja excluir o contrato para a Unidade ${contratoParaExcluir.produto?.unidade}? Esta ação não pode ser desfeita.`,
-            action: {
-                label: "Excluir",
-                onClick: () => {
-                    // =================================================================================
-                    // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-                    // O PORQUÊ: Passamos o `organizacaoId` para a função do banco de dados
-                    // para garantir que a exclusão ocorra de forma segura.
-                    // =================================================================================
-                    const promise = supabase.rpc('excluir_contrato_e_liberar_unidade', {
-                        p_contrato_id: contratoParaExcluir.id,
-                        p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
-                    });
-
-                    toast.promise(promise, {
-                        loading: 'Excluindo contrato...',
-                        success: (data) => {
-                            setContratos(prevContratos => prevContratos.filter(c => c.id !== contratoParaExcluir.id));
-                            return data;
-                        },
-                        error: (err) => `Erro ao excluir: ${err.message}`
-                    });
-                }
-            },
-            cancel: { label: "Cancelar" },
-            classNames: { actionButton: 'bg-red-600' }
+        toast.promise(supabase.rpc('excluir_contrato_e_liberar_unidade', { p_contrato_id: contrato.id, p_organizacao_id: organizacaoId }), {
+            loading: 'Excluindo contrato...',
+            success: () => { if(onUpdate) onUpdate(); return "Contrato excluído!"; },
+            error: (err) => `Erro: ${err.message}`
         });
     };
 
-    const SortableHeader = ({ label, sortKey }) => {
-        const getSortIcon = () => {
-            if (sortConfig.key !== sortKey) return faSort;
-            return sortConfig.direction === 'ascending' ? faSortUp : faSortDown;
-        };
-
-        return (
-            <th className="px-6 py-3 text-left text-xs font-medium uppercase">
-                <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2">
-                    {label}
-                    <FontAwesomeIcon icon={getSortIcon()} className="text-gray-400" />
-                </button>
-            </th>
-        );
+    const SortableHeader = ({ label, sortKey }) => (
+        <th className="px-6 py-3 text-left text-xs font-medium uppercase">
+            <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2">
+                {label}
+                <FontAwesomeIcon icon={sortConfig.key === sortKey ? (sortConfig.direction === 'ascending' ? faSortUp : faSortDown) : faSort} className="text-gray-400" />
+            </button>
+        </th>
+    );
+    
+    const statusOptions = ['Em assinatura', 'Assinado', 'Distratado', 'Finalizado'];
+    const getStatusClass = (status) => {
+        switch (status) {
+            case 'Assinado': return 'bg-green-100 text-green-800';
+            case 'Distratado': return 'bg-red-100 text-red-800';
+            case 'Finalizado': return 'bg-blue-100 text-blue-800';
+            default: return 'bg-yellow-100 text-yellow-800';
+        }
     };
 
     return (
-        <div className="space-y-4">
-            <input
-                type="text"
-                placeholder="Buscar por nº, cliente, produto, empreendimento ou corretor..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full p-2 border rounded-md"
-            />
+        <div className="bg-white rounded-lg shadow">
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
                             <SortableHeader label="Nº Contrato" sortKey="id" />
-                            <SortableHeader label="Cliente" sortKey="cliente" />
-                            <SortableHeader label="Produto" sortKey="produto" />
-                            <SortableHeader label="Empreendimento" sortKey="empreendimento" />
+                            <SortableHeader label="Cliente" sortKey="contato_id" />
+                            <SortableHeader label="Produto" sortKey="produto_id" />
+                            <SortableHeader label="Empreendimento" sortKey="empreendimento_id" />
                             <SortableHeader label="Data da Venda" sortKey="data_venda" />
-                            <SortableHeader label="Corretor" sortKey="corretor" />
+                            <SortableHeader label="Status" sortKey="status_contrato" />
                             <th className="px-6 py-3 text-right text-xs font-medium uppercase">
                                 <button onClick={() => requestSort('valor_final_venda')} className="flex items-center gap-2 ml-auto">
                                     Valor
@@ -214,32 +111,45 @@ export default function ContratoList({ initialContratos }) {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {sortedAndFilteredContratos.map((contrato) => (
-                            <tr key={contrato.id} className="hover:bg-gray-50">
+                        {contratos.length > 0 ? contratos.map((contrato) => (
+                            <tr key={contrato.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/contratos/${contrato.id}`)}>
                                 <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-700">{contrato.id}</td>
-                                <td className="px-6 py-4 whitespace-nowrap cursor-pointer hover:text-blue-600" onClick={() => router.push(`/contratos/${contrato.id}`)}>
-                                    {contrato.contato?.nome || contrato.contato?.razao_social || 'N/A'}
-                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">{contrato.contato?.nome || contrato.contato?.razao_social || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">Unidade {contrato.produto?.unidade || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{contrato.empreendimento?.nome || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{formatDate(contrato.data_venda)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{contrato.corretor?.nome || 'N/A'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                    {editingStatusId === contrato.id ? (
+                                        <select
+                                            defaultValue={contrato.status_contrato}
+                                            onChange={(e) => handleStatusChange(contrato.id, e.target.value)}
+                                            onBlur={() => setEditingStatusId(null)}
+                                            className="p-1 border rounded-md bg-white shadow-sm focus:ring-2 focus:ring-blue-500"
+                                            autoFocus
+                                        >
+                                            {statusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                        </select>
+                                    ) : (
+                                        <span
+                                            onClick={() => setEditingStatusId(contrato.id)}
+                                            className={`px-2 py-1 font-semibold leading-tight rounded-full text-xs cursor-pointer ${getStatusClass(contrato.status_contrato)}`}
+                                        >
+                                            {contrato.status_contrato}
+                                        </span>
+                                    )}
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right font-semibold">{formatCurrency(contrato.valor_final_venda)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-center">
                                     <div className="flex items-center justify-center gap-4">
-                                        <button onClick={() => router.push(`/contratos/${contrato.id}`)} className="text-blue-600 hover:text-blue-800" title="Visualizar/Editar Contrato">
-                                            <FontAwesomeIcon icon={faEye} />
-                                        </button>
-                                        <button onClick={(e) => handleDuplicate(e, contrato)} className="text-gray-500 hover:text-gray-700" title="Duplicar Contrato">
-                                            <FontAwesomeIcon icon={faCopy} />
-                                        </button>
-                                        <button onClick={(e) => handleDelete(e, contrato)} className="text-red-600 hover:text-red-800" title="Excluir Contrato">
-                                            <FontAwesomeIcon icon={faTrash} />
-                                        </button>
+                                        <button onClick={(e) => { e.stopPropagation(); router.push(`/contratos/${contrato.id}`); }} className="text-blue-600 hover:text-blue-800" title="Visualizar/Editar Contrato"><FontAwesomeIcon icon={faEye} /></button>
+                                        <button onClick={(e) => handleDuplicate(e, contrato)} className="text-gray-500 hover:text-gray-700" title="Duplicar Contrato"><FontAwesomeIcon icon={faCopy} /></button>
+                                        <button onClick={(e) => handleDelete(e, contrato)} className="text-red-600 hover:text-red-800" title="Excluir Contrato"><FontAwesomeIcon icon={faTrash} /></button>
                                     </div>
                                 </td>
                             </tr>
-                        ))}
+                        )) : (
+                            <tr><td colSpan="8" className="text-center py-10 text-gray-500">Nenhum contrato encontrado.</td></tr>
+                        )}
                     </tbody>
                 </table>
             </div>
