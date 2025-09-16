@@ -19,6 +19,15 @@ const StatusIndicator = ({ status, message }) => {
     return null;
 };
 
+// Pequena função para formatar nosso texto de data para exibição na tela
+const formatDbStringToBr = (dbString) => {
+    if (!dbString) return 'N/A';
+    const [datePart, timePart] = dbString.split(' ');
+    const [year, month, day] = datePart.split('-');
+    return `${day}/${month}/${year} ${timePart}`;
+};
+
+
 export default function PontoImporter({ employees, onImport }) {
   const supabase = createClient();
   const { user } = useAuth();
@@ -43,10 +52,12 @@ export default function PontoImporter({ employees, onImport }) {
     toast.info('Lendo e processando o arquivo...');
 
     const content = await selectedFile.text();
-    const lines = content.split(/\r\n|\n/).filter(line => line.trim() !== '');
+    const lines = content.split(/\r\n|\n/).filter(line => line.trim() !== '' && line.includes('\t'));
 
     const recordsFromFile = [];
-    lines.forEach((line, index) => {
+    
+    // Começamos do 1 para pular o cabeçalho
+    lines.slice(1).forEach((line, index) => {
       const parts = line.split('\t');
       if (parts.length < 4) return;
       
@@ -54,27 +65,24 @@ export default function PontoImporter({ employees, onImport }) {
       const dateTimeString = parts[3].trim();
       const [datePart, timePart] = dateTimeString.split(/\s+/);
 
-      if (datePart && timePart) {
+      if (datePart && timePart && datePart.includes('/')) {
           const [day, month, year] = datePart.split('/');
+          
           // =================================================================================
-          // INÍCIO DA CORREÇÃO DO BUG DE FUSO HORÁRIO (IMPORTAÇÃO)
-          // O PORQUÊ: Adicionamos 'Z' ao final da string de data/hora. Isso força o
-          // Javascript a tratar o horário como UTC desde o início, impedindo que ele
-          // adicione horas extras com base no fuso horário local.
+          // CORREÇÃO AQUI 1/3: Criando a data como TEXTO
+          // O PORQUÊ: Em vez de criar um objeto `new Date()` que faz a conversão de fuso,
+          // nós montamos uma string de texto no formato que o banco de dados entende.
+          // Isso garante que "13:00" continue sendo "13:00".
           // =================================================================================
-          const isoDateTime = `${year}-${month}-${day}T${timePart}:00.000Z`; 
-          const date = new Date(isoDateTime);
-          // =================================================================================
-          // FIM DA CORREÇÃO
-          // =================================================================================
+          const data_hora_texto = `${year}-${month}-${day} ${timePart}`;
           
           const employeeInfo = employeeMap.get(numeroPonto);
           recordsFromFile.push({
               numero_ponto: numeroPonto,
               employee_name: employeeInfo?.name,
               funcionario_id: employeeInfo?.id,
-              data_hora: date,
-              original_line: index + 1,
+              data_hora_texto: data_hora_texto, // Salvamos nosso texto
+              original_line: index + 2,
               status: employeeInfo ? 'success' : 'error',
               error_message: employeeInfo ? null : `Funcionário com Nº de Ponto "${numeroPonto}" não encontrado.`
           });
@@ -83,7 +91,7 @@ export default function PontoImporter({ employees, onImport }) {
 
     const groupedByEmployeeAndDay = recordsFromFile.reduce((acc, record) => {
         if(record.status !== 'success') return acc;
-        const dayKey = record.data_hora.toISOString().split('T')[0];
+        const dayKey = record.data_hora_texto.split(' ')[0];
         const key = `${record.funcionario_id}-${dayKey}`;
         if (!acc[key]) acc[key] = [];
         acc[key].push(record);
@@ -93,11 +101,18 @@ export default function PontoImporter({ employees, onImport }) {
     const finalRecords = [];
     const tipos = ['Entrada', 'Inicio_Intervalo', 'Fim_Intervalo', 'Saida'];
     for (const key in groupedByEmployeeAndDay) {
-        const dayRecords = groupedByEmployeeAndDay[key].sort((a, b) => a.data_hora - b.data_hora);
-        dayRecords.forEach((record, index) => {
-            if (index < tipos.length) {
-                finalRecords.push({ ...record, tipo_registro: tipos[index] });
-            }
+        // =================================================================================
+        // CORREÇÃO AQUI 2/3: Ordenando por TEXTO
+        // O PORQUÊ: Como agora temos texto, usamos `localeCompare` para ordenar
+        // corretamente as batidas do dia.
+        // =================================================================================
+        const dayRecords = groupedByEmployeeAndDay[key].sort((a, b) => a.data_hora_texto.localeCompare(b.data_hora_texto));
+        
+        // Atribui os tipos (Entrada, Saída, etc) para até 4 registros
+        const recordsToProcess = dayRecords.slice(0, 4);
+
+        recordsToProcess.forEach((record, index) => {
+            finalRecords.push({ ...record, tipo_registro: tipos[index] });
         });
     }
 
@@ -111,7 +126,7 @@ export default function PontoImporter({ employees, onImport }) {
     const errorCount = allDisplayRecords.length - readyCount;
     setSummary({ ready: readyCount, errors: errorCount });
 
-    toast.info(`Arquivo processado: ${readyCount} registros prontos, ${errorCount} com erros.`);
+    toast.success(`Arquivo processado: ${readyCount} registros prontos, ${errorCount} com erros.`);
     setIsProcessing(false);
   };
 
@@ -119,9 +134,14 @@ export default function PontoImporter({ employees, onImport }) {
     mutationFn: async (records) => {
         if (!organizacaoId) throw new Error("Organização não identificada.");
 
+        // =================================================================================
+        // CORREÇÃO AQUI 3/3: Enviando o TEXTO para o banco
+        // O PORQUÊ: Mapeamos os registros e passamos o campo `data_hora_texto`
+        // diretamente para a coluna `data_hora`. Sem `toISOString()`, sem conversão.
+        // =================================================================================
         const recordsForDb = records.map(rec => ({
             funcionario_id: rec.funcionario_id,
-            data_hora: rec.data_hora.toISOString(),
+            data_hora: rec.data_hora_texto,
             tipo_registro: rec.tipo_registro,
             observacao: 'Importado via arquivo TXT',
             organizacao_id: organizacaoId, 
@@ -162,7 +182,7 @@ export default function PontoImporter({ employees, onImport }) {
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Importar Ponto (.txt)</h2>
         <p className="text-sm text-gray-600 mb-4">
-          Selecione o arquivo de ponto. O sistema irá adicionar as batidas de ponto apenas nos campos que estiverem vazios. <strong>Registros manuais ou já existentes não serão sobrescritos.</strong>
+          Selecione o arquivo de ponto gerado pelo relógio. O sistema irá adicionar as batidas de ponto apenas nos campos que estiverem vazios. <strong>Registros manuais ou já existentes não serão sobrescritos.</strong>
         </p>
         <input
           type="file"
@@ -195,7 +215,7 @@ export default function PontoImporter({ employees, onImport }) {
                 {processedRecords.map((rec, index) => (
                   <tr key={index} className={rec.status === 'error' ? 'bg-red-50' : 'hover:bg-gray-50'}>
                     <td className="px-4 py-2 whitespace-nowrap">{rec.employee_name || <span className="text-gray-500">Desconhecido</span>}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{rec.data_hora.toLocaleString('pt-BR')}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{formatDbStringToBr(rec.data_hora_texto)}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{rec.tipo_registro || 'N/A'}</td>
                     <td className="px-4 py-2 whitespace-nowrap">
                         <StatusIndicator status={rec.status} message={rec.error_message} />
