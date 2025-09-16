@@ -17,13 +17,21 @@ const fetchFilterData = async (organizacaoId) => {
     if (!organizacaoId) return { clientes: [], corretores: [], produtos: [], empreendimentos: [] };
     const supabase = createClient();
     
-    // O PORQUÊ: Agora chamamos a nova função que busca apenas clientes com contratos.
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO
+    // O PORQUÊ: Assim como fizemos para os clientes, agora chamamos a nova função
+    // especialista 'get_corretores_com_contrato' para garantir que a lista de
+    // corretores no filtro contenha apenas aqueles que de fato possuem contratos.
+    // =================================================================================
     const [clientesRes, corretoresRes, produtosRes, empreendimentosRes] = await Promise.all([
         supabase.rpc('get_clientes_com_contrato', { p_organizacao_id: organizacaoId }),
-        supabase.from('contatos').select('id, nome, razao_social').eq('organizacao_id', organizacaoId).eq('tipo_contato', 'Corretor'),
+        supabase.rpc('get_corretores_com_contrato', { p_organizacao_id: organizacaoId }), // <-- CORREÇÃO AQUI
         supabase.from('produtos_empreendimento').select('id, tipo, unidade').eq('organizacao_id', organizacaoId),
         supabase.from('empreendimentos').select('id, nome').eq('organizacao_id', organizacaoId),
     ]);
+    // =================================================================================
+    // FIM DA CORREÇÃO
+    // =================================================================================
     
     return {
         clientes: clientesRes.data || [],
