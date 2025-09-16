@@ -1,3 +1,4 @@
+// components/painel/CustomKpiCard.js
 "use client";
 
 import { useQuery } from '@tanstack/react-query';
@@ -7,59 +8,64 @@ import KpiCard from '../KpiCard';
 import { faSpinner, faChartPie } from '@fortawesome/free-solid-svg-icons';
 import { useMemo } from 'react';
 
-// A função de aplicar filtros permanece a mesma, pois a segurança é garantida antes.
-const applyFiltersToQuery = (query, currentFilters) => {
-    if (!currentFilters) return query;
-    if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
-    if (currentFilters.startDate) query = query.gte('data_transacao', currentFilters.startDate);
-    if (currentFilters.endDate) query = query.lte('data_transacao', currentFilters.endDate);
-    if (currentFilters.empresaIds?.length > 0) query = query.in('empresa_id', currentFilters.empresaIds);
-    if (currentFilters.contaIds?.length > 0) query = query.in('conta_id', currentFilters.contaIds);
-    if (currentFilters.categoriaIds?.length > 0) query = query.in('categoria_id', currentFilters.categoriaIds);
-    if (currentFilters.empreendimentoIds?.length > 0) query = query.in('empreendimento_id', currentFilters.empreendimentoIds);
-    if (currentFilters.favorecidoId) query = query.eq('favorecido_contato_id', currentFilters.favorecidoId);
-    if (currentFilters.tipo?.length > 0 && currentFilters.tipo[0] !== '') {
-        query = query.in('tipo', Array.isArray(currentFilters.tipo) ? currentFilters.tipo : [currentFilters.tipo]);
-    }
-    return query;
-};
-
-// O PORQUÊ: A função agora recebe 'organizacao_id' para garantir que os cálculos
-// sejam feitos apenas com os dados da organização correta.
+// =================================================================================
+// INÍCIO DA CORREÇÃO PONTUAL
+// O PORQUÊ: Esta função foi ajustada para chamar a função do banco de dados
+// 'consultar_lancamentos_filtrados' EXATAMENTE como a página 'financeiro/page.js' faz.
+// 1. Ela passa o objeto 'filters' inteiro como o parâmetro 'p_filtros'.
+// 2. Ela encadeia o .select('valor, tipo') para buscar apenas os dados necessários.
+// Isso garante 100% de consistência com a lógica de busca já existente.
+// =================================================================================
 async function calculateKpiValue({ queryKey }) {
     const [_key, kpiDefinition, organizacao_id] = queryKey;
-    if (!organizacao_id) return []; // Retorna vazio se não houver organização
+
+    if (!organizacao_id || !kpiDefinition) {
+        return [];
+    }
 
     const supabase = createClient();
+    const filters = kpiDefinition.filtros || {};
 
-    // BLINDADO: A query agora é filtrada por 'organizacao_id' antes de qualquer outro filtro.
-    let query = supabase.from('lancamentos').select('valor, tipo').eq('organizacao_id', organizacao_id);
-    query = applyFiltersToQuery(query, kpiDefinition.filtros);
+    const { data, error } = await supabase
+        .rpc('consultar_lancamentos_filtrados', {
+            p_organizacao_id: organizacao_id,
+            p_filtros: filters 
+        })
+        .select('valor, tipo');
 
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
+    if (error) {
+        console.error("Erro ao calcular KPI:", error);
+        throw new Error(error.message);
+    }
 
     return data || [];
 }
+// =================================================================================
+// FIM DA CORREÇÃO PONTUAL
+// =================================================================================
 
 export default function CustomKpiCard({ kpi }) {
-    const { organizacao_id } = useAuth(); // BLINDADO: Pegamos a organização
+    const { organizacao_id } = useAuth();
 
-    const { data: rawData, isLoading, isError } = useQuery({
-        // O PORQUÊ: A chave da query agora inclui o 'organizacao_id' para garantir
-        // que os dados de cada organização sejam cacheados separadamente.
+    const { data: rawData, isLoading, isError, error } = useQuery({
         queryKey: ['customKpiValue', kpi, organizacao_id],
         queryFn: calculateKpiValue,
-        enabled: !!organizacao_id, // A query só roda se a organização existir.
+        enabled: !!organizacao_id && !!kpi,
     });
 
     const formattedValue = useMemo(() => {
         if (isLoading) return 'Calculando...';
-        if (isError) return 'Erro';
-        if (!rawData) return 'N/A';
+        if (isError) {
+            console.error("Erro no KPI Card:", error);
+            return 'Erro no cálculo';
+        }
+        if (!rawData) return 'R$ 0,00';
 
-        const receitas = rawData.filter(l => l.tipo === 'Receita').reduce((acc, l) => acc + l.valor, 0);
-        const despesas = rawData.filter(l => l.tipo === 'Despesa').reduce((acc, l) => acc + l.valor, 0);
+        // O PORQUÊ: A função RPC retorna uma lista de lançamentos.
+        // Esta lógica calcula os totais a partir dessa lista,
+        // garantindo que o valor seja processado corretamente.
+        const receitas = rawData.filter(l => l.tipo === 'Receita').reduce((acc, l) => acc + (l.valor || 0), 0);
+        const despesas = rawData.filter(l => l.tipo === 'Despesa').reduce((acc, l) => acc + (l.valor || 0), 0);
 
         let total;
         switch (kpi.tipo_calculo) {
@@ -70,8 +76,8 @@ export default function CustomKpiCard({ kpi }) {
             default: total = 0;
         }
         
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total);
-    }, [rawData, isLoading, isError, kpi.tipo_calculo]);
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total || 0);
+    }, [rawData, isLoading, isError, kpi.tipo_calculo, error]);
 
     return (
         <KpiCard

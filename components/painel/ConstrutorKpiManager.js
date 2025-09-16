@@ -1,3 +1,4 @@
+// components/painel/ConstrutorKpiManager.js
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
@@ -7,7 +8,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faSpinner, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
-// Função para buscar os KPIs
 const fetchKpis = async (organizacao_id) => {
     if (!organizacao_id) return [];
     const supabase = createClient();
@@ -27,20 +27,12 @@ const ConstrutorKpiManager = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingKpi, setEditingKpi] = useState(null);
 
-    // PADRÃO OURO: Buscando dados com useQuery
     const { data: kpis, isLoading, isError, error } = useQuery({
         queryKey: ['kpisPersonalizados', organizacao_id],
         queryFn: () => fetchKpis(organizacao_id),
         enabled: !!organizacao_id,
     });
 
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO: useMutation para DELETAR
-    // O PORQUÊ: Centralizamos a lógica de exclusão aqui.
-    // 1. A mutationFn faz a chamada segura ao Supabase, deletando pelo ID E pela organizacao_id.
-    // 2. No onSuccess, invalidamos a query 'kpisPersonalizados' para que a lista na tela
-    //    seja atualizada automaticamente, removendo o item excluído.
-    // =================================================================================
     const deleteKpiMutation = useMutation({
         mutationFn: async (kpiId) => {
             const supabase = createClient();
@@ -48,12 +40,21 @@ const ConstrutorKpiManager = () => {
                 .from('kpis_personalizados')
                 .delete()
                 .eq('id', kpiId)
-                .eq('organizacao_id', organizacao_id); // Pilar de Segurança 2!
+                .eq('organizacao_id', organizacao_id);
 
             if (error) throw new Error(error.message);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['kpisPersonalizados', organizacao_id] });
+            // =================================================================================
+            // INÍCIO DA CORREÇÃO
+            // O PORQUÊ: Assim como ao salvar, ao DELETAR um KPI, também precisamos
+            // invalidar o cache dos valores para que o painel seja atualizado.
+            // =================================================================================
+            queryClient.invalidateQueries({ queryKey: ['customKpiValue'] });
+            // =================================================================================
+            // FIM DA CORREÇÃO
+            // =================================================================================
         },
     });
 
@@ -74,9 +75,6 @@ const ConstrutorKpiManager = () => {
             },
         });
     };
-    // =================================================================================
-    // FIM DA CORREÇÃO
-    // =================================================================================
 
     const handleEdit = (kpi) => {
         setEditingKpi(kpi);
@@ -98,7 +96,8 @@ const ConstrutorKpiManager = () => {
                     kpiToEdit={editingKpi} 
                     onDone={() => {
                         setIsModalOpen(false);
-                        queryClient.invalidateQueries({ queryKey: ['kpisPersonalizados', organizacao_id] });
+                        // O onDone do formulário já invalida as queries necessárias,
+                        // então não precisamos duplicar a invalidação aqui.
                     }} 
                 />
             )}

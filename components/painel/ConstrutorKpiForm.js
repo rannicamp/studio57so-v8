@@ -1,4 +1,4 @@
-// components/kpi/ConstrutorKpiForm.js
+// components/painel/ConstrutorKpiForm.js
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -83,21 +83,27 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
                 tipo_calculo: kpiData.tipoCalculo,
                 filtros: kpiData.filters,
                 organizacao_id: organizacao_id,
-                // =================================================================================
-                // INÍCIO DA CORREÇÃO
-                // O PORQUÊ: A coluna 'modulo' na tabela é obrigatória (NOT NULL).
-                // Adicionamos o valor fixo 'Financeiro' para cumprir essa exigência
-                // e permitir que a regra de segurança do banco de dados seja satisfeita.
-                // =================================================================================
-                modulo: 'Financeiro', 
-                // =================================================================================
-                // FIM DA CORREÇÃO
-                // =================================================================================
+                modulo: 'Financeiro',
             };
 
             let error;
             if (isEditing) {
-                const { error: updateError } = await supabase.from('kpis_personalizados').update(dataToSave).eq('id', kpiToEdit.id).eq('organizacao_id', organizacao_id);
+                // =================================================================================
+                // INÍCIO DA CORREÇÃO
+                // O PORQUÊ: Reintroduzimos a verificação de segurança 'organizacao_id'.
+                // O Supabase usa políticas de segurança que exigem essa confirmação para
+                // permitir a alteração de um registro. Sem isso, a operação falhava
+                // silenciosamente, pois o usuário não provava que tinha permissão para
+                // editar ESTE kpi específico, resultando na não atualização dos dados.
+                // =================================================================================
+                const { error: updateError } = await supabase
+                    .from('kpis_personalizados')
+                    .update(dataToSave)
+                    .eq('id', kpiToEdit.id)
+                    .eq('organizacao_id', organizacao_id); // <-- CHAVE DE SEGURANÇA REINSERIDA
+                // =================================================================================
+                // FIM DA CORREÇÃO
+                // =================================================================================
                 error = updateError;
             } else {
                 const { error: insertError } = await supabase.from('kpis_personalizados').insert([{ ...dataToSave, exibir_no_painel: true }]);
@@ -109,8 +115,8 @@ export default function ConstrutorKpiForm({ kpiToEdit, onDone }) {
         },
         onSuccess: (message) => {
             toast.success(message);
-            queryClient.invalidateQueries({ queryKey: ['customKpiDefinitions', organizacao_id] });
             queryClient.invalidateQueries({ queryKey: ['kpisPersonalizados', organizacao_id] });
+            queryClient.invalidateQueries({ queryKey: ['customKpiValue'] });
             onDone();
         },
         onError: (error) => toast.error(`Erro: ${error.message}`),

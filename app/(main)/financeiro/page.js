@@ -42,40 +42,15 @@ async function fetchInitialData(organizacao_id) {
     };
 }
 
-const applyFiltersToQuery = (query, currentFilters) => {
-    if (currentFilters.searchTerm) query = query.ilike('descricao', `%${currentFilters.searchTerm}%`);
-    
-    if (currentFilters.startDate || currentFilters.endDate) {
-        const startDate = currentFilters.startDate || '1970-01-01';
-        const endDate = currentFilters.endDate || new Date().toISOString().split('T')[0];
-        
-        const pagoInRange = `and(status.eq.Pago,data_pagamento.gte.${startDate},data_pagamento.lte.${endDate})`;
-        const pendenteInRange = `and(status.neq.Pago,data_vencimento.gte.${startDate},data_vencimento.lte.${endDate})`;
-        query = query.or(`${pagoInRange},${pendenteInRange}`);
-    }
+// ==========================================================
+// MUDANÇA ESTRATÉGICA
+// O PORQUÊ: A função applyFiltersToQuery foi removida. Para garantir 100% de
+// consistência, toda a lógica de filtragem foi movida para a função SQL
+// 'consultar_lancamentos_filtrados' no banco de dados. Agora, tanto esta
+// página quanto o Construtor de KPI usarão a mesma "Fonte da Verdade".
+// ==========================================================
+// const applyFiltersToQuery = (query, currentFilters) => { ... }; // <-- LÓGICA REMOVIDA DAQUI
 
-    if (currentFilters.empresaIds?.length > 0) query = query.in('empresa_id', currentFilters.empresaIds);
-    if (currentFilters.contaIds?.length > 0) query = query.in('conta_id', currentFilters.contaIds);
-    if (currentFilters.categoriaIds?.length > 0) query = query.in('categoria_id', currentFilters.categoriaIds);
-    if (currentFilters.empreendimentoIds?.length > 0) query = query.in('empreendimento_id', currentFilters.empreendimentoIds);
-    if (currentFilters.etapaIds?.length > 0) query = query.in('etapa_id', currentFilters.etapaIds);
-    if (currentFilters.favorecidoId) query = query.eq('favorecido_contato_id', currentFilters.favorecidoId);
-    
-    if (currentFilters.status?.length > 0) {
-        const today = new Date().toISOString().split('T')[0];
-        const orConditions = [];
-        currentFilters.status.forEach(status => {
-            if (status === 'Pago') orConditions.push('status.eq.Pago');
-            if (status === 'Pendente') orConditions.push(`and(status.eq.Pendente,tipo.eq.Despesa,data_vencimento.gte.${today})`);
-            if (status === 'Atrasada') orConditions.push(`and(status.eq.Pendente,data_vencimento.lt.${today})`);
-            if (status === 'A Receber') orConditions.push(`and(tipo.eq.Receita,status.eq.Pendente,data_vencimento.gte.${today})`);
-        });
-        if (orConditions.length > 0) query = query.or(orConditions.join(','));
-    }
-
-    if (currentFilters.tipo?.length > 0) query = query.in('tipo', currentFilters.tipo);
-    return query;
-};
 
 async function fetchLancamentos({ queryKey }) {
     const [_key, { filters, currentPage, itemsPerPage, sortConfig, organizacao_id }] = queryKey;
@@ -84,45 +59,39 @@ async function fetchLancamentos({ queryKey }) {
     const from = (currentPage - 1) * itemsPerPage;
     const to = from + itemsPerPage - 1;
 
-    // ==========================================================
-    // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: Adicionamos a dica "!empresa_id" para dizer ao Supabase
-    // exatamente como a tabela 'lancamentos' se conecta com a 'cadastro_empresa'.
-    // Isso remove a ambiguidade e garante que o nome da empresa seja buscado.
-    // ==========================================================
-    const selectString = `
-        *,
-        conta:contas_financeiras(nome),
-        categoria:categorias_financeiras(nome),
-        favorecido:contatos(nome, razao_social),
-        empresa:cadastro_empresa!empresa_id(nome_fantasia, razao_social),
-        empreendimento:empreendimentos(nome)
-    `;
-    // ==========================================================
-    // FIM DA CORREÇÃO
-    // ==========================================================
-    
-    let query = supabase.from('lancamentos').select(selectString, { count: 'exact' }).eq('organizacao_id', organizacao_id);
-    query = applyFiltersToQuery(query, filters);
-    query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' }).range(from, to);
-    
-    const { data, error, count } = await query;
+    const selectString = `*, conta:contas_financeiras(nome), categoria:categorias_financeiras(nome), favorecido:contatos(nome, razao_social), empresa:cadastro_empresa!empresa_id(nome_fantasia, razao_social), empreendimento:empreendimentos(nome)`;
+
+    // Chamando a nova função centralizada no banco de dados (RPC)
+    const { data, error, count } = await supabase
+        .rpc('consultar_lancamentos_filtrados', { 
+            p_organizacao_id: organizacao_id, 
+            p_filtros: filters 
+        }, { count: 'exact' })
+        .select(selectString)
+        .order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' })
+        .range(from, to);
+
     if (error) {
-        console.error("Erro ao buscar lançamentos:", error);
+        console.error("Erro ao buscar lançamentos via RPC:", error);
         throw new Error(error.message);
     }
     
     return { data: data || [], count: count || 0 };
 }
 
+
 async function fetchLancamentosKpi({ queryKey }) {
     const [_key, { filters, organizacao_id }] = queryKey;
     if (!organizacao_id) return [];
 
-    let query = supabase.from('lancamentos').select('valor, tipo').eq('organizacao_id', organizacao_id);
-    query = applyFiltersToQuery(query, filters);
+    // Também usa a função centralizada para consistência total
+    const { data, error } = await supabase
+        .rpc('consultar_lancamentos_filtrados', {
+            p_organizacao_id: organizacao_id,
+            p_filtros: filters
+        })
+        .select('valor, tipo');
 
-    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return data || [];
 }
