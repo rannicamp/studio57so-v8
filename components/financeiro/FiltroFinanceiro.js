@@ -1,4 +1,3 @@
-//components\financeiro\FiltroFinanceiro.js
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -6,13 +5,13 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faFilter, faTimes, faSave, faStar as faStarSolid, faEllipsisV,
     faChevronUp, faChevronDown, faCalendarDay, faCalendarWeek, faCalendarAlt, faSyncAlt,
-    faArrowUp, faArrowDown, faTrash
+    faArrowUp, faArrowDown, faTrash, faSpinner
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
-import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
-import { useQuery } from '@tanstack/react-query'; // 2. Importar o useQuery
-import { toast } from 'sonner'; // 3. Importar o toast
+import { useAuth } from '../../contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import MultiSelectDropdown from './MultiSelectDropdown';
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
@@ -27,16 +26,12 @@ const initialFilterState = {
     etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', favorecidoId: null,
 };
 
-// =================================================================================
-// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
-// O PORQUÊ: Função de busca isolada para `useQuery`, agora com filtro de organização.
-// =================================================================================
 const fetchEtapas = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
     const { data, error } = await supabase
         .from('etapa_obra')
         .select('id, nome_etapa')
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId)
         .order('nome_etapa');
     if (error) throw new Error("Falha ao buscar etapas.");
     return data || [];
@@ -52,7 +47,7 @@ export default function FiltroFinanceiro({
     allContacts
 }) {
     const supabase = createClient();
-    const { user } = useAuth(); // 4. Obter o usuário para o organizacaoId
+    const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
     const [filtersVisible, setFiltersVisible] = useState(true);
@@ -64,31 +59,45 @@ export default function FiltroFinanceiro({
     
     const [favorecidoSearchTerm, setFavorecidoSearchTerm] = useState('');
     const [favorecidoSearchResults, setFavorecidoSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
     const favorecidoInputRef = useRef(null);
     
-    // =================================================================================
-    // ATUALIZAÇÃO DE PADRÃO E SEGURANÇA (useQuery para Etapas)
-    // =================================================================================
     const { data: etapas = [] } = useQuery({
         queryKey: ['etapas', organizacaoId],
         queryFn: () => fetchEtapas(supabase, organizacaoId),
         enabled: !!organizacaoId,
     });
-
-    const handleFavorecidoSearch = useCallback(async (term) => {
-        setFavorecidoSearchTerm(term);
-        if (term.length < 2) {
+    
+    useEffect(() => {
+        if (favorecidoSearchTerm.length < 2) {
             setFavorecidoSearchResults([]);
             return;
         }
-        if (!organizacaoId) return; // Checagem de segurança
-        // ATUALIZAÇÃO DE SEGURANÇA na busca de contatos
-        const { data } = await supabase.rpc('buscar_contatos_geral', { 
-            p_search_term: term,
-            p_organizacao_id: organizacaoId // <-- FILTRO DE SEGURANÇA!
-        });
-        setFavorecidoSearchResults(data || []);
-    }, [supabase, organizacaoId]);
+
+        const timer = setTimeout(async () => {
+            if (!organizacaoId) return;
+            setIsSearching(true);
+            try {
+                const { data, error } = await supabase.rpc('buscar_contatos_geral', { 
+                    p_search_term: favorecidoSearchTerm,
+                    p_organizacao_id: organizacaoId
+                });
+
+                if (error) throw error; // Lança o erro para o catch
+
+                setFavorecidoSearchResults(data || []);
+            } catch (error) {
+                console.error("Erro ao buscar favorecido:", error);
+                toast.error("Não foi possível buscar os contatos.");
+                setFavorecidoSearchResults([]);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+
+    }, [favorecidoSearchTerm, supabase, organizacaoId]);
 
     const handleSelectFavorecido = (contato) => {
         handleFilterChange('favorecidoId', contato.id);
@@ -104,9 +113,12 @@ export default function FiltroFinanceiro({
 
     const selectedFavorecidoName = useMemo(() => {
         if (!filters.favorecidoId) return '';
+        // Prioriza a busca no resultado da pesquisa, depois na lista geral
+        const foundInSearch = favorecidoSearchResults.find(c => c.id === filters.favorecidoId);
+        if (foundInSearch) return foundInSearch.nome || foundInSearch.razao_social;
         const contato = allContacts.find(c => c.id === filters.favorecidoId);
-        return contato ? (contato.nome || contato.razao_social) : '';
-    }, [filters.favorecidoId, allContacts]);
+        return contato ? (contato.nome || contato.razao_social) : favorecidoSearchTerm;
+    }, [filters.favorecidoId, allContacts, favorecidoSearchResults, favorecidoSearchTerm]);
     
     useEffect(() => {
         const loadedFilters = JSON.parse(localStorage.getItem('savedFinancialFilters') || '[]');
@@ -131,10 +143,6 @@ export default function FiltroFinanceiro({
     
     const clearFilters = () => { setFilters(initialFilterState); setFavorecidoSearchTerm(''); setActivePeriodFilter(''); };
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE UX (troca de alert por toast)
-    // O PORQUÊ: Uma notificação mais elegante e consistente com o resto do sistema.
-    // =================================================================================
     const handleSaveFilter = () => { if (!newFilterName.trim()) { toast.warning('Por favor, dê um nome para o filtro.'); return; } const isFavorited = savedFilters.find(f => f.name === newFilterName)?.isFavorite || false; const updatedSavedFilters = savedFilters.filter(f => f.name !== newFilterName); const newSavedFilter = { name: newFilterName, settings: filters, isFavorite: isFavorited }; setSavedFilters([...updatedSavedFilters, newSavedFilter]); localStorage.setItem('savedFinancialFilters', JSON.stringify([...updatedSavedFilters, newSavedFilter])); setNewFilterName(''); toast.success(`Filtro "${newFilterName}" salvo!`); };
     const handleUpdateFilter = (filterName) => { const updated = savedFilters.map(f => f.name === filterName ? { ...f, settings: filters } : f); setSavedFilters(updated); localStorage.setItem('savedFinancialFilters', JSON.stringify(updated)); toast.success(`Filtro "${filterName}" atualizado com sucesso!`); };
     const handleToggleFavorite = (filterName) => { const updated = savedFilters.map(f => f.name === filterName ? { ...f, isFavorite: !f.isFavorite } : f); setSavedFilters(updated); localStorage.setItem('savedFinancialFilters', JSON.stringify(updated)); };
@@ -189,10 +197,11 @@ export default function FiltroFinanceiro({
                             </div>
                         ) : (
                             <>
-                                <input type="text" placeholder="Digite para buscar..." value={favorecidoSearchTerm} onChange={(e) => handleFavorecidoSearch(e.target.value)} className="mt-1 w-full p-2 border rounded-md shadow-sm h-[42px]" />
-                                {favorecidoSearchResults.length > 0 && (
+                                <input type="text" placeholder="Digite para buscar..." value={favorecidoSearchTerm} onChange={(e) => setFavorecidoSearchTerm(e.target.value)} className="mt-1 w-full p-2 border rounded-md shadow-sm h-[42px]" />
+                                {(isSearching || favorecidoSearchResults.length > 0) && (
                                     <ul className="absolute z-20 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto mt-1">
-                                        {favorecidoSearchResults.map(c => ( <li key={c.id} onClick={() => handleSelectFavorecido(c)} className="p-2 hover:bg-gray-100 cursor-pointer text-sm"> <HighlightedText text={c.nome || c.razao_social} highlight={favorecidoSearchTerm} /> </li> ))}
+                                        {isSearching && <li className="p-2 text-center text-gray-500"><FontAwesomeIcon icon={faSpinner} spin /> Buscando...</li>}
+                                        {!isSearching && favorecidoSearchResults.map(c => ( <li key={c.id} onClick={() => handleSelectFavorecido(c)} className="p-2 hover:bg-gray-100 cursor-pointer text-sm"> <HighlightedText text={c.nome || c.razao_social} highlight={favorecidoSearchTerm} /> </li> ))}
                                     </ul>
                                 )}
                             </>
