@@ -45,14 +45,27 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
     });
 
     const [isEmpreendimentosOpen, setIsEmpreendimentosOpen] = useState(true);
-
+    
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO
+    // O PORQUÊ: Modificamos o item "Recursos Humanos" para usar uma função de
+    // verificação personalizada (`permissionCheck`). Isso permite uma lógica mais
+    // complexa (OU em vez de E), garantindo que o menu apareça se o usuário
+    // tiver permissão para 'funcionarios' OU 'ponto'.
+    // =================================================================================
     const navSections = [
         {
             title: 'Administrativo',
             items: [
                 { href: '/', label: 'Painel', icon: faTachometerAlt, recurso: 'painel' },
                 { href: '/financeiro', label: 'Financeiro', icon: faDollarSign, recurso: 'financeiro' },
-                { href: '/recursos-humanos', label: 'Recursos Humanos', icon: faUsers, recurso: 'recursos_humanos' },
+                { 
+                    href: '/recursos-humanos', 
+                    label: 'Recursos Humanos', 
+                    icon: faUsers, 
+                    // Em vez de um 'recurso' simples, usamos uma função de checagem.
+                    permissionCheck: (hasPermission) => hasPermission('funcionarios', 'pode_ver') || hasPermission('ponto', 'pode_ver') 
+                },
                 { href: '/empresas', label: 'Empresas', icon: faBuilding, recurso: 'empresas' },
                 { href: '/contratos', label: 'Contratos', icon: faFileSignature, recurso: 'contratos' },
             ]
@@ -64,12 +77,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 if (!canViewEmpreendimentos) return null;
                 return (
                     <>
-                        {/* ================================================================================= */}
-                        {/* INÍCIO DA CORREÇÃO */}
-                        {/* O PORQUÊ: Dividimos o botão antigo em duas partes: um Link para a página */}
-                        {/* principal e um botão separado para a setinha que abre/fecha o submenu. */}
-                        {/* Isso restaura a navegação direta para a página de empreendimentos. */}
-                        {/* ================================================================================= */}
                         <div className="flex items-center justify-between w-full text-gray-700 hover:bg-gray-100 transition-colors duration-200 px-6">
                             <Link href="/empreendimentos" className="flex items-center flex-grow py-3">
                                 <FontAwesomeIcon icon={faProjectDiagram} className="text-lg w-6" />
@@ -79,12 +86,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                                 <FontAwesomeIcon icon={faChevronDown} className={`transform transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} />
                             </button>
                         </div>
-                        {/* ================================================================================= */}
-                        {/* FIM DA CORREÇÃO */}
-                        {/* ================================================================================= */}
                         {isMenuOpen && (
                             <ul className="bg-gray-50 border-l-4 border-gray-200 ml-6 pl-2">
-                                {/* O link "Ver Todos" foi removido pois o item principal agora é o link */}
                                 {empreendimentos.map(emp => (
                                     <li key={emp.id}><Link href={`/empreendimentos/${emp.id}`} className="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-200 text-sm group"><FontAwesomeIcon icon={faBoxOpen} className="w-6 text-center text-gray-400 group-hover:text-blue-500" /> {emp.nome}</Link></li>
                                 ))}
@@ -135,7 +138,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 </div>
                 <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2">
                     {allItems.map((item) => {
-                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['caixa_de_entrada', 'painel', 'perfil', 'anuncios'].includes(item.recurso);
+                        const canViewItem = item.permissionCheck ? item.permissionCheck(hasPermission) : (hasPermission(item.recurso, 'pode_ver') || ['caixa_de_entrada', 'painel', 'perfil', 'anuncios'].includes(item.recurso));
                         if (!canViewItem) return null;
                         return (
                             <Tooltip key={item.label} label={item.label} position={sidebarPosition === 'top' ? 'bottom' : 'top'}>
@@ -175,7 +178,11 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                                 {section.items ? (
                                     <ul>
                                         {section.items.map((item) => {
-                                            const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['caixa_de_entrada', 'painel', 'perfil', 'anuncios'].includes(item.recurso);
+                                            // Lógica de verificação atualizada para usar a função 'permissionCheck' quando ela existir.
+                                            const canViewItem = item.permissionCheck 
+                                                ? item.permissionCheck(hasPermission) 
+                                                : (hasPermission(item.recurso, 'pode_ver') || ['caixa_de_entrada', 'painel', 'perfil', 'anuncios'].includes(item.recurso));
+                                                
                                             if (!canViewItem) return null;
 
                                             return (
@@ -208,3 +215,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         </aside>
     );
 };
+// =================================================================================
+// FIM DA CORREÇÃO
+// =================================================================================
