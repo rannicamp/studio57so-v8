@@ -1,3 +1,4 @@
+// components/sidebar.js
 "use client";
 
 import { useState } from 'react';
@@ -9,14 +10,7 @@ import {
     faClipboardList, faCog, faChevronLeft, faChevronRight, faClock,
     faAddressBook, faDollarSign, faShoppingCart,
     faInbox, faBullseye, faFileSignature, faCalculator,
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: Adicionamos o novo ícone para a Orçamentação.
-    // =================================================================================
     faChevronDown, faBoxOpen, faFileInvoiceDollar
-    // =================================================================================
-    // FIM DA CORREÇÃO
-    // =================================================================================
 } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -58,8 +52,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             items: [
                 { href: '/', label: 'Painel', icon: faTachometerAlt, recurso: 'painel' },
                 { href: '/financeiro', label: 'Financeiro', icon: faDollarSign, recurso: 'financeiro' },
-                { href: '/funcionarios', label: 'Funcionários', icon: faUsers, recurso: 'funcionarios' },
-                { href: '/ponto', label: 'Controle de Ponto', icon: faClock, recurso: 'ponto' },
+                { href: '/recursos-humanos', label: 'Recursos Humanos', icon: faUsers, recurso: 'recursos_humanos' },
                 { href: '/empresas', label: 'Empresas', icon: faBuilding, recurso: 'empresas' },
                 { href: '/contratos', label: 'Contratos', icon: faFileSignature, recurso: 'contratos' },
             ]
@@ -71,16 +64,27 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 if (!canViewEmpreendimentos) return null;
                 return (
                     <>
-                        <button onClick={() => !isCollapsed && setMenuOpen(!isMenuOpen)} className="flex items-center justify-between w-full py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 px-6">
-                            <div className="flex items-center">
+                        {/* ================================================================================= */}
+                        {/* INÍCIO DA CORREÇÃO */}
+                        {/* O PORQUÊ: Dividimos o botão antigo em duas partes: um Link para a página */}
+                        {/* principal e um botão separado para a setinha que abre/fecha o submenu. */}
+                        {/* Isso restaura a navegação direta para a página de empreendimentos. */}
+                        {/* ================================================================================= */}
+                        <div className="flex items-center justify-between w-full text-gray-700 hover:bg-gray-100 transition-colors duration-200 px-6">
+                            <Link href="/empreendimentos" className="flex items-center flex-grow py-3">
                                 <FontAwesomeIcon icon={faProjectDiagram} className="text-lg w-6" />
                                 <span className="ml-4 text-sm font-medium">Empreendimentos</span>
-                            </div>
-                            <FontAwesomeIcon icon={faChevronDown} className={`transform transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} />
-                        </button>
+                            </Link>
+                            <button onClick={() => !isCollapsed && setMenuOpen(!isMenuOpen)} className="p-2 -mr-2">
+                                <FontAwesomeIcon icon={faChevronDown} className={`transform transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                        </div>
+                        {/* ================================================================================= */}
+                        {/* FIM DA CORREÇÃO */}
+                        {/* ================================================================================= */}
                         {isMenuOpen && (
                             <ul className="bg-gray-50 border-l-4 border-gray-200 ml-6 pl-2">
-                                <li><Link href="/empreendimentos" className="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-200 text-sm"><span className="w-6 text-center">-</span> Ver Todos</Link></li>
+                                {/* O link "Ver Todos" foi removido pois o item principal agora é o link */}
                                 {empreendimentos.map(emp => (
                                     <li key={emp.id}><Link href={`/empreendimentos/${emp.id}`} className="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-200 text-sm group"><FontAwesomeIcon icon={faBoxOpen} className="w-6 text-center text-gray-400 group-hover:text-blue-500" /> {emp.nome}</Link></li>
                                 ))}
@@ -103,15 +107,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         {
             title: 'Obra',
             items: [
-                // =================================================================================
-                // INÍCIO DA CORREÇÃO
-                // O PORQUÊ: Trocamos o ícone de 'faDollarSign' para 'faFileInvoiceDollar'
-                // para diferenciar visualmente "Orçamentação" de "Financeiro".
-                // =================================================================================
                 { href: '/orcamento', label: 'Orçamentação', icon: faFileInvoiceDollar, recurso: 'orcamento' },
-                // =================================================================================
-                // FIM DA CORREÇÃO
-                // =================================================================================
                 { href: '/pedidos', label: 'Pedidos de Compra', icon: faShoppingCart, recurso: 'pedidos' },
                 { href: '/almoxarifado', label: 'Almoxarifado', icon: faBoxOpen, recurso: 'almoxarifado' },
                 { href: '/rdo/gerenciador', label: 'Diário de Obra', icon: faClipboardList, recurso: 'rdo' },
@@ -126,6 +122,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
     const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom';
 
     if (isHorizontal) {
+        // ... (código para a barra horizontal mantido intacto)
         const positionClass = sidebarPosition === 'top' ? 'top-[65px]' : 'bottom-0';
         const allItems = navSections.flatMap(section => section.items || []);
 

@@ -1,0 +1,38 @@
+A Abordagem: Descoberta Automática da Organização via API
+Em vez de dependermos de uma configuração manual frágil (vincular cada página a uma empresa), vamos fazer o nosso sistema agir como um detetive. Sempre que um lead chegar, ele fará uma investigação instantânea para descobrir a qual dos seus clientes (qual organizacao_id) aquele lead pertence.
+
+Parte 1: A Configuração (Mínima e Mais Robusta)
+Ainda precisaremos de uma única "ponte" entre a Meta e o seu sistema, mas será uma ponte muito mais forte e centralizada.
+
+O Vínculo Principal: No mundo da Meta, a entidade que "possui" tudo (páginas, contas de anúncio, etc.) é o Gerenciador de Negócios (Meta Business Manager). Cada empresa sua no Studio 57 que anuncia no Facebook/Instagram tem um desses.
+
+Ação Necessária: Vamos adicionar um único campo novo na sua tabela cadastro_empresa chamado meta_business_id (ID do Gerenciador de Negócios).
+
+Configuração Única: Para cada empresa no seu sistema, você precisará configurar apenas uma vez o ID do Gerenciador de Negócios da Meta correspondente.
+
+Parte 2: A Nova Lógica do Webhook (O Detetive Digital)
+Agora, o nosso webhook (/api/meta/webhook) ficará incrivelmente inteligente. Ao receber um novo lead, ele fará o seguinte:
+
+Recebe a Pista: Ele pega o meta_page_id que veio junto com os dados do lead. Esta é a nossa primeira pista.
+
+Começa a Investigação (Pergunta à API da Meta): Com o token superpoderoso, ele vai até a API da Meta e pergunta: "Meta, por favor, me dê os detalhes desta página com ID [meta_page_id]."
+
+Descobre o Dono: A Meta vai responder com várias informações sobre a página. A informação mais valiosa para nós é o "dono" da página, ou seja, a qual Gerenciador de Negócios ela pertence.
+
+Resolve o Caso (Consulta Interna): Com o ID do Gerenciador de Negócios em mãos, nosso webhook faz uma última pergunta, desta vez para o nosso próprio banco de dados: "Qual das empresas cadastradas no Studio 57 possui este meta_business_id?"
+
+Encontra a organizacao_id: Ao encontrar a empresa correspondente, ele finalmente descobre a organizacao_id associada a ela.
+
+Salva o Lead no Lugar Certo: Com a organizacao_id em mãos, ele prossegue para salvar o contato, email, telefone e adicionar o lead ao funil, tudo dentro da organização correta, resolvendo o problema de forma definitiva.
+
+Resumindo: Nós vamos configurar o "dono" de cada negócio (o Business ID) uma única vez. A partir daí, não importa de qual página ou formulário o lead venha, o sistema fará o trabalho de detetive sozinho para descobrir a qual organização ele pertence e salvá-lo corretamente.
+
+Esta abordagem é:
+
+Totalmente Automatizada: Zero trabalho manual para cada nova página ou campanha.
+
+Mais Segura: O sistema só aceitará leads de Gerenciadores de Negócios que você explicitamente configurou.
+
+À Prova de Futuro: Se você adicionar 10 novas páginas à sua empresa na Meta, não precisará mudar nada no seu sistema. Tudo continuará funcionando.
+
+O que acha desta abordagem de detetive, meu lindo? Se aprovar, nosso próximo passo será preparar o banco de dados e depois partir para o código do webhook.

@@ -1,42 +1,86 @@
-// app/api/meta/webhook/route.js
-
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const getSupabaseAdmin = () => {
-    // AQUI ESTÁ A CORREÇÃO: trocamos SUPABASE_SERVICE_ROLE_KEY por SUPABASE_SECRET_KEY
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
         console.error("LOG: ERRO CRÍTICO - Variáveis de ambiente do Supabase não encontradas!");
         return null;
     }
-    // E AQUI TAMBÉM
     return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
 };
 
-// Função para garantir que o funil e a primeira coluna existam, criando-os se necessário.
-async function ensureFunilAndFirstColumn(supabase) {
-    // 1. Tenta encontrar o funil de vendas padrão.
+// Função "Detetive": Descobre a organização_id a partir do page_id
+async function getOrganizationIdByPageId(supabase, pageId) {
+    console.log(`LOG: [DETETIVE] Iniciando investigação para a página ID: ${pageId}`);
+    
+    // 1. Pergunta à API da Meta quem é o "dono" da página
+    const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
+    if (!PAGE_ACCESS_TOKEN) {
+        throw new Error("Token de Acesso à Página (META_PAGE_ACCESS_TOKEN) não configurado no servidor.");
+    }
+
+    const url = `https://graph.facebook.com/v20.0/${pageId}?fields=business&access_token=${PAGE_ACCESS_TOKEN}`;
+    console.log(`LOG: [DETETIVE] Consultando a Meta: ${url.replace(PAGE_ACCESS_TOKEN, '******')}`);
+    
+    const metaResponse = await fetch(url);
+    const metaData = await metaResponse.json();
+
+    if (!metaResponse.ok) {
+        throw new Error(`[DETETIVE] Falha ao buscar dados da página na Meta: ${metaData.error?.message || 'Erro desconhecido'}`);
+    }
+
+    const metaBusinessId = metaData.business?.id;
+    if (!metaBusinessId) {
+        throw new Error(`[DETETIVE] A página com ID ${pageId} não está associada a um Gerenciador de Negócios (Meta Business Manager).`);
+    }
+    console.log(`LOG: [DETETIVE] Dono encontrado! Meta Business ID: ${metaBusinessId}`);
+
+    // 2. Resolve o caso consultando nosso banco de dados
+    const { data: empresa, error } = await supabase
+        .from('cadastro_empresa')
+        .select('organizacao_id')
+        .eq('meta_business_id', metaBusinessId)
+        .single();
+
+    if (error) {
+        throw new Error(`[DETETIVE] Erro ao consultar a empresa no banco de dados com o Meta Business ID: ${metaBusinessId}. Detalhes: ${error.message}`);
+    }
+    if (!empresa) {
+        throw new Error(`[DETETIVE] Nenhuma empresa encontrada no sistema com o Meta Business ID: ${metaBusinessId}. Cadastre a empresa e seu ID para receber os leads.`);
+    }
+
+    console.log(`LOG: [DETETIVE] Caso resolvido! Organização ID: ${empresa.organizacao_id}`);
+    return empresa.organizacao_id;
+}
+
+
+// Função para garantir que o funil e a primeira coluna existam para uma organização.
+async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
+    console.log(`LOG: Verificando funil e coluna para a organização ID: ${organizacaoId}`);
+
+    // 1. Tenta encontrar o funil de vendas padrão para a organização.
     let { data: funil, error: funilFindError } = await supabase
         .from('funis')
         .select('id')
         .eq('nome', 'Funil de Vendas')
+        .eq('organizacao_id', organizacaoId)
         .single();
 
-    if (funilFindError && funilFindError.code !== 'PGRST116') { // PGRST116 = not found, o que é ok
+    if (funilFindError && funilFindError.code !== 'PGRST116') {
         throw new Error(`Erro ao buscar funil: ${funilFindError.message}`);
     }
 
-    // 2. Se o funil não existir, cria um novo.
+    // 2. Se o funil não existir, cria um novo para a organização.
     if (!funil) {
-        console.log("LOG: Funil de Vendas não encontrado. Criando um novo...");
+        console.log(`LOG: Funil de Vendas não encontrado para org ${organizacaoId}. Criando um novo...`);
         const { data: newFunil, error: funilCreateError } = await supabase
             .from('funis')
-            .insert({ nome: 'Funil de Vendas' })
+            .insert({ nome: 'Funil de Vendas', organizacao_id: organizacaoId })
             .select('id')
             .single();
         if (funilCreateError) throw new Error(`Erro ao criar funil: ${funilCreateError.message}`);
         funil = newFunil;
-        console.log(`LOG: Funil criado com ID: ${funil.id}`);
+        console.log(`LOG: Funil criado com ID: ${funil.id} para org ${organizacaoId}`);
     }
 
     // 3. Tenta encontrar a primeira coluna do funil.
@@ -57,7 +101,7 @@ async function ensureFunilAndFirstColumn(supabase) {
         console.log("LOG: Primeira coluna do funil não encontrada. Criando 'Novos Leads'...");
         const { data: newColuna, error: colunaCreateError } = await supabase
             .from('colunas_funil')
-            .insert({ funil_id: funil.id, nome: 'Novos Leads', ordem: 0 })
+            .insert({ funil_id: funil.id, nome: 'Novos Leads', ordem: 0, organizacao_id: organizacaoId })
             .select('id')
             .single();
         if (colunaCreateError) throw new Error(`Erro ao criar coluna: ${colunaCreateError.message}`);
@@ -65,7 +109,6 @@ async function ensureFunilAndFirstColumn(supabase) {
         console.log(`LOG: Coluna criada com ID: ${primeiraColuna.id}`);
     }
 
-    // 5. Retorna o ID da coluna que garantidamente existe.
     return primeiraColuna.id;
 }
 
@@ -110,10 +153,11 @@ export async function POST(request) {
         
         const leadValue = change.value;
         const leadId = leadValue.leadgen_id;
+        const pageId = leadValue.page_id;
 
-        if (!leadId) {
-             console.error("LOG: ERRO CRÍTICO - O evento de Lead não continha um 'leadgen_id'.");
-             throw new Error("O evento de Lead recebido não continha a identificação do lead (leadgen_id).");
+        if (!leadId || !pageId) {
+             console.error("LOG: ERRO CRÍTICO - O evento de Lead não continha 'leadgen_id' ou 'page_id'.");
+             throw new Error("O evento de Lead recebido não continha a identificação do lead (leadgen_id) ou da página (page_id).");
         }
 
         console.log(`LOG: Buscando no DB por contato com meta_lead_id: ${leadId}`);
@@ -125,6 +169,8 @@ export async function POST(request) {
         }
         
         let leadDetails;
+        let organizacaoId;
+
         // Verifica se é um lead de teste para não chamar a API da Meta
         if (leadId.startsWith('TEST_')) {
             console.log("LOG: [TESTE] Lead de simulação detectado. Usando dados fictícios.");
@@ -133,17 +179,25 @@ export async function POST(request) {
                     { name: "full_name", values: ["João da Silva (Teste)"] },
                     { name: "email", values: [`teste_${Date.now()}@studio57.com.br`] },
                     { name: "phone_number", values: ["+5533999998888"] },
-                    { name: "objetivo", values: ["Quero investir em um imóvel para alugar."] }
                 ]
             };
+            // Para testes, vamos buscar a primeira organização disponível.
+            const { data: firstOrg, error: orgError } = await supabase.from('organizacoes').select('id').limit(1).single();
+            if (orgError || !firstOrg) {
+                throw new Error("Não foi possível encontrar uma organização para o lead de teste.");
+            }
+            organizacaoId = firstOrg.id;
+            console.log(`LOG: [TESTE] Usando organização de fallback com ID: ${organizacaoId}`);
+
         } else {
             console.log(`LOG: Lead real ID ${leadId}. Buscando detalhes na API da Meta...`);
-            const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
-            if (!PAGE_ACCESS_TOKEN) throw new Error("Token de Acesso à Página não configurado no servidor.");
-            const leadDetailsResponse = await fetch(`https://graph.facebook.com/v20.0/${leadId}?access_token=${PAGE_ACCESS_TOKEN}`);
+            const leadDetailsResponse = await fetch(`https://graph.facebook.com/v20.0/${leadId}?access_token=${process.env.META_PAGE_ACCESS_TOKEN}`);
             const apiResult = await leadDetailsResponse.json();
             if (!leadDetailsResponse.ok) throw new Error(apiResult.error?.message || "Falha ao buscar dados do lead no Meta.");
             leadDetails = apiResult;
+
+            // A MÁGICA ACONTECE AQUI: nosso detetive entra em ação
+            organizacaoId = await getOrganizationIdByPageId(supabase, pageId);
         }
 
         console.log("LOG: Detalhes do lead recebidos com sucesso.");
@@ -157,7 +211,7 @@ export async function POST(request) {
         const email = allLeadData.email;
         const telefoneLimpo = allLeadData.phone_number?.replace(/\D/g, '');
 
-        console.log("LOG: Criando novo contato no DB com todos os metadados...");
+        console.log(`LOG: Criando novo contato na organização ${organizacaoId}...`);
         const { data: newContact, error: contactError } = await supabase
             .from('contatos')
             .insert({
@@ -165,6 +219,7 @@ export async function POST(request) {
                 origem: 'Meta Lead Ad',
                 tipo_contato: 'Lead',
                 personalidade_juridica: 'Pessoa Física',
+                organizacao_id: organizacaoId, // <<<<<<< IMPORTANTE: Salvando com a organização correta
                 meta_lead_id: leadId,
                 meta_ad_id: leadValue.ad_id,
                 meta_adgroup_id: leadValue.adgroup_id,
@@ -184,34 +239,33 @@ export async function POST(request) {
         const contatoId = newContact.id;
         console.log(`LOG: Novo contato criado com ID: ${contatoId} para o Lead ID: ${leadId}`);
 
-        if (email) await supabase.from('emails').insert({ contato_id: contatoId, email: email, tipo: 'Principal' });
-        if (telefoneLimpo) await supabase.from('telefones').insert({ contato_id: contatoId, telefone: telefoneLimpo, tipo: 'Celular' });
+        if (email) await supabase.from('emails').insert({ contato_id: contatoId, email: email, tipo: 'Principal', organizacao_id: organizacaoId });
+        if (telefoneLimpo) await supabase.from('telefones').insert({ contato_id: contatoId, telefone: telefoneLimpo, tipo: 'Celular', organizacao_id: organizacaoId });
         console.log("LOG: Email e telefone associados ao novo contato.");
         
         console.log(`LOG: Garantindo a existência do funil e da coluna para adicionar o contato ${contatoId}...`);
-        const primeiraColunaId = await ensureFunilAndFirstColumn(supabase);
+        const primeiraColunaId = await ensureFunilAndFirstColumn(supabase, organizacaoId);
         
         const { error: funilError } = await supabase
             .from('contatos_no_funil')
-            .insert({ contato_id: contatoId, coluna_id: primeiraColunaId });
+            .insert({ contato_id: contatoId, coluna_id: primeiraColunaId, organizacao_id: organizacaoId });
             
         if (funilError) {
             console.error('LOG: ERRO ao adicionar contato ao funil:', funilError);
         } else {
             console.log('LOG: SUCESSO! Contato adicionado ao funil! Disparando notificação...');
             
-            // ***** INÍCIO DA IMPLEMENTAÇÃO DA NOTIFICAÇÃO *****
-            // Dispara a notificação em "segundo plano", sem esperar pela resposta.
+            // Dispara a notificação
             fetch(`${request.nextUrl.origin}/api/notifications/send`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: '🎉 Novo Lead Recebido!',
                     message: `Um novo lead (${nomeCompleto}) chegou através da campanha da Meta.`,
-                    url: '/crm' // Leva o usuário direto para o funil
+                    url: '/crm',
+                    organizacao_id: organizacaoId // Enviando a organização para notificar os usuários certos
                 })
             }).catch(err => console.error("Falha ao disparar notificação de novo lead:", err));
-            // ***** FIM DA IMPLEMENTAÇÃO DA NOTIFICAÇÃO *****
         }
 
         console.log("LOG: [FIM] Processamento do webhook concluído com sucesso.");
@@ -219,6 +273,8 @@ export async function POST(request) {
 
     } catch (e) {
         console.error('LOG: [ERRO GERAL] Ocorreu um erro no processamento do webhook:', e);
+        // Usamos status 200 para que a Meta não desabilite o webhook por falhas.
+        // O erro já está logado no nosso sistema para análise.
         return NextResponse.json({ status: 'error', message: e.message }, { status: 200 }); 
     }
 }
