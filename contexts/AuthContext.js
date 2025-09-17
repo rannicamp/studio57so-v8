@@ -94,13 +94,7 @@ export function AuthProvider({ children }) {
             subscription.unsubscribe();
         };
     }, [supabase, fetchProfileAndPermissions]);
-
-    // =================================================================================
-    // NOVA FUNÇÃO ADICIONADA
-    // O PORQUÊ: Esta função permite que qualquer componente (como o ProfileForm)
-    // peça ao AuthContext para recarregar os dados do usuário do banco,
-    // garantindo que todo o aplicativo esteja sempre sincronizado sem um reload.
-    // =================================================================================
+    
     const refreshAuthUser = useCallback(async () => {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (currentUser) {
@@ -114,8 +108,22 @@ export function AuthProvider({ children }) {
         return permissions[recurso]?.[permissao] || false;
     };
     
-    // O 'value' agora também exporta a nossa nova função 'refreshAuthUser'
-    const value = { user, loading, isProprietario, permissions, hasPermission, organizacao_id, refreshAuthUser };
+    // =================================================================================
+    // AQUI ESTÁ A CORREÇÃO MÁGICA
+    // O PORQUÊ: Adicionamos a propriedade 'userData' que é um espelho da 'user'.
+    // Isso garante que componentes antigos que usam 'user' continuem funcionando,
+    // e o novo ContatoForm que usa 'userData' também funcione. É a solução mais segura.
+    // =================================================================================
+    const value = { 
+        user, 
+        userData: user, // <-- A CORREÇÃO ESTÁ AQUI
+        loading, 
+        isProprietario, 
+        permissions, 
+        hasPermission, 
+        organizacao_id, 
+        refreshAuthUser 
+    };
     
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
