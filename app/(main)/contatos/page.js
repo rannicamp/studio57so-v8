@@ -1,15 +1,13 @@
-// app/(main)/contatos/page.js
-
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import Link from 'next/link';
 import ContatoList from '../../../components/ContatoList';
 import ContatoImporter from '../../../components/ContatoImporter';
 import KpiCard from '../../../components/KpiCard'; 
 import { useLayout } from '../../../contexts/LayoutContext';
-import { useAuth } from '../../../contexts/AuthContext'; // 1. Importar para pegar a organização
+import { useAuth } from '../../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileImport, faCopy, faSpinner, faWandMagicSparkles, faUsers, faGlobeAmericas, faPhoneSlash, faFileExport } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
@@ -19,30 +17,90 @@ import ContatoDetalhesSidebar from '../../../components/ContatoDetalhesSidebar';
 import ActivityModal from '../../../components/AtividadeModal';
 
 // =================================================================================
-// CORREÇÃO DE SEGURANÇA (organização_id)
-// O PORQUÊ: A função agora exige o `organizacaoId` e o usa para filtrar a busca,
-// garantindo que apenas os contatos da organização correta sejam retornados.
+// CORREÇÃO DEFINITIVA NA BUSCA (O PORQUÊ):
+// A versão anterior melhorou a lógica, mas ainda confiava na RLS (segurança
+// automática) para filtrar telefones e emails. Esta nova versão é mais robusta
+// porque adiciona um filtro EXPLÍCITO `.eq('organizacao_id', organizacaoId)`
+// diretamente na busca das tabelas `telefones` e `emails`. Isso força o banco de
+// dados a retornar apenas os dados que pertencem à organização correta,
+// garantindo que eles apareçam na lista.
 // =================================================================================
 const fetchContatos = async (organizacaoId) => {
     const supabase = createClient();
-    if (!organizacaoId) return []; // Se não houver organização, não busca nada
+    if (!organizacaoId) return [];
 
-    const { data, error } = await supabase
+    // Passo 1: Buscar os contatos da organização.
+    const { data: contatos, error: contatosError } = await supabase
         .from('contatos')
-        .select('*, telefones ( id, telefone, country_code ), emails ( id, email )')
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .select('*')
+        .eq('organizacao_id', organizacaoId)
         .order('nome');
 
-    if (error) {
-        throw new Error(error.message);
+    if (contatosError) {
+        console.error("Erro ao buscar contatos:", contatosError);
+        throw new Error(contatosError.message);
     }
-    return data || [];
+
+    if (!contatos || contatos.length === 0) {
+        return [];
+    }
+
+    const contatoIds = contatos.map(c => c.id);
+
+    // Passo 2: Buscar telefones, COM FILTRO EXPLÍCITO de organização.
+    const { data: telefones, error: telefonesError } = await supabase
+        .from('telefones')
+        .select('contato_id, id, telefone, country_code')
+        .in('contato_id', contatoIds)
+        .eq('organizacao_id', organizacaoId); // <-- GARANTIA DE FILTRO!
+
+    if (telefonesError) {
+        console.error("Erro ao buscar telefones:", telefonesError);
+        throw new Error(telefonesError.message);
+    }
+
+    // Passo 3: Buscar emails, COM FILTRO EXPLÍCITO de organização.
+    const { data: emails, error: emailsError } = await supabase
+        .from('emails')
+        .select('contato_id, id, email')
+        .in('contato_id', contatoIds)
+        .eq('organizacao_id', organizacaoId); // <-- GARANTIA DE FILTRO!
+
+    if (emailsError) {
+        console.error("Erro ao buscar emails:", emailsError);
+        throw new Error(emailsError.message);
+    }
+
+    // Passo 4: Combinar os dados.
+    const contatosMap = new Map(contatos.map(c => [c.id, { ...c, telefones: [], emails: [] }]));
+
+    if (telefones) {
+        telefones.forEach(t => {
+            if (contatosMap.has(t.contato_id)) {
+                contatosMap.get(t.contato_id).telefones.push(t);
+            }
+        });
+    }
+
+    if (emails) {
+        emails.forEach(e => {
+            if (contatosMap.has(e.contato_id)) {
+                contatosMap.get(e.contato_id).emails.push(e);
+            }
+        });
+    }
+
+    const finalData = Array.from(contatosMap.values());
+    console.log("Dados de contatos processados para exibição:", finalData);
+
+    return finalData;
 };
+
 
 export default function GerenciamentoContatosPage() {
     const { setPageTitle } = useLayout();
-    const { user } = useAuth(); // Pegamos o usuário
-    const organizacaoId = user?.organizacao_id; // E sua organização
+    const { user } = useAuth();
+    const organizacaoId = user?.organizacao_id;
 
     const [isImporterOpen, setIsImporterOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
@@ -54,21 +112,16 @@ export default function GerenciamentoContatosPage() {
     const [editingActivity, setEditingActivity] = useState(null);
     const [currentContactForActivity, setCurrentContactForActivity] = useState(null);
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE SEGURANÇA E BOAS PRÁTICAS
-    // O PORQUÊ: A queryKey agora inclui `organizacaoId` para ser única, e a query
-    // só é ativada (`enabled`) quando o `organizacaoId` está disponível.
-    // =================================================================================
     const { data: contatos = [], isLoading, error } = useQuery({
         queryKey: ['contatos', organizacaoId],
         queryFn: () => fetchContatos(organizacaoId),
-        enabled: !!organizacaoId, // Só busca os dados se o organizacaoId existir
+        enabled: !!organizacaoId,
         onError: (err) => {
             toast.error(`Erro ao carregar contatos: ${err.message}`);
         }
     });
     
-    useState(() => {
+    useEffect(() => {
         setPageTitle('Gerenciamento de Contatos');
     }, [setPageTitle]);
 
@@ -76,7 +129,6 @@ export default function GerenciamentoContatosPage() {
         setIsExporting(true);
         const exportPromise = new Promise(async (resolve, reject) => {
             try {
-                // A API de exportação também precisa ser corrigida para usar o organizacao_id
                 const response = await fetch('/api/contatos/export');
                 if (!response.ok) {
                     const errorData = await response.json();
@@ -116,10 +168,18 @@ export default function GerenciamentoContatosPage() {
     const handleActionComplete = () => {
         queryClient.invalidateQueries({ queryKey: ['contatos', organizacaoId] });
         if (selectedContato) {
-            const updatedContact = contatos.find(c => c.id === selectedContato.id);
-            if (updatedContact) {
-                setSelectedContato(updatedContact);
-            }
+            queryClient.getQueryData(['contatos', organizacaoId]).then(newContatos => {
+                if(newContatos) {
+                    const updatedContact = newContatos.find(c => c.id === selectedContato.id);
+                    if (updatedContact) {
+                        setSelectedContato(updatedContact);
+                    } else {
+                        handleCloseDetailsSidebar();
+                    }
+                } else {
+                    handleCloseDetailsSidebar();
+                }
+            });
         }
     };
 
@@ -173,9 +233,9 @@ export default function GerenciamentoContatosPage() {
                 <ActivityModal
                     isOpen={isActivityModalOpen}
                     onClose={handleCloseActivityModal}
-                    onActivityAdded={handleActivitySuccess} // Corrigido para onActivityAdded
+                    onActivityAdded={handleActivitySuccess}
                     activityToEdit={editingActivity}
-                    initialContatoId={currentContactForActivity?.id} // Passa o ID do contato
+                    initialContatoId={currentContactForActivity?.id}
                 />
             )}
 

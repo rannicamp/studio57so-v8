@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext'; // <--- 1. IMPORTAMOS O 'useAuth'
+import { useAuth } from '../contexts/AuthContext';
 import { createClient } from '../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { IMaskInput } from 'react-imask';
@@ -61,7 +61,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
     const supabase = createClient();
     const router = useRouter();
     const isEditing = Boolean(contactToEdit);
-    const { userData } = useAuth(); // <--- 2. PEGAMOS OS DADOS DO USUÁRIO LOGADO
+    const { user } = useAuth();
 
     const getInitialState = useCallback(() => ({
         nome: '',
@@ -192,8 +192,8 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         e.preventDefault();
         setIsLoading(true);
 
-        // ---> 3. AQUI ESTÁ A MUDANÇA MÁGICA <---
-        if (!userData?.organizacao_id) {
+        const organizacaoId = user?.organizacao_id;
+        if (!organizacaoId) {
             toast.error('Erro de segurança: Organização do usuário não encontrada. Por favor, faça login novamente.');
             setIsLoading(false);
             return;
@@ -201,57 +201,90 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         
         const { id, telefones, emails, ...dataToSave } = formData;
         
-        // Adicionamos o "carimbo" da organização aos dados que serão salvos.
-        dataToSave.organizacao_id = userData.organizacao_id;
+        dataToSave.organizacao_id = organizacaoId;
         
         if (isEditing) delete dataToSave.origem;
         if (dataToSave.birth_date === '') dataToSave.birth_date = null;
         if (dataToSave.data_fundacao === '') dataToSave.data_fundacao = null;
 
-        const cleanedPhones = formData.telefones.filter(tel => tel.telefone.replace(/\D/g, '').length > 0).map(tel => ({
-            telefone: tel.telefone.replace(/\D/g, ''),
-            country_code: tel.country_code
-        }));
-        const cleanedEmails = formData.emails.filter(mail => mail.email.trim() !== '').map(mail => ({
-            email: mail.email.trim()
-        }));
+        const cleanedPhones = formData.telefones.filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0);
+        const cleanedEmails = formData.emails.filter(mail => mail.email && mail.email.trim() !== '');
 
-        let contatoId = null;
-        let error = null;
+        let contatoId = isEditing ? contactToEdit.id : null;
+        let mainError = null;
 
+        // ETAPA 1: Salvar ou atualizar o contato principal
         if (isEditing) {
-            const { data, error: updateError } = await supabase.from('contatos').update(dataToSave).eq('id', contactToEdit.id).select('id').single();
-            error = updateError;
-            contatoId = data?.id;
+            const { error } = await supabase.from('contatos').update(dataToSave).eq('id', contatoId);
+            mainError = error;
         } else {
-            const { data, error: insertError } = await supabase.from('contatos').insert(dataToSave).select('id').single();
-            error = insertError;
-            contatoId = data?.id;
+            const { data, error } = await supabase.from('contatos').insert(dataToSave).select('id').single();
+            if (data) contatoId = data.id;
+            mainError = error;
         }
 
-        if (error) {
-            toast.error(`Erro ao salvar contato: ${error.message}`);
+        if (mainError) {
+            toast.error(`Erro ao salvar contato: ${mainError.message}`);
+            setIsLoading(false);
+            return;
+        }
+        
+        if (!contatoId) {
+            toast.error("Falha ao obter o ID do contato. A operação foi cancelada.");
             setIsLoading(false);
             return;
         }
 
-        if (contatoId) {
+        // =======================================================================
+        // AQUI ESTÁ A MUDANÇA PRINCIPAL!
+        // O PORQUÊ: Agora verificamos explicitamente se houve erro ao inserir
+        // os telefones e emails. A mensagem de sucesso só aparece se TUDO der certo.
+        // Isso impede o "falso sucesso" que você identificou.
+        // =======================================================================
+
+        // ETAPA 2: Deletar os antigos e Inserir novos telefones e emails
+        try {
+            // Deleta os registros antigos associados
             await supabase.from('telefones').delete().eq('contato_id', contatoId);
             await supabase.from('emails').delete().eq('contato_id', contatoId);
 
+            // Insere os novos telefones, se houver
             if (cleanedPhones.length > 0) {
-                await supabase.from('telefones').insert(cleanedPhones.map(tel => ({ ...tel, contato_id: contatoId, tipo: 'Celular' })));
+                const phonesToInsert = cleanedPhones.map(tel => ({
+                    contato_id: contatoId,
+                    telefone: tel.telefone.replace(/\D/g, ''),
+                    country_code: tel.country_code,
+                    tipo: 'Celular',
+                    organizacao_id: organizacaoId
+                }));
+                const { error: phonesError } = await supabase.from('telefones').insert(phonesToInsert);
+                if (phonesError) throw new Error(`Nos telefones: ${phonesError.message}`);
             }
-            if (cleanedEmails.length > 0) {
-                await supabase.from('emails').insert(cleanedEmails.map(mail => ({ ...mail, contato_id: contatoId, tipo: 'Pessoal' })));
-            }
-        }
 
-        toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
-        setIsLoading(false);
-        if (onSaveSuccess) onSaveSuccess(contatoId);
-        if (onClose) onClose();
-        else router.push('/contatos');
+            // Insere os novos emails, se houver
+            if (cleanedEmails.length > 0) {
+                const emailsToInsert = cleanedEmails.map(mail => ({
+                    contato_id: contatoId,
+                    email: mail.email.trim(),
+                    tipo: 'Pessoal',
+                    organizacao_id: organizacaoId
+                }));
+                const { error: emailsError } = await supabase.from('emails').insert(emailsToInsert);
+                if (emailsError) throw new Error(`Nos e-mails: ${emailsError.message}`);
+            }
+            
+            // Se tudo correu bem, mostramos o sucesso!
+            toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
+            if (onSaveSuccess) onSaveSuccess(contatoId);
+            if (onClose) onClose();
+            else router.push('/contatos');
+
+        } catch (error) {
+            // Se qualquer uma das operações falhar, mostramos o erro específico.
+            toast.error(`Erro ao salvar dados associados: ${error.message}`);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (

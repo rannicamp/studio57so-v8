@@ -1,5 +1,3 @@
-// components/ContatoList.js
-
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -50,7 +48,6 @@ const allColumns = [
   { key: 'cargo', label: 'Cargo/Profissão', sortable: true },
 ];
 
-// ALTERADO: Adicionamos `onRowClick` na lista de propriedades
 export default function ContatoList({ initialContatos, onActionComplete, onRowClick }) {
   const supabase = createClient();
   const router = useRouter();
@@ -93,15 +90,27 @@ export default function ContatoList({ initialContatos, onActionComplete, onRowCl
     if (filterType) {
       filtered = filtered.filter(c => c.tipo_contato === filterType);
     }
-
+    
+    // =================================================================================
+    // CORREÇÃO NA LÓGICA DE BUSCA (O PORQUÊ):
+    // A busca anterior não incluía e-mails e não era segura contra dados ausentes
+    // (um contato sem telefone poderia causar um erro).
+    // A NOVA ABORDAGEM: Verificamos se os arrays `emails` e `telefones` existem
+    // antes de tentar pesquisar dentro deles. Adicionamos a busca por e-mail e
+    // melhoramos a legibilidade, garantindo que a busca seja mais completa e robusta.
+    // =================================================================================
     if (searchTerm) {
       const lowercasedFilter = searchTerm.toLowerCase();
-      filtered = filtered.filter(c => 
-        (c.nome && c.nome.toLowerCase().includes(lowercasedFilter)) ||
-        (c.razao_social && c.razao_social.toLowerCase().includes(lowercasedFilter)) ||
-        (c.cnpj && c.cnpj.includes(lowercasedFilter)) ||
-        (c.telefones.some(t => t.telefone.includes(searchTerm)))
-      );
+      filtered = filtered.filter(c => {
+          const textMatch = (c.display_name && c.display_name.toLowerCase().includes(lowercasedFilter)) ||
+                            (c.documento && c.documento.includes(lowercasedFilter));
+
+          const emailMatch = c.emails?.some(e => e.email && e.email.toLowerCase().includes(lowercasedFilter));
+
+          const phoneMatch = c.telefones?.some(t => t.telefone && t.telefone.includes(searchTerm));
+
+          return textMatch || emailMatch || phoneMatch;
+      });
     }
     
     if (sortConfig.key) {
@@ -117,7 +126,6 @@ export default function ContatoList({ initialContatos, onActionComplete, onRowCl
     return filtered;
   }, [contatos, searchTerm, filterType, sortConfig]);
 
-  // ALTERADO: A função de editar agora é separada da de visualizar
   const handleEditClick = (id) => {
     router.push(`/contatos/editar/${id}`);
   };
@@ -125,7 +133,8 @@ export default function ContatoList({ initialContatos, onActionComplete, onRowCl
   const getColumnValue = (contato, key) => {
     switch (key) {
       case 'qualidade': return <ProgressCircle score={calculateScore(contato)} />;
-      case 'telefone': return formatPhoneNumber(contato.telefone);
+      case 'telefone': return formatPhoneNumber(contato.telefone); // Usa o 1º telefone, já formatado
+      case 'email': return contato.email || 'N/A'; // Usa o 1º email
       default: return contato[key] || 'N/A';
     }
   };
@@ -189,7 +198,7 @@ export default function ContatoList({ initialContatos, onActionComplete, onRowCl
 
       <div className="flex flex-col md:flex-row gap-4 justify-between">
         <div className="flex flex-col md:flex-row gap-4">
-          <input type="text" placeholder="Buscar por nome, razão social, telefone..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="p-2 border rounded-md w-full md:flex-grow shadow-sm" />
+          <input type="text" placeholder="Buscar por nome, e-mail, telefone..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="p-2 border rounded-md w-full md:flex-grow shadow-sm" />
           <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="p-2 border rounded-md w-full md:w-auto shadow-sm"> <option value="">Todos os Tipos</option> <option>Contato</option> <option>Cliente</option> <option>Fornecedor</option> <option>Lead</option> </select>
         </div>
         <div className="flex items-center gap-4">
@@ -224,9 +233,7 @@ export default function ContatoList({ initialContatos, onActionComplete, onRowCl
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {sortedAndFilteredContatos.map((contato) => (
-              // ALTERADO: A linha agora chama `onRowClick` e tem um cursor
               <tr key={contato.id} onClick={() => onRowClick(contato)} className={`cursor-pointer ${selectedContatos.includes(contato.id) ? 'bg-blue-50' : ''} hover:bg-gray-50`}>
-                {/* ALTERADO: Adicionamos stopPropagation para os checkboxes e botões */}
                 <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}> <input type="checkbox" className="h-4 w-4 rounded" checked={selectedContatos.includes(contato.id)} onChange={() => handleSelectOne(contato.id)}/> </td>
                 {allColumns.map(col => (visibleColumns[col.key] && ( <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm"> {getColumnValue(contato, col.key)} </td> )))}
                 <td className="px-6 py-4 whitespace-nowrap text-sm" onClick={(e) => e.stopPropagation()}> <button onClick={() => handleEditClick(contato.id)} className="text-blue-600 hover:text-blue-800" title="Editar Contato"> <FontAwesomeIcon icon={faEdit} /> </button> </td>
@@ -239,14 +246,3 @@ export default function ContatoList({ initialContatos, onActionComplete, onRowCl
     </div>
   );
 }
-
-// --------------------------------------------------------------------------------
-// COMENTÁRIO DO ARQUIVO
-// --------------------------------------------------------------------------------
-// Este componente é a interface principal para listar e gerenciar contatos.
-// Ele renderiza uma tabela com funcionalidades de busca, filtro por tipo,
-// ordenação de colunas e seleção de colunas visíveis. Permite ações em massa,
-// como deletar ou mesclar contatos selecionados. A edição de um contato
-// é roteada para outra página, e a visualização de detalhes é feita através
-// do 'onRowClick', que geralmente abre uma sidebar.
-// --------------------------------------------------------------------------------

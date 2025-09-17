@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTrash, faPlus, faPencilAlt, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTrash, faPlus, faPencilAlt, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom, faHandHoldingDollar } from '@fortawesome/free-solid-svg-icons';
 import PedidoItemModal from './PedidoItemModal';
 import LancamentoFormModal from './financeiro/LancamentoFormModal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,8 +23,6 @@ const formatDuration = (milliseconds) => {
     return result.trim() === '' ? 'Menos de 1h' : result;
 };
 
-// O PORQUÊ: Isolamos a lógica de busca de dados em uma função 'async' pura.
-// Isso organiza o código e é o padrão exigido pelo React Query.
 const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
     if (!pedidoId || !organizacaoId) throw new Error("ID do Pedido ou da Organização não encontrado.");
 
@@ -61,11 +59,10 @@ export default function PedidoForm({ pedidoId }) {
     const supabase = createClient();
     const router = useRouter();
     const queryClient = useQueryClient();
-    const { user } = useAuth(); // Padronizando para 'user'
+    const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    // O PORQUÊ: Mantemos todos os estados que controlam a UI (modais, inputs, seleções).
-    const [pedidoHeader, setPedidoHeader] = useState(null); // Estado local para edição do cabeçalho
+    const [pedidoHeader, setPedidoHeader] = useState(null);
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false);
     const [lancamentoInitialData, setLancamentoInitialData] = useState(null);
@@ -78,7 +75,6 @@ export default function PedidoForm({ pedidoId }) {
     const [selectedItems, setSelectedItems] = useState(new Set());
 
 
-    // O PORQUÊ: Substituímos o useEffect de busca por useQuery.
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['pedido', pedidoId, organizacaoId],
         queryFn: () => fetchPedidoData(supabase, pedidoId, organizacaoId),
@@ -92,7 +88,7 @@ export default function PedidoForm({ pedidoId }) {
 
     useEffect(() => {
         if (pedido) {
-            setPedidoHeader(pedido); // Alimenta o estado local do cabeçalho quando os dados chegam
+            setPedidoHeader(pedido);
             if (pedido.historico) {
                 const h = pedido.historico.sort((a,b) => new Date(a.data_mudanca) - new Date(b.data_mudanca));
                 const inicio = new Date(pedido.created_at);
@@ -103,7 +99,6 @@ export default function PedidoForm({ pedidoId }) {
         }
     }, [pedido]);
 
-    // O PORQUÊ: Lógica de UI é mantida intacta.
     const requestSort = (key) => {
         let direction = 'ascending';
         if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -113,7 +108,6 @@ export default function PedidoForm({ pedidoId }) {
     };
 
     const sortedItens = useMemo(() => {
-        // ... (lógica de ordenação mantida 100% igual ao original)
         let sortableItems = [...itens];
         if (sortConfig.key !== null) {
             sortableItems.sort((a, b) => {
@@ -130,7 +124,6 @@ export default function PedidoForm({ pedidoId }) {
         return sortableItems;
     }, [itens, sortConfig]);
 
-    // O PORQUÊ: As funções de escrita (handle...) agora usam 'useMutation' para organização e performance.
     const mutationOptions = {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['pedido', pedidoId, organizacaoId] });
@@ -185,53 +178,50 @@ export default function PedidoForm({ pedidoId }) {
         ...mutationOptions,
         mutationFn: async (itemData) => {
             const isEditing = !!itemData.id;
-            
-            const cleanedData = { ...itemData };
-
-            // =================================================================================
-            // INÍCIO DA NOVA CORREÇÃO
-            // O PORQUÊ: Garantir que campos numéricos vazios sejam enviados como `null` 
-            // (valor nulo) e não como texto vazio (''). Isso evita o erro do banco de dados.
-            // =================================================================================
-            cleanedData.preco_unitario_real = cleanedData.preco_unitario_real === '' || cleanedData.preco_unitario_real === null ? null : parseFloat(cleanedData.preco_unitario_real);
-            cleanedData.dias_aluguel = cleanedData.dias_aluguel === '' || cleanedData.dias_aluguel === null ? null : parseInt(cleanedData.dias_aluguel, 10);
-            
-            // O campo 'quantidade_solicitada' é obrigatório (not null), então garantimos que ele seja ao menos 1.
-            cleanedData.quantidade_solicitada = parseFloat(cleanedData.quantidade_solicitada) || 1;
-            // =================================================================================
-            // FIM DA NOVA CORREÇÃO
-            // =================================================================================
-            
-            const custoTotal = (cleanedData.quantidade_solicitada || 0) * (cleanedData.preco_unitario_real || 0);
+            const custoTotal = (parseFloat(itemData.quantidade_solicitada) || 0) * (parseFloat(itemData.preco_unitario_real) || 0);
 
             const dataToSave = {
-                ...cleanedData,
+                material_id: itemData.material_id || null,
+                descricao_item: itemData.descricao_item,
+                quantidade_solicitada: parseFloat(itemData.quantidade_solicitada) || 1,
+                unidade_medida: itemData.unidade_medida || 'unid.',
+                fornecedor_id: itemData.fornecedor_id || null,
+                preco_unitario_real: itemData.preco_unitario_real === '' || itemData.preco_unitario_real === null ? null : parseFloat(itemData.preco_unitario_real),
+                etapa_id: itemData.etapa_id || null,
+                subetapa_id: itemData.subetapa_id || null,
+                tipo_operacao: itemData.tipo_operacao || 'Compra',
+                dias_aluguel: itemData.dias_aluguel === '' || itemData.dias_aluguel === null ? null : parseInt(itemData.dias_aluguel, 10),
+                custo_total_real: custoTotal,
                 pedido_compra_id: pedidoId,
                 organizacao_id: organizacaoId,
-                custo_total_real: custoTotal,
             };
 
-            let response;
             if (isEditing) {
-                response = await supabase
+                const { data, error } = await supabase
                     .from('pedidos_compra_itens')
                     .update(dataToSave)
                     .eq('id', itemData.id)
                     .eq('organizacao_id', organizacaoId)
-                    .select()
-                    .single();
+                    .select();
+
+                if (error) { throw error; }
+                if (!data || data.length === 0) {
+                    throw new Error("O item não foi encontrado para atualização. A alteração não foi salva.");
+                }
+                return { data: data[0], isEditing };
+
             } else {
-                delete dataToSave.id;
-                response = await supabase
+                const { data, error } = await supabase
                     .from('pedidos_compra_itens')
                     .insert(dataToSave)
-                    .select()
-                    .single();
+                    .select();
+
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    throw new Error("Falha ao criar o novo item, não foi possível confirmar a criação.");
+                }
+                return { data: data[0], isEditing };
             }
-            
-            const { data, error } = response;
-            if (error) throw error;
-            return { data, isEditing };
         },
         onSuccess: (result) => {
             mutationOptions.onSuccess();
@@ -289,7 +279,56 @@ export default function PedidoForm({ pedidoId }) {
         });
     };
     
-    const handleOpenLancamentoModal = () => { /* ... (lógica original mantida) ... */ };
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO
+    // O PORQUÊ: Implementamos a lógica que faltava nesta função. Agora ela prepara
+    // os dados do pedido e abre o modal de lançamento financeiro, como esperado.
+    // =================================================================================
+    const handleOpenLancamentoModal = () => {
+        if (!pedido || !pedido.itens || pedido.itens.length === 0) {
+            toast.error("Adicione itens ao pedido antes de planejar um pagamento.");
+            return;
+        }
+
+        const totalPedidoValor = pedido.itens.reduce((acc, item) => acc + (parseFloat(item.custo_total_real) || 0), 0);
+        
+        const firstFornecedorId = pedido.itens[0].fornecedor_id;
+        const allSameFornecedor = pedido.itens.every(item => item.fornecedor_id === firstFornecedorId);
+        
+        const notaFiscalAnexo = pedido.anexos.find(a => a.descricao && a.descricao.toLowerCase().includes('nota fiscal'));
+        
+        let etapaId = null;
+        if (pedido.itens.length > 0) {
+            const firstEtapaId = pedido.itens[0].etapa_id;
+            if (firstEtapaId && pedido.itens.every(item => item.etapa_id === firstEtapaId)) {
+                etapaId = firstEtapaId;
+            }
+        }
+
+        const initial = {
+            descricao: `Pagamento Ref. Pedido de Compra #${pedido.id} - ${pedido.titulo || ''}`.trim(),
+            valor: totalPedidoValor.toFixed(2),
+            data_vencimento: new Date().toISOString().split('T')[0],
+            tipo: 'Despesa',
+            status: 'Pendente',
+            favorecido_contato_id: allSameFornecedor ? firstFornecedorId : null,
+            empreendimento_id: pedido.empreendimento_id,
+            empresa_id: pedido.empreendimentos?.empresa_id || null,
+            etapa_id: etapaId, // Corrigido para etapa_id
+            anexo_preexistente: notaFiscalAnexo ? {
+                caminho_arquivo: notaFiscalAnexo.caminho_arquivo,
+                nome_arquivo: notaFiscalAnexo.nome_arquivo,
+                descricao: notaFiscalAnexo.descricao,
+            } : null,
+        };
+        
+        setLancamentoInitialData(initial);
+        setIsLancamentoModalOpen(true);
+    };
+    // =================================================================================
+    // FIM DA CORREÇÃO
+    // =================================================================================
+    
     const handleSelectionChange = (itemId) => { /* ... (lógica original mantida) ... */ };
     const handleEditClick = (item) => { setEditingItem(item); setIsItemModalOpen(true); };
 
@@ -320,7 +359,8 @@ export default function PedidoForm({ pedidoId }) {
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><FontAwesomeIcon icon={faDollarSign} /> Planejar Pagamento</h3>
                     <div className="bg-gray-50 p-4 rounded-lg border flex items-center justify-between">
                         <p className="text-sm text-gray-700">Clique no botão para agendar este pedido como uma despesa futura no módulo financeiro.</p>
-                        <button onClick={handleOpenLancamentoModal} disabled={false} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400">
+                        <button onClick={handleOpenLancamentoModal} disabled={false} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400 flex items-center justify-center gap-2">
+                            <FontAwesomeIcon icon={faHandHoldingDollar} />
                             Planejar Pagamento
                         </button>
                     </div>
