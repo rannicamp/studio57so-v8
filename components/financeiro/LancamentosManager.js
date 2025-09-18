@@ -1,4 +1,4 @@
-//components\financeiro\LancamentosManager.js
+// components/financeiro/LancamentosManager.js
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -92,15 +92,15 @@ export default function LancamentosManager({
         onSuccess: onActionSuccess,
     });
     
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: Adicionamos 'empresa' e 'favorecido' à desestruturação. Isso "limpa"
-    // o objeto, removendo os dados de tabelas relacionadas que não podem ser inseridos
-    // diretamente na tabela de lançamentos, resolvendo o erro.
-    // =================================================================================
     const duplicateMutation = useMutation({
         mutationFn: async (item) => {
-            const { id, created_at, conta, categoria, empreendimento, empresa, favorecido, ...lancamentoParaDuplicar } = item;
+            // =================================================================================
+            // INÍCIO DA CORREÇÃO
+            // O PORQUÊ: Adicionamos 'anexos' à desestruturação. Isso "limpa"
+            // o objeto, removendo os dados da tabela de anexos que não podem ser inseridos
+            // diretamente na tabela de lançamentos, resolvendo o erro.
+            // =================================================================================
+            const { id, created_at, conta, categoria, empreendimento, empresa, favorecido, anexos, ...lancamentoParaDuplicar } = item;
             lancamentoParaDuplicar.descricao = `(Cópia) ${lancamentoParaDuplicar.descricao}`;
             lancamentoParaDuplicar.status = 'Pendente';
             lancamentoParaDuplicar.data_pagamento = null;
@@ -314,72 +314,72 @@ export default function LancamentosManager({
             
             {loading ? ( <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div> ) : (
                  <div className="overflow-x-auto border rounded-lg">
-                     <table className="min-w-full divide-y divide-gray-200 text-sm">
-                         <thead className="bg-gray-50">
-                             <tr>
-                                 <th className="p-4 w-4"><input type="checkbox" onChange={handleSelectAll} checked={lancamentos.length > 0 && selectedIds.size === lancamentos.length} /></th>
-                                 <SortableHeader label="Data" sortKey="data_vencimento" sortConfig={sortConfig} requestSort={requestSort} />
-                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase w-1/3">Descrição</th>
-                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase">Conta</th>
-                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase">Empresa</th>
-                                 <th className="px-4 py-3 text-left text-xs font-bold uppercase">Categoria</th>
-                                 <th className="px-4 py-3 text-center text-xs font-bold uppercase">Conc.</th>
-                                 <th className="px-4 py-3 text-right text-xs font-bold uppercase">Valor</th>
-                                 <th className="px-4 py-3 text-center text-xs font-bold uppercase">Status</th>
-                                 <th className="px-4 py-3 text-center text-xs font-bold uppercase">Ações</th>
-                             </tr>
-                         </thead>
-                         <tbody className="bg-white divide-y divide-gray-200">
-                             {lancamentos.length > 0 ? lancamentos.map(item => {
-                                 const statusInfo = getPaymentStatus(item);
-                                 const isPending = item.status === 'Pendente' && !item.conciliado;
-                                 const isTransfer = !!item.transferencia_id;
-                                 const nomeEmpresa = item.conta?.empresa?.nome_fantasia || item.conta?.empresa?.razao_social || 'N/A';
-                                 let displayDate = item.data_transacao, dateLabel = 'Data da Transação', dateClass = '';
-                                 if (statusInfo.text === 'Paga' && item.data_pagamento) {
-                                     displayDate = item.data_pagamento; dateLabel = 'Data do Pagamento';
-                                 } else if ((statusInfo.text === 'A Pagar' || statusInfo.text === 'Atrasada') && item.data_vencimento) {
-                                     displayDate = item.data_vencimento; dateLabel = 'Data de Vencimento';
-                                     if (statusInfo.text === 'Atrasada') dateClass = 'text-red-600 font-bold';
-                                 }
-                                 return (
-                                     <tr key={item.id} onClick={() => onRowClick(item)} className={`cursor-pointer ${selectedIds.has(item.id) ? 'bg-blue-100' : ''} ${isTransfer ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}>
-                                         <td className="p-4" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} /></td>
-                                         <td className={`px-4 py-2 whitespace-nowrap ${dateClass}`} title={dateLabel}>{formatDate(displayDate)}</td>
-                                         <td className="px-4 py-2 font-medium">{item.descricao}</td>
-                                         <td className="px-4 py-2 text-gray-600">{item.conta?.nome || 'N/A'}</td>
-                                         <td className="px-4 py-2 text-gray-600 uppercase">{nomeEmpresa}</td>
-                                         <td className="px-4 py-2 text-gray-600">{item.categoria?.nome || 'N/A'}</td>
-                                         <td className="px-4 py-2 text-center text-green-500">{item.conciliado && <FontAwesomeIcon icon={faCheckCircle} title="Conciliado com o extrato bancário" />}</td>
-                                         <td className={`px-4 py-2 text-right font-bold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(item.valor, item.tipo)}</td>
-                                         <td className="px-4 py-2 text-center text-xs">
-                                             {editingCell === item.id ? (
-                                                 <select value={item.status} onChange={(e) => handleStatusUpdate(item.id, e.target.value)} onBlur={() => setEditingCell(null)} className="p-1 border rounded-md bg-white shadow-sm focus:ring-2 focus:ring-blue-500" autoFocus>
-                                                     <option value="Pendente">Pendente</option>
-                                                     <option value="Pago">Pago</option>
-                                                 </select>
-                                             ) : (
-                                                 <span onClick={(e) => { e.stopPropagation(); setEditingCell(item.id); }} className={`px-2 py-1 font-semibold leading-tight rounded-full ${statusInfo.className} cursor-pointer hover:ring-2 hover:ring-blue-300`}>
-                                                     {statusInfo.text.toUpperCase()}
-                                                 </span>
-                                             )}
-                                         </td>
-                                         <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
-                                             <div className="flex items-center justify-center gap-3">
-                                                 {(item.status === 'Pago' || item.status === 'Pendente') && !isTransfer && <button onClick={() => handleOpenRecibo(item)} className="text-purple-500 hover:text-purple-700" title="Gerar Recibo"><FontAwesomeIcon icon={faReceipt} /></button>}
-                                                 {isPending && <button onClick={() => handleStatusUpdate(item.id, 'Pago')} className="text-green-500 hover:text-green-700" title="Marcar como Pago"><FontAwesomeIcon icon={faDollarSign} /></button>}
-                                                 <button onClick={() => onEdit(item)} className="text-blue-500 hover:text-blue-700" title="Editar Completo"><FontAwesomeIcon icon={faPenToSquare} /></button>
-                                                 <button onClick={() => handleDuplicate(item)} className="text-gray-500 hover:text-gray-700" title="Duplicar Lançamento"><FontAwesomeIcon icon={faCopy} /></button>
-                                                 <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
-                                             </div>
-                                         </td>
-                                     </tr>
-                                 );
-                             }) : (
-                                 <tr><td colSpan="10" className="text-center py-10 text-gray-500 uppercase">Nenhum lançamento encontrado. Tente limpar os filtros.</td></tr>
-                             )}
-                         </tbody>
-                     </table>
+                      <table className="min-w-full divide-y divide-gray-200 text-sm">
+                           <thead className="bg-gray-50">
+                               <tr>
+                                    <th className="p-4 w-4"><input type="checkbox" onChange={handleSelectAll} checked={lancamentos.length > 0 && selectedIds.size === lancamentos.length} /></th>
+                                    <SortableHeader label="Data" sortKey="data_vencimento" sortConfig={sortConfig} requestSort={requestSort} />
+                                    <th className="px-4 py-3 text-left text-xs font-bold uppercase w-1/3">Descrição</th>
+                                    <th className="px-4 py-3 text-left text-xs font-bold uppercase">Conta</th>
+                                    <th className="px-4 py-3 text-left text-xs font-bold uppercase">Empresa</th>
+                                    <th className="px-4 py-3 text-left text-xs font-bold uppercase">Categoria</th>
+                                    <th className="px-4 py-3 text-center text-xs font-bold uppercase">Conc.</th>
+                                    <th className="px-4 py-3 text-right text-xs font-bold uppercase">Valor</th>
+                                    <th className="px-4 py-3 text-center text-xs font-bold uppercase">Status</th>
+                                    <th className="px-4 py-3 text-center text-xs font-bold uppercase">Ações</th>
+                               </tr>
+                           </thead>
+                           <tbody className="bg-white divide-y divide-gray-200">
+                                {lancamentos.length > 0 ? lancamentos.map(item => {
+                                    const statusInfo = getPaymentStatus(item);
+                                    const isPending = item.status === 'Pendente' && !item.conciliado;
+                                    const isTransfer = !!item.transferencia_id;
+                                    const nomeEmpresa = item.conta?.empresa?.nome_fantasia || item.conta?.empresa?.razao_social || 'N/A';
+                                    let displayDate = item.data_transacao, dateLabel = 'Data da Transação', dateClass = '';
+                                    if (statusInfo.text === 'Paga' && item.data_pagamento) {
+                                        displayDate = item.data_pagamento; dateLabel = 'Data do Pagamento';
+                                    } else if ((statusInfo.text === 'A Pagar' || statusInfo.text === 'Atrasada') && item.data_vencimento) {
+                                        displayDate = item.data_vencimento; dateLabel = 'Data de Vencimento';
+                                        if (statusInfo.text === 'Atrasada') dateClass = 'text-red-600 font-bold';
+                                    }
+                                    return (
+                                        <tr key={item.id} onClick={() => onRowClick(item)} className={`cursor-pointer ${selectedIds.has(item.id) ? 'bg-blue-100' : ''} ${isTransfer ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}>
+                                             <td className="p-4" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} /></td>
+                                             <td className={`px-4 py-2 whitespace-nowrap ${dateClass}`} title={dateLabel}>{formatDate(displayDate)}</td>
+                                             <td className="px-4 py-2 font-medium">{item.descricao}</td>
+                                             <td className="px-4 py-2 text-gray-600">{item.conta?.nome || 'N/A'}</td>
+                                             <td className="px-4 py-2 text-gray-600 uppercase">{nomeEmpresa}</td>
+                                             <td className="px-4 py-2 text-gray-600">{item.categoria?.nome || 'N/A'}</td>
+                                             <td className="px-4 py-2 text-center text-green-500">{item.conciliado && <FontAwesomeIcon icon={faCheckCircle} title="Conciliado com o extrato bancário" />}</td>
+                                             <td className={`px-4 py-2 text-right font-bold ${item.tipo === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(item.valor, item.tipo)}</td>
+                                             <td className="px-4 py-2 text-center text-xs">
+                                                 {editingCell === item.id ? (
+                                                     <select value={item.status} onChange={(e) => handleStatusUpdate(item.id, e.target.value)} onBlur={() => setEditingCell(null)} className="p-1 border rounded-md bg-white shadow-sm focus:ring-2 focus:ring-blue-500" autoFocus>
+                                                          <option value="Pendente">Pendente</option>
+                                                          <option value="Pago">Pago</option>
+                                                     </select>
+                                                 ) : (
+                                                     <span onClick={(e) => { e.stopPropagation(); setEditingCell(item.id); }} className={`px-2 py-1 font-semibold leading-tight rounded-full ${statusInfo.className} cursor-pointer hover:ring-2 hover:ring-blue-300`}>
+                                                          {statusInfo.text.toUpperCase()}
+                                                     </span>
+                                                 )}
+                                             </td>
+                                             <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                                 <div className="flex items-center justify-center gap-3">
+                                                     {(item.status === 'Pago' || item.status === 'Pendente') && !isTransfer && <button onClick={() => handleOpenRecibo(item)} className="text-purple-500 hover:text-purple-700" title="Gerar Recibo"><FontAwesomeIcon icon={faReceipt} /></button>}
+                                                     {isPending && <button onClick={() => handleStatusUpdate(item.id, 'Pago')} className="text-green-500 hover:text-green-700" title="Marcar como Pago"><FontAwesomeIcon icon={faDollarSign} /></button>}
+                                                     <button onClick={() => onEdit(item)} className="text-blue-500 hover:text-blue-700" title="Editar Completo"><FontAwesomeIcon icon={faPenToSquare} /></button>
+                                                     <button onClick={() => handleDuplicate(item)} className="text-gray-500 hover:text-gray-700" title="Duplicar Lançamento"><FontAwesomeIcon icon={faCopy} /></button>
+                                                     <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
+                                                 </div>
+                                             </td>
+                                        </tr>
+                                    );
+                                }) : (
+                                     <tr><td colSpan="10" className="text-center py-10 text-gray-500 uppercase">Nenhum lançamento encontrado. Tente limpar os filtros.</td></tr>
+                                )}
+                           </tbody>
+                      </table>
                  </div>
             )}
         </div>
