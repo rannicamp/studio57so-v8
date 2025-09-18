@@ -11,12 +11,6 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
-// =================================================================================
-// ATUALIZAÇÃO DA REGRA DE DATAS
-// O PORQUÊ: Corrigimos esta função para seguir nossa regra de ouro. Agora, ela
-// trata a data como texto, dividindo 'YYYY-MM-DD' e remontando como 'DD/MM/YYYY',
-// o que elimina completamente o risco de erros de fuso horário.
-// =================================================================================
 const formatDateString = (dateStr) => {
     if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return 'Não definido';
     const [year, month, day] = dateStr.split('-');
@@ -39,14 +33,21 @@ const AnexosSection = ({ anexos }) => {
     const supabase = createClient();
     const [loadingUrl, setLoadingUrl] = useState(null);
 
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO
+    // O PORQUÊ: Trocamos a função 'createSignedUrl' por 'getPublicUrl', que é a
+    // maneira correta de obter o link para arquivos em pastas públicas no Supabase Storage.
+    // =================================================================================
     const handleViewAnexo = async (caminho_arquivo) => {
         if (!caminho_arquivo) return;
         setLoadingUrl(caminho_arquivo);
         try {
-            const { data, error } = await supabase.storage.from('documentos-financeiro').createSignedUrl(caminho_arquivo, 3600);
-            if (error) throw error;
-            if (data?.signedUrl) {
-                window.open(data.signedUrl, '_blank');
+            const { data } = supabase.storage.from('documentos-financeiro').getPublicUrl(caminho_arquivo);
+            
+            if (data?.publicUrl) {
+                window.open(data.publicUrl, '_blank');
+            } else {
+                throw new Error("Não foi possível obter a URL pública do anexo.");
             }
         } catch (error) {
             toast.error("Erro ao gerar link do anexo.");
@@ -55,6 +56,9 @@ const AnexosSection = ({ anexos }) => {
             setLoadingUrl(null);
         }
     };
+    // =================================================================================
+    // FIM DA CORREÇÃO
+    // =================================================================================
 
     if (!anexos || anexos.length === 0) {
         return <InfoField label="Anexos" value="Nenhum anexo encontrado." icon={faFileLines} />;

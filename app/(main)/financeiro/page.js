@@ -1,3 +1,4 @@
+//app\(main)\financeiro\page.js
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -42,16 +43,6 @@ async function fetchInitialData(organizacao_id) {
     };
 }
 
-// ==========================================================
-// MUDANÇA ESTRATÉGICA
-// O PORQUÊ: A função applyFiltersToQuery foi removida. Para garantir 100% de
-// consistência, toda a lógica de filtragem foi movida para a função SQL
-// 'consultar_lancamentos_filtrados' no banco de dados. Agora, tanto esta
-// página quanto o Construtor de KPI usarão a mesma "Fonte da Verdade".
-// ==========================================================
-// const applyFiltersToQuery = (query, currentFilters) => { ... }; // <-- LÓGICA REMOVIDA DAQUI
-
-
 async function fetchLancamentos({ queryKey }) {
     const [_key, { filters, currentPage, itemsPerPage, sortConfig, organizacao_id }] = queryKey;
     if (!organizacao_id) return { data: [], count: 0 };
@@ -59,9 +50,24 @@ async function fetchLancamentos({ queryKey }) {
     const from = (currentPage - 1) * itemsPerPage;
     const to = from + itemsPerPage - 1;
 
-    const selectString = `*, conta:contas_financeiras(nome), categoria:categorias_financeiras(nome), favorecido:contatos(nome, razao_social), empresa:cadastro_empresa!empresa_id(nome_fantasia, razao_social), empreendimento:empreendimentos(nome)`;
+    // =================================================================================
+    // INÍCIO DA ATUALIZAÇÃO
+    // O PORQUÊ: Adicionamos 'anexos:lancamentos_anexos(*)' à string de seleção.
+    // Isso instrui o Supabase a buscar não apenas o lançamento, mas também todos os
+    // registros da tabela 'lancamentos_anexos' que estão associados a ele.
+    // =================================================================================
+    const selectString = `*, 
+        conta:contas_financeiras(nome), 
+        categoria:categorias_financeiras(nome), 
+        favorecido:contatos(nome, razao_social), 
+        empresa:cadastro_empresa!empresa_id(nome_fantasia, razao_social), 
+        empreendimento:empreendimentos(nome),
+        anexos:lancamentos_anexos(*)`;
+    // =================================================================================
+    // FIM DA ATUALIZAÇÃO
+    // =================================================================================
 
-    // Chamando a nova função centralizada no banco de dados (RPC)
+
     const { data, error, count } = await supabase
         .rpc('consultar_lancamentos_filtrados', { 
             p_organizacao_id: organizacao_id, 
@@ -84,7 +90,6 @@ async function fetchLancamentosKpi({ queryKey }) {
     const [_key, { filters, organizacao_id }] = queryKey;
     if (!organizacao_id) return [];
 
-    // Também usa a função centralizada para consistência total
     const { data, error } = await supabase
         .rpc('consultar_lancamentos_filtrados', {
             p_organizacao_id: organizacao_id,
