@@ -1,15 +1,12 @@
 //components\ComprasKanban.js
-
 'use client';
 
-// NOVO: Adicionado useRef e useEffect para controlar o menu
-import { useMemo, useState, useRef, useEffect } from 'react'; 
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
 import PedidoCard from './PedidoCard';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// NOVO: Adicionado o ícone de 'sort' (ordenar)
-import { faSpinner, faTrash, faSort } from '@fortawesome/free-solid-svg-icons'; 
+import { faSpinner, faTrash, faSort } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 
 const statusColumns = [
@@ -34,12 +31,10 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
     const [scrollLeft, setScrollLeft] = useState(0);
     const [isDeletingCanceled, setIsDeletingCanceled] = useState(false);
 
-    // NOVO: Estados para controlar a funcionalidade de ordenação
-    const [sorting, setSorting] = useState({}); // Guarda a ordenação de cada coluna
-    const [openSortMenu, setOpenSortMenu] = useState(null); // Controla qual menu está aberto
-    const sortMenuRef = useRef(null); // Referência para o menu para fechar ao clicar fora
+    const [sorting, setSorting] = useState({});
+    const [openSortMenu, setOpenSortMenu] = useState(null);
+    const sortMenuRef = useRef(null);
 
-    // NOVO: Efeito para fechar o menu de ordenação ao clicar fora dele
     useEffect(() => {
         function handleClickOutside(event) {
             if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
@@ -81,7 +76,6 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
         container.scrollLeft = scrollLeft - walk;
     };
 
-    // NOVO: Opções de ordenação para os pedidos
     const sortOptions = [
         { value: '', label: 'Padrão (ID do Pedido)' },
         { value: 'solicitante_asc', label: 'Solicitante (A-Z)' },
@@ -92,7 +86,6 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
         { value: 'valor_total_asc', label: 'Valor (Menor-Maior)' },
     ];
 
-    // NOVO: Função para atualizar o estado de ordenação quando uma opção é escolhida
     const handleSortChange = (columnId, sortValue) => {
         if (!sortValue) {
             const newSorting = { ...sorting };
@@ -122,7 +115,6 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
             }
         });
 
-        // NOVO: Lógica que aplica a ordenação escolhida em cada coluna
         Object.keys(groups).forEach(columnId => {
             const sortConfig = sorting[columnId];
             if (sortConfig) {
@@ -147,13 +139,12 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
                     return 0;
                 });
             } else {
-                // Ordenação padrão por ID do pedido (mais recente primeiro)
                 groups[columnId].pedidos.sort((a, b) => b.id - a.id);
             }
         });
 
         return groups;
-    }, [pedidos, sorting]); // Adicionado 'sorting' como dependência
+    }, [pedidos, sorting]);
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     
@@ -166,11 +157,11 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
 
     const handleDuplicatePedido = async (pedidoId) => {
         if (!user) {
-            alert('Você precisa estar logado para duplicar um pedido.');
+            toast.error('Você precisa estar logado para duplicar um pedido.');
             return;
         }
-        
-        const { data: newPedido, error } = await supabase
+
+        const promise = supabase
             .rpc('duplicar_pedido_compra', {
                 p_original_pedido_id: pedidoId,
                 p_novo_solicitante_id: user.id
@@ -178,12 +169,18 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
             .select('*, solicitante:solicitante_id(id, nome), itens:pedidos_compra_itens(*), anexos:pedidos_compra_anexos(*)')
             .single();
 
-        if (error) {
-            alert('Erro ao duplicar o pedido: ' + error.message);
-        } else {
-            alert(`Pedido #${pedidoId} duplicado com sucesso! Novo pedido gerado: #${newPedido.id}`);
-            setPedidos(prevPedidos => [newPedido, ...prevPedidos]);
-        }
+        toast.promise(promise, {
+            loading: 'Duplicando pedido...',
+            success: (result) => {
+                const newPedido = result.data;
+                if (!newPedido) {
+                    throw new Error("Não foi possível obter os dados do novo pedido.");
+                }
+                setPedidos(prevPedidos => [newPedido, ...prevPedidos]);
+                return `Pedido #${pedidoId} duplicado! Novo pedido gerado: #${newPedido.id}`;
+            },
+            error: (err) => `Erro ao duplicar pedido: ${err.message}`,
+        });
     };
 
     const handleStatusChange = async (pedidoId, newStatus) => {
@@ -191,7 +188,9 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
         const pedido = originalPedidos.find(p => p.id === pedidoId);
 
         if (newStatus === 'Realizado' && checkPendingItems(pedido)) {
-            alert('Ação bloqueada: Não é possível mover para "Realizado".\n\nTodos os itens do pedido devem ter um Fornecedor e um Preço Unitário definidos.');
+            toast.error('Ação bloqueada!', {
+                description: 'Todos os itens devem ter um Fornecedor e Preço definidos para avançar.',
+            });
             setDragOverColumn(null);
             return;
         }
@@ -206,7 +205,7 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
             .single();
 
         if (updateError) {
-             alert('Erro ao atualizar status: ' + updateError.message);
+             toast.error('Erro ao atualizar status', { description: updateError.message });
              setPedidos(originalPedidos);
              return;
         }
@@ -221,26 +220,38 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
         });
 
         if (rpcError) {
-            alert('Erro ao registrar histórico: ' + rpcError.message);
-            setPedidos(originalPedidos);
+            toast.error('Erro ao registrar histórico do pedido', { description: rpcError.message });
+            setPedidos(originalPedidos); // Reverte a mudança visual
         }
 
-        if (newStatus === 'Entregue' && user) {
+        // =================================================================================
+        // INÍCIO DA CORREÇÃO
+        // O PORQUÊ: Aqui garantimos que o ID da organização do usuário logado seja
+        // enviado para a função do banco de dados. Isso permite que a função
+        // crie as entradas no estoque com a "etiqueta" de organização correta,
+        // satisfazendo a regra de segurança e evitando o erro.
+        // =================================================================================
+        if (newStatus === 'Entregue' && user?.organizacao_id) {
             toast.info('Processando entrada dos itens no almoxarifado...');
 
             const { error: almoxarifadoError } = await supabase.rpc('processar_entrada_pedido_no_estoque', {
                 p_pedido_id: pedidoId,
-                p_usuario_id: user.id
+                p_usuario_id: user.id,
+                p_organizacao_id: user.organizacao_id // <-- A "ETIQUETA" QUE FALTAVA!
             });
 
             if (almoxarifadoError) {
                 toast.error(`Falha ao dar entrada no estoque: ${almoxarifadoError.message}`);
+                // Desfaz a mudança de status se a entrada no estoque falhar
                 await supabase.from('pedidos_compra').update({ status: pedido.status }).eq('id', pedidoId);
                 setPedidos(originalPedidos);
             } else {
-                toast.success('Itens recebidos e adicionados ao almoxarifado com sucesso!');
+                toast.success('Itens recebidos e adicionados ao almoxarifado!');
             }
         }
+        // =================================================================================
+        // FIM DA CORREÇÃO
+        // =================================================================================
     };
 
     const handleDeleteAllCanceled = async () => {
@@ -251,35 +262,29 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
             return;
         }
 
-        if (!window.confirm(`Tem certeza que deseja EXCLUIR PERMANENTEMENTE TODOS os ${canceledPedidosCount} pedidos cancelados? Esta ação é irreversível!`)) {
-            return;
-        }
-
-        setIsDeletingCanceled(true);
-        
-        toast.promise(
-            new Promise(async (resolve, reject) => {
-                const { error } = await supabase
-                    .from('pedidos_compra')
-                    .delete()
-                    .eq('status', 'Cancelado');
-
-                if (error) {
-                    reject(new Error(`Erro ao excluir pedidos cancelados: ${error.message}`));
-                } else {
-                    resolve(`Todos os ${canceledPedidosCount} pedidos cancelados foram excluídos com sucesso!`);
+        toast.warning(`Excluir ${canceledPedidosCount} pedido(s) cancelado(s)?`, {
+            description: 'Esta ação é permanente e não pode ser desfeita.',
+            action: {
+                label: 'Excluir Todos',
+                onClick: () => {
+                    setIsDeletingCanceled(true);
+                    const promise = supabase.from('pedidos_compra').delete().eq('status', 'Cancelado');
+                    
+                    toast.promise(promise, {
+                        loading: 'Excluindo pedidos...',
+                        success: () => {
+                            setPedidos(prev => prev.filter(p => p.status !== 'Cancelado'));
+                            return `${canceledPedidosCount} pedido(s) excluído(s).`;
+                        },
+                        error: (err) => `Erro: ${err.message}`,
+                        finally: () => setIsDeletingCanceled(false),
+                    });
                 }
-            }),
-            {
-                loading: 'Excluindo pedidos cancelados...',
-                success: (msg) => { 
-                    setPedidos(prev => prev.filter(p => p.status !== 'Cancelado'));
-                    return msg; 
-                },
-                error: (err) => err.message,
-                finally: () => setIsDeletingCanceled(false)
+            },
+            cancel: {
+                label: 'Cancelar'
             }
-        );
+        });
     };
 
     const handleDragOver = (e, columnId) => {
@@ -318,7 +323,6 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
                     className={`w-80 flex-shrink-0 bg-gray-100 rounded-lg shadow-sm transition-colors duration-300 flex flex-col ${dragOverColumn === column.id ? 'bg-blue-100' : ''}`}
                 >
                     <div className="p-3 text-sm font-semibold text-gray-700 border-b flex justify-between items-center">
-                        {/* NOVO: Toda esta parte do cabeçalho foi modificada para incluir o botão de ordenar */}
                         <h3 className="flex-grow">{column.title} ({groupedData[column.id]?.pedidos.length || 0})</h3>
                         <div className="flex items-center gap-2">
                              {column.id === 'Cancelado' && groupedData[column.id]?.pedidos.length > 0 && (
