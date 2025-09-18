@@ -5,16 +5,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faPrint, faSpinner } from '@fortawesome/free-solid-svg-icons';
-// =================================================================================
-// INÍCIO DA CORREÇÃO
-// O PORQUÊ: Trocamos o 'require()' por 'import', que é a forma correta e moderna
-// de usar bibliotecas em componentes React/Next.js. Isso também ajuda o sistema
-// a encontrar o módulo que acabamos de instalar.
-// =================================================================================
 import extenso from 'extenso';
-// =================================================================================
-// FIM DA CORREÇÃO
-// =================================================================================
 
 const numeroParaExtenso = (valor) => {
     if (valor === null || valor === undefined || isNaN(valor)) return '';
@@ -73,7 +64,14 @@ export default function ReciboModal({ isOpen, onClose, lancamento: initialLancam
     const handlePrint = () => {
         const printContents = document.getElementById('recibo-imprimivel').innerHTML;
         const originalContents = document.body.innerHTML;
-        document.body.innerHTML = `<style>body { font-family: sans-serif; } .recibo-container { width: 100%; max-width: 800px; margin: auto; padding: 20px; border: 1px solid #ccc; } h1 { text-align: center; } p { line-height: 1.6; } .assinatura { margin-top: 60px; text-align: center; } .footer-info { margin-top: 40px; font-size: 0.8em; color: #888; }</style>` + printContents;
+        // Adicionamos as classes de estilo diretamente no HTML que será impresso
+        document.body.innerHTML = `<style>
+            body { font-family: sans-serif; } 
+            .recibo-container { width: 100%; max-width: 800px; margin: auto; padding: 20px; border: 1px solid #ccc; } 
+            h1 { text-align: center; } p { line-height: 1.6; } 
+            .assinatura { margin-top: 80px; text-align: center; } /* Aumentamos a margem aqui */
+            .footer-info { margin-top: 40px; font-size: 0.8em; color: #888; }
+        </style>` + printContents;
         window.print();
         document.body.innerHTML = originalContents;
         window.location.reload();
@@ -118,11 +116,19 @@ export default function ReciboModal({ isOpen, onClose, lancamento: initialLancam
                             {empresaPagadora?.city || 'N/A'}, {new Date(lancamentoCompleto?.data_pagamento || lancamentoCompleto?.data_transacao).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' })}.
                         </p>
 
-                        <div className="assinatura">
+                        {/* ================================================================================= */}
+                        {/* INÍCIO DA ATUALIZAÇÃO */}
+                        {/* O PORQUÊ: Adicionamos 'text-center' para centralizar o texto e 'mt-20' */}
+                        {/* para aumentar o espaçamento acima da linha de assinatura. */}
+                        {/* ================================================================================= */}
+                        <div className="assinatura text-center mt-20">
                             <div className="border-t border-black w-72 mx-auto"></div>
                             <p className="mt-2 font-semibold">{favorecido?.nome || favorecido?.razao_social || 'N/A'}</p>
                             <p className="text-sm">CPF/CNPJ: {favorecido?.cpf || favorecido?.cnpj || 'N/A'}</p>
                         </div>
+                        {/* ================================================================================= */}
+                        {/* FIM DA ATUALIZAÇÃO */}
+                        {/* ================================================================================= */}
 
                         <div className="footer-info text-xs text-gray-500 mt-6 pt-4 border-t">
                             <p>ID da Transação: {lancamentoCompleto?.id}</p>

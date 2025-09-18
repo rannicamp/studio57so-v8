@@ -258,18 +258,12 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         });
     };
 
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO DO BUG
-    // O PORQUÊ: Adicionamos a lógica para encontrar e pré-selecionar a categoria
-    // 'Transferência' quando o tipo de formulário muda.
-    // =================================================================================
     const handleChange = (e) => {
         const { name, value } = e.target;
         let newFormData = { ...formData, [name]: value === '' ? null : value };
         
         if (name === 'form_type' && value === 'transferencia') {
             newFormData.tipo = 'Despesa'; 
-            // Procura a categoria 'Transferência' (insensível a maiúsculas/minúsculas)
             const transferenciaCategory = dropdownData?.categorias?.find(c => c.nome.toLowerCase() === 'transferência');
             if (transferenciaCategory) {
                 newFormData.categoria_id = transferenciaCategory.id;
@@ -277,7 +271,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         } else if (name === 'form_type' && value !== 'transferencia') {
             if (formData.form_type === 'transferencia') {
                 newFormData.tipo = 'Despesa';
-                // Limpa a categoria se estava como 'Transferência'
                 const transferenciaCategory = dropdownData?.categorias?.find(c => c.nome.toLowerCase() === 'transferência');
                 if (formData.categoria_id === transferenciaCategory?.id) {
                     newFormData.categoria_id = null;
@@ -295,9 +288,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         }
         setFormData(newFormData);
     };
-    // =================================================================================
-    // FIM DA CORREÇÃO
-    // =================================================================================
     
     const handleFavorecidoSearch = async (e) => { 
         const value = e.target.value; 
@@ -405,6 +395,26 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                         ) : ( 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div><label className="block text-sm font-medium">Conta*</label><select name="conta_id" value={formData.conta_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{dropdownData?.contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div> <div><label className="block text-sm font-medium">Categoria</label><select name="categoria_id" value={formData.categoria_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{filteredCategorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div> <div className="md:col-span-2 relative"> <label className="block text-sm font-medium">Favorecido / Fornecedor</label> <input type="text" value={favorecidoSearchTerm} onChange={handleFavorecidoSearch} disabled={!!formData.favorecido_contato_id} placeholder={formData.favorecido_contato_id ? '' : 'Digite para buscar...'} className="mt-1 w-full p-2 border rounded-md" /> {formData.favorecido_contato_id && ( <button type="button" onClick={handleClearFavorecido} className="absolute right-2 top-8 text-gray-500 hover:text-red-600"><FontAwesomeIcon icon={faTimes} /></button> )} {favorecidoSearchTerm && !formData.favorecido_contato_id && ( <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg"> {isSearchingFavorecido && <li className="px-4 py-2 text-gray-500">Buscando...</li>} {!isSearchingFavorecido && searchAttempted && favorecidoSearchResults.length === 0 && ( <li className="px-4 py-2 text-center text-gray-500">Nenhum resultado. <button type="button" onClick={handleAddNewFavorecido} className="text-blue-600 hover:underline font-semibold ml-2">Adicionar Novo?</button></li> )} {favorecidoSearchResults.map(contato => ( <li key={contato.id} onClick={() => handleSelectFavorecido(contato)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={contato.nome || contato.razao_social} highlight={favorecidoSearchTerm} /></li> ))} </ul> )} </div> <div><label className="block text-sm font-medium">Empresa</label><select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!!formData.empreendimento_id}><option value="">Nenhuma</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}</select></div> <div><label className="block text-sm font-medium">Empreendimento</label><select name="empreendimento_id" value={formData.empreendimento_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Nenhum</option>{dropdownData?.empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></div> <div><label className="block text-sm font-medium">Etapa da Obra</label><select name="etapa_id" value={formData.etapa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!formData.empreendimento_id}><option value="">Nenhuma</option>{dropdownData?.etapas.map(e => <option key={e.id} value={e.id}>{e.nome_etapa}</option>)}</select></div> </div> 
                         )}
+
+                        {/* ================================================================================= */}
+                        {/* INÍCIO DA ATUALIZAÇÃO */}
+                        {/* O PORQUÊ: Adicionamos o campo de textarea para as observações aqui. */}
+                        {/* Ele cobre a largura inteira do formulário para dar mais espaço. */}
+                        {/* ================================================================================= */}
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium">Observações</label>
+                            <textarea
+                                name="observacoes"
+                                value={formData.observacoes || ''}
+                                onChange={handleChange}
+                                rows="3"
+                                placeholder="Adicione observações, detalhes da transação ou memória de cálculo aqui..."
+                                className="mt-1 w-full p-2 border rounded-md"
+                            ></textarea>
+                        </div>
+                        {/* ================================================================================= */}
+                        {/* FIM DA ATUALIZAÇÃO */}
+                        {/* ================================================================================= */}
 
                         <div className="pt-4 border-t">
                             <label className="block text-sm font-medium mb-2">Anexos</label>
