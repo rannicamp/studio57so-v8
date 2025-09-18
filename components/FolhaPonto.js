@@ -10,10 +10,12 @@ import {
     faCalendarCheck, faBusinessTime, faCalendarXmark, faPrint,
     faSpinner, faUserCircle, faExclamationTriangle, faDollarSign,
     faHistory, faCalculator, faBoxArchive, faHandHoldingDollar,
-    faHourglassHalf, faUmbrellaBeach
+    faHourglassHalf, faUmbrellaBeach, faMoneyCheckDollar,
+    faHistory as faReopen
 } from '@fortawesome/free-solid-svg-icons';
 import KpiCard from './KpiCard';
 import AjusteSaldoModal from './rh/AjusteSaldoModal';
+import LancarValeModal from './rh/LancarValeModal'; 
 import { toast } from 'sonner';
 
 const supabase = createClient();
@@ -100,6 +102,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     const [actionLoading, setActionLoading] = useState(false);
     const [saldoBancoHoras, setSaldoBancoHoras] = useState(0);
     const [feriasGozadas, setFeriasGozadas] = useState(0);
+    const [isValeModalOpen, setIsValeModalOpen] = useState(false);
 
     const selectedSignatory = useMemo(() => {
         if (!selectedSignatoryId || proprietarios.length === 0) return { name: 'N/A', cpf: 'N/A' };
@@ -189,7 +192,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         } finally {
             setIsProcessing(false);
         }
-    }, [employeeId, month, supabase]);
+    }, [employeeId, month]);
 
     useEffect(() => {
         loadTimesheetData();
@@ -211,7 +214,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             if (user) { setGeradoPor(`${user.nome} ${user.sobrenome}`); }
         };
         fetchInitialData();
-    }, [supabase, user, isUserProprietario]);
+    }, [user, isUserProprietario]);
 
     const monthlyBalance = useMemo(() => {
         const dailyBalances = {};
@@ -434,23 +437,15 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 if (!value) {
                     if (existingRecord) ({ error } = await supabase.from('pontos').delete().eq('id', existingRecord.id));
                 } else {
-                    // =================================================================================
-                    // INÍCIO DA CORREÇÃO DO BUG DE FUSO HORÁRIO
-                    // O PORQUÊ: Criamos a data diretamente em formato UTC (adicionando 'Z') para
-                    // evitar que o toISOString() subtraia horas com base no fuso local.
-                    // =================================================================================
                     const utcDate = new Date(`${date}T${value}:00.000Z`);
                     const recordData = { 
                         funcionario_id: employeeId, 
                         tipo_registro, 
-                        data_hora: utcDate.toISOString(), // Agora a data está correta
+                        data_hora: utcDate.toISOString(),
                         editado_manualmente: true, 
                         editado_por_usuario_id: currentUser.id,
                         organizacao_id: employee.organizacao_id 
                     };
-                    // =================================================================================
-                    // FIM DA CORREÇÃO
-                    // =================================================================================
                     ({ error } = existingRecord
                         ? await supabase.from('pontos').update(recordData).eq('id', existingRecord.id)
                         : await supabase.from('pontos').insert(recordData));
@@ -554,11 +549,65 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         });
     };
     
+    const handleReopenMonth = () => {
+        if (!employee) return;
+
+        const promise = async () => {
+            const [year, monthNum] = month.split('-');
+            const mes_referencia = `${year}-${monthNum}-01`;
+
+            const { error } = await supabase.rpc('reabrir_mes_ponto', {
+                p_funcionario_id: employee.id,
+                p_mes_referencia: mes_referencia,
+                p_organizacao_id: employee.organizacao_id
+            });
+
+            if (error) throw error;
+        };
+
+        toast.warning("Tem certeza que deseja reabrir este mês?", {
+            description: "Esta ação irá reverter o fechamento do banco de horas e o lançamento financeiro associado, permitindo novas edições.",
+            action: {
+                label: "Confirmar Reabertura",
+                onClick: () => toast.promise(promise(), {
+                    loading: 'Reabrindo mês...',
+                    success: () => {
+                        loadTimesheetData();
+                        return 'Mês reaberto com sucesso!';
+                    },
+                    error: (err) => `Erro ao reabrir: ${err.message}`,
+                })
+            },
+            cancel: {
+                label: "Cancelar"
+            },
+        });
+    };
+
     if (isProcessing) { return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando dados...</div>; }
     if (!employee) return null;
 
     return (
         <div className="printable-area space-y-4">
+            {/* ================================================================= */}
+            {/* INÍCIO DA ATUALIZAÇÃO */}
+            {/* O PORQUÊ: Aqui estamos passando os dados que estavam faltando */}
+            {/* para que o modal possa calcular o valor corretamente. */}
+            {/* ================================================================= */}
+            <LancarValeModal
+                isOpen={isValeModalOpen}
+                onClose={() => setIsValeModalOpen(false)}
+                employee={employee}
+                month={month}
+                historicoSalarial={historicoSalarial}
+                timesheetData={timesheetData}
+                abonosData={abonosData}
+                holidays={holidays}
+            />
+            {/* ================================================================= */}
+            {/* FIM DA ATUALIZAÇÃO */}
+            {/* ================================================================= */}
+
             <style jsx global>{`@media print { @page { size: A4 portrait; margin: 0.8cm; } body * { visibility: hidden; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } .printable-area, .printable-area * { visibility: visible; } .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; } .no-print { display: none !important; } .print-header { display: block !important; } .print-header-info h3 { font-size: 1.1rem !important; } .kpi-container-on-print { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 0.5rem; font-size: 8pt; border: 1px solid #eee; padding: 4px; border-radius: 6px; } table { font-size: 7.5pt !important; width: 100%; border-collapse: collapse !important; margin-top: 0.5rem; } th, td { border: 1px solid #ccc !important; padding: 2px !important; text-align: center; } .signature-section { margin-top: 1.5cm !important; page-break-inside: avoid; } }`}</style>
             
             {pendingDays.length > 0 && (
@@ -697,11 +746,29 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                     </tfoot>
                 </table>
                 {isMonthClosed ? (
-                    <div className="p-4 bg-green-100 text-green-800 text-center font-semibold no-print">
-                        <FontAwesomeIcon icon={faCheckCircle} /> Este mês já foi fechado e o pagamento ajustado.
+                    <div className="p-4 bg-green-100 text-green-800 text-center font-semibold no-print flex justify-center items-center gap-4">
+                        <span>
+                           <FontAwesomeIcon icon={faCheckCircle} /> Este mês já foi fechado e o pagamento ajustado.
+                        </span>
+                        <button 
+                            onClick={handleReopenMonth}
+                            disabled={actionLoading}
+                            className="bg-red-500 text-white px-3 py-1 rounded-md shadow hover:bg-red-600 disabled:bg-gray-400 flex items-center gap-2 text-sm"
+                        >
+                           <FontAwesomeIcon icon={actionLoading ? faSpinner : faReopen} spin={actionLoading} />
+                           Reabrir Mês
+                        </button>
                     </div>
                 ) : (
                     <div className="p-4 bg-gray-100 flex justify-end items-center gap-4 no-print">
+                        <button 
+                            onClick={() => setIsValeModalOpen(true)}
+                            disabled={actionLoading}
+                            className="bg-yellow-500 text-white px-4 py-2 rounded-md shadow hover:bg-yellow-600 disabled:bg-gray-400 flex items-center gap-2"
+                        >
+                           <FontAwesomeIcon icon={faMoneyCheckDollar} />
+                           Lançar Vale
+                        </button>
                         <button 
                             onClick={handleCloseMonth}
                             disabled={actionLoading}

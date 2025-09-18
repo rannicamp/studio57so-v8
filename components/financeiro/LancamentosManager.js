@@ -1,3 +1,4 @@
+//components\financeiro\LancamentosManager.js
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -12,12 +13,14 @@ import {
     faDollarSign,
     faUserTag,
     faExchangeAlt,
-    faCopy
+    faCopy,
+    faReceipt 
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
 import KpiCard from '../KpiCard';
 import FiltroFinanceiro from './FiltroFinanceiro';
+import ReciboModal from './ReciboModal';
 import { toast } from 'sonner';
 
 // Componentes auxiliares (sem alterações)
@@ -58,7 +61,7 @@ export default function LancamentosManager({
     onRowClick
 }) {
     const supabase = createClient();
-    const queryClient = useQueryClient(); // PADRÃO OURO: Para invalidar queries
+    const queryClient = useQueryClient();
 
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [isBatchActionsOpen, setIsBatchActionsOpen] = useState(false);
@@ -69,11 +72,12 @@ export default function LancamentosManager({
     const [analysisResult, setAnalysisResult] = useState('');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [editingCell, setEditingCell] = useState(null);
+    const [isReciboModalOpen, setIsReciboModalOpen] = useState(false);
+    const [lancamentoParaRecibo, setLancamentoParaRecibo] = useState(null);
 
-    // PADRÃO OURO: useMutation para cada ação de modificação
     const onActionSuccess = () => {
-        queryClient.invalidateQueries(['lancamentos']); // Invalida a query principal para atualizar a lista
-        if (onUpdate) onUpdate(); // Mantém a chamada da prop para compatibilidade
+        queryClient.invalidateQueries({queryKey: ['lancamentos']});
+        if (onUpdate) onUpdate();
     };
 
     const updateStatusMutation = useMutation({
@@ -95,7 +99,6 @@ export default function LancamentosManager({
             lancamentoParaDuplicar.status = 'Pendente';
             lancamentoParaDuplicar.data_pagamento = null;
             lancamentoParaDuplicar.conciliado = false;
-            // A organizacao_id já está em lancamentoParaDuplicar, o que é seguro.
             const { error } = await supabase.from('lancamentos').insert([lancamentoParaDuplicar]);
             if (error) throw new Error(error.message);
         },
@@ -123,7 +126,6 @@ export default function LancamentosManager({
         onSuccess: onActionSuccess,
     });
 
-    // Handlers que agora usam as mutations com toast.promise
     const handleStatusUpdate = (lancamentoId, newStatus) => {
         setEditingCell(null);
         toast.promise(updateStatusMutation.mutateAsync({ lancamentoId, newStatus }), {
@@ -190,7 +192,11 @@ export default function LancamentosManager({
         });
     };
 
-    // Lógicas de UI (sem grandes alterações, apenas simplificadas)
+    const handleOpenRecibo = (lancamento) => {
+        setLancamentoParaRecibo(lancamento);
+        setIsReciboModalOpen(true);
+    };
+
     const kpiData = useMemo(() => {
         let totalReceitas = 0, totalDespesas = 0;
         (allLancamentosKpi || []).forEach(l => {
@@ -202,7 +208,7 @@ export default function LancamentosManager({
         return { totalReceitas, totalDespesas, resultado };
     }, [allLancamentosKpi]);
 
-    const handleAnalyzeClick = async () => { /* ... (código existente sem alteração) ... */ };
+    const handleAnalyzeClick = async () => { /* ... */ };
     const handleItemsPerPageChange = () => { let value = Number(itemsPerPageInput); if (isNaN(value) || value < 1) value = 1; if (value > 999) value = 999; setItemsPerPageInput(value); setItemsPerPage(value); setCurrentPage(1); };
     useEffect(() => { setSelectedIds(new Set()); }, [lancamentos]);
     
@@ -230,7 +236,7 @@ export default function LancamentosManager({
     const allDataForBatchModal = {
         statusOptions: [{id: 'Pago', nome: 'Pago'}, {id: 'Pendente', nome: 'Pendente'}],
         categorias, empreendimentos, contas,
-        etapas: [], // Este estado não está sendo populado, precisa revisar
+        etapas: [],
         contatos: allContacts,
         funcionarios: funcionarios?.map(f => ({ ...f, nome: f.full_name })),
     };
@@ -251,6 +257,12 @@ export default function LancamentosManager({
         <div className="space-y-4">
             <AnalysisModal isOpen={isAnalysisModalOpen} onClose={() => setIsAnalysisModalOpen(false)} analysisText={analysisResult} isLoading={isAnalyzing} />
             <BatchUpdateModal isOpen={isBatchUpdateModalOpen} onClose={() => setIsBatchUpdateModalOpen(false)} onConfirm={handleBatchUpdateField} fields={batchUpdateFields} allData={allDataForBatchModal} />
+            
+            <ReciboModal 
+                isOpen={isReciboModalOpen}
+                onClose={() => setIsReciboModalOpen(false)}
+                lancamento={lancamentoParaRecibo}
+            />
             
             <FiltroFinanceiro
                 filters={filters} setFilters={setFilters} empresas={empresas} contas={contas}
@@ -344,12 +356,21 @@ export default function LancamentosManager({
                                              )}
                                          </td>
                                          <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                             {/* ================================================================================= */}
+                                             {/* INÍCIO DA ATUALIZAÇÃO */}
+                                             {/* O PORQUÊ: A condição foi relaxada. Agora o botão de recibo aparece */}
+                                             {/* para lançamentos Pendentes e Pagos, desde que não sejam uma transferência. */}
+                                             {/* ================================================================================= */}
                                              <div className="flex items-center justify-center gap-3">
+                                                 {(item.status === 'Pago' || item.status === 'Pendente') && !isTransfer && <button onClick={() => handleOpenRecibo(item)} className="text-purple-500 hover:text-purple-700" title="Gerar Recibo"><FontAwesomeIcon icon={faReceipt} /></button>}
                                                  {isPending && <button onClick={() => handleStatusUpdate(item.id, 'Pago')} className="text-green-500 hover:text-green-700" title="Marcar como Pago"><FontAwesomeIcon icon={faDollarSign} /></button>}
                                                  <button onClick={() => onEdit(item)} className="text-blue-500 hover:text-blue-700" title="Editar Completo"><FontAwesomeIcon icon={faPenToSquare} /></button>
                                                  <button onClick={() => handleDuplicate(item)} className="text-gray-500 hover:text-gray-700" title="Duplicar Lançamento"><FontAwesomeIcon icon={faCopy} /></button>
                                                  <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
                                              </div>
+                                             {/* ================================================================================= */}
+                                             {/* FIM DA ATUALIZAÇÃO */}
+                                             {/* ================================================================================= */}
                                          </td>
                                      </tr>
                                  );

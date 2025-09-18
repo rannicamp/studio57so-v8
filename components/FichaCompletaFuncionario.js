@@ -1,9 +1,11 @@
-//components\FichaFuncionario.js
+//components\FichaCompletaFuncionario.js
 
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
+// O PORQUÊ: Adicionamos o useAuth para pegar o organizacao_id, corrigindo o bug.
+import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile, 
@@ -15,34 +17,16 @@ import KpiCard from './KpiCard';
 import { toast } from 'sonner';
 
 // --- HELPERS DE FORMATAÇÃO DE DATA ---
-// Por que: Centralizamos a lógica de formatação de datas aqui para garantir consistência e
-// seguir a regra de ouro sobre fusos horários.
-
-/**
- * Formata datas simples (ex: '2025-09-13') para '13/09/2025'.
- * Trata a data como texto para evitar erros de fuso horário.
- * @param {string} dateString A data no formato YYYY-MM-DD.
- * @returns {string} A data formatada como DD/MM/YYYY ou 'N/A'.
- */
 const formatSimpleDate = (dateString) => {
-    // Verifica se a string de data existe e se parece com 'YYYY-MM-DD'.
     if (!dateString || !/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
         return 'N/A';
     }
-    // Pega a parte da data (ignora a hora se houver) e divide em ano, mês e dia.
     const [year, month, day] = dateString.split('T')[0].split('-');
-    // Remonta no formato brasileiro.
     return `${day}/${month}/${year}`;
 };
 
-/**
- * Formata timestamps completos (que incluem hora e fuso horário) para o padrão local.
- * @param {string} dateString O timestamp.
- * @returns {string} A data formatada ou 'N/A'.
- */
 const formatTimestamp = (dateString) => {
     if (!dateString) return 'N/A';
-    // Para timestamps, podemos usar new Date() com segurança, pois a informação de fuso já está presente.
     return new Date(dateString).toLocaleDateString('pt-BR');
 };
 
@@ -109,12 +93,12 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
     useEffect(() => {
         const fetchTipos = async () => {
             setLoading(true);
-            const { data } = await supabase.from('documento_tipos').select('*').order('sigla');
+            const { data } = await supabase.from('documento_tipos').select('*').eq('organizacao_id', organizacaoId).order('sigla');
             setTiposDocumento(data || []);
             setLoading(false);
         };
-        fetchTipos();
-    }, [supabase]);
+        if (organizacaoId) fetchTipos();
+    }, [supabase, organizacaoId]);
 
     const getFileIcon = (fileName) => {
         if (!fileName) return faFile;
@@ -127,7 +111,6 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
 
     const handleUpload = async () => {
         if (!newFile || !newFileType) {
-            // Por que: Usamos toast.error para uma notificação mais amigável que o alert.
             toast.error('Por favor, selecione um arquivo e um tipo de documento.');
             return;
         }
@@ -143,8 +126,6 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
         if (uploadError) {
             toast.error('Erro no upload: ' + uploadError.message);
         } else {
-            // Por que: Adicionamos o 'organizacao_id' para garantir que o novo documento
-            // seja associado à organização correta, seguindo a regra principal do sistema.
             const { error: insertError } = await supabase.from('documentos_funcionarios').insert({
                 funcionario_id: employeeId,
                 nome_documento: tipoSelecionado.descricao,
@@ -155,14 +136,13 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
 
             if (insertError) {
                 toast.error(`Erro ao salvar registro: ${insertError.message}`);
-                // Se der erro no banco, removemos o arquivo que já subiu para não deixar lixo.
                 await supabase.storage.from('funcionarios-documentos').remove([newFileName]);
             } else {
                 toast.success('Documento enviado com sucesso!');
                 setNewFile(null);
                 setNewFileType('');
                 if (fileInputRef.current) fileInputRef.current.value = "";
-                onUpdate(); // Atualiza a lista na tela.
+                onUpdate();
             }
         }
         setIsUploading(false);
@@ -175,8 +155,6 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
     };
 
     const handleDelete = async (doc) => {
-        // Por que: Esta função cria a lógica de exclusão como uma "promessa".
-        // Isso permite que o toast.promise mostre mensagens de "carregando", "sucesso" e "erro".
         const deleteAction = async () => {
             const { error: storageError } = await supabase.storage.from('funcionarios-documentos').remove([doc.caminho_arquivo]);
             if (storageError) throw new Error(`Erro no storage: ${storageError.message}`);
@@ -184,11 +162,9 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
             const { error: dbError } = await supabase.from('documentos_funcionarios').delete().eq('id', doc.id);
             if (dbError) throw new Error(`Erro no banco: ${dbError.message}`);
 
-            onUpdate(); // Atualiza a lista na tela.
+            onUpdate();
         };
 
-        // Por que: Trocamos o 'window.confirm' por um toast mais elegante.
-        // Ele mostra uma mensagem de aviso com botões de ação, melhorando a experiência do usuário.
         toast.warning(`Tem certeza que deseja excluir o documento "${doc.nome_documento}"?`, {
             action: {
                 label: 'Confirmar Exclusão',
@@ -201,7 +177,7 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
             cancel: {
                 label: 'Cancelar'
             },
-            duration: 10000, // Damos 10 segundos para o usuário decidir.
+            duration: 10000,
         });
     };
 
@@ -235,7 +211,6 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
                                 <FontAwesomeIcon icon={getFileIcon(doc.caminho_arquivo)} className="text-2xl text-gray-500" />
                                 <div>
                                     <p className="font-semibold">{doc.nome_documento}</p>
-                                    {/* Por que: Usando o helper formatTimestamp para consistência. */}
                                     <p className="text-xs text-gray-500">Enviado em: {formatTimestamp(doc.data_upload)}</p>
                                 </div>
                             </div>
@@ -328,7 +303,6 @@ const FinanceiroSection = ({ lancamentos, onEditLancamento }) => {
                         const dataExibida = lanc.status === 'Pago' ? lanc.data_pagamento : lanc.data_vencimento || lanc.data_transacao;
                         return (
                             <tr key={lanc.id}>
-                                {/* Por que: Usando o helper formatSimpleDate para consistência e segurança. */}
                                 <td className="px-4 py-2 whitespace-nowrap">{formatSimpleDate(dataExibida)}</td>
                                 <td className="px-4 py-2">{lanc.descricao}</td>
                                 <td className="px-4 py-2">{lanc.categoria?.nome || 'N/A'}</td>
@@ -498,34 +472,39 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
     const [lancamentos, setLancamentos] = useState([]);
     const [holidays, setHolidays] = useState(new Set());
     const supabase = createClient();
+    const { user } = useAuth(); 
+    const organizacaoId = user?.organizacao_id; 
     
     const [loadingSalario, setLoadingSalario] = useState(true);
     const [salarioAtual, setSalarioAtual] = useState({ salario_base: null, valor_diaria: null });
     
     useEffect(() => {
         const fetchSalarioAtual = async () => {
-            if (employee?.id) {
+            if (employee?.id && organizacaoId) {
                 setLoadingSalario(true);
                 const { data, error } = await supabase
                     .from('historico_salarial')
                     .select('salario_base, valor_diaria')
                     .eq('funcionario_id', employee.id)
+                    .eq('organizacao_id', organizacaoId)
                     .order('data_inicio_vigencia', { ascending: false })
                     .limit(1)
                     .single();
                 
-                if (error && error.code !== 'PGRST116') { // Ignora erro se não encontrar nenhuma linha
-                    toast.error("Erro ao buscar o salário atual do funcionário.");
-                    console.error("Erro ao buscar salário:", error);
-                    setSalarioAtual({ salario_base: 0, valor_diaria: 0 });
-                } else if (data) {
+                if (data) {
                     setSalarioAtual(data);
+                } else {
+                    const fallbackSalary = {
+                        salario_base: parseFloat(String(employee.base_salary || '0').replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.')) || 0,
+                        valor_diaria: parseFloat(String(employee.daily_value || '0').replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.')) || 0
+                    };
+                    setSalarioAtual(fallbackSalary);
                 }
                 setLoadingSalario(false);
             }
         };
         fetchSalarioAtual();
-    }, [employee, supabase, onUpdate]);
+    }, [employee, supabase, organizacaoId, onUpdate]);
 
     useEffect(() => {
         const fetchHolidaysForYear = async () => {
@@ -541,8 +520,7 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
     }, []);
     
     const kpiData = useMemo(() => {
-        const valorDiariaStr = String(salarioAtual.valor_diaria || '0').replace('R$', '').trim().replace(/\./g, '').replace(',', '.');
-        const valorDiaria = parseFloat(valorDiariaStr) || 0;
+        const valorDiaria = salarioAtual.valor_diaria || 0;
 
         const today = new Date();
         const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -614,7 +592,7 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
     }, [employee, allPontos, holidays, salarioAtual]);
     
     const fetchLancamentos = useCallback(async () => {
-        if (!employee.contato_id) {
+        if (!employee.contato_id || !organizacaoId) {
             setLancamentos([]);
             return;
         }
@@ -622,10 +600,11 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
             .from('lancamentos')
             .select('*, categoria:categorias_financeiras(nome)')
             .eq('favorecido_contato_id', employee.contato_id)
+            .eq('organizacao_id', organizacaoId)
             .order('data_vencimento', { ascending: false }); 
         
         setLancamentos(data || []);
-    }, [employee, supabase]);
+    }, [employee, supabase, organizacaoId]);
 
     useEffect(() => { if (activeTab === 'financeiro') { fetchLancamentos(); } }, [activeTab, fetchLancamentos]);
     
@@ -683,21 +662,19 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                             <InfoField label="Valor Diária" value={loadingSalario ? '...' : formatCurrency(salarioAtual.valor_diaria)} />
                             <InfoField label="CPF" value={employee.cpf} />
                             <InfoField label="RG" value={employee.rg} />
-                            {/* Por que: Usando o helper formatSimpleDate para formatar corretamente e evitar erros de fuso. */}
                             <InfoField label="Data de Nascimento" value={formatSimpleDate(employee.birth_date)} />
                             <InfoField label="Estado Civil" value={employee.estado_civil} />
                             <InfoField label="Telefone" value={employee.phone} />
                             <InfoField label="Email" value={employee.email} />
                             <InfoField label="Empresa Contratante" value={employee.cadastro_empresa?.razao_social} />
                             <InfoField label="Empreendimento Atual" value={employee.empreendimentos?.nome} />
-                             {/* Por que: Usando o helper formatSimpleDate para formatar corretamente e evitar erros de fuso. */}
                             <InfoField label="Data de Admissão" value={formatSimpleDate(employee.admission_date)}/>
                             <InfoField label="Endereço" value={`${employee.address_street || ''}, ${employee.address_number || ''} - ${employee.neighborhood || ''}, ${employee.city || ''}`} fullWidth={true}/>
                             <InfoField label="Observações" value={employee.observations} fullWidth={true} />
                         </dl>
                     )}
                     {activeTab === 'contracheque' && <ContrachequeSection employee={employee} salarioAtual={salarioAtual} />}
-                    {activeTab === 'documentos' && ( <DocumentosSection documentos={allDocuments} employeeId={employee.id} employeeName={employee.full_name} organizacaoId={employee.organizacao_id} onUpdate={onUpdate} /> )}
+                    {activeTab === 'documentos' && ( <DocumentosSection documentos={employee.documentos_funcionarios} employeeId={employee.id} employeeName={employee.full_name} organizacaoId={employee.organizacao_id} onUpdate={onUpdate} /> )}
                     {activeTab === 'financeiro' && ( <FinanceiroSection lancamentos={lancamentos} onEditLancamento={onEditLancamento} /> )}
                     {activeTab === 'checklist' && ( <CadastroChecklist employee={employee} /> )}
                 </div>
