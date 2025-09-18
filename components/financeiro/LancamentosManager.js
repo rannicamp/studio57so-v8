@@ -92,9 +92,15 @@ export default function LancamentosManager({
         onSuccess: onActionSuccess,
     });
     
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO
+    // O PORQUÊ: Adicionamos 'empresa' e 'favorecido' à desestruturação. Isso "limpa"
+    // o objeto, removendo os dados de tabelas relacionadas que não podem ser inseridos
+    // diretamente na tabela de lançamentos, resolvendo o erro.
+    // =================================================================================
     const duplicateMutation = useMutation({
         mutationFn: async (item) => {
-            const { id, created_at, conta, categoria, empreendimento, ...lancamentoParaDuplicar } = item;
+            const { id, created_at, conta, categoria, empreendimento, empresa, favorecido, ...lancamentoParaDuplicar } = item;
             lancamentoParaDuplicar.descricao = `(Cópia) ${lancamentoParaDuplicar.descricao}`;
             lancamentoParaDuplicar.status = 'Pendente';
             lancamentoParaDuplicar.data_pagamento = null;
@@ -104,6 +110,9 @@ export default function LancamentosManager({
         },
         onSuccess: onActionSuccess,
     });
+    // =================================================================================
+    // FIM DA CORREÇÃO
+    // =================================================================================
 
     const bulkDeleteMutation = useMutation({
         mutationFn: async (ids) => {
@@ -356,11 +365,6 @@ export default function LancamentosManager({
                                              )}
                                          </td>
                                          <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
-                                             {/* ================================================================================= */}
-                                             {/* INÍCIO DA ATUALIZAÇÃO */}
-                                             {/* O PORQUÊ: A condição foi relaxada. Agora o botão de recibo aparece */}
-                                             {/* para lançamentos Pendentes e Pagos, desde que não sejam uma transferência. */}
-                                             {/* ================================================================================= */}
                                              <div className="flex items-center justify-center gap-3">
                                                  {(item.status === 'Pago' || item.status === 'Pendente') && !isTransfer && <button onClick={() => handleOpenRecibo(item)} className="text-purple-500 hover:text-purple-700" title="Gerar Recibo"><FontAwesomeIcon icon={faReceipt} /></button>}
                                                  {isPending && <button onClick={() => handleStatusUpdate(item.id, 'Pago')} className="text-green-500 hover:text-green-700" title="Marcar como Pago"><FontAwesomeIcon icon={faDollarSign} /></button>}
@@ -368,9 +372,6 @@ export default function LancamentosManager({
                                                  <button onClick={() => handleDuplicate(item)} className="text-gray-500 hover:text-gray-700" title="Duplicar Lançamento"><FontAwesomeIcon icon={faCopy} /></button>
                                                  <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
                                              </div>
-                                             {/* ================================================================================= */}
-                                             {/* FIM DA ATUALIZAÇÃO */}
-                                             {/* ================================================================================= */}
                                          </td>
                                      </tr>
                                  );
