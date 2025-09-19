@@ -8,13 +8,21 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 
 import FiltroAnuncios from '@/components/comercial/FiltroAnuncios';
-import TabelaAnuncios from '@/components/comercial/TabelaAnuncios'; // Importando a tabela!
+import TabelaAnuncios from '@/components/comercial/TabelaAnuncios';
 
 const fetchMetaAds = async (filters) => {
     const params = new URLSearchParams();
     if (filters.status && filters.status.length > 0) {
         params.append('status', filters.status.join(','));
     }
+    // Adicionamos as datas aos parâmetros que enviamos para a API
+    if (filters.startDate) {
+        params.append('startDate', filters.startDate);
+    }
+    if (filters.endDate) {
+        params.append('endDate', filters.endDate);
+    }
+
     const response = await fetch(`/api/meta/anuncios?${params.toString()}`);
     if (!response.ok) {
         const errorData = await response.json();
@@ -26,6 +34,8 @@ const fetchMetaAds = async (filters) => {
 const initialFilterState = {
     searchTerm: '',
     status: [],
+    startDate: '',
+    endDate: '',
 };
 
 export default function AnunciosPage() {
@@ -61,7 +71,6 @@ export default function AnunciosPage() {
                     </div>
                 )}
 
-                {/* ✨ E com vocês, a nossa Tabela de Anúncios! ✨ */}
                 {!isLoading && !isError && (
                     <TabelaAnuncios data={adsData || []} filters={filters} />
                 )}
