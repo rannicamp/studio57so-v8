@@ -1,28 +1,27 @@
 // app/api/meta/dados/route.js
 
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/utils/supabase/server'; // <-- MUDANÇA CRÍTICA AQUI
 import { cookies } from 'next/headers';
 
 // =================================================================================
-// O PORQUÊ DESTA CORREÇÃO:
-// Você estava 100% certo. A versão anterior tentava buscar a organização de um
-// local inseguro (`user_metadata`). Esta nova versão corrige isso de forma definitiva.
+// O PORQUÊ DESTA ATUALIZAÇÃO FINAL:
+// O erro '401 Unauthorized' significa que nossa API no servidor não estava conseguindo
+// ler o "cookie" de login do seu navegador.
 //
-// COMO FUNCIONA AGORA:
-// 1. A API pega o usuário da sessão (o "passaporte").
-// 2. Com o ID do usuário, ela faz uma consulta segura e direta na sua tabela `usuarios`.
-// 3. Ela busca a `organizacao_id` da tabela `usuarios`, que é a fonte oficial da verdade.
-//
-// Isso garante que a segurança do seu sistema é mantida, e a lógica fica
-// centralizada e consistente com o resto da sua aplicação. É a forma correta e robusta.
+// A CORREÇÃO:
+// Trocamos a forma de iniciar o Supabase no servidor. Em vez de usar a biblioteca
+// antiga (`@supabase/auth-helpers-nextjs`), agora estamos usando a mais moderna
+// e correta (`@supabase/ssr`), que já está no seu projeto.
+// A linha `import { createClient } from '@/utils/supabase/server';` garante que
+// a API use exatamente o mesmo método de autenticação do resto do seu sistema,
+// resolvendo o problema de forma definitiva e segura.
 // =================================================================================
 
 const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
 const API_VERSION = 'v20.0';
 const BASE_URL = `https://graph.facebook.com/${API_VERSION}`;
 
-// Função auxiliar para fazer chamadas à API da Meta (sem alterações)
 async function metaApiRequest(endpoint, params = {}) {
     if (!PAGE_ACCESS_TOKEN) {
         throw new Error("Token de Acesso à Página (META_PAGE_ACCESS_TOKEN) não configurado no servidor.");
@@ -46,20 +45,16 @@ async function metaApiRequest(endpoint, params = {}) {
 
 export async function GET(request) {
     const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = createClient(cookieStore); // <-- MUDANÇA CRÍTICA AQUI
 
     try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !session) {
+        const { data: { user }, error: userError } = await supabase.auth.getUser(); // Usando getUser que é o método recomendado
+        if (userError || !user) {
             return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
         }
         
-        const userId = session.user.id;
+        const userId = user.id;
 
-        // ============================================================
-        // AQUI ESTÁ A LÓGICA DE SEGURANÇA CORRIGIDA
-        // Buscamos o perfil do usuário no banco de dados para obter a organizacao_id
-        // ============================================================
         const { data: userProfile, error: profileError } = await supabase
             .from('usuarios')
             .select('organizacao_id')
@@ -71,9 +66,7 @@ export async function GET(request) {
             return NextResponse.json({ error: 'Organização não encontrada para o usuário.' }, { status: 403 });
         }
         const organizacaoId = userProfile.organizacao_id;
-        // ============================================================
         
-        // Busca o ID do Gerenciador de Negócios da Meta associado à organização
         const { data: empresa, error: empresaError } = await supabase
             .from('cadastro_empresa')
             .select('meta_business_id')
@@ -88,7 +81,6 @@ export async function GET(request) {
         const tipo = searchParams.get('tipo');
         const metaBusinessId = empresa.meta_business_id;
 
-        // Rota para buscar as contas de anúncio
         if (tipo === 'contas') {
             const params = { fields: 'owned_ad_accounts{id,name,account_status}' };
             const data = await metaApiRequest(metaBusinessId, params);
@@ -96,7 +88,6 @@ export async function GET(request) {
             return NextResponse.json(accounts);
         }
 
-        // Rota para buscar as campanhas de uma conta
         if (tipo === 'campanhas') {
             const contaId = searchParams.get('contaId');
             const since = searchParams.get('since');
@@ -106,7 +97,6 @@ export async function GET(request) {
                 return NextResponse.json({ error: 'Parâmetros contaId, since e until são obrigatórios.' }, { status: 400 });
             }
 
-            // 1. Busca as campanhas e suas métricas (insights)
             const params = {
                 fields: 'id,name,status,objective,budget_remaining,daily_budget,lifetime_budget,insights.time_range({\'since\':\'' + since + '\',\'until\':\'' + until + '\'}){spend,impressions,clicks,reach}',
                 limit: 100,
@@ -120,7 +110,6 @@ export async function GET(request) {
             const campaigns = data.data;
             const campaignIds = campaigns.map(c => c.id);
 
-            // 2. Conta os leads gerados para cada campanha no nosso banco de dados
              const { data: leadsData, error: leadsError } = await supabase
                 .rpc('count_leads_per_campaign', {
                     campaign_ids: campaignIds,
@@ -137,7 +126,6 @@ export async function GET(request) {
                 return acc;
             }, {});
 
-            // 3. Combina os dados da Meta com a contagem de leads
             const campanhasEnriquecidas = campaigns.map(campanha => {
                 const insights = campanha.insights?.data[0] || {};
                 return {
