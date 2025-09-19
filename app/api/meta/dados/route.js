@@ -3,22 +3,26 @@
 import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { createClient } from '@/utils/supabase/server'; // Usando o server client
 
 // =================================================================================
-// O PORQUÊ DESTE ARQUIVO:
-// Este é o nosso "cérebro" para buscar dados da Meta. Em vez de ter uma lógica
-// complexa no frontend, centralizamos tudo aqui. Ele recebe um pedido (ex: "me dê
-// as campanhas"), busca as informações na Meta, enriquece com dados do nosso banco
-// (como a contagem de leads) e devolve tudo pronto para a tela.
-// Isso mantém o código organizado, seguro e mais fácil de dar manutenção.
+// O PORQUÊ DESTA CORREÇÃO:
+// Você estava 100% certo. A versão anterior tentava buscar a organização de um
+// local inseguro (`user_metadata`). Esta nova versão corrige isso de forma definitiva.
+//
+// COMO FUNCIONA AGORA:
+// 1. A API pega o usuário da sessão (o "passaporte").
+// 2. Com o ID do usuário, ela faz uma consulta segura e direta na sua tabela `usuarios`.
+// 3. Ela busca a `organizacao_id` da tabela `usuarios`, que é a fonte oficial da verdade.
+//
+// Isso garante que a segurança do seu sistema é mantida, e a lógica fica
+// centralizada e consistente com o resto da sua aplicação. É a forma correta e robusta.
 // =================================================================================
 
 const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
 const API_VERSION = 'v20.0';
 const BASE_URL = `https://graph.facebook.com/${API_VERSION}`;
 
-// Função auxiliar para fazer chamadas à API da Meta
+// Função auxiliar para fazer chamadas à API da Meta (sem alterações)
 async function metaApiRequest(endpoint, params = {}) {
     if (!PAGE_ACCESS_TOKEN) {
         throw new Error("Token de Acesso à Página (META_PAGE_ACCESS_TOKEN) não configurado no servidor.");
@@ -40,22 +44,35 @@ async function metaApiRequest(endpoint, params = {}) {
     return data;
 }
 
-
 export async function GET(request) {
     const cookieStore = cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
     try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !session) {
             return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
         }
+        
+        const userId = session.user.id;
 
-        const organizacaoId = session.user.user_metadata.organizacao_id;
-        if (!organizacaoId) {
+        // ============================================================
+        // AQUI ESTÁ A LÓGICA DE SEGURANÇA CORRIGIDA
+        // Buscamos o perfil do usuário no banco de dados para obter a organizacao_id
+        // ============================================================
+        const { data: userProfile, error: profileError } = await supabase
+            .from('usuarios')
+            .select('organizacao_id')
+            .eq('id', userId)
+            .single();
+
+        if (profileError || !userProfile || !userProfile.organizacao_id) {
+            console.error(`LOG: Falha ao buscar perfil ou organização para o usuário ID: ${userId}`, profileError);
             return NextResponse.json({ error: 'Organização não encontrada para o usuário.' }, { status: 403 });
         }
-
+        const organizacaoId = userProfile.organizacao_id;
+        // ============================================================
+        
         // Busca o ID do Gerenciador de Negócios da Meta associado à organização
         const { data: empresa, error: empresaError } = await supabase
             .from('cadastro_empresa')
@@ -92,36 +109,35 @@ export async function GET(request) {
             // 1. Busca as campanhas e suas métricas (insights)
             const params = {
                 fields: 'id,name,status,objective,budget_remaining,daily_budget,lifetime_budget,insights.time_range({\'since\':\'' + since + '\',\'until\':\'' + until + '\'}){spend,impressions,clicks,reach}',
-                limit: 100, // Aumente se necessário
+                limit: 100,
             };
             const data = await metaApiRequest(`${contaId}/campaigns`, params);
             
             if (!data.data || data.data.length === 0) {
-                 return NextResponse.json([]); // Retorna array vazio se não houver campanhas
+                 return NextResponse.json([]);
             }
 
             const campaigns = data.data;
             const campaignIds = campaigns.map(c => c.id);
 
             // 2. Conta os leads gerados para cada campanha no nosso banco de dados
-            const { data: leadsCount, error: leadsError } = await supabase
-                .from('contatos')
-                .select('meta_campaign_id', { count: 'exact' })
-                .in('meta_campaign_id', campaignIds)
-                .eq('organizacao_id', organizacaoId);
+             const { data: leadsData, error: leadsError } = await supabase
+                .rpc('count_leads_per_campaign', {
+                    campaign_ids: campaignIds,
+                    p_organizacao_id: organizacaoId
+                });
 
             if (leadsError) {
-                console.error("LOG: Erro ao contar leads:", leadsError);
+                console.error("LOG: Erro ao contar leads via RPC:", leadsError);
                 throw new Error("Falha ao buscar contagem de leads.");
             }
             
-            // Mapeia a contagem de leads para cada ID de campanha
-            const leadsCountMap = (leadsCount || []).reduce((acc, item) => {
-                acc[item.meta_campaign_id] = item.count;
+            const leadsCountMap = (leadsData || []).reduce((acc, item) => {
+                acc[item.meta_campaign_id] = item.lead_count;
                 return acc;
             }, {});
 
-            // 3. Combina os dados da Meta com a contagem de leads do nosso sistema
+            // 3. Combina os dados da Meta com a contagem de leads
             const campanhasEnriquecidas = campaigns.map(campanha => {
                 const insights = campanha.insights?.data[0] || {};
                 return {
@@ -135,7 +151,7 @@ export async function GET(request) {
                     impressoes: parseInt(insights.impressions || 0),
                     cliques: parseInt(insights.clicks || 0),
                     alcance: parseInt(insights.reach || 0),
-                    leads: leadsCountMap[campanha.id] || 0, // Adiciona a contagem de leads
+                    leads: leadsCountMap[campanha.id] || 0,
                 };
             });
             
