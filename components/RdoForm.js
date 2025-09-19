@@ -22,11 +22,6 @@ const STATUS_CONFIG = {
 export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const supabase = createClient();
   const { hasPermission, user } = useAuth();
-  // =================================================================================
-  // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-  // O PORQUÊ: Pegamos a "chave mestra" da organização aqui para etiquetar
-  // todos os novos dados que forem criados neste RDO.
-  // =================================================================================
   const organizacaoId = user?.organizacao_id;
 
   const [message, setMessage] = useState('');
@@ -78,6 +73,8 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
       setAllOccurrences(rdoData.ocorrencias || []);
 
       const empreendimentoId = rdoData.empreendimento_id;
+      const dataRelatorio = new Date(rdoData.data_relatorio + 'T00:00:00Z');
+      const dataRelatorioStr = rdoData.data_relatorio;
 
       const { data: pedidosData } = await supabase
         .from('pedidos_compra')
@@ -86,45 +83,62 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         .eq('data_entrega_prevista', rdoData.data_relatorio)
         .eq('organizacao_id', organizacaoId);
       setPedidosPrevistos(pedidosData || []);
-
-      const { data: pastRdos } = await supabase
-        .from('diarios_obra')
-        .select('status_atividades')
-        .eq('empreendimento_id', empreendimentoId)
-        .lt('data_relatorio', rdoData.data_relatorio)
-        .eq('organizacao_id', organizacaoId);
-
-      const completedActivityIds = new Set();
-      if (pastRdos) {
-        pastRdos.forEach(rdo => {
-          (rdo.status_atividades || []).forEach(activity => {
-            if (activity.status === 'Concluído') {
-              completedActivityIds.add(activity.id);
-            }
-          });
-        });
-      }
-
+      
+      // =================================================================================
+      // INÍCIO DA CORREÇÃO DE FILTRO DAS ATIVIDADES (COM REGRA DE CONCLUSÃO)
+      // O PORQUÊ: Adicionamos `data_fim_real` para filtrar as atividades concluídas
+      // e refinamos a lógica do `filter` para atender à nova regra.
+      // =================================================================================
       const { data: activitiesData } = await supabase
         .from('activities')
-        .select('id, nome, status, tipo_atividade')
+        .select('id, nome, status, tipo_atividade, data_inicio_prevista, data_fim_real')
         .eq('empreendimento_id', empreendimentoId)
         .eq('organizacao_id', organizacaoId);
+      
+      const filteredActivities = (activitiesData || []).filter(act => {
+          // 1. Ignora tipos de atividade que não devem aparecer no RDO
+          if (act.tipo_atividade === 'Entrega de Pedido' || act.nome.startsWith('Entrega Pedido')) {
+              return false;
+          }
 
-      const filteredActivities = (activitiesData || []).filter(act =>
-        act.tipo_atividade !== 'Entrega de Pedido' &&
-        !act.nome.startsWith('Entrega Pedido') &&
-        !completedActivityIds.has(act.id)
-      );
+          const dataInicioPrevistaStr = act.data_inicio_prevista;
+          const dataFimRealStr = act.data_fim_real;
+
+          // REGRA 1: Mantém a atividade se ela estiver "Em Andamento".
+          if (act.status === 'Em Andamento') {
+              return true;
+          }
+
+          // REGRA 2 (NOVA): Mostra a atividade se ela foi concluída EXATAMENTE na data do RDO.
+          if (act.status === 'Concluído' && dataFimRealStr === dataRelatorioStr) {
+              return true;
+          }
+          
+          // REGRA 3: Mostra se a atividade NÃO está concluída E a data de início prevista
+          // é anterior ou igual à data do RDO.
+          if (act.status !== 'Concluído' && dataInicioPrevistaStr && dataInicioPrevistaStr <= dataRelatorioStr) {
+              return true;
+          }
+
+          // Se nenhuma regra for atendida, a atividade não aparece.
+          return false;
+      });
+      // =================================================================================
+      // FIM DA CORREÇÃO DE FILTRO DAS ATIVIDADES
+      // =================================================================================
 
       const { data: employeesData } = await supabase
         .from('funcionarios')
-        .select('id, full_name, status')
+        .select('id, full_name, status, admission_date, demission_date')
         .eq('empreendimento_atual_id', empreendimentoId)
         .eq('organizacao_id', organizacaoId);
+      
+      const activeEmployees = (employeesData || []).filter(emp => {
+          const admissionDate = emp.admission_date ? new Date(emp.admission_date + 'T00:00:00Z') : null;
+          const demissionDate = emp.demission_date ? new Date(emp.demission_date + 'T00:00:00Z') : null;
+          return admissionDate && dataRelatorio >= admissionDate && (!demissionDate || dataRelatorio < demissionDate);
+      });
         
-      const activeEmployees = (employeesData || []).filter(emp => emp.status === 'Ativo');
-
       const savedMaoDeObra = rdoData.mao_de_obra || [];
       setEmployeePresences(activeEmployees.map(emp => {
         const savedStatus = savedMaoDeObra.find(s => s.id === emp.id);
@@ -295,14 +309,24 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
 
   const handleActivityStatusChange = useCallback(async (activityId, newStatus, newObservation) => {
     if (isRdoLocked || !organizacaoId) return;
-    const updatedStatuses = activityStatuses.map(act => act.id === activityId ? { ...act, status: newStatus, observacao: newObservation } : act);
+    
+    const updatedStatuses = activityStatuses.map(act => 
+        act.id === activityId ? { ...act, status: newStatus, observacao: newObservation } : act
+    );
     setActivityStatuses(updatedStatuses);
     saveSectionData({ status_atividades: updatedStatuses });
+
+    const updatePayload = { status: newStatus };
+    if (newStatus === 'Concluído') {
+        updatePayload.data_fim_real = new Date().toISOString().split('T')[0];
+    }
+    
     await supabase
         .from('activities')
-        .update({ status: newStatus })
+        .update(updatePayload)
         .eq('id', activityId)
         .eq('organizacao_id', organizacaoId);
+
   }, [activityStatuses, saveSectionData, supabase, isRdoLocked, organizacaoId]);
 
   const handleEmployeeChange = useCallback(async (employeeId, field, value) => {
@@ -450,8 +474,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const handleRemovePhoto = async (photoId, photoPath) => {
     if (isRdoLocked || !organizacaoId) return;
     const promise = async () => {
-        // A política de RLS do Storage já deve garantir a segurança aqui,
-        // mas a exclusão do registro no banco de dados precisa do filtro.
         await supabase.storage.from('rdo-fotos').remove([photoPath]);
         await supabase
             .from('rdo_fotos_uploads')
@@ -606,6 +628,9 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
                 <input type="text" placeholder="Observação..." value={employee.observacao || ''} onChange={(e) => handleEmployeeChange(employee.id, 'observacao', e.target.value)} disabled={isRdoLocked} className="block w-full md:w-2/5 p-2 border rounded-md text-sm" />
               </li>
             ))}
+            {employeePresences.length === 0 && (
+              <p className="text-sm text-gray-500 py-2">Nenhum funcionário ativo para esta data.</p>
+            )}
           </ul>
         </div>
         <div className="border-b border-gray-200 pb-4">
