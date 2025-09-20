@@ -1,0 +1,355 @@
+PS C:\Projetos\studio57so-v8\app> tree /F
+Listagem de caminhos de pasta
+O número de série do volume é DE7E-E343
+C:.
+│   favicon.ico
+│   globals.css
+│   layout.js
+│   providers.js
+│   QueryProvider.js
+│
+├───(landingpages)
+│   │   layout.js
+│   │
+│   └───residencialalfa
+│       │   actions.js
+│       │   FormularioDeContato.js
+│       │   page.js
+│       │
+│       └───obrigado
+│               page.js
+│
+├───(main)
+│   │   layout.js
+│   │   page.js
+│   │
+│   ├───almoxarifado
+│   │       page.js
+│   │
+│   ├───atividades
+│   │       page.js
+│   │
+│   ├───caixa-de-entrada
+│   │       page.js
+│   │
+│   ├───comercial
+│   │   └───anuncios
+│   │           page.js
+│   │
+│   ├───configuracoes
+│   │   │   page.js
+│   │   │
+│   │   ├───feedback
+│   │   │   │   page.js
+│   │   │   │
+│   │   │   ├───enviar
+│   │   │   │       page.js
+│   │   │   │
+│   │   │   └───visualizar
+│   │   │           page.js
+│   │   │
+│   │   ├───financeiro
+│   │   │   └───importar
+│   │   │           page.js
+│   │   │
+│   │   ├───integracoes
+│   │   │       page.js
+│   │   │
+│   │   ├───jornadas
+│   │   │       page.js
+│   │   │
+│   │   ├───materiais
+│   │   │       page.js
+│   │   │
+│   │   ├───menu
+│   │   │       page.js
+│   │   │
+│   │   ├───painel
+│   │   │   └───construtor
+│   │   │           page.js
+│   │   │
+│   │   ├───permissoes
+│   │   │       page.js
+│   │   │
+│   │   ├───politicas
+│   │   │       page.js
+│   │   │
+│   │   ├───tipos-documento
+│   │   │       page.js
+│   │   │
+│   │   ├───treinamento-ia
+│   │   │       page.js
+│   │   │
+│   │   └───usuarios
+│   │           page.js
+│   │
+│   ├───contatos
+│   │   │   page.js
+│   │   │
+│   │   ├───cadastro
+│   │   │       page.js
+│   │   │
+│   │   ├───duplicatas
+│   │   │       page.js
+│   │   │
+│   │   ├───editar
+│   │   │   └───[id]
+│   │   │           page.js
+│   │   │
+│   │   └───formatar-telefones
+│   │           page.js
+│   │
+│   ├───contratos
+│   │   │   page.js
+│   │   │
+│   │   ├───cadastro
+│   │   │       page.js
+│   │   │
+│   │   └───[id]
+│   │           page.js
+│   │
+│   ├───crm
+│   │       page.js
+│   │
+│   ├───empreendimentos
+│   │   │   page.js
+│   │   │
+│   │   ├───cadastro
+│   │   │       page.js
+│   │   │
+│   │   ├───editar
+│   │   │   └───[id]
+│   │   │           page.js
+│   │   │
+│   │   └───[id]
+│   │       │   page.js
+│   │       │
+│   │       └───produtos
+│   │               page.js
+│   │
+│   ├───empresas
+│   │   │   page.js
+│   │   │
+│   │   ├───cadastro
+│   │   │       page.js
+│   │   │
+│   │   └───editar
+│   │       └───[id]
+│   │               page.js
+│   │
+│   ├───financeiro
+│   │   │   page.js
+│   │   │
+│   │   ├───auditoria
+│   │   │       page.js
+│   │   │
+│   │   ├───categorias
+│   │   │       page.js
+│   │   │
+│   │   ├───conciliacao
+│   │   │       page.js
+│   │   │
+│   │   └───transferencias
+│   │           page.js
+│   │
+│   ├───funcionarios
+│   │   │   page.js
+│   │   │
+│   │   ├───cadastro
+│   │   │       page.js
+│   │   │
+│   │   ├───editar
+│   │   │   └───[id]
+│   │   │           page.js
+│   │   │
+│   │   ├───salario-debug
+│   │   │   └───[id]
+│   │   │           page.js
+│   │   │
+│   │   └───visualizar
+│   │       └───[id]
+│   │               page.js
+│   │
+│   ├───funil
+│   │       page.js
+│   │
+│   ├───orcamento
+│   │       page.js
+│   │
+│   ├───pedidos
+│   │   │   page.js
+│   │   │
+│   │   └───[id]
+│   │           page.js
+│   │
+│   ├───perfil
+│   │       page.js
+│   │
+│   ├───ponto
+│   │       page.js
+│   │
+│   ├───rdo
+│   │   │   page.js
+│   │   │
+│   │   ├───gerenciador
+│   │   │       page.js
+│   │   │
+│   │   └───[id]
+│   │           page.js
+│   │
+│   ├───recursos-humanos
+│   │       page.js
+│   │
+│   ├───sobre
+│   │       page.js
+│   │
+│   ├───teste-final
+│   │       page.js
+│   │
+│   ├───teste-lead
+│   │       page.js
+│   │
+│   └───upload
+│           page.js
+│
+├───(public)
+│   ├───cadastro-cliente
+│   │   │   actions.js
+│   │   │   page.js
+│   │   │
+│   │   └───obrigado
+│   │           page.js
+│   │
+│   └───simulador-financiamento
+│       │   page.js
+│       │
+│       └───[id]
+│               page.js
+│
+├───api
+│   ├───auth
+│   │   └───[...nextauth]
+│   │           route.js
+│   │
+│   ├───cep
+│   │       route.js
+│   │
+│   ├───contatos
+│   │   ├───duplicates
+│   │   │       route.js
+│   │   │
+│   │   └───export
+│   │           route.js
+│   │
+│   ├───crm
+│   │       route.js
+│   │
+│   ├───debug-env
+│   │       route.js
+│   │
+│   ├───empreendimentos
+│   │   ├───analyze-document
+│   │   │       route.js
+│   │   │
+│   │   ├───gerar-resumo
+│   │   │       route.js
+│   │   │
+│   │   ├───process-anexo
+│   │   │       route.js
+│   │   │
+│   │   └───[id]
+│   │           route.js
+│   │
+│   ├───feedback
+│   │       route.js
+│   │
+│   ├───final-test
+│   │       route.js
+│   │
+│   ├───gemini
+│   │   ├───analyze
+│   │   │       route.js
+│   │   │
+│   │   └───extract-from-invoice
+│   │           route.js
+│   │
+│   ├───google-calendar
+│   │   └───create-event
+│   │           route.js
+│   │
+│   ├───instagram
+│   │   ├───accounts
+│   │   │       route.js
+│   │   │
+│   │   ├───conversations
+│   │   │       route.js
+│   │   │
+│   │   └───messages
+│   │           route.js
+│   │
+│   ├───materiais
+│   │   └───import
+│   │           route.js
+│   │
+│   ├───meta
+│   │   │   abordagemmeta.txt
+│   │   │
+│   │   ├───ad-accounts
+│   │   │       route.js
+│   │   │
+│   │   ├───ads
+│   │   │       route.js
+│   │   │
+│   │   ├───anuncios
+│   │   │       route.js
+│   │   │
+│   │   ├───campaigns
+│   │   │       route.js
+│   │   │
+│   │   ├───dados
+│   │   │       forcar.txt
+│   │   │       route.js
+│   │   │
+│   │   └───webhook
+│   │           route.js
+│   │
+│   ├───notifications
+│   │   ├───send
+│   │   │       route.js
+│   │   │
+│   │   └───subscribe
+│   │           route.js
+│   │
+│   ├───simulacao
+│   │   └───enviar-proposta
+│   │           route.js
+│   │
+│   ├───stella
+│   │   └───chat
+│   │           route.js
+│   │
+│   ├───test-insert
+│   │       route.js
+│   │
+│   ├───test-lead
+│   │       route.js
+│   │
+│   └───whatsapp
+│       ├───save-attachment
+│       │       route.js
+│       │
+│       ├───send
+│       │       route.js
+│       │
+│       └───webhook
+│               route.js
+│
+├───cadastro
+│       actions.js
+│       page.js
+│
+├───login
+│       page.js
+│
+└───register
+        page.js

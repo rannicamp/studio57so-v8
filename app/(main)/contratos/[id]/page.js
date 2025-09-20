@@ -1,116 +1,89 @@
 // app/(main)/contratos/[id]/page.js
 
-"use client";
-
-import { useEffect } from 'react';
-import { useParams, notFound, useRouter } from 'next/navigation';
-import { createClient } from '../../../../utils/supabase/client';
-import Link from 'next/link';
-import { useAuth } from '../../../../contexts/AuthContext'; // 1. Importar para pegar a organização
-import { useQuery } from '@tanstack/react-query'; // 2. Importar o useQuery
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faArrowLeft, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { createClient } from '../../../../utils/supabase/server';
 import FichaContrato from '../../../../components/contratos/FichaContrato';
+import Link from 'next/link';
+import { notFound, redirect } from 'next/navigation';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
-// =================================================================================
-// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
-// O PORQUÊ: A lógica de busca foi isolada para ser usada com `useQuery` e,
-// mais importante, agora exige o `organizacaoId` para filtrar a busca.
-// Isso impede que um usuário de uma organização acesse o contrato de outra.
-// =================================================================================
+// O PORQUÊ: Esta função será chamada toda vez que a página do contrato for acessada.
+// Ela agora busca o contrato e TODOS os produtos associados a ele.
 const fetchContratoData = async (supabase, contratoId, organizacaoId) => {
-    if (!contratoId || !organizacaoId) return null;
-
-    const { data, error } = await supabase
+    // Busca o contrato principal e informações relacionadas
+    const { data: contrato, error } = await supabase
         .from('contratos')
         .select(`
             *,
-            contato:contato_id (*, telefones(telefone, country_code), emails(email)),
-            corretor:corretor_id (*), 
-            produto:produto_id (*),
-            empreendimento:empreendimento_id (
-                nome,
-                empresa:empresa_proprietaria_id (*)
-            ),
-            contrato_parcelas (*),
-            contrato_permutas (*),
-            simulacao:simulacao_id (*) 
+            contato:contato_id (*),
+            corretor:corretor_id (*),
+            empreendimento:empreendimento_id (*),
+            contrato_parcelas (*)
         `)
         .eq('id', contratoId)
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA CRÍTICO!
-        .maybeSingle();
+        .eq('organizacao_id', organizacaoId)
+        .single();
 
-    if (error) {
-        throw new Error(`Falha ao carregar dados do contrato: ${error.message}`);
-    }
-    if (!data) {
-        // Lança um erro específico para contrato não encontrado, que será pego pelo useQuery
-        throw new Error('Contrato não encontrado ou você não tem permissão para visualizá-lo.');
-    }
-    
-    // Ordena as parcelas antes de retornar
-    if (data.contrato_parcelas) {
-        data.contrato_parcelas.sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
-    }
+    if (error) throw error;
+    if (!contrato) return null;
 
-    return data;
+    // NOVA LÓGICA: Busca a LISTA de produtos da nova tabela 'contrato_produtos'
+    const { data: produtosDoContrato } = await supabase
+        .from('contrato_produtos')
+        .select(`
+            produtos_empreendimento (*)
+        `)
+        .eq('contrato_id', contratoId);
+
+    // Adiciona a lista de produtos ao objeto do contrato
+    contrato.produtos = produtosDoContrato.map(item => item.produtos_empreendimento) || [];
+
+    return contrato;
 };
 
-export default function ContratoPage() {
-    const params = useParams();
+export default async function ContratoPage({ params }) {
     const supabase = createClient();
-    const { user } = useAuth(); // Pegamos o usuário
-    const organizacaoId = user?.organizacao_id; // E sua organização
+    const { id } = params;
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE PADRÃO (useState + useEffect -> useQuery)
-    // O PORQUÊ: `useQuery` gerencia estados de loading, error e cache de forma mais
-    // eficiente e automática, simplificando o nosso componente.
-    // =================================================================================
-    const { data: contrato, isLoading: loading, isError, error, refetch } = useQuery({
-        queryKey: ['contratoDetails', params.id, organizacaoId],
-        queryFn: () => fetchContratoData(supabase, params.id, organizacaoId),
-        enabled: !!params.id && !!organizacaoId, // Só executa se os IDs existirem
-        retry: false, // Não tenta novamente se falhar (ex: contrato não encontrado)
-    });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) redirect('/login');
 
-    // Se o useQuery retornar o erro de "não encontrado", exibimos a página 404.
-    if (isError && error.message.includes('Contrato não encontrado')) {
-        notFound();
+    const { data: userProfile } = await supabase
+        .from('usuarios')
+        .select('organizacao_id')
+        .eq('id', user.id)
+        .single();
+
+    const organizacaoId = userProfile?.organizacao_id;
+    if (!organizacaoId) {
+        return <p className="p-4 text-red-500">Erro: Organização do usuário não encontrada.</p>;
     }
 
-    if (loading) {
+    try {
+        const contratoData = await fetchContratoData(supabase, id, organizacaoId);
+        if (!contratoData) notFound();
+
+        const handleUpdate = async () => {
+            'use server';
+            // Esta função é passada para o cliente para que ele possa pedir
+            // ao servidor para revalidar os dados quando algo mudar.
+            // Por enquanto, a recarga da página pelo cliente já resolve.
+        };
+
         return (
-            <div className="text-center p-10">
-                <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-400" />
-                <p className="mt-2">Carregando dados do contrato...</p>
+            <div className="p-4 md:p-6 lg:p-8 space-y-6">
+                <Link href="/contratos" className="text-blue-600 hover:underline mb-4 inline-flex items-center gap-2">
+                    <FontAwesomeIcon icon={faArrowLeft} />
+                    Voltar para a Lista de Contratos
+                </Link>
+                <FichaContrato 
+                    initialContratoData={contratoData} 
+                    onUpdate={handleUpdate} // A função de atualização será gerenciada pelo React Query no cliente
+                />
             </div>
         );
+    } catch (error) {
+        console.error("Erro ao carregar dados do contrato:", error);
+        return <p className="p-4 text-red-500">Não foi possível carregar os dados do contrato. Verifique o console do servidor para mais detalhes.</p>;
     }
-    
-    if (isError) {
-        return (
-            <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg">
-                <FontAwesomeIcon icon={faExclamationTriangle} size="3x" className="text-red-400 mb-4" />
-                <h2 className="text-2xl font-bold text-red-600">Erro ao Carregar</h2>
-                <p className="mt-2 text-red-700">{error.message}</p>
-            </div>
-        );
-    }
-    
-    if (!contrato) return null; // Segurança extra caso os dados não carreguem
-
-    return (
-        <div className="space-y-6">
-            <Link href="/contratos" className="text-blue-600 hover:text-blue-800 flex items-center gap-2 mb-2 font-semibold">
-                <FontAwesomeIcon icon={faArrowLeft} />
-                Voltar para Lista de Contratos
-            </Link>
-            
-            <FichaContrato 
-                initialContratoData={contrato} 
-                onUpdate={refetch} // A função de update agora é o refetch do useQuery
-            />
-        </div>
-    );
 }

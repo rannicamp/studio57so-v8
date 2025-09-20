@@ -1,4 +1,5 @@
 // components/sidebar.js
+
 "use client";
 
 import { useState } from 'react';
@@ -10,7 +11,7 @@ import {
     faClipboardList, faCog, faChevronLeft, faChevronRight, faClock,
     faAddressBook, faDollarSign, faShoppingCart,
     faInbox, faBullseye, faFileSignature, faCalculator,
-    faChevronDown, faBoxOpen, faFileInvoiceDollar
+    faChevronDown, faBoxOpen, faFileInvoiceDollar, faTags // <-- ÍCONE ADICIONADO
 } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -46,13 +47,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
 
     const [isEmpreendimentosOpen, setIsEmpreendimentosOpen] = useState(true);
     
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: Modificamos o item "Recursos Humanos" para usar uma função de
-    // verificação personalizada (`permissionCheck`). Isso permite uma lógica mais
-    // complexa (OU em vez de E), garantindo que o menu apareça se o usuário
-    // tiver permissão para 'funcionarios' OU 'ponto'.
-    // =================================================================================
     const navSections = [
         {
             title: 'Administrativo',
@@ -63,7 +57,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                     href: '/recursos-humanos', 
                     label: 'Recursos Humanos', 
                     icon: faUsers, 
-                    // Em vez de um 'recurso' simples, usamos uma função de checagem.
                     permissionCheck: (hasPermission) => hasPermission('funcionarios', 'pode_ver') || hasPermission('ponto', 'pode_ver') 
                 },
                 { href: '/empresas', label: 'Empresas', icon: faBuilding, recurso: 'empresas' },
@@ -102,6 +95,15 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             items: [
                 { href: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: faInbox, recurso: 'caixa_de_entrada' },
                 { href: '/crm', label: 'Funil de Vendas', icon: faBullseye, recurso: 'crm' },
+                // =================================================================================
+                // INÍCIO DA ALTERAÇÃO
+                // O PORQUÊ: Adicionamos o link para a nova Tabela de Vendas,
+                // centralizando as ferramentas comerciais no mesmo menu.
+                // =================================================================================
+                { href: '/comercial/tabela-de-vendas', label: 'Tabela de Vendas', icon: faTags, recurso: 'tabela_vendas' },
+                // =================================================================================
+                // FIM DA ALTERAÇÃO
+                // =================================================================================
                 { href: '/comercial/anuncios', label: 'Anúncios', icon: faMeta, recurso: 'anuncios' },
                 { href: '/contatos', label: 'Contatos', icon: faAddressBook, recurso: 'contatos' },
                 { href: '/simulador-financiamento', label: 'Simulador', icon: faCalculator, recurso: 'simulador', target: '_blank' },
@@ -170,6 +172,16 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                     {navSections.map((section) => {
                         if (isCollapsed && section.render) return null;
                         
+                        // Adicionando uma verificação para não renderizar a seção se nenhum item for visível
+                        const sectionItems = section.items || [];
+                        const hasVisibleItems = section.render || sectionItems.some(item => {
+                            return item.permissionCheck 
+                                ? item.permissionCheck(hasPermission) 
+                                : (hasPermission(item.recurso, 'pode_ver') || ['caixa_de_entrada', 'painel', 'perfil', 'anuncios'].includes(item.recurso));
+                        });
+
+                        if (!hasVisibleItems) return null;
+
                         return (
                             <li key={section.title} className="mb-2">
                                 {!isCollapsed && section.title !== 'Empreendimentos' && ( <h3 className="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider my-2">{section.title}</h3> )}
@@ -178,7 +190,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                                 {section.items ? (
                                     <ul>
                                         {section.items.map((item) => {
-                                            // Lógica de verificação atualizada para usar a função 'permissionCheck' quando ela existir.
                                             const canViewItem = item.permissionCheck 
                                                 ? item.permissionCheck(hasPermission) 
                                                 : (hasPermission(item.recurso, 'pode_ver') || ['caixa_de_entrada', 'painel', 'perfil', 'anuncios'].includes(item.recurso));
@@ -215,6 +226,3 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         </aside>
     );
 };
-// =================================================================================
-// FIM DA CORREÇÃO
-// =================================================================================
