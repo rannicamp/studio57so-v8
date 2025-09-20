@@ -8,23 +8,17 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faCalculator } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 import { useAuth } from '../../contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query'; // 1. Importar useQuery
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-// --- FUNÇÕES DE FORMATAÇÃO E ESTILO ---
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
-// =================================================================================
-// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
-// O PORQUÊ: Esta função agora busca os dados para o useQuery e inclui o filtro
-// de segurança `organizacaoId`, garantindo que o plano correto seja retornado.
-// =================================================================================
 const fetchPlanoPagamento = async (supabase, contratoId, organizacaoId) => {
     if (!contratoId || !organizacaoId) return null;
     
     const { data, error } = await supabase
         .rpc('garantir_simulacao_para_contrato', { 
             p_contrato_id: contratoId,
-            p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+            p_organizacao_id: organizacaoId
         })
         .single();
 
@@ -37,17 +31,13 @@ const fetchPlanoPagamento = async (supabase, contratoId, organizacaoId) => {
 
 export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess }) {
     const supabase = createClient();
-    const { user } = useAuth(); // 2. Obter o usuário para o organizacaoId
+    const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
+    const queryClient = useQueryClient();
 
     const [plano, setPlano] = useState(null);
     
-    // =================================================================================
-    // ATUALIZAÇÃO DE PADRÃO (useState + useEffect -> useQuery)
-    // O PORQUÊ: Substituímos a lógica antiga por useQuery. Ele gerencia o loading,
-    // erros e o cache dos dados de forma automática.
-    // =================================================================================
-    const { data: fetchedPlano, isLoading: loading, isError } = useQuery({
+    const { data: fetchedPlano, isLoading, isError } = useQuery({
         queryKey: ['planoPagamento', contrato.id, organizacaoId],
         queryFn: () => fetchPlanoPagamento(supabase, contrato.id, organizacaoId),
         enabled: !!contrato.id && !!organizacaoId,
@@ -55,7 +45,11 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
 
     useEffect(() => {
         if (fetchedPlano) {
-            setPlano(fetchedPlano);
+            setPlano({
+                ...fetchedPlano,
+                data_primeira_parcela_entrada: fetchedPlano.data_primeira_parcela_entrada ? fetchedPlano.data_primeira_parcela_entrada.split('T')[0] : '',
+                data_primeira_parcela_obra: fetchedPlano.data_primeira_parcela_obra ? fetchedPlano.data_primeira_parcela_obra.split('T')[0] : '',
+            });
         }
     }, [fetchedPlano]);
 
@@ -85,47 +79,63 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
         setPlano(newPlanoState);
     };
 
-    const handleSaveAndRecalculate = () => {
+    const { mutate: saveAndRecalculate, isPending } = useMutation({
+        mutationFn: async () => {
+            if (!organizacaoId) throw new Error("Erro de segurança: Organização não identificada.");
+            if (!plano || !plano.id) throw new Error("Dados do plano de pagamento não estão prontos.");
+
+            const { id, ...updateData } = plano;
+            
+            // =================================================================================
+            // INÍCIO DA CORREÇÃO
+            // O PORQUÊ: Aqui fazemos a "tradução". Se os campos de data forem um texto
+            // vazio (""), nós os convertemos para 'null' antes de enviar para o banco.
+            // Isso evita o erro de "sintaxe inválida para o tipo date".
+            // =================================================================================
+            if (updateData.data_primeira_parcela_entrada === '') {
+                updateData.data_primeira_parcela_entrada = null;
+            }
+            if (updateData.data_primeira_parcela_obra === '') {
+                updateData.data_primeira_parcela_obra = null;
+            }
+            // =================================================================================
+            // FIM DA CORREÇÃO
+            // =================================================================================
+
+            const { error: saveError } = await supabase.from('simulacoes').update(updateData).eq('id', id);
+            if (saveError) throw saveError;
+            
+            const { data: novasParcelas, error: rpcError } = await supabase.rpc('regerar_parcelas_contrato', { 
+                p_contrato_id: contrato.id,
+                p_organizacao_id: organizacaoId 
+            });
+            if (rpcError) throw rpcError;
+
+            return { msg: "Plano salvo e cronograma recalculado!", novasParcelas };
+        },
+        onSuccess: (result) => {
+            toast.success(result.msg);
+            queryClient.invalidateQueries({ queryKey: ['contrato', contrato.id] });
+            onRecalculateSuccess(result.novasParcelas);
+        },
+        onError: (err) => {
+            toast.error(`Erro: ${err.message}`);
+        }
+    });
+
+    const handleSaveAndRecalculateClick = () => {
         toast("Confirmar Recálculo", {
             description: "Isso irá apagar as parcelas pendentes e gerar um novo cronograma. Deseja continuar?",
             action: {
                 label: "Confirmar e Recalcular",
-                onClick: () => {
-                    if (!organizacaoId) {
-                        toast.error("Erro de segurança: Organização não identificada.");
-                        return;
-                    }
-                    const promise = new Promise(async (resolve, reject) => {
-                        const { id, ...updateData } = plano;
-                        
-                        const { error: saveError } = await supabase.from('simulacoes').update(updateData).eq('id', id);
-                        if (saveError) return reject(saveError);
-                        
-                        const { data: novasParcelas, error: rpcError } = await supabase.rpc('regerar_parcelas_contrato', { 
-                            p_contrato_id: contrato.id,
-                            p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
-                        });
-                        if (rpcError) return reject(rpcError);
-
-                        resolve({ msg: "Plano salvo e cronograma recalculado!", novasParcelas });
-                    });
-
-                    toast.promise(promise, {
-                        loading: 'Salvando e recalculando...',
-                        success: (result) => {
-                            onRecalculateSuccess(result.novasParcelas);
-                            return result.msg;
-                        },
-                        error: (err) => `Erro: ${err.message}`
-                    });
-                }
+                onClick: () => saveAndRecalculate()
             },
             cancel: { label: "Cancelar" },
             classNames: { actionButton: 'bg-red-600' }
         });
     };
     
-    if (loading) {
+    if (isLoading) {
         return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin /> Carregando plano...</div>;
     }
 
@@ -133,12 +143,13 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
         return <div className="text-center p-10 text-red-500">Não foi possível carregar ou criar o plano de pagamento.</div>;
     }
 
+    // O resto do seu JSX (a parte visual do componente) continua exatamente o mesmo.
     return (
         <div className="bg-white p-6 rounded-lg shadow-md border space-y-8 animate-fade-in">
             <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold text-gray-800">Plano de Pagamento Individual</h3>
-                <button onClick={handleSaveAndRecalculate} disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2">
-                    <FontAwesomeIcon icon={loading ? faSpinner : faCalculator} spin={loading} /> Salvar e Recalcular
+                <button onClick={handleSaveAndRecalculateClick} disabled={isPending} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2">
+                    <FontAwesomeIcon icon={isPending ? faSpinner : faCalculator} spin={isPending} /> Salvar e Recalcular
                 </button>
             </div>
 

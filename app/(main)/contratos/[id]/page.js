@@ -7,10 +7,10 @@ import { notFound, redirect } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
-// O PORQUÊ: Esta função será chamada toda vez que a página do contrato for acessada.
-// Ela agora busca o contrato e TODOS os produtos associados a ele.
+// O PORQUÊ: Esta função agora é um Server Component, mais moderna e eficiente.
+// Ela busca o contrato e, mais importante, busca a LISTA de produtos da nova
+// tabela 'contrato_produtos', preparando os dados corretamente para o FichaContrato.
 const fetchContratoData = async (supabase, contratoId, organizacaoId) => {
-    // Busca o contrato principal e informações relacionadas
     const { data: contrato, error } = await supabase
         .from('contratos')
         .select(`
@@ -27,7 +27,7 @@ const fetchContratoData = async (supabase, contratoId, organizacaoId) => {
     if (error) throw error;
     if (!contrato) return null;
 
-    // NOVA LÓGICA: Busca a LISTA de produtos da nova tabela 'contrato_produtos'
+    // Lógica para buscar a LISTA de produtos da nova tabela 'contrato_produtos'
     const { data: produtosDoContrato } = await supabase
         .from('contrato_produtos')
         .select(`
@@ -35,7 +35,7 @@ const fetchContratoData = async (supabase, contratoId, organizacaoId) => {
         `)
         .eq('contrato_id', contratoId);
 
-    // Adiciona a lista de produtos ao objeto do contrato
+    // Adicionamos a lista de produtos ao objeto do contrato com o nome 'produtos'
     contrato.produtos = produtosDoContrato.map(item => item.produtos_empreendimento) || [];
 
     return contrato;
@@ -63,13 +63,6 @@ export default async function ContratoPage({ params }) {
         const contratoData = await fetchContratoData(supabase, id, organizacaoId);
         if (!contratoData) notFound();
 
-        const handleUpdate = async () => {
-            'use server';
-            // Esta função é passada para o cliente para que ele possa pedir
-            // ao servidor para revalidar os dados quando algo mudar.
-            // Por enquanto, a recarga da página pelo cliente já resolve.
-        };
-
         return (
             <div className="p-4 md:p-6 lg:p-8 space-y-6">
                 <Link href="/contratos" className="text-blue-600 hover:underline mb-4 inline-flex items-center gap-2">
@@ -77,8 +70,8 @@ export default async function ContratoPage({ params }) {
                     Voltar para a Lista de Contratos
                 </Link>
                 <FichaContrato 
-                    initialContratoData={contratoData} 
-                    onUpdate={handleUpdate} // A função de atualização será gerenciada pelo React Query no cliente
+                    initialContratoData={contratoData}
+                    // A função onUpdate será gerenciada pelo React Query no cliente, que pedirá para recarregar a página
                 />
             </div>
         );
