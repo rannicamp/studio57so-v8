@@ -1,4 +1,3 @@
-// Caminho: components/contratos/FichaContrato.js
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -128,19 +127,12 @@ export default function FichaContrato({ initialContratoData }) {
         };
     }, [contrato]);
     
-    // =================================================================================
-    // AQUI ESTÁ A CORREÇÃO FOCADA
-    // O PORQUÊ: Adicionamos uma verificação específica para o 'valor_final_venda'.
-    // Se o valor for "falsy" (vazio, nulo, etc.), garantimos que o valor 0 seja
-    // enviado ao banco, respeitando a regra "NOT NULL" da coluna. Para outros campos,
-    // o comportamento de salvar 'null' é mantido.
-    // =================================================================================
     const updateFieldMutation = useMutation({
         mutationFn: async ({ fieldName, value }) => {
             let valorParaAtualizar = value;
 
             if (fieldName === 'valor_final_venda') {
-                // Se for o campo de valor e estiver vazio/nulo, força para 0.
+                // Se for o campo de valor e estiver vazio/nulo, força para 0, respeitando a regra NOT NULL.
                 valorParaAtualizar = parseFloat(value) || 0;
             } else if (value === '') {
                 // Para outros campos, um texto vazio se torna null
@@ -245,9 +237,9 @@ export default function FichaContrato({ initialContratoData }) {
                         <p className="text-gray-600"><strong>Empreendimento:</strong> {contrato.empreendimento?.nome}</p>
                     </div>
                      <div>
-                        <span className={`px-3 py-1 text-sm font-semibold rounded-full ${contrato.status_contrato === 'Rascunho' ? 'bg-gray-100 text-gray-800' : contrato.status_contrato === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                            {contrato.status_contrato}
-                        </span>
+                         <span className={`px-3 py-1 text-sm font-semibold rounded-full ${contrato.status_contrato === 'Rascunho' ? 'bg-gray-100 text-gray-800' : contrato.status_contrato === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                             {contrato.status_contrato}
+                         </span>
                     </div>
                 </div>
             </div>
@@ -351,7 +343,11 @@ export default function FichaContrato({ initialContratoData }) {
                                         unmask={true}
                                         value={String(contrato.valor_final_venda || '')}
                                         onAccept={(value) => setContrato(prev => ({...prev, valor_final_venda: value}))}
-                                        onBlur={(e) => handleFieldUpdate('valor_final_venda', e.target._unmaskedValue)}
+                                        // =================================================================================
+                                        // AQUI ESTÁ A CORREÇÃO, MEU LINDO!
+                                        // Trocamos e.target._unmaskedValue pelo valor que já está correto no estado.
+                                        // =================================================================================
+                                        onBlur={() => handleFieldUpdate('valor_final_venda', contrato.valor_final_venda)}
                                         disabled={updateFieldMutation.isPending}
                                         className="mt-1 w-full p-2 border rounded-md font-semibold text-blue-600"
                                     />
