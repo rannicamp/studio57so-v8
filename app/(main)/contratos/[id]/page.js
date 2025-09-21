@@ -1,3 +1,5 @@
+// app/(main)/contratos/[id]/page.js
+
 import { createClient } from '../../../../utils/supabase/server';
 import FichaContrato from '../../../../components/contratos/FichaContrato';
 import Link from 'next/link';
@@ -7,17 +9,16 @@ import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
 const fetchContratoData = async (supabase, contratoId, organizacaoId) => {
     
-    // O PORQUÊ DA MUDANÇA:
-    // A linha "empreendimento:..." foi ajustada para a sintaxe correta do Supabase.
-    // Ela busca todos os dados do empreendimento (*) E também os dados da empresa
-    // relacionada através da chave estrangeira (empresa:empresa_proprietaria_id(*)).
+    // O PORQUÊ DA MUDANÇA (Explicado aqui fora, de forma segura):
+    // A linha "empreendimento:..." abaixo busca todos os dados do empreendimento (*)
+    // E também os dados da empresa relacionada através da chave estrangeira (empresa_proprietaria_id(*)).
     const { data: contrato, error } = await supabase
         .from('contratos')
         .select(`
             *,
             contato:contato_id (*),
             corretor:corretor_id (*),
-            empreendimento:empreendimento_id(*, empresa:empresa_proprietaria_id(*)),
+            empreendimento:empreendimento_id(*, empresa_proprietaria_id(*)),
             contrato_parcelas (*),
             contrato_permutas (*)
         `)
@@ -26,7 +27,7 @@ const fetchContratoData = async (supabase, contratoId, organizacaoId) => {
         .single();
 
     if (error) {
-        console.error('Erro detalhado do Supabase:', error); // Log mais detalhado do erro
+        console.error('Erro detalhado do Supabase:', error);
         throw error;
     }
     if (!contrato) return null;
