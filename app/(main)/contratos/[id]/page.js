@@ -10,13 +10,39 @@ import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 const fetchContratoData = async (supabase, contratoId, organizacaoId) => {
     
     // O PORQUÊ DA MUDANÇA (Explicado aqui fora, de forma segura):
-    // A linha "empreendimento:..." abaixo busca todos os dados do empreendimento (*)
-    // E também os dados da empresa relacionada através da chave estrangeira (empresa_proprietaria_id(*)).
+    // Trocamos o "contato:contato_id(*)" por uma lista explícita de colunas.
+    // Isso garante que todos os dados necessários sejam trazidos, mesmo que existam
+    // regras de segurança específicas no banco de dados, tornando a busca mais robusta.
     const { data: contrato, error } = await supabase
         .from('contratos')
         .select(`
             *,
-            contato:contato_id (*),
+            contato:contato_id (
+                id,
+                nome,
+                razao_social,
+                cpf,
+                cnpj,
+                rg,
+                profissao,
+                estado_civil,
+                telefone,
+                email,
+                logradouro,
+                numero,
+                bairro,
+                cidade,
+                estado,
+                cep,
+                dados_conjuge,
+                regime_bens,
+                tipo_contato,
+                responsavel_legal,
+                cpf_responsavel_legal,
+                rg_responsavel_legal,
+                telefone_responsavel_legal,
+                email_responsavel_legal
+            ),
             corretor:corretor_id (*),
             empreendimento:empreendimento_id(*, empresa_proprietaria_id(*)),
             contrato_parcelas (*),
