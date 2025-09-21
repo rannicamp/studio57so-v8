@@ -12,25 +12,18 @@ const formatDateForDisplay = (dateStr) => {
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
 export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) {
-    if (!contrato) return null;
-
-    const { 
-        contato: cliente, 
-        produtos = [], 
-        empreendimento, 
-        contrato_parcelas: parcelas = [],
-        contrato_permutas: permutas = [],
-        valor_final_venda: valorTotalContrato 
-    } = contrato;
+    // =================================================================================
+    // CORREÇÃO:
+    // 1. Garantimos que 'parcelas' e 'permutas' sejam sempre arrays, mesmo se 'contrato' for nulo.
+    // Usamos o operador de encadeamento opcional (?.) e o operador de coalescência nula (??).
+    // =================================================================================
+    const parcelas = contrato?.contrato_parcelas ?? [];
+    const permutas = contrato?.contrato_permutas ?? [];
     
     // =================================================================================
-    // AQUI ESTÁ O AJUSTE: Agora usamos o atalho "empresa" que foi criado na busca de dados.
-    // É mais limpo e direto.
+    // 2. O hook 'useMemo' agora é chamado INCONDICIONALMENTE no topo do componente,
+    //    usando as variáveis seguras que criamos acima. Isso satisfaz as regras do React.
     // =================================================================================
-    const empresa = empreendimento?.empresa;
-    
-    const unidadesTexto = produtos.map(p => `${p.unidade} ${p.bloco ? `- Bloco ${p.bloco}` : ''}`.trim()).join(', ') || 'N/A';
-
     const planoPagamentoOrdenado = useMemo(() => {
         const todasAsEntradas = [];
 
@@ -39,7 +32,7 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
                 id: `permuta-${permuta.id}`,
                 data: permuta.data_registro,
                 descricao: `${permuta.descricao} (Permuta)`,
-                valor: -Math.abs(permuta.valor_permutado || 0),
+                valor: -Math.abs(permuta.valor_permutado || 0), // Negativo para abatimento
                 isPermuta: true,
             });
         });
@@ -54,8 +47,29 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
             });
         });
 
+        // Ordena a lista combinada pela data
         return todasAsEntradas.sort((a, b) => new Date(a.data) - new Date(b.data));
     }, [parcelas, permutas]);
+
+    // =================================================================================
+    // 3. AGORA, depois que todos os hooks foram chamados, podemos fazer a verificação
+    //    e retornar mais cedo se o contrato não existir.
+    // =================================================================================
+    if (!contrato) {
+        return null;
+    }
+
+    // A partir daqui, o resto do seu código original pode assumir que 'contrato' existe.
+    const { 
+        contato: cliente, 
+        produtos = [], 
+        empreendimento, 
+        valor_final_venda: valorTotalContrato 
+    } = contrato;
+    
+    const empresa = empreendimento?.empresa_proprietaria_id;
+    
+    const unidadesTexto = produtos.map(p => `${p.unidade} ${p.bloco ? `- Bloco ${p.bloco}` : ''}`.trim()).join(', ') || 'N/A';
 
     const totalParcelas = parcelas.reduce((acc, p) => acc + parseFloat(p.valor_parcela || 0), 0);
     const totalPermutas = permutas.reduce((acc, p) => acc + parseFloat(p.valor_permutado || 0), 0);
@@ -64,6 +78,7 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
 
     return (
         <div className="p-4 print:p-0 font-sans text-gray-800">
+            {/* Cabeçalho */}
             <header className="flex justify-between items-center border-b-2 pb-4">
                 <div>
                     <h1 className="text-2xl font-bold">{empresa?.nome_fantasia || 'Nome da Empresa'}</h1>
@@ -77,6 +92,7 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
                 </div>
             </header>
 
+            {/* Informações das Partes */}
             <section className="my-6 grid grid-cols-2 gap-6">
                 <div className="border p-4 rounded-md">
                     <h3 className="font-bold mb-2 border-b pb-1">CLIENTE (COMPRADOR)</h3>
@@ -90,6 +106,7 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
                 </div>
             </section>
 
+            {/* Tabela do Plano de Pagamento */}
             <section>
                 <h3 className="text-lg font-bold mb-2">PLANO DE PAGAMENTO</h3>
                 <table className="w-full text-sm border-collapse border">
@@ -111,6 +128,7 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
                             </tr>
                         ))}
                         
+                        {/* Rodapé da tabela com os totais */}
                         <tr className="bg-gray-200 font-bold">
                             <td colSpan="2" className="border p-2 text-right">VALOR TOTAL DO CONTRATO:</td>
                             <td className="border p-2 text-right">{formatCurrency(valorTotalContrato)}</td>
@@ -135,6 +153,7 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
                 </table>
             </section>
 
+            {/* Seção de Assinaturas */}
             <section className="signature-section text-center mt-8">
                 <div className="flex justify-around items-start pt-8">
                     <div className="w-2/5">
@@ -150,6 +169,7 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
                 </div>
             </section>
 
+            {/* Rodapé */}
             <footer className="mt-8 pt-4 border-t text-center text-xs text-gray-500">
                 <p>Este é um extrato do plano de pagamento e não possui validade fiscal.</p>
                 <p>{empresa?.nome_fantasia || 'Nome da Empresa'} © {new Date().getFullYear()}</p>
