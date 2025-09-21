@@ -1,5 +1,3 @@
-// app/(main)/contratos/[id]/page.js
-
 import { createClient } from '../../../../utils/supabase/server';
 import FichaContrato from '../../../../components/contratos/FichaContrato';
 import Link from 'next/link';
@@ -7,27 +5,32 @@ import { notFound, redirect } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
-// O PORQUÊ: Esta função agora é um Server Component, mais moderna e eficiente.
-// Ela busca o contrato e, mais importante, busca a LISTA de produtos da nova
-// tabela 'contrato_produtos', preparando os dados corretamente para o FichaContrato.
 const fetchContratoData = async (supabase, contratoId, organizacaoId) => {
+    
+    // O PORQUÊ DA MUDANÇA:
+    // A linha "empreendimento:..." foi ajustada para a sintaxe correta do Supabase.
+    // Ela busca todos os dados do empreendimento (*) E também os dados da empresa
+    // relacionada através da chave estrangeira (empresa:empresa_proprietaria_id(*)).
     const { data: contrato, error } = await supabase
         .from('contratos')
         .select(`
             *,
             contato:contato_id (*),
             corretor:corretor_id (*),
-            empreendimento:empreendimento_id (*),
-            contrato_parcelas (*)
+            empreendimento:empreendimento_id(*, empresa:empresa_proprietaria_id(*)),
+            contrato_parcelas (*),
+            contrato_permutas (*)
         `)
         .eq('id', contratoId)
         .eq('organizacao_id', organizacaoId)
         .single();
 
-    if (error) throw error;
+    if (error) {
+        console.error('Erro detalhado do Supabase:', error); // Log mais detalhado do erro
+        throw error;
+    }
     if (!contrato) return null;
 
-    // Lógica para buscar a LISTA de produtos da nova tabela 'contrato_produtos'
     const { data: produtosDoContrato } = await supabase
         .from('contrato_produtos')
         .select(`
@@ -35,7 +38,6 @@ const fetchContratoData = async (supabase, contratoId, organizacaoId) => {
         `)
         .eq('contrato_id', contratoId);
 
-    // Adicionamos a lista de produtos ao objeto do contrato com o nome 'produtos'
     contrato.produtos = produtosDoContrato.map(item => item.produtos_empreendimento) || [];
 
     return contrato;
@@ -65,18 +67,18 @@ export default async function ContratoPage({ params }) {
 
         return (
             <div className="p-4 md:p-6 lg:p-8 space-y-6">
-                <Link href="/contratos" className="text-blue-600 hover:underline mb-4 inline-flex items-center gap-2">
-                    <FontAwesomeIcon icon={faArrowLeft} />
-                    Voltar para a Lista de Contratos
-                </Link>
+                <div className="print:hidden">
+                    <Link href="/contratos" className="text-blue-600 hover:underline mb-4 inline-flex items-center gap-2">
+                        <FontAwesomeIcon icon={faArrowLeft} />
+                        Voltar para a Lista de Contratos
+                    </Link>
+                </div>
                 <FichaContrato 
                     initialContratoData={contratoData}
-                    // A função onUpdate será gerenciada pelo React Query no cliente, que pedirá para recarregar a página
                 />
             </div>
         );
     } catch (error) {
-        console.error("Erro ao carregar dados do contrato:", error);
         return <p className="p-4 text-red-500">Não foi possível carregar os dados do contrato. Verifique o console do servidor para mais detalhes.</p>;
     }
 }

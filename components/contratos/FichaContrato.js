@@ -10,7 +10,7 @@ import {
     faFileInvoiceDollar, faFileSignature, faSpinner, faTrash, faPlus,
     faFileLines, faHandshake, faTimes, faDollarSign, faInfoCircle,
     faPlusCircle, faBalanceScale, faCheckCircle, faCalendarCheck, faCalculator,
-    faBuilding
+    faBuilding, faBoxOpen
 } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 
@@ -21,7 +21,7 @@ import KpiCard from '../KpiCard';
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
-    const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const regex = new RegExp(`(${highlight.replace(/[.*+?^${'}'}()|[\]\\]/g, '\\$&')})`, 'gi');
     const parts = text.split(regex);
     return (<span>{parts.map((part, i) => regex.test(part) ? <mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark> : <span key={i}>{part}</span>)}</span>);
 };
@@ -110,6 +110,14 @@ export default function FichaContrato({ initialContratoData }) {
         return (contrato.produtos || []).reduce((sum, p) => sum + parseFloat(p.valor_venda_calculado || 0), 0);
     }, [contrato.produtos]);
 
+    // =================================================================================
+    // MUDANÇA 1 DE 2: Calculamos o valor do desconto aqui.
+    // =================================================================================
+    const descontoConcedido = useMemo(() => {
+        const valorFinal = parseFloat(contrato.valor_final_venda || 0);
+        return somaProdutosTabela > valorFinal ? somaProdutosTabela - valorFinal : 0;
+    }, [somaProdutosTabela, contrato.valor_final_venda]);
+
     const kpiData = useMemo(() => {
         const valorTotal = parseFloat(contrato.valor_final_venda) || 0;
         const parcelasPagas = (contrato.contrato_parcelas || []).filter(p => p.status_pagamento === 'Pago');
@@ -132,10 +140,8 @@ export default function FichaContrato({ initialContratoData }) {
             let valorParaAtualizar = value;
 
             if (fieldName === 'valor_final_venda') {
-                // Se for o campo de valor e estiver vazio/nulo, força para 0, respeitando a regra NOT NULL.
                 valorParaAtualizar = parseFloat(value) || 0;
             } else if (value === '') {
-                // Para outros campos, um texto vazio se torna null
                 valorParaAtualizar = null;
             }
 
@@ -148,7 +154,6 @@ export default function FichaContrato({ initialContratoData }) {
         },
         onSuccess: () => { 
             toast.success("Campo atualizado com sucesso!"); 
-            // Usamos invalidateQueries para buscar os dados mais recentes sem recarregar a página
             queryClient.invalidateQueries({ queryKey: ['contrato', contrato.id] });
         },
         onError: (error) => { toast.error(`Erro ao salvar: ${error.message}`); }
@@ -203,7 +208,7 @@ export default function FichaContrato({ initialContratoData }) {
     
     if (!contrato.empreendimento_id) {
         return (
-            <div className="bg-white p-8 rounded-lg shadow-md border text-center animate-fade-in">
+            <div className="print:hidden bg-white p-8 rounded-lg shadow-md border text-center animate-fade-in">
                 <FontAwesomeIcon icon={faBuilding} size="3x" className="text-gray-300 mb-4" />
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">Primeiro Passo</h2>
                 <p className="text-gray-600 mb-6">Para começar a preencher este novo contrato, por favor, selecione o empreendimento ao qual ele pertence.</p>
@@ -229,7 +234,10 @@ export default function FichaContrato({ initialContratoData }) {
 
     return (
         <div className="space-y-8">
-            <div className="bg-white p-6 rounded-lg shadow-md border">
+            {/* ============================================================================================== */}
+            {/* MUDANÇA 1: Adicionando 'print:hidden' para esconder o CABEÇALHO do contrato na impressão     */}
+            {/* ============================================================================================== */}
+            <div className="print:hidden bg-white p-6 rounded-lg shadow-md border">
                 <div className="flex justify-between items-start">
                     <div>
                         <h2 className="text-2xl font-bold text-gray-900 mb-2">Contrato #{contrato.id}</h2>
@@ -244,14 +252,20 @@ export default function FichaContrato({ initialContratoData }) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* ============================================================================================== */}
+            {/* MUDANÇA 2: Adicionando 'print:hidden' para esconder os CARDS KPIs na impressão                */}
+            {/* ============================================================================================== */}
+            <div className="print:hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <KpiCard title="Valor do Contrato" value={kpiData.valorTotal} icon={faFileSignature} color="blue" />
                 <KpiCard title="Total Pago" value={kpiData.totalPago} icon={faCheckCircle} color="green" />
                 <KpiCard title="Saldo Devedor" value={kpiData.saldoDevedor} icon={faDollarSign} color="yellow" />
                 <KpiCard title="Próxima Parcela" value={kpiData.proximaParcela} icon={faCalendarCheck} color="purple" />
             </div>
 
-            <div className="border-b border-gray-200">
+            {/* ============================================================================================== */}
+            {/* MUDANÇA 3: Adicionando 'print:hidden' para esconder a NAVEGAÇÃO DAS ABAS na impressão          */}
+            {/* ============================================================================================== */}
+            <div className="print:hidden border-b border-gray-200">
                 <nav className="flex gap-4">
                     <TabButton tabId="resumo" label="Resumo da Venda" icon={faHandshake} />
                     <TabButton tabId="cronograma" label="Plano e Cronograma" icon={faFileInvoiceDollar} />
@@ -261,7 +275,7 @@ export default function FichaContrato({ initialContratoData }) {
 
             <div>
                 {activeTab === 'resumo' && (
-                    <div className="bg-white p-6 rounded-lg shadow-md border animate-fade-in space-y-6">
+                    <div className="print:hidden bg-white p-6 rounded-lg shadow-md border animate-fade-in space-y-6">
                         <h3 className="text-xl font-bold text-gray-800">Detalhes da Venda</h3>
                         
                         <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -325,7 +339,7 @@ export default function FichaContrato({ initialContratoData }) {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-600">Desconto Concedido</label>
-                                <p className="mt-1 text-lg font-bold text-red-600 p-2 border rounded-md bg-red-50">{formatCurrency(somaProdutosTabela - (contrato.valor_final_venda || 0))}</p>
+                                <p className="mt-1 text-lg font-bold text-red-600 p-2 border rounded-md bg-red-50">{formatCurrency(descontoConcedido)}</p>
                             </div>
                         </fieldset>
                         
@@ -343,10 +357,6 @@ export default function FichaContrato({ initialContratoData }) {
                                         unmask={true}
                                         value={String(contrato.valor_final_venda || '')}
                                         onAccept={(value) => setContrato(prev => ({...prev, valor_final_venda: value}))}
-                                        // =================================================================================
-                                        // AQUI ESTÁ A CORREÇÃO, MEU LINDO!
-                                        // Trocamos e.target._unmaskedValue pelo valor que já está correto no estado.
-                                        // =================================================================================
                                         onBlur={() => handleFieldUpdate('valor_final_venda', contrato.valor_final_venda)}
                                         disabled={updateFieldMutation.isPending}
                                         className="mt-1 w-full p-2 border rounded-md font-semibold text-blue-600"
@@ -359,20 +369,31 @@ export default function FichaContrato({ initialContratoData }) {
                 )}
                 {activeTab === 'cronograma' && (
                     <div className="animate-fade-in space-y-6">
-                        {somaProdutosTabela > 0 && contrato.valor_final_venda > 0 && somaProdutosTabela !== contrato.valor_final_venda && (
-                             <div className="p-4 bg-yellow-50 border-l-4 border-yellow-400">
-                                 <div className="flex">
-                                     <div className="flex-shrink-0"><FontAwesomeIcon icon={faInfoCircle} className="h-5 w-5 text-yellow-400" /></div>
-                                     <div className="ml-3"><p className="text-sm text-yellow-700">O valor final negociado é diferente da soma dos produtos. O cronograma será calculado com base no <strong>valor final negociado</strong>.</p></div>
-                                 </div>
-                             </div>
-                        )}
-                        <PlanoPagamentoContrato contrato={contrato} onRecalculateSuccess={refreshContratoData} />
-                        <CronogramaFinanceiro contrato={contrato} onUpdate={refreshContratoData} />
+                        {/* ============================================================================================== */}
+                        {/* MUDANÇA 4: Escondendo a parte de CÁLCULO do cronograma, que não deve ir para a impressão */}
+                        {/* ============================================================================================== */}
+                        <div className="print:hidden">
+                            {somaProdutosTabela > 0 && contrato.valor_final_venda > 0 && somaProdutosTabela !== contrato.valor_final_venda && (
+                                <div className="p-4 bg-yellow-50 border-l-4 border-yellow-400">
+                                    <div className="flex">
+                                        <div className="flex-shrink-0"><FontAwesomeIcon icon={faInfoCircle} className="h-5 w-5 text-yellow-400" /></div>
+                                        <div className="ml-3"><p className="text-sm text-yellow-700">O valor final negociado é diferente da soma dos produtos. O cronograma será calculado com base no <strong>valor final negociado</strong>.</p></div>
+                                    </div>
+                                </div>
+                            )}
+                            <PlanoPagamentoContrato contrato={contrato} onRecalculateSuccess={refreshContratoData} />
+                        </div>
+                        
+                        {/* Este componente abaixo agora tem o caminho livre para controlar a impressão */}
+                        <CronogramaFinanceiro 
+                            contrato={contrato} 
+                            desconto={descontoConcedido}
+                            onUpdate={refreshContratoData} 
+                        />
                     </div>
                 )}
                 {activeTab === 'documentos' && (
-                    <div className="animate-fade-in">
+                    <div className="print:hidden animate-fade-in">
                         <ContratoAnexos contratoId={contrato.id} onUpdate={refreshContratoData} />
                     </div>
                 )}

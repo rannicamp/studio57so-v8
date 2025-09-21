@@ -1,10 +1,14 @@
-// Caminho: components/contratos/PlanoPagamentoPrint.js
-
 "use client";
 
-import React from 'react';
+import React, { useMemo } from 'react';
 
-const formatDate = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A';
+// Mantive sua regra de formatação de datas simples (sem new Date)
+const formatDateForDisplay = (dateStr) => {
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return 'N/A';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+};
+
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
 export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) {
@@ -12,24 +16,54 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
 
     const { 
         contato: cliente, 
-        produto, 
+        produtos = [], 
         empreendimento, 
         contrato_parcelas: parcelas = [],
         contrato_permutas: permutas = [],
         valor_final_venda: valorTotalContrato 
     } = contrato;
     
+    // =================================================================================
+    // AQUI ESTÁ O AJUSTE: Agora usamos o atalho "empresa" que foi criado na busca de dados.
+    // É mais limpo e direto.
+    // =================================================================================
     const empresa = empreendimento?.empresa;
+    
+    const unidadesTexto = produtos.map(p => `${p.unidade} ${p.bloco ? `- Bloco ${p.bloco}` : ''}`.trim()).join(', ') || 'N/A';
+
+    const planoPagamentoOrdenado = useMemo(() => {
+        const todasAsEntradas = [];
+
+        permutas.forEach(permuta => {
+            todasAsEntradas.push({
+                id: `permuta-${permuta.id}`,
+                data: permuta.data_registro,
+                descricao: `${permuta.descricao} (Permuta)`,
+                valor: -Math.abs(permuta.valor_permutado || 0),
+                isPermuta: true,
+            });
+        });
+
+        parcelas.forEach(p => {
+            todasAsEntradas.push({
+                id: p.id,
+                data: p.data_vencimento,
+                descricao: p.descricao,
+                valor: parseFloat(p.valor_parcela || 0),
+                isPermuta: false,
+            });
+        });
+
+        return todasAsEntradas.sort((a, b) => new Date(a.data) - new Date(b.data));
+    }, [parcelas, permutas]);
 
     const totalParcelas = parcelas.reduce((acc, p) => acc + parseFloat(p.valor_parcela || 0), 0);
     const totalPermutas = permutas.reduce((acc, p) => acc + parseFloat(p.valor_permutado || 0), 0);
     const saldoAPagar = valorTotalContrato - totalPermutas;
     const saldoRemanescente = saldoAPagar - totalParcelas;
 
-    // --- CORREÇÃO: Adicionada a classe "print:p-0" para remover o padding na impressão ---
     return (
         <div className="p-4 print:p-0 font-sans text-gray-800">
-            {/* Cabeçalho */}
             <header className="flex justify-between items-center border-b-2 pb-4">
                 <div>
                     <h1 className="text-2xl font-bold">{empresa?.nome_fantasia || 'Nome da Empresa'}</h1>
@@ -43,7 +77,6 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
                 </div>
             </header>
 
-            {/* Informações das Partes */}
             <section className="my-6 grid grid-cols-2 gap-6">
                 <div className="border p-4 rounded-md">
                     <h3 className="font-bold mb-2 border-b pb-1">CLIENTE (COMPRADOR)</h3>
@@ -53,11 +86,10 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
                 <div className="border p-4 rounded-md">
                     <h3 className="font-bold mb-2 border-b pb-1">UNIDADE</h3>
                     <p><strong>Empreendimento:</strong> {empreendimento?.nome}</p>
-                    <p><strong>Unidade:</strong> {produto?.unidade} {produto?.bloco && `- Bloco ${produto.bloco}`}</p>
+                    <p><strong>Unidade(s):</strong> {unidadesTexto}</p>
                 </div>
             </section>
 
-            {/* Tabela do Plano de Pagamento */}
             <section>
                 <h3 className="text-lg font-bold mb-2">PLANO DE PAGAMENTO</h3>
                 <table className="w-full text-sm border-collapse border">
@@ -69,20 +101,16 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
                         </tr>
                     </thead>
                     <tbody>
-                        {permutas.map((permuta) => (
-                            <tr key={`permuta-${permuta.id}`} className="bg-blue-50">
-                                <td className="border p-2 font-medium">{permuta.descricao} (Permuta)</td>
-                                <td className="border p-2">{formatDate(permuta.data_registro)}</td>
-                                <td className="border p-2 text-right font-semibold text-blue-700">-{formatCurrency(permuta.valor_permutado)}</td>
+                        {planoPagamentoOrdenado.map((item) => (
+                            <tr key={item.id} className={item.isPermuta ? "bg-blue-50" : ""}>
+                                <td className={`border p-2 ${item.isPermuta ? "font-medium" : ""}`}>{item.descricao}</td>
+                                <td className="border p-2">{formatDateForDisplay(item.data)}</td>
+                                <td className={`border p-2 text-right ${item.isPermuta ? "font-semibold text-blue-700" : ""}`}>
+                                    {formatCurrency(item.valor)}
+                                </td>
                             </tr>
                         ))}
-                        {parcelas.map((p) => (
-                            <tr key={p.id}>
-                                <td className="border p-2">{p.descricao}</td>
-                                <td className="border p-2">{formatDate(p.data_vencimento)}</td>
-                                <td className="border p-2 text-right">{formatCurrency(p.valor_parcela)}</td>
-                            </tr>
-                        ))}
+                        
                         <tr className="bg-gray-200 font-bold">
                             <td colSpan="2" className="border p-2 text-right">VALOR TOTAL DO CONTRATO:</td>
                             <td className="border p-2 text-right">{formatCurrency(valorTotalContrato)}</td>
@@ -107,7 +135,6 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
                 </table>
             </section>
 
-            {/* Seção de Assinaturas */}
             <section className="signature-section text-center mt-8">
                 <div className="flex justify-around items-start pt-8">
                     <div className="w-2/5">
@@ -123,7 +150,6 @@ export default function PlanoPagamentoPrint({ contrato, signatory, geradoPor }) 
                 </div>
             </section>
 
-            {/* Rodapé */}
             <footer className="mt-8 pt-4 border-t text-center text-xs text-gray-500">
                 <p>Este é um extrato do plano de pagamento e não possui validade fiscal.</p>
                 <p>{empresa?.nome_fantasia || 'Nome da Empresa'} © {new Date().getFullYear()}</p>

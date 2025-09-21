@@ -13,11 +13,6 @@ import { useAuth } from '../../contexts/AuthContext';
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 const formatDateForInput = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toISOString().split('T')[0] : '';
 
-// =================================================================================
-// MELHORIA NA EXIBIÇÃO DE DATAS, MEU LINDO!
-// O PORQUÊ: Trocamos para um método que trata a data como texto. Isso ignora
-// completamente o fuso horário e previne o erro de exibir o dia anterior.
-// =================================================================================
 const formatDateForDisplay = (dateStr) => {
     if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return 'N/A';
     const [year, month, day] = dateStr.split('-');
@@ -39,7 +34,10 @@ const getParcelaStatus = (parcela) => {
     return { text: 'A Pagar', className: 'bg-yellow-100 text-yellow-800' };
 };
 
-export default function CronogramaFinanceiro({ contrato, onUpdate }) {
+// =================================================================================
+// MUDANÇA 1 DE 3: A função agora aceita a propriedade 'desconto'.
+// =================================================================================
+export default function CronogramaFinanceiro({ contrato, desconto, onUpdate }) {
     const { id: contratoId, contrato_parcelas: parcelas, contrato_permutas: permutas, valor_final_venda: valorTotalContrato } = contrato;
     
     const supabase = createClient();
@@ -96,10 +94,6 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
 
     useEffect(() => { setLocalParcelas(parcelas || []); setLocalPermutas(permutas || []); }, [parcelas, permutas]);
     
-    // =================================================================================
-    // AQUI ESTÁ A MÁGICA DA ORDENAÇÃO!
-    // Criamos uma nova variável que SEMPRE terá a lista de parcelas na ordem correta.
-    // =================================================================================
     const parcelasOrdenadas = useMemo(() => {
         if (!localParcelas) return [];
         return [...localParcelas].sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
@@ -107,7 +101,13 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
 
     const totalParcelas = useMemo(() => localParcelas.reduce((sum, p) => sum + parseFloat(p.valor_parcela || 0), 0), [localParcelas]);
     const totalPermutas = useMemo(() => localPermutas.reduce((sum, p) => sum + parseFloat(p.valor_permutado || 0), 0), [localPermutas]);
-    const diferenca = valorTotalContrato - totalParcelas - totalPermutas;
+
+    // =================================================================================
+    // MUDANÇA 2 DE 3: A variável 'diferenca' foi renomeada para 'saldoRemanescente'
+    // para maior clareza, como você solicitou.
+    // =================================================================================
+    const saldoRemanescente = valorTotalContrato - totalParcelas - totalPermutas;
+
     const hasPendingParcelsToProvision = useMemo(() => localParcelas.some(p => !p.lancamento_id && p.status_pagamento === 'Pendente'), [localParcelas]);
 
     const handleProvisionarLancamentos = async () => {
@@ -238,11 +238,29 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
     const handleEditingParcelaChange = (field, value) => setEditingParcelaData(prev => ({ ...prev, [field]: value }));
     
     return (
-        <div className="printable-container">
+        <div>
+            {/* ============================================================================================== */}
+            {/* CÓDIGO MÁGICO: Este bloco de estilo é injetado globalmente e força TUDO a sumir na
+                impressão, exceto a nossa área de impressão. Isso resolve o problema do Header e Sidebar.  */}
+            {/* ============================================================================================== */}
             <style jsx global>{`
-                /* Estilos de impressão permanecem os mesmos */
+                @media print {
+                    body * {
+                        visibility: hidden;
+                    }
+                    .printable-area, .printable-area * {
+                        visibility: visible;
+                    }
+                    .printable-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                    }
+                }
             `}</style>
-            
+
+            {/* ÁREA DE IMPRESSÃO: Fica escondida na tela e aparece ao imprimir */}
             <div className="hidden print:block printable-area">
                 <PlanoPagamentoPrint 
                     contrato={contrato} 
@@ -251,7 +269,8 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
                 />
             </div>
 
-            <div className="no-print bg-white p-6 rounded-lg shadow-md border space-y-6">
+            {/* ÁREA DE TELA: Aparece na tela e some ao imprimir */}
+            <div className="print:hidden bg-white p-6 rounded-lg shadow-md border space-y-6">
                 <div className="space-y-4">
                     <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                         <FontAwesomeIcon icon={faExchangeAlt} /> Permutas Registradas
@@ -305,7 +324,7 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
                              </button>
                          </div>
                      </div>
-                    {Math.abs(diferenca) > 0.01 && (<div className="p-3 bg-yellow-100 text-yellow-800 rounded-md flex items-center gap-3 text-sm"><FontAwesomeIcon icon={faExclamationTriangle} /><span>A soma difere do valor do contrato. Diferença: <strong>{formatCurrency(diferenca)}</strong></span></div>)}
+                    {Math.abs(saldoRemanescente) > 0.01 && (<div className="p-3 bg-yellow-100 text-yellow-800 rounded-md flex items-center gap-3 text-sm"><FontAwesomeIcon icon={faExclamationTriangle} /><span>A soma difere do valor do contrato. Saldo Remanescente: <strong>{formatCurrency(saldoRemanescente)}</strong></span></div>)}
                     <div className="overflow-x-auto border rounded-lg">
                         <table className="min-w-full divide-y divide-gray-200 text-sm">
                             <thead className="bg-gray-100">
@@ -320,9 +339,6 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y">
-                                {/* ================================================================================= */}
-                                {/* AGORA A TABELA USA A LISTA ORDENADA! */}
-                                {/* ================================================================================= */}
                                 {parcelasOrdenadas.map(p => {
                                     const statusInfo = getParcelaStatus(p);
                                     let dateClass = '';
@@ -336,9 +352,12 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
                                     <td colSpan="6" className="text-right px-4 py-2">Total (Parcelas + Permutas):</td>
                                     <td colSpan="2" className="text-right px-4 py-2">{formatCurrency(totalParcelas + totalPermutas)}</td>
                                 </tr>
-                                <tr className={Math.abs(diferenca) > 0.01 ? 'bg-red-200' : ''}>
-                                    <td colSpan="6" className="text-right px-4 py-2">Diferença para o Total do Contrato:</td>
-                                    <td colSpan="2" className="text-right px-4 py-2">{formatCurrency(diferenca)}</td>
+                                {/* ================================================================================= */}
+                                {/* MUDANÇA 3 DE 3: Trocamos o rótulo e o valor para exibir o saldo remanescente. */}
+                                {/* ================================================================================= */}
+                                <tr className={Math.abs(saldoRemanescente) > 0.01 ? 'bg-red-200' : ''}>
+                                    <td colSpan="6" className="text-right px-4 py-2">Saldo Remanescente:</td>
+                                    <td colSpan="2" className="text-right px-4 py-2">{formatCurrency(saldoRemanescente)}</td>
                                 </tr>
                             </tfoot>
                         </table>
