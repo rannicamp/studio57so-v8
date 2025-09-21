@@ -69,7 +69,6 @@ export default function GeradorContrato({ contrato }) {
     const unidadesTexto = produtos.map(p => p.unidade).join(', ');
     const vagasGaragemTexto = produtos.map(p => p.vaga_garagem).filter(Boolean).join(', ');
     const matriculasTexto = produtos.map(p => p.matricula).join(', ');
-    const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: '2-digit', timeZone: 'America/Sao_Paulo' });
     const anoAtual = new Date().getFullYear();
 
 
@@ -107,50 +106,46 @@ export default function GeradorContrato({ contrato }) {
                         <p className="font-semibold text-base mt-4 mb-2">1.2 Nome completo do(a) comprador(a):</p>
                         <QuadroLinha value={comprador?.nome || comprador?.razao_social} fullWidthValue={true} />
 
-                        {/* Bloco para Pessoa Física */}
-                        {(comprador?.tipo_contato === 'Pessoa Física' || !comprador) && (
-                            <>
-                                <p className="font-semibold text-base mt-4 mb-2">1.2.1 Quando Pessoa Física:</p>
-                                <QuadroLinha label="CPF" value={comprador?.cpf} />
-                                <QuadroLinha label="RG" value={comprador?.rg} />
-                                <QuadroLinha label="Profissão" value={comprador?.profissao} />
-                                <QuadroLinha label="Estado Civil" value={comprador?.estado_civil} />
-                                <QuadroLinha label="Endereço" value={formatarEndereco(comprador)} />
-                                <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={comprador?.telefone} />
-                                <QuadroLinha label="Contato 2 (e-mail)" value={comprador?.email} />
-                                <QuadroLinha label="Nome completo do(a) cônjuge ou companheiro(a)" value={conjuge?.nome} />
-                                <QuadroLinha label="CPF do(a) cônjuge ou companheiro(a)" value={conjuge?.cpf} />
-                                <QuadroLinha label="RG do(a) cônjuge ou companheiro(a)" value={conjuge?.rg} />
-                                <QuadroLinha label="Regime de bens" value={comprador?.regime_bens} />
-                                <QuadroLinha label="Endereço do(a) cônjuge ou companheiro(a)" value={formatarEndereco(conjuge)} />
-                                <QuadroLinha label="Contato 1 do(a) cônjuge ou companheiro(a) (telefone/WhatsApp)" value={conjuge?.telefone} />
-                                <QuadroLinha label="Contato 2 do(a) cônjuge ou companheiro(a) (e-mail)" value={conjuge?.email} />
+                        {/* --- Seção Pessoa Física --- */}
+                        <p className="font-semibold text-base mt-4 mb-2">1.2.1 Quando Pessoa Física:</p>
+                        <QuadroLinha label="CPF" value={comprador?.cpf} />
+                        <QuadroLinha label="RG" value={comprador?.rg} />
+                        <QuadroLinha label="Profissão" value={comprador?.profissao} />
+                        <QuadroLinha label="Estado Civil" value={comprador?.estado_civil} />
+                        <QuadroLinha label="Endereço" value={comprador?.tipo_contato === 'Pessoa Física' ? formatarEndereco(comprador) : ''} />
+                        <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={comprador?.tipo_contato === 'Pessoa Física' ? comprador?.telefone : ''} />
+                        <QuadroLinha label="Contato 2 (e-mail)" value={comprador?.tipo_contato === 'Pessoa Física' ? comprador?.email : ''} />
+                        
+                        <p className="font-semibold text-base mt-4 mb-2">Nome completo do(a) cônjuge ou companheiro(a):</p>
+                        <QuadroLinha value={conjuge?.nome} fullWidthValue={true} />
+                        <QuadroLinha label="CPF do(a) cônjuge ou companheiro(a)" value={conjuge?.cpf} />
+                        <QuadroLinha label="RG do(a) cônjuge ou companheiro(a)" value={conjuge?.rg} />
+                        <QuadroLinha label="Regime de bens" value={comprador?.regime_bens} />
+                        <QuadroLinha label="Endereço do(a) cônjuge ou companheiro(a)" value={formatarEndereco(conjuge)} />
+                        <QuadroLinha label="Contato 1 do(a) cônjuge ou companheiro(a) (telefone/WhatsApp)" value={conjuge?.telefone} />
+                        <QuadroLinha label="Contato 2 do(a) cônjuge ou companheiro(a) (e-mail)" value={conjuge?.email} />
 
-                                <p className="font-semibold text-base mt-4 mb-2">1.2.2 Quando Pessoa Física e Representada por Outra:</p>
-                                <QuadroLinha label="CPF do Representante" />
-                                <QuadroLinha label="RG do Representante" />
-                                <QuadroLinha label="Endereço" />
-                                <QuadroLinha label="Data da procuração" />
-                            </>
-                        )}
+                        {/* --- Seção Representante --- */}
+                        <p className="font-semibold text-base mt-4 mb-2">1.2.2 Quando Pessoa Física e Representada por Outra:</p>
+                        <QuadroLinha label="CPF do Representante" />
+                        <QuadroLinha label="RG do Representante" />
+                        <QuadroLinha label="Endereço" />
+                        <QuadroLinha label="Data da procuração" />
 
-                        {/* Bloco para Pessoa Jurídica */}
-                        {comprador?.tipo_contato === 'Pessoa Jurídica' && (
-                            <>
-                                <p className="font-semibold text-base mt-4 mb-2">1.2.3 Quando Pessoa Jurídica:</p>
-                                <QuadroLinha label="CNPJ" value={comprador?.cnpj} />
-                                <QuadroLinha label="Sede" value={formatarEndereco(comprador)} />
-                                <QuadroLinha label="Nome completo do(a) sócio(a)-administrador(a)" value={comprador?.responsavel_legal} />
-                                <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={comprador?.telefone} />
-                                <QuadroLinha label="Contato 2 (e-mail)" value={comprador?.email} />
-                                <QuadroLinha label="CPF do(a) sócio(a)-administrador(a)" value={comprador?.cpf_responsavel_legal} />
-                                <QuadroLinha label="RG do(a) sócio(a)-administrador(a)" value={comprador?.rg_responsavel_legal} />
-                                <QuadroLinha label="Contato 1 do(a) sócio(a)-administrador(a) (telefone/WhatsApp)" value={comprador?.telefone_responsavel_legal} />
-                                <QuadroLinha label="Contato 2 do(a) sócio(a)-administrador(a) (e-mail)" value={comprador?.email_responsavel_legal} />
-                            </>
-                        )}
+                        {/* --- Seção Pessoa Jurídica --- */}
+                        <p className="font-semibold text-base mt-4 mb-2">1.2.3 Quando Pessoa Jurídica:</p>
+                        <QuadroLinha label="CNPJ" value={comprador?.cnpj} />
+                        <QuadroLinha label="Sede" value={comprador?.tipo_contato === 'Pessoa Jurídica' ? formatarEndereco(comprador) : ''} />
+                        <QuadroLinha label="Nome completo do(a) sócio(a)-administrador(a)" value={comprador?.responsavel_legal} />
+                        <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={comprador?.tipo_contato === 'Pessoa Jurídica' ? comprador?.telefone : ''} />
+                        <QuadroLinha label="Contato 2 (e-mail)" value={comprador?.tipo_contato === 'Pessoa Jurídica' ? comprador?.email : ''} />
+                        <QuadroLinha label="CPF do(a) sócio(a)-administrador(a)" value={comprador?.cpf_responsavel_legal} />
+                        <QuadroLinha label="RG do(a) sócio(a)-administrador(a)" value={comprador?.rg_responsavel_legal} />
+                        <QuadroLinha label="Contato 1 do(a) sócio(a)-administrador(a) (telefone/WhatsApp)" value={comprador?.telefone_responsavel_legal} />
+                        <QuadroLinha label="Contato 2 do(a) sócio(a)-administrador(a) (e-mail)" value={comprador?.email_responsavel_legal} />
                     </div>
                 </div>
+
 
                 {/* ============================================================================================== */}
                 {/* SEÇÃO 2: OBJETO                                                                                */}
@@ -337,7 +332,7 @@ export default function GeradorContrato({ contrato }) {
                         <p><strong>§ 1º.</strong> Optando o(a) COMPRADOR(A)pelo pagamento parcelado, este também deverá observar o exposto no Quadro Resumo, não sendo necessário, entretanto, a VENDEDORA emitir recibo de quitação mensal, sendo suficiente, como meio de prova de quitação, o recibo bancário ou documento análogo, sendo necessária, entretanto, a emissão de recibo de quitação pela VENDEDORA após a realização do pagamento total.</p>
                         <p><strong>§ 2º.</strong> Em caso de o(a) COMPRADOR(A)optar pelo pagamento parcelado e se, por qualquer motivo, o valor mencionado no inciso I desta Cláusula não for pago dentro do prazo previsto no Quadro Resumo, o presente instrumento estará rescindido de pleno direito, sendo desnecessária qualquer notificação, ciência ou intimação do(a) COMPRADOR(A) para tal fim, podendo a VENDEDORA alienar para terceiros a(s) unidade(s) objeto deste Contrato.</p>
                         <p><strong>§ 3º.</strong> Caso o pagamento venha a acontecer por meio de cheque, a dívida somente estará quitada após a devida compensação bancária deste. Da mesma forma, ocorrendo o pagamento por meio de transferências bancárias e/ou chave PIX, o valor só será considerado pago após a comprovação do crédito do valor na conta bancária prevista no Quadro Resumo.</p>
-                        <p><strong>CLÁUSULA 4º.</strong> Fica acordado entre as partes que as parcelas assumidas pelo(a) COMPRADOR(A) serão trimestralmente reajustadas na mesma data de celebração deste Contrato, por meio do Índice Nacional de Custo da Construção (INCC), no período correspondente, respeitando o limite mínimo de 5% (cinco por cento) e máximo de 10% (dez por cento).</p>
+                        <p><strong>CLÁUSULA 4º.</strong> Fica acordado entre as partes que as parcelas assumidas pelo(a) COMPRADOR(A) serão trimestralmente reajadas na mesma data de celebração deste Contrato, por meio do Índice Nacional de Custo da Construção (INCC), no período correspondente, respeitando o limite mínimo de 5% (cinco por cento) e máximo de 10% (dez por cento).</p>
                         <p><strong>PARÁGRAFO ÚNICO.</strong> Não será adotado, sob nenhum contexto, a utilização de índices variáveis para reajuste das parcelas assumidas pelo(a) COMPRADOR(A).</p>
                         <p><strong>CLÁUSULA 5º.</strong> Sendo realizado o pagamento por meio de financiamento bancário (item 3.3), fica estipulado o seguinte:</p>
                         <p>I. O(A) COMPRADOR(A) poderá efetuar parte do pagamento com recursos próprios e parte por meio de financiamento bancário, sendo que, optando por parte do pagamento com recursos próprios, deverá observar todo o exposto no item 3.3.1 doQuadro Resumo.</p>
