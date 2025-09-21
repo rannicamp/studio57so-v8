@@ -43,8 +43,8 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
 
     const [contrato, setContrato] = useState(contratoData);
     const [produtosDisponiveis, setProdutosDisponiveis] = useState([]);
-    const [searchTerms, setSearchTerms] = useState({ comprador: '', corretor: '' });
-    const [searchResults, setSearchResults] = useState({ comprador: [], corretor: [] });
+    const [searchTerms, setSearchTerms] = useState({ comprador: '', corretor: '', conjuge: '', representante: '' });
+    const [searchResults, setSearchResults] = useState({ comprador: [], corretor: [], conjuge: [], representante: [] });
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toISOString().split('T')[0] : '';
@@ -85,7 +85,6 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
             let valorParaAtualizar = value;
 
             if (['valor_final_venda', 'percentual_comissao_corretagem'].includes(fieldName)) {
-                // Para campos numéricos, garante que o valor seja um número ou null
                 valorParaAtualizar = parseFloat(String(value).replace(/[^0-9,]/g, '').replace(',', '.')) || null;
             } else if (value === '') {
                 valorParaAtualizar = null;
@@ -95,7 +94,6 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
         },
         onSuccess: () => { 
             toast.success("Campo atualizado!");
-            // Usamos a função onUpdate para notificar o componente pai que os dados mudaram
             onUpdate();
         },
         onError: (error) => { toast.error(`Erro ao salvar: ${error.message}`); }
@@ -131,14 +129,26 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
     }, [supabase, organizacaoId]);
 
     const handleSelectContato = (type, contato) => {
-        const fieldName = type === 'comprador' ? 'contato_id' : 'corretor_id';
+        const fieldNameMap = {
+            comprador: 'contato_id',
+            corretor: 'corretor_id',
+            conjuge: 'conjuge_id',
+            representante: 'representante_id'
+        };
+        const fieldName = fieldNameMap[type];
         handleFieldUpdate(fieldName, contato.id);
         setSearchResults(prev => ({ ...prev, [type]: [] }));
         setSearchTerms(prev => ({ ...prev, [type]: '' }));
     };
     
     const handleClearContato = (type) => {
-        const fieldName = type === 'comprador' ? 'contato_id' : 'corretor_id';
+        const fieldNameMap = {
+            comprador: 'contato_id',
+            corretor: 'corretor_id',
+            conjuge: 'conjuge_id',
+            representante: 'representante_id'
+        };
+        const fieldName = fieldNameMap[type];
         handleFieldUpdate(fieldName, null);
     };
 
@@ -146,11 +156,33 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
         <div className="bg-white p-6 rounded-lg shadow-md border animate-fade-in space-y-6">
             <h3 className="text-xl font-bold text-gray-800">Detalhes da Venda</h3>
             
-            <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <fieldset className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <SearchableField label="Cliente / Comprador" selectedName={contrato.contato?.nome || contrato.contato?.razao_social} onClear={() => handleClearContato('comprador')}>
                     <div className="relative"><input type="text" value={searchTerms.comprador} onChange={(e) => handleSearchContato('comprador', e.target.value)} placeholder="Buscar cliente..." className="w-full p-2 border rounded-md" />{searchResults.comprador.length > 0 && <ul className="absolute z-20 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto">{searchResults.comprador.map(c => <li key={c.id} onClick={() => handleSelectContato('comprador', c)} className="p-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={c.nome || c.razao_social} highlight={searchTerms.comprador} /></li>)}</ul>}</div>
                 </SearchableField>
 
+                <SearchableField label="Cônjuge / Companheiro(a)" selectedName={contrato.conjuge?.nome || contrato.conjuge?.razao_social} onClear={() => handleClearContato('conjuge')}>
+                    <div className="relative"><input type="text" value={searchTerms.conjuge} onChange={(e) => handleSearchContato('conjuge', e.target.value)} placeholder="Buscar contato..." className="w-full p-2 border rounded-md" />{searchResults.conjuge.length > 0 && <ul className="absolute z-20 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto">{searchResults.conjuge.map(c => <li key={c.id} onClick={() => handleSelectContato('conjuge', c)} className="p-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={c.nome || c.razao_social} highlight={searchTerms.conjuge} /></li>)}</ul>}</div>
+                </SearchableField>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-600">Regime de Bens</label>
+                    <input 
+                        type="text" 
+                        value={contrato.regime_bens || ''} 
+                        onChange={(e) => setContrato(prev => ({...prev, regime_bens: e.target.value}))} 
+                        onBlur={(e) => handleFieldUpdate('regime_bens', e.target.value)} 
+                        disabled={updateFieldMutation.isPending} 
+                        className="mt-1 w-full p-2 border rounded-md"
+                        placeholder="Ex: Comunhão Parcial de Bens"
+                    />
+                </div>
+            </fieldset>
+
+            <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t">
+                <SearchableField label="Representante (se houver)" selectedName={contrato.representante?.nome || contrato.representante?.razao_social} onClear={() => handleClearContato('representante')}>
+                    <div className="relative"><input type="text" value={searchTerms.representante} onChange={(e) => handleSearchContato('representante', e.target.value)} placeholder="Buscar contato do representante..." className="w-full p-2 border rounded-md" />{searchResults.representante.length > 0 && <ul className="absolute z-20 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto">{searchResults.representante.map(c => <li key={c.id} onClick={() => handleSelectContato('representante', c)} className="p-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={c.nome || c.razao_social} highlight={searchTerms.representante} /></li>)}</ul>}</div>
+                </SearchableField>
                 <SearchableField label="Corretor Responsável" selectedName={contrato.corretor?.nome || contrato.corretor?.razao_social} onClear={() => handleClearContato('corretor')}>
                    <div className="relative"><input type="text" value={searchTerms.corretor} onChange={(e) => handleSearchContato('corretor', e.target.value)} placeholder="Buscar corretor..." className="w-full p-2 border rounded-md" />{searchResults.corretor.length > 0 && <ul className="absolute z-20 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto">{searchResults.corretor.map(c => <li key={c.id} onClick={() => handleSelectContato('corretor', c)} className="p-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={c.nome || c.razao_social} highlight={searchTerms.corretor} /></li>)}</ul>}</div>
                 </SearchableField>

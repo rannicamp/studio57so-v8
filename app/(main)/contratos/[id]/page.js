@@ -29,14 +29,25 @@ export default async function ContratoPage({ params }) {
             throw new Error('Organização do usuário não encontrada.');
         }
 
+        // MUDANÇA AQUI: Adicionamos 'representante:representante_id(*, ...)'
+        // O PORQUÊ: Agora a busca também traz os dados completos do contato
+        // vinculado como representante, incluindo seus telefones e e-mails.
         const { data: contratoData, error } = await supabase
             .from('contratos')
             .select(`
                 *,
                 contato:contato_id (
-                    id, nome, razao_social, cpf, cnpj, rg, cargo, estado_civil,
-                    address_street, address_number, neighborhood, city, state, cep,
-                    dados_conjuge, regime_bens, tipo_contato, responsavel_legal,
+                    *,
+                    telefones(telefone),
+                    emails(email)
+                ),
+                conjuge:conjuge_id (
+                    *,
+                    telefones(telefone),
+                    emails(email)
+                ),
+                representante:representante_id (
+                    *,
                     telefones(telefone),
                     emails(email)
                 ),
@@ -47,18 +58,23 @@ export default async function ContratoPage({ params }) {
             `)
             .eq('id', id)
             .eq('organizacao_id', organizacaoId)
+            // Ordena e limita os contatos de todas as partes
             .order('created_at', { foreignTable: 'contato.telefones', ascending: false })
             .order('created_at', { foreignTable: 'contato.emails', ascending: false })
             .limit(1, { foreignTable: 'contato.telefones' })
             .limit(1, { foreignTable: 'contato.emails' })
+            .order('created_at', { foreignTable: 'conjuge.telefones', ascending: false })
+            .order('created_at', { foreignTable: 'conjuge.emails', ascending: false })
+            .limit(1, { foreignTable: 'conjuge.telefones' })
+            .limit(1, { foreignTable: 'conjuge.emails' })
+            .order('created_at', { foreignTable: 'representante.telefones', ascending: false })
+            .order('created_at', { foreignTable: 'representante.emails', ascending: false })
+            .limit(1, { foreignTable: 'representante.telefones' })
+            .limit(1, { foreignTable: 'representante.emails' })
             .single();
 
         if (error) throw error;
         if (!contratoData) notFound();
-
-        // --- NOSSO TIRA-TEIMA ESTÁ AQUI ---
-        // Esta linha vai imprimir os dados do contato no terminal do servidor.
-        console.log('DADOS DO CONTATO RECEBIDOS DO SUPABASE: ', contratoData.contato);
 
         const { data: produtosDoContrato } = await supabase
             .from('contrato_produtos')
