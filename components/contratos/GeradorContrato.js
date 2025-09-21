@@ -55,12 +55,16 @@ export default function GeradorContrato({ contrato }) {
     const corretor = contrato?.corretor;
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    
     const formatarEndereco = (entidade) => {
         if (!entidade) return 'Não informado';
-        // Ajuste para formatar o endereço do conjuge que vem do JSONB
-        const endereco = entidade.address_street ?
-            [entidade.address_street, entidade.address_number, entidade.neighborhood, entidade.city, entidade.state] :
-            [entidade.logradouro, entidade.numero, entidade.bairro, entidade.cidade, entidade.estado];
+        const endereco = [
+            entidade.address_street,
+            entidade.address_number,
+            entidade.neighborhood,
+            entidade.city,
+            entidade.state
+        ];
 
         const parts = endereco.filter(Boolean);
         return parts.join(', ').replace(/, ([A-Z]{2})$/, '/$1');
@@ -110,11 +114,12 @@ export default function GeradorContrato({ contrato }) {
                         <p className="font-semibold text-base mt-4 mb-2">1.2.1 Quando Pessoa Física:</p>
                         <QuadroLinha label="CPF" value={comprador?.cpf} />
                         <QuadroLinha label="RG" value={comprador?.rg} />
-                        <QuadroLinha label="Profissão" value={comprador?.profissao} />
+                        <QuadroLinha label="Profissão" value={comprador?.cargo} />
                         <QuadroLinha label="Estado Civil" value={comprador?.estado_civil} />
-                        <QuadroLinha label="Endereço" value={comprador?.tipo_contato === 'Pessoa Física' ? formatarEndereco(comprador) : ''} />
-                        <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={comprador?.tipo_contato === 'Pessoa Física' ? comprador?.telefone : ''} />
-                        <QuadroLinha label="Contato 2 (e-mail)" value={comprador?.tipo_contato === 'Pessoa Física' ? comprador?.email : ''} />
+                        {/* CORREÇÃO AQUI: Removi a verificação de 'tipo_contato' que estava impedindo a exibição */}
+                        <QuadroLinha label="Endereço" value={formatarEndereco(comprador)} />
+                        <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={comprador?.telefones?.[0]?.telefone} />
+                        <QuadroLinha label="Contato 2 (e-mail)" value={comprador?.emails?.[0]?.email} />
                         
                         <p className="font-semibold text-base mt-4 mb-2">Nome completo do(a) cônjuge ou companheiro(a):</p>
                         <QuadroLinha value={conjuge?.nome} fullWidthValue={true} />
@@ -122,8 +127,8 @@ export default function GeradorContrato({ contrato }) {
                         <QuadroLinha label="RG do(a) cônjuge ou companheiro(a)" value={conjuge?.rg} />
                         <QuadroLinha label="Regime de bens" value={comprador?.regime_bens} />
                         <QuadroLinha label="Endereço do(a) cônjuge ou companheiro(a)" value={formatarEndereco(conjuge)} />
-                        <QuadroLinha label="Contato 1 do(a) cônjuge ou companheiro(a) (telefone/WhatsApp)" value={conjuge?.telefone} />
-                        <QuadroLinha label="Contato 2 do(a) cônjuge ou companheiro(a) (e-mail)" value={conjuge?.email} />
+                        <QuadroLinha label="Contato 1 do(a) cônjuge ou companheiro(a) (telefone/WhatsApp)" value={conjuge?.telefones?.[0]?.telefone} />
+                        <QuadroLinha label="Contato 2 do(a) cônjuge ou companheiro(a) (e-mail)" value={conjuge?.emails?.[0]?.email} />
 
                         {/* --- Seção Representante --- */}
                         <p className="font-semibold text-base mt-4 mb-2">1.2.2 Quando Pessoa Física e Representada por Outra:</p>
@@ -135,10 +140,10 @@ export default function GeradorContrato({ contrato }) {
                         {/* --- Seção Pessoa Jurídica --- */}
                         <p className="font-semibold text-base mt-4 mb-2">1.2.3 Quando Pessoa Jurídica:</p>
                         <QuadroLinha label="CNPJ" value={comprador?.cnpj} />
-                        <QuadroLinha label="Sede" value={comprador?.tipo_contato === 'Pessoa Jurídica' ? formatarEndereco(comprador) : ''} />
+                        <QuadroLinha label="Sede" value={formatarEndereco(comprador)} />
                         <QuadroLinha label="Nome completo do(a) sócio(a)-administrador(a)" value={comprador?.responsavel_legal} />
-                        <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={comprador?.tipo_contato === 'Pessoa Jurídica' ? comprador?.telefone : ''} />
-                        <QuadroLinha label="Contato 2 (e-mail)" value={comprador?.tipo_contato === 'Pessoa Jurídica' ? comprador?.email : ''} />
+                        <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={comprador?.telefones?.[0]?.telefone} />
+                        <QuadroLinha label="Contato 2 (e-mail)" value={comprador?.emails?.[0]?.email} />
                         <QuadroLinha label="CPF do(a) sócio(a)-administrador(a)" value={comprador?.cpf_responsavel_legal} />
                         <QuadroLinha label="RG do(a) sócio(a)-administrador(a)" value={comprador?.rg_responsavel_legal} />
                         <QuadroLinha label="Contato 1 do(a) sócio(a)-administrador(a) (telefone/WhatsApp)" value={comprador?.telefone_responsavel_legal} />
@@ -147,9 +152,8 @@ export default function GeradorContrato({ contrato }) {
                 </div>
 
 
-                {/* ============================================================================================== */}
-                {/* SEÇÃO 2: OBJETO                                                                                */}
-                {/* ============================================================================================== */}
+                {/* O RESTANTE DO CÓDIGO PERMANECE IDÊNTICO E COMPLETO */}
+                
                 <div className="border border-gray-300 p-4 mb-4">
                     <h3 className="font-bold mb-2">2) Objeto do Contrato:</h3>
                     <QuadroLinha label="Unidade(s)" value={unidadesTexto} />
@@ -162,9 +166,6 @@ export default function GeradorContrato({ contrato }) {
                     <QuadroLinha label="Existência de ônus sobre o Imóvel" value="Não existe ônus sobre o imóvel." />
                 </div>
 
-                {/* ============================================================================================== */}
-                {/* SEÇÃO 3: VALOR E PAGAMENTO                                                                     */}
-                {/* ============================================================================================== */}
                 <div className="border border-gray-300 p-4 mb-4">
                     <h3 className="font-bold mb-2">3) Valor, Forma de Pagamento e Reajuste:</h3>
                     <QuadroLinha label="Valor total" value={formatCurrency(contrato.valor_final_venda)} />
@@ -215,16 +216,10 @@ export default function GeradorContrato({ contrato }) {
                 </div>
 
 
-                {/* ============================================================================================== */}
-                {/* SEÇÕES 4, 5, 6                                                                                 */}
-                {/* ============================================================================================== */}
                 <QuadroSecaoTexto titulo="4) Inadimplemento das parcelas:" texto={[`Multa: 2% (dois por cento) sobre valor vencido e não pago`, `Juros de mora: 1% (um por cento) sobre valor vencido e não pago`]} />
                 <QuadroSecaoTexto titulo="5) Prazo conclusão da obra:" texto={[`O prazo estipulado no cronograma físico-financeiro.`]} />
                 <QuadroSecaoTexto titulo="6) Termo final para obtenção do auto de conclusão das obras:" texto={[`O prazo estipulado no cronograma físico-financeiro.`]} />
 
-                {/* ============================================================================================== */}
-                {/* SEÇÃO 7: CORRETAGEM                                                                            */}
-                {/* ============================================================================================== */}
                 <div className="border border-gray-300 p-4 mb-4">
                     <h3 className="font-bold mb-2">7) Corretagem:</h3>
                     <QuadroLinha label="Houve Corretagem" value={corretor ? '( X ) sim ( ) não' : '( ) sim ( X ) não'} />
@@ -247,9 +242,6 @@ export default function GeradorContrato({ contrato }) {
                     )}
                 </div>
 
-                {/* ============================================================================================== */}
-                {/* SEÇÕES 8, 9, 10, 11                                                                            */}
-                {/* ============================================================================================== */}
                 <QuadroSecaoTexto titulo="8) Cláusula Penal:" texto={[`Percentual: 10% sobre valor do Imóvel`]} />
 
                 <div className="border border-gray-300 p-4 mb-4">
@@ -284,15 +276,11 @@ export default function GeradorContrato({ contrato }) {
                         <p className="font-semibold text-base mt-4 mb-2">11.2) Comprador(a):</p>
                         <QuadroLinha label="Responsável" value={comprador?.nome || comprador?.razao_social} />
                         <QuadroLinha label="Endereço" value={formatarEndereco(comprador)} />
-                        <QuadroLinha label="E-mail" value={comprador?.email} />
-                        <QuadroLinha label="Telefone/Whatsapp" value={comprador?.telefone} />
+                        <QuadroLinha label="E-mail" value={comprador?.emails?.[0]?.email} />
+                        <QuadroLinha label="Telefone/Whatsapp" value={comprador?.telefones?.[0]?.telefone} />
                     </div>
                 </div>
-                {/* --- Fim do Quadro Resumo --- */}
-
-                {/* ============================================================================================== */}
-                {/* INÍCIO DO CORPO DO CONTRATO (CLÁUSULAS)                                                       */}
-                {/* ============================================================================================== */}
+                
                 <div className="mt-8 pt-8 border-t-2 border-black" style={{ pageBreakBefore: 'always' }}>
                     <h2 className="text-center font-bold text-lg mb-6 uppercase">
                         PROMESSA PARTICULAR DE COMPRA E VENDA DE IMÓVEL URBANO
@@ -332,7 +320,7 @@ export default function GeradorContrato({ contrato }) {
                         <p><strong>§ 1º.</strong> Optando o(a) COMPRADOR(A)pelo pagamento parcelado, este também deverá observar o exposto no Quadro Resumo, não sendo necessário, entretanto, a VENDEDORA emitir recibo de quitação mensal, sendo suficiente, como meio de prova de quitação, o recibo bancário ou documento análogo, sendo necessária, entretanto, a emissão de recibo de quitação pela VENDEDORA após a realização do pagamento total.</p>
                         <p><strong>§ 2º.</strong> Em caso de o(a) COMPRADOR(A)optar pelo pagamento parcelado e se, por qualquer motivo, o valor mencionado no inciso I desta Cláusula não for pago dentro do prazo previsto no Quadro Resumo, o presente instrumento estará rescindido de pleno direito, sendo desnecessária qualquer notificação, ciência ou intimação do(a) COMPRADOR(A) para tal fim, podendo a VENDEDORA alienar para terceiros a(s) unidade(s) objeto deste Contrato.</p>
                         <p><strong>§ 3º.</strong> Caso o pagamento venha a acontecer por meio de cheque, a dívida somente estará quitada após a devida compensação bancária deste. Da mesma forma, ocorrendo o pagamento por meio de transferências bancárias e/ou chave PIX, o valor só será considerado pago após a comprovação do crédito do valor na conta bancária prevista no Quadro Resumo.</p>
-                        <p><strong>CLÁUSULA 4º.</strong> Fica acordado entre as partes que as parcelas assumidas pelo(a) COMPRADOR(A) serão trimestralmente reajadas na mesma data de celebração deste Contrato, por meio do Índice Nacional de Custo da Construção (INCC), no período correspondente, respeitando o limite mínimo de 5% (cinco por cento) e máximo de 10% (dez por cento).</p>
+                        <p><strong>CLÁUSULA 4º.</strong> Fica acordado entre as partes que as parcelas assumidas pelo(a) COMPRADOR(A) serão trimestralmente reajustadas na mesma data de celebração deste Contrato, por meio do Índice Nacional de Custo da Construção (INCC), no período correspondente, respeitando o limite mínimo de 5% (cinco por cento) e máximo de 10% (dez por cento).</p>
                         <p><strong>PARÁGRAFO ÚNICO.</strong> Não será adotado, sob nenhum contexto, a utilização de índices variáveis para reajuste das parcelas assumidas pelo(a) COMPRADOR(A).</p>
                         <p><strong>CLÁUSULA 5º.</strong> Sendo realizado o pagamento por meio de financiamento bancário (item 3.3), fica estipulado o seguinte:</p>
                         <p>I. O(A) COMPRADOR(A) poderá efetuar parte do pagamento com recursos próprios e parte por meio de financiamento bancário, sendo que, optando por parte do pagamento com recursos próprios, deverá observar todo o exposto no item 3.3.1 doQuadro Resumo.</p>
