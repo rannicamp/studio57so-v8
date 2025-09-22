@@ -3,8 +3,8 @@
 "use client";
 
 import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext'; // <--- 1. IMPORTAMOS O 'useAuth'
-import { createClient } from '../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext'; // <--- 1. IMPORTAMOS O 'useAuth'
+import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUpload, faFileCsv, faDownload } from '@fortawesome/free-solid-svg-icons';
 import Papa from 'papaparse';

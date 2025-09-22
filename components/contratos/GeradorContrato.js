@@ -29,17 +29,6 @@ const SubtituloSecao = ({ numero, titulo }) => (
     <p className="font-semibold text-sm my-3">{numero}) {titulo}</p>
 );
 
-// Novo componente para formatar as cláusulas do contrato
-const Clausula = ({ titulo, subtitulo, children }) => (
-    <div className="mb-6">
-        {titulo && <h3 className="text-center font-bold uppercase text-sm mb-3">{titulo}</h3>}
-        {subtitulo && <p className="font-bold text-sm mb-3">{subtitulo}</p>}
-        <div className="text-sm text-justify space-y-3">
-            {children}
-        </div>
-    </div>
-);
-
 
 export default function GeradorContrato({ contrato }) {
 
@@ -60,7 +49,7 @@ export default function GeradorContrato({ contrato }) {
     const corretor = contrato?.corretor;
     const contaSelecionada = contrato?.conta_financeira;
 
-    const isPessoaJuridica = comprador?.tipo_contato === 'Pessoa Jurídica';
+    const isPessoaJuridica = comprador?.personalidade_juridica === 'Pessoa Jurídica';
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     const formatDateForDisplay = (dateStr) => {
@@ -88,10 +77,11 @@ export default function GeradorContrato({ contrato }) {
     const matriculasTexto = produtos.map(p => p.matricula).join(', ');
     const anoAtual = new Date().getFullYear();
     
-    const { entrada, outrasParcelas } = useMemo(() => {
+    const { entrada, outrasParcelas, totalOutrasParcelas } = useMemo(() => {
         const parcelas = contrato?.contrato_parcelas || [];
         const entradaInfo = { valor: 0, parcelas: [] };
         const outras = [];
+        let totalOutras = 0;
 
         parcelas.forEach(p => {
             const valor = parseFloat(p.valor_parcela || 0);
@@ -100,6 +90,7 @@ export default function GeradorContrato({ contrato }) {
                 entradaInfo.parcelas.push({ valor, data_vencimento: p.data_vencimento });
             } else {
                 outras.push(p);
+                totalOutras += valor;
             }
         });
         
@@ -107,10 +98,21 @@ export default function GeradorContrato({ contrato }) {
            entradaInfo.parcelas.sort((a,b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
         }
 
-        return { entrada: entradaInfo, outrasParcelas: outras };
+        return { entrada: entradaInfo, outrasParcelas: outras, totalOutrasParcelas: totalOutras };
     }, [contrato?.contrato_parcelas]);
 
-    const percentualEntrada = contrato.valor_final_venda > 0 ? (entrada.valor / contrato.valor_final_venda) * 100 : 0;
+    const valorTotalContrato = parseFloat(contrato.valor_final_venda) || 0;
+    const percentualEntrada = valorTotalContrato > 0 ? (entrada.valor / valorTotalContrato) * 100 : 0;
+    const percentualOutrasParcelas = valorTotalContrato > 0 ? (totalOutrasParcelas / valorTotalContrato) * 100 : 0;
+    
+    // =================================================================================
+    // CÁLCULO DO SALDO REMANESCENTE
+    // O PORQUÊ: Subtraímos do valor total do contrato o valor da entrada e o valor
+    // de todas as outras parcelas para encontrar o saldo que não foi coberto
+    // pelo plano de pagamento.
+    // =================================================================================
+    const saldoRemanescente = valorTotalContrato - entrada.valor - totalOutrasParcelas;
+    const percentualSaldoRemanescente = valorTotalContrato > 0 ? (saldoRemanescente / valorTotalContrato) * 100 : 0;
 
     const resumoOutrasParcelas = useMemo(() => {
         if (outrasParcelas.length === 0) {
@@ -154,7 +156,6 @@ export default function GeradorContrato({ contrato }) {
                 <div className="border border-gray-300 p-4 mb-4">
                     <TituloSecao numero="1" titulo="Partes" />
                     <div className="pl-4">
-                        {/* MUDANÇA APLICADA AQUI */}
                         <p className="font-semibold text-sm mt-3 mb-1">1.1 Vendedora:</p>
                         <QuadroLinha label="Razão Social" value="STUDIO 57 INCORPORAÇÕES LTDA" />
                         <QuadroLinha label="CNPJ" value="41.464.589/0001-66" />
@@ -164,31 +165,25 @@ export default function GeradorContrato({ contrato }) {
                         <p className="font-semibold text-sm mt-3 mb-1">1.2 Nome completo do(a) comprador(a):</p>
                         <QuadroTextoSimples texto={comprador?.nome || comprador?.razao_social || ' '}/>
 
-                        {!isPessoaJuridica && (
-                            <>
-                                <p className="font-semibold text-sm mt-3 mb-1">1.2.1 Quando Pessoa Física:</p>
-                                <QuadroLinha label="CPF" value={comprador?.cpf} />
-                                <QuadroLinha label="RG" value={comprador?.rg} />
-                                <QuadroLinha label="Profissão" value={comprador?.cargo} />
-                                <QuadroLinha label="Estado Civil" value={comprador?.estado_civil} />
-                                <QuadroLinha label="Endereço" value={formatarEndereco(comprador)} />
-                                <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={comprador?.telefones?.[0]?.telefone} />
-                                <QuadroLinha label="Contato 2 (e-mail)" value={comprador?.emails?.[0]?.email} />
-                                
-                                {conjuge && (
-                                    <>
-                                        <QuadroLinha label="Nome completo do(a) cônjuge ou companheiro(a)" value={conjuge?.nome} />
-                                        <QuadroLinha label="CPF do(a) cônjuge ou companheiro(a)" value={conjuge?.cpf} />
-                                        <QuadroLinha label="RG do(a) cônjuge ou companheiro(a)" value={conjuge?.rg} />
-                                        <QuadroLinha label="Regime de bens" value={contrato?.regime_bens} />
-                                        <QuadroLinha label="Endereço do(a) cônjuge ou companheiro(a)" value={formatarEndereco(conjuge)} />
-                                        <QuadroLinha label="Contato 1 do(a) cônjuge ou companheiro(a) (telefone/WhatsApp)" value={conjuge?.telefones?.[0]?.telefone} />
-                                        <QuadroLinha label="Contato 2 do(a) cônjuge ou companheiro(a) (e-mail)" value={conjuge?.emails?.[0]?.email} />
-                                    </>
-                                )}
-                            </>
-                        )}
+                        {/* --- Seção Pessoa Física --- */}
+                        <p className="font-semibold text-sm mt-3 mb-1">1.2.1 Quando Pessoa Física:</p>
+                        <QuadroLinha label="CPF" value={!isPessoaJuridica ? comprador?.cpf : ''} />
+                        <QuadroLinha label="RG" value={!isPessoaJuridica ? comprador?.rg : ''} />
+                        <QuadroLinha label="Profissão" value={!isPessoaJuridica ? comprador?.cargo : ''} />
+                        <QuadroLinha label="Estado Civil" value={!isPessoaJuridica ? comprador?.estado_civil : ''} />
+                        <QuadroLinha label="Endereço" value={!isPessoaJuridica ? formatarEndereco(comprador) : ''} />
+                        <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={!isPessoaJuridica ? comprador?.telefones?.[0]?.telefone : ''} />
+                        <QuadroLinha label="Contato 2 (e-mail)" value={!isPessoaJuridica ? comprador?.emails?.[0]?.email : ''} />
                         
+                        <QuadroLinha label="Nome completo do(a) cônjuge ou companheiro(a)" value={!isPessoaJuridica ? conjuge?.nome : ''} />
+                        <QuadroLinha label="CPF do(a) cônjuge ou companheiro(a)" value={!isPessoaJuridica ? conjuge?.cpf : ''} />
+                        <QuadroLinha label="RG do(a) cônjuge ou companheiro(a)" value={!isPessoaJuridica ? conjuge?.rg : ''} />
+                        <QuadroLinha label="Regime de bens" value={!isPessoaJuridica ? contrato?.regime_bens : ''} />
+                        <QuadroLinha label="Endereço do(a) cônjuge ou companheiro(a)" value={!isPessoaJuridica ? formatarEndereco(conjuge) : ''} />
+                        <QuadroLinha label="Contato 1 do(a) cônjuge ou companheiro(a) (telefone/WhatsApp)" value={!isPessoaJuridica ? conjuge?.telefones?.[0]?.telefone : ''} />
+                        <QuadroLinha label="Contato 2 do(a) cônjuge ou companheiro(a) (e-mail)" value={!isPessoaJuridica ? conjuge?.emails?.[0]?.email : ''} />
+                        
+                        {/* --- Seção Representante --- */}
                         <p className="font-semibold text-sm mt-3 mb-1">1.2.2 Quando Pessoa Física e Representada por Outra:</p>
                         <QuadroLinha label="Nome do Representante" value={representante?.nome || representante?.razao_social} />
                         <QuadroLinha label="CPF do Representante" value={representante?.cpf} />
@@ -196,20 +191,17 @@ export default function GeradorContrato({ contrato }) {
                         <QuadroLinha label="Endereço" value={formatarEndereco(representante)} />
                         <QuadroLinha label="Data da procuração" />
 
-                        {isPessoaJuridica && (
-                            <>
-                                <p className="font-semibold text-sm mt-3 mb-1">1.2.3 Quando Pessoa Jurídica:</p>
-                                <QuadroLinha label="CNPJ" value={comprador?.cnpj} />
-                                <QuadroLinha label="Sede" value={formatarEndereco(comprador)} />
-                                <QuadroLinha label="Nome completo do(a) sócio(a)-administrador(a)" value={comprador?.responsavel_legal} />
-                                <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={comprador?.telefones?.[0]?.telefone} />
-                                <QuadroLinha label="Contato 2 (e-mail)" value={comprador?.emails?.[0]?.email} />
-                                <QuadroLinha label="CPF do(a) sócio(a)-administrador(a)" value={comprador?.cpf_responsavel_legal} />
-                                <QuadroLinha label="RG do(a) sócio(a)-administrador(a)" value={comprador?.rg_responsavel_legal} />
-                                <QuadroLinha label="Contato 1 do(a) sócio(a)-administrador(a) (telefone/WhatsApp)" value={comprador?.telefone_responsavel_legal} />
-                                <QuadroLinha label="Contato 2 do(a) sócio(a)-administrador(a) (e-mail)" value={comprador?.email_responsavel_legal} />
-                            </>
-                        )}
+                        {/* --- Seção Pessoa Jurídica --- */}
+                        <p className="font-semibold text-sm mt-3 mb-1">1.2.3 Quando Pessoa Jurídica:</p>
+                        <QuadroLinha label="CNPJ" value={isPessoaJuridica ? comprador?.cnpj : ''} />
+                        <QuadroLinha label="Sede" value={isPessoaJuridica ? formatarEndereco(comprador) : ''} />
+                        <QuadroLinha label="Nome completo do(a) sócio(a)-administrador(a)" value={isPessoaJuridica ? comprador?.responsavel_legal : ''} />
+                        <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={isPessoaJuridica ? comprador?.telefones?.[0]?.telefone : ''} />
+                        <QuadroLinha label="Contato 2 (e-mail)" value={isPessoaJuridica ? comprador?.emails?.[0]?.email : ''} />
+                        <QuadroLinha label="CPF do(a) sócio(a)-administrador(a)" value={isPessoaJuridica ? comprador?.cpf_responsavel_legal : ''} />
+                        <QuadroLinha label="RG do(a) sócio(a)-administrador(a)" value={isPessoaJuridica ? comprador?.rg_responsavel_legal : ''} />
+                        <QuadroLinha label="Contato 1 do(a) sócio(a)-administrador(a) (telefone/WhatsApp)" value={isPessoaJuridica ? comprador?.telefone_responsavel_legal : ''} />
+                        <QuadroLinha label="Contato 2 do(a) sócio(a)-administrador(a) (e-mail)" value={isPessoaJuridica ? comprador?.email_responsavel_legal : ''} />
                     </div>
                 </div>
 
@@ -271,7 +263,16 @@ export default function GeradorContrato({ contrato }) {
 
                     <QuadroLinha label="Percentual do valor pago da entrada/sinal sobre o valor total do contrato" value={percentualEntrada > 0 ? `${percentualEntrada.toFixed(2)}%` : ''}/>
                     <QuadroLinha label="Parcelas mensais (quantidade, valor e data de vencimento)" value={resumoOutrasParcelas}/>
-                    <QuadroLinha label="Percentual do valor das parcelas mensais sobre o valor total do contrato" />
+                    <QuadroLinha label="Percentual do valor das parcelas mensais sobre o valor total do contrato" value={percentualOutrasParcelas > 0 ? `${percentualOutrasParcelas.toFixed(2)}%` : ''} />
+                    
+                    {/* LINHAS NOVAS ADICIONADAS AQUI */}
+                    {Math.abs(saldoRemanescente) > 0.01 && (
+                        <>
+                            <QuadroLinha label="Saldo Remanescente" value={`${formatCurrency(saldoRemanescente)} (${formatExtenso(saldoRemanescente)})`}/>
+                            <QuadroLinha label="Percentual do Saldo Remanescente sobre o valor total do contrato" value={percentualSaldoRemanescente > 0 ? `${percentualSaldoRemanescente.toFixed(2)}%` : ''} />
+                        </>
+                    )}
+
                     <QuadroLinha label="Forma de reajuste/atualização das parcelas" value="a cada trimestre" />
                     <QuadroLinha label="Índice de reajuste/atualização das parcelas" value="Índice Nacional de Custo da Construção (INCC)" />
                     <QuadroLinha label="Taxa de juros em caso de atrasos" />

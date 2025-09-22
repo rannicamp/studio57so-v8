@@ -1,117 +1,109 @@
-//components\contatos\LinkEmployeesToContacts.js
+//components/contatos/LinkEmployeesToContacts.js
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
-import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
+import { useAuth } from '../../contexts/AuthContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faLink, faCheckCircle, faTimesCircle } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
+// 1. Lógica de busca de dados isolada em uma função async
+const fetchUnlinkedData = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return { employees: [], matches: {} };
+
+    // Busca funcionários sem contato_id na organização correta
+    const { data: employees, error: empError } = await supabase
+        .from('funcionarios')
+        .select('id, full_name, cpf, phone')
+        .eq('organizacao_id', organizacaoId)
+        .is('contato_id', null);
+
+    if (empError) throw new Error(empError.message);
+
+    const validEmployees = employees.filter(e => e.cpf || e.full_name || e.phone);
+    
+    // Busca as sugestões para cada funcionário
+    const matches = {};
+    for (const emp of validEmployees) {
+        const { data, error } = await supabase.rpc('sugerir_vinculo_funcionario_contato', {
+            p_cpf: emp.cpf,
+            p_nome: emp.full_name,
+            p_telefone: emp.phone,
+            p_organizacao_id: organizacaoId
+        });
+
+        if (!error && data) {
+            // Ordena para priorizar match por CPF
+            data.sort((a, b) => {
+                if (a.motivo.includes('CPF')) return -1;
+                if (b.motivo.includes('CPF')) return 1;
+                return 0;
+            });
+            matches[emp.id] = data;
+        }
+    }
+
+    return { employees: validEmployees, matches };
+};
+
+// 2. Lógica da mutação (vincular) isolada
+const linkEmployeeToContact = async (supabase, { employeeId, contactId }) => {
+    const { error } = await supabase
+        .from('funcionarios')
+        .update({ contato_id: contactId })
+        .eq('id', employeeId)
+        .throwOnError();
+    
+    return { employeeId, contactId };
+};
+
+
 export default function LinkEmployeesToContacts() {
     const supabase = createClient();
-    const { user } = useAuth(); // 2. Obter o usuário para pegar o ID da organização
+    const queryClient = useQueryClient();
+    const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    const [unlinkedEmployees, setUnlinkedEmployees] = useState([]);
-    const [potentialMatches, setPotentialMatches] = useState({});
-    const [loading, setLoading] = useState(true);
-    const [processingId, setProcessingId] = useState(null);
-    
-    const fetchData = useCallback(async () => {
-        if (!organizacaoId) { // Só executa se tiver a organização
-            setLoading(false);
-            return;
-        }
-        setLoading(true);
+    // 3. useQuery para buscar e gerenciar os dados
+    const { data, isLoading, isError, error } = useQuery({
+        queryKey: ['unlinkedEmployees', organizacaoId],
+        queryFn: () => fetchUnlinkedData(supabase, organizacaoId),
+        enabled: !!organizacaoId, // A query só roda se o organizacaoId existir
+    });
 
-        // =================================================================================
-        // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-        // O PORQUÊ: A busca por funcionários agora é filtrada pela `organizacao_id`,
-        // garantindo que estamos trabalhando apenas com os funcionários da empresa correta.
-        // =================================================================================
-        const { data: employees, error: empError } = await supabase
-            .from('funcionarios')
-            .select('id, full_name, cpf, phone')
-            .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
-            .is('contato_id', null);
+    const unlinkedEmployees = useMemo(() => data?.employees || [], [data]);
+    const potentialMatches = useMemo(() => data?.matches || {}, [data]);
 
-        if (empError) {
-            toast.error(`Erro ao buscar funcionários: ${empError.message}`);
-            setLoading(false);
-            return;
-        }
+    // 4. useMutation para executar a ação de vincular
+    const linkMutation = useMutation({
+        mutationFn: (variables) => linkEmployeeToContact(supabase, variables),
+        onSuccess: () => {
+            toast.success('Funcionário vinculado com sucesso!');
+            // Invalida a query para forçar a re-busca e atualizar a lista automaticamente
+            queryClient.invalidateQueries({ queryKey: ['unlinkedEmployees', organizacaoId] });
+        },
+        onError: (err) => {
+            toast.error(`Erro ao vincular: ${err.message}`);
+        },
+    });
 
-        const validEmployees = employees.filter(e => e.cpf || e.full_name || e.phone);
-        setUnlinkedEmployees(validEmployees);
-        
-        if (validEmployees.length > 0) {
-            const matches = {};
-            for (const emp of validEmployees) {
-                // =================================================================================
-                // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-                // O PORQUÊ: Passamos o `organizacaoId` para a função do banco de dados.
-                // Isso garante que a busca por contatos correspondentes também seja
-                // restrita à organização correta.
-                // =================================================================================
-                const { data, error } = await supabase.rpc('sugerir_vinculo_funcionario_contato', {
-                    p_cpf: emp.cpf,
-                    p_nome: emp.full_name,
-                    p_telefone: emp.phone,
-                    p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
-                });
-
-                if (!error && data) {
-                    data.sort((a, b) => {
-                        if (a.motivo.includes('CPF')) return -1;
-                        if (b.motivo.includes('CPF')) return 1;
-                        return 0;
-                    });
-                    matches[emp.id] = data;
-                }
-            }
-            setPotentialMatches(matches);
-        }
-        
-        setLoading(false);
-    }, [supabase, organizacaoId]);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    // =================================================================================
-    // ATUALIZAÇÃO DE UX (toast.promise)
-    // O PORQUÊ: A lógica de vincular agora usa `toast.promise` para um feedback
-    // claro e automático de "carregando", "sucesso" e "erro".
-    // =================================================================================
-    const handleLink = async (employeeId, contactId) => {
-        setProcessingId(employeeId);
-
-        const promise = supabase
-            .from('funcionarios')
-            .update({ contato_id: contactId })
-            .eq('id', employeeId)
-            .throwOnError();
-
-        toast.promise(promise, {
-            loading: `Vinculando funcionário ID ${employeeId}...`,
-            success: () => {
-                fetchData(); // Recarrega os dados para atualizar a lista
-                return 'Funcionário vinculado com sucesso!';
-            },
-            error: (err) => `Erro ao vincular: ${err.message}`,
-            finally: () => setProcessingId(null),
-        });
+    const handleLink = (employeeId, contactId) => {
+        linkMutation.mutate({ employeeId, contactId });
     };
 
-    if (loading) {
+    if (isLoading) {
         return (
             <div className="text-center p-10">
                 <FontAwesomeIcon icon={faSpinner} spin size="3x" className="text-gray-400" />
                 <p className="mt-4 text-lg">Buscando funcionários sem vínculo...</p>
             </div>
         );
+    }
+    
+    if (isError) {
+        return <div className="text-center p-10 bg-red-100 text-red-700 rounded-lg">Erro ao buscar dados: {error.message}</div>
     }
 
     return (
@@ -153,10 +145,10 @@ export default function LinkEmployeesToContacts() {
                                                 </div>
                                                 <button
                                                     onClick={() => handleLink(employee.id, match.id)}
-                                                    disabled={processingId === employee.id}
+                                                    disabled={linkMutation.isPending && linkMutation.variables?.employeeId === employee.id}
                                                     className="bg-blue-600 text-white px-4 py-1 rounded-md shadow-sm hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2 text-sm"
                                                 >
-                                                    {processingId === employee.id ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faLink} />}
+                                                    {(linkMutation.isPending && linkMutation.variables?.employeeId === employee.id) ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faLink} />}
                                                     Vincular
                                                 </button>
                                             </div>

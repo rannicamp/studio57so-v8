@@ -1,7 +1,8 @@
+//app\(main)\contatos\cadastro\page.js
 "use client"; // Necessário para usar o hook useEffect
 
 import { useEffect } from 'react';
-import ContatoForm from '../../../../components/ContatoForm';
+import ContatoForm from '../../../../components/contatos/ContatoForm';
 import Link from 'next/link';
 import { useLayout } from '../../../../contexts/LayoutContext'; // Importar
 

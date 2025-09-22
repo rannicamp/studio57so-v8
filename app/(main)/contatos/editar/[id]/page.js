@@ -4,7 +4,7 @@
 import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '../../../../../utils/supabase/client';
-import ContatoForm from '../../../../../components/ContatoForm';
+import ContatoForm from '../../../../../components/contatos/ContatoForm';
 import { useLayout } from '../../../../../contexts/LayoutContext';
 import { useAuth } from '../../../../../contexts/AuthContext'; // 1. Importar o useAuth
 import { useQuery } from '@tanstack/react-query'; // 2. Importar o useQuery

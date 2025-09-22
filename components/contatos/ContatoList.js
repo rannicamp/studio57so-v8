@@ -2,11 +2,11 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '../utils/supabase/client';
+import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faColumns, faTrashAlt, faEdit, faSort, faSortUp, faSortDown, faUsers } from '@fortawesome/free-solid-svg-icons';
-import { formatPhoneNumber } from '../utils/formatters';
-import MergeModal from './contatos/MergeModal';
+import { formatPhoneNumber } from '../../utils/formatters';
+import MergeModal from './MergeModal';
 import { toast } from 'sonner';
 
 const ProgressCircle = ({ score }) => {

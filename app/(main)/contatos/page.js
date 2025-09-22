@@ -3,8 +3,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import Link from 'next/link';
-import ContatoList from '../../../components/ContatoList';
-import ContatoImporter from '../../../components/ContatoImporter';
+import ContatoList from '../../../components/contatos/ContatoList';
+import ContatoImporter from '../../../components/contatos/ContatoImporter';
 import KpiCard from '../../../components/KpiCard'; 
 import { useLayout } from '../../../contexts/LayoutContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -13,7 +13,7 @@ import { faFileImport, faCopy, faSpinner, faWandMagicSparkles, faUsers, faGlobeA
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import ContatoDetalhesSidebar from '../../../components/ContatoDetalhesSidebar';
+import ContatoDetalhesSidebar from '../../../components/contatos/ContatoDetalhesSidebar';
 import ActivityModal from '../../../components/AtividadeModal';
 
 // =================================================================================

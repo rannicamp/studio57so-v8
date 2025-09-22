@@ -2,13 +2,38 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { createClient } from '../utils/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { IMaskInput } from 'react-imask';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; 
-import { faSpinner, faTrashAlt, faPlusCircle } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTrashAlt, faPlusCircle, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+
+// -- COMPONENTES AUXILIARES (sem alterações) --
+const SearchableField = ({ label, selectedName, onClear, children }) => (
+    <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+        {selectedName ? (
+            <div className="flex items-center justify-between mt-1 w-full p-2 border rounded-md bg-gray-100">
+                <span className="font-semibold text-gray-800">{selectedName}</span>
+                <button type="button" onClick={onClear} className="text-red-500 hover:text-red-700" title="Limpar Seleção">
+                    <FontAwesomeIcon icon={faTimes} />
+                </button>
+            </div>
+        ) : (
+            <div>{children}</div>
+        )}
+    </div>
+);
+
+const HighlightedText = ({ text = '', highlight = '' }) => {
+    if (!highlight.trim() || !text) { return <span>{text}</span>; }
+    const regex = new RegExp(`(${highlight.replace(/[.*+?^${'}'}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+    return (<span>{parts.map((part, i) => regex.test(part) ? <mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark> : <span key={i}>{part}</span>)}</span>);
+};
 
 const countries = [
     { name: "Brasil", code: "BR", dial_code: "+55", mask: "(00) 00000-0000" },
@@ -56,97 +81,169 @@ const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }
     );
 };
 
+// Lógica de salvar o contato
+const saveContact = async (supabase, { formData, isEditing, organizacaoId }) => {
+    const { id, telefones, emails, ...dataToSave } = formData;
+    dataToSave.organizacao_id = organizacaoId;
+
+    if (isEditing) delete dataToSave.origem;
+    if (dataToSave.birth_date === '') dataToSave.birth_date = null;
+    if (dataToSave.data_fundacao === '') dataToSave.data_fundacao = null;
+
+    const cleanedPhones = telefones.filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0);
+    const cleanedEmails = emails.filter(mail => mail.email && mail.email.trim() !== '');
+
+    let contatoId = isEditing ? id : null;
+    if (isEditing) {
+        await supabase.from('contatos').update(dataToSave).eq('id', contatoId).throwOnError();
+    } else {
+        const { data, error } = await supabase.from('contatos').insert(dataToSave).select('id').single();
+        if (error) throw error;
+        contatoId = data.id;
+    }
+
+    if (!contatoId) throw new Error("Falha ao obter o ID do contato.");
+
+    await supabase.from('telefones').delete().eq('contato_id', contatoId);
+    await supabase.from('emails').delete().eq('contato_id', contatoId);
+
+    if (cleanedPhones.length > 0) {
+        const phonesToInsert = cleanedPhones.map(tel => ({
+            contato_id: contatoId, telefone: tel.telefone, country_code: tel.country_code,
+            tipo: 'Celular', organizacao_id: organizacaoId
+        }));
+        await supabase.from('telefones').insert(phonesToInsert).throwOnError();
+    }
+
+    if (cleanedEmails.length > 0) {
+        const emailsToInsert = emails.map(mail => ({
+            contato_id: contatoId, email: mail.email.trim(),
+            tipo: 'Pessoal', organizacao_id: organizacaoId
+        }));
+        await supabase.from('emails').insert(emailsToInsert).throwOnError();
+    }
+
+    return contatoId;
+};
+
 
 export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
     const supabase = createClient();
     const router = useRouter();
+    const queryClient = useQueryClient();
     const isEditing = Boolean(contactToEdit);
     const { user } = useAuth();
 
-    const getInitialState = useCallback(() => ({
-        nome: '',
-        razao_social: '',
-        nome_fantasia: '',
-        cnpj: '',
-        cpf: '',
-        rg: '',
-        birth_date: '',
-        estado_civil: '',
-        nacionalidade: '',
-        personalidade_juridica: 'Pessoa Física',
-        data_fundacao: '',
-        tipo_servico_produto: '',
-        pessoa_contato: '',
-        cargo: '',
-        empresa_id: null,
-        tipo_contato: 'Lead',
-        origem: 'Manual',
-        address_street: '',
-        address_number: '',
-        address_complement: '',
-        cep: '',
-        city: '',
-        state: '',
-        neighborhood: '',
-        observations: '',
+    const getInitialState = () => ({
+        nome: '', razao_social: '', nome_fantasia: '', cnpj: '', cpf: '', rg: '',
+        birth_date: '', estado_civil: '', nacionalidade: '', personalidade_juridica: 'Pessoa Física',
+        data_fundacao: '', tipo_servico_produto: '', pessoa_contato: '', cargo: '',
+        empresa_id: null, tipo_contato: 'Lead', origem: 'Manual', address_street: '',
+        address_number: '', address_complement: '', cep: '', city: '', state: '',
+        neighborhood: '', observations: '',
         telefones: [{ telefone: '', country_code: '+55' }],
         emails: [{ email: '' }],
-        regime_bens: '',
-        dados_conjuge: { nome: '', cpf: '', rg: '' }
-    }), []);
+        regime_bens: '', conjuge_id: null,
+        // Campos que serão preenchidos pela API
+        inscricao_estadual: '',
+        responsavel_legal: '',
+    });
 
     const [formData, setFormData] = useState(getInitialState());
-    const [isLoading, setIsLoading] = useState(false);
     const [isApiLoading, setIsApiLoading] = useState(false);
-    const [companies, setCompanies] = useState([]);
+    const [conjugeSearchTerm, setConjugeSearchTerm] = useState('');
+    const [conjugeSearchResults, setConjugeSearchResults] = useState([]);
+    const [selectedConjugeName, setSelectedConjugeName] = useState('');
 
     useEffect(() => {
-        const fetchCompanies = async () => {
-            const { data, error } = await supabase.from('cadastro_empresa').select('id, razao_social').order('razao_social');
-            if (error) {
-                console.error("Erro ao buscar empresas:", error.message);
-                toast.error("Erro ao carregar empresas.");
-            } else {
-                setCompanies(data || []);
-            }
-        };
-        fetchCompanies();
-    }, [supabase]);
-
-    useEffect(() => {
-        if (isEditing && contactToEdit) {
-            const fetchContactDetails = async () => {
+        const fetchInitialData = async () => {
+            if (isEditing && contactToEdit) {
                 const { data: phonesData } = await supabase.from('telefones').select('*').eq('contato_id', contactToEdit.id);
                 const { data: emailsData } = await supabase.from('emails').select('*').eq('contato_id', contactToEdit.id);
                 
+                if (contactToEdit.conjuge_id) {
+                    const { data: conjugeData } = await supabase.from('contatos').select('nome, razao_social').eq('id', contactToEdit.conjuge_id).single();
+                    if(conjugeData) setSelectedConjugeName(conjugeData.nome || conjugeData.razao_social);
+                }
+
                 setFormData({
                     ...getInitialState(),
                     ...contactToEdit,
                     telefones: phonesData?.length > 0 ? phonesData : [{ telefone: '', country_code: '+55' }],
                     emails: emailsData?.length > 0 ? emailsData : [{ email: '' }],
-                    dados_conjuge: contactToEdit.dados_conjuge || { nome: '', cpf: '', rg: '' }
                 });
-            };
-            fetchContactDetails();
-        } else {
-            setFormData(getInitialState());
+            } else {
+                setFormData(getInitialState());
+                setSelectedConjugeName('');
+            }
+        };
+        fetchInitialData();
+    }, [isEditing, contactToEdit, supabase]);
+
+    const { data: companies } = useQuery({
+        queryKey: ['companiesList'],
+        queryFn: async () => {
+            const { data, error } = await supabase.from('cadastro_empresa').select('id, razao_social').order('razao_social');
+            if (error) throw new Error(error.message);
+            return data || [];
         }
-    }, [isEditing, contactToEdit, getInitialState, supabase]);
+    });
+    
+    const saveMutation = useMutation({
+        mutationFn: (variables) => saveContact(supabase, variables),
+        onSuccess: (savedContactId) => {
+            toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
+            queryClient.invalidateQueries({ queryKey: ['contatos'] });
+            if (isEditing) {
+                queryClient.invalidateQueries({ queryKey: ['contactDetails', savedContactId] });
+            }
+            if (onSaveSuccess) onSaveSuccess(savedContactId);
+            if (onClose) onClose();
+            else router.push('/contatos');
+        },
+        onError: (error) => {
+            toast.error(`Erro ao salvar: ${error.message}`);
+        }
+    });
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const organizacaoId = user?.organizacao_id;
+        if (!organizacaoId) {
+            toast.error('Erro de segurança: Organização do usuário não encontrada.');
+            return;
+        }
+        saveMutation.mutate({ formData, isEditing, organizacaoId });
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
     
-    const handleConjugeChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            dados_conjuge: {
-                ...prev.dados_conjuge,
-                [name]: value
-            }
-        }));
+    const handleSearchConjuge = useCallback(async (term) => {
+        setConjugeSearchTerm(term);
+        if (term.length < 2 || !user?.organizacao_id) {
+            setConjugeSearchResults([]);
+            return;
+        }
+        const { data } = await supabase.rpc('buscar_contatos_geral', { 
+            p_search_term: term, 
+            p_organizacao_id: user.organizacao_id 
+        });
+        setConjugeSearchResults(data || []);
+    }, [supabase, user?.organizacao_id]);
+
+    const handleSelectConjuge = (conjuge) => {
+        setFormData(prev => ({ ...prev, conjuge_id: conjuge.id }));
+        setSelectedConjugeName(conjuge.nome || conjuge.razao_social);
+        setConjugeSearchTerm('');
+        setConjugeSearchResults([]);
+    };
+
+    const handleClearConjuge = () => {
+        setFormData(prev => ({ ...prev, conjuge_id: null }));
+        setSelectedConjugeName('');
     };
 
     const handleDynamicInputChange = (listName, index, field, value) => {
@@ -158,19 +255,25 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
     };
 
     const handleRemoveDynamicInput = (listName, index) => {
-        setFormData(prev => ({ ...prev, [listName]: prev[listName].filter((_, i) => i !== index) }));
+        if (formData[listName].length === 1) {
+            const clearedItem = listName === 'telefones' 
+                ? { telefone: '', country_code: '+55' } 
+                : { email: '' };
+            setFormData(prev => ({ ...prev, [listName]: [clearedItem] }));
+        } else {
+            setFormData(prev => ({ ...prev, [listName]: prev[listName].filter((_, i) => i !== index) }));
+        }
     };
 
-    const handleCepChange = async (e) => {
-        const cep = e.target.value.replace(/\D/g, '');
-        setFormData(prev => ({ ...prev, cep: cep }));
-        if (cep.length === 8) {
+    const fetchAddressFromCep = useCallback(async (cep) => {
+        const cleanCep = cep?.replace(/\D/g, '');
+        if (cleanCep && cleanCep.length === 8) {
             setIsApiLoading(true);
             try {
-                const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
                 const data = await response.json();
                 if (data.erro) {
-                    toast.error("CEP não encontrado.");
+                    toast.warning("Endereço não encontrado para o CEP informado.");
                 } else {
                     setFormData(prev => ({
                         ...prev,
@@ -186,111 +289,107 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                 setIsApiLoading(false);
             }
         }
+    }, []);
+    
+    const handleCepChange = (cep) => {
+        setFormData(prev => ({ ...prev, cep }));
+        fetchAddressFromCep(cep);
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsLoading(true);
-
-        const organizacaoId = user?.organizacao_id;
-        if (!organizacaoId) {
-            toast.error('Erro de segurança: Organização do usuário não encontrada. Por favor, faça login novamente.');
-            setIsLoading(false);
-            return;
-        }
-        
-        const { id, telefones, emails, ...dataToSave } = formData;
-        
-        dataToSave.organizacao_id = organizacaoId;
-        
-        if (isEditing) delete dataToSave.origem;
-        if (dataToSave.birth_date === '') dataToSave.birth_date = null;
-        if (dataToSave.data_fundacao === '') dataToSave.data_fundacao = null;
-
-        const cleanedPhones = formData.telefones.filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0);
-        const cleanedEmails = formData.emails.filter(mail => mail.email && mail.email.trim() !== '');
-
-        let contatoId = isEditing ? contactToEdit.id : null;
-        let mainError = null;
-
-        // ETAPA 1: Salvar ou atualizar o contato principal
-        if (isEditing) {
-            const { error } = await supabase.from('contatos').update(dataToSave).eq('id', contatoId);
-            mainError = error;
-        } else {
-            const { data, error } = await supabase.from('contatos').insert(dataToSave).select('id').single();
-            if (data) contatoId = data.id;
-            mainError = error;
+    const fetchCnpjData = async (cnpj) => {
+        const cleanCnpj = cnpj.replace(/\D/g, '');
+        if (cleanCnpj.length !== 14) {
+            throw new Error('CNPJ inválido.');
         }
 
-        if (mainError) {
-            toast.error(`Erro ao salvar contato: ${mainError.message}`);
-            setIsLoading(false);
-            return;
-        }
+        const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
         
-        if (!contatoId) {
-            toast.error("Falha ao obter o ID do contato. A operação foi cancelada.");
-            setIsLoading(false);
-            return;
-        }
-
-        // =======================================================================
-        // AQUI ESTÁ A MUDANÇA PRINCIPAL!
-        // O PORQUÊ: Agora verificamos explicitamente se houve erro ao inserir
-        // os telefones e emails. A mensagem de sucesso só aparece se TUDO der certo.
-        // Isso impede o "falso sucesso" que você identificou.
-        // =======================================================================
-
-        // ETAPA 2: Deletar os antigos e Inserir novos telefones e emails
-        try {
-            // Deleta os registros antigos associados
-            await supabase.from('telefones').delete().eq('contato_id', contatoId);
-            await supabase.from('emails').delete().eq('contato_id', contatoId);
-
-            // Insere os novos telefones, se houver
-            if (cleanedPhones.length > 0) {
-                const phonesToInsert = cleanedPhones.map(tel => ({
-                    contato_id: contatoId,
-                    telefone: tel.telefone.replace(/\D/g, ''),
-                    country_code: tel.country_code,
-                    tipo: 'Celular',
-                    organizacao_id: organizacaoId
-                }));
-                const { error: phonesError } = await supabase.from('telefones').insert(phonesToInsert);
-                if (phonesError) throw new Error(`Nos telefones: ${phonesError.message}`);
+        if (!response.ok) {
+            try {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'CNPJ não encontrado ou serviço indisponível.');
+            } catch (e) {
+                throw new Error(`Erro ${response.status}: ${response.statusText}. Serviço indisponível.`);
             }
-
-            // Insere os novos emails, se houver
-            if (cleanedEmails.length > 0) {
-                const emailsToInsert = cleanedEmails.map(mail => ({
-                    contato_id: contatoId,
-                    email: mail.email.trim(),
-                    tipo: 'Pessoal',
-                    organizacao_id: organizacaoId
-                }));
-                const { error: emailsError } = await supabase.from('emails').insert(emailsToInsert);
-                if (emailsError) throw new Error(`Nos e-mails: ${emailsError.message}`);
-            }
-            
-            // Se tudo correu bem, mostramos o sucesso!
-            toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
-            if (onSaveSuccess) onSaveSuccess(contatoId);
-            if (onClose) onClose();
-            else router.push('/contatos');
-
-        } catch (error) {
-            // Se qualquer uma das operações falhar, mostramos o erro específico.
-            toast.error(`Erro ao salvar dados associados: ${error.message}`);
-        } finally {
-            setIsLoading(false);
         }
+
+        const data = await response.json();
+        
+        // **NOVA LÓGICA PARA PEGAR MAIS DADOS**
+        let responsavelLegal = '';
+        if (data.qsa && data.qsa.length > 0) {
+            const admin = data.qsa.find(socio => socio.qualificacao_socio.includes('Administrador'));
+            if (admin) {
+                responsavelLegal = admin.nome_socio;
+            }
+        }
+
+        let inscricaoEstadual = '';
+        if (data.inscricoes_estaduais && data.inscricoes_estaduais.length > 0) {
+            const activeIE = data.inscricoes_estaduais.find(ie => ie.ativo && ie.uf === data.uf);
+            inscricaoEstadual = activeIE ? activeIE.inscricao_estadual : data.inscricoes_estaduais[0].inscricao_estadual;
+        }
+
+        return {
+            razao_social: data.razao_social,
+            nome_fantasia: data.nome_fantasia,
+            cep: (data.cep || '').replace(/\D/g, ''),
+            address_street: data.logradouro,
+            address_number: data.numero,
+            address_complement: data.complemento,
+            neighborhood: data.bairro,
+            city: data.municipio,
+            state: data.uf,
+            data_fundacao: data.data_inicio_atividade,
+            tipo_servico_produto: data.cnae_fiscal_descricao,
+            responsavel_legal: responsavelLegal,
+            inscricao_estadual: inscricaoEstadual,
+            api_telefone: data.ddd_telefone_1,
+            api_email: data.email,
+        };
     };
 
+    const handleCnpjLookup = useCallback(async (unmaskedCnpj) => {
+        setIsApiLoading(true);
+        toast.promise(fetchCnpjData(unmaskedCnpj), {
+            loading: 'Buscando dados do CNPJ...',
+            success: (apiData) => {
+                const { api_telefone, api_email, ...formDataToUpdate } = apiData;
+
+                setFormData(prev => {
+                    const newTelefones = [...prev.telefones];
+                    if (api_telefone && (!newTelefones[0] || !newTelefones[0].telefone)) {
+                        newTelefones[0] = { telefone: api_telefone, country_code: '+55' };
+                    }
+                    
+                    const newEmails = [...prev.emails];
+                    if (api_email && (!newEmails[0] || !newEmails[0].email)) {
+                        newEmails[0] = { email: api_email };
+                    }
+
+                    return {
+                        ...prev,
+                        ...formDataToUpdate,
+                        telefones: newTelefones,
+                        emails: newEmails,
+                    };
+                });
+                
+                if (apiData.cep) {
+                    fetchAddressFromCep(apiData.cep);
+                }
+                return 'Dados do CNPJ preenchidos com sucesso!';
+            },
+            error: (err) => err.message,
+            finally: () => setIsApiLoading(false),
+        });
+    }, [fetchAddressFromCep]);
+    
     return (
         <form onSubmit={handleSubmit} className="space-y-6 p-6 bg-white rounded-lg shadow-md">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">{isEditing ? 'Editar Contato' : 'Cadastrar Novo Contato'}</h2>
             
+            {/* ... o restante do JSX do formulário continua aqui ... */}
             {isEditing && formData.origem && (
                 <div className="p-3 bg-gray-100 rounded-md">
                     <label className="block text-sm font-medium text-gray-500">Origem do Contato</label>
@@ -328,7 +427,17 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                         <>
                             <div><label className="block text-sm font-medium">Razão Social</label><input name="razao_social" value={formData.razao_social || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">Nome Fantasia</label><input name="nome_fantasia" value={formData.nome_fantasia || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
-                            <div><label className="block text-sm font-medium">CNPJ</label><IMaskInput mask="00.000.000/0000-00" name="cnpj" value={formData.cnpj || ''} onAccept={(value) => setFormData(prev => ({ ...prev, cnpj: value }))} className="w-full p-2 border rounded-md" /></div>
+                            <div>
+                                <label className="block text-sm font-medium">CNPJ</label>
+                                <IMaskInput 
+                                    mask="00.000.000/0000-00" 
+                                    name="cnpj" 
+                                    value={formData.cnpj || ''} 
+                                    onAccept={(value) => setFormData(prev => ({ ...prev, cnpj: value }))}
+                                    onComplete={(value, mask) => handleCnpjLookup(mask.unmaskedValue)} 
+                                    className="w-full p-2 border rounded-md" 
+                                />
+                            </div>
                             <div><label className="block text-sm font-medium">Inscrição Estadual</label><input name="inscricao_estadual" value={formData.inscricao_estadual || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">Inscrição Municipal</label><input name="inscricao_municipal" value={formData.inscricao_municipal || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">Responsável Legal</label><input name="responsavel_legal" value={formData.responsavel_legal || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
@@ -363,11 +472,27 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
                         )}
                     </div>
                     {['Casado(a)', 'União Estável'].includes(formData.estado_civil) && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 border-t pt-4">
-                            <h4 className="text-md font-medium md:col-span-2">Informações do Cônjuge / Companheiro(a)</h4>
-                            <div><label className="block text-sm font-medium">Nome Completo</label><input name="nome" value={formData.dados_conjuge.nome || ''} onChange={handleConjugeChange} className="w-full p-2 border rounded-md" /></div>
-                            <div><label className="block text-sm font-medium">CPF</label><IMaskInput mask="000.000.000-00" name="cpf" value={formData.dados_conjuge.cpf || ''} onAccept={(value) => handleConjugeChange({ target: { name: 'cpf', value } })} className="w-full p-2 border rounded-md" /></div>
-                            <div><label className="block text-sm font-medium">RG</label><input name="rg" value={formData.dados_conjuge.rg || ''} onChange={handleConjugeChange} className="w-full p-2 border rounded-md" /></div>
+                        <div className="mt-4 border-t pt-4">
+                            <SearchableField label="Cônjuge / Companheiro(a)" selectedName={selectedConjugeName} onClear={handleClearConjuge}>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={conjugeSearchTerm}
+                                        onChange={(e) => handleSearchConjuge(e.target.value)}
+                                        placeholder="Buscar contato do cônjuge..."
+                                        className="w-full p-2 border rounded-md"
+                                    />
+                                    {conjugeSearchResults.length > 0 && (
+                                        <ul className="absolute z-20 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto">
+                                            {conjugeSearchResults.map(c => (
+                                                <li key={c.id} onClick={() => handleSelectConjuge(c)} className="p-2 hover:bg-gray-100 cursor-pointer">
+                                                    <HighlightedText text={c.nome || c.razao_social} highlight={conjugeSearchTerm} />
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            </SearchableField>
                         </div>
                     )}
                 </fieldset>
@@ -396,7 +521,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
             <fieldset className="border p-4 rounded-md">
                 <legend className="text-lg font-semibold text-gray-700">Endereço</legend>
                 <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mt-4">
-                    <div className="md:col-span-2"><label className="block text-sm font-medium">CEP</label><IMaskInput mask="00000-000" name="cep" value={formData.cep || ''} onAccept={(value) => setFormData(prev => ({ ...prev, cep: value }))} onBlur={handleCepChange} className="w-full p-2 border rounded-md"/>{isApiLoading && <p className="text-xs text-gray-500">Buscando CEP...</p>}</div>
+                    <div className="md:col-span-2"><label className="block text-sm font-medium">CEP</label><IMaskInput mask="00000-000" name="cep" value={formData.cep || ''} onAccept={(value, mask) => handleCepChange(mask.unmaskedValue)} className="w-full p-2 border rounded-md"/>{isApiLoading && <p className="text-xs text-gray-500">Buscando...</p>}</div>
                     <div className="md:col-span-4"><label className="block text-sm font-medium">Logradouro</label><input name="address_street" value={formData.address_street || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                     <div className="md:col-span-1"><label className="block text-sm font-medium">Número</label><input name="address_number" value={formData.address_number || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                     <div className="md:col-span-3"><label className="block text-sm font-medium">Complemento</label><input name="address_complement" value={formData.address_complement || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
@@ -409,15 +534,15 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
              <fieldset className="border p-4 rounded-md">
                 <legend className="text-lg font-semibold text-gray-700">Informações Adicionais</legend>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div><label className="block text-sm font-medium">Empresa Associada</label><select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="w-full p-2 border rounded-md"><option value="">Nenhuma</option>{companies.map(company => (<option key={company.id} value={company.id}>{company.razao_social}</option>))}</select></div>
+                    <div><label className="block text-sm font-medium">Empresa Associada</label><select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="w-full p-2 border rounded-md"><option value="">Nenhuma</option>{(companies || []).map(company => (<option key={company.id} value={company.id}>{company.razao_social}</option>))}</select></div>
                     <div><label className="block text-sm font-medium">Observações</label><textarea name="observations" value={formData.observations || ''} onChange={handleChange} rows="3" className="w-full p-2 border rounded-md"></textarea></div>
                 </div>
             </fieldset>
 
             <div className="mt-8 flex justify-end gap-4">
-                <button type="button" onClick={() => router.push('/contatos')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"> Cancelar </button>
-                <button type="submit" disabled={isLoading || isApiLoading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2">
-                    {isLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Salvar Contato'}
+                <button type="button" onClick={() => onClose ? onClose() : router.push('/contatos')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"> Cancelar </button>
+                <button type="submit" disabled={saveMutation.isPending || isApiLoading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2">
+                    {saveMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Salvar Contato'}
                 </button>
             </div>
         </form>
