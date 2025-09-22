@@ -1,4 +1,5 @@
 // components/contratos/GeradorContrato.js
+
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -75,6 +76,53 @@ export default function GeradorContrato({ contrato }) {
     }, [selectedSignatoryId, proprietarios]);
     
     const geradoPor = useMemo(() => userData ? `${userData.nome} ${userData.sobrenome}` : '', [userData]);
+    
+    // =========================================================================
+    // HOOKS MOVIMOS PARA CIMA - AQUI ESTÁ A CORREÇÃO!
+    // Estes useMemo estavam depois do "if (!contrato)", agora estão no topo.
+    // =========================================================================
+    const { entrada, outrasParcelas, totalOutrasParcelas } = useMemo(() => {
+        const parcelas = contrato?.contrato_parcelas || [];
+        const entradaInfo = { valor: 0, parcelas: [] };
+        const outras = [];
+        let totalOutras = 0;
+        parcelas.forEach(p => {
+            const valor = parseFloat(p.valor_parcela || 0);
+            if (p.tipo === 'Entrada') {
+                entradaInfo.valor += valor;
+                entradaInfo.parcelas.push({ valor, data_vencimento: p.data_vencimento });
+            } else {
+                outras.push(p);
+                totalOutras += valor;
+            }
+        });
+        if (entradaInfo.parcelas.length > 0) {
+           entradaInfo.parcelas.sort((a,b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
+        }
+        return { entrada: entradaInfo, outrasParcelas: outras, totalOutrasParcelas: totalOutras };
+    }, [contrato?.contrato_parcelas]);
+
+    const resumoOutrasParcelas = useMemo(() => {
+        // Funções auxiliares precisam ser definidas antes de serem usadas.
+        const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+        const formatExtenso = (value) => {
+            if (typeof value !== 'number' || isNaN(value)) {
+                return '';
+            }
+            return extenso(value, { mode: 'currency' });
+        };
+
+        if (outrasParcelas.length === 0) return "Nenhuma";
+        const grupos = outrasParcelas.reduce((acc, p) => {
+            const valor = parseFloat(p.valor_parcela || 0);
+            if (!acc[valor]) acc[valor] = 0;
+            acc[valor]++;
+            return acc;
+        }, {});
+        return Object.entries(grupos).map(([valor, quantidade]) => 
+            `${quantidade} parcelas de ${formatCurrency(parseFloat(valor))} (${formatExtenso(parseFloat(valor))})`
+        ).join('; ');
+    }, [outrasParcelas]);
 
 
     if (!contrato) {
@@ -121,45 +169,11 @@ export default function GeradorContrato({ contrato }) {
     const matriculasTexto = produtos.map(p => p.matricula).join(', ');
     const anoAtual = new Date().getFullYear();
     
-    const { entrada, outrasParcelas, totalOutrasParcelas } = useMemo(() => {
-        const parcelas = contrato?.contrato_parcelas || [];
-        const entradaInfo = { valor: 0, parcelas: [] };
-        const outras = [];
-        let totalOutras = 0;
-        parcelas.forEach(p => {
-            const valor = parseFloat(p.valor_parcela || 0);
-            if (p.tipo === 'Entrada') {
-                entradaInfo.valor += valor;
-                entradaInfo.parcelas.push({ valor, data_vencimento: p.data_vencimento });
-            } else {
-                outras.push(p);
-                totalOutras += valor;
-            }
-        });
-        if (entradaInfo.parcelas.length > 0) {
-           entradaInfo.parcelas.sort((a,b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
-        }
-        return { entrada: entradaInfo, outrasParcelas: outras, totalOutrasParcelas: totalOutras };
-    }, [contrato?.contrato_parcelas]);
-    
     const valorTotalContrato = parseFloat(contrato.valor_final_venda) || 0;
     const percentualEntrada = valorTotalContrato > 0 ? (entrada.valor / valorTotalContrato) * 100 : 0;
     const percentualOutrasParcelas = valorTotalContrato > 0 ? (totalOutrasParcelas / valorTotalContrato) * 100 : 0;
     const saldoRemanescente = valorTotalContrato - entrada.valor - totalOutrasParcelas;
     const percentualSaldoRemanescente = valorTotalContrato > 0 ? (saldoRemanescente / valorTotalContrato) * 100 : 0;
-
-    const resumoOutrasParcelas = useMemo(() => {
-        if (outrasParcelas.length === 0) return "Nenhuma";
-        const grupos = outrasParcelas.reduce((acc, p) => {
-            const valor = parseFloat(p.valor_parcela || 0);
-            if (!acc[valor]) acc[valor] = 0;
-            acc[valor]++;
-            return acc;
-        }, {});
-        return Object.entries(grupos).map(([valor, quantidade]) => 
-            `${quantidade} parcelas de ${formatCurrency(parseFloat(valor))} (${formatExtenso(parseFloat(valor))})`
-        ).join('; ');
-    }, [outrasParcelas]);
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-md border animate-fade-in">
