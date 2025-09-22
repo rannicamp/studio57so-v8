@@ -45,6 +45,18 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
     const [produtosDisponiveis, setProdutosDisponiveis] = useState([]);
     const [searchTerms, setSearchTerms] = useState({ comprador: '', corretor: '', conjuge: '', representante: '' });
     const [searchResults, setSearchResults] = useState({ comprador: [], corretor: [], conjuge: [], representante: [] });
+    const [contasBancarias, setContasBancarias] = useState([]);
+    const [loadingContas, setLoadingContas] = useState(true);
+
+    // MUDANÇA: Adicionada verificação para evitar erro se o contrato ainda não carregou.
+    if (!contrato) {
+        return (
+            <div className="flex justify-center items-center p-10 bg-white rounded-lg shadow-md border">
+                <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-blue-500" />
+                <span className="ml-4 text-gray-600">Carregando detalhes da venda...</span>
+            </div>
+        );
+    }
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toISOString().split('T')[0] : '';
@@ -52,6 +64,27 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
     useEffect(() => {
         setContrato(contratoData);
     }, [contratoData]);
+    
+    useEffect(() => {
+        const fetchContas = async () => {
+            if (!organizacaoId) return;
+            setLoadingContas(true);
+            const { data, error } = await supabase
+                .from('contas_financeiras')
+                .select('id, nome, instituicao')
+                .eq('organizacao_id', organizacaoId)
+                .order('nome');
+            
+            if (error) {
+                console.error("Erro ao buscar contas bancárias:", error);
+                toast.error("Erro ao carregar contas bancárias.");
+            } else {
+                setContasBancarias(data || []);
+            }
+            setLoadingContas(false);
+        };
+        fetchContas();
+    }, [organizacaoId, supabase]);
 
     useEffect(() => {
         const fetchProdutosDisponiveis = async () => {
@@ -299,6 +332,23 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
                         className="mt-1 w-full p-2 border rounded-md"
                         placeholder="Ex: PIX em 3 parcelas"
                     />
+                </div>
+                <div className="md:col-span-3">
+                    <label htmlFor="contaBancariaSelect" className="block text-sm font-medium text-gray-600">
+                        Conta Bancária para Pagamentos (Exibida no Contrato)
+                    </label>
+                    <select
+                        id="contaBancariaSelect"
+                        value={contrato.conta_bancaria_id || ''}
+                        onChange={(e) => handleFieldUpdate('conta_bancaria_id', e.target.value || null)}
+                        className="w-full p-2 border rounded-md mt-1"
+                        disabled={loadingContas || updateFieldMutation.isPending}
+                    >
+                        <option value="">{loadingContas ? 'Carregando contas...' : '-- Nenhuma (não exibir no contrato) --'}</option>
+                        {contasBancarias.map(conta => (
+                            <option key={conta.id} value={conta.id}>{conta.nome} ({conta.instituicao})</option>
+                        ))}
+                    </select>
                 </div>
                 <div className="md:col-span-3">
                      <label className="block text-sm font-medium text-gray-600">Observações do Contrato</label>
