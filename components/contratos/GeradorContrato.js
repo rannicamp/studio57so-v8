@@ -1,36 +1,70 @@
 // components/contratos/GeradorContrato.js
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPrint, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import extenso from 'extenso';
+import ClausulasContrato from './ClausulasContrato';
+import PlanoPagamentoPrint from './PlanoPagamentoPrint'; // 1. Importamos o Plano de Pagamento
 
-// --- Componentes Auxiliares para formatação ---
-
-const QuadroLinha = ({ label, value, children, className = '' }) => {
-    return (
-        <div className={`flex border-t border-gray-200 py-1 ${className}`}>
-            <p className="w-1/3 text-sm text-gray-600">{label}:</p>
-            <div className="w-2/3 text-sm font-semibold text-gray-800">{value || children || <span>&nbsp;</span>}</div>
-        </div>
-    );
-};
-
-const QuadroTextoSimples = ({ texto, className = '' }) => (
-    <p className={`text-sm text-gray-800 ${className}`}>{texto}</p>
+// --- Componentes Auxiliares (sem alterações) ---
+const QuadroLinha = ({ label, value, children, className = '' }) => (
+    <div className={`flex border-t border-gray-200 py-1 ${className}`}>
+        <p className="w-1/3 text-sm text-gray-600">{label}:</p>
+        <div className="w-2/3 text-sm font-semibold text-gray-800">{value || children || <span>&nbsp;</span>}</div>
+    </div>
 );
-
-const TituloSecao = ({ numero, titulo }) => (
-    <h3 className="font-bold mb-2 mt-4 text-base">{numero}) {titulo}</h3>
-);
-
-const SubtituloSecao = ({ numero, titulo }) => (
-    <p className="font-semibold text-sm my-3">{numero}) {titulo}</p>
-);
+const QuadroTextoSimples = ({ texto, className = '' }) => <p className={`text-sm text-gray-800 ${className}`}>{texto}</p>;
+const TituloSecao = ({ numero, titulo }) => <h3 className="font-bold mb-2 mt-4 text-base">{numero}) {titulo}</h3>;
+const SubtituloSecao = ({ numero, titulo }) => <p className="font-semibold text-sm my-3">{numero}) {titulo}</p>;
 
 
 export default function GeradorContrato({ contrato }) {
+    const supabase = createClient();
+    const { user, userData } = useAuth();
+    const organizacaoId = user?.organizacao_id;
+
+    const [proprietarios, setProprietarios] = useState([]);
+    const [selectedSignatoryId, setSelectedSignatoryId] = useState('');
+    const isUserProprietario = userData?.funcoes?.nome_funcao === 'Proprietário';
+    
+    // 2. Lógica para buscar os proprietários (assinantes)
+    useEffect(() => {
+        const fetchInitialData = async () => {
+            if (!organizacaoId) return;
+            const { data: proprietariosData } = await supabase
+                .from('usuarios')
+                .select('id, nome, sobrenome, funcionario:funcionarios(cpf), funcoes!inner(nome_funcao)')
+                .eq('organizacao_id', organizacaoId)
+                .eq('funcoes.nome_funcao', 'Proprietário');
+            
+            setProprietarios(proprietariosData || []);
+
+            if (isUserProprietario && user) {
+                setSelectedSignatoryId(user.id);
+            } else if (proprietariosData?.length > 0) {
+                setSelectedSignatoryId(proprietariosData[0].id);
+            }
+        };
+        fetchInitialData();
+    }, [supabase, user, isUserProprietario, organizacaoId]);
+
+    const selectedSignatory = useMemo(() => {
+        if (!selectedSignatoryId || proprietarios.length === 0) return null;
+        const signatory = proprietarios.find(p => p.id === selectedSignatoryId);
+        return signatory 
+            ? { 
+                name: `${signatory.nome || ''} ${signatory.sobrenome || ''}`.trim(), 
+                cpf: signatory.funcionario?.cpf || 'N/A' 
+              }
+            : null;
+    }, [selectedSignatoryId, proprietarios]);
+    
+    const geradoPor = useMemo(() => userData ? `${userData.nome} ${userData.sobrenome}` : '', [userData]);
+
 
     if (!contrato) {
         return (
@@ -48,23 +82,19 @@ export default function GeradorContrato({ contrato }) {
     const produtos = contrato?.produtos || [];
     const corretor = contrato?.corretor;
     const contaSelecionada = contrato?.conta_financeira;
-
     const isPessoaJuridica = comprador?.personalidade_juridica === 'Pessoa Jurídica';
 
+    // --- Funções de formatação (sem alterações) ---
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     const formatDateForDisplay = (dateStr) => {
         if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return '';
         const [year, month, day] = dateStr.split('-');
         return `${day}/${month}/${year}`;
     };
-    
     const formatExtenso = (value) => {
-        if (typeof value !== 'number' || isNaN(value)) {
-            return '';
-        }
+        if (typeof value !== 'number' || isNaN(value)) return '';
         return extenso(value, { mode: 'currency' });
     };
-    
     const formatarEndereco = (entidade) => {
         if (!entidade) return 'Não informado';
         const endereco = [ entidade.address_street, entidade.address_number, entidade.neighborhood, entidade.city, entidade.state ];
@@ -82,7 +112,6 @@ export default function GeradorContrato({ contrato }) {
         const entradaInfo = { valor: 0, parcelas: [] };
         const outras = [];
         let totalOutras = 0;
-
         parcelas.forEach(p => {
             const valor = parseFloat(p.valor_parcela || 0);
             if (p.tipo === 'Entrada') {
@@ -93,48 +122,58 @@ export default function GeradorContrato({ contrato }) {
                 totalOutras += valor;
             }
         });
-        
         if (entradaInfo.parcelas.length > 0) {
            entradaInfo.parcelas.sort((a,b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
         }
-
         return { entrada: entradaInfo, outrasParcelas: outras, totalOutrasParcelas: totalOutras };
     }, [contrato?.contrato_parcelas]);
-
+    
     const valorTotalContrato = parseFloat(contrato.valor_final_venda) || 0;
     const percentualEntrada = valorTotalContrato > 0 ? (entrada.valor / valorTotalContrato) * 100 : 0;
     const percentualOutrasParcelas = valorTotalContrato > 0 ? (totalOutrasParcelas / valorTotalContrato) * 100 : 0;
-    
-    // =================================================================================
-    // CÁLCULO DO SALDO REMANESCENTE
-    // O PORQUÊ: Subtraímos do valor total do contrato o valor da entrada e o valor
-    // de todas as outras parcelas para encontrar o saldo que não foi coberto
-    // pelo plano de pagamento.
-    // =================================================================================
     const saldoRemanescente = valorTotalContrato - entrada.valor - totalOutrasParcelas;
     const percentualSaldoRemanescente = valorTotalContrato > 0 ? (saldoRemanescente / valorTotalContrato) * 100 : 0;
 
     const resumoOutrasParcelas = useMemo(() => {
-        if (outrasParcelas.length === 0) {
-            return "Nenhuma";
-        }
+        if (outrasParcelas.length === 0) return "Nenhuma";
         const grupos = outrasParcelas.reduce((acc, p) => {
             const valor = parseFloat(p.valor_parcela || 0);
-            if (!acc[valor]) {
-                acc[valor] = 0;
-            }
+            if (!acc[valor]) acc[valor] = 0;
             acc[valor]++;
             return acc;
         }, {});
-
         return Object.entries(grupos).map(([valor, quantidade]) => 
             `${quantidade} parcelas de ${formatCurrency(parseFloat(valor))} (${formatExtenso(parseFloat(valor))})`
         ).join('; ');
-
     }, [outrasParcelas]);
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-md border animate-fade-in">
+            <style jsx global>{`
+                @media print {
+                    @page {
+                        size: A4;
+                        margin-top: 3cm;
+                        margin-left: 3cm;
+                        margin-right: 2cm;
+                        margin-bottom: 2cm;
+                    }
+                    body * {
+                        visibility: hidden;
+                    }
+                    .printable-area, .printable-area * {
+                        visibility: visible;
+                    }
+                    .printable-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        margin: 0;
+                        padding: 0;
+                    }
+                }
+            `}</style>
             <div className="print:hidden flex justify-between items-center mb-6 pb-4 border-b">
                 <h3 className="text-xl font-bold text-gray-800">Pré-visualização do Contrato</h3>
                 <button
@@ -148,7 +187,8 @@ export default function GeradorContrato({ contrato }) {
 
             {/* --- Início da Área Imprimível --- */}
             <div className="printable-area bg-white p-8 font-serif">
-                <h2 className="text-center font-bold text-lg mb-6 uppercase">
+                {/* ... Todo o conteúdo do Quadro Resumo permanece o mesmo ... */}
+                 <h2 className="text-center font-bold text-lg mb-6 uppercase">
                     QUADRO RESUMO DO CONTRATO PARTICULAR <br/>
                     DE PROMESSA DE COMPRA E VENDA DE IMÓVEL URBANO
                 </h2>
@@ -165,7 +205,6 @@ export default function GeradorContrato({ contrato }) {
                         <p className="font-semibold text-sm mt-3 mb-1">1.2 Nome completo do(a) comprador(a):</p>
                         <QuadroTextoSimples texto={comprador?.nome || comprador?.razao_social || ' '}/>
 
-                        {/* --- Seção Pessoa Física --- */}
                         <p className="font-semibold text-sm mt-3 mb-1">1.2.1 Quando Pessoa Física:</p>
                         <QuadroLinha label="CPF" value={!isPessoaJuridica ? comprador?.cpf : ''} />
                         <QuadroLinha label="RG" value={!isPessoaJuridica ? comprador?.rg : ''} />
@@ -174,7 +213,6 @@ export default function GeradorContrato({ contrato }) {
                         <QuadroLinha label="Endereço" value={!isPessoaJuridica ? formatarEndereco(comprador) : ''} />
                         <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={!isPessoaJuridica ? comprador?.telefones?.[0]?.telefone : ''} />
                         <QuadroLinha label="Contato 2 (e-mail)" value={!isPessoaJuridica ? comprador?.emails?.[0]?.email : ''} />
-                        
                         <QuadroLinha label="Nome completo do(a) cônjuge ou companheiro(a)" value={!isPessoaJuridica ? conjuge?.nome : ''} />
                         <QuadroLinha label="CPF do(a) cônjuge ou companheiro(a)" value={!isPessoaJuridica ? conjuge?.cpf : ''} />
                         <QuadroLinha label="RG do(a) cônjuge ou companheiro(a)" value={!isPessoaJuridica ? conjuge?.rg : ''} />
@@ -183,28 +221,23 @@ export default function GeradorContrato({ contrato }) {
                         <QuadroLinha label="Contato 1 do(a) cônjuge ou companheiro(a) (telefone/WhatsApp)" value={!isPessoaJuridica ? conjuge?.telefones?.[0]?.telefone : ''} />
                         <QuadroLinha label="Contato 2 do(a) cônjuge ou companheiro(a) (e-mail)" value={!isPessoaJuridica ? conjuge?.emails?.[0]?.email : ''} />
                         
-                        {/* --- Seção Representante --- */}
                         <p className="font-semibold text-sm mt-3 mb-1">1.2.2 Quando Pessoa Física e Representada por Outra:</p>
-                        <QuadroLinha label="Nome do Representante" value={representante?.nome || representante?.razao_social} />
-                        <QuadroLinha label="CPF do Representante" value={representante?.cpf} />
-                        <QuadroLinha label="RG do Representante" value={representante?.rg} />
-                        <QuadroLinha label="Endereço" value={formatarEndereco(representante)} />
+                        <QuadroLinha label="Nome do Representante" value={!isPessoaJuridica && representante ? (representante.nome || representante.razao_social) : ''} />
+                        <QuadroLinha label="CPF do Representante" value={!isPessoaJuridica && representante ? representante.cpf : ''} />
+                        <QuadroLinha label="RG do Representante" value={!isPessoaJuridica && representante ? representante.rg : ''} />
+                        <QuadroLinha label="Endereço" value={!isPessoaJuridica && representante ? formatarEndereco(representante) : ''} />
                         <QuadroLinha label="Data da procuração" />
 
-                        {/* --- Seção Pessoa Jurídica --- */}
                         <p className="font-semibold text-sm mt-3 mb-1">1.2.3 Quando Pessoa Jurídica:</p>
                         <QuadroLinha label="CNPJ" value={isPessoaJuridica ? comprador?.cnpj : ''} />
                         <QuadroLinha label="Sede" value={isPessoaJuridica ? formatarEndereco(comprador) : ''} />
                         <QuadroLinha label="Nome completo do(a) sócio(a)-administrador(a)" value={isPessoaJuridica ? comprador?.responsavel_legal : ''} />
                         <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={isPessoaJuridica ? comprador?.telefones?.[0]?.telefone : ''} />
                         <QuadroLinha label="Contato 2 (e-mail)" value={isPessoaJuridica ? comprador?.emails?.[0]?.email : ''} />
-                        <QuadroLinha label="CPF do(a) sócio(a)-administrador(a)" value={isPessoaJuridica ? comprador?.cpf_responsavel_legal : ''} />
-                        <QuadroLinha label="RG do(a) sócio(a)-administrador(a)" value={isPessoaJuridica ? comprador?.rg_responsavel_legal : ''} />
-                        <QuadroLinha label="Contato 1 do(a) sócio(a)-administrador(a) (telefone/WhatsApp)" value={isPessoaJuridica ? comprador?.telefone_responsavel_legal : ''} />
-                        <QuadroLinha label="Contato 2 do(a) sócio(a)-administrador(a) (e-mail)" value={isPessoaJuridica ? comprador?.email_responsavel_legal : ''} />
                     </div>
                 </div>
-
+                
+                {/* ... Outras seções do Quadro Resumo ... */}
                 <div className="border border-gray-300 p-4 mb-4">
                     <TituloSecao numero="2" titulo="Objeto do Contrato:" />
                     <QuadroLinha label="Unidade(s)" value={unidadesTexto} />
@@ -265,7 +298,6 @@ export default function GeradorContrato({ contrato }) {
                     <QuadroLinha label="Parcelas mensais (quantidade, valor e data de vencimento)" value={resumoOutrasParcelas}/>
                     <QuadroLinha label="Percentual do valor das parcelas mensais sobre o valor total do contrato" value={percentualOutrasParcelas > 0 ? `${percentualOutrasParcelas.toFixed(2)}%` : ''} />
                     
-                    {/* LINHAS NOVAS ADICIONADAS AQUI */}
                     {Math.abs(saldoRemanescente) > 0.01 && (
                         <>
                             <QuadroLinha label="Saldo Remanescente" value={`${formatCurrency(saldoRemanescente)} (${formatExtenso(saldoRemanescente)})`}/>
@@ -395,11 +427,7 @@ export default function GeradorContrato({ contrato }) {
                     <h2 className="text-center font-bold text-lg mb-6 uppercase">
                         PROMESSA PARTICULAR DE COMPRA E VENDA DE IMÓVEL URBANO
                     </h2>
-                    {/* ... (O restante do contrato detalhado com as cláusulas permanece o mesmo) ... */}
-                    <p className="text-sm text-justify mb-6">
-                        As partes qualificadas no Quadro Resumo anexo a este Contrato firmam o presente na melhor forma do direito, regendo-se tal relação pelas cláusulas e condições aqui previstas e expressas de forma resumida no Quadro Resumo.
-                    </p>
-                    {/* ... Cole aqui o restante das cláusulas que foram omitidas para abreviar ... */}
+                    <ClausulasContrato />
                 </div>
 
                 <div className="text-center mt-12 mb-12">
@@ -416,7 +444,7 @@ export default function GeradorContrato({ contrato }) {
                         <p className="mt-2 font-semibold">{comprador?.nome || comprador?.razao_social}</p>
                         <p className="text-xs">COMPRADOR(A)</p>
                     </div>
-                    {conjuge?.nome && (
+                    {conjuge?.nome && !isPessoaJuridica && (
                         <div className="text-center">
                             <div className="border-b-2 border-black w-3/4 mx-auto mb-2"></div>
                             <p className="mt-2 font-semibold">{conjuge.nome}</p>
@@ -431,6 +459,15 @@ export default function GeradorContrato({ contrato }) {
                         <div className="border-b-2 border-black w-3/4 mx-auto pt-8 mb-2"></div>
                         <p className="mt-2 font-semibold">TESTEMUNHA 2</p>
                     </div>
+                </div>
+
+                {/* 3. Inclusão do Plano de Pagamento na impressão */}
+                <div style={{ pageBreakBefore: 'always' }}>
+                    <PlanoPagamentoPrint 
+                        contrato={contrato} 
+                        signatory={selectedSignatory}
+                        geradoPor={geradoPor}
+                    />
                 </div>
             </div>
         </div>
