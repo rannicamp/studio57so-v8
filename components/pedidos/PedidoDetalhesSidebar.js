@@ -1,3 +1,4 @@
+//components\pedidos\PedidoDetalhesSidebar.js
 "use client";
 
 import { useState } from 'react';

@@ -1,3 +1,5 @@
+// components/Accordion.js
+
 "use client";
 
 import { useState } from 'react';
@@ -27,3 +29,12 @@ export default function Accordion({ title, children, startOpen = true }) {
     </div>
   );
 }
+
+// --------------------------------------------------------------------------------
+// COMENTÁRIO DO ARQUIVO
+// --------------------------------------------------------------------------------
+// Este componente cria um painel sanfona (accordion) reutilizável.
+// Ele recebe um 'title' para exibir na barra superior e 'children' (outros
+// componentes ou HTML) para serem o conteúdo que pode ser mostrado ou escondido.
+// A propriedade 'startOpen' define se ele já começa aberto ou fechado.
+// --------------------------------------------------------------------------------

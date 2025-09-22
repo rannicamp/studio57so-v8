@@ -1,3 +1,4 @@
+//app\(main)\configuracoes\menu\page.js
 import { createClient } from '../../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import MenuSettingsForm from '../../../../components/MenuSettingsForm';

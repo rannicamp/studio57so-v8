@@ -16,8 +16,7 @@ export default function LancarValeModal({
     historicoSalarial,
     timesheetData,
     abonosData,
-    holidays,
-    onSuccess // Adicionamos uma nova prop para recarregar a lista de Vales Agendados
+    holidays
 }) {
     const supabase = createClient();
     const { user } = useAuth();
@@ -25,6 +24,7 @@ export default function LancarValeModal({
     const [dataPagamento, setDataPagamento] = useState('');
     const [valorCalculado, setValorCalculado] = useState(0);
     const [loading, setLoading] = useState(false);
+    
     const [contas, setContas] = useState([]);
     const [contaIdSelecionada, setContaIdSelecionada] = useState('');
 
@@ -126,10 +126,6 @@ export default function LancarValeModal({
         setPeriodo(prev => ({ ...prev, [name]: value }));
     };
 
-    // =================================================================================
-    // INÍCIO DA ATUALIZAÇÃO FINAL
-    // O PORQUÊ: A função handleSubmit agora chama a RPC 'agendar_vale', salvando os dados.
-    // =================================================================================
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!contaIdSelecionada) {
@@ -144,6 +140,11 @@ export default function LancarValeModal({
         setLoading(true);
 
         const promise = async () => {
+            // =================================================================================
+            // INÍCIO DA ATUALIZAÇÃO
+            // O PORQUÊ: Adicionamos p_empresa_id e p_empreendimento_id à chamada da função,
+            // pegando os dados diretamente do objeto 'employee'.
+            // =================================================================================
             const { error } = await supabase.rpc('agendar_vale', {
                 p_funcionario_id: employee.id,
                 p_organizacao_id: user.organizacao_id,
@@ -155,6 +156,9 @@ export default function LancarValeModal({
                 p_empresa_id: employee.empresa_id,
                 p_empreendimento_id: employee.empreendimento_atual_id
             });
+            // =================================================================================
+            // FIM DA ATUALIZAÇÃO
+            // =================================================================================
 
             if (error) throw error;
         };
@@ -164,7 +168,6 @@ export default function LancarValeModal({
             success: () => {
                 setLoading(false);
                 onClose();
-                if(onSuccess) onSuccess(); // Chama a função para recarregar a lista de vales
                 return 'Vale agendado com sucesso no financeiro!';
             },
             error: (err) => {
@@ -173,9 +176,6 @@ export default function LancarValeModal({
             },
         });
     };
-    // =================================================================================
-    // FIM DA ATUALIZAÇÃO
-    // =================================================================================
 
     if (!isOpen) return null;
 

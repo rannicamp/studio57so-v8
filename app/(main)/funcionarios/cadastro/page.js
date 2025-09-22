@@ -1,3 +1,4 @@
+//app\(main)\funcionarios\cadastro\page.js
 import { createClient } from '../../../../utils/supabase/server';
 import FuncionarioForm from '../../../../components/FuncionarioForm';
 import Link from 'next/link';

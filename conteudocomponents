@@ -1,0 +1,147 @@
+PS C:\Projetos\studio57so-v8\components> tree /F
+Listagem de caminhos de pasta
+O número de série do volume é DE7E-E343
+C:.
+│   AbonoModal.js
+│   Accordion.js
+│   ActivityCalendar.js
+│   ActivityList.js
+│   AtividadeModal.js
+│   ComprasKanban.js
+│   CondicoesPagamento.js
+│   ContatoDetalhesSidebar.js
+│   ContatoForm.js
+│   ContatoImporter.js
+│   ContatoList.js
+│   EmployeeList.js
+│   EmpreendimentoDetails.js
+│   EmpreendimentoForm.js
+│   EmpreendimentoList.js
+│   EmpresaForm.js
+│   EmpresaList.js
+│   FeedbackForm.js
+│   FeedbackList.js
+│   FeriadoManager.js
+│   FichaCompletaFuncionario.js
+│   FichaFuncionario.js
+│   FileUploadWithAI.js
+│   FolhaPonto.js
+│   FuncionarioForm.js
+│   GanttChart.js
+│   Header.js
+│   IntegrationsManager.js
+│   JornadaManager.js
+│   KanbanBoard.js
+│   KpiCard.js
+│   LogoutButton.js
+│   MaterialFormModal.js
+│   MaterialManager.js
+│   MenuSettingsForm.js
+│   NotificationBell.js
+│   NotificationManager.js
+│   OrcamentoDetalhes.js
+│   OrcamentoItemModal.js
+│   OrcamentoManager.js
+│   PedidoCard.js
+│   PedidoForm.js
+│   PedidoItemModal.js
+│   PermissionManager.js
+│   PoliticasModal.js
+│   PontoImporter.js
+│   ProdutoFormModal.js
+│   ProdutoList.js
+│   ProfileForm.js
+│   RdoForm.js
+│   RdoListManager.js
+│   RdoPhotoGallery.js
+│   ServiceWorkerRegistrar.js
+│   sidebar.js
+│   SimuladorFinanceiroPublico.js
+│   SimuladorPrintView.js
+│   TabelaVenda.js
+│   TaskCard.js
+│   TipoDocumentoManager.js
+│   Tooltip.js
+│   UserManagementForm.js
+│   WhatsAppChatManager.js
+│
+├───almoxarifado
+│       AdicionarMaterialManualModal.js
+│       AlmoxarifadoManager.js
+│       BaixaEstoqueModal.js
+│       HistoricoMovimentacoesModal.js
+│       RegistrarDevolucaoModal.js
+│       RegistrarRetiradaModal.js
+│
+├───atividades
+│       AtividadeAnexos.js
+│       AtividadeDetalhesSidebar.js
+│
+├───comercial
+│       AdsManager.js
+│       FiltroAnuncios.js
+│       TabelaAnuncios.js
+│
+├───configuracoes
+│       TreinamentoIA.js
+│
+├───contatos
+│       DuplicateContactsManager.js
+│       LinkEmployeesToContacts.js
+│       MergeModal.js
+│
+├───contratos
+│       ContratoAnexos.js
+│       ContratoForm.js
+│       ContratoList.js
+│       CronogramaFinanceiro.js
+│       FichaContrato.js
+│       FiltroContratos.js
+│       ParcelasPagas.js
+│       PlanoPagamentoContrato.js
+│       PlanoPagamentoPrint.js
+│
+├───crm
+│       ContatoCardCRM.js
+│       CrmDetalhesSidebar.js
+│       CrmNotesModal.js
+│       FunilKanban.js
+│
+├───financeiro
+│       AtivosManager.js
+│       AuditoriaFinanceira.js
+│       CategoriaFormModal.js
+│       CategoriasManager.js
+│       ConciliacaoManager.js
+│       ContaFormModal.js
+│       ContasManager.js
+│       ExtratoManager.js
+│       FiltroFinanceiro.js
+│       ImportacaoFinanceiraManager.js
+│       LancamentoDetalhesSidebar.js
+│       LancamentoFormModal.js
+│       LancamentoImporter.js
+│       LancamentosManager.js
+│       MultiSelectDropdown.js
+│       ReciboModal.js
+│       TransferenciaFinder.js
+│
+├───materiais
+│       MaterialImporter.js
+│
+├───painel
+│       ConstrutorKpiForm.js
+│       ConstrutorKpiManager.js
+│       CustomKpiCard.js
+│       CustomKpiSection.js
+│       RhSection.js
+│       UserInfoCard.js
+│
+├───pedidos
+│       PedidoDetalhesSidebar.js
+│
+└───rh
+        AjusteSaldoModal.js
+        GerenciamentoFuncionarios.js
+        GerenciamentoPonto.js
+        LancarValeModal.js

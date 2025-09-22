@@ -1,3 +1,4 @@
+//app\(main)\perfil\page.js
 import ProfileForm from '../../../components/ProfileForm'; // Usaremos um novo componente de formulário
 import { createClient } from '../../../utils/supabase/server';
 import { redirect } from 'next/navigation';

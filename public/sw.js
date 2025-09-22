@@ -76,3 +76,49 @@ self.addEventListener('activate', event => {
     })
   );
 });
+
+// --- CÓDIGO NOVO A SER ADICIONADO NO FINAL DO ARQUIVO ---
+
+// Evento 'push': disparado quando o servidor envia uma notificação.
+self.addEventListener('push', event => {
+  console.log('[Service Worker] Push Recebido.');
+  
+  let data = { title: 'Nova Notificação', body: 'Você tem uma nova mensagem.' };
+  // Tenta extrair os dados da notificação (título, corpo, ícone, etc.)
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      console.error('Erro ao ler dados do push como JSON:', e);
+      data = { title: 'Nova Notificação', body: event.data.text() };
+    }
+  }
+
+  const title = data.title || 'Studio 57';
+  const options = {
+    body: data.body || 'Você tem uma nova atualização.',
+    icon: data.icon || '/icons/icon-192x192.png', // Ícone que aparece na notificação
+    badge: '/icons/icon-192x192.png', // Ícone para a barra de status em alguns Androids
+    data: {
+      url: data.url || '/' // URL para abrir ao clicar na notificação
+    }
+  };
+
+  // Pede para o navegador manter o service worker vivo até a notificação ser exibida.
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+// Evento 'notificationclick': disparado quando o usuário clica na notificação.
+self.addEventListener('notificationclick', event => {
+  console.log('[Service Worker] Notificação clicada.');
+  
+  // Fecha a notificação que foi clicada
+  event.notification.close();
+
+  // Abre a URL que foi enviada com a notificação ou, na falta dela, a página inicial.
+  event.waitUntil(
+    clients.openWindow(event.notification.data.url || '/')
+  );
+});

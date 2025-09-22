@@ -1,3 +1,4 @@
+//app\(main)\financeiro\auditoria\page.js
 import AuditoriaFinanceira from '../../../../components/financeiro/AuditoriaFinanceira';
 import Link from 'next/link';
 

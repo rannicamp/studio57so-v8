@@ -1,3 +1,4 @@
+//app\(main)\pedidos\[id]\page.js
 'use client';
 
 import { useEffect } from 'react';

@@ -1,5 +1,3 @@
-// components/contratos/GeradorContrato.js
-
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -77,10 +75,6 @@ export default function GeradorContrato({ contrato }) {
     
     const geradoPor = useMemo(() => userData ? `${userData.nome} ${userData.sobrenome}` : '', [userData]);
     
-    // =========================================================================
-    // HOOKS MOVIMOS PARA CIMA - AQUI ESTÁ A CORREÇÃO!
-    // Estes useMemo estavam depois do "if (!contrato)", agora estão no topo.
-    // =========================================================================
     const { entrada, outrasParcelas, totalOutrasParcelas } = useMemo(() => {
         const parcelas = contrato?.contrato_parcelas || [];
         const entradaInfo = { valor: 0, parcelas: [] };
@@ -103,7 +97,6 @@ export default function GeradorContrato({ contrato }) {
     }, [contrato?.contrato_parcelas]);
 
     const resumoOutrasParcelas = useMemo(() => {
-        // Funções auxiliares precisam ser definidas antes de serem usadas.
         const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
         const formatExtenso = (value) => {
             if (typeof value !== 'number' || isNaN(value)) {
@@ -181,33 +174,24 @@ export default function GeradorContrato({ contrato }) {
                 @media print {
                     @page {
                         size: A4;
-                        margin-top: 3cm;
-                        margin-left: 3cm;
-                        margin-right: 2cm;
-                        margin-bottom: 2cm;
+                        /* Margens normais, sem espaço extra para a logo */
+                        margin: 3cm 2cm 2cm 3cm;
                     }
+
                     body * {
                         visibility: hidden;
                     }
+
+                    /* Apenas a área do contrato fica visível */
                     .printable-area, .printable-area * {
                         visibility: visible;
                     }
+                    
                     .printable-area {
                         position: absolute;
                         left: 0;
                         top: 0;
                         width: 100%;
-                        margin: 0;
-                        padding: 0;
-                    }
-                    .print-header-logo {
-                        position: fixed;
-                        top: 0.5cm;
-                        right: 2cm;
-                        width: 4cm;
-                        height: auto;
-                        opacity: 0.8;
-                        z-index: -1;
                     }
                 }
             `}</style>
@@ -222,18 +206,16 @@ export default function GeradorContrato({ contrato }) {
                 </button>
             </div>
 
+            {/* A LOGO FOI COMPLETAMENTE REMOVIDA DAQUI */}
+
             <div className="printable-area bg-white p-8 font-serif">
-                <img 
-                    src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG" 
-                    alt="Logo Studio 57"
-                    className="print-header-logo"
-                />
-                
                 <h2 className="text-center font-bold text-lg mb-6 uppercase">
                     QUADRO RESUMO DO CONTRATO PARTICULAR <br/>
                     DE PROMESSA DE COMPRA E VENDA DE IMÓVEL URBANO
                 </h2>
-
+                
+                {/* O restante do seu código continua aqui, sem alterações... */}
+                
                 <div className="border border-gray-300 p-4 mb-4">
                     <TituloSecao numero="1" titulo="Partes" />
                     <div className="pl-4">

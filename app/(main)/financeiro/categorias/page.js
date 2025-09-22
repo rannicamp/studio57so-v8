@@ -1,3 +1,4 @@
+//app\(main)\financeiro\categorias\page.js
 import CategoriasManager from "../../../../components/financeiro/CategoriasManager";
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
