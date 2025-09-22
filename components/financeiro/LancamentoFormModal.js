@@ -1,4 +1,3 @@
-//components\financeiro\LancamentoFormModal.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -95,6 +94,27 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         staleTime: 5 * 60 * 1000,
     });
     
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO
+    // O PORQUÊ: Esta nova função "limpa" o nome do arquivo para o upload.
+    // Ela remove acentos, espaços e caracteres especiais que causam o erro "Invalid key".
+    // O nome original do arquivo ainda é salvo para exibição na tela.
+    // =================================================================================
+    const sanitizeFileName = (fileName) => {
+        // Normaliza para separar acentos dos caracteres base
+        const withoutAccents = fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        
+        // Substitui espaços por underscores e remove caracteres não permitidos
+        const sanitized = withoutAccents
+          .replace(/\s+/g, '_') // Troca um ou mais espaços por _
+          .replace(/[^a-zA-Z0-9._-]/g, ''); // Remove qualquer coisa que não seja letra, número, ponto, underscore ou hífen
+        
+        return sanitized;
+    };
+    // =================================================================================
+    // FIM DA CORREÇÃO
+    // =================================================================================
+
     const mutation = useMutation({
         mutationFn: async (formData) => {
             if (!user || !organizacao_id) throw new Error("Usuário não autenticado ou organização não encontrada.");
@@ -193,15 +213,20 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 const uploadPromises = formData.anexos.map(async (anexo) => {
                     if (!anexo.file) return;
                     const file = anexo.file;
-                    const fileName = `${crypto.randomUUID()}-${file.name}`;
+                    // =================================================================================
+                    // MUDANÇA APLICADA AQUI
+                    // O nome do arquivo original é "limpo" pela nova função antes de criar o caminho final
+                    // =================================================================================
+                    const fileName = `${crypto.randomUUID()}-${sanitizeFileName(file.name)}`;
                     const filePath = `public/${organizacao_id}/${lancamentoPrincipal.id}/${fileName}`;
+                    
                     const { error: uploadError } = await supabase.storage.from('documentos-financeiro').upload(filePath, file);
                     if (uploadError) throw new Error(`Falha no upload do anexo ${file.name}: ${uploadError.message}`);
 
                     const { error: insertAnexoError } = await supabase.from('lancamentos_anexos').insert({
                         lancamento_id: lancamentoPrincipal.id,
                         caminho_arquivo: filePath,
-                        nome_arquivo: file.name,
+                        nome_arquivo: file.name, // Salva o nome original para exibição
                         descricao: anexo.descricao,
                         tipo_documento_id: anexo.tipo_documento_id,
                         organizacao_id: organizacao_id
@@ -317,10 +342,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     const handleDragEvents = (e) => { e.preventDefault(); e.stopPropagation(); if (e.type === "dragenter" || e.type === "dragover") setIsDragging(true); else if (e.type === "dragleave") setIsDragging(false); };
     const handleDrop = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); if (e.dataTransfer.files && e.dataTransfer.files.length > 0) { handleAnexoChange(e.dataTransfer.files); e.dataTransfer.clearData(); } };
     
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: Assim como no Sidebar, trocamos 'createSignedUrl' por 'getPublicUrl'.
-    // =================================================================================
     const handleViewAnexo = async (caminho_arquivo) => {
         if (!caminho_arquivo) return;
         try {
@@ -335,9 +356,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             console.error(error);
         }
     };
-    // =================================================================================
-    // FIM DA CORREÇÃO
-    // =================================================================================
     
     const handleRemoveAnexoPreexistente = async (anexoId, caminho_arquivo, index) => {
         if (!window.confirm("Isso excluirá o anexo permanentemente. Deseja continuar?")) return;
