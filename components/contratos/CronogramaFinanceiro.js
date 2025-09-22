@@ -35,9 +35,6 @@ const getParcelaStatus = (parcela) => {
     return { text: 'A Pagar', className: 'bg-yellow-100 text-yellow-800' };
 };
 
-// =================================================================================
-// MUDANÇA 1 DE 3: A função agora aceita a propriedade 'desconto'.
-// =================================================================================
 export default function CronogramaFinanceiro({ contrato, desconto, onUpdate }) {
     const { id: contratoId, contrato_parcelas: parcelas, contrato_permutas: permutas, valor_final_venda: valorTotalContrato } = contrato;
     
@@ -102,28 +99,49 @@ export default function CronogramaFinanceiro({ contrato, desconto, onUpdate }) {
 
     const totalParcelas = useMemo(() => localParcelas.reduce((sum, p) => sum + parseFloat(p.valor_parcela || 0), 0), [localParcelas]);
     const totalPermutas = useMemo(() => localPermutas.reduce((sum, p) => sum + parseFloat(p.valor_permutado || 0), 0), [localPermutas]);
-
-    // =================================================================================
-    // MUDANÇA 2 DE 3: A variável 'diferenca' foi renomeada para 'saldoRemanescente'
-    // para maior clareza, como você solicitou.
-    // =================================================================================
     const saldoRemanescente = valorTotalContrato - totalParcelas - totalPermutas;
 
     const hasPendingParcelsToProvision = useMemo(() => localParcelas.some(p => !p.lancamento_id && p.status_pagamento === 'Pendente'), [localParcelas]);
 
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO
+    // O PORQUÊ: A lógica do toast foi atualizada para interpretar a resposta do banco.
+    // Agora, se a resposta começar com "Erro:", ela será mostrada como um erro.
+    // Se for "Nenhuma...", será mostrada como um aviso (info).
+    // Caso contrário, será a mensagem de sucesso que o banco enviou.
+    // =================================================================================
     const handleProvisionarLancamentos = async () => {
         setIsProvisioning(true);
         const promise = supabase.rpc('provisionar_parcelas_contrato', { 
             p_contrato_id: contratoId,
             p_organizacao_id: organizacaoId
         });
+
         toast.promise(promise, {
             loading: 'Provisionando lançamentos...',
-            success: (response) => { onUpdate(); return "Lançamentos provisionados com sucesso!"; },
-            error: (err) => `Erro: ${err.message}`,
+            success: (response) => {
+                onUpdate(); // Atualiza a lista de qualquer forma
+                if (response.startsWith('Erro:')) {
+                    // Lança um erro para o toast.error ser acionado
+                    throw new Error(response);
+                }
+                if (response.startsWith('Nenhuma')) {
+                    toast.info(response);
+                    return "Operação concluída."; // Mensagem genérica para o toast de sucesso
+                }
+                return response; // Mostra a mensagem de sucesso real
+            },
+            error: (err) => {
+                // Remove o "Error: " do início se ele existir para não duplicar
+                const errorMessage = err.message.replace(/^Error:\s*/, '');
+                return `Falha na sincronização: ${errorMessage}`;
+            },
             finally: () => setIsProvisioning(false)
         });
     };
+    // =================================================================================
+    // FIM DA CORREÇÃO
+    // =================================================================================
 
     const handleAddParcela = async () => {
         if (!newParcela.descricao || !newParcela.data_vencimento || !newParcela.valor_parcela) {
@@ -240,10 +258,6 @@ export default function CronogramaFinanceiro({ contrato, desconto, onUpdate }) {
     
     return (
         <div>
-            {/* ============================================================================================== */}
-            {/* CÓDIGO MÁGICO: Este bloco de estilo é injetado globalmente e força TUDO a sumir na
-                impressão, exceto a nossa área de impressão. Isso resolve o problema do Header e Sidebar.  */}
-            {/* ============================================================================================== */}
             <style jsx global>{`
                 @media print {
                     body * {
@@ -261,7 +275,6 @@ export default function CronogramaFinanceiro({ contrato, desconto, onUpdate }) {
                 }
             `}</style>
 
-            {/* ÁREA DE IMPRESSÃO: Fica escondida na tela e aparece ao imprimir */}
             <div className="hidden print:block printable-area">
                 <PlanoPagamentoPrint 
                     contrato={contrato} 
@@ -270,7 +283,6 @@ export default function CronogramaFinanceiro({ contrato, desconto, onUpdate }) {
                 />
             </div>
 
-            {/* ÁREA DE TELA: Aparece na tela e some ao imprimir */}
             <div className="print:hidden bg-white p-6 rounded-lg shadow-md border space-y-6">
                 <div className="space-y-4">
                     <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -353,9 +365,6 @@ export default function CronogramaFinanceiro({ contrato, desconto, onUpdate }) {
                                     <td colSpan="6" className="text-right px-4 py-2">Total (Parcelas + Permutas):</td>
                                     <td colSpan="2" className="text-right px-4 py-2">{formatCurrency(totalParcelas + totalPermutas)}</td>
                                 </tr>
-                                {/* ================================================================================= */}
-                                {/* MUDANÇA 3 DE 3: Trocamos o rótulo e o valor para exibir o saldo remanescente. */}
-                                {/* ================================================================================= */}
                                 <tr className={Math.abs(saldoRemanescente) > 0.01 ? 'bg-red-200' : ''}>
                                     <td colSpan="6" className="text-right px-4 py-2">Saldo Remanescente:</td>
                                     <td colSpan="2" className="text-right px-4 py-2">{formatCurrency(saldoRemanescente)}</td>

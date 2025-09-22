@@ -12,7 +12,7 @@ import { faSpinner, faSearch, faTimes } from '@fortawesome/free-solid-svg-icons'
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
-    const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const regex = new RegExp(`(${highlight.replace(/[.*+?^${'}'}()|[\]\\]/g, '\\$&')})`, 'gi');
     const parts = text.split(regex);
     return (<span>{parts.map((part, i) => regex.test(part) ? <mark key={i} className="bg-yellow-200">{part}</mark> : <span key={i}>{part}</span>)}</span>);
 };
@@ -102,13 +102,9 @@ export default function ContratoForm() {
             setSearchResults(prev => ({ ...prev, [type]: [] }));
             return;
         }
-        // =================================================================================
-        // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-        // O PORQUÊ: A busca por contatos agora também é filtrada pela organização.
-        // =================================================================================
         const { data } = await supabase.rpc('buscar_contatos_geral', { 
             p_search_term: term,
-            p_organizacao_id: organizacaoId // <-- FILTRO DE SEGURANÇA!
+            p_organizacao_id: organizacaoId
         });
         setSearchResults(prev => ({ ...prev, [type]: data || [] }));
     }, [supabase, organizacaoId]);
@@ -141,37 +137,62 @@ export default function ContratoForm() {
         
         const promise = new Promise(async (resolve, reject) => {
             // =================================================================================
-            // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-            // O PORQUÊ: Ao criar o contrato, "etiquetamos" o registro com o ID da
-            // organização, garantindo que ele pertença à empresa correta.
+            // INÍCIO DA CORREÇÃO
+            // O PORQUÊ: Agora, primeiro criamos o contrato SEM o produto_id.
+            // Depois, criamos a associação na tabela correta 'contrato_produtos'.
+            // Isso centraliza a lógica de produtos e evita inconsistências.
             // =================================================================================
+            
+            // 1. Insere o contrato principal (sem a referência ao produto)
             const { data: newContract, error: contractError } = await supabase
                 .from('contratos')
                 .insert({
                     empreendimento_id: formData.empreendimento_id,
-                    produto_id: formData.produto_id,
+                    // A coluna 'produto_id' foi removida daqui
                     contato_id: formData.contato_id,
                     corretor_id: formData.corretor_id,
                     data_venda: formData.data_venda,
                     valor_final_venda: formData.valor_final_venda,
                     status_contrato: 'Em assinatura',
-                    organizacao_id: organizacaoId // <-- ETIQUETA DE SEGURANÇA!
+                    organizacao_id: organizacaoId
                 })
                 .select('id')
                 .single();
 
             if (contractError) return reject(contractError);
+            
+            // 2. Insere o vínculo na tabela 'contrato_produtos'
+            const { error: productLinkError } = await supabase
+                .from('contrato_produtos')
+                .insert({
+                    contrato_id: newContract.id,
+                    produto_id: formData.produto_id,
+                    organizacao_id: organizacaoId
+                });
 
-            const { error: productError } = await supabase
+            // Se o vínculo falhar, deletamos o contrato que acabamos de criar para não deixar lixo
+            if (productLinkError) {
+                await supabase.from('contratos').delete().eq('id', newContract.id);
+                return reject(productLinkError);
+            }
+            
+            // 3. Atualiza o status do produto para 'Vendido' diretamente
+            //    (O gatilho faria isso, mas fazer aqui garante a consistência imediata)
+            const { error: productStatusError } = await supabase
                 .from('produtos_empreendimento')
-                .update({ status: 'Vendido' })
+                .update({ status: 'Vendido' }) // MUDANÇA: Marcando como vendido ao criar
                 .eq('id', formData.produto_id);
 
-            if (productError) {
-                await supabase.from('contratos').delete().eq('id', newContract.id);
-                return reject(productError);
+            if (productStatusError) {
+                // Se isso falhar, ainda consideramos sucesso, mas avisamos o usuário.
+                // A lógica de trigger no banco deve corrigir isso posteriormente.
+                toast.warning("Contrato criado, mas houve um erro ao atualizar o status do produto.");
             }
+            
             resolve(newContract.id);
+            // =================================================================================
+            // FIM DA CORREÇÃO
+            // =================================================================================
         });
 
         toast.promise(promise, {
