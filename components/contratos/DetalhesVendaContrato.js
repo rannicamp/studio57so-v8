@@ -48,19 +48,10 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
     const [contasBancarias, setContasBancarias] = useState([]);
     const [loadingContas, setLoadingContas] = useState(true);
 
-    // MUDANÇA: Adicionada verificação para evitar erro se o contrato ainda não carregou.
-    if (!contrato) {
-        return (
-            <div className="flex justify-center items-center p-10 bg-white rounded-lg shadow-md border">
-                <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-blue-500" />
-                <span className="ml-4 text-gray-600">Carregando detalhes da venda...</span>
-            </div>
-        );
-    }
-
-    const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-    const formatDate = (dateStr) => dateStr ? new Date(dateStr).toISOString().split('T')[0] : '';
-
+    // =================================================================================
+    // CORREÇÃO: Todos os Hooks foram movidos para o topo do componente,
+    // antes de qualquer return ou condicional.
+    // =================================================================================
     useEffect(() => {
         setContrato(contratoData);
     }, [contratoData]);
@@ -88,7 +79,7 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
 
     useEffect(() => {
         const fetchProdutosDisponiveis = async () => {
-            if (contrato.empreendimento_id && organizacaoId) {
+            if (contrato?.empreendimento_id && organizacaoId) {
                 const { data: produtosData } = await supabase
                     .from('produtos_empreendimento')
                     .select('id, unidade, tipo, valor_venda_calculado, matricula')
@@ -102,16 +93,16 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
             }
         };
         fetchProdutosDisponiveis();
-    }, [supabase, contrato.empreendimento_id, organizacaoId, contrato.produtos]);
+    }, [supabase, contrato, organizacaoId]);
 
     const somaProdutosTabela = useMemo(() => {
-        return (contrato.produtos || []).reduce((sum, p) => sum + parseFloat(p.valor_venda_calculado || 0), 0);
-    }, [contrato.produtos]);
+        return (contrato?.produtos || []).reduce((sum, p) => sum + parseFloat(p.valor_venda_calculado || 0), 0);
+    }, [contrato?.produtos]);
 
     const descontoConcedido = useMemo(() => {
-        const valorFinal = parseFloat(contrato.valor_final_venda || 0);
+        const valorFinal = parseFloat(contrato?.valor_final_venda || 0);
         return somaProdutosTabela > valorFinal ? somaProdutosTabela - valorFinal : 0;
-    }, [somaProdutosTabela, contrato.valor_final_venda]);
+    }, [somaProdutosTabela, contrato?.valor_final_venda]);
     
     const updateFieldMutation = useMutation({
         mutationFn: async ({ fieldName, value }) => {
@@ -131,10 +122,6 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
         },
         onError: (error) => { toast.error(`Erro ao salvar: ${error.message}`); }
     });
-
-    const handleFieldUpdate = (fieldName, value) => {
-        updateFieldMutation.mutate({ fieldName, value });
-    };
 
     const addProdutoMutation = useMutation({
         mutationFn: async (produtoId) => {
@@ -161,6 +148,24 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
         setSearchResults(prev => ({ ...prev, [type]: data || [] }));
     }, [supabase, organizacaoId]);
 
+    // O "early return" agora fica DEPOIS dos Hooks.
+    if (!contrato) {
+        return (
+            <div className="flex justify-center items-center p-10 bg-white rounded-lg shadow-md border">
+                <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-blue-500" />
+                <span className="ml-4 text-gray-600">Carregando detalhes da venda...</span>
+            </div>
+        );
+    }
+
+    // O resto das funções que não são Hooks pode ficar aqui.
+    const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    const formatDate = (dateStr) => dateStr ? new Date(dateStr).toISOString().split('T')[0] : '';
+
+    const handleFieldUpdate = (fieldName, value) => {
+        updateFieldMutation.mutate({ fieldName, value });
+    };
+    
     const handleSelectContato = (type, contato) => {
         const fieldNameMap = {
             comprador: 'contato_id',
