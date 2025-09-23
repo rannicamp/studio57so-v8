@@ -5,9 +5,9 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisV, faStickyNote, faBullhorn, faHome, faTasks, faPhone, faUserTie, faSpinner, faTimes, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
-import { createClient } from '../../utils/supabase/client'; // Corrigido o caminho
-import { useAuth } from '../../contexts/AuthContext'; // CORREÇÃO APLICADA AQUI: Caminho correto para o hook de autenticação
+import { faEllipsisV, faStickyNote, faBullhorn, faHome, faTasks, faPhone, faUserTie, faSpinner, faTimes, faPlus, faTrash, faCampaign } from '@fortawesome/free-solid-svg-icons';
+import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -24,22 +24,46 @@ const useDebounce = (value, delay) => {
     return debouncedValue;
 };
 
+// =================================================================================
+// INÍCIO DA NOVA FUNCIONALIDADE: Componente para buscar e exibir dados do anúncio
+// =================================================================================
+const AdInfo = ({ adId }) => {
+    const { data: adData, isLoading } = useQuery({
+        queryKey: ['metaAdInfo', adId],
+        queryFn: async () => {
+            const response = await fetch(`/api/meta/anuncios?ad_id=${adId}`);
+            if (!response.ok) return null;
+            const data = await response.json();
+            return data[0] || null; // A API retorna um array, pegamos o primeiro item
+        },
+        enabled: !!adId,
+        staleTime: 1000 * 60 * 60, // Cache de 1 hora
+    });
+
+    if (isLoading) {
+        return <div className="text-xs text-gray-500 mt-1">Carregando dados do anúncio...</div>;
+    }
+
+    if (!adData) return null;
+
+    return (
+        <div className="text-xs text-gray-600 mt-2 space-y-1">
+            <p><FontAwesomeIcon icon={faCampaign} className="mr-1.5" /> <strong>Campanha:</strong> {adData.campaign_name}</p>
+            <p><FontAwesomeIcon icon={faBullhorn} className="mr-1.5" /> <strong>Anúncio:</strong> {adData.name}</p>
+        </div>
+    );
+};
+// =================================================================================
+// FIM DA NOVA FUNCIONALIDADE
+// =================================================================================
+
 export default function ContatoCardCRM({
-    funilEntry,
-    onDragStart,
-    allColumns,
-    onMoveToColumn,
-    onOpenNotesModal,
-    availableProducts,
-    onAssociateProduct,
-    onDissociateProduct,
-    onAssociateCorretor,
-    onCardClick,
-    onAddActivity,
-    onDeleteCard
+    funilEntry, onDragStart, allColumns, onMoveToColumn, onOpenNotesModal,
+    availableProducts, onAssociateProduct, onDissociateProduct,
+    onAssociateCorretor, onCardClick, onAddActivity, onDeleteCard
 }) {
     const supabase = createClient();
-    const { user, organizacao_id } = useAuth(); // Obtemos o usuário e a organizacao_id diretamente do hook
+    const { organizacao_id } = useAuth();
 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -57,7 +81,7 @@ export default function ContatoCardCRM({
         queryFn: async () => {
             const { data, error } = await supabase.rpc('buscar_contatos_geral', { 
                 p_search_term: debouncedSearchTerm,
-                p_organizacao_id: organizacao_id // <-- "Chave mestra" de segurança
+                p_organizacao_id: organizacao_id
             });
             if (error) {
                 console.error("Erro ao buscar corretores:", error);
@@ -151,7 +175,6 @@ export default function ContatoCardCRM({
 
             <div className="mt-2 space-y-2">
                 <label className="flex items-center text-xs text-gray-500 font-medium"><FontAwesomeIcon icon={faHome} className="mr-2" /> Unidades de Interesse:</label>
-                
                 {(funilEntry.produtos_interesse || []).length > 0 ? (
                     <ul className="space-y-1">
                         {(funilEntry.produtos_interesse).map(item => (
@@ -163,9 +186,7 @@ export default function ContatoCardCRM({
                             </li>
                         ))}
                     </ul>
-                ) : (
-                    <p className="text-xs text-gray-400 px-2">Nenhuma unidade associada.</p>
-                )}
+                ) : (<p className="text-xs text-gray-400 px-2">Nenhuma unidade associada.</p>)}
 
                 {!isAddingProduct ? (
                     <button onClick={(e) => { e.stopPropagation(); setIsAddingProduct(true); }} className="w-full text-center text-xs p-1 mt-1 rounded border-2 border-dashed border-gray-300 text-gray-500 hover:bg-gray-100 hover:border-gray-400 transition-colors">
@@ -212,7 +233,19 @@ export default function ContatoCardCRM({
                 )}
             </div>
 
-            {isMetaLead && (<div className="mt-2"><span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"><FontAwesomeIcon icon={faBullhorn} /> Meta Lead</span></div>)}
+            {/* ================================================================================= */}
+            {/* EXIBIÇÃO DA NOVA INFORMAÇÃO: Aqui mostramos o selo e, se houver um ID,
+                chamamos nosso novo componente AdInfo para buscar e mostrar os dados. */}
+            {/* ================================================================================= */}
+            {isMetaLead && (
+                <div className="mt-2">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <FontAwesomeIcon icon={faBullhorn} /> Meta Lead
+                    </span>
+                    {contato.meta_ad_id && <AdInfo adId={contato.meta_ad_id} />}
+                </div>
+            )}
+            
             <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
                 {contato.last_whatsapp_message ? (<p className="text-gray-700">Última msg: <span className="font-medium">{truncateMessage(contato.last_whatsapp_message)}</span>{contato.last_whatsapp_message_time && ` (${formatDate(contato.last_whatsapp_message_time)})`}</p>) : (<p>Criado em: {formatDate(contato.created_at)}</p>)}
             </div>
