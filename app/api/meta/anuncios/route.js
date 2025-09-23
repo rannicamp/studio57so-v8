@@ -21,72 +21,60 @@ export async function GET(request) {
 
     try {
         const { searchParams } = new URL(request.url);
-        const adId = searchParams.get('ad_id'); // Parâmetro para buscar um anúncio específico
 
-        // =================================================================================
-        // INÍCIO DA ATUALIZAÇÃO: Lógica para buscar um único anúncio ou vários.
-        // O PORQUÊ: Tornamos a API mais versátil. Se um 'ad_id' for fornecido,
-        // ela busca os dados apenas daquele anúncio. Senão, ela busca todos como antes.
-        // =================================================================================
-        let adsData;
-        const fields = `name,effective_status,campaign{name,objective}`;
-
-        if (adId) {
-            // Lógica para buscar um único anúncio pelo ID
-            const adUrl = `https://graph.facebook.com/v20.0/${adId}?fields=${fields.replace(/\s/g, '')}&access_token=${PAGE_ACCESS_TOKEN}`;
-            const adResponse = await fetch(adUrl);
-            const adData = await adResponse.json();
-
-            if (!adResponse.ok) {
-                // Se houver erro, criamos um objeto de erro no formato esperado
-                adsData = { error: adData.error };
-            } else {
-                // Colocamos o resultado único dentro de um array para manter a estrutura de dados consistente
-                adsData = { data: [adData] };
-            }
-
-        } else {
-            // Lógica existente para buscar todos os anúncios
-            const { data: empresa, error: empresaError } = await supabase.from('cadastro_empresa').select('meta_business_id').not('meta_business_id', 'is', null).limit(1).single();
-            if (empresaError || !empresa) {
-                throw new Error("Nenhuma empresa com 'meta_business_id' configurado foi encontrada.");
-            }
-
-            const metaBusinessId = empresa.meta_business_id;
-            const adAccountsUrl = `https://graph.facebook.com/v20.0/${metaBusinessId}/owned_ad_accounts?access_token=${PAGE_ACCESS_TOKEN}`;
-            const adAccountsResponse = await fetch(adAccountsUrl);
-            const adAccountsData = await adAccountsResponse.json();
-            if (!adAccountsResponse.ok || !adAccountsData.data || adAccountsData.data.length === 0) {
-                throw new Error(adAccountsData.error?.message || "Nenhuma conta de anúncios encontrada.");
-            }
-            const adAccountId = adAccountsData.data[0].id;
-            
-            const statusFilter = searchParams.get('status');
-            const startDate = searchParams.get('startDate');
-            const endDate = searchParams.get('endDate');
-
-            let filteringParam = '';
-            if (statusFilter) {
-                const statusValues = statusFilter.split(',').map(s => `"${s.trim()}"`).join(',');
-                filteringParam = `&filtering=[{"field":"effective_status","operator":"IN","value":[${statusValues}]}]`;
-            }
-            
-            let insightsRequest = 'insights{spend,impressions,clicks,reach,frequency,cpm,ctr,cpc,actions,cost_per_action_type}';
-            if (startDate && endDate) {
-                insightsRequest = `insights.time_range({'since':'${startDate}','until':'${endDate}'}){spend,impressions,clicks,reach,frequency,cpm,ctr,cpc,actions,cost_per_action_type}`;
-            }
-
-            const allFields = `name,effective_status,end_time,created_time,campaign{name,objective,buying_type,spend_cap},adset{name,start_time,end_time,daily_budget,lifetime_budget,billing_event},creative{title,body,image_url,thumbnail_url,video_id},${insightsRequest}`;
-            
-            const baseUrl = `https://graph.facebook.com/v20.0/${adAccountId}/ads`;
-            const adsUrl = `${baseUrl}?fields=${allFields.replace(/\s/g, '')}${filteringParam}&access_token=${PAGE_ACCESS_TOKEN}`;
-
-            const adsResponse = await fetch(adsUrl);
-            adsData = await adsResponse.json();
+        const { data: empresa, error: empresaError } = await supabase.from('cadastro_empresa').select('meta_business_id').not('meta_business_id', 'is', null).limit(1).single();
+        if (empresaError || !empresa) {
+            throw new Error("Nenhuma empresa com 'meta_business_id' configurado foi encontrada.");
         }
+
+        const metaBusinessId = empresa.meta_business_id;
+        const adAccountsUrl = `https://graph.facebook.com/v20.0/${metaBusinessId}/owned_ad_accounts?access_token=${PAGE_ACCESS_TOKEN}`;
+        const adAccountsResponse = await fetch(adAccountsUrl);
+        const adAccountsData = await adAccountsResponse.json();
+        if (!adAccountsResponse.ok || !adAccountsData.data || adAccountsData.data.length === 0) {
+            throw new Error(adAccountsData.error?.message || "Nenhuma conta de anúncios encontrada.");
+        }
+        const adAccountId = adAccountsData.data[0].id;
+        
         // =================================================================================
-        // FIM DA ATUALIZAÇÃO
+        // O PORQUÊ da alteração aqui:
+        // A API da Meta aceita um parâmetro 'filtering' que é um array de regras.
+        // Nós construímos esse array dinamicamente. Se a página enviar um filtro de status,
+        // adicionamos a regra de status. Se enviar um filtro de campanha, adicionamos a regra
+        // de campanha, e assim por diante. Isso torna nossa API flexível e poderosa.
         // =================================================================================
+        const statusFilter = searchParams.get('status');
+        const campaignIdsFilter = searchParams.get('campaign_ids'); // NOVO
+        const adsetIdsFilter = searchParams.get('adset_ids');       // NOVO
+        const startDate = searchParams.get('startDate');
+        const endDate = searchParams.get('endDate');
+
+        let filters = [];
+        if (statusFilter) {
+            filters.push({ field: 'effective_status', operator: 'IN', value: statusFilter.split(',') });
+        }
+        if (campaignIdsFilter) {
+            filters.push({ field: 'campaign.id', operator: 'IN', value: campaignIdsFilter.split(',') });
+        }
+        if (adsetIdsFilter) {
+            filters.push({ field: 'adset.id', operator: 'IN', value: adsetIdsFilter.split(',') });
+        }
+
+        const filteringParam = filters.length > 0 ? `&filtering=${JSON.stringify(filters)}` : '';
+        
+        let insightsRequest = 'insights{spend,impressions,clicks,reach,frequency,cpm,ctr,cpc,actions,cost_per_action_type}';
+        if (startDate && endDate) {
+            insightsRequest = `insights.time_range({'since':'${startDate}','until':'${endDate}'}){spend,impressions,clicks,reach,frequency,cpm,ctr,cpc,actions,cost_per_action_type}`;
+        }
+
+        // ALTERADO: Adicionamos id e name ao campaign e adset para podermos usá-los nos filtros da página.
+        const allFields = `name,effective_status,end_time,created_time,campaign{id,name,objective,buying_type,spend_cap},adset{id,name,start_time,end_time,daily_budget,lifetime_budget,billing_event},creative{title,body,image_url,thumbnail_url,video_id},${insightsRequest}`;
+        
+        const baseUrl = `https://graph.facebook.com/v20.0/${adAccountId}/ads`;
+        const adsUrl = `${baseUrl}?fields=${allFields.replace(/\s/g, '')}${filteringParam}&limit=100&access_token=${PAGE_ACCESS_TOKEN}`;
+
+        const adsResponse = await fetch(adsUrl);
+        const adsData = await adsResponse.json();
         
         if (adsData.error) {
             throw new Error(adsData.error?.message || "Falha ao buscar dados na API da Meta.");
@@ -108,9 +96,11 @@ export async function GET(request) {
                 creative_title: ad.creative?.title,
                 creative_body: ad.creative?.body,
                 thumbnail_url: ad.creative?.thumbnail_url || ad.creative?.image_url,
+                campaign_id: ad.campaign?.id, // NOVO: Retornando o ID da campanha
                 campaign_name: ad.campaign?.name,
                 campaign_objective: ad.campaign?.objective,
                 campaign_buying_type: ad.campaign?.buying_type,
+                adset_id: ad.adset?.id, // NOVO: Retornando o ID do conjunto
                 adset_name: ad.adset?.name,
                 adset_daily_budget: ad.adset?.daily_budget,
                 adset_lifetime_budget: ad.adset?.lifetime_budget,

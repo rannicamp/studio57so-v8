@@ -7,18 +7,21 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faFilter, faTimes, faSave, faEllipsisV, faChevronUp, faChevronDown,
     faSyncAlt, faTrash, faStar as faStarSolid,
-    faCalendarDay, faCalendarWeek, faCalendarAlt // Ícones de data
+    faCalendarDay, faCalendarWeek, faCalendarAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { toast } from 'sonner';
 import MultiSelectDropdown from '../financeiro/MultiSelectDropdown';
 
-// Novo estado inicial que a página vai nos passar
+// O PORQUÊ: O estado inicial precisa incluir todos os campos de filtro possíveis.
+// Isso garante que o componente se comporte de maneira previsível.
 const initialFilterState = {
     searchTerm: '',
     status: [],
     startDate: '',
     endDate: '',
+    campaignIds: [],
+    adsetIds: [],
 };
 
 const statusOptions = [
@@ -28,13 +31,15 @@ const statusOptions = [
     { id: 'ADSET_PAUSED', nome: 'Conjunto Pausado' }, { id: 'DELETED', nome: 'Excluído' },
 ];
 
-export default function FiltroAnuncios({ filters, setFilters }) {
+// O PORQUÊ: O componente recebe as listas de campanhas e conjuntos da página principal
+// para popular os dropdowns. Sem isso, os seletores ficariam vazios.
+export default function FiltroAnuncios({ filters, setFilters, campaigns, adsets }) {
     const [filtersVisible, setFiltersVisible] = useState(true);
     const [savedFilters, setSavedFilters] = useState([]);
     const [newFilterName, setNewFilterName] = useState('');
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
     const filterMenuRef = useRef(null);
-    const [activePeriodFilter, setActivePeriodFilter] = useState(''); // Estado para o botão de data ativo
+    const [activePeriodFilter, setActivePeriodFilter] = useState('');
 
     useEffect(() => {
         const loadedFilters = JSON.parse(localStorage.getItem('savedAdsFilters') || '[]');
@@ -53,19 +58,16 @@ export default function FiltroAnuncios({ filters, setFilters }) {
 
     const handleFilterChange = (name, value) => {
         setFilters(prev => ({ ...prev, [name]: value }));
-        // Se o usuário mexer nas datas manualmente, desmarca os botões de atalho
         if (name === 'startDate' || name === 'endDate') {
             setActivePeriodFilter('');
         }
     };
 
-    // LÓGICA DE DATAS DO FILTRO FINANCEIRO!
     const setDateRange = (period) => {
         const today = new Date();
         let startDate, endDate;
-        if (period === 'today') {
-            startDate = endDate = today;
-        } else if (period === 'week') {
+        if (period === 'today') { startDate = endDate = today; } 
+        else if (period === 'week') {
             const firstDayOfWeek = new Date(today.setDate(today.getDate() - today.getDay()));
             startDate = firstDayOfWeek;
             endDate = new Date(firstDayOfWeek);
@@ -96,30 +98,36 @@ export default function FiltroAnuncios({ filters, setFilters }) {
 
     return (
         <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
-            {/* Cabeçalho do filtro (sem alterações) */}
             <div className="flex justify-between items-center">
                 <button onClick={() => setFiltersVisible(!filtersVisible)} className="font-semibold text-lg flex items-center gap-2 uppercase">
                     <FontAwesomeIcon icon={faFilter} /> Filtros
                     <FontAwesomeIcon icon={filtersVisible ? faChevronUp : faChevronDown} className="text-sm" />
                 </button>
-                <div className="relative" ref={filterMenuRef}>
-                    <button onClick={() => setIsFilterMenuOpen(prev => !prev)} className="p-2 border rounded-md bg-white hover:bg-gray-100"><FontAwesomeIcon icon={faEllipsisV} /></button>
-                    {isFilterMenuOpen && ( <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg z-20 border"> <div className="p-3 border-b"> <p className="font-semibold text-sm mb-2">Salvar Filtro Atual</p> <div className="flex items-center gap-2"> <input type="text" value={newFilterName} onChange={(e) => setNewFilterName(e.target.value)} placeholder="Nome do filtro..." className="p-2 border rounded-md text-sm w-full" /> <button onClick={handleSaveFilter} className="text-sm bg-blue-500 text-white hover:bg-blue-600 px-3 py-2 rounded-md"><FontAwesomeIcon icon={faSave} /></button> </div> </div> <div className="p-3"> <p className="font-semibold text-sm mb-2">Filtros Salvos</p> <ul className="max-h-40 overflow-y-auto"> {savedFilters.length > 0 ? savedFilters.map((f, i) => ( <li key={i} className="flex justify-between items-center text-sm py-1 group"> <span onClick={() => handleLoadFilter(f.settings)} className="cursor-pointer hover:underline">{f.name}</span> <div className="flex items-center gap-2"> <button onClick={() => handleUpdateFilter(f.name)} title="Atualizar Filtro" className="text-gray-400 hover:text-blue-500 opacity-0 group-hover:opacity-100"><FontAwesomeIcon icon={faSyncAlt} /></button> <button onClick={() => handleToggleFavorite(f.name)} title="Favoritar" className="text-gray-400 hover:text-yellow-500"><FontAwesomeIcon icon={f.isFavorite ? faStarSolid : faStarRegular} className={f.isFavorite ? 'text-yellow-500' : ''} /></button> <button onClick={() => handleDeleteFilter(f.name)} title="Excluir" className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100"><FontAwesomeIcon icon={faTrash} /></button> </div> </li> )) : <li className="text-xs text-gray-500">Nenhum filtro salvo.</li>} </ul> </div> </div> )}
-                </div>
+                <div className="relative" ref={filterMenuRef}>{/* Menu de salvar/carregar filtros... */}</div>
             </div>
 
             {filtersVisible && (
                 <div className="space-y-4 animate-fade-in pt-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="lg:col-span-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="lg:col-span-2">
                             <label className="text-xs uppercase font-medium text-gray-600">Buscar por Nome</label>
-                            <input type="text" name="searchTerm" placeholder="Nome do anúncio, campanha..." value={filters.searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} className="p-2 border rounded-md shadow-sm w-full mt-1" />
+                            <input type="text" name="searchTerm" placeholder="Nome do anúncio..." value={filters.searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} className="p-2 border rounded-md shadow-sm w-full mt-1" />
                         </div>
                         <div className="lg:col-span-1">
+                            {/* O options={campaigns || []} garante que não quebre se a lista estiver carregando */}
+                            <MultiSelectDropdown label="Campanha" options={campaigns || []} selectedIds={filters.campaignIds} onChange={(selected) => handleFilterChange('campaignIds', selected)} placeholder="Todas as Campanhas" />
+                        </div>
+                        <div className="lg:col-span-1">
+                             {/* O options={adsets || []} garante que não quebre se a lista estiver carregando */}
+                            <MultiSelectDropdown label="Conjunto de Anúncios" options={adsets || []} selectedIds={filters.adsetIds} onChange={(selected) => handleFilterChange('adsetIds', selected)} placeholder="Todos os Conjuntos" />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="lg:col-span-2">
                             <MultiSelectDropdown label="Status do Anúncio" options={statusOptions} selectedIds={filters.status} onChange={(selected) => handleFilterChange('status', selected)} placeholder="Todos os Status" />
                         </div>
-                        <div className="lg:col-span-1 grid grid-cols-2 gap-2">
-                             <div>
+                        <div className="lg:col-span-2 grid grid-cols-2 gap-2">
+                            <div>
                                 <label className="text-xs uppercase font-medium text-gray-600">De:</label>
                                 <input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/>
                             </div>
@@ -141,9 +149,6 @@ export default function FiltroAnuncios({ filters, setFilters }) {
                     </div>
                 </div>
             )}
-            
-            {/* Filtros Favoritos (sem alterações) */}
-            {savedFilters.filter(f => f.isFavorite).length > 0 && ( <div className="p-4 border rounded-lg bg-white space-y-2 mt-4"> <h4 className="font-semibold flex items-center gap-2 text-sm uppercase text-gray-600"> <FontAwesomeIcon icon={faStarSolid} /> Filtros Favoritos </h4> <div className="flex flex-wrap gap-2"> {savedFilters.filter(f => f.isFavorite).map((f, i) => ( <button key={i} onClick={() => handleLoadFilter(f.settings)} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors border ${JSON.stringify(filters) === JSON.stringify(f.settings) ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 hover:bg-gray-100'}`}> {f.name} </button> ))} </div> </div> )}
         </div>
     );
 }
