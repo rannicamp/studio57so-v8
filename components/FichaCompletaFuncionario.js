@@ -4,12 +4,11 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
-// O PORQUÊ: Adicionamos o useAuth para pegar o organizacao_id, corrigindo o bug.
 import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-    faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile, 
-    faAddressCard, faFileContract, faFileLines, faCheckCircle, faTimesCircle, faDollarSign, 
+import {
+    faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile,
+    faAddressCard, faFileContract, faFileLines, faCheckCircle, faTimesCircle, faDollarSign,
     faCalendarCheck, faCalendarXmark, faBusinessTime, faPenToSquare, faSort, faSortUp, faSortDown,
     faFileInvoiceDollar, faPrint
 } from '@fortawesome/free-solid-svg-icons';
@@ -40,10 +39,15 @@ const InfoField = ({ label, value, fullWidth = false }) => (
     </div>
 );
 
-const CadastroChecklist = ({ employee }) => {
+// PORQUÊ DA MUDANÇA: O componente de checklist foi alterado para receber
+// a lista de documentos como um parâmetro separado (`documents`).
+// Isso o desacopla da estrutura do objeto `employee`, consertando o bug
+// onde a lista de documentos não aparecia no checklist.
+const CadastroChecklist = ({ employee, documents }) => {
     const checklistItems = useMemo(() => {
         const items = [];
-        const uploadedSiglas = (employee.documentos_funcionarios || []).map(doc => doc.tipo?.sigla?.toUpperCase()).filter(Boolean);
+        // A fonte da verdade sobre os documentos agora é o parâmetro 'documents'
+        const uploadedSiglas = (documents || []).map(doc => doc.tipo?.sigla?.toUpperCase()).filter(Boolean);
         const requiredItems = [
             { label: 'Nome Completo', type: 'field', key: 'full_name' }, { label: 'CPF', type: 'field', key: 'cpf' },
             { label: 'Cargo', type: 'field', key: 'contract_role' }, { label: 'Data de Admissão', type: 'field', key: 'admission_date' },
@@ -55,12 +59,13 @@ const CadastroChecklist = ({ employee }) => {
         ];
         requiredItems.forEach(item => {
             let isCompleted = false;
-            if (item.type === 'field') { isCompleted = !!employee[item.key]; } 
+            if (item.type === 'field') { isCompleted = !!employee[item.key]; }
             else if (item.type === 'document') { isCompleted = item.siglas.some(requiredSigla => uploadedSiglas.includes(requiredSigla.toUpperCase())); }
             items.push({ label: item.label, isCompleted });
         });
         return items;
-    }, [employee]);
+    }, [employee, documents]); // Adicionamos 'documents' à lista de dependências
+
     return (
         <div className="space-y-4">
             <h3 className="font-semibold text-lg">Checklist de Itens do Cadastro</h3>
@@ -76,7 +81,7 @@ const CadastroChecklist = ({ employee }) => {
     );
 };
 
-const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeName, organizacaoId, onUpdate }) => {
+const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeName, organizacaoId, user, onUpdate }) => {
     const supabase = createClient();
     const [documentos, setDocumentos] = useState(initialDocuments || []);
     const [tiposDocumento, setTiposDocumento] = useState([]);
@@ -131,6 +136,7 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
                 nome_documento: tipoSelecionado.descricao,
                 caminho_arquivo: newFileName,
                 tipo_documento_id: newFileType,
+                criado_por_usuario_id: user.id,
                 organizacao_id: organizacaoId
             });
 
@@ -674,9 +680,20 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                         </dl>
                     )}
                     {activeTab === 'contracheque' && <ContrachequeSection employee={employee} salarioAtual={salarioAtual} />}
-                    {activeTab === 'documentos' && ( <DocumentosSection documentos={employee.documentos_funcionarios} employeeId={employee.id} employeeName={employee.full_name} organizacaoId={employee.organizacao_id} onUpdate={onUpdate} /> )}
+                    {/*
+                      PORQUÊ DA MUDANÇA: Aqui estava o erro principal. O componente estava tentando
+                      acessar `employee.documentos_funcionarios`, mas os documentos são carregados
+                      separadamente e passados pela propriedade `allDocuments`. A correção foi
+                      simplesmente usar a propriedade correta (`allDocuments`).
+                    */}
+                    {activeTab === 'documentos' && ( <DocumentosSection documentos={allDocuments} employeeId={employee.id} employeeName={employee.full_name} organizacaoId={employee.organizacao_id} user={user} onUpdate={onUpdate} /> )}
                     {activeTab === 'financeiro' && ( <FinanceiroSection lancamentos={lancamentos} onEditLancamento={onEditLancamento} /> )}
-                    {activeTab === 'checklist' && ( <CadastroChecklist employee={employee} /> )}
+                    {/*
+                      PORQUÊ DA MUDANÇA: Assim como na aba de documentos, o checklist também
+                      precisa da lista correta de documentos para funcionar. Passamos
+                      a propriedade `allDocuments` para ele também.
+                    */}
+                    {activeTab === 'checklist' && ( <CadastroChecklist employee={employee} documents={allDocuments} /> )}
                 </div>
             </div>
         </div>
