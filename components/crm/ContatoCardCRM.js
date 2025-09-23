@@ -1,4 +1,3 @@
-//components\crm\ContatoCardCRM.js
 "use client";
 
 import { format } from 'date-fns';
@@ -24,38 +23,6 @@ const useDebounce = (value, delay) => {
     return debouncedValue;
 };
 
-// =================================================================================
-// INÍCIO DA NOVA FUNCIONALIDADE: Componente para buscar e exibir dados do anúncio
-// =================================================================================
-const AdInfo = ({ adId }) => {
-    const { data: adData, isLoading } = useQuery({
-        queryKey: ['metaAdInfo', adId],
-        queryFn: async () => {
-            const response = await fetch(`/api/meta/anuncios?ad_id=${adId}`);
-            if (!response.ok) return null;
-            const data = await response.json();
-            return data[0] || null; // A API retorna um array, pegamos o primeiro item
-        },
-        enabled: !!adId,
-        staleTime: 1000 * 60 * 60, // Cache de 1 hora
-    });
-
-    if (isLoading) {
-        return <div className="text-xs text-gray-500 mt-1">Carregando dados do anúncio...</div>;
-    }
-
-    if (!adData) return null;
-
-    return (
-        <div className="text-xs text-gray-600 mt-2 space-y-1">
-            <p><FontAwesomeIcon icon={faCampaign} className="mr-1.5" /> <strong>Campanha:</strong> {adData.campaign_name}</p>
-            <p><FontAwesomeIcon icon={faBullhorn} className="mr-1.5" /> <strong>Anúncio:</strong> {adData.name}</p>
-        </div>
-    );
-};
-// =================================================================================
-// FIM DA NOVA FUNCIONALIDADE
-// =================================================================================
 
 export default function ContatoCardCRM({
     funilEntry, onDragStart, allColumns, onMoveToColumn, onOpenNotesModal,
@@ -79,7 +46,7 @@ export default function ContatoCardCRM({
     const { data: searchResults = [], isLoading: isSearching } = useQuery({
         queryKey: ['searchCorretores', debouncedSearchTerm, organizacao_id],
         queryFn: async () => {
-            const { data, error } = await supabase.rpc('buscar_contatos_geral', { 
+            const { data, error } = await supabase.rpc('buscar_contatos_geral', {
                 p_search_term: debouncedSearchTerm,
                 p_organizacao_id: organizacao_id
             });
@@ -92,7 +59,7 @@ export default function ContatoCardCRM({
         },
         enabled: !!debouncedSearchTerm && !!organizacao_id,
     });
-    
+
     useEffect(() => {
         function handleClickOutside(event) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setIsDropdownOpen(false);
@@ -102,21 +69,32 @@ export default function ContatoCardCRM({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const productIdsInteresse = useMemo(() => 
-        new Set((funilEntry.produtos_interesse || []).map(p => p.produto.id)), 
+    const productIdsInteresse = useMemo(() =>
+        new Set((funilEntry.produtos_interesse || []).map(p => p.produto.id)),
         [funilEntry.produtos_interesse]
     );
-    const filteredAvailableProducts = useMemo(() => 
+    const filteredAvailableProducts = useMemo(() =>
         availableProducts.filter(p => !productIdsInteresse.has(p.id)),
         [availableProducts, productIdsInteresse]
     );
-    
+
     if (!funilEntry || !funilEntry.contatos) return <div className="bg-red-100 p-3 rounded-md shadow">Erro ao carregar contato.</div>;
 
     const contato = funilEntry.contatos;
     const cardNumber = funilEntry.numero_card;
     const currentColumnId = funilEntry.coluna_id;
     const isMetaLead = contato.origem === 'Meta Lead Ad';
+
+    // =================================================================================
+    // O PORQUÊ DA MUDANÇA:
+    // Agora lemos os nomes navegando pela estrutura de dados que a nova consulta nos traz.
+    // Usamos `?.` (optional chaining) para evitar erros caso um contato não seja de uma
+    // campanha ou anúncio (ou seja, se `meta_ads` ou `meta_campaigns` for nulo).
+    // contato -> meta_ads -> name (Nome do Anúncio)
+    // contato -> meta_ads -> meta_campaigns -> name (Nome da Campanha)
+    // =================================================================================
+    const adName = contato?.meta_ads?.name;
+    const campaignName = contato?.meta_ads?.meta_campaigns?.name;
 
     const handleAddProduct = () => {
         if (!selectedProductId) {
@@ -145,7 +123,7 @@ export default function ContatoCardCRM({
     const handleSelectCorretor = (corretorId) => { onAssociateCorretor(funilEntry.id, corretorId); setIsEditingCorretor(false); setSearchTerm(''); };
     const handleClearCorretor = () => onAssociateCorretor(funilEntry.id, null);
     const formatDate = (dateString) => dateString ? format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'N/A';
-    const truncateMessage = (message, len=70) => message && message.length > len ? `${message.substring(0, len)}...` : message || 'Nenhuma mensagem recente';
+    const truncateMessage = (message, len = 70) => message && message.length > len ? `${message.substring(0, len)}...` : message || 'Nenhuma mensagem recente';
     const displayName = contato.razao_social || contato.nome || 'Nome Indisponível';
     const displayPhone = contato.telefones?.[0]?.telefone || 'Sem telefone';
     const handleMoveClick = (columnId) => { onMoveToColumn(funilEntry.id, columnId); setIsDropdownOpen(false); };
@@ -207,7 +185,7 @@ export default function ContatoCardCRM({
                     </div>
                 )}
             </div>
-            
+
             <div className="mt-2" ref={corretorDropdownRef}>
                 <label className="flex items-center text-xs text-gray-500 font-medium mb-1"><FontAwesomeIcon icon={faUserTie} className="mr-2" /> Corretor Responsável:</label>
                 {isEditingCorretor ? (
@@ -224,28 +202,27 @@ export default function ContatoCardCRM({
                     <div className="flex items-center justify-between p-1.5 border border-transparent rounded-md">
                         <span className="text-sm font-medium text-gray-800">{funilEntry.corretores ? (funilEntry.corretores.nome || funilEntry.corretores.razao_social) : '-- Nenhum --'}</span>
                         <div className='flex items-center gap-2'>
-                           {funilEntry.corretor_id && (<button onClick={(e) => { e.stopPropagation(); handleClearCorretor();}} className="text-xs text-red-500 hover:text-red-700"><FontAwesomeIcon icon={faTimes} /></button>)}
-                           <button onClick={(e) => { e.stopPropagation(); setIsEditingCorretor(true); }} className="text-xs font-semibold text-blue-600 hover:text-blue-800">
+                            {funilEntry.corretor_id && (<button onClick={(e) => { e.stopPropagation(); handleClearCorretor(); }} className="text-xs text-red-500 hover:text-red-700"><FontAwesomeIcon icon={faTimes} /></button>)}
+                            <button onClick={(e) => { e.stopPropagation(); setIsEditingCorretor(true); }} className="text-xs font-semibold text-blue-600 hover:text-blue-800">
                                 {funilEntry.corretor_id ? 'Trocar' : 'Adicionar'}
-                           </button>
+                            </button>
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* ================================================================================= */}
-            {/* EXIBIÇÃO DA NOVA INFORMAÇÃO: Aqui mostramos o selo e, se houver um ID,
-                chamamos nosso novo componente AdInfo para buscar e mostrar os dados. */}
-            {/* ================================================================================= */}
             {isMetaLead && (
                 <div className="mt-2">
                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         <FontAwesomeIcon icon={faBullhorn} /> Meta Lead
                     </span>
-                    {contato.meta_ad_id && <AdInfo adId={contato.meta_ad_id} />}
+                    <div className="text-xs text-gray-600 mt-2 space-y-1">
+                        {campaignName && <p><FontAwesomeIcon icon={faCampaign} className="mr-1.5" /> <strong>Campanha:</strong> {campaignName}</p>}
+                        {adName && <p><FontAwesomeIcon icon={faBullhorn} className="mr-1.5" /> <strong>Anúncio:</strong> {adName}</p>}
+                    </div>
                 </div>
             )}
-            
+
             <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
                 {contato.last_whatsapp_message ? (<p className="text-gray-700">Última msg: <span className="font-medium">{truncateMessage(contato.last_whatsapp_message)}</span>{contato.last_whatsapp_message_time && ` (${formatDate(contato.last_whatsapp_message_time)})`}</p>) : (<p>Criado em: {formatDate(contato.created_at)}</p>)}
             </div>

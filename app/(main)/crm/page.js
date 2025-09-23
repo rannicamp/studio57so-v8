@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useLayout } from '@/contexts/LayoutContext';
 import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
-import { useAuth } from '@/contexts/AuthContext'; // Importar useAuth para segurança
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTimes, faSearch, faPlus, faUsers, faHandshake, faPercent, faSackDollar, faCalendarDay } from '@fortawesome/free-solid-svg-icons';
@@ -18,7 +18,6 @@ import CrmDetalhesSidebar from '@/components/crm/CrmDetalhesSidebar';
 import AtividadeModal from '@/components/AtividadeModal';
 import KpiCard from '@/components/KpiCard';
 
-// --- COMPONENTES AUXILIARES (sem alterações) ---
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
     const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -59,28 +58,19 @@ const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, exi
     );
 };
 
-// =================================================================================
-// CORREÇÃO DE SEGURANÇA (organização_id)
-// O PORQUÊ: Todas as funções de busca agora exigem o `organizacaoId` para filtrar
-// CADA UMA das consultas, garantindo o isolamento total dos dados.
-// =================================================================================
-
 const fetchFunilData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { funilId: null, colunasDoFunil: [], contatosNoFunil: [] };
 
-    // Busca o funil da organização correta
     const { data: funilData, error: funilError } = await supabase.from('funis').select('id').eq('nome', 'Funil de Vendas').eq('organizacao_id', organizacaoId).single();
     if (funilError && funilError.code !== 'PGRST116') throw funilError;
     let funilId = funilData?.id;
     
-    // Se não existir, cria o funil para a organização
     if (!funilId) {
         const { data: newFunil, error: createError } = await supabase.from('funis').insert({ nome: 'Funil de Vendas', organizacao_id: organizacaoId }).select().single();
         if (createError) throw createError;
         funilId = newFunil.id;
     }
 
-    // Busca as colunas do funil da organização
     const { data: colunasDoFunil, error: colunasError } = await supabase.from('colunas_funil').select('id, nome, ordem').eq('funil_id', funilId).eq('organizacao_id', organizacaoId).order('ordem', { ascending: true });
     if (colunasError) throw colunasError;
 
@@ -90,14 +80,45 @@ const fetchFunilData = async (supabase, organizacaoId) => {
 
     const colunaIds = colunasDoFunil.map(col => col.id);
     
-    // Busca os contatos no funil da organização
-    const { data: contatosNoFunilRaw, error: contatosError } = await supabase.from('contatos_no_funil').select(`id, coluna_id, numero_card, corretor_id, created_at, contatos:contato_id ( *, telefones ( telefone, tipo ), emails(email, tipo)), corretores:corretor_id (id, nome, razao_social), produtos_interesse:contatos_no_funil_produtos (id, produto:produtos_empreendimento (id, unidade, tipo, valor_venda_calculado, empreendimento_id))`).in('coluna_id', colunaIds).eq('organizacao_id', organizacaoId);
+    // =================================================================================
+    // O PORQUÊ DA MUDANÇA (AGORA VAI!):
+    // Esta é a consulta corrigida! Adicionamos a busca encadeada para pegar
+    // os nomes do anúncio e da campanha.
+    // 1. Em `contatos`, pedimos `meta_ads:meta_ad_id(...)` para buscar na tabela `meta_ads`.
+    // 2. Dentro de `meta_ads`, pegamos o `name` (nome do anúncio).
+    // 3. E também pedimos `meta_campaigns:campaign_id(...)` para buscar na tabela `meta_campaigns`.
+    // 4. Dentro de `meta_campaigns`, finalmente pegamos o `name` (nome da campanha).
+    // =================================================================================
+    const { data: contatosNoFunilRaw, error: contatosError } = await supabase
+        .from('contatos_no_funil')
+        .select(`
+            id, 
+            coluna_id, 
+            numero_card, 
+            corretor_id, 
+            created_at, 
+            contatos:contato_id ( 
+                *, 
+                telefones ( telefone, tipo ), 
+                emails(email, tipo),
+                meta_ads:meta_ad_id (
+                    name,
+                    meta_campaigns:campaign_id (
+                        name
+                    )
+                )
+            ), 
+            corretores:corretor_id (id, nome, razao_social), 
+            produtos_interesse:contatos_no_funil_produtos (id, produto:produtos_empreendimento (id, unidade, tipo, valor_venda_calculado, empreendimento_id))
+        `)
+        .in('coluna_id', colunaIds)
+        .eq('organizacao_id', organizacaoId);
+
     if (contatosError) throw contatosError;
 
     const contatosParaEstado = (contatosNoFunilRaw || []).filter(item => item.contatos?.id);
     const contatoIds = contatosParaEstado.map(c => c.contatos.id);
 
-    // ATENÇÃO: A função RPC 'get_last_messages_for_contacts' PRECISA SER ALTERADA NO BANCO para aceitar p_organizacao_id
     const { data: lastMessagesData } = await supabase.rpc('get_last_messages_for_contacts', { p_contact_ids: contatoIds, p_organizacao_id: organizacaoId });
 
     const lastMessagesMap = (lastMessagesData || []).reduce((map, msg) => { map[msg.contato_id] = { content: msg.content, sent_at: msg.sent_at }; return map; }, {});
@@ -105,6 +126,7 @@ const fetchFunilData = async (supabase, organizacaoId) => {
     
     return { funilId, colunasDoFunil, contatosNoFunil: contatosComMensagens };
 };
+
 
 const fetchAvailableProducts = async (supabase, empreendimentoId, organizacaoId) => {
     if (!organizacaoId) return [];
@@ -124,10 +146,9 @@ const fetchActivityModalData = async (supabase, organizacaoId) => {
     return { funcionarios, empresas };
 };
 
-// --- COMPONENTE PRINCIPAL ---
 export default function CrmPage() {
     const { setPageTitle } = useLayout();
-    const { user, userData } = useAuth(); // Usando useAuth como fonte da verdade para dados do usuário
+    const { user, userData } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
     const { selectedEmpreendimento } = useEmpreendimento();
@@ -265,7 +286,6 @@ export default function CrmPage() {
         clearTimeout(debounceTimeout); 
         if (!term.trim() || term.length < 2) { setSearchResults([]); return; } 
         setDebounceTimeout(setTimeout(async () => { 
-            // ATENÇÃO: A função RPC 'buscar_contatos_geral' PRECISA SER ALTERADA NO BANCO para aceitar p_organizacao_id
             const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term, p_organizacao_id: organizacaoId }); 
             setSearchResults(data || []); 
         }, 300)); 

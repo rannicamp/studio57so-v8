@@ -10,11 +10,34 @@ const getSupabaseAdmin = () => {
     return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
 };
 
-// Função "Detetive": Descobre a organização_id a partir do page_id
+// =================================================================================
+// NOVA FUNÇÃO AUXILIAR
+// O PORQUÊ: Esta função busca o nome de um objeto (anúncio ou campanha) na API da Meta.
+// Isso centraliza a lógica e evita código repetido.
+// =================================================================================
+async function getMetaObjectName(objectId) {
+    if (!objectId) return null;
+    const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
+    if (!PAGE_ACCESS_TOKEN) return null;
+
+    try {
+        const url = `https://graph.facebook.com/v20.0/${objectId}?fields=name&access_token=${PAGE_ACCESS_TOKEN}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (response.ok) {
+            return data.name || null;
+        }
+        console.error(`Falha ao buscar nome para o ID ${objectId}:`, data.error?.message);
+        return null;
+    } catch (error) {
+        console.error(`Erro de rede ao buscar nome para o ID ${objectId}:`, error);
+        return null;
+    }
+}
+
 async function getOrganizationIdByPageId(supabase, pageId) {
     console.log(`LOG: [DETETIVE] Iniciando investigação para a página ID: ${pageId}`);
     
-    // 1. Pergunta à API da Meta quem é o "dono" da página
     const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
     if (!PAGE_ACCESS_TOKEN) {
         throw new Error("Token de Acesso à Página (META_PAGE_ACCESS_TOKEN) não configurado no servidor.");
@@ -36,7 +59,6 @@ async function getOrganizationIdByPageId(supabase, pageId) {
     }
     console.log(`LOG: [DETETIVE] Dono encontrado! Meta Business ID: ${metaBusinessId}`);
 
-    // 2. Resolve o caso consultando nosso banco de dados
     const { data: empresa, error } = await supabase
         .from('cadastro_empresa')
         .select('organizacao_id')
@@ -55,11 +77,9 @@ async function getOrganizationIdByPageId(supabase, pageId) {
 }
 
 
-// Função para garantir que o funil e a primeira coluna existam para uma organização.
 async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
     console.log(`LOG: Verificando funil e coluna para a organização ID: ${organizacaoId}`);
 
-    // 1. Tenta encontrar o funil de vendas padrão para a organização.
     let { data: funil, error: funilFindError } = await supabase
         .from('funis')
         .select('id')
@@ -71,7 +91,6 @@ async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
         throw new Error(`Erro ao buscar funil: ${funilFindError.message}`);
     }
 
-    // 2. Se o funil não existir, cria um novo para a organização.
     if (!funil) {
         console.log(`LOG: Funil de Vendas não encontrado para org ${organizacaoId}. Criando um novo...`);
         const { data: newFunil, error: funilCreateError } = await supabase
@@ -84,7 +103,6 @@ async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
         console.log(`LOG: Funil criado com ID: ${funil.id} para org ${organizacaoId}`);
     }
 
-    // 3. Tenta encontrar a primeira coluna do funil.
     let { data: primeiraColuna, error: colunaFindError } = await supabase
         .from('colunas_funil')
         .select('id')
@@ -97,7 +115,6 @@ async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
         throw new Error(`Erro ao buscar coluna: ${colunaFindError.message}`);
     }
 
-    // 4. Se a coluna não existir, cria uma nova chamada "Novos Leads".
     if (!primeiraColuna) {
         console.log("LOG: Primeira coluna do funil não encontrada. Criando 'Novos Leads'...");
         const { data: newColuna, error: colunaCreateError } = await supabase
@@ -113,8 +130,6 @@ async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
     return primeiraColuna.id;
 }
 
-
-// Rota GET para verificação (sem alterações)
 export async function GET(request) {
     console.log("LOG: Recebida requisição GET para verificação do webhook.");
     const META_VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
@@ -132,7 +147,6 @@ export async function GET(request) {
     }
 }
 
-// Rota POST para receber os leads (lógica principal atualizada)
 export async function POST(request) {
     console.log("LOG: [INÍCIO] Requisição POST recebida no webhook da Meta.");
     
@@ -171,8 +185,11 @@ export async function POST(request) {
         
         let leadDetails;
         let organizacaoId;
+        
+        // Adicionando os IDs da campanha e anúncio para buscar os nomes
+        const adId = leadValue.ad_id;
+        const campaignId = leadValue.campaign_id; // <-- O ID da campanha também vem no payload!
 
-        // Verifica se é um lead de teste para não chamar a API da Meta
         if (leadId.startsWith('TEST_')) {
             console.log("LOG: [TESTE] Lead de simulação detectado. Usando dados fictícios.");
             leadDetails = {
@@ -182,7 +199,6 @@ export async function POST(request) {
                     { name: "phone_number", values: ["+5533999998888"] },
                 ]
             };
-            // Para testes, vamos buscar a primeira organização disponível.
             const { data: firstOrg, error: orgError } = await supabase.from('organizacoes').select('id').limit(1).single();
             if (orgError || !firstOrg) {
                 throw new Error("Não foi possível encontrar uma organização para o lead de teste.");
@@ -196,8 +212,6 @@ export async function POST(request) {
             const apiResult = await leadDetailsResponse.json();
             if (!leadDetailsResponse.ok) throw new Error(apiResult.error?.message || "Falha ao buscar dados do lead no Meta.");
             leadDetails = apiResult;
-
-            // A MÁGICA ACONTECE AQUI: nosso detetive entra em ação
             organizacaoId = await getOrganizationIdByPageId(supabase, pageId);
         }
 
@@ -212,6 +226,16 @@ export async function POST(request) {
         const email = allLeadData.email;
         const telefoneLimpo = allLeadData.phone_number?.replace(/\D/g, '');
 
+        // =================================================================================
+        // ATUALIZAÇÃO PRINCIPAL
+        // O PORQUÊ: Buscamos os nomes do anúncio e da campanha usando a nova função.
+        // Estes nomes serão salvos diretamente no banco de dados.
+        // =================================================================================
+        console.log(`LOG: Buscando nomes para Ad ID: ${adId} e Campaign ID: ${campaignId}`);
+        const adName = await getMetaObjectName(adId);
+        const campaignName = await getMetaObjectName(campaignId);
+        console.log(`LOG: Nomes encontrados -> Anúncio: '${adName}', Campanha: '${campaignName}'`);
+
         console.log(`LOG: Criando novo contato na organização ${organizacaoId}...`);
         const { data: newContact, error: contactError } = await supabase
             .from('contatos')
@@ -220,14 +244,17 @@ export async function POST(request) {
                 origem: 'Meta Lead Ad',
                 tipo_contato: 'Lead',
                 personalidade_juridica: 'Pessoa Física',
-                organizacao_id: organizacaoId, // <<<<<<< IMPORTANTE: Salvando com a organização correta
+                organizacao_id: organizacaoId,
                 meta_lead_id: leadId,
-                meta_ad_id: leadValue.ad_id,
+                meta_ad_id: adId,
+                meta_campaign_id: campaignId, // <-- Salvando o ID da campanha
                 meta_adgroup_id: leadValue.adgroup_id,
-                meta_form_id: leadValue.form_id,
                 meta_page_id: leadValue.page_id,
+                meta_form_id: leadValue.form_id,
                 meta_created_time: new Date(leadValue.created_time * 1000).toISOString(),
-                meta_form_data: allLeadData 
+                meta_form_data: allLeadData,
+                meta_ad_name: adName, // <-- SALVANDO O NOME DO ANÚNCIO
+                meta_campaign_name: campaignName // <-- SALVANDO O NOME DA CAMPANHA
             })
             .select('id')
             .single();
@@ -256,7 +283,6 @@ export async function POST(request) {
         } else {
             console.log('LOG: SUCESSO! Contato adicionado ao funil! Disparando notificação...');
             
-            // Dispara a notificação
             fetch(`${request.nextUrl.origin}/api/notifications/send`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -264,7 +290,7 @@ export async function POST(request) {
                     title: '🎉 Novo Lead Recebido!',
                     message: `Um novo lead (${nomeCompleto}) chegou através da campanha da Meta.`,
                     url: '/crm',
-                    organizacao_id: organizacaoId // Enviando a organização para notificar os usuários certos
+                    organizacao_id: organizacaoId
                 })
             }).catch(err => console.error("Falha ao disparar notificação de novo lead:", err));
         }
@@ -274,8 +300,6 @@ export async function POST(request) {
 
     } catch (e) {
         console.error('LOG: [ERRO GERAL] Ocorreu um erro no processamento do webhook:', e);
-        // Usamos status 200 para que a Meta não desabilite o webhook por falhas.
-        // O erro já está logado no nosso sistema para análise.
         return NextResponse.json({ status: 'error', message: e.message }, { status: 200 }); 
     }
 }

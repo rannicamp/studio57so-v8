@@ -20,59 +20,56 @@ export async function GET(request) {
     }
 
     try {
-        const { searchParams } = new URL(request.url);
-        
-        // =================================================================================
-        // ALTERADO: Lógica de Paginação
-        // O PORQUÊ: A API da Meta usa "cursores" para navegar entre as páginas de resultados.
-        // Agora, nossa API pode receber um cursor para buscar a próxima página de anúncios.
-        // =================================================================================
-        const cursor = searchParams.get('cursor');
+        const { data: empresa, error: empresaError } = await supabase
+            .from('cadastro_empresa')
+            .select('meta_business_id, organizacao_id')
+            .not('meta_business_id', 'is', null)
+            .limit(1)
+            .single();
 
+        if (empresaError || !empresa) {
+            throw new Error("Nenhuma empresa com 'meta_business_id' configurado foi encontrada.");
+        }
+        
+        const metaBusinessId = empresa.meta_business_id;
+        const organizacaoId = empresa.organizacao_id;
+
+        const adAccountsUrl = `https://graph.facebook.com/v20.0/${metaBusinessId}/owned_ad_accounts?access_token=${PAGE_ACCESS_TOKEN}`;
+        const adAccountsResponse = await fetch(adAccountsUrl);
+        const adAccountsData = await adAccountsResponse.json();
+        if (!adAccountsResponse.ok || !adAccountsData.data || adAccountsData.data.length === 0) {
+            throw new Error(adAccountsData.error?.message || "Nenhuma conta de anúncios encontrada.");
+        }
+        const adAccountId = adAccountsData.data[0].id;
+
+        const { searchParams } = new URL(request.url);
+        const cursor = searchParams.get('cursor');
         let adsUrl;
 
         if (cursor) {
-            // Se um cursor for fornecido, usamos o link direto para a próxima página.
-            // A API da Meta já formata essa URL para nós.
-            adsUrl = `https://graph.facebook.com/v20.0/${cursor}`;
+            adsUrl = cursor;
         } else {
-            // Se não houver cursor, é a primeira busca. Montamos a URL como antes.
-            const { data: empresa, error: empresaError } = await supabase.from('cadastro_empresa').select('meta_business_id').not('meta_business_id', 'is', null).limit(1).single();
-            if (empresaError || !empresa) throw new Error("Nenhuma empresa com 'meta_business_id' configurado foi encontrada.");
-            
-            const metaBusinessId = empresa.meta_business_id;
-            const adAccountsUrl = `https://graph.facebook.com/v20.0/${metaBusinessId}/owned_ad_accounts?access_token=${PAGE_ACCESS_TOKEN}`;
-            const adAccountsResponse = await fetch(adAccountsUrl);
-            const adAccountsData = await adAccountsResponse.json();
-            if (!adAccountsResponse.ok || !adAccountsData.data || adAccountsData.data.length === 0) throw new Error(adAccountsData.error?.message || "Nenhuma conta de anúncios encontrada.");
-            
-            const adAccountId = adAccountsData.data[0].id;
-            
-            const statusFilter = searchParams.get('status');
-            const campaignIdsFilter = searchParams.get('campaign_ids');
-            const adsetIdsFilter = searchParams.get('adset_ids');
+            // =================================================================================
+            // MUDANÇA PRINCIPAL: REMOVEMOS TODOS OS FILTROS
+            // O PORQUÊ: Para garantir que estamos buscando absolutamente tudo, removemos
+            // o parâmetro `filtering`. A API agora trará todos os anúncios,
+            // independentemente do status (Ativo, Pausado, Arquivado, etc.).
+            // Aumentamos também o limite para 100 para pegar mais dados de uma vez.
+            // =================================================================================
             const startDate = searchParams.get('startDate');
             const endDate = searchParams.get('endDate');
 
-            let filters = [];
-            if (statusFilter) filters.push({ field: 'effective_status', operator: 'IN', value: statusFilter.split(',') });
-            if (campaignIdsFilter) filters.push({ field: 'campaign.id', operator: 'IN', value: campaignIdsFilter.split(',') });
-            if (adsetIdsFilter) filters.push({ field: 'adset.id', operator: 'IN', value: adsetIdsFilter.split(',') });
-
-            const filteringParam = filters.length > 0 ? `&filtering=${JSON.stringify(filters)}` : '';
-            
-            let insightsRequest = 'insights{spend,impressions,clicks,reach,frequency,cpm,ctr,cpc,actions,cost_per_action_type}';
+            let insightsRequest = 'insights{spend,impressions,clicks,reach,frequency,actions}';
             if (startDate && endDate) {
-                insightsRequest = `insights.time_range({'since':'${startDate}','until':'${endDate}'}){spend,impressions,clicks,reach,frequency,cpm,ctr,cpc,actions,cost_per_action_type}`;
+                insightsRequest = `insights.time_range({'since':'${startDate}','until':'${endDate}'}){spend,impressions,clicks,reach,frequency,actions}`;
             }
 
-            const allFields = `name,effective_status,end_time,created_time,campaign{id,name,objective,buying_type,spend_cap},adset{id,name,start_time,end_time,daily_budget,lifetime_budget,billing_event},creative{title,body,image_url,thumbnail_url,video_id},${insightsRequest}`;
-            
+            const allFields = `name,effective_status,campaign{id,name,objective,status},adset{id,name,status,daily_budget,lifetime_budget},creative{thumbnail_url},${insightsRequest}`;
             const baseUrl = `https://graph.facebook.com/v20.0/${adAccountId}/ads`;
-            // O limit=100 define quantos itens vêm por página. Podemos ajustar se necessário.
-            adsUrl = `${baseUrl}?fields=${allFields.replace(/\s/g, '')}${filteringParam}&limit=100&access_token=${PAGE_ACCESS_TOKEN}`;
+            adsUrl = `${baseUrl}?fields=${allFields.replace(/\s/g, '')}&limit=100&access_token=${PAGE_ACCESS_TOKEN}`;
         }
 
+        console.log("LOG: Buscando na URL da Meta:", adsUrl.replace(PAGE_ACCESS_TOKEN, '******'));
         const adsResponse = await fetch(adsUrl);
         const adsData = await adsResponse.json();
         
@@ -80,44 +77,80 @@ export async function GET(request) {
             throw new Error(adsData.error?.message || "Falha ao buscar dados na API da Meta.");
         }
 
-        const formattedAds = (adsData.data || []).map(ad => {
+        const rawAds = adsData.data || [];
+
+        if (rawAds.length > 0) {
+            console.log(`LOG: Sincronizando ${rawAds.length} anúncios com o banco de dados...`);
+
+            const campaignsToUpsert = [...new Map(rawAds.map(ad => [ad.campaign.id, {
+                id: ad.campaign.id,
+                name: ad.campaign.name,
+                objective: ad.campaign.objective,
+                status: ad.campaign.status,
+                account_id: adAccountId,
+                organizacao_id: organizacaoId,
+            }])).values()];
+
+            const adsetsToUpsert = [...new Map(rawAds.map(ad => [ad.adset.id, {
+                id: ad.adset.id,
+                name: ad.adset.name,
+                campaign_id: ad.campaign.id,
+                status: ad.adset.status,
+                daily_budget: ad.adset.daily_budget ? parseInt(ad.adset.daily_budget, 10) : null,
+                lifetime_budget: ad.adset.lifetime_budget ? parseInt(ad.adset.lifetime_budget, 10) : null,
+                organizacao_id: organizacaoId,
+            }])).values()];
+
+            const adsToUpsert = rawAds.map(ad => ({
+                id: ad.id,
+                name: ad.name,
+                adset_id: ad.adset.id,
+                campaign_id: ad.campaign.id,
+                status: ad.effective_status,
+                thumbnail_url: ad.creative?.thumbnail_url,
+                organizacao_id: organizacaoId,
+            }));
+            
+            console.log(`LOG: Salvando ${campaignsToUpsert.length} campanhas...`);
+            const { error: campaignError } = await supabase.from('meta_campaigns').upsert(campaignsToUpsert);
+            if (campaignError) console.error("Erro ao sincronizar campanhas:", campaignError.message);
+
+            console.log(`LOG: Salvando ${adsetsToUpsert.length} conjuntos de anúncios...`);
+            const { error: adsetError } = await supabase.from('meta_adsets').upsert(adsetsToUpsert);
+            if (adsetError) console.error("Erro ao sincronizar conjuntos de anúncios:", adsetError.message);
+            
+            console.log(`LOG: Salvando ${adsToUpsert.length} anúncios...`);
+            const { error: adError } = await supabase.from('meta_ads').upsert(adsToUpsert);
+            if (adError) console.error("Erro ao sincronizar anúncios:", adError.message);
+
+            console.log("LOG: Sincronização com o banco de dados concluída.");
+        } else {
+             console.log("LOG: Nenhum anúncio encontrado na Meta para os filtros atuais.");
+        }
+
+        const formattedAds = rawAds.map(ad => {
             const insights = ad.insights?.data[0];
-            const actions = insights?.actions || [];
-            const costPerAction = insights?.cost_per_action_type || [];
-            const leadAction = actions.find(a => ['lead', 'onsite_conversion.lead', 'form_lead'].includes(a.action_type));
-            const costPerLeadAction = costPerAction.find(c => ['lead', 'onsite_conversion.lead', 'form_lead'].includes(c.action_type));
+            const leadAction = insights?.actions?.find(a => ['lead', 'onsite_conversion.lead', 'form_lead'].includes(a.action_type));
+            const leads = leadAction ? parseInt(leadAction.value) : 0;
+            const spend = parseFloat(insights?.spend || 0);
+            const costPerLead = leads > 0 ? (spend / leads).toFixed(2) : '0.00';
 
             return {
                 id: ad.id,
                 name: ad.name,
                 status: ad.effective_status,
-                //... (resto dos campos continua igual)
-                created_time: ad.created_time,
-                end_time: ad.end_time || ad.adset?.end_time || null,
-                creative_title: ad.creative?.title,
-                creative_body: ad.creative?.body,
-                thumbnail_url: ad.creative?.thumbnail_url || ad.creative?.image_url,
-                campaign_id: ad.campaign?.id,
+                thumbnail_url: ad.creative?.thumbnail_url,
                 campaign_name: ad.campaign?.name,
-                adset_id: ad.adset?.id,
-                adset_name: ad.adset?.name,
-                spend: insights?.spend || '0.00',
-                impressions: insights?.impressions || 0,
-                clicks: insights?.clicks || 0,
-                reach: insights?.reach || 0,
-                frequency: insights?.frequency || 0,
-                leads: leadAction ? parseInt(leadAction.value) : 0,
-                cost_per_lead: costPerLeadAction ? parseFloat(costPerLeadAction.value) : 0,
+                valor_gasto: spend.toFixed(2),
+                alcance: parseInt(insights?.reach || 0),
+                impressoes: parseInt(insights?.impressions || 0),
+                frequencia: parseFloat(insights?.frequency || 0).toFixed(2),
+                leads: leads,
+                custo_p_lead: costPerLead,
             };
         });
-
-        // =================================================================================
-        // ALTERADO: Nova estrutura da resposta
-        // O PORQUÊ: Agora, além da lista de anúncios, retornamos o "endereço" (cursor)
-        // para a próxima página, se ela existir. A página usará isso para saber se
-        // deve ou não mostrar o botão "Carregar Mais".
-        // =================================================================================
-        const nextPageCursor = adsData.paging?.next ? new URL(adsData.paging.next).searchParams.get('cursor') : null;
+        
+        const nextPageCursor = adsData.paging?.next || null;
 
         return NextResponse.json({
             ads: formattedAds,
@@ -125,7 +158,7 @@ export async function GET(request) {
         });
 
     } catch (error) {
-        console.error("LOG: [API Anúncios] ERRO GERAL:", error.message);
+        console.error("LOG: [API Anúncios] ERRO GERAL:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
