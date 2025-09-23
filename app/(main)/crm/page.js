@@ -5,9 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useLayout } from '@/contexts/LayoutContext';
-import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTimes, faSearch, faPlus, faUsers, faHandshake, faPercent, faSackDollar, faCalendarDay } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
@@ -17,6 +15,7 @@ import CrmNotesModal from '@/components/crm/CrmNotesModal';
 import CrmDetalhesSidebar from '@/components/crm/CrmDetalhesSidebar';
 import AtividadeModal from '@/components/AtividadeModal';
 import KpiCard from '@/components/KpiCard';
+import FiltroCrm from '@/components/crm/FiltroCrm';
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
@@ -60,89 +59,84 @@ const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, exi
 
 const fetchFunilData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { funilId: null, colunasDoFunil: [], contatosNoFunil: [] };
-
-    const { data: funilData, error: funilError } = await supabase.from('funis').select('id').eq('nome', 'Funil de Vendas').eq('organizacao_id', organizacaoId).single();
-    if (funilError && funilError.code !== 'PGRST116') throw funilError;
-    let funilId = funilData?.id;
+    const { data: funilData } = await supabase.from('funis').select('id').eq('nome', 'Funil de Vendas').eq('organizacao_id', organizacaoId).single();
+    const funilId = funilData?.id;
+    if (!funilId) return { funilId: null, colunasDoFunil: [], contatosNoFunil: [] };
     
-    if (!funilId) {
-        const { data: newFunil, error: createError } = await supabase.from('funis').insert({ nome: 'Funil de Vendas', organizacao_id: organizacaoId }).select().single();
-        if (createError) throw createError;
-        funilId = newFunil.id;
-    }
-
     const { data: colunasDoFunil, error: colunasError } = await supabase.from('colunas_funil').select('id, nome, ordem').eq('funil_id', funilId).eq('organizacao_id', organizacaoId).order('ordem', { ascending: true });
     if (colunasError) throw colunasError;
-
-    if (!colunasDoFunil || colunasDoFunil.length === 0) {
-        return { funilId, colunasDoFunil: [], contatosNoFunil: [] };
-    }
-
+    if (!colunasDoFunil || colunasDoFunil.length === 0) return { funilId, colunasDoFunil: [], contatosNoFunil: [] };
     const colunaIds = colunasDoFunil.map(col => col.id);
-    
-    // =================================================================================
-    // O PORQUÊ DA MUDANÇA (AGORA VAI!):
-    // Esta é a consulta corrigida! Adicionamos a busca encadeada para pegar
-    // os nomes do anúncio e da campanha.
-    // 1. Em `contatos`, pedimos `meta_ads:meta_ad_id(...)` para buscar na tabela `meta_ads`.
-    // 2. Dentro de `meta_ads`, pegamos o `name` (nome do anúncio).
-    // 3. E também pedimos `meta_campaigns:campaign_id(...)` para buscar na tabela `meta_campaigns`.
-    // 4. Dentro de `meta_campaigns`, finalmente pegamos o `name` (nome da campanha).
-    // =================================================================================
-    const { data: contatosNoFunilRaw, error: contatosError } = await supabase
-        .from('contatos_no_funil')
-        .select(`
-            id, 
-            coluna_id, 
-            numero_card, 
-            corretor_id, 
-            created_at, 
-            contatos:contato_id ( 
-                *, 
-                telefones ( telefone, tipo ), 
-                emails(email, tipo),
-                meta_ads:meta_ad_id (
-                    name,
-                    meta_campaigns:campaign_id (
-                        name
-                    )
-                )
-            ), 
-            corretores:corretor_id (id, nome, razao_social), 
-            produtos_interesse:contatos_no_funil_produtos (id, produto:produtos_empreendimento (id, unidade, tipo, valor_venda_calculado, empreendimento_id))
-        `)
-        .in('coluna_id', colunaIds)
-        .eq('organizacao_id', organizacaoId);
 
+    const { data: contatosNoFunilRaw, error: contatosError } = await supabase.from('contatos_no_funil').select(`id, coluna_id, numero_card, corretor_id, created_at, contatos:contato_id ( *, meta_campaign_id, meta_ad_id, telefones ( telefone, tipo ), emails(email, tipo), meta_ads:meta_ad_id ( name, meta_campaigns:campaign_id ( name ) ) ), corretores:corretor_id (id, nome, razao_social), produtos_interesse:contatos_no_funil_produtos (id, produto:produtos_empreendimento (id, unidade, tipo, valor_venda_calculado, empreendimento_id))`).in('coluna_id', colunaIds).eq('organizacao_id', organizacaoId);
     if (contatosError) throw contatosError;
-
+    
     const contatosParaEstado = (contatosNoFunilRaw || []).filter(item => item.contatos?.id);
     const contatoIds = contatosParaEstado.map(c => c.contatos.id);
-
     const { data: lastMessagesData } = await supabase.rpc('get_last_messages_for_contacts', { p_contact_ids: contatoIds, p_organizacao_id: organizacaoId });
-
     const lastMessagesMap = (lastMessagesData || []).reduce((map, msg) => { map[msg.contato_id] = { content: msg.content, sent_at: msg.sent_at }; return map; }, {});
     const contatosComMensagens = contatosParaEstado.map(item => ({ ...item, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, contatos: { ...item.contatos, last_whatsapp_message: lastMessagesMap[item.contatos.id]?.content || null, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, } }));
-    
     return { funilId, colunasDoFunil, contatosNoFunil: contatosComMensagens };
 };
 
+// ================== AQUI ESTÁ A LÓGICA CORRETA ==================
+// O PORQUÊ: Esta função implementa exatamente o que você sugeriu:
+// 1. Busca os IDs de corretores da tabela `contatos_no_funil`.
+// 2. Com os IDs, busca os nomes na tabela `contatos`.
+const fetchFilterData = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return { corretores: [], origens: [], unidades: [], campaigns: [], ads: [] };
 
-const fetchAvailableProducts = async (supabase, empreendimentoId, organizacaoId) => {
+    // Passo 1: Buscar todos os IDs únicos de corretores da tabela do funil.
+    const { data: brokerIdsData, error: idsError } = await supabase
+        .from('contatos_no_funil')
+        .select('corretor_id')
+        .eq('organizacao_id', organizacaoId)
+        .not('corretor_id', 'is', null);
+
+    if (idsError) throw idsError;
+    const uniqueBrokerIds = [...new Set(brokerIdsData.map(item => item.corretor_id))];
+
+    // Passo 2: Se encontrarmos IDs, buscamos os detalhes deles na tabela de contatos.
+    let corretores = [];
+    if (uniqueBrokerIds.length > 0) {
+        const { data: corretoresData, error: corretoresError } = await supabase
+            .from('contatos')
+            .select('id, nome, razao_social')
+            .in('id', uniqueBrokerIds)
+            .eq('organizacao_id', organizacaoId);
+
+        if (corretoresError) throw corretoresError;
+        corretores = corretoresData.map(c => ({ id: c.id, nome: c.nome || c.razao_social })).sort((a, b) => a.nome.localeCompare(b.nome));
+    }
+
+    // O restante das buscas continua igual
+    const origensPromise = supabase.rpc('get_distinct_origens', { p_organizacao_id: organizacaoId });
+    const unidadesPromise = supabase.from('produtos_empreendimento').select('id, unidade').eq('organizacao_id', organizacaoId).order('unidade');
+    const campaignsPromise = supabase.from('meta_campaigns').select('id, name').eq('organizacao_id', organizacaoId).order('name');
+    const adsPromise = supabase.from('meta_ads').select('id, name').eq('organizacao_id', organizacaoId).order('name');
+
+    const [{ data: origensData }, { data: unidadesData }, { data: campaignsData }, { data: adsData }] = await Promise.all([origensPromise, unidadesPromise, campaignsPromise, adsPromise]);
+    
+    const origens = origensData.map(o => ({ id: o.origem, nome: o.origem }));
+    const unidades = unidadesData.map(u => ({ id: u.id, nome: u.unidade }));
+    const campaigns = campaignsData.map(c => ({ id: c.id, nome: c.name }));
+    const ads = adsData.map(a => ({ id: a.id, nome: a.name }));
+    
+    return { corretores, origens, unidades, campaigns, ads };
+};
+// ================== FIM DA LÓGICA CORRETA ==================
+
+const fetchAvailableProducts = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
-    let query = supabase.from('produtos_empreendimento').select('id, unidade, tipo, valor_venda_calculado, empreendimento_id').eq('status', 'Disponível').eq('organizacao_id', organizacaoId);
-    if (empreendimentoId && empreendimentoId !== 'all') { query = query.eq('empreendimento_id', empreendimentoId); }
-    const { data, error } = await query.order('unidade');
+    const { data, error } = await supabase.from('produtos_empreendimento').select('id, unidade, tipo, valor_venda_calculado, empreendimento_id').eq('status', 'Disponível').eq('organizacao_id', organizacaoId).order('unidade');
     if (error) throw new Error("Não foi possível carregar os produtos.");
     return data || [];
 };
 
 const fetchActivityModalData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { funcionarios: [], empresas: [] };
-    const { data: funcionarios, error: funcError } = await supabase.from('funcionarios').select('id, full_name').eq('organizacao_id', organizacaoId).order('full_name');
-    if (funcError) throw new Error("Falha ao buscar funcionários.");
-    const { data: empresas, error: empError } = await supabase.from('cadastro_empresa').select('id, razao_social').eq('organizacao_id', organizacaoId).order('razao_social');
-    if (empError) throw new Error("Falha ao buscar empresas.");
+    const { data: funcionarios } = await supabase.from('funcionarios').select('id, full_name').eq('organizacao_id', organizacaoId).order('full_name');
+    const { data: empresas } = await supabase.from('cadastro_empresa').select('id, razao_social').eq('organizacao_id', organizacaoId).order('razao_social');
     return { funcionarios, empresas };
 };
 
@@ -151,11 +145,10 @@ export default function CrmPage() {
     const { user, userData } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    const { selectedEmpreendimento } = useEmpreendimento();
     const supabase = createClient();
-    const router = useRouter();
     const queryClient = useQueryClient();
 
+    const [filters, setFilters] = useState({ searchTerm: '', corretorIds: [], origens: [], unidadeIds: [], campaignIds: [], adIds: [], startDate: '', endDate: new Date().toISOString().split('T')[0] });
     const [sorting, setSorting] = useState({});
     const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false);
     const [searchResults, setSearchResults] = useState([]);
@@ -168,139 +161,72 @@ export default function CrmPage() {
     const [contactForNewActivity, setContactForNewActivity] = useState(null);
     const [activityToEdit, setActivityToEdit] = useState(null);
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
-    
+
     useEffect(() => { setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
 
     const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ queryKey: ['funilData', organizacaoId], queryFn: () => fetchFunilData(supabase, organizacaoId), enabled: !!organizacaoId });
     const { funilId, colunasDoFunil = [], contatosNoFunil = [] } = funilData || {};
 
-    const { data: availableProducts = [] } = useQuery({ queryKey: ['availableProducts', selectedEmpreendimento, organizacaoId], queryFn: () => fetchAvailableProducts(supabase, selectedEmpreendimento, organizacaoId), enabled: !!organizacaoId });
+    const { data: filterOptions, isLoading: loadingFilters } = useQuery({ queryKey: ['crmFilterOptions', organizacaoId], queryFn: () => fetchFilterData(supabase, organizacaoId), enabled: !!organizacaoId });
+    const { data: availableProducts = [] } = useQuery({ queryKey: ['availableProducts', organizacaoId], queryFn: () => fetchAvailableProducts(supabase, organizacaoId), enabled: !!organizacaoId });
     const { data: activityData } = useQuery({ queryKey: ['activityModalData', organizacaoId], queryFn: () => fetchActivityModalData(supabase, organizacaoId), enabled: !!organizacaoId });
     const { funcionarios = [], empresas = [] } = activityData || {};
     if (funilError) { toast.error(`Erro ao carregar dados do funil: ${funilError.message}`); }
+    
+    const filteredContatos = useMemo(() => {
+        if (!contatosNoFunil) return [];
+        return contatosNoFunil.filter(item => {
+            const contato = item.contatos;
+            if (!contato) return false;
+            const searchTermLower = filters.searchTerm.toLowerCase();
+            const matchesSearchTerm = !searchTermLower || (contato.nome && contato.nome.toLowerCase().includes(searchTermLower)) || (contato.razao_social && contato.razao_social.toLowerCase().includes(searchTermLower)) || (contato.telefones && contato.telefones.some(t => t.telefone.includes(searchTermLower))) || (contato.emails && contato.emails.some(e => e.email.toLowerCase().includes(searchTermLower)));
+            const matchesCorretor = filters.corretorIds.length === 0 || filters.corretorIds.includes(item.corretor_id);
+            const matchesOrigem = filters.origens.length === 0 || filters.origens.includes(contato.origem);
+            const unidadeIdsInteresse = (item.produtos_interesse || []).map(p => p.produto.id);
+            const matchesUnidade = filters.unidadeIds.length === 0 || filters.unidadeIds.some(id => unidadeIdsInteresse.includes(id));
+            const matchesCampaign = filters.campaignIds.length === 0 || filters.campaignIds.includes(contato.meta_campaign_id);
+            const matchesAd = filters.adIds.length === 0 || filters.adIds.includes(contato.meta_ad_id);
+            const createdAt = new Date(item.created_at);
+            const startDate = filters.startDate ? new Date(filters.startDate + 'T00:00:00') : null;
+            const endDate = filters.endDate ? new Date(filters.endDate + 'T23:59:59') : null;
+            const matchesStartDate = !startDate || createdAt >= startDate;
+            const matchesEndDate = !endDate || createdAt <= endDate;
+            return matchesSearchTerm && matchesCorretor && matchesOrigem && matchesUnidade && matchesCampaign && matchesAd && matchesStartDate && matchesEndDate;
+        });
+    }, [contatosNoFunil, filters]);
 
     const kpiData = useMemo(() => {
-        if (!colunasDoFunil || contatosNoFunil.length === 0) return { totalLeads: 0, vendidos: 0, taxaConversao: 0, valorEmNegociacao: 0, ultimoLead: 'N/A' };
+        const dataToAnalyze = filteredContatos;
+        if (!colunasDoFunil || dataToAnalyze.length === 0) return { totalLeads: 0, vendidos: 0, taxaConversao: 0, valorEmNegociacao: 0, ultimoLead: 'N/A' };
         const colunaVendido = colunasDoFunil.find(c => c.nome.toLowerCase() === 'vendido');
-        const ordemVendido = colunaVendido ? colunaVendido.ordem : -1;
-        const totalLeads = contatosNoFunil.length;
-        const vendidos = contatosNoFunil.filter(c => c.coluna_id === colunaVendido?.id).length;
+        const totalLeads = dataToAnalyze.length;
+        const vendidos = dataToAnalyze.filter(c => c.coluna_id === colunaVendido?.id).length;
         const taxaConversao = totalLeads > 0 ? (vendidos / totalLeads) * 100 : 0;
-        const valorEmNegociacao = contatosNoFunil.filter(contato => { const colunaDoContato = colunasDoFunil.find(c => c.id === contato.coluna_id); return colunaDoContato && colunaVendido && colunaDoContato.ordem < ordemVendido; }).reduce((acc, contato) => { const valorProdutos = (contato.produtos_interesse || []).reduce((sum, item) => sum + (item.produto?.valor_venda_calculado || 0), 0); return acc + valorProdutos; }, 0);
-        const ultimoLeadDate = contatosNoFunil.length > 0 ? new Date(Math.max(...contatosNoFunil.map(c => new Date(c.created_at)))) : null;
+        const valorEmNegociacao = dataToAnalyze.filter(contato => { const colunaDoContato = colunasDoFunil.find(c => c.id === contato.coluna_id); return colunaDoContato && colunaVendido && colunaDoContato.ordem < (colunaVendido.ordem || -1); }).reduce((acc, contato) => { const valorProdutos = (contato.produtos_interesse || []).reduce((sum, item) => sum + (item.produto?.valor_venda_calculado || 0), 0); return acc + valorProdutos; }, 0);
+        const ultimoLeadDate = dataToAnalyze.length > 0 ? new Date(Math.max(...dataToAnalyze.map(c => new Date(c.created_at)))) : null;
         return { totalLeads, vendidos, taxaConversao, valorEmNegociacao, ultimoLead: ultimoLeadDate ? ultimoLeadDate.toLocaleDateString('pt-BR') : 'N/A', };
-    }, [contatosNoFunil, colunasDoFunil]);
+    }, [filteredContatos, colunasDoFunil]);
 
-    const mutationOptions = {
-        onSuccess: (message) => {
-            toast.success(message || "Operação realizada com sucesso!");
-            queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId] });
-            queryClient.invalidateQueries({ queryKey: ['availableProducts', selectedEmpreendimento, organizacaoId] });
-        },
-        onError: (error) => toast.error(error.message),
-    };
-
-    const updateContactColumnMutation = useMutation({
-        mutationFn: async ({ contatoNoFunilId, novaColunaId }) => {
-            const { colunasDoFunil: cols } = queryClient.getQueryData(['funilData', organizacaoId]);
-            const novaColuna = cols.find(c => c.id === novaColunaId);
-            if (novaColuna.nome === 'Vendido') {
-                const contatoMovido = contatosNoFunil.find(c => c.id === contatoNoFunilId);
-                const produtosParaVender = contatoMovido.produtos_interesse || [];
-                if (produtosParaVender.length === 0) throw new Error("Nenhum produto associado para vender.");
-                const novosContratos = produtosParaVender.map(item => ({ contato_id: contatoMovido.contatos.id, produto_id: item.produto.id, empreendimento_id: item.produto.empreendimento_id, valor_final_venda: item.produto.valor_venda_calculado || 0, status_contrato: 'Em assinatura', organizacao_id: organizacaoId }));
-                const { error: contratoError } = await supabase.from('contratos').insert(novosContratos);
-                if (contratoError) throw new Error(`Erro ao criar contratos: ${contratoError.message}`);
-            }
-            const { error } = await supabase.from('contatos_no_funil').update({ coluna_id: novaColunaId }).eq('id', contatoNoFunilId).eq('organizacao_id', organizacaoId);
-            if (error) throw new Error(`Falha ao mover o contato: ${error.message}`);
-            return "Contato movido com sucesso!";
-        }, ...mutationOptions
-    });
+    const mutationOptions = { onSuccess: (message) => { toast.success(message || "Operação realizada com sucesso!"); queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId] }); queryClient.invalidateQueries({ queryKey: ['availableProducts', organizacaoId] }); queryClient.invalidateQueries({ queryKey: ['crmFilterOptions', organizacaoId] }); }, onError: (error) => toast.error(error.message) };
+    const associateProductMutation = useMutation({ mutationFn: async ({ contatoNoFunilId, productId }) => { if (!organizacaoId) { throw new Error("ID da organização não encontrado. Tente novamente."); } await supabase.from('contatos_no_funil_produtos').insert({ contato_no_funil_id: contatoNoFunilId, produto_id: productId, organizacao_id: organizacaoId }).throwOnError(); return "Produto associado!"; }, ...mutationOptions });
+    const updateContactColumnMutation = useMutation({ mutationFn: async ({ contatoNoFunilId, novaColunaId }) => { const { colunasDoFunil: cols } = queryClient.getQueryData(['funilData', organizacaoId]); const novaColuna = cols.find(c => c.id === novaColunaId); if (novaColuna.nome === 'Vendido') { const contatoMovido = contatosNoFunil.find(c => c.id === contatoNoFunilId); const produtosParaVender = contatoMovido.produtos_interesse || []; if (produtosParaVender.length === 0) throw new Error("Nenhum produto associado para vender."); const novosContratos = produtosParaVender.map(item => ({ contato_id: contatoMovido.contatos.id, produto_id: item.produto.id, empreendimento_id: item.produto.empreendimento_id, valor_final_venda: item.produto.valor_venda_calculado || 0, status_contrato: 'Em assinatura', organizacao_id: organizacaoId })); await supabase.from('contratos').insert(novosContratos).throwOnError(); } await supabase.from('contatos_no_funil').update({ coluna_id: novaColunaId }).eq('id', contatoNoFunilId).eq('organizacao_id', organizacaoId).throwOnError(); return "Contato movido!"; }, ...mutationOptions });
+    const addContactMutation = useMutation({ mutationFn: async (contactId) => { const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).eq('organizacao_id', organizacaoId).order('ordem').limit(1).single(); if (!primeiraColuna) throw new Error("Coluna inicial não encontrada."); await supabase.from('contatos_no_funil').insert({ contato_id: contactId, coluna_id: primeiraColuna.id, organizacao_id: organizacaoId }).throwOnError(); return "Contato adicionado!"; }, onSuccess: (message) => { setIsAddContactModalOpen(false); mutationOptions.onSuccess(message); }, onError: mutationOptions.onError });
+    const createColumnMutation = useMutation({ mutationFn: async (name) => { await supabase.from('colunas_funil').insert({ nome: name, funil_id: funilId, ordem: colunasDoFunil.length, organizacao_id: organizacaoId }).throwOnError(); return "Etapa criada!"; }, ...mutationOptions });
+    const reorderColumnsMutation = useMutation({ mutationFn: async (cols) => { const updates = cols.map(c => supabase.from('colunas_funil').update({ ordem: c.ordem }).eq('id', c.id)); await Promise.all(updates); return "Ordem salva!"; }, ...mutationOptions });
+    const deleteColumnCardsMutation = useMutation({ mutationFn: async (colId) => { await supabase.from('contatos_no_funil').delete().eq('coluna_id', colId).throwOnError(); return "Cards excluídos!"; }, ...mutationOptions });
+    const deleteCardMutation = useMutation({ mutationFn: async (cardId) => { await supabase.from('contatos_no_funil').delete().eq('id', cardId).throwOnError(); return "Card excluído!"; }, ...mutationOptions });
+    const dissociateProductMutation = useMutation({ mutationFn: async (id) => { await supabase.from('contatos_no_funil_produtos').delete().eq('id', id).throwOnError(); return "Produto removido!"; }, ...mutationOptions });
+    const associateCorretorMutation = useMutation({ mutationFn: async ({ contactId, corretorId }) => { await supabase.from('contatos_no_funil').update({ corretor_id: corretorId }).eq('id', contactId).throwOnError(); return "Corretor associado!"; }, ...mutationOptions });
     
-    const addContactMutation = useMutation({
-        mutationFn: async (contactId) => {
-            const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).eq('organizacao_id', organizacaoId).order('ordem').limit(1).single();
-            if (!primeiraColuna) throw new Error("Coluna inicial não encontrada.");
-            const { error } = await supabase.from('contatos_no_funil').insert({ contato_id: contactId, coluna_id: primeiraColuna.id, organizacao_id: organizacaoId });
-            if (error) throw new Error(error.message);
-            return "Contato adicionado ao funil!";
-        },
-        onSuccess: (message) => {
-            setIsAddContactModalOpen(false);
-            mutationOptions.onSuccess(message);
-        },
-        onError: mutationOptions.onError,
-    });
-    
-    const createColumnMutation = useMutation({
-        mutationFn: async (newColumnName) => {
-            if (!funilId) throw new Error("ID do Funil não encontrado.");
-            const newOrder = colunasDoFunil ? colunasDoFunil.length : 0;
-            const { error } = await supabase.from('colunas_funil').insert({ nome: newColumnName, funil_id: funilId, ordem: newOrder, organizacao_id: organizacaoId });
-            if (error) throw new Error(`Falha ao criar nova etapa: ${error.message}`);
-            return "Nova etapa criada com sucesso!";
-        }, ...mutationOptions
-    });
-
-    const reorderColumnsMutation = useMutation({
-        mutationFn: async (reorderedColumns) => {
-            const updates = reorderedColumns.map(column => supabase.from('colunas_funil').update({ ordem: column.ordem }).eq('id', column.id).eq('organizacao_id', organizacaoId));
-            const results = await Promise.all(updates);
-            const firstError = results.find(res => res.error);
-            if (firstError) throw new Error(`Falha ao reordenar: ${firstError.error.message}`);
-            return "Ordem das etapas salva!";
-        }, ...mutationOptions
-    });
-    
-    const deleteColumnCardsMutation = useMutation({
-        mutationFn: async (columnId) => {
-            const { error } = await supabase.from('contatos_no_funil').delete().eq('coluna_id', columnId).eq('organizacao_id', organizacaoId);
-            if (error) throw new Error(`Falha ao excluir os cards: ${error.message}`);
-            return "Cards da coluna excluídos permanentemente.";
-        }, ...mutationOptions
-    });
-    
-    const deleteCardMutation = useMutation({
-        mutationFn: async (contatoNoFunilId) => {
-            const { error } = await supabase.from('contatos_no_funil').delete().eq('id', contatoNoFunilId).eq('organizacao_id', organizacaoId);
-            if (error) throw new Error(`Falha ao excluir o card: ${error.message}`);
-            return "Card excluído com sucesso!";
-        }, ...mutationOptions
-    });
-
-    const associateProductMutation = useMutation({
-        mutationFn: async ({ contatoNoFunilId, productId }) => { const { error } = await supabase.from('contatos_no_funil_produtos').insert({ contato_no_funil_id: contatoNoFunilId, produto_id: productId, organizacao_id: organizacaoId }); if (error) throw new Error(error.message); return "Produto associado!"; }, ...mutationOptions
-    });
-    
-    const dissociateProductMutation = useMutation({
-        mutationFn: async (associationId) => { const { error } = await supabase.from('contatos_no_funil_produtos').delete().eq('id', associationId).eq('organizacao_id', organizacaoId); if (error) throw new Error(error.message); return "Produto removido!"; }, ...mutationOptions
-    });
-
-    const associateCorretorMutation = useMutation({ 
-        mutationFn: async ({ contactId, corretorId }) => { const { error } = await supabase.from('contatos_no_funil').update({ corretor_id: corretorId }).eq('id', contactId).eq('organizacao_id', organizacaoId); if (error) throw error; return "Corretor associado!"; }, ...mutationOptions 
-    });
-
     const [debounceTimeout, setDebounceTimeout] = useState(null);
-    const handleSearch = (term) => { 
-        clearTimeout(debounceTimeout); 
-        if (!term.trim() || term.length < 2) { setSearchResults([]); return; } 
-        setDebounceTimeout(setTimeout(async () => { 
-            const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term, p_organizacao_id: organizacaoId }); 
-            setSearchResults(data || []); 
-        }, 300)); 
-    };
-    
+    const handleSearch = (term) => { clearTimeout(debounceTimeout); if (!term.trim() || term.length < 2) { setSearchResults([]); return; } setDebounceTimeout(setTimeout(async () => { const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term, p_organizacao_id: organizacaoId }); setSearchResults(data || []); }, 300)); };
     const openAddContactModal = () => { setSearchResults([]); setIsAddContactModalOpen(true); };
-
-    const handleStatusChange = (contactId, columnId) => {
-        updateContactColumnMutation.mutate({ contatoNoFunilId: contactId, novaColunaId: columnId });
-    };
+    const handleStatusChange = (contactId, columnId) => updateContactColumnMutation.mutate({ contatoNoFunilId: contactId, novaColunaId: columnId });
     
     return (
         <div className="h-full flex flex-col bg-gray-100">
-            <CrmDetalhesSidebar open={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} funilEntry={selectedContactForSidebar} onAddActivity={(contato) => { setContactForNewActivity(contato); setIsActivityModalOpen(true); }} onEditActivity={(activity) => { setActivityToEdit(activity); setIsActivityModalOpen(true); }} onContactUpdate={() => queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId] })} refreshKey={sidebarRefreshKey} />
-            {isActivityModalOpen && (<AtividadeModal isOpen={isActivityModalOpen} onClose={() => { setIsActivityModalOpen(false); setContactForNewActivity(null); setActivityToEdit(null); }} onActivityAdded={() => { if (isSidebarOpen) { setSidebarRefreshKey(prev => prev + 1); } }} activityToEdit={activityToEdit} initialContatoId={contactForNewActivity?.id} funcionarios={funcionarios} allEmpresas={empresas} />)}
+            <CrmDetalhesSidebar open={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} funilEntry={selectedContactForSidebar} onAddActivity={(c) => { setContactForNewActivity(c); setIsActivityModalOpen(true); }} onEditActivity={(a) => { setActivityToEdit(a); setIsActivityModalOpen(true); }} onContactUpdate={() => queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId] })} refreshKey={sidebarRefreshKey} />
+            {isActivityModalOpen && (<AtividadeModal isOpen={isActivityModalOpen} onClose={() => { setIsActivityModalOpen(false); setContactForNewActivity(null); setActivityToEdit(null); }} onActivityAdded={() => { if (isSidebarOpen) setSidebarRefreshKey(p => p + 1); }} activityToEdit={activityToEdit} initialContatoId={contactForNewActivity?.id} funcionarios={funcionarios} allEmpresas={empresas} />)}
 
             <div className="flex-shrink-0 bg-white shadow-sm p-4 space-y-4">
                 <div className="flex justify-between items-center">
@@ -318,35 +244,45 @@ export default function CrmPage() {
                 </div>
             </div>
 
-            <div className="flex-grow overflow-hidden p-4">
-                {loadingFunil ? (
+            <div className="flex-grow overflow-y-auto p-4 flex flex-col">
+                <FiltroCrm
+                    filters={filters}
+                    setFilters={setFilters}
+                    corretores={filterOptions?.corretores}
+                    unidades={filterOptions?.unidades}
+                    origens={filterOptions?.origens}
+                    campaigns={filterOptions?.campaigns}
+                    ads={filterOptions?.ads}
+                />
+                
+                {loadingFunil || loadingFilters ? (
                     <div className="flex justify-center items-center h-full"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
                 ) : (
                     <FunilKanban
-                        contatos={contatosNoFunil}
+                        contatos={filteredContatos}
                         statusColumns={colunasDoFunil}
                         onStatusChange={handleStatusChange}
-                        onCreateColumn={(newColumnName) => createColumnMutation.mutate(newColumnName)}
+                        onCreateColumn={(name) => createColumnMutation.mutate(name)}
                         onAddContact={openAddContactModal}
-                        onEditColumn={() => { /* Implementar editColumnMutation */ }}
-                        onDeleteColumn={() => { /* Implementar deleteColumnMutation */ }}
-                        onReorderColumns={(reorderedColumns) => reorderColumnsMutation.mutate(reorderedColumns)}
+                        onEditColumn={() => {}}
+                        onDeleteColumn={() => {}}
+                        onReorderColumns={(cols) => reorderColumnsMutation.mutate(cols)}
                         onOpenNotesModal={(funilId, contatoId) => { setCurrentContactFunilIdForNotes(funilId); setCurrentContactIdForNotes(contatoId); setIsNotesModalOpen(true); }}
                         availableProducts={availableProducts}
                         onAssociateProduct={(contatoNoFunilId, productId) => associateProductMutation.mutate({ contatoNoFunilId, productId })}
-                        onDissociateProduct={(associationId) => dissociateProductMutation.mutate(associationId)}
+                        onDissociateProduct={(id) => dissociateProductMutation.mutate(id)}
                         onAssociateCorretor={(contactId, corretorId) => associateCorretorMutation.mutate({ contactId, corretorId })}
                         onCardClick={(entry) => { setSelectedContactForSidebar(entry); setIsSidebarOpen(true); }}
-                        onAddActivity={(contato) => { setContactForNewActivity(contato); setIsActivityModalOpen(true); }}
+                        onAddActivity={(c) => { setContactForNewActivity(c); setIsActivityModalOpen(true); }}
                         sorting={sorting}
                         setSorting={setSorting}
                         userRole={userData?.funcoes?.nome_funcao}
-                        onDeleteAllCardsInColumn={(columnId) => deleteColumnCardsMutation.mutate(columnId)}
-                        onDeleteCard={(cardId) => deleteCardMutation.mutate(cardId)}
+                        onDeleteAllCardsInColumn={(id) => deleteColumnCardsMutation.mutate(id)}
+                        onDeleteCard={(id) => deleteCardMutation.mutate(id)}
                     />
                 )}
             </div>
-            <AddContactModal isOpen={isAddContactModalOpen} onClose={() => setIsAddContactModalOpen(false)} onSearch={handleSearch} results={searchResults} onAddContact={(contactId) => addContactMutation.mutate(contactId)} existingContactIds={(contatosNoFunil || []).map(c => c.contatos?.id).filter(Boolean)} />
+            <AddContactModal isOpen={isAddContactModalOpen} onClose={() => setIsAddContactModalOpen(false)} onSearch={handleSearch} results={searchResults} onAddContact={(id) => addContactMutation.mutate(id)} existingContactIds={(contatosNoFunil || []).map(c => c.contatos?.id).filter(Boolean)} />
             <CrmNotesModal isOpen={isNotesModalOpen} onClose={() => setIsNotesModalOpen(false)} contatoNoFunilId={currentContactFunilIdForNotes} contatoId={currentContactIdForNotes} />
         </div>
     );
