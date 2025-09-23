@@ -1,4 +1,3 @@
-//components/PermissionManager.js
 "use client";
 
 import { useState, Fragment, useEffect, useRef } from 'react';
@@ -26,13 +25,21 @@ export default function PermissionManager({ initialFuncoes }) {
     };
   }, [isDragging]);
 
+  // =================================================================================
+  // INÍCIO DA ATUALIZAÇÃO
+  // O PORQUÊ: A lista de recursos foi atualizada para incluir as novas páginas
+  // (Recursos Humanos, Tabela de Vendas, Almoxarifado) e para corrigir
+  // inconsistências de nomenclatura (painel, caixa_de_entrada).
+  // =================================================================================
   const resourceGroups = [
     {
       title: 'Administrativo',
       resources: [
-        { key: 'dashboard', name: 'Dashboard' },
+        { key: 'painel', name: 'Painel (Dashboard)' },
         { key: 'financeiro', name: 'Financeiro' },
+        { key: 'recursos_humanos', name: 'Menu Recursos Humanos' },
         { key: 'funcionarios', name: 'Funcionários' },
+        { key: 'funcionarios_salario_debug', name: 'Diagnóstico Salarial' },
         { key: 'ponto', name: 'Controle de Ponto' },
         { key: 'empresas', name: 'Empresas' },
         { key: 'empreendimentos', name: 'Empreendimentos' },
@@ -42,9 +49,10 @@ export default function PermissionManager({ initialFuncoes }) {
     {
       title: 'Comercial',
       resources: [
-        { key: 'caixa-de-entrada', name: 'Caixa de Entrada' },
+        { key: 'caixa_de_entrada', name: 'Caixa de Entrada' },
         { key: 'crm', name: 'CRM' },
         { key: 'funil', name: 'Funil de Vendas' },
+        { key: 'tabela_vendas', name: 'Tabela de Vendas' },
         { key: 'anuncios', name: 'Anúncios' },
         { key: 'contatos', name: 'Contatos' },
         { key: 'simulador', name: 'Simulador' },
@@ -55,6 +63,7 @@ export default function PermissionManager({ initialFuncoes }) {
       resources: [
         { key: 'orcamento', name: 'Orçamentação' },
         { key: 'pedidos', name: 'Pedidos de Compra' },
+        { key: 'almoxarifado', name: 'Almoxarifado' },
         { key: 'rdo', name: 'Diário de Obra (RDO)' },
         { key: 'atividades', name: 'Atividades' },
       ]
@@ -82,6 +91,9 @@ export default function PermissionManager({ initialFuncoes }) {
       ]
     }
   ];
+  // =================================================================================
+  // FIM DA ATUALIZAÇÃO
+  // =================================================================================
 
   const updateLocalPermission = (funcaoId, recursoKey, tipoPermissao, valor) => {
     setFuncoes(currentFuncoes =>
@@ -123,7 +135,7 @@ export default function PermissionManager({ initialFuncoes }) {
   const handleMouseEnter = (funcaoId, recursoKey, tipoPermissao) => {
     const funcao = funcoes.find(f => f.id === funcaoId);
     if (funcao?.nome_funcao === 'Proprietário') return;
-      
+    
     if (isDragging) {
       updateLocalPermission(funcaoId, recursoKey, tipoPermissao, dragTargetState);
     }
