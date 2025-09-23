@@ -102,13 +102,14 @@ export default function CronogramaFinanceiro({ contrato, desconto, onUpdate }) {
     const saldoRemanescente = valorTotalContrato - totalParcelas - totalPermutas;
 
     const hasPendingParcelsToProvision = useMemo(() => localParcelas.some(p => !p.lancamento_id && p.status_pagamento === 'Pendente'), [localParcelas]);
-
+    
     // =================================================================================
     // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: A lógica do toast foi atualizada para interpretar a resposta do banco.
-    // Agora, se a resposta começar com "Erro:", ela será mostrada como um erro.
-    // Se for "Nenhuma...", será mostrada como um aviso (info).
-    // Caso contrário, será a mensagem de sucesso que o banco enviou.
+    // O PORQUÊ: A resposta do Supabase RPC (rpcResult) é um objeto que contém `data` e `error`.
+    // O erro `e.startsWith is not a function` ocorria porque tentávamos usar `startsWith`
+    // no objeto `rpcResult` inteiro, em vez de na mensagem de texto dentro de `rpcResult.data`.
+    // Esta nova versão extrai a mensagem de `rpcResult.data` e verifica se ela é um texto
+    // antes de continuar, tornando o código à prova de falhas.
     // =================================================================================
     const handleProvisionarLancamentos = async () => {
         setIsProvisioning(true);
@@ -119,20 +120,32 @@ export default function CronogramaFinanceiro({ contrato, desconto, onUpdate }) {
 
         toast.promise(promise, {
             loading: 'Provisionando lançamentos...',
-            success: (response) => {
-                onUpdate(); // Atualiza a lista de qualquer forma
-                if (response.startsWith('Erro:')) {
-                    // Lança um erro para o toast.error ser acionado
-                    throw new Error(response);
+            success: (rpcResult) => {
+                onUpdate();
+
+                if (rpcResult.error) {
+                    throw new Error(rpcResult.error.message);
                 }
-                if (response.startsWith('Nenhuma')) {
-                    toast.info(response);
-                    return "Operação concluída."; // Mensagem genérica para o toast de sucesso
+
+                const responseMessage = rpcResult.data;
+
+                if (typeof responseMessage !== 'string') {
+                    console.error("Resposta inesperada do servidor:", responseMessage);
+                    throw new Error("Ocorreu um erro inesperado na sincronização.");
                 }
-                return response; // Mostra a mensagem de sucesso real
+
+                if (responseMessage.startsWith('Erro:')) {
+                    throw new Error(responseMessage);
+                }
+
+                if (responseMessage.startsWith('Nenhuma')) {
+                    toast.info(responseMessage);
+                    return "Operação finalizada.";
+                }
+
+                return responseMessage;
             },
             error: (err) => {
-                // Remove o "Error: " do início se ele existir para não duplicar
                 const errorMessage = err.message.replace(/^Error:\s*/, '');
                 return `Falha na sincronização: ${errorMessage}`;
             },
