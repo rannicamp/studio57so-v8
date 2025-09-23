@@ -2,38 +2,27 @@
 
 "use client";
 
-import { useState, useMemo } from 'react'; // ALTERADO: Adicionado useMemo
-import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
+// ALTERADO: Trocamos useQuery por useInfiniteQuery, a ferramenta certa para paginação.
+import { useInfiniteQuery } from '@tanstack/react-query'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 
 import FiltroAnuncios from '@/components/comercial/FiltroAnuncios';
 import TabelaAnuncios from '@/components/comercial/TabelaAnuncios';
 
-// =================================================================================
-// O PORQUÊ da alteração aqui:
-// A função que busca os anúncios agora precisa enviar os novos filtros (campaignIds e adsetIds)
-// para a nossa API. Nós pegamos os arrays de IDs e os transformamos em uma string
-// separada por vírgulas, que é um formato fácil para a URL.
-// =================================================================================
-const fetchMetaAds = async (filters) => {
+// ALTERADO: A função agora aceita um 'pageParam' (nosso cursor) para buscar páginas específicas.
+const fetchMetaAds = async (filters, pageParam = '') => {
     const params = new URLSearchParams();
-    if (filters.status && filters.status.length > 0) {
-        params.append('status', filters.status.join(','));
-    }
-    if (filters.startDate) {
-        params.append('startDate', filters.startDate);
-    }
-    if (filters.endDate) {
-        params.append('endDate', filters.endDate);
-    }
-    // NOVO: Adiciona os IDs das campanhas à requisição
-    if (filters.campaignIds && filters.campaignIds.length > 0) {
-        params.append('campaign_ids', filters.campaignIds.join(','));
-    }
-    // NOVO: Adiciona os IDs dos conjuntos de anúncios à requisição
-    if (filters.adsetIds && filters.adsetIds.length > 0) {
-        params.append('adset_ids', filters.adsetIds.join(','));
+    if (filters.status && filters.status.length > 0) params.append('status', filters.status.join(','));
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.campaignIds && filters.campaignIds.length > 0) params.append('campaign_ids', filters.campaignIds.join(','));
+    if (filters.adsetIds && filters.adsetIds.length > 0) params.append('adset_ids', filters.adsetIds.join(','));
+    
+    // Adiciona o cursor para buscar a próxima página
+    if (pageParam) {
+        params.append('cursor', pageParam);
     }
 
     const response = await fetch(`/api/meta/anuncios?${params.toString()}`);
@@ -41,7 +30,7 @@ const fetchMetaAds = async (filters) => {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Não foi possível buscar os anúncios.');
     }
-    return response.json();
+    return response.json(); // A API agora retorna { ads: [], nextPageCursor: '...' }
 };
 
 const initialFilterState = {
@@ -49,35 +38,44 @@ const initialFilterState = {
     status: [],
     startDate: '',
     endDate: '',
-    campaignIds: [], // Filtro de campanha
-    adsetIds: [],    // Filtro de conjunto de anúncios
+    campaignIds: [],
+    adsetIds: [],
 };
 
 export default function AnunciosPage() {
     const [filters, setFilters] = useState(initialFilterState);
 
-    const { data: adsData, isLoading, isError, error } = useQuery({
+    // =================================================================================
+    // ALTERADO: Trocamos useQuery por useInfiniteQuery
+    // O PORQUÊ: Esta ferramenta gerencia múltiplas "páginas" de dados para nós.
+    // - queryKey: Identifica a busca. Inclui os filtros para que a busca seja refeita quando eles mudam.
+    // - queryFn: A função que busca os dados. Passamos o pageParam (cursor) para ela.
+    // - getNextPageParam: Ensina a ferramenta como encontrar o cursor da próxima página na resposta da API.
+    // =================================================================================
+    const {
+        data,
+        error,
+        fetchNextPage,
+        hasNextPage,
+        isLoading,
+        isError,
+        isFetchingNextPage
+    } = useInfiniteQuery({
         queryKey: ['metaAds', filters],
-        queryFn: () => fetchMetaAds(filters),
-        // O PORQUÊ: Manter os dados antigos enquanto busca os novos melhora a experiência do usuário.
-        keepPreviousData: true, 
+        queryFn: ({ pageParam }) => fetchMetaAds(filters, pageParam),
+        getNextPageParam: (lastPage) => lastPage.nextPageCursor, // Pega o cursor para a próxima página
     });
 
-    // =================================================================================
-    // O PORQUÊ da adição desta lógica:
-    // Para preencher os dropdowns de filtro, precisamos de uma lista de todas as campanhas
-    // e conjuntos de anúncios disponíveis. Em vez de fazer novas chamadas de API,
-    // nós extraímos essa informação diretamente dos anúncios que já buscamos.
-    // O `useMemo` garante que essa extração só aconteça quando os dados dos anúncios mudam,
-    // o que é muito eficiente.
-    // =================================================================================
-    const { campaigns, adsets } = useMemo(() => {
-        if (!adsData) return { campaigns: [], adsets: [] };
+    // O useInfiniteQuery retorna os dados em `data.pages`, um array de páginas.
+    // Nós "achatamos" esse array para criar uma lista única com todos os anúncios de todas as páginas.
+    const allAds = useMemo(() => data?.pages.flatMap(page => page.ads) ?? [], [data]);
 
+    // Lógica para extrair campanhas e conjuntos para os filtros (sem alterações, mas agora usa allAds)
+    const { campaigns, adsets } = useMemo(() => {
+        if (!allAds) return { campaigns: [], adsets: [] };
         const campaignMap = new Map();
         const adsetMap = new Map();
-
-        adsData.forEach(ad => {
+        allAds.forEach(ad => {
             if (ad.campaign_id && ad.campaign_name && !campaignMap.has(ad.campaign_id)) {
                 campaignMap.set(ad.campaign_id, { id: ad.campaign_id, nome: ad.campaign_name });
             }
@@ -85,12 +83,8 @@ export default function AnunciosPage() {
                 adsetMap.set(ad.adset_id, { id: ad.adset_id, nome: ad.adset_name });
             }
         });
-
-        return {
-            campaigns: Array.from(campaignMap.values()),
-            adsets: Array.from(adsetMap.values()),
-        };
-    }, [adsData]);
+        return { campaigns: Array.from(campaignMap.values()), adsets: Array.from(adsetMap.values()) };
+    }, [allAds]);
 
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-6">
@@ -99,7 +93,6 @@ export default function AnunciosPage() {
                 <p className="text-gray-600 mt-1">Monitore o desempenho e o status de suas campanhas e anúncios.</p>
             </header>
 
-            {/* ALTERADO: Passamos as listas de campanhas e conjuntos para o componente de filtro */}
             <FiltroAnuncios 
                 filters={filters} 
                 setFilters={setFilters}
@@ -124,7 +117,27 @@ export default function AnunciosPage() {
                 )}
 
                 {!isLoading && !isError && (
-                    <TabelaAnuncios data={adsData || []} filters={filters} />
+                    <>
+                        <TabelaAnuncios data={allAds} filters={filters} />
+                        {/* ================================================================================= */}
+                        {/* NOVO: Botão "Carregar Mais" */}
+                        {/* O PORQUÊ: Este botão aparece se houver uma próxima página (hasNextPage). */}
+                        {/* Ao clicar, ele chama fetchNextPage() para buscar e adicionar mais anúncios à lista. */}
+                        {/* ================================================================================= */}
+                        <div className="p-4 flex justify-center">
+                            {hasNextPage && (
+                                <button
+                                    onClick={() => fetchNextPage()}
+                                    disabled={isFetchingNextPage}
+                                    className="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 disabled:bg-blue-300"
+                                >
+                                    {isFetchingNextPage
+                                        ? 'Carregando mais...'
+                                        : 'Carregar Mais Anúncios'}
+                                </button>
+                            )}
+                        </div>
+                    </>
                 )}
             </main>
         </div>

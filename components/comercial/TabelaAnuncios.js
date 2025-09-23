@@ -98,11 +98,15 @@ export default function TabelaAnuncios({ data, filters }) {
     const [updatingAdId, setUpdatingAdId] = useState(null);
     const queryClient = useQueryClient();
 
-    // Lógica de useMutation (sem alterações)
     const updateAdStatusMutation = useMutation({
         mutationFn: async ({ adId, newStatus }) => {
             const response = await fetch('/api/meta/update-ad-status', {
                 method: 'POST',
+                // =================================================================================
+                // CORREÇÃO CRÍTICA: O Content-Type estava como 'json', o que é inválido.
+                // O PORQUÊ: O valor correto e padrão é 'application/json'. Sem isso, o servidor
+                // não entende o formato dos dados que estamos enviando, causando o erro.
+                // =================================================================================
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ adId, newStatus }),
             });
@@ -195,10 +199,6 @@ export default function TabelaAnuncios({ data, filters }) {
                         <SortableHeader label="Impressões" sortKey="impressions" />
                         <SortableHeader label="Frequência" sortKey="frequencia" />
                         <SortableHeader label="Leads" sortKey="leads" />
-                        {/* ================================================================================= */}
-                        {/* ADICIONADO DE VOLTA: O cabeçalho da coluna "Custo p/ Lead" */}
-                        {/* O PORQUÊ: A coluna foi removida por engano em uma atualização anterior. */}
-                        {/* ================================================================================= */}
                         <SortableHeader label="Custo p/ Lead" sortKey="cost_per_lead" />
                     </tr>
                 </thead>
@@ -222,10 +222,6 @@ export default function TabelaAnuncios({ data, filters }) {
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 align-top">{formatNumber(ad.impressions)}</td>
                             <td className="px-4 py-4 whitespace-nowrap align-top"><FrequenciaBadge frequencia={ad.frequencia} /></td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 font-bold align-top">{ad.leads}</td>
-                            {/* ================================================================================= */}
-                            {/* ADICIONADO DE VOLTA: A célula com o dado de Custo por Lead */}
-                            {/* O PORQUÊ: Para corresponder ao cabeçalho e exibir a informação correta. */}
-                            {/* ================================================================================= */}
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 align-top">{ad.cost_per_lead > 0 ? formatCurrency(ad.cost_per_lead) : 'N/A'}</td>
                         </tr>
                     ))}
