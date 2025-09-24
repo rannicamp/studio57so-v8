@@ -2,19 +2,13 @@
 
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faFilter, faTimes, faChevronUp, faChevronDown,
     faCalendarDay, faCalendarWeek, faCalendarAlt
 } from '@fortawesome/free-solid-svg-icons';
 import MultiSelectDropdown from '../financeiro/MultiSelectDropdown';
-
-// O PORQUÊ DA MUDANÇA:
-// O componente agora recebe uma nova propriedade: `isLoadingOptions`.
-// Usaremos ela para saber se as listas de campanhas e anúncios ainda estão
-// sendo carregadas do nosso banco. Isso melhora a experiência do usuário,
-// pois ele saberá por que os filtros podem parecer vazios por um instante.
 
 const initialFilterState = {
     searchTerm: '',
@@ -43,22 +37,29 @@ export default function FiltroAnuncios({ filters, setFilters, campaigns, adsets,
         }
     };
 
+    // O PORQUÊ DA MUDANÇA:
+    // Corrigimos a lógica dos atalhos de data. Agora, ao clicar em "Semana" ou "Mês",
+    // a data final do filtro será sempre o dia de HOJE, e não o final do período no futuro.
+    // Isso garante que você sempre analise dados do passado até o presente momento.
     const setDateRange = (period) => {
         const today = new Date();
-        let startDate, endDate;
+        let startDate;
+        
+        // A data final para os atalhos é sempre hoje, para não incluir o futuro.
+        const endDate = today;
+
         if (period === 'today') {
-            startDate = endDate = today;
+            startDate = today;
         } else if (period === 'week') {
             const dayOfWeek = today.getDay();
             const firstDayOfWeek = new Date(today);
-            firstDayOfWeek.setDate(today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)); // Ajuste para semana começar na segunda
+            // Ajuste para a semana começar na Segunda-feira (Domingo = 0, Segunda = 1)
+            firstDayOfWeek.setDate(today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
             startDate = firstDayOfWeek;
-            endDate = new Date(firstDayOfWeek);
-            endDate.setDate(endDate.getDate() + 6);
         } else if (period === 'month') {
             startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         }
+
         setFilters(prev => ({
             ...prev,
             startDate: startDate.toISOString().split('T')[0],
@@ -89,9 +90,6 @@ export default function FiltroAnuncios({ filters, setFilters, campaigns, adsets,
                             <input type="text" name="searchTerm" placeholder="Nome do anúncio..." value={filters.searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} className="p-2 border rounded-md shadow-sm w-full mt-1" />
                         </div>
                         <div className="lg:col-span-1">
-                            {/* O PORQUÊ DA MUDANÇA:
-                                Usamos `isLoadingOptions` para mostrar "Carregando..." no placeholder
-                                enquanto as campanhas não chegam. */}
                             <MultiSelectDropdown
                                 label="Campanha"
                                 options={campaigns || []}
@@ -102,8 +100,6 @@ export default function FiltroAnuncios({ filters, setFilters, campaigns, adsets,
                             />
                         </div>
                         <div className="lg:col-span-1">
-                             {/* O PORQUÊ DA MUDANÇA:
-                                Mesma lógica aplicada para os Conjuntos de Anúncios. */}
                             <MultiSelectDropdown
                                 label="Conjunto de Anúncios"
                                 options={adsets || []}
