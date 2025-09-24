@@ -43,10 +43,13 @@ async function fetchAllFromMeta(initialUrl, organizacaoId, supabase) {
             const historicoToInsert = rawAds.map(ad => {
                 const insights = ad.insights?.data[0] || {};
                 const leadAction = insights.actions?.find(a => ['lead', 'onsite_conversion.lead', 'form_lead'].includes(a.action_type));
-                const snapshotDate = new Date().toLocaleDateString('en-CA'); // 'YYYY-MM-DD'
+                const snapshotDate = new Date().toLocaleDateString('en-CA');
 
                 return {
                     ad_id: ad.id,
+                    ad_name: ad.name,
+                    campaign_name: ad.campaign?.name,
+                    adset_name: ad.adset?.name,
                     spend: parseFloat(insights.spend || 0),
                     impressions: parseInt(insights.impressions || 0),
                     clicks: parseInt(insights.clicks || 0),
@@ -54,7 +57,6 @@ async function fetchAllFromMeta(initialUrl, organizacaoId, supabase) {
                     leads: leadAction ? parseInt(leadAction.value, 10) : 0,
                     organizacao_id: organizacaoId,
                     data_snapshot: snapshotDate,
-                    // A coluna `created_at` será preenchida automaticamente pelo banco de dados com a hora exata.
                 };
             });
 
@@ -63,23 +65,15 @@ async function fetchAllFromMeta(initialUrl, organizacaoId, supabase) {
             await supabase.from('meta_ads').upsert(adsToUpsert);
             
             try {
-                // O PORQUÊ DA MUDANÇA:
-                // Trocamos .upsert() por .insert().
-                // Agora, em vez de "atualizar se já existir no dia", o sistema irá
-                // "sempre adicionar um novo registro", criando o histórico detalhado que você quer.
-                console.log(`LOG: Inserindo ${historicoToInsert.length} novos registros no histórico...`);
                 const { error: historicoError } = await supabase
                     .from('meta_ads_historico')
-                    .insert(historicoToInsert); // MUDANÇA PRINCIPAL AQUI!
+                    .insert(historicoToInsert);
 
-                if (historicoError) {
-                    throw historicoError;
-                }
+                if (historicoError) throw historicoError;
+                
                 console.log("LOG: Registros de histórico inseridos com sucesso!");
             } catch (error) {
-                console.error("\n--- [DEBUG] ERRO AO INSERIR NA TABELA meta_ads_historico ---");
-                console.error(error);
-                console.error("----------------------------------------------------------\n");
+                console.error("\n--- [DEBUG] ERRO AO INSERIR NA TABELA meta_ads_historico ---", error);
             }
         }
         
@@ -119,6 +113,21 @@ export async function GET(request) {
         const initialUrl = `${BASE_URL}/${adAccountId}/ads?fields=${allFields}&date_preset=maximum&limit=50&access_token=${PAGE_ACCESS_TOKEN}`;
 
         const syncedData = await fetchAllFromMeta(initialUrl, profile.organizacao_id, supabase);
+
+        // O PORQUÊ DA MUDANÇA:
+        // Exatamente aqui! Após a sincronização principal terminar, nós automaticamente
+        // chamamos a função de preenchimento que criamos. Isso garante que qualquer
+        // registro que por acaso tenha sido salvo sem os nomes seja corrigido na hora.
+        console.log("LOG: Sincronização concluída. Executando função de preenchimento de nomes...");
+        const { data: rpcData, error: rpcError } = await supabase.rpc('preencher_nomes_historico_anuncios');
+
+        if (rpcError) {
+            // Apenas registramos o erro, mas não paramos o processo.
+            // A sincronização principal foi um sucesso.
+            console.error("ERRO ao executar a função de preenchimento de nomes:", rpcError);
+        } else {
+            console.log(`LOG: Função de preenchimento executada. Resultado: ${rpcData}`);
+        }
 
         return NextResponse.json({
             message: `Sincronização concluída! ${syncedData.length} anúncios foram processados.`,
