@@ -8,14 +8,6 @@ const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
 const API_VERSION = 'v20.0';
 const BASE_URL = `https://graph.facebook.com/${API_VERSION}`;
 
-// O PORQUÊ DESTA VERSÃO (PERMANENTE):
-// Esta é a versão final e inteligente da nossa rota de sincronização.
-// Ela não exibe mais dados na tela. Sua única missão é:
-// 1. Encontrar o 'meta_business_id' da forma robusta que descobrimos.
-// 2. Buscar TODOS os dados da Meta, incluindo insights.
-// 3. Salvar tudo de forma organizada nas nossas tabelas do Supabase.
-// 4. Retornar uma mensagem de sucesso.
-
 async function fetchAllFromMeta(initialUrl, organizacaoId, supabase) {
     let allData = [];
     let nextUrl = initialUrl;
@@ -25,7 +17,7 @@ async function fetchAllFromMeta(initialUrl, organizacaoId, supabase) {
         const data = await response.json();
 
         if (!response.ok) {
-            console.error("Erro na API da Meta durante a paginação:", data.error);
+            console.error("Erro na API da Meta:", data.error);
             throw new Error(data.error?.message || 'Falha ao buscar dados da Meta');
         }
 
@@ -41,30 +33,54 @@ async function fetchAllFromMeta(initialUrl, organizacaoId, supabase) {
                 const leadAction = insights.actions?.find(a => ['lead', 'onsite_conversion.lead', 'form_lead'].includes(a.action_type));
                 const leads = leadAction ? parseInt(leadAction.value, 10) : 0;
                 const spend = parseFloat(insights.spend || 0);
-
                 return {
-                    id: ad.id,
-                    name: ad.name,
-                    adset_id: ad.adset.id,
-                    campaign_id: ad.campaign.id,
-                    status: ad.effective_status,
-                    thumbnail_url: ad.creative?.thumbnail_url,
-                    created_time: ad.created_time,
-                    insights: {
-                        spend: spend,
-                        impressions: parseInt(insights.impressions || 0),
-                        clicks: parseInt(insights.clicks || 0),
-                        reach: parseInt(insights.reach || 0),
-                        leads: leads,
-                        cost_per_lead: leads > 0 ? (spend / leads) : 0,
-                    },
+                    id: ad.id, name: ad.name, adset_id: ad.adset.id, campaign_id: ad.campaign.id, status: ad.effective_status, thumbnail_url: ad.creative?.thumbnail_url, created_time: ad.created_time,
+                    insights: { spend: spend, impressions: parseInt(insights.impressions || 0), clicks: parseInt(insights.clicks || 0), reach: parseInt(insights.reach || 0), leads: leads, cost_per_lead: leads > 0 ? (spend / leads) : 0, },
                     organizacao_id: organizacaoId,
                 };
             });
             
+            const historicoToInsert = rawAds.map(ad => {
+                const insights = ad.insights?.data[0] || {};
+                const leadAction = insights.actions?.find(a => ['lead', 'onsite_conversion.lead', 'form_lead'].includes(a.action_type));
+                const snapshotDate = new Date().toLocaleDateString('en-CA'); // 'YYYY-MM-DD'
+
+                return {
+                    ad_id: ad.id,
+                    spend: parseFloat(insights.spend || 0),
+                    impressions: parseInt(insights.impressions || 0),
+                    clicks: parseInt(insights.clicks || 0),
+                    reach: parseInt(insights.reach || 0),
+                    leads: leadAction ? parseInt(leadAction.value, 10) : 0,
+                    organizacao_id: organizacaoId,
+                    data_snapshot: snapshotDate,
+                    // A coluna `created_at` será preenchida automaticamente pelo banco de dados com a hora exata.
+                };
+            });
+
             await supabase.from('meta_campaigns').upsert(campaignsToUpsert);
             await supabase.from('meta_adsets').upsert(adsetsToUpsert);
             await supabase.from('meta_ads').upsert(adsToUpsert);
+            
+            try {
+                // O PORQUÊ DA MUDANÇA:
+                // Trocamos .upsert() por .insert().
+                // Agora, em vez de "atualizar se já existir no dia", o sistema irá
+                // "sempre adicionar um novo registro", criando o histórico detalhado que você quer.
+                console.log(`LOG: Inserindo ${historicoToInsert.length} novos registros no histórico...`);
+                const { error: historicoError } = await supabase
+                    .from('meta_ads_historico')
+                    .insert(historicoToInsert); // MUDANÇA PRINCIPAL AQUI!
+
+                if (historicoError) {
+                    throw historicoError;
+                }
+                console.log("LOG: Registros de histórico inseridos com sucesso!");
+            } catch (error) {
+                console.error("\n--- [DEBUG] ERRO AO INSERIR NA TABELA meta_ads_historico ---");
+                console.error(error);
+                console.error("----------------------------------------------------------\n");
+            }
         }
         
         nextUrl = data.paging?.next;
@@ -76,9 +92,7 @@ export async function GET(request) {
     const cookieStore = cookies();
     const supabase = createClient(cookieStore);
 
-    if (!PAGE_ACCESS_TOKEN) {
-        return NextResponse.json({ error: 'Token de acesso da Meta não configurado.' }, { status: 500 });
-    }
+    if (!PAGE_ACCESS_TOKEN) return NextResponse.json({ error: 'Token de acesso da Meta não configurado.' }, { status: 500 });
 
     try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -87,18 +101,11 @@ export async function GET(request) {
         const { data: profile } = await supabase.from('usuarios').select('organizacao_id').eq('id', user.id).single();
         if (!profile) return NextResponse.json({ error: 'Perfil não encontrado' }, { status: 403 });
 
-        const { data: empresas, error: empresasError } = await supabase
-            .from('cadastro_empresa')
-            .select('meta_business_id')
-            .eq('organizacao_id', profile.organizacao_id);
-
+        const { data: empresas, error: empresasError } = await supabase.from('cadastro_empresa').select('meta_business_id').eq('organizacao_id', profile.organizacao_id);
         if (empresasError) throw empresasError;
 
         const empresaComBusinessId = empresas.find(e => e.meta_business_id);
-
-        if (!empresaComBusinessId) {
-            return NextResponse.json({ error: 'ID do Gerenciador de Negócios (meta_business_id) não configurado em NENHUM cadastro de empresa para esta organização.' }, { status: 404 });
-        }
+        if (!empresaComBusinessId) return NextResponse.json({ error: 'ID do Gerenciador de Negócios não configurado.' }, { status: 404 });
         
         const metaBusinessId = empresaComBusinessId.meta_business_id;
         
@@ -106,10 +113,7 @@ export async function GET(request) {
         const adAccountsResponse = await fetch(adAccountsUrl);
         const adAccountsData = await adAccountsResponse.json();
         const adAccountId = adAccountsData.data?.[0]?.id;
-
-        if (!adAccountId) {
-            return NextResponse.json({ error: 'Nenhuma conta de anúncios ativa foi encontrada para este Gerenciador de Negócios.' }, { status: 404 });
-        }
+        if (!adAccountId) return NextResponse.json({ error: 'Nenhuma conta de anúncios ativa encontrada.' }, { status: 404 });
 
         const allFields = 'name,effective_status,created_time,account_id,campaign{id,name,objective,status},adset{id,name,status},creative{thumbnail_url},insights{spend,impressions,clicks,reach,actions}';
         const initialUrl = `${BASE_URL}/${adAccountId}/ads?fields=${allFields}&date_preset=maximum&limit=50&access_token=${PAGE_ACCESS_TOKEN}`;
@@ -117,7 +121,7 @@ export async function GET(request) {
         const syncedData = await fetchAllFromMeta(initialUrl, profile.organizacao_id, supabase);
 
         return NextResponse.json({
-            message: `Sincronização concluída! ${syncedData.length} anúncios foram processados e salvos no banco de dados.`,
+            message: `Sincronização concluída! ${syncedData.length} anúncios foram processados.`,
             count: syncedData.length
         });
 

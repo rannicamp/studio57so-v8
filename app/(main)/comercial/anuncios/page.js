@@ -11,39 +11,40 @@ import { toast } from 'sonner';
 import FiltroAnuncios from '@/components/comercial/FiltroAnuncios';
 import TabelaAnuncios from '@/components/comercial/TabelaAnuncios';
 
-// O PORQUÊ DESTA VERSÃO (PERMANENTE):
-// Esta é a versão final e correta.
-// 1. fetchLocalAds: Busca os dados paginados do NOSSO banco de dados, tornando o carregamento inicial super rápido.
-// 2. fetchFilterOptions: Busca as opções de filtro do nosso banco, para que os menus funcionem instantaneamente.
-// 3. syncMutation: Controla o botão "Sincronizar", que busca os dados da Meta em segundo plano e atualiza nosso banco.
-
+// Busca os dados TOTAIS acumulados (visão padrão)
 const fetchLocalAds = async (filters, page, limit) => {
     const response = await fetch('/api/meta/anuncios/local', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filters, page, limit }),
     });
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Não foi possível buscar os anúncios.');
-    }
+    if (!response.ok) throw new Error((await response.json()).error || 'Erro ao buscar totais.');
     return response.json();
 };
 
+// Busca os dados CALCULADOS por período (visão de análise)
+const fetchPerformanceData = async (startDate, endDate) => {
+    const response = await fetch('/api/meta/anuncios/historico', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startDate, endDate }),
+    });
+    if (!response.ok) throw new Error((await response.json()).error || 'Erro ao buscar performance.');
+    const data = await response.json();
+    // A API de histórico não pagina, então simulamos a estrutura que a página espera
+    return { ads: data, total: data.length };
+};
+
+
+// Busca as opções para os menus de filtro
 const fetchFilterOptions = async () => {
     const response = await fetch('/api/meta/anuncios/filter-options');
     if (!response.ok) throw new Error('Falha ao carregar opções de filtro.');
     return response.json();
 };
 
-
 const initialFilterState = {
-    searchTerm: '',
-    status: [],
-    startDate: '',
-    endDate: '',
-    campaignIds: [],
-    adsetIds: [],
+    searchTerm: '', status: [], startDate: '', endDate: '', campaignIds: [], adsetIds: [],
 };
 
 export default function AnunciosPage() {
@@ -52,9 +53,25 @@ export default function AnunciosPage() {
     const limit = 20;
     const queryClient = useQueryClient();
 
+    // O PORQUÊ DA MUDANÇA:
+    // Este é o novo cérebro da página.
+    // 1. isPeriodAnalysis: Verificamos se o filtro de datas está preenchido.
+    // 2. queryKey: A chave da busca agora inclui as datas. Se elas mudarem, a busca é refeita.
+    // 3. queryFn: Aqui está a mágica! Se `isPeriodAnalysis` for verdadeiro, chamamos a função
+    //    que busca os dados CALCULADOS. Se for falso, chamamos a que busca os dados TOTAIS.
+    const isPeriodAnalysis = filters.startDate && filters.endDate;
+
     const { data, isLoading, isError, error } = useQuery({
-        queryKey: ['localAds', filters, page, limit],
-        queryFn: () => fetchLocalAds(filters, page, limit),
+        queryKey: ['anunciosData', filters, page, limit],
+        queryFn: () => {
+            if (isPeriodAnalysis) {
+                // Removemos outros filtros, pois a análise é por período
+                const periodFilters = { startDate: filters.startDate, endDate: filters.endDate };
+                return fetchPerformanceData(periodFilters.startDate, periodFilters.endDate);
+            } else {
+                return fetchLocalAds(filters, page, limit);
+            }
+        },
         keepPreviousData: true,
     });
 
@@ -65,32 +82,27 @@ export default function AnunciosPage() {
     });
 
     const syncMutation = useMutation({
-        mutationFn: () => fetch('/api/meta/anuncios/sync').then(res => {
-            if (!res.ok) {
-                return res.json().then(err => { throw new Error(err.error || 'Erro desconhecido na sincronização') });
-            }
-            return res.json();
-        }),
+        mutationFn: () => fetch('/api/meta/anuncios/sync').then(res => res.json()),
         onSuccess: (data) => {
-            toast.success(data.message || 'Sincronização concluída com sucesso!');
-            queryClient.invalidateQueries({ queryKey: ['localAds'] });
+            toast.success(data.message || 'Sincronização concluída!');
+            queryClient.invalidateQueries({ queryKey: ['anunciosData'] });
             queryClient.invalidateQueries({ queryKey: ['adFilterOptions'] });
         },
-        onError: (error) => {
-            toast.error(`Erro na sincronização: ${error.message}`);
-        },
+        onError: (error) => toast.error(`Erro na sincronização: ${error.message}`),
     });
 
     const ads = data?.ads ?? [];
     const totalAds = data?.total ?? 0;
     const totalPages = Math.ceil(totalAds / limit);
-
+    
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-6">
             <header className="flex flex-col md:flex-row md:justify-between md:items-center">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Anúncios da Meta</h1>
-                    <p className="text-gray-600 mt-1">Monitore o desempenho e o status de suas campanhas e anúncios.</p>
+                    <p className="text-gray-600 mt-1">
+                        {isPeriodAnalysis ? `Analisando performance de ${filters.startDate} a ${filters.endDate}` : 'Monitore o desempenho e o status de suas campanhas e anúncios.'}
+                    </p>
                 </div>
                 <button
                     onClick={() => syncMutation.mutate()}
@@ -114,7 +126,7 @@ export default function AnunciosPage() {
                 {isLoading && (
                     <div className="flex flex-col items-center justify-center text-center p-10">
                         <FontAwesomeIcon icon={faSpinner} spin size="3x" className="text-blue-500" />
-                        <p className="mt-4 text-lg font-semibold text-gray-700">Buscando anúncios no banco de dados...</p>
+                        <p className="mt-4 text-lg font-semibold text-gray-700">Buscando dados...</p>
                     </div>
                 )}
 
@@ -128,8 +140,9 @@ export default function AnunciosPage() {
 
                 {!isLoading && !isError && (
                     <>
-                        <TabelaAnuncios data={ads} filters={filters} />
-                        {totalAds > 0 && (
+                        <TabelaAnuncios data={ads} isPeriodAnalysis={isPeriodAnalysis} />
+                        {/* A paginação só aparece na visão de dados totais */}
+                        {!isPeriodAnalysis && totalAds > 0 && (
                             <div className="p-4 flex justify-between items-center text-sm text-gray-600 border-t">
                                 <span>Mostrando {ads.length} de {totalAds} anúncios</span>
                                 <div className="flex items-center gap-2">
