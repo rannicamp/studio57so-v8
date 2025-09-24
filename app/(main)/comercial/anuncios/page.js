@@ -2,36 +2,40 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
-// ALTERADO: Trocamos useQuery por useInfiniteQuery, a ferramenta certa para paginação.
-import { useInfiniteQuery } from '@tanstack/react-query'; 
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faExclamationTriangle, faSyncAlt } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'sonner';
 
 import FiltroAnuncios from '@/components/comercial/FiltroAnuncios';
 import TabelaAnuncios from '@/components/comercial/TabelaAnuncios';
 
-// ALTERADO: A função agora aceita um 'pageParam' (nosso cursor) para buscar páginas específicas.
-const fetchMetaAds = async (filters, pageParam = '') => {
-    const params = new URLSearchParams();
-    if (filters.status && filters.status.length > 0) params.append('status', filters.status.join(','));
-    if (filters.startDate) params.append('startDate', filters.startDate);
-    if (filters.endDate) params.append('endDate', filters.endDate);
-    if (filters.campaignIds && filters.campaignIds.length > 0) params.append('campaign_ids', filters.campaignIds.join(','));
-    if (filters.adsetIds && filters.adsetIds.length > 0) params.append('adset_ids', filters.adsetIds.join(','));
-    
-    // Adiciona o cursor para buscar a próxima página
-    if (pageParam) {
-        params.append('cursor', pageParam);
-    }
+// O PORQUÊ DESTA VERSÃO (PERMANENTE):
+// Esta é a versão final e correta.
+// 1. fetchLocalAds: Busca os dados paginados do NOSSO banco de dados, tornando o carregamento inicial super rápido.
+// 2. fetchFilterOptions: Busca as opções de filtro do nosso banco, para que os menus funcionem instantaneamente.
+// 3. syncMutation: Controla o botão "Sincronizar", que busca os dados da Meta em segundo plano e atualiza nosso banco.
 
-    const response = await fetch(`/api/meta/anuncios?${params.toString()}`);
+const fetchLocalAds = async (filters, page, limit) => {
+    const response = await fetch('/api/meta/anuncios/local', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filters, page, limit }),
+    });
     if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Não foi possível buscar os anúncios.');
     }
-    return response.json(); // A API agora retorna { ads: [], nextPageCursor: '...' }
+    return response.json();
 };
+
+const fetchFilterOptions = async () => {
+    const response = await fetch('/api/meta/anuncios/filter-options');
+    if (!response.ok) throw new Error('Falha ao carregar opções de filtro.');
+    return response.json();
+};
+
 
 const initialFilterState = {
     searchTerm: '',
@@ -44,67 +48,73 @@ const initialFilterState = {
 
 export default function AnunciosPage() {
     const [filters, setFilters] = useState(initialFilterState);
+    const [page, setPage] = useState(1);
+    const limit = 20;
+    const queryClient = useQueryClient();
 
-    // =================================================================================
-    // ALTERADO: Trocamos useQuery por useInfiniteQuery
-    // O PORQUÊ: Esta ferramenta gerencia múltiplas "páginas" de dados para nós.
-    // - queryKey: Identifica a busca. Inclui os filtros para que a busca seja refeita quando eles mudam.
-    // - queryFn: A função que busca os dados. Passamos o pageParam (cursor) para ela.
-    // - getNextPageParam: Ensina a ferramenta como encontrar o cursor da próxima página na resposta da API.
-    // =================================================================================
-    const {
-        data,
-        error,
-        fetchNextPage,
-        hasNextPage,
-        isLoading,
-        isError,
-        isFetchingNextPage
-    } = useInfiniteQuery({
-        queryKey: ['metaAds', filters],
-        queryFn: ({ pageParam }) => fetchMetaAds(filters, pageParam),
-        getNextPageParam: (lastPage) => lastPage.nextPageCursor, // Pega o cursor para a próxima página
+    const { data, isLoading, isError, error } = useQuery({
+        queryKey: ['localAds', filters, page, limit],
+        queryFn: () => fetchLocalAds(filters, page, limit),
+        keepPreviousData: true,
     });
 
-    // O useInfiniteQuery retorna os dados em `data.pages`, um array de páginas.
-    // Nós "achatamos" esse array para criar uma lista única com todos os anúncios de todas as páginas.
-    const allAds = useMemo(() => data?.pages.flatMap(page => page.ads) ?? [], [data]);
+    const { data: filterOptions, isLoading: isLoadingFilters } = useQuery({
+        queryKey: ['adFilterOptions'],
+        queryFn: fetchFilterOptions,
+        staleTime: 5 * 60 * 1000,
+    });
 
-    // Lógica para extrair campanhas e conjuntos para os filtros (sem alterações, mas agora usa allAds)
-    const { campaigns, adsets } = useMemo(() => {
-        if (!allAds) return { campaigns: [], adsets: [] };
-        const campaignMap = new Map();
-        const adsetMap = new Map();
-        allAds.forEach(ad => {
-            if (ad.campaign_id && ad.campaign_name && !campaignMap.has(ad.campaign_id)) {
-                campaignMap.set(ad.campaign_id, { id: ad.campaign_id, nome: ad.campaign_name });
+    const syncMutation = useMutation({
+        mutationFn: () => fetch('/api/meta/anuncios/sync').then(res => {
+            if (!res.ok) {
+                return res.json().then(err => { throw new Error(err.error || 'Erro desconhecido na sincronização') });
             }
-            if (ad.adset_id && ad.adset_name && !adsetMap.has(ad.adset_id)) {
-                adsetMap.set(ad.adset_id, { id: ad.adset_id, nome: ad.adset_name });
-            }
-        });
-        return { campaigns: Array.from(campaignMap.values()), adsets: Array.from(adsetMap.values()) };
-    }, [allAds]);
+            return res.json();
+        }),
+        onSuccess: (data) => {
+            toast.success(data.message || 'Sincronização concluída com sucesso!');
+            queryClient.invalidateQueries({ queryKey: ['localAds'] });
+            queryClient.invalidateQueries({ queryKey: ['adFilterOptions'] });
+        },
+        onError: (error) => {
+            toast.error(`Erro na sincronização: ${error.message}`);
+        },
+    });
+
+    const ads = data?.ads ?? [];
+    const totalAds = data?.total ?? 0;
+    const totalPages = Math.ceil(totalAds / limit);
 
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-6">
-            <header>
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Anúncios da Meta</h1>
-                <p className="text-gray-600 mt-1">Monitore o desempenho e o status de suas campanhas e anúncios.</p>
+            <header className="flex flex-col md:flex-row md:justify-between md:items-center">
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Anúncios da Meta</h1>
+                    <p className="text-gray-600 mt-1">Monitore o desempenho e o status de suas campanhas e anúncios.</p>
+                </div>
+                <button
+                    onClick={() => syncMutation.mutate()}
+                    disabled={syncMutation.isPending}
+                    className="mt-4 md:mt-0 bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 disabled:bg-blue-300 flex items-center justify-center gap-2 transition-colors"
+                >
+                    <FontAwesomeIcon icon={syncMutation.isPending ? faSpinner : faSyncAlt} spin={syncMutation.isPending} />
+                    {syncMutation.isPending ? 'Sincronizando...' : 'Sincronizar com a Meta'}
+                </button>
             </header>
 
-            <FiltroAnuncios 
-                filters={filters} 
+            <FiltroAnuncios
+                filters={filters}
                 setFilters={setFilters}
-                campaigns={campaigns}
-                adsets={adsets}
+                campaigns={filterOptions?.campaigns ?? []}
+                adsets={filterOptions?.adsets ?? []}
+                isLoadingOptions={isLoadingFilters}
             />
 
             <main className="bg-white rounded-lg shadow-md">
                 {isLoading && (
                     <div className="flex flex-col items-center justify-center text-center p-10">
                         <FontAwesomeIcon icon={faSpinner} spin size="3x" className="text-blue-500" />
-                        <p className="mt-4 text-lg font-semibold text-gray-700">Buscando anúncios...</p>
+                        <p className="mt-4 text-lg font-semibold text-gray-700">Buscando anúncios no banco de dados...</p>
                     </div>
                 )}
 
@@ -118,25 +128,17 @@ export default function AnunciosPage() {
 
                 {!isLoading && !isError && (
                     <>
-                        <TabelaAnuncios data={allAds} filters={filters} />
-                        {/* ================================================================================= */}
-                        {/* NOVO: Botão "Carregar Mais" */}
-                        {/* O PORQUÊ: Este botão aparece se houver uma próxima página (hasNextPage). */}
-                        {/* Ao clicar, ele chama fetchNextPage() para buscar e adicionar mais anúncios à lista. */}
-                        {/* ================================================================================= */}
-                        <div className="p-4 flex justify-center">
-                            {hasNextPage && (
-                                <button
-                                    onClick={() => fetchNextPage()}
-                                    disabled={isFetchingNextPage}
-                                    className="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 disabled:bg-blue-300"
-                                >
-                                    {isFetchingNextPage
-                                        ? 'Carregando mais...'
-                                        : 'Carregar Mais Anúncios'}
-                                </button>
-                            )}
-                        </div>
+                        <TabelaAnuncios data={ads} filters={filters} />
+                        {totalAds > 0 && (
+                            <div className="p-4 flex justify-between items-center text-sm text-gray-600 border-t">
+                                <span>Mostrando {ads.length} de {totalAds} anúncios</span>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => setPage(p => Math.max(p - 1, 1))} disabled={page === 1} className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-100">Anterior</button>
+                                    <span>Página {page} de {totalPages}</span>
+                                    <button onClick={() => setPage(p => Math.min(p + 1, totalPages))} disabled={page === totalPages} className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-100">Próxima</button>
+                                </div>
+                            </div>
+                        )}
                     </>
                 )}
             </main>

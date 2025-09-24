@@ -9,7 +9,7 @@ import { faImage, faSort, faSortUp, faSortDown, faSpinner, faPowerOff, faBan } f
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-// Componente para o status (sem alterações)
+// Componentes internos (StatusBadge, FrequenciaBadge) não precisam de alteração.
 const StatusBadge = ({ status }) => {
     const statusInfo = useMemo(() => {
         switch (status) {
@@ -20,7 +20,7 @@ const StatusBadge = ({ status }) => {
             case 'CAMPAIGN_PAUSED': return { text: 'Campanha Pausada', color: 'bg-yellow-100 text-yellow-800' };
             case 'ADSET_PAUSED': return { text: 'Conjunto Pausado', color: 'bg-yellow-100 text-yellow-800' };
             case 'DELETED': return { text: 'Excluído', color: 'bg-red-100 text-red-800' };
-            default: return { text: status, color: 'bg-blue-100 text-blue-800' };
+            default: return { text: status || 'Indefinido', color: 'bg-blue-100 text-blue-800' };
         }
     }, [status]);
 
@@ -31,13 +31,14 @@ const StatusBadge = ({ status }) => {
     );
 };
 
-// Componente para Frequência (sem alterações)
 const FrequenciaBadge = ({ frequencia }) => {
     const valor = parseFloat(frequencia);
-    let colorClass = '';
+    if (isNaN(valor)) return <span className="px-2 py-1 text-sm font-semibold rounded-full bg-gray-100 text-gray-800">N/A</span>;
+
+    let colorClass = 'bg-yellow-100 text-yellow-800';
     if (valor > 2) colorClass = 'bg-green-100 text-green-800';
-    else if (valor < 2) colorClass = 'bg-red-100 text-red-800';
-    else colorClass = 'bg-yellow-100 text-yellow-800';
+    else if (valor < 1.5) colorClass = 'bg-red-100 text-red-800';
+    
     return (
         <span className={`px-2 py-1 text-sm font-semibold rounded-full ${colorClass}`}>
             {valor.toFixed(2)}
@@ -45,24 +46,16 @@ const FrequenciaBadge = ({ frequencia }) => {
     );
 };
 
-// Componente StatusToggleButton (sem alterações)
 const StatusToggleButton = ({ ad, onUpdate, isUpdating }) => {
     const isControllable = ['ACTIVE', 'PAUSED'].includes(ad.status);
 
     if (isUpdating) {
-        return (
-            <div className="flex justify-center items-center w-10 h-10">
-                <FontAwesomeIcon icon={faSpinner} spin />
-            </div>
-        );
+        return <div className="flex justify-center items-center w-10 h-10"><FontAwesomeIcon icon={faSpinner} spin /></div>;
     }
 
     if (!isControllable) {
         return (
-             <div 
-                className="flex justify-center items-center w-10 h-10 rounded-md bg-gray-100 text-gray-400"
-                title="Este anúncio não pode ser ativado/pausado daqui (ex: está arquivado ou reprovado)"
-            >
+             <div className="flex justify-center items-center w-10 h-10 rounded-md bg-gray-100 text-gray-400" title="Este status não pode ser alterado daqui">
                 <FontAwesomeIcon icon={faBan} />
             </div>
         );
@@ -70,9 +63,7 @@ const StatusToggleButton = ({ ad, onUpdate, isUpdating }) => {
     
     const isActive = ad.status === 'ACTIVE';
     const newStatus = isActive ? 'PAUSED' : 'ACTIVE';
-    const buttonClass = isActive
-        ? 'bg-green-500 hover:bg-green-600 text-white'
-        : 'bg-gray-300 hover:bg-gray-400 text-gray-800';
+    const buttonClass = isActive ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-gray-300 hover:bg-gray-400 text-gray-800';
     const title = isActive ? 'Clique para Pausar' : 'Clique para Ativar';
 
     return (
@@ -86,27 +77,29 @@ const StatusToggleButton = ({ ad, onUpdate, isUpdating }) => {
     );
 };
 
+const formatCurrency = (value) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? 'R$ 0,00' : num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+const formatNumber = (value) => {
+    const num = parseInt(value, 10);
+    return isNaN(num) ? '0' : num.toLocaleString('pt-BR');
+}
 
-// Funções de formatação (sem alterações)
-const formatCurrency = (value) => parseFloat(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Contínuo';
-const formatNumber = (value) => parseInt(value).toLocaleString('pt-BR');
-
-
-export default function TabelaAnuncios({ data, filters }) {
-    const [sortConfig, setSortConfig] = useState({ key: 'spend', direction: 'descending' });
-    const [updatingAdId, setUpdatingAdId] = useState(null);
+export default function TabelaAnuncios({ data }) {
     const queryClient = useQueryClient();
+    const [updatingAdId, setUpdatingAdId] = useState(null);
 
+    // O PORQUÊ DA MUDANÇA:
+    // Esta é a atualização final e mais importante do componente.
+    // 1. mutationFn: Agora chama a nossa nova e robusta rota '/api/meta/anuncios/update-status'.
+    // 2. onSuccess: Após o sucesso, ela invalida a query `['localAds']`. Isso avisa para
+    //    a página principal que os dados locais estão desatualizados e precisam ser
+    //    buscados novamente, garantindo que a tabela mostre o status mais recente.
     const updateAdStatusMutation = useMutation({
         mutationFn: async ({ adId, newStatus }) => {
-            const response = await fetch('/api/meta/update-ad-status', {
+            const response = await fetch('/api/meta/anuncios/update-status', {
                 method: 'POST',
-                // =================================================================================
-                // CORREÇÃO CRÍTICA: O Content-Type estava como 'json', o que é inválido.
-                // O PORQUÊ: O valor correto e padrão é 'application/json'. Sem isso, o servidor
-                // não entende o formato dos dados que estamos enviando, causando o erro.
-                // =================================================================================
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ adId, newStatus }),
             });
@@ -116,72 +109,36 @@ export default function TabelaAnuncios({ data, filters }) {
             }
             return response.json();
         },
-        onMutate: async ({ adId }) => { setUpdatingAdId(adId); },
+        onMutate: ({ adId }) => {
+            setUpdatingAdId(adId);
+        },
         onSuccess: () => {
             toast.success('Status do anúncio atualizado com sucesso!');
-            queryClient.invalidateQueries({ queryKey: ['metaAds', filters] });
+            // Invalida a query de anúncios locais para forçar a recarga
+            queryClient.invalidateQueries({ queryKey: ['localAds'] });
         },
-        onError: (error) => { toast.error(`Erro ao atualizar: ${error.message}`); },
-        onSettled: () => { setUpdatingAdId(null); },
+        onError: (error) => {
+            toast.error(`Erro ao atualizar: ${error.message}`);
+        },
+        onSettled: () => {
+            setUpdatingAdId(null);
+        },
     });
+    
+    // O PORQUÊ DA MUDANÇA:
+    // Removemos toda a lógica de ordenação e filtro daqui. Por quê?
+    // Porque nossa API local (`/api/meta/anuncios/local`) já faz todo esse
+    // trabalho pesado no servidor. O componente da tabela agora tem uma única
+    // e simples tarefa: exibir os dados que recebe. Fica mais limpo e performático.
+    const anuncios = data || [];
 
-    // Lógica de filtragem e ordenação (sem alterações)
-    const sortedAndFilteredData = useMemo(() => {
-        if (!data) return [];
-        let filteredData = [...data];
-        const searchTerm = filters.searchTerm.toLowerCase();
-        if (searchTerm) {
-            filteredData = filteredData.filter(ad =>
-                ad.name.toLowerCase().includes(searchTerm) ||
-                (ad.campaign_name && ad.campaign_name.toLowerCase().includes(searchTerm)) ||
-                (ad.adset_name && ad.adset_name.toLowerCase().includes(searchTerm))
-            );
-        }
-        if (filters.campaignIds && filters.campaignIds.length > 0) {
-            filteredData = filteredData.filter(ad => filters.campaignIds.includes(ad.campaign_id));
-        }
-        if (filters.adsetIds && filters.adsetIds.length > 0) {
-            filteredData = filteredData.filter(ad => filters.adsetIds.includes(ad.adset_id));
-        }
-        let dataWithFrequencia = filteredData.map(ad => ({ ...ad, frequencia: ad.reach > 0 ? (ad.impressions / ad.reach) : 0 }));
-        if (sortConfig.key) {
-            dataWithFrequencia.sort((a, b) => {
-                const valA = a[sortConfig.key];
-                const valB = b[sortConfig.key];
-                let comparison = 0;
-                if (['spend', 'leads', 'cost_per_lead', 'impressions', 'clicks', 'reach', 'frequencia'].includes(sortConfig.key)) {
-                    comparison = parseFloat(valA) - parseFloat(valB);
-                } else if (['end_time', 'created_time'].includes(sortConfig.key)) {
-                    comparison = (valA ? new Date(valA).getTime() : 0) - (valB ? new Date(valB).getTime() : 0);
-                } else {
-                    comparison = String(valA).localeCompare(String(valB));
-                }
-                return sortConfig.direction === 'ascending' ? comparison : -comparison;
-            });
-        }
-        return dataWithFrequencia;
-    }, [data, filters, sortConfig]);
-
-    const requestSort = (key) => {
-        let direction = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
-        }
-        setSortConfig({ key, direction });
-    };
-
-    const SortableHeader = ({ label, sortKey, className = '' }) => {
-        const isActive = sortConfig.key === sortKey;
-        const icon = isActive ? (sortConfig.direction === 'ascending' ? faSortUp : faSortDown) : faSort;
-        return <th className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${className}`} onClick={() => requestSort(sortKey)}><div className="flex items-center gap-2">{label}<FontAwesomeIcon icon={icon} className={isActive ? 'text-gray-800' : 'text-gray-400'} /></div></th>;
-    };
-
-    if (!data) {
-        return <div className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>;
-    }
-
-    if (sortedAndFilteredData.length === 0) {
-        return <div className="text-center py-10"><p className="text-gray-600 font-semibold">Nenhum anúncio encontrado.</p><p className="text-gray-500 text-sm">Tente ajustar os filtros.</p></div>;
+    if (anuncios.length === 0) {
+        return (
+            <div className="text-center py-10">
+                <p className="text-gray-600 font-semibold">Nenhum anúncio encontrado.</p>
+                <p className="text-gray-500 text-sm">Tente sincronizar com a Meta ou ajustar os filtros.</p>
+            </div>
+        );
     }
 
     return (
@@ -191,19 +148,19 @@ export default function TabelaAnuncios({ data, filters }) {
                     <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Criativo</th>
-                        <SortableHeader label="Anúncio" sortKey="name" />
-                        <SortableHeader label="Campanha" sortKey="campaign_name" />
-                        <SortableHeader label="Status" sortKey="status" />
-                        <SortableHeader label="Valor Gasto" sortKey="spend" />
-                        <SortableHeader label="Alcance" sortKey="reach" />
-                        <SortableHeader label="Impressões" sortKey="impressions" />
-                        <SortableHeader label="Frequência" sortKey="frequencia" />
-                        <SortableHeader label="Leads" sortKey="leads" />
-                        <SortableHeader label="Custo p/ Lead" sortKey="cost_per_lead" />
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Anúncio</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campanha</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor Gasto</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Alcance</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impressões</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frequência</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leads</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Custo p/ Lead</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                    {sortedAndFilteredData.map((ad) => (
+                    {anuncios.map((ad) => (
                         <tr key={ad.id} className="hover:bg-gray-50">
                             <td className="px-4 py-4 whitespace-nowrap align-top">
                                 <StatusToggleButton ad={ad} onUpdate={updateAdStatusMutation.mutate} isUpdating={updatingAdId === ad.id} />
@@ -221,7 +178,7 @@ export default function TabelaAnuncios({ data, filters }) {
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 align-top">{formatNumber(ad.reach)}</td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 align-top">{formatNumber(ad.impressions)}</td>
                             <td className="px-4 py-4 whitespace-nowrap align-top"><FrequenciaBadge frequencia={ad.frequencia} /></td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 font-bold align-top">{ad.leads}</td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 font-bold align-top">{formatNumber(ad.leads)}</td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 align-top">{ad.cost_per_lead > 0 ? formatCurrency(ad.cost_per_lead) : 'N/A'}</td>
                         </tr>
                     ))}
