@@ -9,7 +9,7 @@ import { faImage, faSort, faSortUp, faSortDown, faSpinner, faPowerOff, faBan } f
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-// Funções auxiliares declaradas APENAS UMA VEZ no topo do arquivo.
+// Componente para o status (sem alterações)
 const StatusBadge = ({ status }) => {
     const statusInfo = useMemo(() => {
         switch (status) {
@@ -20,85 +20,143 @@ const StatusBadge = ({ status }) => {
             case 'CAMPAIGN_PAUSED': return { text: 'Campanha Pausada', color: 'bg-yellow-100 text-yellow-800' };
             case 'ADSET_PAUSED': return { text: 'Conjunto Pausado', color: 'bg-yellow-100 text-yellow-800' };
             case 'DELETED': return { text: 'Excluído', color: 'bg-red-100 text-red-800' };
-            default: return { text: status || 'Indefinido', color: 'bg-blue-100 text-blue-800' };
+            default: return { text: status, color: 'bg-blue-100 text-blue-800' };
         }
     }, [status]);
-    return <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusInfo.color}`}>{statusInfo.text}</span>;
+
+    return (
+        <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusInfo.color}`}>
+            {statusInfo.text}
+        </span>
+    );
 };
 
+// Componente para Frequência (sem alterações)
 const FrequenciaBadge = ({ frequencia }) => {
     const valor = parseFloat(frequencia);
-    if (isNaN(valor)) return <span className="px-2 py-1 text-sm font-semibold rounded-full bg-gray-100 text-gray-800">N/A</span>;
-    let colorClass = 'bg-yellow-100 text-yellow-800';
+    let colorClass = '';
     if (valor > 2) colorClass = 'bg-green-100 text-green-800';
-    else if (valor < 1.5) colorClass = 'bg-red-100 text-red-800';
-    return <span className={`px-2 py-1 text-sm font-semibold rounded-full ${colorClass}`}>{valor.toFixed(2)}</span>;
+    else if (valor < 2) colorClass = 'bg-red-100 text-red-800';
+    else colorClass = 'bg-yellow-100 text-yellow-800';
+    return (
+        <span className={`px-2 py-1 text-sm font-semibold rounded-full ${colorClass}`}>
+            {valor.toFixed(2)}
+        </span>
+    );
 };
 
+// Componente StatusToggleButton (sem alterações)
 const StatusToggleButton = ({ ad, onUpdate, isUpdating }) => {
     const isControllable = ['ACTIVE', 'PAUSED'].includes(ad.status);
-    if (isUpdating) return <div className="flex justify-center items-center w-10 h-10"><FontAwesomeIcon icon={faSpinner} spin /></div>;
-    if (!isControllable) return <div className="flex justify-center items-center w-10 h-10 rounded-md bg-gray-100 text-gray-400" title="Este status não pode ser alterado daqui"><FontAwesomeIcon icon={faBan} /></div>;
+
+    if (isUpdating) {
+        return (
+            <div className="flex justify-center items-center w-10 h-10">
+                <FontAwesomeIcon icon={faSpinner} spin />
+            </div>
+        );
+    }
+
+    if (!isControllable) {
+        return (
+             <div 
+                className="flex justify-center items-center w-10 h-10 rounded-md bg-gray-100 text-gray-400"
+                title="Este anúncio não pode ser ativado/pausado daqui (ex: está arquivado ou reprovado)"
+            >
+                <FontAwesomeIcon icon={faBan} />
+            </div>
+        );
+    }
+    
     const isActive = ad.status === 'ACTIVE';
     const newStatus = isActive ? 'PAUSED' : 'ACTIVE';
-    const buttonClass = isActive ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-gray-300 hover:bg-gray-400 text-gray-800';
+    const buttonClass = isActive
+        ? 'bg-green-500 hover:bg-green-600 text-white'
+        : 'bg-gray-300 hover:bg-gray-400 text-gray-800';
     const title = isActive ? 'Clique para Pausar' : 'Clique para Ativar';
-    return <button onClick={() => onUpdate({ adId: ad.id, newStatus })} className={`flex justify-center items-center w-10 h-10 rounded-md transition-colors ${buttonClass}`} title={title}><FontAwesomeIcon icon={faPowerOff} /></button>;
+
+    return (
+        <button
+            onClick={() => onUpdate({ adId: ad.id, newStatus })}
+            className={`flex justify-center items-center w-10 h-10 rounded-md transition-colors ${buttonClass}`}
+            title={title}
+        >
+            <FontAwesomeIcon icon={faPowerOff} />
+        </button>
+    );
 };
 
-const formatCurrency = (value) => {
-    const num = parseFloat(value);
-    return isNaN(num) ? 'R$ 0,00' : num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-};
 
-const formatNumber = (value) => {
-    const num = parseInt(value, 10);
-    return isNaN(num) ? '0' : num.toLocaleString('pt-BR');
-};
+// Funções de formatação (sem alterações)
+const formatCurrency = (value) => parseFloat(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Contínuo';
+const formatNumber = (value) => parseInt(value).toLocaleString('pt-BR');
 
 
-export default function TabelaAnuncios({ data, isPeriodAnalysis }) {
-    const queryClient = useQueryClient();
+export default function TabelaAnuncios({ data, filters }) {
+    const [sortConfig, setSortConfig] = useState({ key: 'spend', direction: 'descending' });
     const [updatingAdId, setUpdatingAdId] = useState(null);
-    const [sortConfig, setSortConfig] = useState({ key: isPeriodAnalysis ? 'period_spend' : 'spend', direction: 'descending' });
+    const queryClient = useQueryClient();
 
+    // Lógica de useMutation (sem alterações)
     const updateAdStatusMutation = useMutation({
         mutationFn: async ({ adId, newStatus }) => {
-            const response = await fetch('/api/meta/anuncios/update-status', {
+            const response = await fetch('/api/meta/update-ad-status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ adId, newStatus }),
             });
-            if (!response.ok) throw new Error((await response.json()).error || 'Falha ao atualizar status.');
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Falha ao atualizar status.');
+            }
             return response.json();
         },
-        onMutate: ({ adId }) => setUpdatingAdId(adId),
+        onMutate: async ({ adId }) => { setUpdatingAdId(adId); },
         onSuccess: () => {
-            toast.success('Status do anúncio atualizado!');
-            queryClient.invalidateQueries({ queryKey: ['anunciosData'] });
+            toast.success('Status do anúncio atualizado com sucesso!');
+            queryClient.invalidateQueries({ queryKey: ['metaAds', filters] });
         },
-        onError: (error) => toast.error(`Erro ao atualizar: ${error.message}`),
-        onSettled: () => setUpdatingAdId(null),
+        onError: (error) => { toast.error(`Erro ao atualizar: ${error.message}`); },
+        onSettled: () => { setUpdatingAdId(null); },
     });
-    
-    const sortedData = useMemo(() => {
+
+    // Lógica de filtragem e ordenação (sem alterações)
+    const sortedAndFilteredData = useMemo(() => {
         if (!data) return [];
-        const sortableItems = [...data];
+        let filteredData = [...data];
+        const searchTerm = filters.searchTerm.toLowerCase();
+        if (searchTerm) {
+            filteredData = filteredData.filter(ad =>
+                ad.name.toLowerCase().includes(searchTerm) ||
+                (ad.campaign_name && ad.campaign_name.toLowerCase().includes(searchTerm)) ||
+                (ad.adset_name && ad.adset_name.toLowerCase().includes(searchTerm))
+            );
+        }
+        if (filters.campaignIds && filters.campaignIds.length > 0) {
+            filteredData = filteredData.filter(ad => filters.campaignIds.includes(ad.campaign_id));
+        }
+        if (filters.adsetIds && filters.adsetIds.length > 0) {
+            filteredData = filteredData.filter(ad => filters.adsetIds.includes(ad.adset_id));
+        }
+        let dataWithFrequencia = filteredData.map(ad => ({ ...ad, frequencia: ad.reach > 0 ? (ad.impressions / ad.reach) : 0 }));
         if (sortConfig.key) {
-            sortableItems.sort((a, b) => {
+            dataWithFrequencia.sort((a, b) => {
                 const valA = a[sortConfig.key];
                 const valB = b[sortConfig.key];
                 let comparison = 0;
-                if (typeof valA === 'number' && typeof valB === 'number') {
-                    comparison = valA - valB;
+                if (['spend', 'leads', 'cost_per_lead', 'impressions', 'clicks', 'reach', 'frequencia'].includes(sortConfig.key)) {
+                    comparison = parseFloat(valA) - parseFloat(valB);
+                } else if (['end_time', 'created_time'].includes(sortConfig.key)) {
+                    comparison = (valA ? new Date(valA).getTime() : 0) - (valB ? new Date(valB).getTime() : 0);
                 } else {
                     comparison = String(valA).localeCompare(String(valB));
                 }
                 return sortConfig.direction === 'ascending' ? comparison : -comparison;
             });
         }
-        return sortableItems;
-    }, [data, sortConfig]);
+        return dataWithFrequencia;
+    }, [data, filters, sortConfig]);
 
     const requestSort = (key) => {
         let direction = 'ascending';
@@ -108,18 +166,18 @@ export default function TabelaAnuncios({ data, isPeriodAnalysis }) {
         setSortConfig({ key, direction });
     };
 
-    const SortableHeader = ({ label, sortKey }) => {
+    const SortableHeader = ({ label, sortKey, className = '' }) => {
         const isActive = sortConfig.key === sortKey;
         const icon = isActive ? (sortConfig.direction === 'ascending' ? faSortUp : faSortDown) : faSort;
-        return (
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => requestSort(sortKey)}>
-                <div className="flex items-center gap-2">{label}<FontAwesomeIcon icon={icon} className={isActive ? 'text-gray-800' : 'text-gray-400'} /></div>
-            </th>
-        );
+        return <th className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${className}`} onClick={() => requestSort(sortKey)}><div className="flex items-center gap-2">{label}<FontAwesomeIcon icon={icon} className={isActive ? 'text-gray-800' : 'text-gray-400'} /></div></th>;
     };
 
-    if (sortedData.length === 0) {
-        return <div className="text-center py-10"><p className="text-gray-600 font-semibold">Nenhum anúncio encontrado.</p></div>;
+    if (!data) {
+        return <div className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>;
+    }
+
+    if (sortedAndFilteredData.length === 0) {
+        return <div className="text-center py-10"><p className="text-gray-600 font-semibold">Nenhum anúncio encontrado.</p><p className="text-gray-500 text-sm">Tente ajustar os filtros.</p></div>;
     }
 
     return (
@@ -129,31 +187,46 @@ export default function TabelaAnuncios({ data, isPeriodAnalysis }) {
                     <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Criativo</th>
-                        <SortableHeader label="Anúncio" sortKey={isPeriodAnalysis ? 'ad_name' : 'name'} />
+                        <SortableHeader label="Anúncio" sortKey="name" />
                         <SortableHeader label="Campanha" sortKey="campaign_name" />
-                        {!isPeriodAnalysis && <SortableHeader label="Status" sortKey="status" />}
-                        <SortableHeader label="Valor Gasto" sortKey={isPeriodAnalysis ? 'period_spend' : 'spend'} />
-                        <SortableHeader label="Alcance" sortKey={isPeriodAnalysis ? 'period_reach' : 'reach'} />
-                        <SortableHeader label="Impressões" sortKey={isPeriodAnalysis ? 'period_impressions' : 'impressions'} />
-                        {!isPeriodAnalysis && <SortableHeader label="Frequência" sortKey="frequencia" />}
-                        <SortableHeader label="Leads" sortKey={isPeriodAnalysis ? 'period_leads' : 'leads'} />
-                        {!isPeriodAnalysis && <SortableHeader label="Custo p/ Lead" sortKey="cost_per_lead" />}
+                        <SortableHeader label="Status" sortKey="status" />
+                        <SortableHeader label="Valor Gasto" sortKey="spend" />
+                        <SortableHeader label="Alcance" sortKey="reach" />
+                        <SortableHeader label="Impressões" sortKey="impressions" />
+                        <SortableHeader label="Frequência" sortKey="frequencia" />
+                        <SortableHeader label="Leads" sortKey="leads" />
+                        {/* ================================================================================= */}
+                        {/* ADICIONADO DE VOLTA: O cabeçalho da coluna "Custo p/ Lead" */}
+                        {/* O PORQUÊ: A coluna foi removida por engano em uma atualização anterior. */}
+                        {/* ================================================================================= */}
+                        <SortableHeader label="Custo p/ Lead" sortKey="cost_per_lead" />
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                    {sortedData.map((ad) => (
-                        <tr key={isPeriodAnalysis ? ad.ad_id : ad.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-4 whitespace-nowrap align-top"><StatusToggleButton ad={ad} onUpdate={updateAdStatusMutation.mutate} isUpdating={updatingAdId === ad.id} /></td>
-                            <td className="px-4 py-4 whitespace-nowrap">{ad.thumbnail_url ? <Image src={ad.thumbnail_url} alt={`Criativo`} width={80} height={80} className="rounded object-cover" unoptimized /> : <div className="w-20 h-20 bg-gray-100 rounded flex items-center justify-center"><FontAwesomeIcon icon={faImage} className="text-gray-400" /></div>}</td>
-                            <td className="px-4 py-4 align-top"><div className="text-sm font-semibold text-gray-900">{isPeriodAnalysis ? ad.ad_name : ad.name}</div><div className="text-xs text-gray-500 mt-1">{ad.adset_name}</div></td>
+                    {sortedAndFilteredData.map((ad) => (
+                        <tr key={ad.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-4 whitespace-nowrap align-top">
+                                <StatusToggleButton ad={ad} onUpdate={updateAdStatusMutation.mutate} isUpdating={updatingAdId === ad.id} />
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                                {ad.thumbnail_url ? <Image src={ad.thumbnail_url} alt={`Criativo de ${ad.name}`} width={80} height={80} className="rounded object-cover" unoptimized /> : <div className="w-20 h-20 bg-gray-100 rounded flex items-center justify-center"><FontAwesomeIcon icon={faImage} className="text-gray-400" /></div>}
+                            </td>
+                            <td className="px-4 py-4 align-top">
+                                <div className="text-sm font-semibold text-gray-900">{ad.name}</div>
+                                <div className="text-xs text-gray-500 mt-1">{ad.adset_name}</div>
+                            </td>
                             <td className="px-4 py-4 align-top text-sm text-gray-700">{ad.campaign_name}</td>
-                            {!isPeriodAnalysis && <td className="px-4 py-4 whitespace-nowrap align-top"><StatusBadge status={ad.status} /></td>}
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 align-top">{formatCurrency(isPeriodAnalysis ? ad.period_spend : ad.spend)}</td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 align-top">{formatNumber(isPeriodAnalysis ? ad.period_reach : ad.reach)}</td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 align-top">{formatNumber(isPeriodAnalysis ? ad.period_impressions : ad.impressions)}</td>
-                            {!isPeriodAnalysis && <td className="px-4 py-4 whitespace-nowrap align-top"><FrequenciaBadge frequencia={ad.frequencia} /></td>}
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 font-bold align-top">{formatNumber(isPeriodAnalysis ? ad.period_leads : ad.leads)}</td>
-                            {!isPeriodAnalysis && <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 align-top">{ad.cost_per_lead > 0 ? formatCurrency(ad.cost_per_lead) : 'N/A'}</td>}
+                            <td className="px-4 py-4 whitespace-nowrap align-top"><StatusBadge status={ad.status} /></td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 align-top">{formatCurrency(ad.spend)}</td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 align-top">{formatNumber(ad.reach)}</td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 align-top">{formatNumber(ad.impressions)}</td>
+                            <td className="px-4 py-4 whitespace-nowrap align-top"><FrequenciaBadge frequencia={ad.frequencia} /></td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 font-bold align-top">{ad.leads}</td>
+                            {/* ================================================================================= */}
+                            {/* ADICIONADO DE VOLTA: A célula com o dado de Custo por Lead */}
+                            {/* O PORQUÊ: Para corresponder ao cabeçalho e exibir a informação correta. */}
+                            {/* ================================================================================= */}
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700 align-top">{ad.cost_per_lead > 0 ? formatCurrency(ad.cost_per_lead) : 'N/A'}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -161,8 +234,3 @@ export default function TabelaAnuncios({ data, isPeriodAnalysis }) {
         </div>
     );
 }
-
-// O PORQUÊ DA MUDANÇA:
-// O código duplicado no final do arquivo foi removido.
-// Agora as funções auxiliares estão declaradas apenas uma vez, no início do arquivo,
-// resolvendo o erro de "identificador já declarado".

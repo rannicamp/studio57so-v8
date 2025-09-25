@@ -2,131 +2,109 @@
 
 "use client";
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faExclamationTriangle, faSyncAlt } from '@fortawesome/free-solid-svg-icons';
-import { toast } from 'sonner';
+import { faSpinner, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 
 import FiltroAnuncios from '@/components/comercial/FiltroAnuncios';
 import TabelaAnuncios from '@/components/comercial/TabelaAnuncios';
+import KpiAnuncios from '@/components/comercial/KpiAnuncios'; // NOVO: Importa o componente de KPI
 
-// Busca os dados TOTAIS acumulados (visão padrão)
-const fetchLocalAds = async (filters, page, limit) => {
-    const response = await fetch('/api/meta/anuncios/local', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filters, page, limit }),
-    });
-    if (!response.ok) throw new Error((await response.json()).error || 'Erro ao buscar totais.');
-    return response.json();
-};
+const fetchMetaAds = async (filters) => {
+    const params = new URLSearchParams();
+    if (filters.status && filters.status.length > 0) {
+        params.append('status', filters.status.join(','));
+    }
+    if (filters.startDate) {
+        params.append('startDate', filters.startDate);
+    }
+    if (filters.endDate) {
+        params.append('endDate', filters.endDate);
+    }
+    if (filters.campaignIds && filters.campaignIds.length > 0) {
+        params.append('campaign_ids', filters.campaignIds.join(','));
+    }
+    if (filters.adsetIds && filters.adsetIds.length > 0) {
+        params.append('adset_ids', filters.adsetIds.join(','));
+    }
 
-// Busca os dados CALCULADOS por período (visão de análise)
-const fetchPerformanceData = async (startDate, endDate) => {
-    const response = await fetch('/api/meta/anuncios/historico', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startDate, endDate }),
-    });
-    if (!response.ok) throw new Error((await response.json()).error || 'Erro ao buscar performance.');
-    const data = await response.json();
-    // A API de histórico não pagina, então simulamos a estrutura que a página espera
-    return { ads: data, total: data.length };
-};
-
-
-// Busca as opções para os menus de filtro
-const fetchFilterOptions = async () => {
-    const response = await fetch('/api/meta/anuncios/filter-options');
-    if (!response.ok) throw new Error('Falha ao carregar opções de filtro.');
+    // A requisição agora vai para a nossa API atualizada
+    const response = await fetch(`/api/meta/anuncios?${params.toString()}`);
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Não foi possível buscar os anúncios.');
+    }
     return response.json();
 };
 
 const initialFilterState = {
-    searchTerm: '', status: [], startDate: '', endDate: '', campaignIds: [], adsetIds: [],
+    searchTerm: '',
+    status: [],
+    startDate: '',
+    endDate: '',
+    campaignIds: [],
+    adsetIds: [],
 };
 
 export default function AnunciosPage() {
     const [filters, setFilters] = useState(initialFilterState);
-    const [page, setPage] = useState(1);
-    const limit = 20;
-    const queryClient = useQueryClient();
 
-    // O PORQUÊ DA MUDANÇA:
-    // Este é o novo cérebro da página.
-    // 1. isPeriodAnalysis: Verificamos se o filtro de datas está preenchido.
-    // 2. queryKey: A chave da busca agora inclui as datas. Se elas mudarem, a busca é refeita.
-    // 3. queryFn: Aqui está a mágica! Se `isPeriodAnalysis` for verdadeiro, chamamos a função
-    //    que busca os dados CALCULADOS. Se for falso, chamamos a que busca os dados TOTAIS.
-    const isPeriodAnalysis = filters.startDate && filters.endDate;
+    const { data: adsData, isLoading, isError, error } = useQuery({
+        queryKey: ['metaAds', filters],
+        queryFn: () => fetchMetaAds(filters),
+        keepPreviousData: true, 
+    });
 
-    const { data, isLoading, isError, error } = useQuery({
-        queryKey: ['anunciosData', filters, page, limit],
-        queryFn: () => {
-            if (isPeriodAnalysis) {
-                // Removemos outros filtros, pois a análise é por período
-                const periodFilters = { startDate: filters.startDate, endDate: filters.endDate };
-                return fetchPerformanceData(periodFilters.startDate, periodFilters.endDate);
-            } else {
-                return fetchLocalAds(filters, page, limit);
+    const { campaigns, adsets } = useMemo(() => {
+        if (!adsData) return { campaigns: [], adsets: [] };
+
+        const campaignMap = new Map();
+        const adsetMap = new Map();
+
+        adsData.forEach(ad => {
+            if (ad.campaign_id && ad.campaign_name && !campaignMap.has(ad.campaign_id)) {
+                campaignMap.set(ad.campaign_id, { id: ad.campaign_id, nome: ad.campaign_name });
             }
-        },
-        keepPreviousData: true,
-    });
+            if (ad.adset_id && ad.adset_name && !adsetMap.has(ad.adset_id)) {
+                adsetMap.set(ad.adset_id, { id: ad.adset_id, nome: ad.adset_name });
+            }
+        });
 
-    const { data: filterOptions, isLoading: isLoadingFilters } = useQuery({
-        queryKey: ['adFilterOptions'],
-        queryFn: fetchFilterOptions,
-        staleTime: 5 * 60 * 1000,
-    });
+        return {
+            campaigns: Array.from(campaignMap.values()),
+            adsets: Array.from(adsetMap.values()),
+        };
+    }, [adsData]);
 
-    const syncMutation = useMutation({
-        mutationFn: () => fetch('/api/meta/anuncios/sync').then(res => res.json()),
-        onSuccess: (data) => {
-            toast.success(data.message || 'Sincronização concluída!');
-            queryClient.invalidateQueries({ queryKey: ['anunciosData'] });
-            queryClient.invalidateQueries({ queryKey: ['adFilterOptions'] });
-        },
-        onError: (error) => toast.error(`Erro na sincronização: ${error.message}`),
-    });
-
-    const ads = data?.ads ?? [];
-    const totalAds = data?.total ?? 0;
-    const totalPages = Math.ceil(totalAds / limit);
-    
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-6">
-            <header className="flex flex-col md:flex-row md:justify-between md:items-center">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Anúncios da Meta</h1>
-                    <p className="text-gray-600 mt-1">
-                        {isPeriodAnalysis ? `Analisando performance de ${filters.startDate} a ${filters.endDate}` : 'Monitore o desempenho e o status de suas campanhas e anúncios.'}
-                    </p>
-                </div>
-                <button
-                    onClick={() => syncMutation.mutate()}
-                    disabled={syncMutation.isPending}
-                    className="mt-4 md:mt-0 bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 disabled:bg-blue-300 flex items-center justify-center gap-2 transition-colors"
-                >
-                    <FontAwesomeIcon icon={syncMutation.isPending ? faSpinner : faSyncAlt} spin={syncMutation.isPending} />
-                    {syncMutation.isPending ? 'Sincronizando...' : 'Sincronizar com a Meta'}
-                </button>
+            <header>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Anúncios da Meta</h1>
+                <p className="text-gray-600 mt-1">Monitore o desempenho e o status de suas campanhas e anúncios.</p>
             </header>
 
-            <FiltroAnuncios
-                filters={filters}
+            {/* ================================================================================= */}
+            {/* O PORQUÊ da alteração aqui:                                                     */}
+            {/* Adicionamos o novo componente KpiAnuncios, que agora é responsável por          */}
+            {/* mostrar os cartões de performance. Passamos para ele os dados dos anúncios      */}
+            {/* (`adsData`) e o estado de carregamento (`isLoading`) para que ele possa         */}
+            {/* exibir os KPIs ou um esqueleto de carregamento.                                 */}
+            {/* ================================================================================= */}
+            <KpiAnuncios data={adsData} isLoading={isLoading} />
+            
+            <FiltroAnuncios 
+                filters={filters} 
                 setFilters={setFilters}
-                campaigns={filterOptions?.campaigns ?? []}
-                adsets={filterOptions?.adsets ?? []}
-                isLoadingOptions={isLoadingFilters}
+                campaigns={campaigns}
+                adsets={adsets}
             />
 
             <main className="bg-white rounded-lg shadow-md">
-                {isLoading && (
+                {isLoading && !adsData && ( // Mostra o spinner principal apenas no carregamento inicial
                     <div className="flex flex-col items-center justify-center text-center p-10">
                         <FontAwesomeIcon icon={faSpinner} spin size="3x" className="text-blue-500" />
-                        <p className="mt-4 text-lg font-semibold text-gray-700">Buscando dados...</p>
+                        <p className="mt-4 text-lg font-semibold text-gray-700">Buscando anúncios...</p>
                     </div>
                 )}
 
@@ -138,21 +116,9 @@ export default function AnunciosPage() {
                     </div>
                 )}
 
-                {!isLoading && !isError && (
-                    <>
-                        <TabelaAnuncios data={ads} isPeriodAnalysis={isPeriodAnalysis} />
-                        {/* A paginação só aparece na visão de dados totais */}
-                        {!isPeriodAnalysis && totalAds > 0 && (
-                            <div className="p-4 flex justify-between items-center text-sm text-gray-600 border-t">
-                                <span>Mostrando {ads.length} de {totalAds} anúncios</span>
-                                <div className="flex items-center gap-2">
-                                    <button onClick={() => setPage(p => Math.max(p - 1, 1))} disabled={page === 1} className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-100">Anterior</button>
-                                    <span>Página {page} de {totalPages}</span>
-                                    <button onClick={() => setPage(p => Math.min(p + 1, totalPages))} disabled={page === totalPages} className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-100">Próxima</button>
-                                </div>
-                            </div>
-                        )}
-                    </>
+                {/* A tabela agora é exibida mesmo durante o recarregamento, graças ao keepPreviousData */}
+                {!isError && (
+                    <TabelaAnuncios data={adsData || []} filters={filters} />
                 )}
             </main>
         </div>

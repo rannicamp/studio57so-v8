@@ -11,6 +11,26 @@ const getSupabaseAdmin = () => {
     return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
 };
 
+const getTodaysSpend = async (adAccountId, accessToken) => {
+    const insightsUrl = `https://graph.facebook.com/v20.0/${adAccountId}/insights?level=ad&fields=ad_id,spend&date_preset=today&limit=500&access_token=${accessToken}`;
+    try {
+        const response = await fetch(insightsUrl);
+        const data = await response.json();
+        if (data.error) {
+            console.error("LOG: [API Anúncios] Erro ao buscar gasto diário:", data.error.message);
+            return new Map();
+        }
+        const spendMap = new Map();
+        (data.data || []).forEach(insight => {
+            spendMap.set(insight.ad_id, parseFloat(insight.spend || 0));
+        });
+        return spendMap;
+    } catch (error) {
+        console.error("LOG: [API Anúncios] Falha na requisição de gasto diário:", error.message);
+        return new Map();
+    }
+};
+
 export async function GET(request) {
     const supabase = getSupabaseAdmin();
     const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
@@ -20,20 +40,14 @@ export async function GET(request) {
     }
 
     try {
-        const { data: empresa, error: empresaError } = await supabase
-            .from('cadastro_empresa')
-            .select('meta_business_id, organizacao_id')
-            .not('meta_business_id', 'is', null)
-            .limit(1)
-            .single();
+        const { searchParams } = new URL(request.url);
 
+        const { data: empresa, error: empresaError } = await supabase.from('cadastro_empresa').select('meta_business_id').not('meta_business_id', 'is', null).limit(1).single();
         if (empresaError || !empresa) {
             throw new Error("Nenhuma empresa com 'meta_business_id' configurado foi encontrada.");
         }
-        
-        const metaBusinessId = empresa.meta_business_id;
-        const organizacaoId = empresa.organizacao_id;
 
+        const metaBusinessId = empresa.meta_business_id;
         const adAccountsUrl = `https://graph.facebook.com/v20.0/${metaBusinessId}/owned_ad_accounts?access_token=${PAGE_ACCESS_TOKEN}`;
         const adAccountsResponse = await fetch(adAccountsUrl);
         const adAccountsData = await adAccountsResponse.json();
@@ -41,124 +55,103 @@ export async function GET(request) {
             throw new Error(adAccountsData.error?.message || "Nenhuma conta de anúncios encontrada.");
         }
         const adAccountId = adAccountsData.data[0].id;
+        
+        const statusFilter = searchParams.get('status');
+        const campaignIdsFilter = searchParams.get('campaign_ids');
+        const adsetIdsFilter = searchParams.get('adset_ids');
+        const startDate = searchParams.get('startDate');
+        const endDate = searchParams.get('endDate');
 
-        const { searchParams } = new URL(request.url);
-        const cursor = searchParams.get('cursor');
-        let adsUrl;
-
-        if (cursor) {
-            adsUrl = cursor;
-        } else {
-            // =================================================================================
-            // MUDANÇA PRINCIPAL: REMOVEMOS TODOS OS FILTROS
-            // O PORQUÊ: Para garantir que estamos buscando absolutamente tudo, removemos
-            // o parâmetro `filtering`. A API agora trará todos os anúncios,
-            // independentemente do status (Ativo, Pausado, Arquivado, etc.).
-            // Aumentamos também o limite para 100 para pegar mais dados de uma vez.
-            // =================================================================================
-            const startDate = searchParams.get('startDate');
-            const endDate = searchParams.get('endDate');
-
-            let insightsRequest = 'insights{spend,impressions,clicks,reach,frequency,actions}';
-            if (startDate && endDate) {
-                insightsRequest = `insights.time_range({'since':'${startDate}','until':'${endDate}'}){spend,impressions,clicks,reach,frequency,actions}`;
-            }
-
-            const allFields = `name,effective_status,campaign{id,name,objective,status},adset{id,name,status,daily_budget,lifetime_budget},creative{thumbnail_url},${insightsRequest}`;
-            const baseUrl = `https://graph.facebook.com/v20.0/${adAccountId}/ads`;
-            adsUrl = `${baseUrl}?fields=${allFields.replace(/\s/g, '')}&limit=100&access_token=${PAGE_ACCESS_TOKEN}`;
+        let filters = [];
+        if (statusFilter) {
+            filters.push({ field: 'effective_status', operator: 'IN', value: statusFilter.split(',') });
+        }
+        if (campaignIdsFilter) {
+            filters.push({ field: 'campaign.id', operator: 'IN', value: campaignIdsFilter.split(',') });
+        }
+        if (adsetIdsFilter) {
+            filters.push({ field: 'adset.id', operator: 'IN', value: adsetIdsFilter.split(',') });
         }
 
-        console.log("LOG: Buscando na URL da Meta:", adsUrl.replace(PAGE_ACCESS_TOKEN, '******'));
-        const adsResponse = await fetch(adsUrl);
+        const filteringParam = filters.length > 0 ? `&filtering=${JSON.stringify(filters)}` : '';
+        
+        // =================================================================================
+        // O PORQUÊ da alteração aqui:
+        // Por padrão, a API da Meta retorna dados dos últimos 28 dias se não especificarmos
+        // um período. Para atender ao seu pedido de carregar TODOS os dados históricos
+        // na visualização inicial, agora usamos `insights.date_preset('maximum')` quando
+        // nenhum filtro de data é aplicado. Quando o usuário filtra, usamos o `time_range`
+        // normalmente. Isso garante que a visão geral seja sempre completa.
+        // =================================================================================
+        let insightsRequest;
+        const insightsFields = '{spend,impressions,clicks,reach,frequency,cpm,ctr,cpc,actions,cost_per_action_type}';
+
+        if (startDate && endDate) {
+            // Se o usuário filtrou por data, usamos o período que ele pediu.
+            insightsRequest = `insights.time_range({'since':'${startDate}','until':'${endDate}'})${insightsFields}`;
+        } else {
+            // Caso contrário, pedimos à Meta o período máximo de dados.
+            insightsRequest = `insights.date_preset(maximum)${insightsFields}`;
+        }
+
+        const allFields = `name,effective_status,end_time,created_time,campaign{id,name,objective,buying_type,spend_cap},adset{id,name,start_time,end_time,daily_budget,lifetime_budget,billing_event},creative{title,body,image_url,thumbnail_url,video_id},${insightsRequest}`;
+        
+        const baseUrl = `https://graph.facebook.com/v20.0/${adAccountId}/ads`;
+        const adsUrl = `${baseUrl}?fields=${allFields.replace(/\s/g, '')}${filteringParam}&limit=100&access_token=${PAGE_ACCESS_TOKEN}`;
+
+        const [adsResponse, todaysSpendMap] = await Promise.all([
+            fetch(adsUrl),
+            getTodaysSpend(adAccountId, PAGE_ACCESS_TOKEN)
+        ]);
+
         const adsData = await adsResponse.json();
         
         if (adsData.error) {
             throw new Error(adsData.error?.message || "Falha ao buscar dados na API da Meta.");
         }
 
-        const rawAds = adsData.data || [];
-
-        if (rawAds.length > 0) {
-            console.log(`LOG: Sincronizando ${rawAds.length} anúncios com o banco de dados...`);
-
-            const campaignsToUpsert = [...new Map(rawAds.map(ad => [ad.campaign.id, {
-                id: ad.campaign.id,
-                name: ad.campaign.name,
-                objective: ad.campaign.objective,
-                status: ad.campaign.status,
-                account_id: adAccountId,
-                organizacao_id: organizacaoId,
-            }])).values()];
-
-            const adsetsToUpsert = [...new Map(rawAds.map(ad => [ad.adset.id, {
-                id: ad.adset.id,
-                name: ad.adset.name,
-                campaign_id: ad.campaign.id,
-                status: ad.adset.status,
-                daily_budget: ad.adset.daily_budget ? parseInt(ad.adset.daily_budget, 10) : null,
-                lifetime_budget: ad.adset.lifetime_budget ? parseInt(ad.adset.lifetime_budget, 10) : null,
-                organizacao_id: organizacaoId,
-            }])).values()];
-
-            const adsToUpsert = rawAds.map(ad => ({
-                id: ad.id,
-                name: ad.name,
-                adset_id: ad.adset.id,
-                campaign_id: ad.campaign.id,
-                status: ad.effective_status,
-                thumbnail_url: ad.creative?.thumbnail_url,
-                organizacao_id: organizacaoId,
-            }));
-            
-            console.log(`LOG: Salvando ${campaignsToUpsert.length} campanhas...`);
-            const { error: campaignError } = await supabase.from('meta_campaigns').upsert(campaignsToUpsert);
-            if (campaignError) console.error("Erro ao sincronizar campanhas:", campaignError.message);
-
-            console.log(`LOG: Salvando ${adsetsToUpsert.length} conjuntos de anúncios...`);
-            const { error: adsetError } = await supabase.from('meta_adsets').upsert(adsetsToUpsert);
-            if (adsetError) console.error("Erro ao sincronizar conjuntos de anúncios:", adsetError.message);
-            
-            console.log(`LOG: Salvando ${adsToUpsert.length} anúncios...`);
-            const { error: adError } = await supabase.from('meta_ads').upsert(adsToUpsert);
-            if (adError) console.error("Erro ao sincronizar anúncios:", adError.message);
-
-            console.log("LOG: Sincronização com o banco de dados concluída.");
-        } else {
-             console.log("LOG: Nenhum anúncio encontrado na Meta para os filtros atuais.");
-        }
-
-        const formattedAds = rawAds.map(ad => {
+        const formattedAds = (adsData.data || []).map(ad => {
             const insights = ad.insights?.data[0];
-            const leadAction = insights?.actions?.find(a => ['lead', 'onsite_conversion.lead', 'form_lead'].includes(a.action_type));
-            const leads = leadAction ? parseInt(leadAction.value) : 0;
-            const spend = parseFloat(insights?.spend || 0);
-            const costPerLead = leads > 0 ? (spend / leads).toFixed(2) : '0.00';
+            const actions = insights?.actions || [];
+            const costPerAction = insights?.cost_per_action_type || [];
+            const leadAction = actions.find(a => ['lead', 'onsite_conversion.lead', 'form_lead'].includes(a.action_type));
+            const costPerLeadAction = costPerAction.find(c => ['lead', 'onsite_conversion.lead', 'form_lead'].includes(c.action_type));
 
             return {
                 id: ad.id,
                 name: ad.name,
                 status: ad.effective_status,
-                thumbnail_url: ad.creative?.thumbnail_url,
+                created_time: ad.created_time,
+                end_time: ad.end_time || ad.adset?.end_time || null,
+                creative_title: ad.creative?.title,
+                creative_body: ad.creative?.body,
+                thumbnail_url: ad.creative?.thumbnail_url || ad.creative?.image_url,
+                campaign_id: ad.campaign?.id,
                 campaign_name: ad.campaign?.name,
-                valor_gasto: spend.toFixed(2),
-                alcance: parseInt(insights?.reach || 0),
-                impressoes: parseInt(insights?.impressions || 0),
-                frequencia: parseFloat(insights?.frequency || 0).toFixed(2),
-                leads: leads,
-                custo_p_lead: costPerLead,
-            };
+                campaign_objective: ad.campaign?.objective,
+                campaign_buying_type: ad.campaign?.buying_type,
+                adset_id: ad.adset?.id,
+                adset_name: ad.adset?.name,
+                adset_daily_budget: ad.adset?.daily_budget,
+                adset_lifetime_budget: ad.adset?.lifetime_budget,
+                spend: insights?.spend || '0.00',
+                impressions: insights?.impressions || 0,
+                clicks: insights?.clicks || 0,
+                reach: insights?.reach || 0,
+                frequency: insights?.frequency || 0,
+                cpm: insights?.cpm || 0,
+                ctr: insights?.ctr || 0,
+                cpc: insights?.cpc || 0,
+                leads: leadAction ? parseInt(leadAction.value) : 0,
+                cost_per_lead: costPerLeadAction ? parseFloat(costPerLeadAction.value) : 0,
+                spend_today: todaysSpendMap.get(ad.id) || 0,
+            }
         });
         
-        const nextPageCursor = adsData.paging?.next || null;
-
-        return NextResponse.json({
-            ads: formattedAds,
-            nextPageCursor: nextPageCursor
-        });
+        return NextResponse.json(formattedAds);
 
     } catch (error) {
-        console.error("LOG: [API Anúncios] ERRO GERAL:", error);
+        console.error("LOG: [API Anúncios] ERRO GERAL:", error.message);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
