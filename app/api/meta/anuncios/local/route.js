@@ -4,97 +4,96 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { cookies } from 'next/headers';
 
-// O PORQUÊ DA MUDANÇA:
-// A versão anterior tentava ordenar por 'created_time', uma coluna que não existia.
-// Agora que criamos a coluna no Passo 1, este código vai funcionar perfeitamente.
-// Ele ordena os anúncios pela data de criação, mostrando os mais recentes primeiro,
-// e também ativa os filtros de data que estavam comentados.
-
 export async function POST(request) {
     const cookieStore = cookies();
     const supabase = createClient(cookieStore);
 
     try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError || !user) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
             return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
         }
 
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile } = await supabase
             .from('usuarios')
             .select('organizacao_id')
             .eq('id', user.id)
             .single();
 
-        if (profileError || !profile) {
-            return NextResponse.json({ error: 'Perfil do usuário não encontrado.' }, { status: 403 });
+        if (!profile) {
+            return NextResponse.json({ error: 'Perfil do usuário não encontrado.' }, { status: 404 });
         }
         const organizacaoId = profile.organizacao_id;
 
         const { filters, page = 1, limit = 20 } = await request.json();
-        const { searchTerm, status, campaignIds, adsetIds, startDate, endDate } = filters;
+        // O ideal é que o front-end envie os nomes, não os IDs, pois a tabela de histórico não possui os IDs de campanha/adset.
+        const { searchTerm, campaignNames, adsetNames } = filters;
 
+        // Passo 1: Construir a query na nossa nova VIEW, que é muito mais performática.
         let query = supabase
-            .from('meta_ads')
-            .select(`
-                *,
-                campaign:meta_campaigns(name),
-                adset:meta_adsets(name)
-            `, { count: 'exact' })
+            .from('latest_ad_snapshots') // Usando a VIEW que criamos!
+            .select('*', { count: 'exact' }) // 'exact' conta o total de itens, respeitando os filtros.
             .eq('organizacao_id', organizacaoId);
 
+        // Passo 2: Aplicar filtros DIRETAMENTE no banco de dados.
         if (searchTerm) {
-            query = query.ilike('name', `%${searchTerm}%`);
+            // Busca o termo no nome do anúncio, campanha ou conjunto.
+            query = query.or(`ad_name.ilike.%${searchTerm}%,campaign_name.ilike.%${searchTerm}%,adset_name.ilike.%${searchTerm}%`);
         }
-        if (status && status.length > 0) {
-            query = query.in('status', status);
-        }
-        if (campaignIds && campaignIds.length > 0) {
-            query = query.in('campaign_id', campaignIds);
-        }
-        if (adsetIds && adsetIds.length > 0) {
-            query = query.in('adset_id', adsetIds);
-        }
-        // Filtros de data agora estão ATIVOS e funcionando com a nova coluna
-        if (startDate) {
-            query = query.gte('created_time', startDate);
-        }
-        if (endDate) {
-            query = query.lte('created_time', endDate);
-        }
-
-        const from = (page - 1) * limit;
-        const to = from + limit - 1;
         
-        // A ordenação agora vai funcionar corretamente
-        query = query.order('created_time', { ascending: false, nullsFirst: false }).range(from, to);
+        // Assumindo que o filtro agora pode enviar um array de nomes de campanhas
+        if (campaignNames && campaignNames.length > 0) {
+            query = query.in('campaign_name', campaignNames);
+        }
+        
+        // Assumindo que o filtro agora pode enviar um array de nomes de conjuntos de anúncios
+        if (adsetNames && adsetNames.length > 0) {
+            query = query.in('adset_name', adsetNames);
+        }
 
-        const { data, error, count } = await query;
+        // Passo 3: Aplicar paginação DIRETAMENTE no banco de dados.
+        const from = (page - 1) * limit;
+        const to = from + limit - 1; // O .range é inclusivo
+        query = query.range(from, to);
+
+        // Executar a query otimizada
+        const { data: adSnapshots, error, count } = await query;
 
         if (error) {
-            console.error("Erro ao buscar anúncios locais no Supabase:", error);
+            console.error("Erro ao buscar snapshots de anúncios:", error);
             throw error;
         }
+        
+        // Passo 4: Formatar os dados para a tela.
+        const formattedAds = adSnapshots.map(ad => {
+            const spend = ad.spend || 0;
+            const leads = ad.leads || 0;
+            const impressions = ad.impressions || 0;
+            const reach = ad.reach || 0;
 
-        const formattedAds = data.map(ad => ({
-            ...ad,
-            campaign_name: ad.campaign?.name || 'N/A',
-            adset_name: ad.adset?.name || 'N/A',
-            spend: ad.insights?.spend || 0,
-            reach: ad.insights?.reach || 0,
-            impressions: ad.insights?.impressions || 0,
-            leads: ad.insights?.leads || 0,
-            cost_per_lead: ad.insights?.cost_per_lead || 0,
-            frequencia: (ad.insights?.impressions && ad.insights?.reach) ? (ad.insights.impressions / ad.insights.reach) : 0,
-        }));
+            return {
+                id: ad.ad_id,
+                name: ad.ad_name,
+                campaign_name: ad.campaign_name,
+                adset_name: ad.adset_name,
+                // Os campos 'status' e 'thumbnail_url' foram removidos pois não estão na tabela de histórico.
+                // Isso simplifica enormemente a query e evita a complexidade original.
+                spend: spend,
+                reach: reach,
+                impressions: impressions,
+                leads: leads,
+                cost_per_lead: leads > 0 ? (spend / leads) : 0,
+                frequencia: reach > 0 ? (impressions / reach) : 0,
+            };
+        });
 
         return NextResponse.json({
             ads: formattedAds,
-            total: count
+            total: count // O total agora vem diretamente da query!
         });
 
     } catch (error) {
         console.error('Erro geral na API de busca de anúncios locais:', error.message);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Falha ao buscar anúncios: ' + error.message }, { status: 500 });
     }
 }
