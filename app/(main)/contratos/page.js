@@ -6,12 +6,20 @@ import { createClient } from '../../../utils/supabase/client';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faFileInvoiceDollar, faStore, faArrowUpRightDots, faCalendarCheck } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faFileInvoiceDollar, faStore, faArrowUpRightDots, faCalendarCheck, faChartPie } from '@fortawesome/free-solid-svg-icons';
 import ContratoList from '../../../components/contratos/ContratoList';
 import KpiCard from '../../../components/KpiCard';
 import FiltroContratos from '../../../components/contratos/FiltroContratos';
 import { useDebounce } from 'use-debounce';
 import { createNewContrato } from './actions';
+// ================================================================================= //
+// O PORQUÊ DA ALTERAÇÃO:                                                            //
+// Importamos funções da biblioteca `date-fns` para nos ajudar a formatar a data     //
+// da última venda de forma relativa (ex: "Hoje", "Ontem", "Há 5 dias").              //
+// O `ptBR` garante que o texto seja exibido em português.                            //
+// ================================================================================= //
+import { formatDistanceToNow, isToday, isYesterday } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const fetchFilterData = async (organizacaoId) => {
     if (!organizacaoId) return { clientes: [], corretores: [], produtos: [], empreendimentos: [] };
@@ -80,16 +88,44 @@ export default function ContratosPage() {
     });
 
     const kpiData = useMemo(() => {
-        if (!contratos) return { totalVendido: 0, unidadesVendidas: 0, ticketMedio: 0, ultimaVenda: null };
-        const totalVendido = contratos.reduce((acc, c) => acc + (c.valor_final_venda || 0), 0);
+        if (!contratos || contratos.length === 0) {
+            return { totalVendido: 0, unidadesVendidas: 0, ticketMedio: 0, ultimaVenda: null, mediaVendasPorMes: 0 };
+        }
+
+        const datasVenda = contratos.map(c => new Date(c.data_venda));
+        const primeiraVenda = new Date(Math.min.apply(null, datasVenda));
+        const ultimaVenda = new Date(Math.max.apply(null, datasVenda));
+        
+        const mesesDeVendas = (ultimaVenda.getFullYear() - primeiraVenda.getFullYear()) * 12 + (ultimaVenda.getMonth() - primeiraVenda.getMonth()) + 1;
+        
         const unidadesVendidas = contratos.length;
+        const mediaVendasPorMes = mesesDeVendas > 0 ? unidadesVendidas / mesesDeVendas : 0;
+
+        const totalVendido = contratos.reduce((acc, c) => acc + (c.valor_final_venda || 0), 0);
         const ticketMedio = unidadesVendidas > 0 ? totalVendido / unidadesVendidas : 0;
-        const ultimaVenda = contratos.length > 0 ? contratos.map(c => new Date(c.data_venda)).sort((a, b) => b - a)[0] : null;
-        return { totalVendido, unidadesVendidas, ticketMedio, ultimaVenda };
+        
+        return { 
+            totalVendido, 
+            unidadesVendidas, 
+            ticketMedio, 
+            ultimaVenda,
+            mediaVendasPorMes
+        };
     }, [contratos]);
 
     const isLoading = isLoadingFilterData || isLoadingContratos;
     
+    // Função para formatar a data da última venda
+    const formatUltimaVenda = (date) => {
+        if (!date) return 'N/A';
+        if (isToday(date)) return 'Hoje';
+        if (isYesterday(date)) return 'Ontem';
+        
+        // A função retorna algo como "5 dias", "1 mês", etc.
+        const distance = formatDistanceToNow(date, { locale: ptBR });
+        return `Há ${distance}`;
+    };
+
     const requestSort = (key) => {
         let direction = 'ascending';
         if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -103,15 +139,6 @@ export default function ContratosPage() {
     }
 
     return (
-        // ================================================================================= //
-        // O PORQUÊ DA ALTERAÇÃO DO LAYOUT:                                                  //
-        // 1. O container principal agora controla apenas o padding geral.                   //
-        // 2. Um <header> foi adicionado para o título e botão, com margem inferior (mb-6)   //
-        //    para separá-lo do conteúdo. Ele agora é flexível para telas menores.          //
-        // 3. Um <main> agrupa o restante do conteúdo (Filtros, KPIs, Tabela) e aplica o    //
-        //    espaçamento vertical (`space-y-6`) entre eles, mantendo a ordem original.     //
-        // 4. A lista de contratos foi envolvida em um "card" para melhor distinção visual.  //
-        // ================================================================================= //
         <div className="p-4 md:p-6 lg:p-8">
             <header className="mb-6">
                 <div className="flex flex-wrap justify-between items-center gap-4">
@@ -134,11 +161,13 @@ export default function ContratosPage() {
                     empreendimentos={filterData?.empreendimentos || []}
                 />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     <KpiCard title="Total Vendido (Filtro)" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalVendido)} icon={faFileInvoiceDollar} />
                     <KpiCard title="Unidades Vendidas (Filtro)" value={kpiData.unidadesVendidas} icon={faStore} />
                     <KpiCard title="Ticket Médio (Filtro)" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.ticketMedio)} icon={faArrowUpRightDots} />
-                    <KpiCard title="Última Venda (Filtro)" value={kpiData.ultimaVenda ? kpiData.ultimaVenda.toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : 'N/A'} icon={faCalendarCheck} />
+                    <KpiCard title="Média de Vendas/Mês" value={kpiData.mediaVendasPorMes.toFixed(2).replace('.', ',')} icon={faChartPie} tooltip="Média de unidades vendidas por mês, com base no período filtrado." />
+                    {/* ALTERADO: O valor agora usa a nova função de formatação */}
+                    <KpiCard title="Última Venda (Filtro)" value={formatUltimaVenda(kpiData.ultimaVenda)} icon={faCalendarCheck} />
                 </div>
 
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
