@@ -1,4 +1,4 @@
-// next.config.mjs
+// Caminho do arquivo: /next.config.mjs
 
 import withPWAInit from '@ducanh2912/next-pwa';
 
@@ -12,7 +12,23 @@ const withPWA = withPWAInit({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['lh3.googleusercontent.com', 'firebasestorage.googleapis.com'],
+    // Atualizando para a propriedade 'remotePatterns', que é mais segura e moderna.
+    remotePatterns: [
+      // Seus domínios antigos foram mantidos aqui:
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
+      // E aqui adicionamos o novo domínio do Supabase:
+      {
+        protocol: 'https',
+        hostname: 'vhuvnutzklhskkwbpxdz.supabase.co',
+      },
+    ],
   },
 };
 

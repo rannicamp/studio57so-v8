@@ -1,4 +1,5 @@
 // app/(main)/empreendimentos/[id]/page.js
+
 import { createClient } from '@/utils/supabase/server';
 import EmpreendimentoDetails from '@/components/EmpreendimentoDetails';
 import { notFound, redirect } from 'next/navigation';
@@ -10,7 +11,7 @@ export default async function ViewEmpreendimentoPage({ params }) {
     const supabase = createClient();
 
     // =================================================================================
-    // CORREÇÃO DE SEGURANÇA (organização_id)
+    // CORREÇÃO DE SEGURANÇA (organizacao_id)
     // O PORQUÊ: O primeiro passo é sempre identificar o usuário e sua organização.
     // Sem isso, não podemos garantir a segurança dos dados.
     // =================================================================================
@@ -74,6 +75,7 @@ export default async function ViewEmpreendimentoPage({ params }) {
             initialAnexos={anexosComUrl || []}
             documentoTipos={documentoTipos || []}
             initialQuadroDeAreas={quadroDeAreas || []}
+            organizacaoId={organizacaoId} // <-- AQUI ESTÁ A MÁGICA! Entregando o ID para o componente.
         />
     );
 }

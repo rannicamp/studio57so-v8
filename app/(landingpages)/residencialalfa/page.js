@@ -1,10 +1,9 @@
-'use client'; // Necessário para usar o estado (useState)
+'use client'; 
 import { useState } from 'react';
 import FormularioDeContato from './FormularioDeContato';
 import Image from 'next/image';
-
-// Importando a fonte Roboto do Google Fonts
 import { Roboto } from 'next/font/google';
+
 const roboto = Roboto({
   weight: ['400', '500', '700'],
   subsets: ['latin'],
@@ -21,34 +20,46 @@ const IconePiscina = () => <svg fill="currentColor" viewBox="0 0 20 20" classNam
 
 export default function ResidencialAlfaPage() {
   const [view, setView] = useState('investidor'); // 'investidor' ou 'morador'
-
   const darkGrayColor = '#374151';
 
   return (
     <div className={`${roboto.className} bg-white text-gray-800 font-sans`}>
-      {/* 1. Seção Principal (Hero) */}
+      
+      {/* =================================================================== */}
+      {/* ======================= INÍCIO DA DOBRA 1 ======================= */}
+      {/* =================================================================== */}
       <section className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden">
         <div
           className="absolute inset-0 bg-no-repeat bg-right-bottom z-0"
           style={{
-            backgroundImage: "url('https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa//capa%20vazia2.png')",
+            backgroundImage: "url('https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/capa%20vazia2.png')",
             backgroundSize: 'cover',
           }}
         ></div>
-        <div className="absolute inset-0 bg-white opacity-20 z-10"></div>
+        <div className="absolute inset-0 bg-black opacity-20 z-10"></div>
         <div className="absolute bottom-0 left-0 w-[45%] max-w-xs sm:max-w-sm md:w-1/3 md:max-w-md z-20">
-          <img
-            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa//tatisemfundo.png"
+          <Image
+            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/tatisemfundo.png"
             alt="Tati, especialista do Residencial Alfa"
+            width={600}
+            height={900}
             className="w-full h-auto"
+            priority
           />
         </div>
         <div className="relative z-30 flex flex-col items-center p-4 w-full pt-16 sm:pt-0">
-          <img
-            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa//Logo%20-%20Residencial%20ALFA%20-%206.png"
-            alt="Logo Residencial Alfa"
-            className="w-3/4 max-w-sm md:max-w-md mb-8"
-          />
+          <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm sm:bg-transparent sm:p-0 sm:backdrop-blur-none mb-8">
+            {/* ##### INÍCIO DA ALTERAÇÃO ##### */}
+            <Image
+              src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/OUT_1758896374993.png"
+              alt="Logo Residencial Alfa"
+              width={500}
+              height={200}
+              className="w-full max-w-xs md:max-w-md"
+              priority
+            />
+            {/* ##### FIM DA ALTERAÇÃO ##### */}
+          </div>
           <div className="bg-gray-800/50 rounded-full p-1 flex items-center">
             <button
               onClick={() => setView('investidor')}
@@ -65,9 +76,14 @@ export default function ResidencialAlfaPage() {
           </div>
         </div>
       </section>
+      {/* =================================================================== */}
+      {/* ========================= FIM DA DOBRA 1 ======================== */}
+      {/* =================================================================== */}
 
-      {/* --- CONTEÚDO DINÂMICO BASEADO NO TOGGLE --- */}
 
+      {/* =================================================================== */}
+      {/* ======================= INÍCIO DA DOBRA 2 ======================= */}
+      {/* =================================================================== */}
       {view === 'investidor' && (
         <>
           <section className="py-16 md:py-24 bg-white">
@@ -146,8 +162,14 @@ export default function ResidencialAlfaPage() {
           </section>
         </>
       )}
+      {/* =================================================================== */}
+      {/* ========================= FIM DA DOBRA 2 ======================== */}
+      {/* =================================================================== */}
 
-      {/* --- SEÇÕES COMUNS PARA AMBOS --- */}
+
+      {/* =================================================================== */}
+      {/* ======================= INÍCIO DA DOBRA 3 ======================= */}
+      {/* =================================================================== */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div className="md:order-2">
@@ -165,7 +187,7 @@ export default function ResidencialAlfaPage() {
             </div>
              <div className="md:order-1">
                 <Image 
-                  src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa//planta%20humanizada%20aps.png" 
+                  src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/planta%20humanizada%20aps.png" 
                   alt="Planta Humanizada do Apartamento Alfa" 
                   width={500} 
                   height={500} 
@@ -175,7 +197,14 @@ export default function ResidencialAlfaPage() {
             </div>
         </div>
       </section>
+      {/* =================================================================== */}
+      {/* ========================= FIM DA DOBRA 3 ======================== */}
+      {/* =================================================================== */}
 
+
+      {/* =================================================================== */}
+      {/* ======================= INÍCIO DA DOBRA 4 ======================= */}
+      {/* =================================================================== */}
       <section className="py-16 md:py-24 bg-gray-50">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">Localização Privilegiada</h2>
@@ -184,7 +213,7 @@ export default function ResidencialAlfaPage() {
           </p>
           <div className="w-full h-96 rounded-lg shadow-xl overflow-hidden border">
             <iframe 
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3775.9686776155486!2d-41.94214782403811!3d-18.844060482313367!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xb1a714d5179699%3A0x59689852992b158e!2sAv.%20Dr.%20S%C3%A9rvulo%20Teixeira%2C%20725%20-%20Alto%20Esplanada%2C%20Gov.%20Valadares%20-%20MG%2C%2035064-004!5e0!3m2!1spt-BR!2sbr!4v1752700845639!5m2!1spt-BR!2sbr"
+              src="http://googleusercontent.com/maps.google.com/5"
               width="100%" 
               height="100%" 
               style={{ border: 0 }} 
@@ -195,7 +224,14 @@ export default function ResidencialAlfaPage() {
           </div>
         </div>
       </section>
+      {/* =================================================================== */}
+      {/* ========================= FIM DA DOBRA 4 ======================== */}
+      {/* =================================================================== */}
 
+
+      {/* =================================================================== */}
+      {/* ======================= INÍCIO DA DOBRA 5 ======================= */}
+      {/* =================================================================== */}
       <section id="contato" className="bg-gray-800 text-white py-16 md:py-24">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ letterSpacing: '0.02em' }}>Gostou? Dê o primeiro passo para realizar seu sonho.</h2>
@@ -207,13 +243,24 @@ export default function ResidencialAlfaPage() {
           </div>
         </div>
       </section>
+      {/* =================================================================== */}
+      {/* ========================= FIM DA DOBRA 5 ======================== */}
+      {/* =================================================================== */}
+      
 
+      {/* =================================================================== */}
+      {/* =========================== INÍCIO DO RODAPÉ ========================== */}
+      {/* =================================================================== */}
       <footer className="bg-black text-white py-6">
         <div className="container mx-auto px-4 text-center text-gray-400" style={{ letterSpacing: '0.03em' }}>
           <p>© {new Date().getFullYear()} Studio 57. Todos os direitos reservados.</p>
           <p className="text-sm mt-1">Residencial Alfa - Registro de Incorporação: Nº 24.920/R-08</p>
         </div>
       </footer>
+      {/* =================================================================== */}
+      {/* ============================ FIM DO RODAPÉ ========================== */}
+      {/* =================================================================== */}
+
       
       {/* BALÃO DA IA STELLA - COM MENSAGEM PRÉ-CARREGADA */}
       <a 
@@ -224,9 +271,11 @@ export default function ResidencialAlfaPage() {
         aria-label="Converse com a Stella no WhatsApp"
       >
         <div className="w-16 h-16 bg-white rounded-full shadow-2xl flex items-center justify-center">
-          <img 
-            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa//stella.jpeg" 
+          <Image 
+            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/stella.jpeg" 
             alt="Converse com a Stella" 
+            width={64}
+            height={64}
             className="w-full h-full rounded-full object-cover"
           />
         </div>
