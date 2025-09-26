@@ -1,20 +1,17 @@
-// components/EmpreendimentoDetails.js
-
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// ---> ALTERADO <--- Adicionamos os ícones de link e download
-import { faBuilding, faRulerCombined, faBoxOpen, faFileLines, faUpload, faSpinner, faTrash, faEye, faSort, faSortUp, faSortDown, faCloudUploadAlt, faWandMagicSparkles, faLink, faDownload } from '@fortawesome/free-solid-svg-icons';
+// Ícone faRightLeft foi adicionado e faPenToSquare removido
+import { faBuilding, faRulerCombined, faBoxOpen, faFileLines, faUpload, faSpinner, faTrash, faEye, faSort, faSortUp, faSortDown, faCloudUploadAlt, faWandMagicSparkles, faLink, faDownload, faRightLeft } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 
 // --- SUB-COMPONENTES ---
 
 function InfoField({ label, value, fullWidth = false }) {
-  // ... (código existente sem alteração)
   if (value === null || value === undefined || value === '') return null;
   return (
     <div className={fullWidth ? "md:col-span-3" : ""}>
@@ -25,7 +22,6 @@ function InfoField({ label, value, fullWidth = false }) {
 }
 
 function KpiCard({ title, value, icon, colorClass = 'text-blue-500' }) {
-    // ... (código existente sem alteração)
   return (
     <div className="bg-white p-4 rounded-lg shadow flex items-center space-x-4">
       {icon && <FontAwesomeIcon icon={icon} className={`text-2xl ${colorClass}`} />}
@@ -38,7 +34,6 @@ function KpiCard({ title, value, icon, colorClass = 'text-blue-500' }) {
 }
 
 const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, categoria, organizacaoId }) => {
-    // ... (código existente sem alteração)
     const supabase = createClient();
     const [file, setFile] = useState(null);
     const [descricao, setDescricao] = useState('');
@@ -81,6 +76,13 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, catego
 
             if (dbError) return reject(dbError);
             fetch('/api/empreendimentos/process-anexo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ anexoId: data.id }) }).catch(err => console.error("Erro ao chamar API de processamento da IA:", err));
+            
+            fetch('/api/generate-pdf-thumbnail', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ anexo: data }) 
+            }).catch(err => console.error("Erro ao iniciar a geração de thumbnail:", err));
+
             resolve({msg: "Anexo enviado! A IA começará a estudá-lo.", newAnexo: data});
         });
         toast.promise(promise, {
@@ -114,7 +116,6 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, catego
 };
 
 const TabelaVendas = ({ produtos, empreendimentoId }) => {
-    // ... (código existente sem alteração)
     const [sortConfig, setSortConfig] = useState({ key: 'unidade', direction: 'ascending' });
     const requestSort = (key) => { let direction = 'ascending'; if (sortConfig.key === key && sortConfig.direction === 'ascending') { direction = 'descending'; } setSortConfig({ key, direction }); };
     const sortedProdutos = useMemo(() => { let sortableItems = [...produtos]; if (sortConfig.key !== null) { sortableItems.sort((a, b) => { const valA = a[sortConfig.key]; const valB = b[sortConfig.key]; if (valA === null || valA === undefined) return 1; if (valB === null || valB === undefined) return -1; if (sortConfig.key === 'valor_venda_calculado' || sortConfig.key === 'area_privativa') { const numA = parseFloat(valA) || 0; const numB = parseFloat(valB) || 0; return sortConfig.direction === 'ascending' ? numA - numB : numB - numA; } if (String(valA).toLowerCase() < String(valB).toLowerCase()) { return sortConfig.direction === 'ascending' ? -1 : 1; } if (String(valA).toLowerCase() > String(valB).toLowerCase()) { return sortConfig.direction === 'ascending' ? 1 : -1; } return 0; }); } return sortableItems; }, [produtos, sortConfig]);
@@ -127,32 +128,70 @@ const TabelaVendas = ({ produtos, empreendimentoId }) => {
 };
 
 const ListaAnexos = ({ anexos, onDelete }) => {
-    // ... (código existente sem alteração)
     if (!anexos || anexos.length === 0) return <p className="text-center text-gray-500 py-4 mt-4">Nenhum documento nesta categoria.</p>;
     return ( <div className="space-y-3 mt-4"> {anexos.map(anexo => (<div key={anexo.id} className="bg-white p-3 rounded-md border flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors"><div className="flex items-center gap-4 min-w-0"><FontAwesomeIcon icon={faFileLines} className="text-xl text-gray-500 flex-shrink-0" /><div className="flex-grow min-w-0"><p className="font-medium text-gray-800 truncate" title={anexo.nome_arquivo}>{anexo.nome_arquivo}</p><p className="text-xs text-gray-500">{anexo.descricao || anexo.tipo?.descricao || 'Sem descrição'}</p></div></div><div className="flex items-center gap-4 flex-shrink-0"><a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800" title="Visualizar"><FontAwesomeIcon icon={faEye} /></a><button onClick={() => onDelete(anexo.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button></div></div>))} </div> );
 };
 
-// ---> ALTERADO <--- Todo o componente GaleriaMarketing foi atualizado
 const GaleriaMarketing = ({ anexos, onDelete }) => {
     const supabase = createClient();
+    const replaceFileInputRef = useRef(null);
+    const [anexoToReplace, setAnexoToReplace] = useState(null);
 
+    const handleReplaceClick = (anexo) => {
+        setAnexoToReplace(anexo);
+        replaceFileInputRef.current?.click();
+    };
+
+    const handleFileReplace = async (event) => {
+        const file = event.target.files[0];
+        if (!file || !anexoToReplace) return;
+
+        toast.promise(
+            new Promise(async (resolve, reject) => {
+                const { error } = await supabase.storage
+                    .from('empreendimento-anexos')
+                    .upload(anexoToReplace.caminho_arquivo, file, { upsert: true });
+
+                if (error) return reject(error);
+
+                fetch('/api/generate-pdf-thumbnail', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ anexo: anexoToReplace })
+                }).catch(err => console.error("Erro ao regerar thumbnail:", err));
+
+                resolve("Arquivo substituído com sucesso! A página será recarregada.");
+            }),
+            {
+                loading: 'Substituindo arquivo...',
+                success: (msg) => {
+                    setTimeout(() => window.location.reload(), 2000);
+                    return msg;
+                },
+                error: (err) => `Erro ao substituir: ${err.message}`,
+                finally: () => {
+                    setAnexoToReplace(null);
+                    if(replaceFileInputRef.current) replaceFileInputRef.current.value = "";
+                }
+            }
+        );
+    };
+    
     if (!anexos || anexos.length === 0) return <p className="text-center text-gray-500 py-4 mt-4">Nenhum item de marketing encontrado.</p>;
 
     const isVideo = (path) => /\.(mp4|webm|ogg)$/i.test(path || '');
+    const isPdf = (path) => /\.(pdf)$/i.test(path || '');
 
-    // ---> NOVO <--- Função para gerar e copiar o link público
     const handleGeneratePublicLink = async (filePath) => {
         if (!filePath) {
             toast.error("Arquivo não encontrado.");
             return;
         }
         
-        // Pega a URL pública permanente do arquivo
         const { data } = supabase.storage.from('empreendimento-anexos').getPublicUrl(filePath);
 
         if (data?.publicUrl) {
             try {
-                // Tenta copiar o link para a área de transferência do usuário
                 await navigator.clipboard.writeText(data.publicUrl);
                 toast.success("Link público copiado para a área de transferência!");
             } catch (err) {
@@ -165,51 +204,50 @@ const GaleriaMarketing = ({ anexos, onDelete }) => {
     };
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-            {anexos.map(anexo => (
-                <div key={anexo.id} className="relative group rounded-lg overflow-hidden shadow-lg border">
-                    {isVideo(anexo.caminho_arquivo) ? (
-                        <video controls src={anexo.public_url} className="w-full h-48 object-cover bg-black">Seu navegador não suporta o elemento de vídeo.</video>
-                    ) : (
-                        anexo.public_url && <img src={anexo.public_url} alt={anexo.nome_arquivo} className="w-full h-48 object-cover"/>
-                    )}
-                    
-                    {/* ---> ALTERADO <--- Adicionamos os novos botões aqui */}
-                    <div className="absolute top-0 right-0 p-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {/* Botão de Download */}
-                        <a 
-                           href={anexo.public_url} 
-                           download={anexo.nome_arquivo} // Força o download com o nome original do arquivo
-                           title="Baixar"
-                           className="bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-black/80">
-                            <FontAwesomeIcon icon={faDownload} />
+        <>
+            <input 
+                type="file" 
+                ref={replaceFileInputRef}
+                className="hidden"
+                onChange={handleFileReplace}
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                {anexos.map(anexo => (
+                    <div key={anexo.id} className="relative group rounded-lg overflow-hidden shadow-lg border">
+                        <a href={anexo.public_url} target="_blank" rel="noopener noreferrer">
+                            {anexo.thumbnail_url ? (
+                                <img src={anexo.thumbnail_url} alt={`Pré-visualização de ${anexo.nome_arquivo}`} className="w-full h-48 object-cover"/>
+                            ) : isVideo(anexo.caminho_arquivo) ? (
+                                <video controls src={anexo.public_url} className="w-full h-48 object-cover bg-black">Seu navegador não suporta vídeos.</video>
+                            ) : isPdf(anexo.nome_arquivo) ? (
+                                <div className="w-full h-48 bg-gray-200 flex flex-col items-center justify-center text-gray-500">
+                                    <FontAwesomeIcon icon={faSpinner} spin size="2x" />
+                                    <span className="mt-2 text-sm">Processando preview...</span>
+                                </div>
+                            ) : (
+                                anexo.public_url && <img src={anexo.public_url} alt={anexo.nome_arquivo} className="w-full h-48 object-cover"/>
+                            )}
                         </a>
                         
-                        {/* Botão para Gerar Link Público */}
-                        <button 
-                           onClick={() => handleGeneratePublicLink(anexo.caminho_arquivo)}
-                           title="Copiar link público"
-                           className="bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-black/80">
-                            <FontAwesomeIcon icon={faLink} />
-                        </button>
-
-                        {/* Botões existentes */}
-                        <a href={anexo.public_url} target="_blank" rel="noopener noreferrer" title="Visualizar" className="bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-black/80">
-                            <FontAwesomeIcon icon={faEye} />
-                        </a>
-                        <button onClick={() => onDelete(anexo.id)} title="Excluir" className="bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-black/80">
-                            <FontAwesomeIcon icon={faTrash} />
-                        </button>
-                    </div>
-
-                    {(anexo.descricao || anexo.tipo?.descricao) && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate" title={anexo.descricao || anexo.tipo.descricao}>
-                            {anexo.descricao || anexo.tipo.descricao}
+                        <div className="absolute top-0 right-0 p-1 flex items-center gap-1 bg-black/20 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => handleReplaceClick(anexo)} title="Substituir" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faRightLeft} /></button>
+                            <a href={anexo.public_url} download={anexo.nome_arquivo} title="Baixar" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faDownload} /></a>
+                            {/* ##### INÍCIO DA CORREÇÃO ##### */}
+                            <button onClick={() => handleGeneratePublicLink(anexo.caminho_arquivo)} title="Copiar link público" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faLink} /></button>
+                            {/* ##### FIM DA CORREÇÃO ##### */}
+                            <a href={anexo.public_url} target="_blank" rel="noopener noreferrer" title="Visualizar" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faEye} /></a>
+                            <button onClick={() => onDelete(anexo.id)} title="Excluir" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faTrash} /></button>
                         </div>
-                    )}
-                </div>
-            ))}
-        </div>
+
+                        {(anexo.descricao || anexo.tipo?.descricao) && (
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate" title={anexo.descricao || anexo.tipo.descricao}>
+                                {anexo.descricao || anexo.tipo.descricao}
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </>
     );
 };
 
@@ -217,12 +255,10 @@ const GaleriaMarketing = ({ anexos, onDelete }) => {
 // --- COMPONENTE PRINCIPAL ---
 
 export default function EmpreendimentoDetails({ empreendimento, corporateEntities = [], proprietariaOptions = [], produtos = [], initialAnexos, documentoTipos, initialQuadroDeAreas, organizacaoId }) {
-    // ... (resto do código do componente principal sem alteração)
     const [activeTab, setActiveTab] = useState('dados_gerais');
     const [anexos, setAnexos] = useState(initialAnexos);
     const supabase = createClient();
     const router = useRouter();
-
     const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
     const [summary, setSummary] = useState('');
 
