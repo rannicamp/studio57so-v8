@@ -49,16 +49,14 @@ export default function ResidencialAlfaPage() {
         </div>
         <div className="relative z-30 flex flex-col items-center p-4 w-full pt-16 sm:pt-0">
           <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm sm:bg-transparent sm:p-0 sm:backdrop-blur-none mb-8">
-            {/* ##### INÍCIO DA ALTERAÇÃO ##### */}
             <Image
-              src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/OUT_1758896374993.png"
+              src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759008548201.png"
               alt="Logo Residencial Alfa"
               width={500}
               height={200}
-              className="w-full max-w-xs md:max-w-md"
+              className="w-full max-w-xs md:max-w-md object-contain"
               priority
             />
-            {/* ##### FIM DA ALTERAÇÃO ##### */}
           </div>
           <div className="bg-gray-800/50 rounded-full p-1 flex items-center">
             <button
@@ -185,7 +183,7 @@ export default function ResidencialAlfaPage() {
                 <li>Área de Serviço</li>
               </ul>
             </div>
-             <div className="md:order-1">
+              <div className="md:order-1">
                 <Image 
                   src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/planta%20humanizada%20aps.png" 
                   alt="Planta Humanizada do Apartamento Alfa" 
@@ -194,7 +192,7 @@ export default function ResidencialAlfaPage() {
                   className="rounded-lg shadow-xl mx-auto cursor-pointer" 
                 />
                 <p className="text-center text-sm mt-2 text-gray-500" style={{ letterSpacing: '0.03em' }}>Clique na imagem para ampliar</p>
-            </div>
+              </div>
         </div>
       </section>
       {/* =================================================================== */}
@@ -213,7 +211,7 @@ export default function ResidencialAlfaPage() {
           </p>
           <div className="w-full h-96 rounded-lg shadow-xl overflow-hidden border">
             <iframe 
-              src="http://googleusercontent.com/maps.google.com/5"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3784.532398749841!2d-41.95663232551469!3d-18.8872246698967!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x74adeb8b1e4288d%3A0x63322e43a91e133d!2sResidencial%20Alfa!5e0!3m2!1spt-BR!2sbr!4v1727471958869!5m2!1spt-BR!2sbr"
               width="100%" 
               height="100%" 
               style={{ border: 0 }} 
@@ -276,7 +274,7 @@ export default function ResidencialAlfaPage() {
             alt="Converse com a Stella" 
             width={64}
             height={64}
-            className="w-full h-full rounded-full object-cover"
+            className="w-full h-full rounded-full object-contain" // <--- CLASSE ALTERADA AQUI
           />
         </div>
       </a>

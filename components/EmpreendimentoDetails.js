@@ -4,10 +4,10 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// Ícone faRightLeft foi adicionado e faPenToSquare removido
 import { faBuilding, faRulerCombined, faBoxOpen, faFileLines, faUpload, faSpinner, faTrash, faEye, faSort, faSortUp, faSortDown, faCloudUploadAlt, faWandMagicSparkles, faLink, faDownload, faRightLeft } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
+import imageCompression from 'browser-image-compression';
 
 // --- SUB-COMPONENTES ---
 
@@ -41,7 +41,33 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, catego
     const [isUploading, setIsUploading] = useState(false);
     const [isDraggingOver, setIsDraggingOver] = useState(false);
     const fileInputRef = useRef(null);
-    const handleFileSelect = (selectedFile) => { if (selectedFile) setFile(selectedFile); };
+    
+    const handleFileSelect = async (selectedFile) => {
+        if (!selectedFile) return;
+
+        if (!selectedFile.type.startsWith('image/')) {
+            setFile(selectedFile);
+            return;
+        }
+        
+        const options = {
+            maxSizeMB: 2,
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+        };
+
+        try {
+            toast.info("Otimizando imagem para o upload...");
+            const compressedFile = await imageCompression(selectedFile, options);
+            setFile(compressedFile);
+            toast.success("Imagem otimizada!");
+        } catch (error) {
+            console.error('Erro ao comprimir a imagem:', error);
+            toast.error('Não foi possível otimizar a imagem. Usando o arquivo original.');
+            setFile(selectedFile);
+        }
+    };
+
     const resetState = () => { setFile(null); setDescricao(''); setTipoId(''); if (fileInputRef.current) fileInputRef.current.value = ""; };
     const handleDragEnter = (e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOver(true); };
     const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOver(false); };
@@ -216,25 +242,25 @@ const GaleriaMarketing = ({ anexos, onDelete }) => {
                     <div key={anexo.id} className="relative group rounded-lg overflow-hidden shadow-lg border">
                         <a href={anexo.public_url} target="_blank" rel="noopener noreferrer">
                             {anexo.thumbnail_url ? (
-                                <img src={anexo.thumbnail_url} alt={`Pré-visualização de ${anexo.nome_arquivo}`} className="w-full h-48 object-cover"/>
+                                <img src={anexo.thumbnail_url} alt={`Pré-visualização de ${anexo.nome_arquivo}`} className="w-full h-48 object-contain"/>
                             ) : isVideo(anexo.caminho_arquivo) ? (
-                                <video controls src={anexo.public_url} className="w-full h-48 object-cover bg-black">Seu navegador não suporta vídeos.</video>
+                                <video controls src={anexo.public_url} className="w-full h-48 object-contain bg-black">Seu navegador não suporta vídeos.</video>
                             ) : isPdf(anexo.nome_arquivo) ? (
                                 <div className="w-full h-48 bg-gray-200 flex flex-col items-center justify-center text-gray-500">
                                     <FontAwesomeIcon icon={faSpinner} spin size="2x" />
                                     <span className="mt-2 text-sm">Processando preview...</span>
                                 </div>
                             ) : (
-                                anexo.public_url && <img src={anexo.public_url} alt={anexo.nome_arquivo} className="w-full h-48 object-cover"/>
+                                // ---> ALTERAÇÃO AQUI <---
+                                // Trocamos 'object-cover' por 'object-contain' para preservar a transparência
+                                anexo.public_url && <img src={anexo.public_url} alt={anexo.nome_arquivo} className="w-full h-48 object-contain"/>
                             )}
                         </a>
                         
                         <div className="absolute top-0 right-0 p-1 flex items-center gap-1 bg-black/20 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={() => handleReplaceClick(anexo)} title="Substituir" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faRightLeft} /></button>
                             <a href={anexo.public_url} download={anexo.nome_arquivo} title="Baixar" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faDownload} /></a>
-                            {/* ##### INÍCIO DA CORREÇÃO ##### */}
                             <button onClick={() => handleGeneratePublicLink(anexo.caminho_arquivo)} title="Copiar link público" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faLink} /></button>
-                            {/* ##### FIM DA CORREÇÃO ##### */}
                             <a href={anexo.public_url} target="_blank" rel="noopener noreferrer" title="Visualizar" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faEye} /></a>
                             <button onClick={() => onDelete(anexo.id)} title="Excluir" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faTrash} /></button>
                         </div>
