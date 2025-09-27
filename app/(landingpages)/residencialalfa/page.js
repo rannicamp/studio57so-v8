@@ -1,8 +1,15 @@
-'use client'; 
+'use client';
 import { useState } from 'react';
 import FormularioDeContato from './FormularioDeContato';
 import Image from 'next/image';
 import { Roboto } from 'next/font/google';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+import { 
+  faRulerCombined, faBed, faBath, faCouch, faElevator, faCar,
+  faHospital, faGraduationCap, faCity, faCartShopping, faUtensils, faLocationDot,
+  faSchool, faHouseMedical, faUsers, faLandmark
+} from '@fortawesome/free-solid-svg-icons';
 
 const roboto = Roboto({
   weight: ['400', '500', '700'],
@@ -25,9 +32,7 @@ export default function ResidencialAlfaPage() {
   return (
     <div className={`${roboto.className} bg-white text-gray-800 font-sans`}>
       
-      {/* =================================================================== */}
-      {/* ======================= INÍCIO DA DOBRA 1 ======================= */}
-      {/* =================================================================== */}
+      {/* ... (Dobra 1 e Seção Renda Passiva - sem alterações) ... */}
       <section className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden">
         <div
           className="absolute inset-0 bg-no-repeat bg-right-bottom z-0"
@@ -48,16 +53,14 @@ export default function ResidencialAlfaPage() {
           />
         </div>
         <div className="relative z-30 flex flex-col items-center p-4 w-full pt-16 sm:pt-0">
-          <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm sm:bg-transparent sm:p-0 sm:backdrop-blur-none mb-8">
             <Image
               src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759008548201.png"
               alt="Logo Residencial Alfa"
               width={500}
               height={200}
-              className="w-full max-w-xs md:max-w-md object-contain"
+              className="w-full max-w-xs md:max-w-md object-contain mb-8"
               priority
             />
-          </div>
           <div className="bg-gray-800/50 rounded-full p-1 flex items-center">
             <button
               onClick={() => setView('investidor')}
@@ -74,10 +77,32 @@ export default function ResidencialAlfaPage() {
           </div>
         </div>
       </section>
-      {/* =================================================================== */}
-      {/* ========================= FIM DA DOBRA 1 ======================== */}
-      {/* =================================================================== */}
-
+      <section className="bg-gray-50 py-16 md:py-20">
+        <div className="container mx-auto px-4 text-center">
+          <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
+            <h2 className="text-xl md:text-2xl font-semibold uppercase tracking-wider text-gray-500 mb-4" style={{ letterSpacing: '0.05em' }}>
+              Transforme seu dinheiro em Renda Passiva
+            </h2>
+            <p className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-4 whitespace-nowrap" style={{ letterSpacing: '0.02em' }}>
+              Até R$ 4.144,25/mês
+            </p>
+            <p className="text-gray-600" style={{ letterSpacing: '0.03em' }}>
+              Com aluguel temporário no Residencial Alfa, em um cenário de alta ocupação (70%). Uma oportunidade única de investimento com retorno rápido e seguro.
+            </p>
+            <div className="mt-8">
+              <a
+                href="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/RLT_1759011023928.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                download="Analise_de_Rentabilidade_Residencial_Alfa.pdf"
+                className="inline-block bg-gray-800 text-white font-bold py-3 px-8 rounded-full hover:bg-gray-700 transition-colors duration-300 shadow-lg"
+              >
+                Download da Análise de Rentabilidade
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* =================================================================== */}
       {/* ======================= INÍCIO DA DOBRA 2 ======================= */}
@@ -85,16 +110,7 @@ export default function ResidencialAlfaPage() {
       {view === 'investidor' && (
         <>
           <section className="py-16 md:py-24 bg-white">
-            <div className="container mx-auto px-4 text-left">
-              <h2 className="text-xl md:text-2xl font-semibold uppercase tracking-wider text-gray-500 mb-6" style={{ letterSpacing: '0.05em' }}>
-                Transforme seu dinheiro em Renda Passiva
-              </h2>
-              <p className="text-4xl md:text-6xl font-bold text-gray-900 mb-4" style={{ letterSpacing: '0.02em' }}>
-                <span className="whitespace-nowrap">Até <span style={{ color: darkGrayColor }}>R$ 4.144,25/mês</span></span>
-              </p>
-              <p className="max-w-3xl mb-12 text-gray-600" style={{ letterSpacing: '0.03em' }}>
-                Com aluguel temporário no Residencial Alfa, em um cenário de alta ocupação (70%). Uma oportunidade única de investimento com retorno rápido e seguro.
-              </p>
+            <div className="container mx-auto px-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="p-6 bg-gray-100 rounded-lg shadow-sm">
                   <div className="mb-4" style={{ color: darkGrayColor }}><IconeLocalizacao /></div>
@@ -112,13 +128,163 @@ export default function ResidencialAlfaPage() {
                   <p className="text-gray-600" style={{ letterSpacing: '0.03em' }}>Invista no Alto Esplanada, o bairro com maior potencial de valorização da cidade, e veja seu patrimônio crescer.</p>
                 </div>
               </div>
+              
+              {/* --- IMAGEM AÉREA OCULTADA --- */}
+              {/*
+              <div className="mt-16">
+                <Image
+                  src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759012854914.png"
+                  alt="Vista aérea da localização do Residencial Alfa"
+                  width={1200}
+                  height={600}
+                  className="w-full h-auto rounded-lg shadow-lg"
+                />
+              </div>
+              */}
+
+              {/* --- NOVO MAPA ESQUEMÁTICO (COM DADOS FINAIS) --- */}
+              <div className="mt-16 md:mt-24">
+                <h3 className="text-2xl md:text-3xl font-bold text-gray-800 text-center mb-12">
+                  Mapa de Proximidades
+                </h3>
+                <div className="relative max-w-sm mx-auto">
+                  {/* Linha Vertical */}
+                  <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-gray-300"></div>
+                  
+                  {/* Ponto de Partida */}
+                  <div className="relative pl-10 pb-8">
+                    <div className="absolute left-0 top-1 w-5 h-5 bg-amber-800 rounded-full border-4 border-white"></div>
+                    <div className="flex items-center">
+                      <FontAwesomeIcon icon={faLocationDot} className="text-2xl text-amber-800 mr-4" />
+                      <div>
+                        <p className="font-bold text-gray-800">Residencial Alfa</p>
+                        <p className="text-sm text-gray-500">Ponto de partida</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Lista de Locais Corrigida */}
+                  <div className="relative pl-10 pb-8">
+                    <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                    <div className="flex items-center">
+                      <FontAwesomeIcon icon={faSchool} className="text-2xl text-gray-600 mr-4" />
+                      <div>
+                        <p className="font-bold text-gray-800">Maple Bear</p><p className="text-sm text-gray-500">1 min</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative pl-10 pb-8">
+                    <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                    <div className="flex items-center">
+                      <FontAwesomeIcon icon={faHouseMedical} className="text-2xl text-gray-600 mr-4" />
+                      <div>
+                        <p className="font-bold text-gray-800">Casa Unimed</p><p className="text-sm text-gray-500">2 min</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative pl-10 pb-8">
+                    <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                    <div className="flex items-center">
+                      <FontAwesomeIcon icon={faGraduationCap} className="text-2xl text-gray-600 mr-4" />
+                      <div>
+                        <p className="font-bold text-gray-800">UFJF-GV</p><p className="text-sm text-gray-500">2 min</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative pl-10 pb-8">
+                    <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                    <div className="flex items-center">
+                      <FontAwesomeIcon icon={faUsers} className="text-2xl text-gray-600 mr-4" />
+                      <div>
+                        <p className="font-bold text-gray-800">Clube Filadélfia</p><p className="text-sm text-gray-500">4 min</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative pl-10 pb-8">
+                    <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                    <div className="flex items-center">
+                      <FontAwesomeIcon icon={faHospital} className="text-2xl text-gray-600 mr-4" />
+                      <div>
+                        <p className="font-bold text-gray-800">Hospital São Lucas</p><p className="text-sm text-gray-500">5 min</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative pl-10 pb-8">
+                    <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                    <div className="flex items-center">
+                      <FontAwesomeIcon icon={faCartShopping} className="text-2xl text-gray-600 mr-4" />
+                      <div>
+                        <p className="font-bold text-gray-800">Supermercado Big Mais</p><p className="text-sm text-gray-500">5 min</p>
+                      </div>
+                    </div>
+                  </div>
+                   <div className="relative pl-10 pb-8">
+                    <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                    <div className="flex items-center">
+                      <FontAwesomeIcon icon={faCartShopping} className="text-2xl text-gray-600 mr-4" />
+                      <div>
+                        <p className="font-bold text-gray-800">Supermercado Coelho Diniz</p><p className="text-sm text-gray-500">5 min</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative pl-10 pb-8">
+                    <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                    <div className="flex items-center">
+                      <FontAwesomeIcon icon={faSchool} className="text-2xl text-gray-600 mr-4" />
+                      <div>
+                        <p className="font-bold text-gray-800">Colégio Ibituruna</p><p className="text-sm text-gray-500">6 min</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative pl-10 pb-8">
+                    <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                    <div className="flex items-center">
+                      <FontAwesomeIcon icon={faHospital} className="text-2xl text-gray-600 mr-4" />
+                      <div>
+                        <p className="font-bold text-gray-800">Hospital Municipal</p><p className="text-sm text-gray-500">7 min</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative pl-10">
+                    <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                    <div className="flex items-center">
+                      <FontAwesomeIcon icon={faLandmark} className="text-2xl text-gray-600 mr-4" />
+                      <div>
+                        <p className="font-bold text-gray-800">Caixa Serra Lima</p><p className="text-sm text-gray-500">7 min</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </section>
+          
+          <section className="bg-white pt-16 md:pt-24 pb-16 md:pb-24">
+            <div className="container mx-auto px-4 text-center">
+              <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">Localização Privilegiada</h2>
+              <p className="max-w-2xl mx-auto mb-8 text-gray-600">
+                Encontre o Residencial Alfa no coração do Alto Esplanada, um bairro que combina tranquilidade e acesso rápido aos principais pontos da cidade.
+              </p>
+              <div className="w-full h-96 rounded-lg shadow-xl overflow-hidden border">
+                <iframe 
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3780.123932221089!2d-41.95400582565618!3d-18.657788166699863!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x749c9339007c66b%3A0x768788f2641882c!2sAlto%20Esplanada%2C%20Gov.%20Valadares%20-%20MG%2C%2035020-010!5e0!3m2!1spt-BR!2sbr!4v1727481232870!5m2!1spt-BR!2sbr" 
+                  width="100%" 
+                  height="100%" 
+                  style={{ border: 0 }} 
+                  allowFullScreen="" 
+                  loading="lazy" 
+                  referrerPolicy="no-referrer-when-downgrade"
+                ></iframe>
+              </div>
             </div>
           </section>
         </>
       )}
 
+      {/* ... (Resto do código sem alterações) ... */}
       {view === 'morador' && (
-        <>
+       <>
           <section className="py-16 md:py-24">
             <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
               <div>
@@ -160,28 +326,45 @@ export default function ResidencialAlfaPage() {
           </section>
         </>
       )}
-      {/* =================================================================== */}
-      {/* ========================= FIM DA DOBRA 2 ======================== */}
-      {/* =================================================================== */}
-
-
-      {/* =================================================================== */}
-      {/* ======================= INÍCIO DA DOBRA 3 ======================= */}
-      {/* =================================================================== */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div className="md:order-2">
               <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900" style={{ letterSpacing: '0.02em' }}>Projetado para seu Conforto</h2>
-              <p className="mb-6 text-gray-700" style={{ letterSpacing: '0.03em' }}>
+              <p className="mb-8 text-gray-700" style={{ letterSpacing: '0.03em' }}>
                 Apartamentos de 49 m² e 58 m² com plantas inteligentes que otimizam cada espaço, oferecendo o máximo de conforto e funcionalidade.
               </p>
-              <ul className="list-disc list-inside mb-6 space-y-2 text-gray-700" style={{ letterSpacing: '0.03em' }}>
-                <li>2 Quartos</li>
-                <li>1 Banheiro</li>
-                <li>Varanda</li>
-                <li>Cozinha</li>
-                <li>Área de Serviço</li>
-              </ul>
+              
+              <h3 className="text-center text-lg font-semibold uppercase text-gray-600 tracking-wider mb-8" style={{fontFamily: 'Roboto'}}>
+                Layout dos Apartamentos
+              </h3>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-8 text-center">
+                <div className="flex flex-col items-center">
+                  <FontAwesomeIcon icon={faRulerCombined} className="text-3xl text-gray-600 mb-2" />
+                  <span className="text-sm text-gray-700 leading-tight">58m² e 49m² de área privativa</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <FontAwesomeIcon icon={faBed} className="text-3xl text-gray-600 mb-2" />
+                  <span className="text-sm text-gray-700 leading-tight">2 quartos</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <FontAwesomeIcon icon={faBath} className="text-3xl text-gray-600 mb-2" />
+                  <span className="text-sm text-gray-700 leading-tight">1 banheiro</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <FontAwesomeIcon icon={faCouch} className="text-3xl text-gray-600 mb-2" />
+                  <span className="text-sm text-gray-700 leading-tight">Sala ampla, cozinha e área de serviço</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <FontAwesomeIcon icon={faElevator} className="text-3xl text-gray-600 mb-2" />
+                  <span className="text-sm text-gray-700 leading-tight">Elevador</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <FontAwesomeIcon icon={faCar} className="text-3xl text-gray-600 mb-2" />
+                  <span className="text-sm text-gray-700 leading-tight">Uma vaga de garagem</span>
+                </div>
+              </div>
+
             </div>
               <div className="md:order-1">
                 <Image 
@@ -195,41 +378,6 @@ export default function ResidencialAlfaPage() {
               </div>
         </div>
       </section>
-      {/* =================================================================== */}
-      {/* ========================= FIM DA DOBRA 3 ======================== */}
-      {/* =================================================================== */}
-
-
-      {/* =================================================================== */}
-      {/* ======================= INÍCIO DA DOBRA 4 ======================= */}
-      {/* =================================================================== */}
-      <section className="py-16 md:py-24 bg-gray-50">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">Localização Privilegiada</h2>
-          <p className="max-w-2xl mx-auto mb-8 text-gray-600">
-            Encontre o Residencial Alfa no coração do Alto Esplanada, um bairro que combina tranquilidade e acesso rápido aos principais pontos da cidade.
-          </p>
-          <div className="w-full h-96 rounded-lg shadow-xl overflow-hidden border">
-            <iframe 
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3784.532398749841!2d-41.95663232551469!3d-18.8872246698967!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x74adeb8b1e4288d%3A0x63322e43a91e133d!2sResidencial%20Alfa!5e0!3m2!1spt-BR!2sbr!4v1727471958869!5m2!1spt-BR!2sbr"
-              width="100%" 
-              height="100%" 
-              style={{ border: 0 }} 
-              allowFullScreen="" 
-              loading="lazy" 
-              referrerPolicy="no-referrer-when-downgrade"
-            ></iframe>
-          </div>
-        </div>
-      </section>
-      {/* =================================================================== */}
-      {/* ========================= FIM DA DOBRA 4 ======================== */}
-      {/* =================================================================== */}
-
-
-      {/* =================================================================== */}
-      {/* ======================= INÍCIO DA DOBRA 5 ======================= */}
-      {/* =================================================================== */}
       <section id="contato" className="bg-gray-800 text-white py-16 md:py-24">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ letterSpacing: '0.02em' }}>Gostou? Dê o primeiro passo para realizar seu sonho.</h2>
@@ -241,41 +389,21 @@ export default function ResidencialAlfaPage() {
           </div>
         </div>
       </section>
-      {/* =================================================================== */}
-      {/* ========================= FIM DA DOBRA 5 ======================== */}
-      {/* =================================================================== */}
-      
-
-      {/* =================================================================== */}
-      {/* =========================== INÍCIO DO RODAPÉ ========================== */}
-      {/* =================================================================== */}
       <footer className="bg-black text-white py-6">
         <div className="container mx-auto px-4 text-center text-gray-400" style={{ letterSpacing: '0.03em' }}>
           <p>© {new Date().getFullYear()} Studio 57. Todos os direitos reservados.</p>
           <p className="text-sm mt-1">Residencial Alfa - Registro de Incorporação: Nº 24.920/R-08</p>
         </div>
       </footer>
-      {/* =================================================================== */}
-      {/* ============================ FIM DO RODAPÉ ========================== */}
-      {/* =================================================================== */}
-
-      
-      {/* BALÃO DA IA STELLA - COM MENSAGEM PRÉ-CARREGADA */}
       <a 
         href="https://wa.me/553398192119?text=Oi%2C%20gostaria%20de%20mais%20informa%C3%A7%C3%B5es%20sobre%20o%20Residencial%20Alfa"
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-5 right-5 z-50 transform hover:scale-110 transition-transform duration-300"
-        aria-label="Converse com a Stella no WhatsApp"
+        aria-label="Converse no WhatsApp"
       >
-        <div className="w-16 h-16 bg-white rounded-full shadow-2xl flex items-center justify-center">
-          <Image 
-            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/stella.jpeg" 
-            alt="Converse com a Stella" 
-            width={64}
-            height={64}
-            className="w-full h-full rounded-full object-contain" // <--- CLASSE ALTERADA AQUI
-          />
+        <div className="w-16 h-16 bg-green-500 rounded-full shadow-2xl flex items-center justify-center">
+          <FontAwesomeIcon icon={faWhatsapp} className="text-white text-4xl" />
         </div>
       </a>
     </div>
