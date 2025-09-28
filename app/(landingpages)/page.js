@@ -9,7 +9,7 @@ import { Montserrat } from 'next/font/google';
 
 const montserrat = Montserrat({
   subsets: ['latin'],
-  weight: ['300', '400', '700'], // Adicionando o peso '300' (light) para o slogan
+  weight: ['300', '400', '700'],
 });
 
 export default function HomePage() {
@@ -25,27 +25,35 @@ export default function HomePage() {
             className="z-0"
             priority
         />
-        {/* O PORQUÊ DA MUDANÇA:
-            A div que criava a "capa cinza" (overlay) foi removida para que a imagem de fundo
-            apareça de forma "pura", como você solicitou. */}
         
-        <div className="relative z-20 flex flex-col items-center p-4 text-center">
+        <div className="absolute bottom-0 left-0 w-[45%] max-w-xs sm:max-w-sm md:w-1/3 md:max-w-md z-20">
             <Image
-                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759092334426.PNG"
-                alt="Logo Studio 57 Arquitetura e Incorporação"
-                width={500}
-                height={125}
-                className="w-full max-w-xs md:max-w-md object-contain mb-4 filter invert"
+                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/tatisemfundo.png"
+                alt="Especialista Studio 57"
+                width={600}
+                height={900}
+                className="w-full h-auto"
                 priority
-                style={{ filter: 'invert(1) drop-shadow(2px 2px 4px rgba(0,0,0,0.7))' }} // Sombra na logo para legibilidade
             />
-            {/* O PORQUÊ DA MUDANÇA:
-                - Adicionamos a classe 'uppercase' para deixar o texto em caixa alta.
-                - Adicionamos 'tracking-widest' para aumentar o espaçamento entre as letras.
-                - Mantivemos a sombra no texto para garantir a legibilidade sobre a imagem pura. */}
-            <h1 className={`${montserrat.className} text-2xl md:text-3xl font-light uppercase tracking-widest`} style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.7)' }}>
-                excelência em cada detalhe
-            </h1>
+        </div>
+        
+        <div className="relative z-20 flex flex-col items-center p-4">
+            <div className="w-full max-w-xs md:max-w-md">
+                <Image
+                    src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759092334426.PNG"
+                    alt="Logo Studio 57 Arquitetura e Incorporação"
+                    width={500}
+                    height={125}
+                    className="w-full h-auto object-contain mb-4"
+                    priority
+                />
+                {/* O PORQUÊ DESTA MUDANÇA:
+                    Ajustamos o tamanho da fonte para 'text-base' (menor no celular) e 'md:text-lg' (menor no desktop).
+                    Isso garante que o slogan se mantenha em uma única linha em diferentes tamanhos de tela. */}
+                <h1 className={`${montserrat.className} text-base md:text-lg font-light uppercase tracking-widest text-black text-center`} style={{ textShadow: '1px 1px 2px white' }}>
+                    excelência em cada detalhe
+                </h1>
+            </div>
         </div>
       </section>
 
