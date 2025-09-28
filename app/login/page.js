@@ -1,9 +1,12 @@
+// Caminho: app/login/page.js
 "use client";
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '../../utils/supabase/client';
+// O PORQUÊ DESTA IMPORTAÇÃO: Adicionamos o componente otimizado de Imagem do Next.js
+import Image from 'next/image';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -12,7 +15,8 @@ export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE";
+  // O PORQUÊ DESTA MUDANÇA: Usando a logo oficial e pública para consistência.
+  const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/logo/logo-studio57-preto.png";
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -25,7 +29,10 @@ export default function LoginPage() {
     if (error) {
       setError(error.message);
     } else {
-      router.push('/');
+      // O PORQUÊ DESTA MUDANÇA (CORREÇÃO CRÍTICA):
+      // Após o login, o usuário deve ser levado para o painel interno (/painel),
+      // e não para a nova home page pública (/).
+      router.push('/painel');
       router.refresh();
     }
   };
@@ -35,10 +42,10 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="bg-white p-8 rounded-lg shadow-md">
           <div className="mb-8 flex justify-center">
-            <img src={logoUrl} alt="Logo da Empresa" className="h-14 w-auto" />
+            {/* O PORQUÊ DESTA MUDANÇA: Trocamos <img> por <Image> para otimização. */}
+            <Image src={logoUrl} alt="Logo Studio 57" width={180} height={40} priority />
           </div>
 
-          {/* TÍTULO COM ESTILO AJUSTADO (font-light e tracking-widest) */}
           <h2 className="mb-6 text-center text-2xl text-gray-900 font-khand uppercase font-light tracking-widest">
             Acessar sua conta
           </h2>
@@ -94,12 +101,10 @@ export default function LoginPage() {
             </div>
           </form>
         </div>
-        <p className="mt-6 text-center text-sm text-gray-500">
-          Não tem uma conta?{' '}
-          <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500">
-            Cadastre-se aqui
-          </Link>
-        </p>
+        
+        {/* O PORQUÊ DESTA MUDANÇA (SUA SOLICITAÇÃO):
+            O bloco de código abaixo, que continha o link para a página de registro, foi completamente removido. */}
+            
       </div>
     </div>
   );

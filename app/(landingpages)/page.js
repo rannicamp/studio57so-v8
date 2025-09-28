@@ -2,43 +2,45 @@
 import Link from 'next/link';
 import Image from 'next/image';
 
+// O PORQUÊ DESTA PÁGINA:
+// Esta é a nova home page, reconstruída para ter o mesmo impacto visual
+// da primeira seção da página "Residencial Alfa". Usamos um fundo de alto impacto,
+// a logo oficial e uma chamada para ação clara, criando uma entrada profissional para o seu site.
+
 export default function HomePage() {
   return (
-    <>
-      <section className="relative h-[60vh] flex items-center justify-center text-white">
+    <section className="relative min-h-[calc(100vh-80px)] flex items-center justify-center bg-black text-white overflow-hidden">
+        {/* Imagem de Fundo */}
         <Image
-          src="https://images.unsplash.com/photo-1582407947304-fd86f028f716?q=80&w=2070&auto=format&fit=crop"
-          alt="Fachada de casa moderna"
-          layout="fill"
-          objectFit="cover"
-          className="z-0"
+            src="https://images.unsplash.com/photo-1582407947304-fd86f028f716?q=80&w=2070&auto=format&fit=crop"
+            alt="Fachada de casa moderna"
+            layout="fill"
+            objectFit="cover"
+            className="z-0"
+            priority
         />
-        <div className="absolute inset-0 bg-black opacity-50"></div>
-        <div className="relative z-10 text-center p-4">
-          <h1 className="text-4xl md:text-6xl font-bold mb-4">Soluções Completas para o Mercado Imobiliário</h1>
-          <p className="text-lg md:text-xl max-w-3xl mx-auto">Da gestão da sua obra à venda do seu empreendimento, o Studio 57 é o seu parceiro ideal para o sucesso.</p>
-        </div>
-      </section>
+        {/* Sobreposição para escurecer a imagem e dar contraste */}
+        <div className="absolute inset-0 bg-black opacity-50 z-10"></div>
 
-      <section className="py-16 md:py-24">
-        <div className="container mx-auto px-6 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-12">Nossos Serviços</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-lg shadow-lg">
-              <h3 className="text-2xl font-bold text-primary mb-4">Gestão de Obras</h3>
-              <p>Acompanhamento completo do seu projeto, garantindo prazos, custos e qualidade do início ao fim.</p>
-            </div>
-            <div className="bg-white p-8 rounded-lg shadow-lg">
-              <h3 className="text-2xl font-bold text-primary mb-4">Venda de Imóveis</h3>
-              <p>Estratégias de marketing e uma equipe de vendas especializada para comercializar seu imóvel com agilidade.</p>
-            </div>
-            <div className="bg-white p-8 rounded-lg shadow-lg">
-              <h3 className="text-2xl font-bold text-primary mb-4">Lançamentos</h3>
-              <p>Planejamento e execução de lançamentos de empreendimentos, conectando seu projeto aos investidores certos.</p>
-            </div>
-          </div>
+        {/* Conteúdo Central */}
+        <div className="relative z-20 flex flex-col items-center p-4 text-center">
+            <Image
+                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/logo/logo-studio57-preto.png" 
+                alt="Logo Studio 57"
+                width={120}
+                height={120}
+                className="mb-8 filter invert" // 'filter invert' torna a logo preta em branca
+            />
+            <h1 className="text-4xl md:text-6xl font-bold mb-4">
+                Soluções Completas para o Mercado Imobiliário
+            </h1>
+            <p className="text-lg md:text-xl max-w-3xl mx-auto mb-8">
+                Da gestão da sua obra à venda do seu empreendimento, o Studio 57 é o seu parceiro ideal para o sucesso.
+            </p>
+            <Link href="/empreendimentosstudio" className="bg-primary text-white font-bold py-3 px-8 rounded-full hover:opacity-90 transition-opacity text-lg">
+                Conheça os Empreendimentos
+            </Link>
         </div>
-      </section>
-    </>
+    </section>
   );
 }

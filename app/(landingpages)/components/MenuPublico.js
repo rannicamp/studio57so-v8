@@ -14,6 +14,9 @@ export default function MenuPublico() {
         {/* Logo */}
         <div className="flex items-center">
           <Link href="/" className="flex items-center space-x-2">
+            {/* O PORQUÊ DESTA MUDANÇA:
+                Estamos usando a URL da logo oficial do sistema, encontrada no seu componente sidebar,
+                para manter a consistência da marca em todas as páginas. */}
             <Image 
               src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/logo/logo-studio57-preto.png" 
               alt="Logo Studio 57" 
@@ -32,7 +35,6 @@ export default function MenuPublico() {
           <Link href="/sobre-nos" className="text-gray-600 hover:text-primary transition-colors">
             Sobre Nós
           </Link>
-          {/* ======================= LINK ATUALIZADO AQUI ======================= */}
           <Link href="/empreendimentosstudio" className="text-gray-600 hover:text-primary transition-colors">
             Empreendimentos
           </Link>
@@ -56,7 +58,6 @@ export default function MenuPublico() {
         <div className="md:hidden bg-white py-4">
           <Link href="/" className="block text-center py-2 text-gray-800 hover:bg-gray-100" onClick={() => setIsOpen(false)}>Início</Link>
           <Link href="/sobre-nos" className="block text-center py-2 text-gray-800 hover:bg-gray-100" onClick={() => setIsOpen(false)}>Sobre Nós</Link>
-          {/* ======================= LINK ATUALIZADO AQUI ======================= */}
           <Link href="/empreendimentosstudio" className="block text-center py-2 text-gray-800 hover:bg-gray-100" onClick={() => setIsOpen(false)}>Empreendimentos</Link>
           <div className="mt-4 text-center">
             <Link href="/login" className="inline-block bg-primary text-white font-bold py-2 px-6 rounded-full hover:opacity-90 transition-opacity" onClick={() => setIsOpen(false)}>
