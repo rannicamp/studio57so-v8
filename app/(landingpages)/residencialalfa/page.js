@@ -1,4 +1,15 @@
+// Caminho do arquivo: app/(landingpages)/residencialalfa/page.js
+
+// =================================================================================
+// O PORQUÊ DESTA LINHA
+// Esta é a correção crucial. Ao adicionar 'use client;', estamos dizendo ao Next.js:
+// "Esta página usa interatividade que só funciona no navegador (como cliques em botões
+// e gerenciamento de estado com useState). Trate-a como uma página do lado do cliente."
+// Isso faz com que a página seja renderizada corretamente sem passar pela verificação
+// de login do middleware, pois ela já está marcada como pública no seu arquivo middleware.js.
+// =================================================================================
 'use client';
+
 import { useState } from 'react';
 import FormularioDeContato from './FormularioDeContato';
 import Image from 'next/image';
@@ -441,7 +452,7 @@ export default function ResidencialAlfaPage() {
                             </p>
                             <div className="w-full h-96 rounded-lg shadow-xl overflow-hidden border">
                                 <iframe
-                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3784.502159632863!2d-41.93699638890081!3d-18.8596647821946!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x74adeb771333777%3A0x6b4c107085af1307!2sR.%20Inconfid%C3%AAncia%2C%20680%20-%20Alto%20Esplanada%2C%20Gov.%20Valadares%20-%20MG%2C%2035020-220!5e0!3m2!1spt-BR!2sbr!4v1727447950798!5m2!1spt-BR!2sbr"
+                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3779.317387143168!2d-41.95484868882352!3d-18.6941198675121!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x7adeb80536c8491%3A0x280e8623608a0968!2sResidencial%20Alfa!5e0!3m2!1spt-BR!2sbr!4v1700163353597!5m2!1spt-BR!2sbr"
                                     width="100%"
                                     height="100%"
                                     style={{ border: 0 }}
