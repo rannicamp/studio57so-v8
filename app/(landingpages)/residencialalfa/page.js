@@ -1,13 +1,4 @@
 // Caminho do arquivo: app/(landingpages)/residencialalfa/page.js
-
-// =================================================================================
-// O PORQUÊ DESTA LINHA
-// Esta é a correção crucial. Ao adicionar 'use client;', estamos dizendo ao Next.js:
-// "Esta página usa interatividade que só funciona no navegador (como cliques em botões
-// e gerenciamento de estado com useState). Trate-a como uma página do lado do cliente."
-// Isso faz com que a página seja renderizada corretamente sem passar pela verificação
-// de login do middleware, pois ela já está marcada como pública no seu arquivo middleware.js.
-// =================================================================================
 'use client';
 
 import { useState } from 'react';
@@ -267,7 +258,8 @@ export default function ResidencialAlfaPage() {
                                             <p className="text-sm text-gray-500 mb-4">{testimonial.title}</p>
                                             
                                             <FontAwesomeIcon icon={faQuoteLeft} className="text-primary text-2xl mb-4" />
-                                            <p className="text-gray-600 italic mb-4">"{testimonial.intro}"</p>
+                                            {/* AQUI ESTÁ A CORREÇÃO */}
+                                            <p className="text-gray-600 italic mb-4">{`"${testimonial.intro}"`}</p>
                                             
                                             <AnimatePresence>
                                                 {expandedTestimonial === testimonial.id && (
@@ -452,7 +444,7 @@ export default function ResidencialAlfaPage() {
                             </p>
                             <div className="w-full h-96 rounded-lg shadow-xl overflow-hidden border">
                                 <iframe
-                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3779.317387143168!2d-41.95484868882352!3d-18.6941198675121!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x7adeb80536c8491%3A0x280e8623608a0968!2sResidencial%20Alfa!5e0!3m2!1spt-BR!2sbr!4v1700163353597!5m2!1spt-BR!2sbr"
+                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3780.40228156114!2d-41.95698588889815!3d-18.646002766395343!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x7b102ff6720d20b%3A0x8a9e48f1b1b1e7f!2sResidencial%20Alfa!5e0!3m2!1spt-BR!2sbr!4v1727544078174!5m2!1spt-BR!2sbr"
                                     width="100%"
                                     height="100%"
                                     style={{ border: 0 }}
