@@ -1,33 +1,30 @@
 // Caminho do arquivo: middleware.js
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/middleware';
+// O PORQUÊ DA MUDANÇA: Voltamos a usar o createServerClient direto do pacote @supabase/ssr,
+// que é o método que o seu projeto já conhecia. Isso corrige o erro "Module not found".
+import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(req) {
-  const res = NextResponse.next();
-  const supabase = createClient(req);
-  const { data: { session } } = await supabase.auth.getSession();
+  let res = NextResponse.next({
+    request: { headers: req.headers },
+  });
 
   const { pathname } = req.nextUrl;
 
-  // =================================================================================
-  // O PORQUÊ DESTA VERSÃO (A NOSSA VERSÃO FINAL)
-  // Esta lista combina as suas necessidades antigas com as novas.
-  // Note que '/cadastro', '/cadastro-cliente', e '/simulador-financiamento'
-  // estão aqui, garantindo que eles continuem públicos, junto com a nova home ('/').
-  // =================================================================================
+  // A nossa lista de permissões continua aqui, completa e correta.
   const publicPaths = [
     '/', // A nova home page pública
     '/login',
-    '/register', // Caso exista uma página de registro
-    '/cadastro', // SUA REGRA ANTIGA - MANTIDA!
-    '/cadastro-cliente', // SUA REGRA ANTIGA - MANTIDA!
-    '/residencialalfa', // Landing Page do Alfa
+    '/register',
+    '/cadastro',
+    '/cadastro-cliente',
+    '/residencialalfa',
     '/residencialalfa/obrigado',
-    '/simulador-financiamento' // SUA REGRA ANTIGA - MANTIDA!
+    '/simulador-financiamento'
   ];
   
-  // O "porteiro" também libera o acesso a APIs e arquivos do sistema
+  // O porteiro continua liberando o acesso a APIs e arquivos do sistema.
   if (
     pathname.startsWith('/api/') ||
     pathname.startsWith('/_next/') ||
@@ -37,32 +34,51 @@ export async function middleware(req) {
     return res;
   }
 
-  // REGRA 1: Se o usuário NÃO está logado e tenta acessar uma página protegida...
+  // O PORQUÊ DESTA PARTE: Esta é a forma "original" do seu projeto de se conectar
+  // ao Supabase dentro do middleware. Estamos respeitando essa estrutura.
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        get(name) {
+          return req.cookies.get(name)?.value;
+        },
+        set(name, value, options) {
+          req.cookies.set({ name, value, ...options });
+          res = NextResponse.next({
+            request: { headers: req.headers },
+          });
+          res.cookies.set({ name, value, ...options });
+        },
+        remove(name, options) {
+          req.cookies.set({ name, value: '', ...options });
+          res = NextResponse.next({
+            request: { headers: req.headers },
+          });
+          res.cookies.set({ name, value: '', ...options });
+        },
+      },
+    }
+  );
+
+  const { data: { session } } = await supabase.auth.getSession();
+
+  // A nossa lógica de segurança inteligente continua aqui.
   if (!session) {
-    // ...mandamos ele para a página de login.
     return NextResponse.redirect(new URL('/login', req.url));
   }
   
-  // REGRA 2: Se o usuário JÁ ESTÁ logado e tenta acessar a página de login...
   if (session && pathname === '/login') {
-    // ...mandamos ele direto para o CRM.
     return NextResponse.redirect(new URL('/crm', req.url));
   }
 
-  // Se nenhuma regra se aplica, o usuário pode continuar.
   return res;
 }
 
-// Configuração padrão para o "porteiro"
+// A configuração do "matcher" também permanece a mesma.
 export const config = {
   matcher: [
-    /*
-     * Faz a correspondência de todos os caminhos de solicitação, exceto os de:
-     * - api (rotas da API)
-     * - _next/static (arquivos estáticos)
-     * - _next/image (arquivos de otimização de imagem)
-     * - favicon.ico (ícone do site)
-     */
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
