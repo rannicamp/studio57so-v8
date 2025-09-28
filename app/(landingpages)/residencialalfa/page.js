@@ -17,6 +17,26 @@ const roboto = Roboto({
   display: 'swap',
 });
 
+// --- DADOS DA GALERIA (IMAGENS FINAIS) ---
+const galleryImages = [
+  { id: 1, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759018648180.png', alt: 'Fachada do Residencial Alfa' },
+  { id: 2, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759018929039.png', alt: 'Área gourmet do Residencial Alfa' },
+  { id: 3, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759018987365.png', alt: 'Área gourmet com vista para a cidade' },
+  { id: 4, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759018987365.png', alt: 'Detalhe da bancada da área gourmet' },
+  { id: 5, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759018987365.png', alt: 'Ambiente de convivência da área gourmet' },
+  { id: 6, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759019021635.png', alt: 'Visão ampla da área gourmet' },
+  { id: 7, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759019089329.png', alt: 'Sala de TV e cozinha integradas' },
+  { id: 8, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759019116881.png', alt: 'Vista da sala de TV e cozinha' },
+  { id: 9, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759019141502.png', alt: 'Cozinha e área de serviço' },
+  { id: 10, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759019211163.png', alt: 'Sala de TV e Jantar' },
+  { id: 11, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759019255355.png', alt: 'Sala de TV decorada' },
+  { id: 12, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759019299839.png', alt: 'Quarto do apartamento de 49m²' },
+  { id: 13, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759019368515.png', alt: 'Quarto do apartamento de 58m²' },
+  { id: 14, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759019528512.png', alt: 'Segundo quarto decorado' },
+];
+
+const floorPlanImage = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/planta%20humanizada%20aps.png";
+
 // --- Componentes de Ícones (Exemplo) ---
 const IconeLocalizacao = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"></path></svg>;
 const IconeValorizacao = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0115 15v3h1zM4.75 12.094A5.973 5.973 0 004 15v3H3v-3a3.005 3.005 0 01-.25-1.094z"></path></svg>;
@@ -27,13 +47,18 @@ const IconePiscina = () => <svg fill="currentColor" viewBox="0 0 20 20" classNam
 
 export default function ResidencialAlfaPage() {
   const [view, setView] = useState('investidor'); // 'investidor' ou 'morador'
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
   const darkGrayColor = '#374151';
+
+  const openModal = (imageUrl) => setSelectedImage(imageUrl);
+  const closeModal = () => setSelectedImage(null);
 
   return (
     <div className={`${roboto.className} bg-white text-gray-800 font-sans`}>
       
-      {/* ... (Dobra 1 e Seção Renda Passiva - sem alterações) ... */}
+      {/* =================================================================== */}
+      {/* ======================= INÍCIO DA DOBRA 1 ======================= */}
+      {/* =================================================================== */}
       <section className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden">
         <div
           className="absolute inset-0 bg-no-repeat bg-right-bottom z-0"
@@ -78,6 +103,13 @@ export default function ResidencialAlfaPage() {
           </div>
         </div>
       </section>
+      {/* =================================================================== */}
+      {/* ========================= FIM DA DOBRA 1 ======================== */}
+      {/* =================================================================== */}
+      
+      {/* =================================================================== */}
+      {/* ================= INÍCIO DA SEÇÃO RENDA PASSIVA ================= */}
+      {/* =================================================================== */}
       <section className="bg-gray-50 py-16 md:py-20">
         <div className="container mx-auto px-4 text-center">
           <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
@@ -104,6 +136,10 @@ export default function ResidencialAlfaPage() {
           </div>
         </div>
       </section>
+      {/* =================================================================== */}
+      {/* =================== FIM DA SEÇÃO RENDA PASSIVA ================== */}
+      {/* =================================================================== */}
+
 
       {/* =================================================================== */}
       {/* ======================= INÍCIO DA DOBRA 2 ======================= */}
@@ -113,7 +149,6 @@ export default function ResidencialAlfaPage() {
           <section className="py-16 md:py-24 bg-white">
             <div className="container mx-auto px-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* ... (Cards de Vantagens) ... */}
                 <div className="p-6 bg-gray-100 rounded-lg shadow-sm">
                   <div className="mb-4" style={{ color: darkGrayColor }}><IconeLocalizacao /></div>
                   <h3 className="text-xl font-bold mb-2 text-gray-900" style={{ letterSpacing: '0.04em' }}>Localização Estratégica</h3>
@@ -135,118 +170,114 @@ export default function ResidencialAlfaPage() {
 
           <section className="bg-white pb-16 md:pb-24">
             <div className="container mx-auto px-4">
-                {/* --- MAPA ESQUEMÁTICO --- */}
                 <div className="mt-0">
                     <h3 className="text-2xl md:text-3xl font-bold text-gray-800 text-center mb-12">
                     Mapa de Proximidades
                     </h3>
                     <div className="relative max-w-sm mx-auto">
-                    {/* ... (código do mapa esquemático sem alterações) ... */}
-                    <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-gray-300"></div>
-                    <div className="relative pl-10 pb-8">
-                        <div className="absolute left-0 top-1 w-5 h-5 bg-amber-800 rounded-full border-4 border-white"></div>
-                        <div className="flex items-center">
-                        <FontAwesomeIcon icon={faLocationDot} className="text-2xl text-amber-800 mr-4" />
-                        <div>
-                            <p className="font-bold text-gray-800">Residencial Alfa</p>
-                            <p className="text-sm text-gray-500">Ponto de partida</p>
-                        </div>
-                        </div>
-                    </div>
-                    <div className="relative pl-10 pb-8">
-                        <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
-                        <div className="flex items-center">
-                        <FontAwesomeIcon icon={faSchool} className="text-2xl text-gray-600 mr-4" />
-                        <div>
-                            <p className="font-bold text-gray-800">Maple Bear</p><p className="text-sm text-gray-500">1 min</p>
-                        </div>
-                        </div>
-                    </div>
-                    <div className="relative pl-10 pb-8">
-                        <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
-                        <div className="flex items-center">
-                        <FontAwesomeIcon icon={faHouseMedical} className="text-2xl text-gray-600 mr-4" />
-                        <div>
-                            <p className="font-bold text-gray-800">Casa Unimed</p><p className="text-sm text-gray-500">2 min</p>
-                        </div>
-                        </div>
-                    </div>
-                    <div className="relative pl-10 pb-8">
-                        <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
-                        <div className="flex items-center">
-                        <FontAwesomeIcon icon={faGraduationCap} className="text-2xl text-gray-600 mr-4" />
-                        <div>
-                            <p className="font-bold text-gray-800">UFJF-GV</p><p className="text-sm text-gray-500">2 min</p>
-                        </div>
-                        </div>
-                    </div>
-                    <div className="relative pl-10 pb-8">
-                        <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
-                        <div className="flex items-center">
-                        <FontAwesomeIcon icon={faUsers} className="text-2xl text-gray-600 mr-4" />
-                        <div>
-                            <p className="font-bold text-gray-800">Clube Filadélfia</p><p className="text-sm text-gray-500">4 min</p>
-                        </div>
-                        </div>
-                    </div>
-                    <div className="relative pl-10 pb-8">
-                        <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
-                        <div className="flex items-center">
-                        <FontAwesomeIcon icon={faHospital} className="text-2xl text-gray-600 mr-4" />
-                        <div>
-                            <p className="font-bold text-gray-800">Hospital São Lucas</p><p className="text-sm text-gray-500">5 min</p>
-                        </div>
-                        </div>
-                    </div>
-                    <div className="relative pl-10 pb-8">
-                        <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
-                        <div className="flex items-center">
-                        <FontAwesomeIcon icon={faCartShopping} className="text-2xl text-gray-600 mr-4" />
-                        <div>
-                            <p className="font-bold text-gray-800">Supermercado Big Mais</p><p className="text-sm text-gray-500">5 min</p>
-                        </div>
-                        </div>
-                    </div>
-                    <div className="relative pl-10 pb-8">
-                        <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
-                        <div className="flex items-center">
-                        <FontAwesomeIcon icon={faCartShopping} className="text-2xl text-gray-600 mr-4" />
-                        <div>
-                            <p className="font-bold text-gray-800">Supermercado Coelho Diniz</p><p className="text-sm text-gray-500">5 min</p>
-                        </div>
-                        </div>
-                    </div>
-                    <div className="relative pl-10 pb-8">
-                        <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
-                        <div className="flex items-center">
-                        <FontAwesomeIcon icon={faSchool} className="text-2xl text-gray-600 mr-4" />
-                        <div>
-                            <p className="font-bold text-gray-800">Colégio Ibituruna</p><p className="text-sm text-gray-500">6 min</p>
-                        </div>
-                        </div>
-                    </div>
-                    <div className="relative pl-10 pb-8">
-                        <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
-                        <div className="flex items-center">
-                        <FontAwesomeIcon icon={faHospital} className="text-2xl text-gray-600 mr-4" />
-                        <div>
-                            <p className="font-bold text-gray-800">Hospital Municipal</p><p className="text-sm text-gray-500">7 min</p>
-                        </div>
-                        </div>
-                    </div>
-                    <div className="relative pl-10">
-                        <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
-                        <div className="flex items-center">
-                        <FontAwesomeIcon icon={faLandmark} className="text-2xl text-gray-600 mr-4" />
-                        <div>
-                            <p className="font-bold text-gray-800">Caixa Serra Lima</p><p className="text-sm text-gray-500">7 min</p>
-                        </div>
-                        </div>
-                    </div>
+                      <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-gray-300"></div>
+                      <div className="relative pl-10 pb-8">
+                          <div className="absolute left-0 top-1 w-5 h-5 bg-amber-800 rounded-full border-4 border-white"></div>
+                          <div className="flex items-center">
+                          <FontAwesomeIcon icon={faLocationDot} className="text-2xl text-amber-800 mr-4" />
+                          <div>
+                              <p className="font-bold text-gray-800">Residencial Alfa</p>
+                              <p className="text-sm text-gray-500">Ponto de partida</p>
+                          </div>
+                          </div>
+                      </div>
+                      <div className="relative pl-10 pb-8">
+                          <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                          <div className="flex items-center">
+                          <FontAwesomeIcon icon={faSchool} className="text-2xl text-gray-600 mr-4" />
+                          <div>
+                              <p className="font-bold text-gray-800">Maple Bear</p><p className="text-sm text-gray-500">1 min</p>
+                          </div>
+                          </div>
+                      </div>
+                      <div className="relative pl-10 pb-8">
+                          <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                          <div className="flex items-center">
+                          <FontAwesomeIcon icon={faHouseMedical} className="text-2xl text-gray-600 mr-4" />
+                          <div>
+                              <p className="font-bold text-gray-800">Casa Unimed</p><p className="text-sm text-gray-500">2 min</p>
+                          </div>
+                          </div>
+                      </div>
+                      <div className="relative pl-10 pb-8">
+                          <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                          <div className="flex items-center">
+                          <FontAwesomeIcon icon={faGraduationCap} className="text-2xl text-gray-600 mr-4" />
+                          <div>
+                              <p className="font-bold text-gray-800">UFJF-GV</p><p className="text-sm text-gray-500">2 min</p>
+                          </div>
+                          </div>
+                      </div>
+                      <div className="relative pl-10 pb-8">
+                          <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                          <div className="flex items-center">
+                          <FontAwesomeIcon icon={faUsers} className="text-2xl text-gray-600 mr-4" />
+                          <div>
+                              <p className="font-bold text-gray-800">Clube Filadélfia</p><p className="text-sm text-gray-500">4 min</p>
+                          </div>
+                          </div>
+                      </div>
+                      <div className="relative pl-10 pb-8">
+                          <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                          <div className="flex items-center">
+                          <FontAwesomeIcon icon={faHospital} className="text-2xl text-gray-600 mr-4" />
+                          <div>
+                              <p className="font-bold text-gray-800">Hospital São Lucas</p><p className="text-sm text-gray-500">5 min</p>
+                          </div>
+                          </div>
+                      </div>
+                      <div className="relative pl-10 pb-8">
+                          <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                          <div className="flex items-center">
+                          <FontAwesomeIcon icon={faCartShopping} className="text-2xl text-gray-600 mr-4" />
+                          <div>
+                              <p className="font-bold text-gray-800">Supermercado Big Mais</p><p className="text-sm text-gray-500">5 min</p>
+                          </div>
+                          </div>
+                      </div>
+                      <div className="relative pl-10 pb-8">
+                          <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                          <div className="flex items-center">
+                          <FontAwesomeIcon icon={faCartShopping} className="text-2xl text-gray-600 mr-4" />
+                          <div>
+                              <p className="font-bold text-gray-800">Supermercado Coelho Diniz</p><p className="text-sm text-gray-500">5 min</p>
+                          </div>
+                          </div>
+                      </div>
+                      <div className="relative pl-10 pb-8">
+                          <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                          <div className="flex items-center">
+                          <FontAwesomeIcon icon={faSchool} className="text-2xl text-gray-600 mr-4" />
+                          <div>
+                              <p className="font-bold text-gray-800">Colégio Ibituruna</p><p className="text-sm text-gray-500">6 min</p>
+                          </div>
+                          </div>
+                      </div>
+                      <div className="relative pl-10 pb-8">
+                          <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                          <div className="flex items-center">
+                          <FontAwesomeIcon icon={faHospital} className="text-2xl text-gray-600 mr-4" />
+                          <div>
+                              <p className="font-bold text-gray-800">Hospital Municipal</p><p className="text-sm text-gray-500">7 min</p>
+                          </div>
+                          </div>
+                      </div>
+                      <div className="relative pl-10">
+                          <div className="absolute left-0 top-1 w-5 h-5 bg-gray-700 rounded-full border-4 border-white"></div>
+                          <div className="flex items-center">
+                          <FontAwesomeIcon icon={faLandmark} className="text-2xl text-gray-600 mr-4" />
+                          <div>
+                              <p className="font-bold text-gray-800">Caixa Serra Lima</p><p className="text-sm text-gray-500">7 min</p>
+                          </div>
+                          </div>
+                      </div>
                     </div>
                 </div>
-
-                {/* --- NOVA IMAGEM 3D INSERIDA --- */}
                 <div className="mt-16 md:mt-24">
                     <Image
                         src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759017559883.png"
@@ -281,9 +312,8 @@ export default function ResidencialAlfaPage() {
         </>
       )}
 
-      {/* ... (Restante do código - visão 'morador', dobra 3, rodapé, etc. - sem alterações) ... */}
       {view === 'morador' && (
-       <>
+        <>
           <section className="py-16 md:py-24">
             <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
               <div>
@@ -300,7 +330,6 @@ export default function ResidencialAlfaPage() {
               </div>
             </div>
           </section>
-
           <section className="bg-gray-50 py-16 md:py-24">
             <div className="container mx-auto px-4 text-center">
               <h2 className="text-3xl md:text-4xl font-bold mb-12 text-gray-900" style={{ letterSpacing: '0.02em' }}>Diferenciais que Transformam seu Dia a Dia</h2>
@@ -325,6 +354,13 @@ export default function ResidencialAlfaPage() {
           </section>
         </>
       )}
+      {/* =================================================================== */}
+      {/* ========================= FIM DA DOBRA 2 ======================== */}
+      {/* =================================================================== */}
+
+      {/* =================================================================== */}
+      {/* ======================= INÍCIO DA DOBRA 3 ======================= */}
+      {/* =================================================================== */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div className="md:order-2">
@@ -367,18 +403,52 @@ export default function ResidencialAlfaPage() {
             </div>
               <div className="md:order-1">
                 <Image 
-                  src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/planta%20humanizada%20aps.png" 
+                  src={floorPlanImage} 
                   alt="Planta Humanizada do Apartamento Alfa" 
                   width={500} 
                   height={500} 
                   className="rounded-lg shadow-xl mx-auto cursor-pointer"
-                  onClick={() => setIsModalOpen(true)}
+                  onClick={() => openModal(floorPlanImage)}
                 />
                 <p className="text-center text-sm mt-2 text-gray-500" style={{ letterSpacing: '0.03em' }}>Clique na imagem para ampliar</p>
               </div>
         </div>
       </section>
-       <section id="contato" className="bg-gray-800 text-white py-16 md:py-24">
+      {/* =================================================================== */}
+      {/* ========================= FIM DA DOBRA 3 ======================== */}
+      {/* =================================================================== */}
+      
+      {/* =================================================================== */}
+      {/* ================= INÍCIO DA SEÇÃO GALERIA ======================= */}
+      {/* =================================================================== */}
+      <section className="bg-gray-50 py-16 md:py-24">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-gray-900">
+            Galeria de Imagens
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {galleryImages.map((image) => (
+              <div key={image.id} className="cursor-pointer overflow-hidden rounded-lg shadow-md" onClick={() => openModal(image.src)}>
+                <Image
+                  src={image.src}
+                  alt={image.alt}
+                  width={400}
+                  height={400}
+                  className="w-full h-full object-cover transform hover:scale-110 transition-transform duration-300"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      {/* =================================================================== */}
+      {/* =================== FIM DA SEÇÃO GALERIA ======================== */}
+      {/* =================================================================== */}
+
+      {/* =================================================================== */}
+      {/* ======================= INÍCIO DA DOBRA 5 ======================= */}
+      {/* =================================================================== */}
+      <section id="contato" className="bg-gray-800 text-white py-16 md:py-24">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ letterSpacing: '0.02em' }}>Gostou? Dê o primeiro passo para realizar seu sonho.</h2>
           <p className="mb-8 max-w-2xl mx-auto text-gray-300" style={{ letterSpacing: '0.03em' }}>
@@ -389,18 +459,28 @@ export default function ResidencialAlfaPage() {
           </div>
         </div>
       </section>
+      {/* =================================================================== */}
+      {/* ========================= FIM DA DOBRA 5 ======================== */}
+      {/* =================================================================== */}
+      
+      {/* =================================================================== */}
+      {/* =========================== INÍCIO DO RODAPÉ ========================== */}
+      {/* =================================================================== */}
       <footer className="bg-black text-white py-6">
         <div className="container mx-auto px-4 text-center text-gray-400" style={{ letterSpacing: '0.03em' }}>
           <p>© {new Date().getFullYear()} Studio 57. Todos os direitos reservados.</p>
           <p className="text-sm mt-1">Residencial Alfa - Registro de Incorporação: Nº 24.920/R-08</p>
         </div>
       </footer>
+      {/* =================================================================== */}
+      {/* ============================ FIM DO RODAPÉ ========================== */}
+      {/* =================================================================== */}
       
-      {/* --- CÓDIGO DO MODAL DA PLANTA --- */}
-      {isModalOpen && (
+      {/* --- CÓDIGO DO MODAL UNIFICADO (PARA PLANTA E GALERIA) --- */}
+      {selectedImage && (
         <div 
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-          onClick={() => setIsModalOpen(false)}
+          onClick={closeModal}
         >
           <div 
             className="relative max-w-4xl max-h-[90vh]"
@@ -408,17 +488,17 @@ export default function ResidencialAlfaPage() {
           >
             <button 
               className="absolute -top-4 -right-4 md:top-2 md:right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center text-gray-800 hover:bg-gray-200 transition-colors z-10"
-              onClick={() => setIsModalOpen(false)}
+              onClick={closeModal}
               aria-label="Fechar imagem"
             >
               <FontAwesomeIcon icon={faXmark} />
             </button>
             <Image 
-              src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/planta%20humanizada%20aps.png" 
-              alt="Planta Humanizada do Apartamento Alfa - Ampliada" 
-              width={1000} 
-              height={1000} 
-              className="rounded-lg shadow-2xl object-contain max-h-[90vh]" 
+              src={selectedImage} 
+              alt="Imagem Ampliada" 
+              width={1200} 
+              height={800} 
+              className="rounded-lg shadow-2xl object-contain max-h-[90vh] w-auto" 
             />
           </div>
         </div>
