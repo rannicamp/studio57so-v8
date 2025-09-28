@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisV, faStickyNote, faBullhorn, faHome, faTasks, faPhone, faUserTie, faSpinner, faTimes, faPlus, faTrash, faCampaign } from '@fortawesome/free-solid-svg-icons';
+import { faEllipsisV, faStickyNote, faBullhorn, faHome, faTasks, faPhone, faUserTie, faSpinner, faTimes, faPlus, faTrash, faGlobe } from '@fortawesome/free-solid-svg-icons'; // <-- Adicionado ícone faGlobe
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -84,15 +84,7 @@ export default function ContatoCardCRM({
     const cardNumber = funilEntry.numero_card;
     const currentColumnId = funilEntry.coluna_id;
     const isMetaLead = contato.origem === 'Meta Lead Ad';
-
-    // =================================================================================
-    // O PORQUÊ DA MUDANÇA:
-    // Agora lemos os nomes navegando pela estrutura de dados que a nova consulta nos traz.
-    // Usamos `?.` (optional chaining) para evitar erros caso um contato não seja de uma
-    // campanha ou anúncio (ou seja, se `meta_ads` ou `meta_campaigns` for nulo).
-    // contato -> meta_ads -> name (Nome do Anúncio)
-    // contato -> meta_ads -> meta_campaigns -> name (Nome da Campanha)
-    // =================================================================================
+    
     const adName = contato?.meta_ads?.name;
     const campaignName = contato?.meta_ads?.meta_campaigns?.name;
 
@@ -210,18 +202,30 @@ export default function ContatoCardCRM({
                     </div>
                 )}
             </div>
-
-            {isMetaLead && (
-                <div className="mt-2">
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        <FontAwesomeIcon icon={faBullhorn} /> Meta Lead
+            
+            {/* ================================================================================= */}
+            {/* O PORQUÊ DA ATUALIZAÇÃO:                                                          */}
+            {/* Este bloco agora exibe a origem do lead. Se for da Meta, mostra os detalhes da  */}
+            {/* campanha. Se for de qualquer outra origem (e a origem existir), mostra uma       */}
+            {/* tag genérica com o nome da origem.                                              */}
+            {/* ================================================================================= */}
+            <div className="mt-3 space-y-1">
+                {isMetaLead ? (
+                    <>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            <FontAwesomeIcon icon={faBullhorn} /> Meta Lead
+                        </span>
+                        <div className="text-xs text-gray-600 mt-2 space-y-1">
+                            {campaignName && <p><strong>Campanha:</strong> {campaignName}</p>}
+                            {adName && <p><strong>Anúncio:</strong> {adName}</p>}
+                        </div>
+                    </>
+                ) : contato.origem ? (
+                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <FontAwesomeIcon icon={faGlobe} /> {contato.origem}
                     </span>
-                    <div className="text-xs text-gray-600 mt-2 space-y-1">
-                        {campaignName && <p><FontAwesomeIcon icon={faCampaign} className="mr-1.5" /> <strong>Campanha:</strong> {campaignName}</p>}
-                        {adName && <p><FontAwesomeIcon icon={faBullhorn} className="mr-1.5" /> <strong>Anúncio:</strong> {adName}</p>}
-                    </div>
-                </div>
-            )}
+                ) : null}
+            </div>
 
             <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
                 {contato.last_whatsapp_message ? (<p className="text-gray-700">Última msg: <span className="font-medium">{truncateMessage(contato.last_whatsapp_message)}</span>{contato.last_whatsapp_message_time && ` (${formatDate(contato.last_whatsapp_message_time)})`}</p>) : (<p>Criado em: {formatDate(contato.created_at)}</p>)}

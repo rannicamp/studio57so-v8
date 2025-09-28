@@ -8,9 +8,10 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        'primary': '#45301f', // Nova cor adicionada aqui!
         blue: {
           500: '#3b82f6',
-          600: '#2563eb', // Adicionado um tom mais escuro para o hover do botão
+          600: '#2563eb', 
           700: '#1d4ed8',
         },
         gray: {
@@ -32,9 +33,7 @@ module.exports = {
         },
       },
       fontFamily: {
-        // Fonte padrão continua sendo a do sistema
         sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', '"Noto Sans"', 'sans-serif'],
-        // Nova família de fontes 'Khand' adicionada
         khand: ['Khand', 'sans-serif'],
       },
       borderRadius: {
