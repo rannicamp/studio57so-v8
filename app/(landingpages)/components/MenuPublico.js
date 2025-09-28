@@ -5,12 +5,6 @@ import Link from 'next/link';
 import { useState } from 'react';
 import Image from 'next/image';
 
-// O PORQUÊ DESTE COMPONENTE:
-// Isolar o menu em seu próprio arquivo (componente) é uma prática fundamental em React e Next.js.
-// 1. Reutilização: Podemos usar este mesmo menu em várias páginas sem repetir o código.
-// 2. Manutenção Fácil: Se precisarmos alterar um link ou o estilo, mudamos em um só lugar.
-// 3. Código Limpo: Mantém nossas páginas (como a Home, Sobre Nós) focadas apenas no seu conteúdo principal.
-
 export default function MenuPublico() {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -38,7 +32,8 @@ export default function MenuPublico() {
           <Link href="/sobre-nos" className="text-gray-600 hover:text-primary transition-colors">
             Sobre Nós
           </Link>
-          <Link href="/empreendimentos" className="text-gray-600 hover:text-primary transition-colors">
+          {/* ======================= LINK ATUALIZADO AQUI ======================= */}
+          <Link href="/empreendimentosstudio" className="text-gray-600 hover:text-primary transition-colors">
             Empreendimentos
           </Link>
           <Link href="/login" className="bg-primary text-white font-bold py-2 px-6 rounded-full hover:opacity-90 transition-opacity">
@@ -61,7 +56,8 @@ export default function MenuPublico() {
         <div className="md:hidden bg-white py-4">
           <Link href="/" className="block text-center py-2 text-gray-800 hover:bg-gray-100" onClick={() => setIsOpen(false)}>Início</Link>
           <Link href="/sobre-nos" className="block text-center py-2 text-gray-800 hover:bg-gray-100" onClick={() => setIsOpen(false)}>Sobre Nós</Link>
-          <Link href="/empreendimentos" className="block text-center py-2 text-gray-800 hover:bg-gray-100" onClick={() => setIsOpen(false)}>Empreendimentos</Link>
+          {/* ======================= LINK ATUALIZADO AQUI ======================= */}
+          <Link href="/empreendimentosstudio" className="block text-center py-2 text-gray-800 hover:bg-gray-100" onClick={() => setIsOpen(false)}>Empreendimentos</Link>
           <div className="mt-4 text-center">
             <Link href="/login" className="inline-block bg-primary text-white font-bold py-2 px-6 rounded-full hover:opacity-90 transition-opacity" onClick={() => setIsOpen(false)}>
               Entrar
