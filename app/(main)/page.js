@@ -1,91 +1,67 @@
-// app/(main)/page.js
-"use client";
+// Caminho do arquivo: app/page.js
 
-import { useQuery } from '@tanstack/react-query';
-import { createClient } from '@/utils/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import UserInfoCard from '@/components/painel/UserInfoCard';
-import RhSection from '@/components/painel/RhSection';
-import CustomKpiSection from '@/components/painel/CustomKpiSection';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+'use client';
 
-// O PORQUÊ: Esta função é necessária. Ela age como uma "ponte", pegando o ID do
-// usuário logado (da tabela 'usuarios') e usando-o para encontrar o perfil
-// correspondente na tabela 'funcionarios', que contém os dados para os KPIs de RH.
-const fetchEmployeeProfile = async (userId) => {
-    if (!userId) return null;
+import Image from 'next/image';
+import Link from 'next/link';
+import { Roboto } from 'next/font/google';
 
-    const supabase = createClient();
-    const { data: employeeData, error } = await supabase
-        .from('funcionarios')
-        .select('*, roles(name)')
-        .eq('user_id', userId)
-        .single();
+const roboto = Roboto({
+    weight: ['400', '500', '700'],
+    subsets: ['latin'],
+    display: 'swap',
+});
 
-    if (error) {
-        console.error("Erro ao buscar perfil de funcionário:", error);
-        // Retorna null em vez de dar erro para não quebrar a página.
-        // O usuário verá os cards em estado de "carregando" se seu perfil não for encontrado.
-        return null;
-    }
-
-    return {
-        ...employeeData,
-        role: employeeData.roles?.name || 'Não definido',
-        full_name: employeeData.nome_completo,
-        avatar_url: employeeData.avatar_url,
-    };
-};
-
-export default function PainelPage() {
-    // Pegamos os dados do AuthContext, assim como as outras páginas fazem.
-    const { user, loading: authLoading } = useAuth();
-
-    // Usamos o ID do usuário do contexto para buscar o perfil de funcionário.
-    const { data: employeeProfile, isLoading: isProfileLoading } = useQuery({
-        queryKey: ['employeeProfileForPanel', user?.id],
-        queryFn: () => fetchEmployeeProfile(user?.id),
-        // A busca só roda quando a autenticação terminar e tivermos um user.id
-        enabled: !authLoading && !!user?.id,
-    });
-    
-    // O PORQUÊ DA MUDANÇA: Este é o padrão de loading seguro, usado em outras páginas.
-    // Ele mostra o "Carregando..." se a autenticação estiver acontecendo OU se o
-    // nosso perfil de funcionário estiver sendo buscado. Ele não trava mais a tela.
-    if (authLoading || (isProfileLoading && !employeeProfile)) {
-        return (
-            <div className="flex justify-center items-center h-full">
-                <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-500" />
-                <span className="ml-3 text-lg text-gray-600">Carregando painel...</span>
+export default function HomePage() {
+  return (
+    <div className={`${roboto.className} bg-white text-gray-800 font-sans`}>
+        {/* Header com o botão de Login */}
+        <header className="absolute top-0 left-0 right-0 z-40 p-4">
+            <div className="container mx-auto flex justify-between items-center">
+                {/* Logo da sua empresa - ajuste a URL se necessário */}
+                <Image
+                    src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/marcas/studiologo-preto.png"
+                    alt="Logo Studio 57"
+                    width={150}
+                    height={50}
+                    className="object-contain"
+                />
+                <Link href="/login">
+                    <div className="bg-blue-600 text-white font-bold py-2 px-6 rounded-full hover:bg-blue-700 transition-colors duration-300 shadow-lg">
+                        Login
+                    </div>
+                </Link>
             </div>
-        );
-    }
+        </header>
 
-    // Usamos o nome do perfil do funcionário, que é mais completo.
-    const nameToDisplay = employeeProfile?.full_name || user?.nome_completo || 'Usuário';
-
-    return (
-        <div className="flex-1 p-4 md:p-6">
-            <h1 className="text-3xl font-bold mb-2 text-gray-800">
-                Painel de Controle
-            </h1>
-            <p className="text-lg text-gray-600 mb-8">
-                Olá, <span className="font-semibold">{nameToDisplay}</span>! Bem-vindo(a) de volta.
-            </p>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                <div className="lg:col-span-1">
-                    {/* Passamos o perfil do funcionário para o Card de Usuário */}
-                    <UserInfoCard user={employeeProfile} />
-                </div>
-                <div className="lg:col-span-2">
-                    {/* Passamos o ID do funcionário (da tabela funcionarios) para o RhSection */}
-                    <RhSection employeeId={employeeProfile?.id} />
+        {/* Seção Principal (Hero) */}
+        <section className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden">
+            <div
+                className="absolute inset-0 bg-cover bg-center z-0"
+                style={{
+                    backgroundImage: "url('https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/capa%20vazia2.png')",
+                }}
+            ></div>
+            <div className="absolute inset-0 bg-black opacity-40 z-10"></div>
+            
+            <div className="relative z-30 flex flex-col items-center p-4 w-full text-center">
+                <div className="max-w-3xl">
+                    <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white mb-4" style={{ textShadow: '2px 2px 8px rgba(0,0,0,0.7)' }}>
+                        Bem-vindo ao Studio 57
+                    </h1>
+                    <p className="text-lg md:text-xl text-gray-200" style={{ textShadow: '1px 1px 4px rgba(0,0,0,0.8)' }}>
+                        Sua plataforma completa para gestão de empreendimentos, finanças e clientes.
+                    </p>
                 </div>
             </div>
+        </section>
 
-            <CustomKpiSection />
-        </div>
-    );
+        {/* Rodapé Simples */}
+        <footer className="bg-gray-800 text-white py-4">
+            <div className="container mx-auto px-4 text-center text-gray-400 text-sm">
+                <p>© {new Date().getFullYear()} Studio 57. Todos os direitos reservados.</p>
+            </div>
+        </footer>
+    </div>
+  );
 }
