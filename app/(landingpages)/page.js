@@ -1,44 +1,51 @@
 // Caminho do arquivo: app/(landingpages)/page.js
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCube, faPuzzlePiece, faBuilding } from '@fortawesome/free-solid-svg-icons';
+import { Montserrat } from 'next/font/google';
+
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  weight: ['300', '400', '700'], // Adicionando o peso '300' (light) para o slogan
+});
 
 export default function HomePage() {
   return (
     <>
-      {/* 1. SEÇÃO INICIAL (HERO) */}
+      {/* 1. SEÇÃO INICIAL (HERO) - DESIGN FINAL */}
       <section className="relative min-h-[calc(100vh-74px)] flex items-center justify-center bg-black text-white overflow-hidden">
-        {/* O PORQUÊ DESTA MUDANÇA:
-            Substituímos a imagem externa por uma imagem de alta qualidade do Residencial Alfa,
-            que já está no seu banco de dados, garantindo que usamos apenas seus próprios ativos. */}
         <Image
-            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759018648180.png"
-            alt="Fachada de empreendimento moderno"
+            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759095131611.png"
+            alt="Interior de um empreendimento de alto padrão"
             layout="fill"
             objectFit="cover"
             className="z-0"
             priority
         />
-        <div className="absolute inset-0 bg-black opacity-50 z-10"></div>
-        <div className="relative z-20 flex flex-col items-center p-4 text-center max-w-4xl mx-auto">
+        {/* O PORQUÊ DA MUDANÇA:
+            A div que criava a "capa cinza" (overlay) foi removida para que a imagem de fundo
+            apareça de forma "pura", como você solicitou. */}
+        
+        <div className="relative z-20 flex flex-col items-center p-4 text-center">
             <Image
-                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759092334426.PNG" 
+                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759092334426.PNG"
                 alt="Logo Studio 57 Arquitetura e Incorporação"
-                width={400}
-                height={100}
-                className="mb-8 filter invert"
+                width={500}
+                height={125}
+                className="w-full max-w-xs md:max-w-md object-contain mb-4 filter invert"
                 priority
+                style={{ filter: 'invert(1) drop-shadow(2px 2px 4px rgba(0,0,0,0.7))' }} // Sombra na logo para legibilidade
             />
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                Arquitetura Inteligente. Empreendimentos Reais.
+            {/* O PORQUÊ DA MUDANÇA:
+                - Adicionamos a classe 'uppercase' para deixar o texto em caixa alta.
+                - Adicionamos 'tracking-widest' para aumentar o espaçamento entre as letras.
+                - Mantivemos a sombra no texto para garantir a legibilidade sobre a imagem pura. */}
+            <h1 className={`${montserrat.className} text-2xl md:text-3xl font-light uppercase tracking-widest`} style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.7)' }}>
+                excelência em cada detalhe
             </h1>
-            <p className="text-lg md:text-xl max-w-3xl mx-auto mb-8">
-                Utilizamos a metodologia BIM para criar projetos precisos e investimentos imobiliários com máxima segurança e rentabilidade.
-            </p>
-            <Link href="/empreendimentosstudio" className="bg-primary text-white font-bold py-3 px-8 rounded-full hover:opacity-90 transition-opacity text-lg">
-                Conheça os Empreendimentos
-            </Link>
         </div>
       </section>
 
