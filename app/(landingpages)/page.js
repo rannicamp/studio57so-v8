@@ -15,7 +15,7 @@ const montserrat = Montserrat({
 export default function HomePage() {
   return (
     <>
-      {/* 1. SEÇÃO INICIAL (HERO) - DESIGN FINAL */}
+      {/* 1. SEÇÃO INICIAL (HERO) */}
       <section className="relative min-h-[calc(100vh-74px)] flex items-center justify-center bg-black text-white overflow-hidden">
         <Image
             src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759095131611.png"
@@ -26,9 +26,13 @@ export default function HomePage() {
             priority
         />
         
-        <div className="absolute bottom-0 left-0 w-[45%] max-w-xs sm:max-w-sm md:w-1/3 md:max-w-md z-20">
+        {/* O PORQUÊ DESTA MUDANÇA:
+            Ajustamos as classes de largura (w- e max-w-) para aumentar o tamanho da imagem
+            da especialista em aproximadamente 1.5x em todas as resoluções de tela,
+            conforme a sua solicitação. */}
+        <div className="absolute bottom-0 left-0 w-[60%] max-w-sm sm:max-w-md md:w-1/2 md:max-w-lg z-20">
             <Image
-                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/tatisemfundo.png"
+                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759096504604.png"
                 alt="Especialista Studio 57"
                 width={600}
                 height={900}
@@ -47,9 +51,6 @@ export default function HomePage() {
                     className="w-full h-auto object-contain mb-4"
                     priority
                 />
-                {/* O PORQUÊ DESTA MUDANÇA:
-                    Ajustamos o tamanho da fonte para 'text-base' (menor no celular) e 'md:text-lg' (menor no desktop).
-                    Isso garante que o slogan se mantenha em uma única linha em diferentes tamanhos de tela. */}
                 <h1 className={`${montserrat.className} text-base md:text-lg font-light uppercase tracking-widest text-black text-center`} style={{ textShadow: '1px 1px 2px white' }}>
                     excelência em cada detalhe
                 </h1>
