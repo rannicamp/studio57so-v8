@@ -19,6 +19,11 @@ const roboto = Roboto({
 // PARTE ADICIONADA: Definimos o ID do seu Pixel aqui.
 const PIXEL_ID = '625880956813084';
 
+// =========================================================================
+// NOVO CÓDIGO: SEU ID DO GOOGLE ANALYTICS
+const GA_MEASUREMENT_ID = 'G-JSGHN2BHQN'; 
+// =========================================================================
+
 // PARTE ORIGINAL MANTIDA: Seu título e descrição para o Google.
 export const metadata = {
   title: 'Studio 57 - Arquitetura e Incorporação',
@@ -37,8 +42,26 @@ export default function PublicLayout({ children }) {
       <body className="bg-gray-50 text-gray-800">
 
         {/* ================================================================= */}
-        {/* =================== INÍCIO DO CÓDIGO ADICIONADO =================== */}
+        {/* =================== INÍCIO DO CÓDIGO GOOGLE ANALYTICS =================== */}
+        {/* O PORQUÊ: Carregamos a biblioteca principal do GA. */}
+        <Script 
+            strategy="afterInteractive" 
+            src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`} 
+        />
+        {/* O PORQUÊ: Este script de configuração inicializa o GA em todas as páginas. */}
+        <Script id="google-analytics-config" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_MEASUREMENT_ID}');
+          `}
+        </Script>
+        {/* ==================== FIM DO CÓDIGO GOOGLE ANALYTICS ===================== */}
+
+
         {/* ================================================================= */}
+        {/* =================== INÍCIO DO CÓDIGO META PIXEL (JÁ EXISTENTE) =================== */}
         <Script id="meta-pixel-base" strategy="afterInteractive">
           {`
             !function(f,b,e,v,n,t,s)
@@ -62,9 +85,7 @@ export default function PublicLayout({ children }) {
           />
         </noscript>
         <Toaster richColors position="top-right" />
-        {/* ================================================================= */}
-        {/* ==================== FIM DO CÓDIGO ADICIONADO ===================== */}
-        {/* ================================================================= */}
+        {/* ==================== FIM DO CÓDIGO META PIXEL ===================== */}
         
         {/* PARTES ORIGINAIS MANTIDAS: A estrutura do seu site. */}
         <MenuPublico />
