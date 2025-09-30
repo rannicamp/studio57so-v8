@@ -34,6 +34,17 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     );
 };
 
+const CategoryOption = ({ category, level = 0 }) => (
+    <>
+        <option key={category.id} value={category.id}>
+            {'\u00A0'.repeat(level * 4)}
+            {category.nome}
+        </option>
+        {category.children && category.children.map(child => (
+            <CategoryOption key={child.id} category={child} level={level + 1} />
+        ))}
+    </>
+);
 
 export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initialData, empresas = [] }) {
     const supabase = createClient();
@@ -72,7 +83,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         const { data: contasData, error: contasError } = await supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', organizacao_id).order('nome');
         if (contasError) throw new Error(contasError.message);
 
-        const { data: categoriasData, error: categoriasError } = await supabase.from('categorias_financeiras').select('id, nome, tipo').eq('organizacao_id', organizacao_id).order('nome');
+        const { data: categoriasData, error: categoriasError } = await supabase.from('categorias_financeiras').select('id, nome, tipo, parent_id').eq('organizacao_id', organizacao_id).order('nome');
         if (categoriasError) throw new Error(categoriasError.message);
 
         const { data: empreendimentosData, error: empreendimentosError } = await supabase.from('empreendimentos').select('id, nome, empresa_id:empresa_proprietaria_id').eq('organizacao_id', organizacao_id).order('nome');
@@ -94,26 +105,13 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         staleTime: 5 * 60 * 1000,
     });
     
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: Esta nova função "limpa" o nome do arquivo para o upload.
-    // Ela remove acentos, espaços e caracteres especiais que causam o erro "Invalid key".
-    // O nome original do arquivo ainda é salvo para exibição na tela.
-    // =================================================================================
     const sanitizeFileName = (fileName) => {
-        // Normaliza para separar acentos dos caracteres base
         const withoutAccents = fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        
-        // Substitui espaços por underscores e remove caracteres não permitidos
         const sanitized = withoutAccents
-          .replace(/\s+/g, '_') // Troca um ou mais espaços por _
-          .replace(/[^a-zA-Z0-9._-]/g, ''); // Remove qualquer coisa que não seja letra, número, ponto, underscore ou hífen
-        
+          .replace(/\s+/g, '_')
+          .replace(/[^a-zA-Z0-9._-]/g, '');
         return sanitized;
     };
-    // =================================================================================
-    // FIM DA CORREÇÃO
-    // =================================================================================
 
     const mutation = useMutation({
         mutationFn: async (formData) => {
@@ -204,8 +202,47 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     }).select().single();
                     error = insertError;
                     lancamentoPrincipal = data;
+                } else if (formData.form_type === 'parcelado') {
+                    const valorParcela = (valorNumerico / formData.numero_parcelas).toFixed(2);
+                    const lancamentosParaInserir = [];
+                    const dataPrimeiroVencimento = new Date(formData.data_primeiro_vencimento + 'T12:00:00Z');
+                    // =================================================================================
+                    // INÍCIO DA CORREÇÃO
+                    // O PORQUÊ: A lógica agora usa a nova coluna 'parcela_grupo' para agrupar
+                    // os lançamentos de parcela, conforme solicitado.
+                    // =================================================================================
+                    const grupo_id = crypto.randomUUID(); 
+
+                    for (let i = 0; i < formData.numero_parcelas; i++) {
+                        const dataVencimento = new Date(dataPrimeiroVencimento);
+                        dataVencimento.setUTCMonth(dataVencimento.getUTCMonth() + i);
+
+                        lancamentosParaInserir.push({
+                            ...baseData,
+                            descricao: `${formData.descricao} (${i + 1}/${formData.numero_parcelas})`,
+                            tipo: formData.tipo,
+                            conta_id: formData.conta_id,
+                            valor: parseFloat(valorParcela),
+                            data_transacao: new Date().toISOString().split('T')[0],
+                            data_vencimento: dataVencimento.toISOString().split('T')[0],
+                            status: 'Pendente',
+                            parcela_grupo: grupo_id, 
+                        });
+                    }
+                    // =================================================================================
+                    // FIM DA CORREÇÃO
+                    // =================================================================================
+
+                    const { data, error: insertError } = await supabase.from('lancamentos').insert(lancamentosParaInserir).select();
+                    
+                    if (insertError) {
+                        error = insertError;
+                    } else if (data && data.length > 0) {
+                        lancamentoPrincipal = data[0];
+                    }
                 }
             }
+
             if (error) throw error;
             if (!lancamentoPrincipal) throw new Error("Não foi possível obter os dados do lançamento salvo.");
             
@@ -213,10 +250,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 const uploadPromises = formData.anexos.map(async (anexo) => {
                     if (!anexo.file) return;
                     const file = anexo.file;
-                    // =================================================================================
-                    // MUDANÇA APLICADA AQUI
-                    // O nome do arquivo original é "limpo" pela nova função antes de criar o caminho final
-                    // =================================================================================
                     const fileName = `${crypto.randomUUID()}-${sanitizeFileName(file.name)}`;
                     const filePath = `public/${organizacao_id}/${lancamentoPrincipal.id}/${fileName}`;
                     
@@ -226,7 +259,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     const { error: insertAnexoError } = await supabase.from('lancamentos_anexos').insert({
                         lancamento_id: lancamentoPrincipal.id,
                         caminho_arquivo: filePath,
-                        nome_arquivo: file.name, // Salva o nome original para exibição
+                        nome_arquivo: file.name,
                         descricao: anexo.descricao,
                         tipo_documento_id: anexo.tipo_documento_id,
                         organizacao_id: organizacao_id
@@ -387,8 +420,20 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     const handleAiExtract = async () => { /* Código existente sem alteração */ };
 
 
-    if (!isOpen) return null;
+    const buildHierarchy = (items, parentId = null) => {
+        return items
+            .filter(item => item.parent_id === parentId)
+            .map(item => ({
+                ...item,
+                children: buildHierarchy(items, item.id)
+            }));
+    };
+    
     const filteredCategorias = dropdownData?.categorias?.filter(c => c.tipo === formData.tipo) || [];
+    const hierarchicalCategorias = buildHierarchy(filteredCategorias);
+
+
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -431,7 +476,28 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                         {formData.form_type === 'transferencia' ? ( 
                             <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Contas da Transferência</legend> <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2"> <div><label className="block text-sm font-medium">De (Origem)*</label><select name="conta_origem_id" value={formData.conta_origem_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{dropdownData?.contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div> <div><label className="block text-sm font-medium">Para (Destino)*</label><select name="conta_destino_id" value={formData.conta_destino_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{dropdownData?.contas.filter(c => c.id !== formData.conta_origem_id).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div> </div> </fieldset> 
                         ) : ( 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div><label className="block text-sm font-medium">Conta*</label><select name="conta_id" value={formData.conta_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{dropdownData?.contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div> <div><label className="block text-sm font-medium">Categoria</label><select name="categoria_id" value={formData.categoria_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{filteredCategorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div> <div className="md:col-span-2 relative"> <label className="block text-sm font-medium">Favorecido / Fornecedor</label> <input type="text" value={favorecidoSearchTerm} onChange={handleFavorecidoSearch} disabled={!!formData.favorecido_contato_id} placeholder={formData.favorecido_contato_id ? '' : 'Digite para buscar...'} className="mt-1 w-full p-2 border rounded-md" /> {formData.favorecido_contato_id && ( <button type="button" onClick={handleClearFavorecido} className="absolute right-2 top-8 text-gray-500 hover:text-red-600"><FontAwesomeIcon icon={faTimes} /></button> )} {favorecidoSearchTerm && !formData.favorecido_contato_id && ( <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg"> {isSearchingFavorecido && <li className="px-4 py-2 text-gray-500">Buscando...</li>} {!isSearchingFavorecido && searchAttempted && favorecidoSearchResults.length === 0 && ( <li className="px-4 py-2 text-center text-gray-500">Nenhum resultado. <button type="button" onClick={handleAddNewFavorecido} className="text-blue-600 hover:underline font-semibold ml-2">Adicionar Novo?</button></li> )} {favorecidoSearchResults.map(contato => ( <li key={contato.id} onClick={() => handleSelectFavorecido(contato)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={contato.nome || contato.razao_social} highlight={favorecidoSearchTerm} /></li> ))} </ul> )} </div> <div><label className="block text-sm font-medium">Empresa</label><select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!!formData.empreendimento_id}><option value="">Nenhuma</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}</select></div> <div><label className="block text-sm font-medium">Empreendimento</label><select name="empreendimento_id" value={formData.empreendimento_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Nenhum</option>{dropdownData?.empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></div> <div><label className="block text-sm font-medium">Etapa da Obra</label><select name="etapa_id" value={formData.etapa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!formData.empreendimento_id}><option value="">Nenhuma</option>{dropdownData?.etapas.map(e => <option key={e.id} value={e.id}>{e.nome_etapa}</option>)}</select></div> </div> 
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> 
+                                <div>
+                                    <label className="block text-sm font-medium">Conta*</label>
+                                    <select name="conta_id" value={formData.conta_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md"><option value="">Selecione...</option>{dropdownData?.contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
+                                </div> 
+                                <div>
+                                    <label className="block text-sm font-medium">Categoria</label>
+                                    <select name="categoria_id" value={formData.categoria_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
+                                        <option value="">Selecione...</option>
+                                        {hierarchicalCategorias.map(c => <CategoryOption key={c.id} category={c} />)}
+                                    </select>
+                                </div> 
+                                <div className="md:col-span-2 relative"> 
+                                    <label className="block text-sm font-medium">Favorecido / Fornecedor</label> 
+                                    <input type="text" value={favorecidoSearchTerm} onChange={handleFavorecidoSearch} disabled={!!formData.favorecido_contato_id} placeholder={formData.favorecido_contato_id ? '' : 'Digite para buscar...'} className="mt-1 w-full p-2 border rounded-md" /> 
+                                    {formData.favorecido_contato_id && ( <button type="button" onClick={handleClearFavorecido} className="absolute right-2 top-8 text-gray-500 hover:text-red-600"><FontAwesomeIcon icon={faTimes} /></button> )} 
+                                    {favorecidoSearchTerm && !formData.favorecido_contato_id && ( <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg"> {isSearchingFavorecido && <li className="px-4 py-2 text-gray-500">Buscando...</li>} {!isSearchingFavorecido && searchAttempted && favorecidoSearchResults.length === 0 && ( <li className="px-4 py-2 text-center text-gray-500">Nenhum resultado. <button type="button" onClick={handleAddNewFavorecido} className="text-blue-600 hover:underline font-semibold ml-2">Adicionar Novo?</button></li> )} {favorecidoSearchResults.map(contato => ( <li key={contato.id} onClick={() => handleSelectFavorecido(contato)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={contato.nome || contato.razao_social} highlight={favorecidoSearchTerm} /></li> ))} </ul> )} 
+                                </div> 
+                                <div><label className="block text-sm font-medium">Empresa</label><select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!!formData.empreendimento_id}><option value="">Nenhuma</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}</select></div> 
+                                <div><label className="block text-sm font-medium">Empreendimento</label><select name="empreendimento_id" value={formData.empreendimento_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"><option value="">Nenhum</option>{dropdownData?.empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></div> 
+                                <div><label className="block text-sm font-medium">Etapa da Obra</label><select name="etapa_id" value={formData.etapa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!formData.empreendimento_id}><option value="">Nenhuma</option>{dropdownData?.etapas.map(e => <option key={e.id} value={e.id}>{e.nome_etapa}</option>)}</select></div> 
+                            </div> 
                         )}
                         
                         <div className="md:col-span-2">
