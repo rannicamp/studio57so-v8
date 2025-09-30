@@ -1,6 +1,6 @@
 //app/(main)/empresas/cadastro/page.js
 import { createClient } from '../../../../utils/supabase/server';
-import EmpresaForm from '../../../../components/EmpresaForm';
+import EmpresaForm from '../../../../components/empresas/EmpresaForm';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 

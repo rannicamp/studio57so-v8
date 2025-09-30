@@ -1,7 +1,7 @@
 // app/(main)/empresas/page.js
 import { createClient } from '../../../utils/supabase/server';
 import Link from 'next/link';
-import EmpresaList from '../../../components/EmpresaList';
+import EmpresaList from '../../../components/empresas/EmpresaList';
 import { redirect } from 'next/navigation';
 
 export default async function GerenciamentoEmpresasPage() {

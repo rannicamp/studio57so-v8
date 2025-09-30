@@ -11,41 +11,42 @@ const getSupabaseAdmin = () => {
 };
 
 // =================================================================================
-// NOVA FUNÇÃO AUXILIAR
-// O PORQUÊ: Esta função busca o nome de um objeto (anúncio ou campanha) na API da Meta.
-// Isso centraliza a lógica e evita código repetido.
+// O PORQUÊ DA FUNÇÃO: Esta função age como um "mini-detetive". Ela pega um ID (de anúncio,
+// campanha, etc.) e pergunta à Meta "Qual é o nome disso?". Isso nos permite
+// salvar os nomes junto com os leads, enriquecendo os dados no CRM.
 // =================================================================================
-async function getMetaObjectName(objectId) {
-    if (!objectId) return null;
-    const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
-    if (!PAGE_ACCESS_TOKEN) return null;
-
+async function getMetaObjectName(objectId, accessToken) {
+    if (!objectId || !accessToken) return null;
     try {
-        const url = `https://graph.facebook.com/v20.0/${objectId}?fields=name&access_token=${PAGE_ACCESS_TOKEN}`;
+        const url = `https://graph.facebook.com/v20.0/${objectId}?fields=name&access_token=${accessToken}`;
         const response = await fetch(url);
         const data = await response.json();
         if (response.ok) {
+            console.log(`LOG: Nome encontrado para ID ${objectId}: ${data.name}`);
             return data.name || null;
         }
-        console.error(`Falha ao buscar nome para o ID ${objectId}:`, data.error?.message);
+        console.error(`LOG: AVISO - Falha ao buscar nome para o ID ${objectId}:`, data.error?.message);
         return null;
     } catch (error) {
-        console.error(`Erro de rede ao buscar nome para o ID ${objectId}:`, error);
+        console.error(`LOG: ERRO - Erro de rede ao buscar nome para o ID ${objectId}:`, error);
         return null;
     }
 }
 
-async function getOrganizationIdByPageId(supabase, pageId) {
+// =================================================================================
+// O PORQUÊ DA FUNÇÃO: Esta é a função "Detetive Principal". Conforme sua ideia,
+// ela descobre a qual cliente (organização) um lead pertence, garantindo que
+// cada lead seja salvo no lugar certo. É o coração da nossa automação.
+// =================================================================================
+async function getOrganizationIdByPageId(supabase, pageId, accessToken) {
     console.log(`LOG: [DETETIVE] Iniciando investigação para a página ID: ${pageId}`);
-    
-    const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
-    if (!PAGE_ACCESS_TOKEN) {
-        throw new Error("Token de Acesso à Página (META_PAGE_ACCESS_TOKEN) não configurado no servidor.");
+    if (!accessToken) {
+        throw new Error("[DETETIVE] Token de Acesso à Página não fornecido.");
     }
 
-    const url = `https://graph.facebook.com/v20.0/${pageId}?fields=business&access_token=${PAGE_ACCESS_TOKEN}`;
-    console.log(`LOG: [DETETIVE] Consultando a Meta: ${url.replace(PAGE_ACCESS_TOKEN, '******')}`);
-    
+    const url = `https://graph.facebook.com/v20.0/${pageId}?fields=business&access_token=${accessToken}`;
+    console.log(`LOG: [DETETIVE] Consultando a Meta para descobrir o 'dono' da página...`);
+
     const metaResponse = await fetch(url);
     const metaData = await metaResponse.json();
 
@@ -55,7 +56,7 @@ async function getOrganizationIdByPageId(supabase, pageId) {
 
     const metaBusinessId = metaData.business?.id;
     if (!metaBusinessId) {
-        throw new Error(`[DETETIVE] A página com ID ${pageId} não está associada a um Gerenciador de Negócios (Meta Business Manager).`);
+        throw new Error(`[DETETIVE] A página com ID ${pageId} não está associada a um Gerenciador de Negócios. Verifique a configuração na Meta.`);
     }
     console.log(`LOG: [DETETIVE] Dono encontrado! Meta Business ID: ${metaBusinessId}`);
 
@@ -65,11 +66,9 @@ async function getOrganizationIdByPageId(supabase, pageId) {
         .eq('meta_business_id', metaBusinessId)
         .single();
 
-    if (error) {
-        throw new Error(`[DETETIVE] Erro ao consultar a empresa no banco de dados com o Meta Business ID: ${metaBusinessId}. Detalhes: ${error.message}`);
-    }
-    if (!empresa) {
-        throw new Error(`[DETETIVE] Nenhuma empresa encontrada no sistema com o Meta Business ID: ${metaBusinessId}. Cadastre a empresa e seu ID para receber os leads.`);
+    if (error || !empresa) {
+        console.error(`[DETETIVE] ERRO ao buscar empresa com Meta Business ID ${metaBusinessId}.`, error);
+        throw new Error(`[DETETIVE] Nenhuma empresa no seu sistema foi encontrada com o Meta Business ID: ${metaBusinessId}. Verifique se o ID está cadastrado corretamente na tela de "Minha Empresa".`);
     }
 
     console.log(`LOG: [DETETIVE] Caso resolvido! Organização ID: ${empresa.organizacao_id}`);
@@ -151,8 +150,10 @@ export async function POST(request) {
     console.log("LOG: [INÍCIO] Requisição POST recebida no webhook da Meta.");
     
     const supabase = getSupabaseAdmin();
-    if (!supabase) {
-        return NextResponse.json({ status: 'error', message: 'Configuração do Supabase no servidor está incompleta.' }, { status: 500 });
+    const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
+
+    if (!supabase || !PAGE_ACCESS_TOKEN) {
+        return NextResponse.json({ status: 'error', message: 'Configuração do servidor (Supabase ou Meta Token) está incompleta.' }, { status: 500 });
     }
     
     try {
@@ -172,7 +173,7 @@ export async function POST(request) {
 
         if (!leadId || !pageId) {
              console.error("LOG: ERRO CRÍTICO - O evento de Lead não continha 'leadgen_id' ou 'page_id'.");
-             throw new Error("O evento de Lead recebido não continha a identificação do lead (leadgen_id) ou da página (page_id).");
+             return NextResponse.json({ status: 'error', message: "Dados do lead incompletos no payload da Meta." }, { status: 400 });
         }
 
         console.log(`LOG: Buscando no DB por contato com meta_lead_id: ${leadId}`);
@@ -184,11 +185,7 @@ export async function POST(request) {
         }
         
         let leadDetails;
-        let organizacaoId;
-        
-        // Adicionando os IDs da campanha e anúncio para buscar os nomes
-        const adId = leadValue.ad_id;
-        const campaignId = leadValue.campaign_id; // <-- O ID da campanha também vem no payload!
+        const organizacaoId = await getOrganizationIdByPageId(supabase, pageId, PAGE_ACCESS_TOKEN);
 
         if (leadId.startsWith('TEST_')) {
             console.log("LOG: [TESTE] Lead de simulação detectado. Usando dados fictícios.");
@@ -199,20 +196,12 @@ export async function POST(request) {
                     { name: "phone_number", values: ["+5533999998888"] },
                 ]
             };
-            const { data: firstOrg, error: orgError } = await supabase.from('organizacoes').select('id').limit(1).single();
-            if (orgError || !firstOrg) {
-                throw new Error("Não foi possível encontrar uma organização para o lead de teste.");
-            }
-            organizacaoId = firstOrg.id;
-            console.log(`LOG: [TESTE] Usando organização de fallback com ID: ${organizacaoId}`);
-
         } else {
             console.log(`LOG: Lead real ID ${leadId}. Buscando detalhes na API da Meta...`);
-            const leadDetailsResponse = await fetch(`https://graph.facebook.com/v20.0/${leadId}?access_token=${process.env.META_PAGE_ACCESS_TOKEN}`);
+            const leadDetailsResponse = await fetch(`https://graph.facebook.com/v20.0/${leadId}?access_token=${PAGE_ACCESS_TOKEN}`);
             const apiResult = await leadDetailsResponse.json();
             if (!leadDetailsResponse.ok) throw new Error(apiResult.error?.message || "Falha ao buscar dados do lead no Meta.");
             leadDetails = apiResult;
-            organizacaoId = await getOrganizationIdByPageId(supabase, pageId);
         }
 
         console.log("LOG: Detalhes do lead recebidos com sucesso.");
@@ -226,14 +215,11 @@ export async function POST(request) {
         const email = allLeadData.email;
         const telefoneLimpo = allLeadData.phone_number?.replace(/\D/g, '');
 
-        // =================================================================================
-        // ATUALIZAÇÃO PRINCIPAL
-        // O PORQUÊ: Buscamos os nomes do anúncio e da campanha usando a nova função.
-        // Estes nomes serão salvos diretamente no banco de dados.
-        // =================================================================================
-        console.log(`LOG: Buscando nomes para Ad ID: ${adId} e Campaign ID: ${campaignId}`);
-        const adName = await getMetaObjectName(adId);
-        const campaignName = await getMetaObjectName(campaignId);
+        console.log(`LOG: Buscando nomes para Ad ID: ${leadValue.ad_id} e Campaign ID: ${leadValue.campaign_id}`);
+        const [adName, campaignName] = await Promise.all([
+            getMetaObjectName(leadValue.ad_id, PAGE_ACCESS_TOKEN),
+            getMetaObjectName(leadValue.campaign_id, PAGE_ACCESS_TOKEN)
+        ]);
         console.log(`LOG: Nomes encontrados -> Anúncio: '${adName}', Campanha: '${campaignName}'`);
 
         console.log(`LOG: Criando novo contato na organização ${organizacaoId}...`);
@@ -246,15 +232,15 @@ export async function POST(request) {
                 personalidade_juridica: 'Pessoa Física',
                 organizacao_id: organizacaoId,
                 meta_lead_id: leadId,
-                meta_ad_id: adId,
-                meta_campaign_id: campaignId, // <-- Salvando o ID da campanha
+                meta_ad_id: leadValue.ad_id,
+                meta_campaign_id: leadValue.campaign_id,
                 meta_adgroup_id: leadValue.adgroup_id,
                 meta_page_id: leadValue.page_id,
                 meta_form_id: leadValue.form_id,
                 meta_created_time: new Date(leadValue.created_time * 1000).toISOString(),
                 meta_form_data: allLeadData,
-                meta_ad_name: adName, // <-- SALVANDO O NOME DO ANÚNCIO
-                meta_campaign_name: campaignName // <-- SALVANDO O NOME DA CAMPANHA
+                meta_ad_name: adName,
+                meta_campaign_name: campaignName
             })
             .select('id')
             .single();
@@ -300,6 +286,8 @@ export async function POST(request) {
 
     } catch (e) {
         console.error('LOG: [ERRO GERAL] Ocorreu um erro no processamento do webhook:', e);
+        // Retornamos 200 para a Meta não ficar reenviando o mesmo evento que já deu erro.
+        // O erro já foi logado no nosso sistema para análise.
         return NextResponse.json({ status: 'error', message: e.message }, { status: 200 }); 
     }
 }
