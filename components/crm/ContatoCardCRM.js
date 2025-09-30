@@ -1,10 +1,11 @@
+// components/crm/ContatoCardCRM.js
 "use client";
 
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisV, faStickyNote, faBullhorn, faHome, faTasks, faPhone, faUserTie, faSpinner, faTimes, faPlus, faTrash, faGlobe } from '@fortawesome/free-solid-svg-icons'; // <-- Adicionado ícone faGlobe
+import { faEllipsisV, faStickyNote, faBullhorn, faHome, faTasks, faPhone, faUserTie, faSpinner, faTimes, faPlus, faTrash, faGlobe } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -85,8 +86,17 @@ export default function ContatoCardCRM({
     const currentColumnId = funilEntry.coluna_id;
     const isMetaLead = contato.origem === 'Meta Lead Ad';
     
-    const adName = contato?.meta_ads?.name;
-    const campaignName = contato?.meta_ads?.meta_campaigns?.name;
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO DE PERFORMANCE
+    // O PORQUÊ: As variáveis agora leem diretamente dos campos 'meta_ad_name' e
+    // 'meta_campaign_name' do objeto 'contato'. Isso é possível graças à nossa
+    // consulta simplificada e às otimizações do banco de dados.
+    // =================================================================================
+    const adName = contato?.meta_ad_name;
+    const campaignName = contato?.meta_campaign_name;
+    // =================================================================================
+    // FIM DA CORREÇÃO DE PERFORMANCE
+    // =================================================================================
 
     const handleAddProduct = () => {
         if (!selectedProductId) {
@@ -203,12 +213,6 @@ export default function ContatoCardCRM({
                 )}
             </div>
             
-            {/* ================================================================================= */}
-            {/* O PORQUÊ DA ATUALIZAÇÃO:                                                          */}
-            {/* Este bloco agora exibe a origem do lead. Se for da Meta, mostra os detalhes da  */}
-            {/* campanha. Se for de qualquer outra origem (e a origem existir), mostra uma       */}
-            {/* tag genérica com o nome da origem.                                              */}
-            {/* ================================================================================= */}
             <div className="mt-3 space-y-1">
                 {isMetaLead ? (
                     <>
@@ -222,7 +226,7 @@ export default function ContatoCardCRM({
                     </>
                 ) : contato.origem ? (
                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        <FontAwesomeIcon icon={faGlobe} /> {contato.origem}
+                         <FontAwesomeIcon icon={faGlobe} /> {contato.origem}
                     </span>
                 ) : null}
             </div>

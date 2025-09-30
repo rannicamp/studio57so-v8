@@ -57,6 +57,12 @@ const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, exi
     );
 };
 
+// =================================================================================
+// INÍCIO DA CORREÇÃO DE PERFORMANCE
+// O PORQUÊ: A consulta foi simplificada para não fazer mais joins aninhados e complexos.
+// Agora, ela busca os dados do contato (que já incluem nome do anúncio e campanha
+// graças ao nosso trabalho no banco de dados), resultando em um carregamento muito mais rápido.
+// =================================================================================
 const fetchFunilData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { funilId: null, colunasDoFunil: [], contatosNoFunil: [] };
     const { data: funilData } = await supabase.from('funis').select('id').eq('nome', 'Funil de Vendas').eq('organizacao_id', organizacaoId).single();
@@ -68,7 +74,28 @@ const fetchFunilData = async (supabase, organizacaoId) => {
     if (!colunasDoFunil || colunasDoFunil.length === 0) return { funilId, colunasDoFunil: [], contatosNoFunil: [] };
     const colunaIds = colunasDoFunil.map(col => col.id);
 
-    const { data: contatosNoFunilRaw, error: contatosError } = await supabase.from('contatos_no_funil').select(`id, coluna_id, numero_card, corretor_id, created_at, contatos:contato_id ( *, meta_campaign_id, meta_ad_id, telefones ( telefone, tipo ), emails(email, tipo), meta_ads:meta_ad_id ( name, meta_campaigns:campaign_id ( name ) ) ), corretores:corretor_id (id, nome, razao_social), produtos_interesse:contatos_no_funil_produtos (id, produto:produtos_empreendimento (id, unidade, tipo, valor_venda_calculado, empreendimento_id))`).in('coluna_id', colunaIds).eq('organizacao_id', organizacaoId);
+    const { data: contatosNoFunilRaw, error: contatosError } = await supabase
+        .from('contatos_no_funil')
+        .select(`
+            id, 
+            coluna_id, 
+            numero_card, 
+            corretor_id, 
+            created_at, 
+            contatos:contato_id ( 
+                *, 
+                telefones ( telefone, tipo ), 
+                emails(email, tipo)
+            ), 
+            corretores:corretor_id (id, nome, razao_social), 
+            produtos_interesse:contatos_no_funil_produtos (
+                id, 
+                produto:produtos_empreendimento (id, unidade, tipo, valor_venda_calculado, empreendimento_id)
+            )
+        `)
+        .in('coluna_id', colunaIds)
+        .eq('organizacao_id', organizacaoId);
+
     if (contatosError) throw contatosError;
     
     const contatosParaEstado = (contatosNoFunilRaw || []).filter(item => item.contatos?.id);
@@ -78,15 +105,13 @@ const fetchFunilData = async (supabase, organizacaoId) => {
     const contatosComMensagens = contatosParaEstado.map(item => ({ ...item, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, contatos: { ...item.contatos, last_whatsapp_message: lastMessagesMap[item.contatos.id]?.content || null, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, } }));
     return { funilId, colunasDoFunil, contatosNoFunil: contatosComMensagens };
 };
+// =================================================================================
+// FIM DA CORREÇÃO DE PERFORMANCE
+// =================================================================================
 
-// ================== AQUI ESTÁ A LÓGICA CORRETA ==================
-// O PORQUÊ: Esta função implementa exatamente o que você sugeriu:
-// 1. Busca os IDs de corretores da tabela `contatos_no_funil`.
-// 2. Com os IDs, busca os nomes na tabela `contatos`.
 const fetchFilterData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { corretores: [], origens: [], unidades: [], campaigns: [], ads: [] };
 
-    // Passo 1: Buscar todos os IDs únicos de corretores da tabela do funil.
     const { data: brokerIdsData, error: idsError } = await supabase
         .from('contatos_no_funil')
         .select('corretor_id')
@@ -96,7 +121,6 @@ const fetchFilterData = async (supabase, organizacaoId) => {
     if (idsError) throw idsError;
     const uniqueBrokerIds = [...new Set(brokerIdsData.map(item => item.corretor_id))];
 
-    // Passo 2: Se encontrarmos IDs, buscamos os detalhes deles na tabela de contatos.
     let corretores = [];
     if (uniqueBrokerIds.length > 0) {
         const { data: corretoresData, error: corretoresError } = await supabase
@@ -109,7 +133,6 @@ const fetchFilterData = async (supabase, organizacaoId) => {
         corretores = corretoresData.map(c => ({ id: c.id, nome: c.nome || c.razao_social })).sort((a, b) => a.nome.localeCompare(b.nome));
     }
 
-    // O restante das buscas continua igual
     const origensPromise = supabase.rpc('get_distinct_origens', { p_organizacao_id: organizacaoId });
     const unidadesPromise = supabase.from('produtos_empreendimento').select('id, unidade').eq('organizacao_id', organizacaoId).order('unidade');
     const campaignsPromise = supabase.from('meta_campaigns').select('id, name').eq('organizacao_id', organizacaoId).order('name');
@@ -124,7 +147,6 @@ const fetchFilterData = async (supabase, organizacaoId) => {
     
     return { corretores, origens, unidades, campaigns, ads };
 };
-// ================== FIM DA LÓGICA CORRETA ==================
 
 const fetchAvailableProducts = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
@@ -162,7 +184,7 @@ export default function CrmPage() {
     const [activityToEdit, setActivityToEdit] = useState(null);
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
 
-    useEffect(() => { setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
+    useEffect(() => { if (setPageTitle) setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
 
     const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ queryKey: ['funilData', organizacaoId], queryFn: () => fetchFunilData(supabase, organizacaoId), enabled: !!organizacaoId });
     const { funilId, colunasDoFunil = [], contatosNoFunil = [] } = funilData || {};
