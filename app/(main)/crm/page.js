@@ -57,12 +57,6 @@ const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, exi
     );
 };
 
-// =================================================================================
-// INÍCIO DA CORREÇÃO DE PERFORMANCE
-// O PORQUÊ: A consulta foi simplificada para não fazer mais joins aninhados e complexos.
-// Agora, ela busca os dados do contato (que já incluem nome do anúncio e campanha
-// graças ao nosso trabalho no banco de dados), resultando em um carregamento muito mais rápido.
-// =================================================================================
 const fetchFunilData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { funilId: null, colunasDoFunil: [], contatosNoFunil: [] };
     const { data: funilData } = await supabase.from('funis').select('id').eq('nome', 'Funil de Vendas').eq('organizacao_id', organizacaoId).single();
@@ -74,28 +68,7 @@ const fetchFunilData = async (supabase, organizacaoId) => {
     if (!colunasDoFunil || colunasDoFunil.length === 0) return { funilId, colunasDoFunil: [], contatosNoFunil: [] };
     const colunaIds = colunasDoFunil.map(col => col.id);
 
-    const { data: contatosNoFunilRaw, error: contatosError } = await supabase
-        .from('contatos_no_funil')
-        .select(`
-            id, 
-            coluna_id, 
-            numero_card, 
-            corretor_id, 
-            created_at, 
-            contatos:contato_id ( 
-                *, 
-                telefones ( telefone, tipo ), 
-                emails(email, tipo)
-            ), 
-            corretores:corretor_id (id, nome, razao_social), 
-            produtos_interesse:contatos_no_funil_produtos (
-                id, 
-                produto:produtos_empreendimento (id, unidade, tipo, valor_venda_calculado, empreendimento_id)
-            )
-        `)
-        .in('coluna_id', colunaIds)
-        .eq('organizacao_id', organizacaoId);
-
+    const { data: contatosNoFunilRaw, error: contatosError } = await supabase.from('contatos_no_funil').select(`id, coluna_id, numero_card, corretor_id, created_at, contatos:contato_id ( *, telefones ( telefone, tipo ), emails(email, tipo) ), corretores:corretor_id (id, nome, razao_social), produtos_interesse:contatos_no_funil_produtos (id, produto:produtos_empreendimento (id, unidade, tipo, valor_venda_calculado, empreendimento_id))`).in('coluna_id', colunaIds).eq('organizacao_id', organizacaoId);
     if (contatosError) throw contatosError;
     
     const contatosParaEstado = (contatosNoFunilRaw || []).filter(item => item.contatos?.id);
@@ -105,48 +78,33 @@ const fetchFunilData = async (supabase, organizacaoId) => {
     const contatosComMensagens = contatosParaEstado.map(item => ({ ...item, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, contatos: { ...item.contatos, last_whatsapp_message: lastMessagesMap[item.contatos.id]?.content || null, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, } }));
     return { funilId, colunasDoFunil, contatosNoFunil: contatosComMensagens };
 };
-// =================================================================================
-// FIM DA CORREÇÃO DE PERFORMANCE
-// =================================================================================
 
+// =================================================================================
+// INÍCIO DA CORREÇÃO DE PERFORMANCE (V2)
+// O PORQUÊ: Seguindo sua excelente observação, esta função agora chama a nova
+// RPC 'get_crm_filter_options_v2', que usa a tabela 'contatos_no_funil' como
+// base. Isso é muito mais rápido, pois busca os filtros apenas do universo
+// de contatos que já estão no funil, em vez de escanear tabelas inteiras.
+// =================================================================================
 const fetchFilterData = async (supabase, organizacaoId) => {
-    if (!organizacaoId) return { corretores: [], origens: [], unidades: [], campaigns: [], ads: [] };
-
-    const { data: brokerIdsData, error: idsError } = await supabase
-        .from('contatos_no_funil')
-        .select('corretor_id')
-        .eq('organizacao_id', organizacaoId)
-        .not('corretor_id', 'is', null);
-
-    if (idsError) throw idsError;
-    const uniqueBrokerIds = [...new Set(brokerIdsData.map(item => item.corretor_id))];
-
-    let corretores = [];
-    if (uniqueBrokerIds.length > 0) {
-        const { data: corretoresData, error: corretoresError } = await supabase
-            .from('contatos')
-            .select('id, nome, razao_social')
-            .in('id', uniqueBrokerIds)
-            .eq('organizacao_id', organizacaoId);
-
-        if (corretoresError) throw corretoresError;
-        corretores = corretoresData.map(c => ({ id: c.id, nome: c.nome || c.razao_social })).sort((a, b) => a.nome.localeCompare(b.nome));
+    if (!organizacaoId) {
+        return { corretores: [], origens: [], unidades: [], campaigns: [], ads: [] };
     }
 
-    const origensPromise = supabase.rpc('get_distinct_origens', { p_organizacao_id: organizacaoId });
-    const unidadesPromise = supabase.from('produtos_empreendimento').select('id, unidade').eq('organizacao_id', organizacaoId).order('unidade');
-    const campaignsPromise = supabase.from('meta_campaigns').select('id, name').eq('organizacao_id', organizacaoId).order('name');
-    const adsPromise = supabase.from('meta_ads').select('id, name').eq('organizacao_id', organizacaoId).order('name');
+    const { data, error } = await supabase.rpc('get_crm_filter_options_v2', { 
+        p_organizacao_id: organizacaoId 
+    });
 
-    const [{ data: origensData }, { data: unidadesData }, { data: campaignsData }, { data: adsData }] = await Promise.all([origensPromise, unidadesPromise, campaignsPromise, adsPromise]);
-    
-    const origens = origensData.map(o => ({ id: o.origem, nome: o.origem }));
-    const unidades = unidadesData.map(u => ({ id: u.id, nome: u.unidade }));
-    const campaigns = campaignsData.map(c => ({ id: c.id, nome: c.name }));
-    const ads = adsData.map(a => ({ id: a.id, nome: a.name }));
-    
-    return { corretores, origens, unidades, campaigns, ads };
+    if (error) {
+        console.error("Erro ao buscar dados de filtro do CRM (v2):", error);
+        throw error;
+    }
+
+    return data;
 };
+// =================================================================================
+// FIM DA CORREÇÃO DE PERFORMANCE (V2)
+// =================================================================================
 
 const fetchAvailableProducts = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
@@ -184,6 +142,7 @@ export default function CrmPage() {
     const [activityToEdit, setActivityToEdit] = useState(null);
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
 
+    // Adicionamos uma verificação aqui. Se setPageTitle não for uma função, ele não tentará executá-la, evitando o erro.
     useEffect(() => { if (setPageTitle) setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
 
     const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ queryKey: ['funilData', organizacaoId], queryFn: () => fetchFunilData(supabase, organizacaoId), enabled: !!organizacaoId });
