@@ -9,6 +9,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTimes, faSearch, faPlus, faUsers, faHandshake, faPercent, faSackDollar, faCalendarDay } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+// =================================================================================
+// INÍCIO DA CORREÇÃO
+// O PORQUÊ: Importamos as funções necessárias da biblioteca 'date-fns'
+// para calcular a diferença de dias entre duas datas.
+// =================================================================================
+import { differenceInCalendarDays, startOfDay } from 'date-fns';
+// =================================================================================
+// FIM DA CORREÇÃO
+// =================================================================================
 
 import FunilKanban from '@/components/crm/FunilKanban';
 import CrmNotesModal from '@/components/crm/CrmNotesModal';
@@ -16,6 +25,27 @@ import CrmDetalhesSidebar from '@/components/crm/CrmDetalhesSidebar';
 import AtividadeModal from '@/components/AtividadeModal';
 import KpiCard from '@/components/KpiCard';
 import FiltroCrm from '@/components/crm/FiltroCrm';
+
+// =================================================================================
+// INÍCIO DA CORREÇÃO
+// O PORQUÊ: Esta é a nossa nova função "inteligente". Ela recebe uma data e a
+// compara com a data de hoje para retornar o texto no formato que você pediu:
+// "Hoje", "Ontem", "Anteontem" ou "Há X dias".
+// =================================================================================
+const formatRelativeDate = (date) => {
+    if (!date) return 'N/A';
+    const today = startOfDay(new Date());
+    const leadDate = startOfDay(new Date(date));
+    const diff = differenceInCalendarDays(today, leadDate);
+
+    if (diff === 0) return 'Hoje';
+    if (diff === 1) return 'Ontem';
+    if (diff === 2) return 'Anteontem';
+    return `Há ${diff} dias`;
+};
+// =================================================================================
+// FIM DA CORREÇÃO
+// =================================================================================
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
@@ -79,32 +109,28 @@ const fetchFunilData = async (supabase, organizacaoId) => {
     return { funilId, colunasDoFunil, contatosNoFunil: contatosComMensagens };
 };
 
-// =================================================================================
-// INÍCIO DA CORREÇÃO DE PERFORMANCE (V2)
-// O PORQUÊ: Seguindo sua excelente observação, esta função agora chama a nova
-// RPC 'get_crm_filter_options_v2', que usa a tabela 'contatos_no_funil' como
-// base. Isso é muito mais rápido, pois busca os filtros apenas do universo
-// de contatos que já estão no funil, em vez de escanear tabelas inteiras.
-// =================================================================================
 const fetchFilterData = async (supabase, organizacaoId) => {
-    if (!organizacaoId) {
-        return { corretores: [], origens: [], unidades: [], campaigns: [], ads: [] };
+    if (!organizacaoId) return { corretores: [], origens: [], unidades: [], campaigns: [], ads: [] };
+    const { data: brokerIdsData, error: idsError } = await supabase.from('contatos_no_funil').select('corretor_id').eq('organizacao_id', organizacaoId).not('corretor_id', 'is', null);
+    if (idsError) throw idsError;
+    const uniqueBrokerIds = [...new Set(brokerIdsData.map(item => item.corretor_id))];
+    let corretores = [];
+    if (uniqueBrokerIds.length > 0) {
+        const { data: corretoresData, error: corretoresError } = await supabase.from('contatos').select('id, nome, razao_social').in('id', uniqueBrokerIds).eq('organizacao_id', organizacaoId);
+        if (corretoresError) throw corretoresError;
+        corretores = corretoresData.map(c => ({ id: c.id, nome: c.nome || c.razao_social })).sort((a, b) => a.nome.localeCompare(b.nome));
     }
-
-    const { data, error } = await supabase.rpc('get_crm_filter_options_v2', { 
-        p_organizacao_id: organizacaoId 
-    });
-
-    if (error) {
-        console.error("Erro ao buscar dados de filtro do CRM (v2):", error);
-        throw error;
-    }
-
-    return data;
+    const origensPromise = supabase.rpc('get_distinct_origens', { p_organizacao_id: organizacaoId });
+    const unidadesPromise = supabase.from('produtos_empreendimento').select('id, unidade').eq('organizacao_id', organizacaoId).order('unidade');
+    const campaignsPromise = supabase.from('meta_campaigns').select('id, name').eq('organizacao_id', organizacaoId).order('name');
+    const adsPromise = supabase.from('meta_ads').select('id, name').eq('organizacao_id', organizacaoId).order('name');
+    const [{ data: origensData }, { data: unidadesData }, { data: campaignsData }, { data: adsData }] = await Promise.all([origensPromise, unidadesPromise, campaignsPromise, adsPromise]);
+    const origens = origensData.map(o => ({ id: o.origem, nome: o.origem }));
+    const unidades = unidadesData.map(u => ({ id: u.id, nome: u.unidade }));
+    const campaigns = campaignsData.map(c => ({ id: c.id, nome: c.name }));
+    const ads = adsData.map(a => ({ id: a.id, nome: a.name }));
+    return { corretores, origens, unidades, campaigns, ads };
 };
-// =================================================================================
-// FIM DA CORREÇÃO DE PERFORMANCE (V2)
-// =================================================================================
 
 const fetchAvailableProducts = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
@@ -142,8 +168,7 @@ export default function CrmPage() {
     const [activityToEdit, setActivityToEdit] = useState(null);
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
 
-    // Adicionamos uma verificação aqui. Se setPageTitle não for uma função, ele não tentará executá-la, evitando o erro.
-    useEffect(() => { if (setPageTitle) setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
+    useEffect(() => { setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
 
     const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ queryKey: ['funilData', organizacaoId], queryFn: () => fetchFunilData(supabase, organizacaoId), enabled: !!organizacaoId });
     const { funilId, colunasDoFunil = [], contatosNoFunil = [] } = funilData || {};
@@ -185,7 +210,23 @@ export default function CrmPage() {
         const taxaConversao = totalLeads > 0 ? (vendidos / totalLeads) * 100 : 0;
         const valorEmNegociacao = dataToAnalyze.filter(contato => { const colunaDoContato = colunasDoFunil.find(c => c.id === contato.coluna_id); return colunaDoContato && colunaVendido && colunaDoContato.ordem < (colunaVendido.ordem || -1); }).reduce((acc, contato) => { const valorProdutos = (contato.produtos_interesse || []).reduce((sum, item) => sum + (item.produto?.valor_venda_calculado || 0), 0); return acc + valorProdutos; }, 0);
         const ultimoLeadDate = dataToAnalyze.length > 0 ? new Date(Math.max(...dataToAnalyze.map(c => new Date(c.created_at)))) : null;
-        return { totalLeads, vendidos, taxaConversao, valorEmNegociacao, ultimoLead: ultimoLeadDate ? ultimoLeadDate.toLocaleDateString('pt-BR') : 'N/A', };
+        
+        // =================================================================================
+        // INÍCIO DA CORREÇÃO
+        // O PORQUÊ: Trocamos a formatação de data padrão pela nossa nova função
+        // `formatRelativeDate` para exibir o texto "Hoje", "Ontem", etc.
+        // =================================================================================
+        return { 
+            totalLeads, 
+            vendidos, 
+            taxaConversao, 
+            valorEmNegociacao, 
+            ultimoLead: ultimoLeadDate ? formatRelativeDate(ultimoLeadDate) : 'N/A', 
+        };
+        // =================================================================================
+        // FIM DA CORREÇÃO
+        // =================================================================================
+
     }, [filteredContatos, colunasDoFunil]);
 
     const mutationOptions = { onSuccess: (message) => { toast.success(message || "Operação realizada com sucesso!"); queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId] }); queryClient.invalidateQueries({ queryKey: ['availableProducts', organizacaoId] }); queryClient.invalidateQueries({ queryKey: ['crmFilterOptions', organizacaoId] }); }, onError: (error) => toast.error(error.message) };
