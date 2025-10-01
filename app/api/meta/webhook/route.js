@@ -10,28 +10,13 @@ const getSupabaseAdmin = () => {
     return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
 };
 
-// =================================================================================
-// LÓGICA RESTAURADA (DO CÓDIGO ANTIGO E FUNCIONAL)
-// O PORQUÊ: Esta função agora busca o token diretamente do 'process.env',
-// tornando-a autossuficiente e eliminando o ponto de falha de passar o
-// token como parâmetro.
-// =================================================================================
-async function getMetaObjectName(objectId) {
-    if (!objectId) return null;
-    const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
-    if (!PAGE_ACCESS_TOKEN) {
-        console.error("LOG: ERRO em getMetaObjectName - META_PAGE_ACCESS_TOKEN não encontrado.");
-        return null;
-    }
-
+async function getMetaObjectName(objectId, accessToken) {
+    if (!objectId || !accessToken) return null;
     try {
-        const url = `https://graph.facebook.com/v20.0/${objectId}?fields=name&access_token=${PAGE_ACCESS_TOKEN}`;
+        const url = `https://graph.facebook.com/v20.0/${objectId}?fields=name&access_token=${accessToken}`;
         const response = await fetch(url);
         const data = await response.json();
-        if (response.ok) {
-            console.log(`LOG: Nome encontrado para ID ${objectId}: ${data.name}`);
-            return data.name || null;
-        }
+        if (response.ok) return data.name || null;
         console.error(`LOG: AVISO - Falha ao buscar nome para o ID ${objectId}:`, data.error?.message);
         return null;
     } catch (error) {
@@ -40,101 +25,44 @@ async function getMetaObjectName(objectId) {
     }
 }
 
-async function getOrganizationIdByPageId(supabase, pageId) {
-    console.log(`LOG: [DETETIVE] Iniciando investigação para a página ID: ${pageId}`);
-    
-    const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
-    if (!PAGE_ACCESS_TOKEN) {
-        throw new Error("[DETETIVE] Token de Acesso à Página (META_PAGE_ACCESS_TOKEN) não configurado no servidor.");
-    }
+async function getOrganizationIdByPageId(supabase, pageId, accessToken) {
+    if (!accessToken) throw new Error("[DETETIVE] Token de Acesso à Página não fornecido.");
 
-    const url = `https://graph.facebook.com/v20.0/${pageId}?fields=business&access_token=${PAGE_ACCESS_TOKEN}`;
-    console.log(`LOG: [DETETIVE] Consultando a Meta para descobrir o 'dono' da página...`);
-
+    const url = `https://graph.facebook.com/v20.0/${pageId}?fields=business&access_token=${accessToken}`;
     const metaResponse = await fetch(url);
     const metaData = await metaResponse.json();
-
-    if (!metaResponse.ok) {
-        throw new Error(`[DETETIVE] Falha ao buscar dados da página na Meta: ${metaData.error?.message || 'Erro desconhecido'}`);
-    }
-
+    if (!metaResponse.ok) throw new Error(`[DETETIVE] Falha ao buscar dados da página na Meta: ${metaData.error?.message || 'Erro desconhecido'}`);
+    
     const metaBusinessId = metaData.business?.id;
-    if (!metaBusinessId) {
-        throw new Error(`[DETETIVE] A página com ID ${pageId} não está associada a um Gerenciador de Negócios. Verifique a configuração na Meta.`);
-    }
-    console.log(`LOG: [DETETIVE] Dono encontrado! Meta Business ID: ${metaBusinessId}`);
+    if (!metaBusinessId) throw new Error(`[DETETIVE] A página com ID ${pageId} não está associada a um Gerenciador de Negócios.`);
 
-    const { data: empresa, error } = await supabase
-        .from('cadastro_empresa')
-        .select('organizacao_id')
-        .eq('meta_business_id', metaBusinessId)
-        .single();
-
-    if (error || !empresa) {
-        console.error(`[DETETIVE] ERRO ao buscar empresa com Meta Business ID ${metaBusinessId}.`, error);
-        throw new Error(`[DETETIVE] Nenhuma empresa no seu sistema foi encontrada com o Meta Business ID: ${metaBusinessId}. Verifique se o ID está cadastrado corretamente na tela de "Minha Empresa".`);
-    }
-
-    console.log(`LOG: [DETETIVE] Caso resolvido! Organização ID: ${empresa.organizacao_id}`);
+    const { data: empresa, error } = await supabase.from('cadastro_empresa').select('organizacao_id').eq('meta_business_id', metaBusinessId).single();
+    if (error || !empresa) throw new Error(`[DETETIVE] Nenhuma empresa no sistema foi encontrada com o Meta Business ID: ${metaBusinessId}.`);
+    
     return empresa.organizacao_id;
 }
 
-
 async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
-    console.log(`LOG: Verificando funil e coluna para a organização ID: ${organizacaoId}`);
-
-    let { data: funil, error: funilFindError } = await supabase
-        .from('funis')
-        .select('id')
-        .eq('nome', 'Funil de Vendas')
-        .eq('organizacao_id', organizacaoId)
-        .single();
-
-    if (funilFindError && funilFindError.code !== 'PGRST116') {
-        throw new Error(`Erro ao buscar funil: ${funilFindError.message}`);
-    }
+    let { data: funil } = await supabase.from('funis').select('id').eq('nome', 'Funil de Vendas').eq('organizacao_id', organizacaoId).single();
 
     if (!funil) {
-        console.log(`LOG: Funil de Vendas não encontrado para org ${organizacaoId}. Criando um novo...`);
-        const { data: newFunil, error: funilCreateError } = await supabase
-            .from('funis')
-            .insert({ nome: 'Funil de Vendas', organizacao_id: organizacaoId })
-            .select('id')
-            .single();
+        const { data: newFunil, error: funilCreateError } = await supabase.from('funis').insert({ nome: 'Funil de Vendas', organizacao_id: organizacaoId }).select('id').single();
         if (funilCreateError) throw new Error(`Erro ao criar funil: ${funilCreateError.message}`);
         funil = newFunil;
-        console.log(`LOG: Funil criado com ID: ${funil.id} para org ${organizacaoId}`);
     }
 
-    let { data: primeiraColuna, error: colunaFindError } = await supabase
-        .from('colunas_funil')
-        .select('id')
-        .eq('funil_id', funil.id)
-        .order('ordem', { ascending: true })
-        .limit(1)
-        .single();
-
-    if (colunaFindError && colunaFindError.code !== 'PGRST116') {
-        throw new Error(`Erro ao buscar coluna: ${colunaFindError.message}`);
-    }
+    let { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem', { ascending: true }).limit(1).single();
 
     if (!primeiraColuna) {
-        console.log("LOG: Primeira coluna do funil não encontrada. Criando 'Novos Leads'...");
-        const { data: newColuna, error: colunaCreateError } = await supabase
-            .from('colunas_funil')
-            .insert({ funil_id: funil.id, nome: 'Novos Leads', ordem: 0, organizacao_id: organizacaoId })
-            .select('id')
-            .single();
+        const { data: newColuna, error: colunaCreateError } = await supabase.from('colunas_funil').insert({ funil_id: funil.id, nome: 'Novos Leads', ordem: 0, organizacao_id: organizacaoId }).select('id').single();
         if (colunaCreateError) throw new Error(`Erro ao criar coluna: ${colunaCreateError.message}`);
         primeiraColuna = newColuna;
-        console.log(`LOG: Coluna criada com ID: ${primeiraColuna.id}`);
     }
 
     return primeiraColuna.id;
 }
 
 export async function GET(request) {
-    console.log("LOG: Recebida requisição GET para verificação do webhook.");
     const META_VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get('hub.mode');
@@ -142,10 +70,8 @@ export async function GET(request) {
     const challenge = searchParams.get('hub.challenge');
 
     if (mode === 'subscribe' && token === META_VERIFY_TOKEN) {
-        console.log("LOG: Verificação do webhook BEM-SUCEDIDA.");
         return new NextResponse(challenge, { status: 200 });
     } else {
-        console.error("LOG: FALHA na verificação do webhook. Token recebido:", token, "Token esperado:", META_VERIFY_TOKEN);
         return new NextResponse(null, { status: 403 });
     }
 }
@@ -157,59 +83,52 @@ export async function POST(request) {
     const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
 
     if (!supabase || !PAGE_ACCESS_TOKEN) {
-        return NextResponse.json({ status: 'error', message: 'Configuração do servidor (Supabase ou Meta Token) está incompleta.' }, { status: 500 });
+        return new NextResponse(JSON.stringify({ status: 'error', message: 'Configuração do servidor incompleta.' }), { status: 500 });
     }
     
     let contatoIdParaLimpeza = null;
 
     try {
         const body = await request.json();
-        console.log('LOG: Corpo da requisição completo:', JSON.stringify(body, null, 2));
-
         const change = body.entry?.[0]?.changes?.[0];
 
         if (change?.field !== 'leadgen') {
-            console.log(`LOG: Ignorando evento, não é 'leadgen'. Campo recebido: ${change?.field}`);
-            return NextResponse.json({ status: 'not_a_leadgen_event' }, { status: 200 });
+            return new NextResponse(JSON.stringify({ status: 'not_a_leadgen_event' }), { status: 200 });
         }
         
-        const leadValue = change.value;
-        const leadId = leadValue.leadgen_id;
-        const pageId = leadValue.page_id;
-        const campaignId = leadValue.campaign_id;
-        const adId = leadValue.ad_id;
+        const { leadgen_id: leadId, page_id: pageId, campaign_id: campaignId, ad_id: adId } = change.value;
 
         if (!leadId || !pageId || !campaignId || !adId) {
-             console.error("LOG: ERRO CRÍTICO - O evento de Lead não continha 'leadgen_id', 'page_id', 'campaign_id' ou 'ad_id'.");
-             return NextResponse.json({ status: 'error', message: "Dados do lead incompletos no payload da Meta." }, { status: 400 });
+             throw new Error("Dados essenciais do lead (leadId, pageId, campaignId, adId) estão faltando no payload.");
         }
 
         const { data: existingLead } = await supabase.from('contatos').select('id').eq('meta_lead_id', leadId).single();
         if (existingLead) {
-            console.log(`LOG: Lead com ID ${leadId} já existe. Ignorando.`);
-            return NextResponse.json({ status: 'lead_already_exists' }, { status: 200 });
+            return new NextResponse(JSON.stringify({ status: 'lead_already_exists' }), { status: 200 });
         }
         
-        const organizacaoId = await getOrganizationIdByPageId(supabase, pageId);
-        
-        const adName = await getMetaObjectName(adId);
-        const campaignName = await getMetaObjectName(campaignId);
-        console.log(`LOG: Nomes encontrados -> Anúncio: '${adName}', Campanha: '${campaignName}'`);
+        // =================================================================================
+        // OTIMIZAÇÃO DE PERFORMANCE: Executando buscas em paralelo
+        // O PORQUÊ: As três buscas abaixo são independentes. Executá-las ao mesmo
+        // tempo com Promise.all é muito mais rápido do que uma após a outra,
+        // o que ajuda a evitar o timeout do servidor.
+        // =================================================================================
+        console.log("LOG: Iniciando buscas paralelas por organização, nome da campanha e nome do anúncio...");
+        const [organizacaoId, campaignName, adName] = await Promise.all([
+            getOrganizationIdByPageId(supabase, pageId, PAGE_ACCESS_TOKEN),
+            getMetaObjectName(campaignId, PAGE_ACCESS_TOKEN),
+            getMetaObjectName(adId, PAGE_ACCESS_TOKEN)
+        ]);
+        console.log(`LOG: Buscas paralelas concluídas. OrgID: ${organizacaoId}, Campanha: '${campaignName}', Anúncio: '${adName}'`);
 
-        const { error: campaignUpsertError } = await supabase.from('meta_campaigns').upsert({ id: campaignId, name: campaignName, organizacao_id: organizacaoId }, { onConflict: 'id' });
-        if (campaignUpsertError) throw new Error(`Falha ao registrar campanha: ${campaignUpsertError.message}`);
 
-        const { error: adUpsertError } = await supabase.from('meta_ads').upsert({ id: adId, name: adName, campaign_id: campaignId, organizacao_id: organizacaoId }, { onConflict: 'id' });
-        if (adUpsertError) throw new Error(`Falha ao registrar anúncio: ${adUpsertError.message}`);
+        await supabase.from('meta_campaigns').upsert({ id: campaignId, name: campaignName, organizacao_id: organizacaoId }, { onConflict: 'id' }).throwOnError();
+        await supabase.from('meta_ads').upsert({ id: adId, name: adName, campaign_id: campaignId, organizacao_id: organizacaoId }, { onConflict: 'id' }).throwOnError();
 
         let leadDetails;
         if (leadId.startsWith('TEST_')) {
             leadDetails = {
-                field_data: [
-                    { name: "full_name", values: ["João da Silva (Teste)"] },
-                    { name: "email", values: [`teste_${Date.now()}@studio57.com.br`] },
-                    { name: "phone_number", values: ["+5533999998888"] },
-                ]
+                field_data: [{ name: "full_name", values: ["João da Silva (Teste)"] }, { name: "email", values: [`teste_${Date.now()}@studio57.com.br`] }, { name: "phone_number", values: ["+5533999998888"] }]
             };
         } else {
             const leadDetailsResponse = await fetch(`https://graph.facebook.com/v20.0/${leadId}?access_token=${PAGE_ACCESS_TOKEN}`);
@@ -221,12 +140,8 @@ export async function POST(request) {
         const allLeadData = {};
         leadDetails.field_data.forEach(field => { allLeadData[field.name] = field.values[0]; });
         
-        const nomeCompleto = allLeadData.full_name || `Lead Meta (${new Date().toLocaleDateString()})`;
-        const email = allLeadData.email;
-        const telefoneLimpo = allLeadData.phone_number?.replace(/\D/g, '');
-        
         const { data: newContact, error: contactError } = await supabase.from('contatos').insert({
-            nome: nomeCompleto,
+            nome: allLeadData.full_name || `Lead Meta (${new Date().toLocaleDateString()})`,
             origem: 'Meta Lead Ad',
             tipo_contato: 'Lead',
             personalidade_juridica: 'Pessoa Física',
@@ -234,10 +149,10 @@ export async function POST(request) {
             meta_lead_id: leadId,
             meta_ad_id: adId,
             meta_campaign_id: campaignId,
-            meta_adgroup_id: leadValue.adgroup_id,
+            meta_adgroup_id: change.value.adgroup_id,
             meta_page_id: pageId,
-            meta_form_id: leadValue.form_id,
-            meta_created_time: new Date(leadValue.created_time * 1000).toISOString(),
+            meta_form_id: change.value.form_id,
+            meta_created_time: new Date(change.value.created_time * 1000).toISOString(),
             meta_form_data: allLeadData,
             meta_ad_name: adName,
             meta_campaign_name: campaignName
@@ -249,14 +164,12 @@ export async function POST(request) {
         contatoIdParaLimpeza = contatoId;
         console.log(`LOG: Novo contato criado com ID: ${contatoId}`);
 
-        if (email) await supabase.from('emails').insert({ contato_id: contatoId, email: email, tipo: 'Principal', organizacao_id: organizacaoId });
-        if (telefoneLimpo) await supabase.from('telefones').insert({ contato_id: contatoId, telefone: telefoneLimpo, tipo: 'Celular', organizacao_id: organizacaoId });
+        if (allLeadData.email) await supabase.from('emails').insert({ contato_id: contatoId, email: allLeadData.email, tipo: 'Principal', organizacao_id: organizacaoId });
+        if (allLeadData.phone_number) await supabase.from('telefones').insert({ contato_id: contatoId, telefone: allLeadData.phone_number.replace(/\D/g, ''), tipo: 'Celular', organizacao_id: organizacaoId });
         
         const primeiraColunaId = await ensureFunilAndFirstColumn(supabase, organizacaoId);
         
-        const { error: funilError } = await supabase.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: primeiraColunaId, organizacao_id: organizacaoId });
-            
-        if (funilError) throw new Error(`Falha ao adicionar o contato ao funil: ${funilError.message}`);
+        await supabase.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: primeiraColunaId, organizacao_id: organizacaoId }).throwOnError();
         
         console.log('LOG: SUCESSO! Contato adicionado ao funil!');
         
@@ -265,14 +178,13 @@ export async function POST(request) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 title: '🎉 Novo Lead Recebido!',
-                message: `Um novo lead (${nomeCompleto}) chegou da Meta.`,
+                message: `Um novo lead (${allLeadData.full_name}) chegou da Meta.`,
                 url: '/crm',
                 organizacao_id: organizacaoId
             })
         }).catch(err => console.error("Falha ao disparar notificação de novo lead:", err));
 
-        console.log("LOG: [FIM] Processamento do webhook concluído com sucesso.");
-        return NextResponse.json({ status: 'success' }, { status: 200 });
+        return new NextResponse(JSON.stringify({ status: 'success' }), { status: 200 });
 
     } catch (e) {
         console.error('LOG: [ERRO GERAL] Ocorreu um erro no processamento do webhook:', e.message);
@@ -281,7 +193,8 @@ export async function POST(request) {
             console.log(`LOG: [LIMPEZA] Tentando remover o contato órfão com ID: ${contatoIdParaLimpeza}`);
             await supabase.from('contatos').delete().eq('id', contatoIdParaLimpeza);
         }
-
-        return NextResponse.json({ status: 'error', message: e.message }, { status: 200 }); 
+        
+        // IMPORTANTE: Responder 500 para que o erro seja visível na ferramenta da Meta
+        return new NextResponse(JSON.stringify({ status: 'error', message: e.message }), { status: 500 });
     }
 }
