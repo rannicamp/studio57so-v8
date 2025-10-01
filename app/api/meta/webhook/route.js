@@ -16,10 +16,7 @@ const getSupabaseAdmin = () => {
 // Função autossuficiente para buscar nomes de objetos na Meta
 async function getMetaObjectName(objectId) {
     const accessToken = process.env.META_PAGE_ACCESS_TOKEN;
-    if (!objectId || !accessToken) {
-        console.warn(`LOG: Aviso em getMetaObjectName - objectId ou accessToken faltando.`);
-        return null;
-    }
+    if (!objectId || !accessToken) return null;
     try {
         const url = `https://graph.facebook.com/v20.0/${objectId}?fields=name&access_token=${accessToken}`;
         const response = await fetch(url);
@@ -69,20 +66,14 @@ async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
     return primeiraColuna.id;
 }
 
-// Rota GET para verificação do Webhook
 export async function GET(request) {
     const META_VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
     const { searchParams } = new URL(request.url);
     const [mode, token, challenge] = [searchParams.get('hub.mode'), searchParams.get('hub.verify_token'), searchParams.get('hub.challenge')];
-    if (mode === 'subscribe' && token === META_VERIFY_TOKEN) {
-        console.log("LOG: Verificação do webhook BEM-SUCEDIDA.");
-        return new NextResponse(challenge, { status: 200 });
-    }
-    console.error("LOG: FALHA na verificação do webhook.");
+    if (mode === 'subscribe' && token === META_VERIFY_TOKEN) return new NextResponse(challenge, { status: 200 });
     return new NextResponse(null, { status: 403 });
 }
 
-// Rota POST para receber os leads
 export async function POST(request) {
     console.log("LOG: [INÍCIO] Requisição POST recebida no webhook.");
     
@@ -98,36 +89,42 @@ export async function POST(request) {
         const body = await request.json();
         const change = body.entry?.[0]?.changes?.[0];
 
-        if (change?.field !== 'leadgen') {
-            console.log("LOG: Ignorando evento não-leadgen.");
-            return new NextResponse(JSON.stringify({ status: 'not_a_leadgen_event' }), { status: 200 });
-        }
+        if (change?.field !== 'leadgen') return new NextResponse(JSON.stringify({ status: 'not_a_leadgen_event' }), { status: 200 });
         
         const { leadgen_id: leadId, page_id: pageId, campaign_id: campaignId, ad_id: adId } = change.value;
-        if (!leadId || !pageId || !campaignId || !adId) throw new Error("Payload do lead incompleto (faltando IDs essenciais).");
 
-        const { data: existingLead } = await supabase.from('contatos').select('id').eq('meta_lead_id', leadId).single();
-        if (existingLead) {
-            console.log(`LOG: Lead ${leadId} já existe. Ignorando.`);
-            return new NextResponse(JSON.stringify({ status: 'lead_already_exists' }), { status: 200 });
+        // =================================================================================
+        // INÍCIO DA CORREÇÃO DE FLEXIBILIDADE
+        // O PORQUÊ: A validação agora foca apenas nos IDs essenciais (lead e página).
+        // campaignId e adId são opcionais, permitindo que leads orgânicos entrem.
+        // =================================================================================
+        if (!leadId || !pageId) {
+            throw new Error("Payload do lead incompleto (faltando lead_id ou page_id).");
         }
         
-        // --- EXECUÇÃO SEQUENCIAL E SEGURA ---
-        console.log(`LOG: Passo 1 - Identificando organização para a página ${pageId}...`);
+        const { data: existingLead } = await supabase.from('contatos').select('id').eq('meta_lead_id', leadId).single();
+        if (existingLead) return new NextResponse(JSON.stringify({ status: 'lead_already_exists' }), { status: 200 });
+        
         const organizacaoId = await getOrganizationIdByPageId(supabase, pageId);
-        console.log(`LOG: Organização encontrada: ${organizacaoId}`);
+        
+        let campaignName = null;
+        let adName = null;
 
-        console.log(`LOG: Passo 2 - Buscando nome da campanha ${campaignId}...`);
-        const campaignName = await getMetaObjectName(campaignId);
-
-        console.log(`LOG: Passo 3 - Buscando nome do anúncio ${adId}...`);
-        const adName = await getMetaObjectName(adId);
-        console.log(`LOG: Nomes encontrados -> Campanha: '${campaignName}', Anúncio: '${adName}'`);
-
-        // --- Fim da execução sequencial ---
-
-        await supabase.from('meta_campaigns').upsert({ id: campaignId, name: campaignName, organizacao_id: organizacaoId }).throwOnError();
-        await supabase.from('meta_ads').upsert({ id: adId, name: adName, campaign_id: campaignId, organizacao_id: organizacaoId }).throwOnError();
+        // Só busca nomes e salva em meta_campaigns/meta_ads SE os IDs existirem
+        if (campaignId) {
+            campaignName = await getMetaObjectName(campaignId);
+            await supabase.from('meta_campaigns').upsert({ id: campaignId, name: campaignName, organizacao_id: organizacaoId }).throwOnError();
+        }
+        if (adId) {
+            adName = await getMetaObjectName(adId);
+            // Um anúncio sempre pertence a uma campanha, então passamos o campaignId se ele existir
+            if (campaignId) {
+                await supabase.from('meta_ads').upsert({ id: adId, name: adName, campaign_id: campaignId, organizacao_id: organizacaoId }).throwOnError();
+            }
+        }
+        // =================================================================================
+        // FIM DA CORREÇÃO DE FLEXIBILIDADE
+        // =================================================================================
 
         const leadDetailsResponse = await fetch(`https://graph.facebook.com/v20.0/${leadId}?access_token=${process.env.META_PAGE_ACCESS_TOKEN}`);
         const leadDetails = await leadDetailsResponse.json();
@@ -143,15 +140,15 @@ export async function POST(request) {
             personalidade_juridica: 'Pessoa Física',
             organizacao_id: organizacaoId,
             meta_lead_id: leadId,
-            meta_ad_id: adId,
-            meta_campaign_id: campaignId,
+            meta_ad_id: adId, // Será salvo como null se não existir
+            meta_campaign_id: campaignId, // Será salvo como null se não existir
             meta_adgroup_id: change.value.adgroup_id,
             meta_page_id: pageId,
             meta_form_id: change.value.form_id,
             meta_created_time: new Date(change.value.created_time * 1000).toISOString(),
             meta_form_data: allLeadData,
-            meta_ad_name: adName,
-            meta_campaign_name: campaignName
+            meta_ad_name: adName, // Será salvo como null se não existir
+            meta_campaign_name: campaignName // Será salvo como null se não existir
         }).select('id').single();
 
         if (contactError) throw new Error(`Erro ao criar contato: ${contactError.message}`);
@@ -167,7 +164,6 @@ export async function POST(request) {
         
         console.log('LOG: SUCESSO! Contato adicionado ao funil!');
         
-        // Dispara notificação sem esperar (não bloqueia a resposta para a Meta)
         fetch(`${request.nextUrl.origin}/api/notifications/send`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -182,7 +178,6 @@ export async function POST(request) {
             console.log(`LOG: [LIMPEZA] Removendo contato órfão ID: ${contatoIdParaLimpeza}`);
             await supabase.from('contatos').delete().eq('id', contatoIdParaLimpeza);
         }
-        // Respondemos 200 para a Meta não tentar de novo, pois o erro foi logado.
         return new NextResponse(JSON.stringify({ status: 'error', message: e.message }), { status: 200 }); 
     }
 }
