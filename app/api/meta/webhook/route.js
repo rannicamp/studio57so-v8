@@ -1,4 +1,4 @@
-//app\api\meta\webhook\route.js
+//app/api/meta/webhook/route.js
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -170,9 +170,11 @@ export async function POST(request) {
         const leadValue = change.value;
         const leadId = leadValue.leadgen_id;
         const pageId = leadValue.page_id;
+        const campaignId = leadValue.campaign_id;
+        const adId = leadValue.ad_id;
 
-        if (!leadId || !pageId) {
-             console.error("LOG: ERRO CRÍTICO - O evento de Lead não continha 'leadgen_id' ou 'page_id'.");
+        if (!leadId || !pageId || !campaignId || !adId) {
+             console.error("LOG: ERRO CRÍTICO - O evento de Lead não continha 'leadgen_id', 'page_id', 'campaign_id' ou 'ad_id'.");
              return NextResponse.json({ status: 'error', message: "Dados do lead incompletos no payload da Meta." }, { status: 400 });
         }
 
@@ -184,9 +186,46 @@ export async function POST(request) {
             return NextResponse.json({ status: 'lead_already_exists' }, { status: 200 });
         }
         
-        let leadDetails;
         const organizacaoId = await getOrganizationIdByPageId(supabase, pageId, PAGE_ACCESS_TOKEN);
+        
+        // =================================================================================
+        // INÍCIO DA CORREÇÃO
+        // O PORQUÊ: Buscamos os nomes e, na sequência, garantimos que tanto a
+        // campanha quanto o anúncio existam no nosso banco de dados usando "upsert".
+        // Isso cria o registro se for novo e evita o erro de "foreign key".
+        // =================================================================================
+        console.log(`LOG: Buscando nomes para Ad ID: ${adId} e Campaign ID: ${campaignId}`);
+        const [adName, campaignName] = await Promise.all([
+            getMetaObjectName(adId, PAGE_ACCESS_TOKEN),
+            getMetaObjectName(campaignId, PAGE_ACCESS_TOKEN)
+        ]);
+        console.log(`LOG: Nomes encontrados -> Anúncio: '${adName}', Campanha: '${campaignName}'`);
 
+        console.log(`LOG: Garantindo a existência da campanha ${campaignId} no banco de dados...`);
+        const { error: campaignUpsertError } = await supabase
+            .from('meta_campaigns')
+            .upsert({
+                id: campaignId,
+                name: campaignName,
+                organizacao_id: organizacaoId
+            }, { onConflict: 'id' });
+        if (campaignUpsertError) throw new Error(`Falha ao registrar campanha: ${campaignUpsertError.message}`);
+
+        console.log(`LOG: Garantindo a existência do anúncio ${adId} no banco de dados...`);
+        const { error: adUpsertError } = await supabase
+            .from('meta_ads')
+            .upsert({
+                id: adId,
+                name: adName,
+                campaign_id: campaignId,
+                organizacao_id: organizacaoId
+            }, { onConflict: 'id' });
+        if (adUpsertError) throw new Error(`Falha ao registrar anúncio: ${adUpsertError.message}`);
+        // =================================================================================
+        // FIM DA CORREÇÃO
+        // =================================================================================
+
+        let leadDetails;
         if (leadId.startsWith('TEST_')) {
             console.log("LOG: [TESTE] Lead de simulação detectado. Usando dados fictícios.");
             leadDetails = {
@@ -214,14 +253,7 @@ export async function POST(request) {
         const nomeCompleto = allLeadData.full_name || `Lead Meta (${new Date().toLocaleDateString()})`;
         const email = allLeadData.email;
         const telefoneLimpo = allLeadData.phone_number?.replace(/\D/g, '');
-
-        console.log(`LOG: Buscando nomes para Ad ID: ${leadValue.ad_id} e Campaign ID: ${leadValue.campaign_id}`);
-        const [adName, campaignName] = await Promise.all([
-            getMetaObjectName(leadValue.ad_id, PAGE_ACCESS_TOKEN),
-            getMetaObjectName(leadValue.campaign_id, PAGE_ACCESS_TOKEN)
-        ]);
-        console.log(`LOG: Nomes encontrados -> Anúncio: '${adName}', Campanha: '${campaignName}'`);
-
+        
         console.log(`LOG: Criando novo contato na organização ${organizacaoId}...`);
         const { data: newContact, error: contactError } = await supabase
             .from('contatos')
@@ -232,10 +264,10 @@ export async function POST(request) {
                 personalidade_juridica: 'Pessoa Física',
                 organizacao_id: organizacaoId,
                 meta_lead_id: leadId,
-                meta_ad_id: leadValue.ad_id,
-                meta_campaign_id: leadValue.campaign_id,
+                meta_ad_id: adId,
+                meta_campaign_id: campaignId,
                 meta_adgroup_id: leadValue.adgroup_id,
-                meta_page_id: leadValue.page_id,
+                meta_page_id: pageId,
                 meta_form_id: leadValue.form_id,
                 meta_created_time: new Date(leadValue.created_time * 1000).toISOString(),
                 meta_form_data: allLeadData,
