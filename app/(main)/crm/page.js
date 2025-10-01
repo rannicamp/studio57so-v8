@@ -9,15 +9,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTimes, faSearch, faPlus, faUsers, faHandshake, faPercent, faSackDollar, faCalendarDay } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-// =================================================================================
-// INÍCIO DA CORREÇÃO
-// O PORQUÊ: Importamos as funções necessárias da biblioteca 'date-fns'
-// para calcular a diferença de dias entre duas datas.
-// =================================================================================
 import { differenceInCalendarDays, startOfDay } from 'date-fns';
-// =================================================================================
-// FIM DA CORREÇÃO
-// =================================================================================
+import { useDebounce } from 'use-debounce';
 
 import FunilKanban from '@/components/crm/FunilKanban';
 import CrmNotesModal from '@/components/crm/CrmNotesModal';
@@ -26,12 +19,6 @@ import AtividadeModal from '@/components/AtividadeModal';
 import KpiCard from '@/components/KpiCard';
 import FiltroCrm from '@/components/crm/FiltroCrm';
 
-// =================================================================================
-// INÍCIO DA CORREÇÃO
-// O PORQUÊ: Esta é a nossa nova função "inteligente". Ela recebe uma data e a
-// compara com a data de hoje para retornar o texto no formato que você pediu:
-// "Hoje", "Ontem", "Anteontem" ou "Há X dias".
-// =================================================================================
 const formatRelativeDate = (date) => {
     if (!date) return 'N/A';
     const today = startOfDay(new Date());
@@ -43,9 +30,6 @@ const formatRelativeDate = (date) => {
     if (diff === 2) return 'Anteontem';
     return `Há ${diff} dias`;
 };
-// =================================================================================
-// FIM DA CORREÇÃO
-// =================================================================================
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
@@ -87,8 +71,17 @@ const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, exi
     );
 };
 
-const fetchFunilData = async (supabase, organizacaoId) => {
+// =================================================================================
+// INÍCIO DA CORREÇÃO DE PERFORMANCE
+// O PORQUÊ: Esta função foi totalmente reescrita. Agora, ela recebe os 'filters'
+// e constrói uma consulta ao Supabase que já traz os dados filtrados.
+// Isso transfere o trabalho pesado do navegador para o banco de dados,
+// que é muito mais rápido e eficiente para essa tarefa.
+// =================================================================================
+const fetchFunilData = async (supabase, organizacaoId, filters) => {
     if (!organizacaoId) return { funilId: null, colunasDoFunil: [], contatosNoFunil: [] };
+
+    // 1. Busca as colunas do funil (isso é rápido e necessário)
     const { data: funilData } = await supabase.from('funis').select('id').eq('nome', 'Funil de Vendas').eq('organizacao_id', organizacaoId).single();
     const funilId = funilData?.id;
     if (!funilId) return { funilId: null, colunasDoFunil: [], contatosNoFunil: [] };
@@ -96,18 +89,72 @@ const fetchFunilData = async (supabase, organizacaoId) => {
     const { data: colunasDoFunil, error: colunasError } = await supabase.from('colunas_funil').select('id, nome, ordem').eq('funil_id', funilId).eq('organizacao_id', organizacaoId).order('ordem', { ascending: true });
     if (colunasError) throw colunasError;
     if (!colunasDoFunil || colunasDoFunil.length === 0) return { funilId, colunasDoFunil: [], contatosNoFunil: [] };
-    const colunaIds = colunasDoFunil.map(col => col.id);
-
-    const { data: contatosNoFunilRaw, error: contatosError } = await supabase.from('contatos_no_funil').select(`id, coluna_id, numero_card, corretor_id, created_at, contatos:contato_id ( *, telefones ( telefone, tipo ), emails(email, tipo) ), corretores:corretor_id (id, nome, razao_social), produtos_interesse:contatos_no_funil_produtos (id, produto:produtos_empreendimento (id, unidade, tipo, valor_venda_calculado, empreendimento_id))`).in('coluna_id', colunaIds).eq('organizacao_id', organizacaoId);
-    if (contatosError) throw contatosError;
     
-    const contatosParaEstado = (contatosNoFunilRaw || []).filter(item => item.contatos?.id);
+    // 2. Monta a base da nossa consulta inteligente
+    let query = supabase.from('contatos_no_funil').select(`
+        id, coluna_id, numero_card, corretor_id, created_at,
+        contatos:contato_id ( *, telefones ( telefone, tipo ), emails(email, tipo) ),
+        corretores:corretor_id (id, nome, razao_social),
+        produtos_interesse:contatos_no_funil_produtos (id, produto:produtos_empreendimento (id, unidade, tipo, valor_venda_calculado, empreendimento_id))
+    `);
+    
+    // 3. Aplica os filtros DIRETAMENTE na consulta ao banco de dados
+    query = query.eq('organizacao_id', organizacaoId);
+
+    if (filters.searchTerm) {
+        query = query.or(`contatos.nome.ilike.%${filters.searchTerm}%,contatos.razao_social.ilike.%${filters.searchTerm}%,contatos.telefones.telefone.ilike.%${filters.searchTerm}%`);
+    }
+    if (filters.corretorIds?.length > 0) {
+        query = query.in('corretor_id', filters.corretorIds);
+    }
+    if (filters.origens?.length > 0) {
+        query = query.in('contatos.origem', filters.origens);
+    }
+    if (filters.campaignIds?.length > 0) {
+        query = query.in('contatos.meta_campaign_id', filters.campaignIds);
+    }
+    if (filters.adIds?.length > 0) {
+        query = query.in('contatos.meta_ad_id', filters.adIds);
+    }
+    if (filters.startDate) {
+        query = query.gte('created_at', filters.startDate + 'T00:00:00');
+    }
+    if (filters.endDate) {
+        query = query.lte('created_at', filters.endDate + 'T23:59:59');
+    }
+     // O filtro de unidade de interesse é mais complexo, pois é uma relação muitos-para-muitos.
+     // Uma abordagem mais avançada com RPC seria ideal, mas por enquanto, faremos um pós-filtro.
+     // A performance já será muito melhor com os filtros anteriores.
+
+    const { data: contatosNoFunilRaw, error: contatosError } = await query;
+    if (contatosError) throw contatosError;
+
+    // Pós-filtro para unidades, que é mais complexo
+    let contatosFiltrados = contatosNoFunilRaw || [];
+    if (filters.unidadeIds?.length > 0) {
+        contatosFiltrados = contatosFiltrados.filter(item => {
+            const unidadeIdsInteresse = (item.produtos_interesse || []).map(p => p.produto.id);
+            return filters.unidadeIds.some(id => unidadeIdsInteresse.includes(id));
+        });
+    }
+
+    const contatosParaEstado = contatosFiltrados.filter(item => item.contatos?.id);
+    
+    // 4. Busca as últimas mensagens APENAS para os contatos filtrados
     const contatoIds = contatosParaEstado.map(c => c.contatos.id);
+    if (contatoIds.length === 0) {
+        return { funilId, colunasDoFunil, contatosNoFunil: [] };
+    }
+    
     const { data: lastMessagesData } = await supabase.rpc('get_last_messages_for_contacts', { p_contact_ids: contatoIds, p_organizacao_id: organizacaoId });
     const lastMessagesMap = (lastMessagesData || []).reduce((map, msg) => { map[msg.contato_id] = { content: msg.content, sent_at: msg.sent_at }; return map; }, {});
     const contatosComMensagens = contatosParaEstado.map(item => ({ ...item, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, contatos: { ...item.contatos, last_whatsapp_message: lastMessagesMap[item.contatos.id]?.content || null, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, } }));
+    
     return { funilId, colunasDoFunil, contatosNoFunil: contatosComMensagens };
 };
+// =================================================================================
+// FIM DA CORREÇÃO DE PERFORMANCE
+// =================================================================================
 
 const fetchFilterData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { corretores: [], origens: [], unidades: [], campaigns: [], ads: [] };
@@ -155,6 +202,13 @@ export default function CrmPage() {
     const queryClient = useQueryClient();
 
     const [filters, setFilters] = useState({ searchTerm: '', corretorIds: [], origens: [], unidadeIds: [], campaignIds: [], adIds: [], startDate: '', endDate: new Date().toISOString().split('T')[0] });
+    // =================================================================================
+    // O PORQUÊ: Usamos 'useDebounce' para evitar que a página faça uma nova busca no
+    // banco de dados a cada letra digitada. Agora, ela espera 500ms após o usuário
+    // parar de digitar para fazer a busca, economizando recursos e melhorando a UX.
+    // =================================================================================
+    const [debouncedFilters] = useDebounce(filters, 500);
+
     const [sorting, setSorting] = useState({});
     const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false);
     const [searchResults, setSearchResults] = useState([]);
@@ -170,7 +224,16 @@ export default function CrmPage() {
 
     useEffect(() => { setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
 
-    const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ queryKey: ['funilData', organizacaoId], queryFn: () => fetchFunilData(supabase, organizacaoId), enabled: !!organizacaoId });
+    // =================================================================================
+    // O PORQUÊ: A 'queryKey' agora inclui os 'debouncedFilters'. Isso informa ao
+    // react-query para buscar novos dados automaticamente sempre que os filtros
+    // mudarem (após o delay do debounce). A função de busca agora passa os filtros.
+    // =================================================================================
+    const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ 
+        queryKey: ['funilData', organizacaoId, debouncedFilters], 
+        queryFn: () => fetchFunilData(supabase, organizacaoId, debouncedFilters), 
+        enabled: !!organizacaoId 
+    });
     const { funilId, colunasDoFunil = [], contatosNoFunil = [] } = funilData || {};
 
     const { data: filterOptions, isLoading: loadingFilters } = useQuery({ queryKey: ['crmFilterOptions', organizacaoId], queryFn: () => fetchFilterData(supabase, organizacaoId), enabled: !!organizacaoId });
@@ -179,30 +242,14 @@ export default function CrmPage() {
     const { funcionarios = [], empresas = [] } = activityData || {};
     if (funilError) { toast.error(`Erro ao carregar dados do funil: ${funilError.message}`); }
     
-    const filteredContatos = useMemo(() => {
-        if (!contatosNoFunil) return [];
-        return contatosNoFunil.filter(item => {
-            const contato = item.contatos;
-            if (!contato) return false;
-            const searchTermLower = filters.searchTerm.toLowerCase();
-            const matchesSearchTerm = !searchTermLower || (contato.nome && contato.nome.toLowerCase().includes(searchTermLower)) || (contato.razao_social && contato.razao_social.toLowerCase().includes(searchTermLower)) || (contato.telefones && contato.telefones.some(t => t.telefone.includes(searchTermLower))) || (contato.emails && contato.emails.some(e => e.email.toLowerCase().includes(searchTermLower)));
-            const matchesCorretor = filters.corretorIds.length === 0 || filters.corretorIds.includes(item.corretor_id);
-            const matchesOrigem = filters.origens.length === 0 || filters.origens.includes(contato.origem);
-            const unidadeIdsInteresse = (item.produtos_interesse || []).map(p => p.produto.id);
-            const matchesUnidade = filters.unidadeIds.length === 0 || filters.unidadeIds.some(id => unidadeIdsInteresse.includes(id));
-            const matchesCampaign = filters.campaignIds.length === 0 || filters.campaignIds.includes(contato.meta_campaign_id);
-            const matchesAd = filters.adIds.length === 0 || filters.adIds.includes(contato.meta_ad_id);
-            const createdAt = new Date(item.created_at);
-            const startDate = filters.startDate ? new Date(filters.startDate + 'T00:00:00') : null;
-            const endDate = filters.endDate ? new Date(filters.endDate + 'T23:59:59') : null;
-            const matchesStartDate = !startDate || createdAt >= startDate;
-            const matchesEndDate = !endDate || createdAt <= endDate;
-            return matchesSearchTerm && matchesCorretor && matchesOrigem && matchesUnidade && matchesCampaign && matchesAd && matchesStartDate && matchesEndDate;
-        });
-    }, [contatosNoFunil, filters]);
-
+    // =================================================================================
+    // O PORQUÊ: Este bloco 'useMemo' para 'filteredContatos' foi REMOVIDO.
+    // Ele não é mais necessário porque a filtragem agora é feita no servidor.
+    // Os dados que chegam em 'contatosNoFunil' já estão filtrados e prontos para uso.
+    // =================================================================================
     const kpiData = useMemo(() => {
-        const dataToAnalyze = filteredContatos;
+        // Agora usamos 'contatosNoFunil' diretamente, pois eles já estão filtrados.
+        const dataToAnalyze = contatosNoFunil; 
         if (!colunasDoFunil || dataToAnalyze.length === 0) return { totalLeads: 0, vendidos: 0, taxaConversao: 0, valorEmNegociacao: 0, ultimoLead: 'N/A' };
         const colunaVendido = colunasDoFunil.find(c => c.nome.toLowerCase() === 'vendido');
         const totalLeads = dataToAnalyze.length;
@@ -211,11 +258,6 @@ export default function CrmPage() {
         const valorEmNegociacao = dataToAnalyze.filter(contato => { const colunaDoContato = colunasDoFunil.find(c => c.id === contato.coluna_id); return colunaDoContato && colunaVendido && colunaDoContato.ordem < (colunaVendido.ordem || -1); }).reduce((acc, contato) => { const valorProdutos = (contato.produtos_interesse || []).reduce((sum, item) => sum + (item.produto?.valor_venda_calculado || 0), 0); return acc + valorProdutos; }, 0);
         const ultimoLeadDate = dataToAnalyze.length > 0 ? new Date(Math.max(...dataToAnalyze.map(c => new Date(c.created_at)))) : null;
         
-        // =================================================================================
-        // INÍCIO DA CORREÇÃO
-        // O PORQUÊ: Trocamos a formatação de data padrão pela nossa nova função
-        // `formatRelativeDate` para exibir o texto "Hoje", "Ontem", etc.
-        // =================================================================================
         return { 
             totalLeads, 
             vendidos, 
@@ -223,15 +265,11 @@ export default function CrmPage() {
             valorEmNegociacao, 
             ultimoLead: ultimoLeadDate ? formatRelativeDate(ultimoLeadDate) : 'N/A', 
         };
-        // =================================================================================
-        // FIM DA CORREÇÃO
-        // =================================================================================
+    }, [contatosNoFunil, colunasDoFunil]);
 
-    }, [filteredContatos, colunasDoFunil]);
-
-    const mutationOptions = { onSuccess: (message) => { toast.success(message || "Operação realizada com sucesso!"); queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId] }); queryClient.invalidateQueries({ queryKey: ['availableProducts', organizacaoId] }); queryClient.invalidateQueries({ queryKey: ['crmFilterOptions', organizacaoId] }); }, onError: (error) => toast.error(error.message) };
+    const mutationOptions = { onSuccess: (message) => { toast.success(message || "Operação realizada com sucesso!"); queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] }); queryClient.invalidateQueries({ queryKey: ['availableProducts', organizacaoId] }); queryClient.invalidateQueries({ queryKey: ['crmFilterOptions', organizacaoId] }); }, onError: (error) => toast.error(error.message) };
     const associateProductMutation = useMutation({ mutationFn: async ({ contatoNoFunilId, productId }) => { if (!organizacaoId) { throw new Error("ID da organização não encontrado. Tente novamente."); } await supabase.from('contatos_no_funil_produtos').insert({ contato_no_funil_id: contatoNoFunilId, produto_id: productId, organizacao_id: organizacaoId }).throwOnError(); return "Produto associado!"; }, ...mutationOptions });
-    const updateContactColumnMutation = useMutation({ mutationFn: async ({ contatoNoFunilId, novaColunaId }) => { const { colunasDoFunil: cols } = queryClient.getQueryData(['funilData', organizacaoId]); const novaColuna = cols.find(c => c.id === novaColunaId); if (novaColuna.nome === 'Vendido') { const contatoMovido = contatosNoFunil.find(c => c.id === contatoNoFunilId); const produtosParaVender = contatoMovido.produtos_interesse || []; if (produtosParaVender.length === 0) throw new Error("Nenhum produto associado para vender."); const novosContratos = produtosParaVender.map(item => ({ contato_id: contatoMovido.contatos.id, produto_id: item.produto.id, empreendimento_id: item.produto.empreendimento_id, valor_final_venda: item.produto.valor_venda_calculado || 0, status_contrato: 'Em assinatura', organizacao_id: organizacaoId })); await supabase.from('contratos').insert(novosContratos).throwOnError(); } await supabase.from('contatos_no_funil').update({ coluna_id: novaColunaId }).eq('id', contatoNoFunilId).eq('organizacao_id', organizacaoId).throwOnError(); return "Contato movido!"; }, ...mutationOptions });
+    const updateContactColumnMutation = useMutation({ mutationFn: async ({ contatoNoFunilId, novaColunaId }) => { const { colunasDoFunil: cols } = queryClient.getQueryData(['funilData', organizacaoId, debouncedFilters]); const novaColuna = cols.find(c => c.id === novaColunaId); if (novaColuna.nome === 'Vendido') { const contatoMovido = contatosNoFunil.find(c => c.id === contatoNoFunilId); const produtosParaVender = contatoMovido.produtos_interesse || []; if (produtosParaVender.length === 0) throw new Error("Nenhum produto associado para vender."); const novosContratos = produtosParaVender.map(item => ({ contato_id: contatoMovido.contatos.id, produto_id: item.produto.id, empreendimento_id: item.produto.empreendimento_id, valor_final_venda: item.produto.valor_venda_calculado || 0, status_contrato: 'Em assinatura', organizacao_id: organizacaoId })); await supabase.from('contratos').insert(novosContratos).throwOnError(); } await supabase.from('contatos_no_funil').update({ coluna_id: novaColunaId }).eq('id', contatoNoFunilId).eq('organizacao_id', organizacaoId).throwOnError(); return "Contato movido!"; }, ...mutationOptions });
     const addContactMutation = useMutation({ mutationFn: async (contactId) => { const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).eq('organizacao_id', organizacaoId).order('ordem').limit(1).single(); if (!primeiraColuna) throw new Error("Coluna inicial não encontrada."); await supabase.from('contatos_no_funil').insert({ contato_id: contactId, coluna_id: primeiraColuna.id, organizacao_id: organizacaoId }).throwOnError(); return "Contato adicionado!"; }, onSuccess: (message) => { setIsAddContactModalOpen(false); mutationOptions.onSuccess(message); }, onError: mutationOptions.onError });
     const createColumnMutation = useMutation({ mutationFn: async (name) => { await supabase.from('colunas_funil').insert({ nome: name, funil_id: funilId, ordem: colunasDoFunil.length, organizacao_id: organizacaoId }).throwOnError(); return "Etapa criada!"; }, ...mutationOptions });
     const reorderColumnsMutation = useMutation({ mutationFn: async (cols) => { const updates = cols.map(c => supabase.from('colunas_funil').update({ ordem: c.ordem }).eq('id', c.id)); await Promise.all(updates); return "Ordem salva!"; }, ...mutationOptions });
@@ -240,14 +278,14 @@ export default function CrmPage() {
     const dissociateProductMutation = useMutation({ mutationFn: async (id) => { await supabase.from('contatos_no_funil_produtos').delete().eq('id', id).throwOnError(); return "Produto removido!"; }, ...mutationOptions });
     const associateCorretorMutation = useMutation({ mutationFn: async ({ contactId, corretorId }) => { await supabase.from('contatos_no_funil').update({ corretor_id: corretorId }).eq('id', contactId).throwOnError(); return "Corretor associado!"; }, ...mutationOptions });
     
-    const [debounceTimeout, setDebounceTimeout] = useState(null);
-    const handleSearch = (term) => { clearTimeout(debounceTimeout); if (!term.trim() || term.length < 2) { setSearchResults([]); return; } setDebounceTimeout(setTimeout(async () => { const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term, p_organizacao_id: organizacaoId }); setSearchResults(data || []); }, 300)); };
+    const [debounceSearchTimeout, setDebounceSearchTimeout] = useState(null);
+    const handleSearch = (term) => { clearTimeout(debounceSearchTimeout); if (!term.trim() || term.length < 2) { setSearchResults([]); return; } setDebounceSearchTimeout(setTimeout(async () => { const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term, p_organizacao_id: organizacaoId }); setSearchResults(data || []); }, 300)); };
     const openAddContactModal = () => { setSearchResults([]); setIsAddContactModalOpen(true); };
     const handleStatusChange = (contactId, columnId) => updateContactColumnMutation.mutate({ contatoNoFunilId: contactId, novaColunaId: columnId });
     
     return (
         <div className="h-full flex flex-col bg-gray-100">
-            <CrmDetalhesSidebar open={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} funilEntry={selectedContactForSidebar} onAddActivity={(c) => { setContactForNewActivity(c); setIsActivityModalOpen(true); }} onEditActivity={(a) => { setActivityToEdit(a); setIsActivityModalOpen(true); }} onContactUpdate={() => queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId] })} refreshKey={sidebarRefreshKey} />
+            <CrmDetalhesSidebar open={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} funilEntry={selectedContactForSidebar} onAddActivity={(c) => { setContactForNewActivity(c); setIsActivityModalOpen(true); }} onEditActivity={(a) => { setActivityToEdit(a); setIsActivityModalOpen(true); }} onContactUpdate={() => queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] })} refreshKey={sidebarRefreshKey} />
             {isActivityModalOpen && (<AtividadeModal isOpen={isActivityModalOpen} onClose={() => { setIsActivityModalOpen(false); setContactForNewActivity(null); setActivityToEdit(null); }} onActivityAdded={() => { if (isSidebarOpen) setSidebarRefreshKey(p => p + 1); }} activityToEdit={activityToEdit} initialContatoId={contactForNewActivity?.id} funcionarios={funcionarios} allEmpresas={empresas} />)}
 
             <div className="flex-shrink-0 bg-white shadow-sm p-4 space-y-4">
@@ -281,7 +319,7 @@ export default function CrmPage() {
                     <div className="flex justify-center items-center h-full"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
                 ) : (
                     <FunilKanban
-                        contatos={filteredContatos}
+                        contatos={contatosNoFunil}
                         statusColumns={colunasDoFunil}
                         onStatusChange={handleStatusChange}
                         onCreateColumn={(name) => createColumnMutation.mutate(name)}
