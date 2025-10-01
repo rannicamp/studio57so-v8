@@ -63,6 +63,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         anexos: [], 
         anexos_preexistentes: [],
         data_pagamento: null,
+        data_vencimento: new Date().toISOString().split('T')[0],
         conta_origem_id: null,
         conta_destino_id: null,
     });
@@ -141,6 +142,8 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 favorecido_contato_id: favorecidoFinalId,
                 criado_por_usuario_id: user.id,
                 organizacao_id: organizacao_id,
+                conta_id: formData.conta_id,
+                tipo: formData.tipo,
             };
 
             let lancamentoPrincipal;
@@ -149,8 +152,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             if (isEditing) {
                 const { data, error: updateError } = await supabase.from('lancamentos').update({ 
                     ...baseData, 
-                    tipo: formData.tipo, 
-                    conta_id: formData.conta_id, 
                     valor: valorNumerico, 
                     data_vencimento: formData.data_vencimento, 
                     data_pagamento: formData.data_pagamento 
@@ -163,7 +164,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     const { data: despesaData, error: despesaError } = await supabase.from('lancamentos').insert({
                         ...baseData,
                         descricao: `Tranf. para ${dropdownData?.contas.find(c => c.id === formData.conta_destino_id)?.nome}: ${formData.descricao}`,
-                        tipo: 'Despesa',
                         conta_id: formData.conta_origem_id,
                         valor: valorNumerico,
                         data_transacao: formData.data_vencimento,
@@ -193,8 +193,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 } else if (formData.form_type === 'simples') {
                     const { data, error: insertError } = await supabase.from('lancamentos').insert({ 
                         ...baseData, 
-                        tipo: formData.tipo, 
-                        conta_id: formData.conta_id, 
                         valor: valorNumerico, 
                         data_transacao: formData.data_transacao, 
                         data_vencimento: formData.data_vencimento, 
@@ -206,11 +204,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     const valorParcela = (valorNumerico / formData.numero_parcelas).toFixed(2);
                     const lancamentosParaInserir = [];
                     const dataPrimeiroVencimento = new Date(formData.data_primeiro_vencimento + 'T12:00:00Z');
-                    // =================================================================================
-                    // INÍCIO DA CORREÇÃO
-                    // O PORQUÊ: A lógica agora usa a nova coluna 'parcela_grupo' para agrupar
-                    // os lançamentos de parcela, conforme solicitado.
-                    // =================================================================================
                     const grupo_id = crypto.randomUUID(); 
 
                     for (let i = 0; i < formData.numero_parcelas; i++) {
@@ -220,8 +213,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                         lancamentosParaInserir.push({
                             ...baseData,
                             descricao: `${formData.descricao} (${i + 1}/${formData.numero_parcelas})`,
-                            tipo: formData.tipo,
-                            conta_id: formData.conta_id,
                             valor: parseFloat(valorParcela),
                             data_transacao: new Date().toISOString().split('T')[0],
                             data_vencimento: dataVencimento.toISOString().split('T')[0],
@@ -229,9 +220,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                             parcela_grupo: grupo_id, 
                         });
                     }
-                    // =================================================================================
-                    // FIM DA CORREÇÃO
-                    // =================================================================================
 
                     const { data, error: insertError } = await supabase.from('lancamentos').insert(lancamentosParaInserir).select();
                     
@@ -240,24 +228,53 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     } else if (data && data.length > 0) {
                         lancamentoPrincipal = data[0];
                     }
+                // =================================================================================
+                // INÍCIO DA CORREÇÃO
+                // O PORQUÊ: Adicionamos este bloco para lidar com o formulário 'recorrente'.
+                // Ele insere os dados em uma tabela 'recorrencias' e guarda o resultado.
+                // =================================================================================
+                } else if (formData.form_type === 'recorrente') {
+                    const { data, error: recorrenciaError } = await supabase.from('recorrencias').insert({
+                        ...baseData,
+                        valor: valorNumerico,
+                        frequencia: formData.frequencia,
+                        data_inicio: formData.recorrencia_data_inicio,
+                        data_fim: formData.recorrencia_data_fim,
+                        status: 'Ativo' // Definindo um status padrão
+                    }).select().single();
+                    
+                    error = recorrenciaError;
+                    lancamentoPrincipal = data; // Agora lancamentoPrincipal terá o valor retornado
                 }
+                // =================================================================================
+                // FIM DA CORREÇÃO
+                // =================================================================================
             }
 
             if (error) throw error;
             if (!lancamentoPrincipal) throw new Error("Não foi possível obter os dados do lançamento salvo.");
             
             if (formData.anexos.length > 0) {
+                // O ID para o anexo será o ID da recorrência se for recorrente, ou do lançamento nos outros casos.
+                const anexoOwnerId = lancamentoPrincipal.id; 
+
                 const uploadPromises = formData.anexos.map(async (anexo) => {
                     if (!anexo.file) return;
                     const file = anexo.file;
                     const fileName = `${crypto.randomUUID()}-${sanitizeFileName(file.name)}`;
-                    const filePath = `public/${organizacao_id}/${lancamentoPrincipal.id}/${fileName}`;
+                    // Ajuste no caminho para diferenciar anexos de recorrências e lançamentos se necessário
+                    const basePath = formData.form_type === 'recorrente' ? 'recorrencias' : 'lancamentos';
+                    const filePath = `public/${organizacao_id}/${basePath}/${anexoOwnerId}/${fileName}`;
                     
                     const { error: uploadError } = await supabase.storage.from('documentos-financeiro').upload(filePath, file);
                     if (uploadError) throw new Error(`Falha no upload do anexo ${file.name}: ${uploadError.message}`);
 
-                    const { error: insertAnexoError } = await supabase.from('lancamentos_anexos').insert({
-                        lancamento_id: lancamentoPrincipal.id,
+                    // Decidir em qual tabela de anexo salvar
+                    const anexoTable = formData.form_type === 'recorrente' ? 'recorrencias_anexos' : 'lancamentos_anexos';
+                    const anexoForeignKey = formData.form_type === 'recorrente' ? 'recorrencia_id' : 'lancamento_id';
+
+                    const { error: insertAnexoError } = await supabase.from(anexoTable).insert({
+                        [anexoForeignKey]: anexoOwnerId,
                         caminho_arquivo: filePath,
                         nome_arquivo: file.name,
                         descricao: anexo.descricao,
@@ -271,10 +288,16 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             return lancamentoPrincipal;
         },
         onSuccess: () => {
+            // Invalida tanto lançamentos quanto recorrências para garantir que a UI atualize
             queryClient.invalidateQueries({queryKey: ['lancamentos']});
+            queryClient.invalidateQueries({queryKey: ['recorrencias']});
             if (onSuccess) onSuccess();
+            toast.success('Operação realizada com sucesso!');
             setTimeout(onClose, 1500);
         },
+        onError: (err) => {
+            toast.error(`Erro ao salvar: ${err.message}`);
+        }
     });
 
     useEffect(() => {
@@ -309,11 +332,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        toast.promise(mutation.mutateAsync(formData), {
-            loading: 'Salvando lançamento...',
-            success: 'Lançamento salvo com sucesso!',
-            error: (err) => `Erro ao salvar: ${err.message}`,
-        });
+        mutation.mutate(formData);
     };
 
     const handleChange = (e) => {
