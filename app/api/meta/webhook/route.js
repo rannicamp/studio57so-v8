@@ -93,11 +93,6 @@ export async function POST(request) {
         
         const { leadgen_id: leadId, page_id: pageId, campaign_id: campaignId, ad_id: adId } = change.value;
 
-        // =================================================================================
-        // INÍCIO DA CORREÇÃO DE FLEXIBILIDADE
-        // O PORQUÊ: A validação agora foca apenas nos IDs essenciais (lead e página).
-        // campaignId e adId são opcionais, permitindo que leads orgânicos entrem.
-        // =================================================================================
         if (!leadId || !pageId) {
             throw new Error("Payload do lead incompleto (faltando lead_id ou page_id).");
         }
@@ -110,21 +105,18 @@ export async function POST(request) {
         let campaignName = null;
         let adName = null;
 
-        // Só busca nomes e salva em meta_campaigns/meta_ads SE os IDs existirem
+        // O webhook agora assume a responsabilidade de enriquecer os dados.
+        // Ele busca os nomes e garante que as tabelas de referência estejam atualizadas.
         if (campaignId) {
             campaignName = await getMetaObjectName(campaignId);
             await supabase.from('meta_campaigns').upsert({ id: campaignId, name: campaignName, organizacao_id: organizacaoId }).throwOnError();
         }
         if (adId) {
             adName = await getMetaObjectName(adId);
-            // Um anúncio sempre pertence a uma campanha, então passamos o campaignId se ele existir
-            if (campaignId) {
+            if (campaignId) { // Um anúncio sempre precisa de uma campanha
                 await supabase.from('meta_ads').upsert({ id: adId, name: adName, campaign_id: campaignId, organizacao_id: organizacaoId }).throwOnError();
             }
         }
-        // =================================================================================
-        // FIM DA CORREÇÃO DE FLEXIBILIDADE
-        // =================================================================================
 
         const leadDetailsResponse = await fetch(`https://graph.facebook.com/v20.0/${leadId}?access_token=${process.env.META_PAGE_ACCESS_TOKEN}`);
         const leadDetails = await leadDetailsResponse.json();
@@ -140,15 +132,15 @@ export async function POST(request) {
             personalidade_juridica: 'Pessoa Física',
             organizacao_id: organizacaoId,
             meta_lead_id: leadId,
-            meta_ad_id: adId, // Será salvo como null se não existir
-            meta_campaign_id: campaignId, // Será salvo como null se não existir
+            meta_ad_id: adId,
+            meta_campaign_id: campaignId,
             meta_adgroup_id: change.value.adgroup_id,
             meta_page_id: pageId,
             meta_form_id: change.value.form_id,
             meta_created_time: new Date(change.value.created_time * 1000).toISOString(),
             meta_form_data: allLeadData,
-            meta_ad_name: adName, // Será salvo como null se não existir
-            meta_campaign_name: campaignName // Será salvo como null se não existir
+            meta_ad_name: adName,
+            meta_campaign_name: campaignName
         }).select('id').single();
 
         if (contactError) throw new Error(`Erro ao criar contato: ${contactError.message}`);
