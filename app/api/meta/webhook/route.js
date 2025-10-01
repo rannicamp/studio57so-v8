@@ -11,14 +11,21 @@ const getSupabaseAdmin = () => {
 };
 
 // =================================================================================
-// O PORQUÊ DA FUNÇÃO: Esta função age como um "mini-detetive". Ela pega um ID (de anúncio,
-// campanha, etc.) e pergunta à Meta "Qual é o nome disso?". Isso nos permite
-// salvar os nomes junto com os leads, enriquecendo os dados no CRM.
+// LÓGICA RESTAURADA (DO CÓDIGO ANTIGO E FUNCIONAL)
+// O PORQUÊ: Esta função agora busca o token diretamente do 'process.env',
+// tornando-a autossuficiente e eliminando o ponto de falha de passar o
+// token como parâmetro.
 // =================================================================================
-async function getMetaObjectName(objectId, accessToken) {
-    if (!objectId || !accessToken) return null;
+async function getMetaObjectName(objectId) {
+    if (!objectId) return null;
+    const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
+    if (!PAGE_ACCESS_TOKEN) {
+        console.error("LOG: ERRO em getMetaObjectName - META_PAGE_ACCESS_TOKEN não encontrado.");
+        return null;
+    }
+
     try {
-        const url = `https://graph.facebook.com/v20.0/${objectId}?fields=name&access_token=${accessToken}`;
+        const url = `https://graph.facebook.com/v20.0/${objectId}?fields=name&access_token=${PAGE_ACCESS_TOKEN}`;
         const response = await fetch(url);
         const data = await response.json();
         if (response.ok) {
@@ -33,18 +40,15 @@ async function getMetaObjectName(objectId, accessToken) {
     }
 }
 
-// =================================================================================
-// O PORQUÊ DA FUNÇÃO: Esta é a função "Detetive Principal". Conforme sua ideia,
-// ela descobre a qual cliente (organização) um lead pertence, garantindo que
-// cada lead seja salvo no lugar certo. É o coração da nossa automação.
-// =================================================================================
-async function getOrganizationIdByPageId(supabase, pageId, accessToken) {
+async function getOrganizationIdByPageId(supabase, pageId) {
     console.log(`LOG: [DETETIVE] Iniciando investigação para a página ID: ${pageId}`);
-    if (!accessToken) {
-        throw new Error("[DETETIVE] Token de Acesso à Página não fornecido.");
+    
+    const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
+    if (!PAGE_ACCESS_TOKEN) {
+        throw new Error("[DETETIVE] Token de Acesso à Página (META_PAGE_ACCESS_TOKEN) não configurado no servidor.");
     }
 
-    const url = `https://graph.facebook.com/v20.0/${pageId}?fields=business&access_token=${accessToken}`;
+    const url = `https://graph.facebook.com/v20.0/${pageId}?fields=business&access_token=${PAGE_ACCESS_TOKEN}`;
     console.log(`LOG: [DETETIVE] Consultando a Meta para descobrir o 'dono' da página...`);
 
     const metaResponse = await fetch(url);
@@ -156,6 +160,8 @@ export async function POST(request) {
         return NextResponse.json({ status: 'error', message: 'Configuração do servidor (Supabase ou Meta Token) está incompleta.' }, { status: 500 });
     }
     
+    let contatoIdParaLimpeza = null;
+
     try {
         const body = await request.json();
         console.log('LOG: Corpo da requisição completo:', JSON.stringify(body, null, 2));
@@ -178,56 +184,26 @@ export async function POST(request) {
              return NextResponse.json({ status: 'error', message: "Dados do lead incompletos no payload da Meta." }, { status: 400 });
         }
 
-        console.log(`LOG: Buscando no DB por contato com meta_lead_id: ${leadId}`);
         const { data: existingLead } = await supabase.from('contatos').select('id').eq('meta_lead_id', leadId).single();
-
         if (existingLead) {
-            console.log(`LOG: Lead com ID ${leadId} já existe no DB. Nenhuma ação necessária.`);
+            console.log(`LOG: Lead com ID ${leadId} já existe. Ignorando.`);
             return NextResponse.json({ status: 'lead_already_exists' }, { status: 200 });
         }
         
-        const organizacaoId = await getOrganizationIdByPageId(supabase, pageId, PAGE_ACCESS_TOKEN);
+        const organizacaoId = await getOrganizationIdByPageId(supabase, pageId);
         
-        // =================================================================================
-        // INÍCIO DA CORREÇÃO
-        // O PORQUÊ: Buscamos os nomes e, na sequência, garantimos que tanto a
-        // campanha quanto o anúncio existam no nosso banco de dados usando "upsert".
-        // Isso cria o registro se for novo e evita o erro de "foreign key".
-        // =================================================================================
-        console.log(`LOG: Buscando nomes para Ad ID: ${adId} e Campaign ID: ${campaignId}`);
-        const [adName, campaignName] = await Promise.all([
-            getMetaObjectName(adId, PAGE_ACCESS_TOKEN),
-            getMetaObjectName(campaignId, PAGE_ACCESS_TOKEN)
-        ]);
+        const adName = await getMetaObjectName(adId);
+        const campaignName = await getMetaObjectName(campaignId);
         console.log(`LOG: Nomes encontrados -> Anúncio: '${adName}', Campanha: '${campaignName}'`);
 
-        console.log(`LOG: Garantindo a existência da campanha ${campaignId} no banco de dados...`);
-        const { error: campaignUpsertError } = await supabase
-            .from('meta_campaigns')
-            .upsert({
-                id: campaignId,
-                name: campaignName,
-                organizacao_id: organizacaoId
-            }, { onConflict: 'id' });
+        const { error: campaignUpsertError } = await supabase.from('meta_campaigns').upsert({ id: campaignId, name: campaignName, organizacao_id: organizacaoId }, { onConflict: 'id' });
         if (campaignUpsertError) throw new Error(`Falha ao registrar campanha: ${campaignUpsertError.message}`);
 
-        console.log(`LOG: Garantindo a existência do anúncio ${adId} no banco de dados...`);
-        const { error: adUpsertError } = await supabase
-            .from('meta_ads')
-            .upsert({
-                id: adId,
-                name: adName,
-                campaign_id: campaignId,
-                organizacao_id: organizacaoId
-            }, { onConflict: 'id' });
+        const { error: adUpsertError } = await supabase.from('meta_ads').upsert({ id: adId, name: adName, campaign_id: campaignId, organizacao_id: organizacaoId }, { onConflict: 'id' });
         if (adUpsertError) throw new Error(`Falha ao registrar anúncio: ${adUpsertError.message}`);
-        // =================================================================================
-        // FIM DA CORREÇÃO
-        // =================================================================================
 
         let leadDetails;
         if (leadId.startsWith('TEST_')) {
-            console.log("LOG: [TESTE] Lead de simulação detectado. Usando dados fictícios.");
             leadDetails = {
                 field_data: [
                     { name: "full_name", values: ["João da Silva (Teste)"] },
@@ -236,90 +212,76 @@ export async function POST(request) {
                 ]
             };
         } else {
-            console.log(`LOG: Lead real ID ${leadId}. Buscando detalhes na API da Meta...`);
             const leadDetailsResponse = await fetch(`https://graph.facebook.com/v20.0/${leadId}?access_token=${PAGE_ACCESS_TOKEN}`);
             const apiResult = await leadDetailsResponse.json();
             if (!leadDetailsResponse.ok) throw new Error(apiResult.error?.message || "Falha ao buscar dados do lead no Meta.");
             leadDetails = apiResult;
         }
 
-        console.log("LOG: Detalhes do lead recebidos com sucesso.");
-        
         const allLeadData = {};
-        leadDetails.field_data.forEach(field => {
-            allLeadData[field.name] = field.values[0];
-        });
+        leadDetails.field_data.forEach(field => { allLeadData[field.name] = field.values[0]; });
         
         const nomeCompleto = allLeadData.full_name || `Lead Meta (${new Date().toLocaleDateString()})`;
         const email = allLeadData.email;
         const telefoneLimpo = allLeadData.phone_number?.replace(/\D/g, '');
         
-        console.log(`LOG: Criando novo contato na organização ${organizacaoId}...`);
-        const { data: newContact, error: contactError } = await supabase
-            .from('contatos')
-            .insert({
-                nome: nomeCompleto,
-                origem: 'Meta Lead Ad',
-                tipo_contato: 'Lead',
-                personalidade_juridica: 'Pessoa Física',
-                organizacao_id: organizacaoId,
-                meta_lead_id: leadId,
-                meta_ad_id: adId,
-                meta_campaign_id: campaignId,
-                meta_adgroup_id: leadValue.adgroup_id,
-                meta_page_id: pageId,
-                meta_form_id: leadValue.form_id,
-                meta_created_time: new Date(leadValue.created_time * 1000).toISOString(),
-                meta_form_data: allLeadData,
-                meta_ad_name: adName,
-                meta_campaign_name: campaignName
-            })
-            .select('id')
-            .single();
+        const { data: newContact, error: contactError } = await supabase.from('contatos').insert({
+            nome: nomeCompleto,
+            origem: 'Meta Lead Ad',
+            tipo_contato: 'Lead',
+            personalidade_juridica: 'Pessoa Física',
+            organizacao_id: organizacaoId,
+            meta_lead_id: leadId,
+            meta_ad_id: adId,
+            meta_campaign_id: campaignId,
+            meta_adgroup_id: leadValue.adgroup_id,
+            meta_page_id: pageId,
+            meta_form_id: leadValue.form_id,
+            meta_created_time: new Date(leadValue.created_time * 1000).toISOString(),
+            meta_form_data: allLeadData,
+            meta_ad_name: adName,
+            meta_campaign_name: campaignName
+        }).select('id').single();
 
-        if (contactError) {
-             console.error("LOG: ERRO ao criar novo contato no DB:", contactError);
-             throw new Error(`Erro ao criar novo contato no DB: ${contactError.message}`);
-        }
+        if (contactError) throw new Error(`Erro ao criar novo contato no DB: ${contactError.message}`);
             
         const contatoId = newContact.id;
-        console.log(`LOG: Novo contato criado com ID: ${contatoId} para o Lead ID: ${leadId}`);
+        contatoIdParaLimpeza = contatoId;
+        console.log(`LOG: Novo contato criado com ID: ${contatoId}`);
 
         if (email) await supabase.from('emails').insert({ contato_id: contatoId, email: email, tipo: 'Principal', organizacao_id: organizacaoId });
         if (telefoneLimpo) await supabase.from('telefones').insert({ contato_id: contatoId, telefone: telefoneLimpo, tipo: 'Celular', organizacao_id: organizacaoId });
-        console.log("LOG: Email e telefone associados ao novo contato.");
         
-        console.log(`LOG: Garantindo a existência do funil e da coluna para adicionar o contato ${contatoId}...`);
         const primeiraColunaId = await ensureFunilAndFirstColumn(supabase, organizacaoId);
         
-        const { error: funilError } = await supabase
-            .from('contatos_no_funil')
-            .insert({ contato_id: contatoId, coluna_id: primeiraColunaId, organizacao_id: organizacaoId });
+        const { error: funilError } = await supabase.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: primeiraColunaId, organizacao_id: organizacaoId });
             
-        if (funilError) {
-            console.error('LOG: ERRO ao adicionar contato ao funil:', funilError);
-        } else {
-            console.log('LOG: SUCESSO! Contato adicionado ao funil! Disparando notificação...');
-            
-            fetch(`${request.nextUrl.origin}/api/notifications/send`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: '🎉 Novo Lead Recebido!',
-                    message: `Um novo lead (${nomeCompleto}) chegou através da campanha da Meta.`,
-                    url: '/crm',
-                    organizacao_id: organizacaoId
-                })
-            }).catch(err => console.error("Falha ao disparar notificação de novo lead:", err));
-        }
+        if (funilError) throw new Error(`Falha ao adicionar o contato ao funil: ${funilError.message}`);
+        
+        console.log('LOG: SUCESSO! Contato adicionado ao funil!');
+        
+        fetch(`${request.nextUrl.origin}/api/notifications/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: '🎉 Novo Lead Recebido!',
+                message: `Um novo lead (${nomeCompleto}) chegou da Meta.`,
+                url: '/crm',
+                organizacao_id: organizacaoId
+            })
+        }).catch(err => console.error("Falha ao disparar notificação de novo lead:", err));
 
         console.log("LOG: [FIM] Processamento do webhook concluído com sucesso.");
         return NextResponse.json({ status: 'success' }, { status: 200 });
 
     } catch (e) {
-        console.error('LOG: [ERRO GERAL] Ocorreu um erro no processamento do webhook:', e);
-        // Retornamos 200 para a Meta não ficar reenviando o mesmo evento que já deu erro.
-        // O erro já foi logado no nosso sistema para análise.
+        console.error('LOG: [ERRO GERAL] Ocorreu um erro no processamento do webhook:', e.message);
+        
+        if (contatoIdParaLimpeza) {
+            console.log(`LOG: [LIMPEZA] Tentando remover o contato órfão com ID: ${contatoIdParaLimpeza}`);
+            await supabase.from('contatos').delete().eq('id', contatoIdParaLimpeza);
+        }
+
         return NextResponse.json({ status: 'error', message: e.message }, { status: 200 }); 
     }
 }
