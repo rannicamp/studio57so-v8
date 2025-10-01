@@ -71,17 +71,9 @@ const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, exi
     );
 };
 
-// =================================================================================
-// INÍCIO DA CORREÇÃO DE PERFORMANCE
-// O PORQUÊ: Esta função foi totalmente reescrita. Agora, ela recebe os 'filters'
-// e constrói uma consulta ao Supabase que já traz os dados filtrados.
-// Isso transfere o trabalho pesado do navegador para o banco de dados,
-// que é muito mais rápido e eficiente para essa tarefa.
-// =================================================================================
 const fetchFunilData = async (supabase, organizacaoId, filters) => {
     if (!organizacaoId) return { funilId: null, colunasDoFunil: [], contatosNoFunil: [] };
 
-    // 1. Busca as colunas do funil (isso é rápido e necessário)
     const { data: funilData } = await supabase.from('funis').select('id').eq('nome', 'Funil de Vendas').eq('organizacao_id', organizacaoId).single();
     const funilId = funilData?.id;
     if (!funilId) return { funilId: null, colunasDoFunil: [], contatosNoFunil: [] };
@@ -90,7 +82,6 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
     if (colunasError) throw colunasError;
     if (!colunasDoFunil || colunasDoFunil.length === 0) return { funilId, colunasDoFunil: [], contatosNoFunil: [] };
     
-    // 2. Monta a base da nossa consulta inteligente
     let query = supabase.from('contatos_no_funil').select(`
         id, coluna_id, numero_card, corretor_id, created_at,
         contatos:contato_id ( *, telefones ( telefone, tipo ), emails(email, tipo) ),
@@ -98,7 +89,6 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
         produtos_interesse:contatos_no_funil_produtos (id, produto:produtos_empreendimento (id, unidade, tipo, valor_venda_calculado, empreendimento_id))
     `);
     
-    // 3. Aplica os filtros DIRETAMENTE na consulta ao banco de dados
     query = query.eq('organizacao_id', organizacaoId);
 
     if (filters.searchTerm) {
@@ -122,14 +112,10 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
     if (filters.endDate) {
         query = query.lte('created_at', filters.endDate + 'T23:59:59');
     }
-     // O filtro de unidade de interesse é mais complexo, pois é uma relação muitos-para-muitos.
-     // Uma abordagem mais avançada com RPC seria ideal, mas por enquanto, faremos um pós-filtro.
-     // A performance já será muito melhor com os filtros anteriores.
 
     const { data: contatosNoFunilRaw, error: contatosError } = await query;
     if (contatosError) throw contatosError;
 
-    // Pós-filtro para unidades, que é mais complexo
     let contatosFiltrados = contatosNoFunilRaw || [];
     if (filters.unidadeIds?.length > 0) {
         contatosFiltrados = contatosFiltrados.filter(item => {
@@ -140,21 +126,27 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
 
     const contatosParaEstado = contatosFiltrados.filter(item => item.contatos?.id);
     
-    // 4. Busca as últimas mensagens APENAS para os contatos filtrados
-    const contatoIds = contatosParaEstado.map(c => c.contatos.id);
-    if (contatoIds.length === 0) {
-        return { funilId, colunasDoFunil, contatosNoFunil: [] };
-    }
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO DE PERFORMANCE
+    // O PORQUÊ: A busca pela última mensagem de WhatsApp para CADA card
+    // estava causando a lentidão. Desativamos temporariamente para restaurar a
+    // velocidade da página.
+    // =================================================================================
+    // const contatoIds = contatosParaEstado.map(c => c.contatos.id);
+    // if (contatoIds.length === 0) {
+    //     return { funilId, colunasDoFunil, contatosNoFunil: [] };
+    // }
     
-    const { data: lastMessagesData } = await supabase.rpc('get_last_messages_for_contacts', { p_contact_ids: contatoIds, p_organizacao_id: organizacaoId });
-    const lastMessagesMap = (lastMessagesData || []).reduce((map, msg) => { map[msg.contato_id] = { content: msg.content, sent_at: msg.sent_at }; return map; }, {});
-    const contatosComMensagens = contatosParaEstado.map(item => ({ ...item, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, contatos: { ...item.contatos, last_whatsapp_message: lastMessagesMap[item.contatos.id]?.content || null, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, } }));
+    // const { data: lastMessagesData } = await supabase.rpc('get_last_messages_for_contacts', { p_contact_ids: contatoIds, p_organizacao_id: organizacaoId });
+    // const lastMessagesMap = (lastMessagesData || []).reduce((map, msg) => { map[msg.contato_id] = { content: msg.content, sent_at: msg.sent_at }; return map; }, {});
+    // const contatosComMensagens = contatosParaEstado.map(item => ({ ...item, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, contatos: { ...item.contatos, last_whatsapp_message: lastMessagesMap[item.contatos.id]?.content || null, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, } }));
     
-    return { funilId, colunasDoFunil, contatosNoFunil: contatosComMensagens };
+    // return { funilId, colunasDoFunil, contatosNoFunil: contatosComMensagens };
+    return { funilId, colunasDoFunil, contatosNoFunil: contatosParaEstado };
+    // =================================================================================
+    // FIM DA CORREÇÃO DE PERFORMANCE
+    // =================================================================================
 };
-// =================================================================================
-// FIM DA CORREÇÃO DE PERFORMANCE
-// =================================================================================
 
 const fetchFilterData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { corretores: [], origens: [], unidades: [], campaigns: [], ads: [] };
@@ -202,11 +194,6 @@ export default function CrmPage() {
     const queryClient = useQueryClient();
 
     const [filters, setFilters] = useState({ searchTerm: '', corretorIds: [], origens: [], unidadeIds: [], campaignIds: [], adIds: [], startDate: '', endDate: new Date().toISOString().split('T')[0] });
-    // =================================================================================
-    // O PORQUÊ: Usamos 'useDebounce' para evitar que a página faça uma nova busca no
-    // banco de dados a cada letra digitada. Agora, ela espera 500ms após o usuário
-    // parar de digitar para fazer a busca, economizando recursos e melhorando a UX.
-    // =================================================================================
     const [debouncedFilters] = useDebounce(filters, 500);
 
     const [sorting, setSorting] = useState({});
@@ -224,11 +211,6 @@ export default function CrmPage() {
 
     useEffect(() => { setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
 
-    // =================================================================================
-    // O PORQUÊ: A 'queryKey' agora inclui os 'debouncedFilters'. Isso informa ao
-    // react-query para buscar novos dados automaticamente sempre que os filtros
-    // mudarem (após o delay do debounce). A função de busca agora passa os filtros.
-    // =================================================================================
     const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ 
         queryKey: ['funilData', organizacaoId, debouncedFilters], 
         queryFn: () => fetchFunilData(supabase, organizacaoId, debouncedFilters), 
@@ -242,13 +224,7 @@ export default function CrmPage() {
     const { funcionarios = [], empresas = [] } = activityData || {};
     if (funilError) { toast.error(`Erro ao carregar dados do funil: ${funilError.message}`); }
     
-    // =================================================================================
-    // O PORQUÊ: Este bloco 'useMemo' para 'filteredContatos' foi REMOVIDO.
-    // Ele não é mais necessário porque a filtragem agora é feita no servidor.
-    // Os dados que chegam em 'contatosNoFunil' já estão filtrados e prontos para uso.
-    // =================================================================================
     const kpiData = useMemo(() => {
-        // Agora usamos 'contatosNoFunil' diretamente, pois eles já estão filtrados.
         const dataToAnalyze = contatosNoFunil; 
         if (!colunasDoFunil || dataToAnalyze.length === 0) return { totalLeads: 0, vendidos: 0, taxaConversao: 0, valorEmNegociacao: 0, ultimoLead: 'N/A' };
         const colunaVendido = colunasDoFunil.find(c => c.nome.toLowerCase() === 'vendido');
