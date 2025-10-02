@@ -1,8 +1,7 @@
 // app/(main)/atividades/page.js
-
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -19,11 +18,58 @@ import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory, 
 import MultiSelectDropdown from '../../../components/financeiro/MultiSelectDropdown';
 import { toast } from 'sonner';
 import AtividadeDetalhesSidebar from '@/components/atividades/AtividadeDetalhesSidebar';
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // 1. Importar useQuery
+
+// =================================================================================
+// INÍCIO DA OTIMIZAÇÃO DE PERFORMANCE (CACHE)
+// =================================================================================
+const ACTIVITIES_CACHE_KEY = 'atividadesPageData';
+
+const fetchAllActivities = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return [];
+    const { data, error } = await supabase
+        .from('activities')
+        .select('*, empreendimentos(empresa_proprietaria_id), anexos:activity_anexos(*), atividade_pai:atividade_pai_id(id, nome)')
+        .eq('organizacao_id', organizacaoId);
+
+    if (error) {
+        console.error("Erro ao buscar todas as atividades:", error);
+        throw new Error(error.message);
+    }
+    return data || [];
+};
+
+const fetchAuxiliaryData = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return { funcionarios: [], allEmpresas: [] };
+    const { data: funcData, error: funcError } = await supabase.from('funcionarios').select('id, full_name').eq('organizacao_id', organizacaoId).order('full_name');
+    const { data: empresasData, error: empresasError } = await supabase.from('cadastro_empresa').select('id, razao_social').eq('organizacao_id', organizacaoId).order('razao_social');
+
+    if (funcError || empresasError) {
+        console.error("Erro ao carregar dados auxiliares:", { funcError, empresasError });
+        // Decide-se não lançar erro para não quebrar a página, mas poderia
+    }
+    return { funcionarios: funcData || [], allEmpresas: empresasData || [] };
+};
+
+const getCachedData = (key) => {
+    try {
+        const cachedData = localStorage.getItem(key);
+        return cachedData ? JSON.parse(cachedData) : undefined;
+    } catch (error) {
+        console.error(`Erro ao ler o cache (${key}):`, error);
+        localStorage.removeItem(key);
+    }
+    return undefined;
+};
+// =================================================================================
+// FIM DA OTIMIZAÇÃO
+// =================================================================================
 
 export default function AtividadesPage() {
     const supabase = createClient();
     const router = useRouter();
     const { hasPermission, loading: authLoading, user } = useAuth();
+    const organizacaoId = user?.organizacao_id;
     const { setPageTitle } = useLayout();
     const { selectedEmpreendimento, empreendimentos } = useEmpreendimento();
 
@@ -32,19 +78,16 @@ export default function AtividadesPage() {
     const canEdit = hasPermission('atividades', 'pode_editar');
     const canDelete = hasPermission('atividades', 'pode_excluir');
 
-    const [allActivities, setAllActivities] = useState([]);
-    const [filteredActivities, setFilteredActivities] = useState([]);
-    const [funcionarios, setFuncionarios] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('kanban');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingActivity, setEditingActivity] = useState(null);
     const [sortConfig, setSortConfig] = useState({ key: 'data_inicio_prevista', direction: 'ascending' });
-    const [allEmpresas, setAllEmpresas] = useState([]);
     const [filters, setFilters] = useState({ empresa: '', empreendimento: '', responsavel: '', status: [], selectedDate: '' });
-
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [selectedActivityForSidebar, setSelectedActivityForSidebar] = useState(null);
+    
+    // Ref para controle da notificação de atualização
+    const isInitialFetchCompleted = useRef(false);
 
     useEffect(() => {
         if (!authLoading && !canViewPage) {
@@ -53,20 +96,19 @@ export default function AtividadesPage() {
     }, [authLoading, canViewPage, router]);
 
     useEffect(() => {
+        setPageTitle('Painel de Atividades');
         try {
             const savedFilters = localStorage.getItem('atividadesFilters');
             if (savedFilters) {
                 const parsedFilters = JSON.parse(savedFilters);
-                if (!Array.isArray(parsedFilters.status)) {
-                    parsedFilters.status = [];
-                }
+                if (!Array.isArray(parsedFilters.status)) parsedFilters.status = [];
                 setFilters(parsedFilters);
             }
         } catch (error) {
             console.error("Falha ao carregar filtros do localStorage", error);
             localStorage.removeItem('atividadesFilters');
         }
-    }, []); 
+    }, [setPageTitle]);
 
     useEffect(() => {
         try {
@@ -75,6 +117,68 @@ export default function AtividadesPage() {
             console.error("Falha ao salvar filtros no localStorage", error);
         }
     }, [filters]);
+
+    // =================================================================================
+    // ATUALIZAÇÃO PARA useQuery (BUSCA DE DADOS PRINCIPAL)
+    // O PORQUÊ: Modernizamos a busca de dados para usar `useQuery`.
+    // `placeholderData` carrega os dados do cache instantaneamente, enquanto a query
+    // busca as informações mais recentes em segundo plano.
+    // =================================================================================
+    const { data: allActivities = [], isLoading: isLoadingActivities, isSuccess: isActivitiesSuccess } = useQuery({
+        queryKey: ['atividades', organizacaoId],
+        queryFn: () => fetchAllActivities(supabase, organizacaoId),
+        enabled: !!organizacaoId && canViewPage,
+        placeholderData: () => getCachedData(ACTIVITIES_CACHE_KEY),
+    });
+
+    const { data: auxiliaryData, isLoading: isLoadingAuxiliary } = useQuery({
+        queryKey: ['atividadesAuxData', organizacaoId],
+        queryFn: () => fetchAuxiliaryData(supabase, organizacaoId),
+        enabled: !!organizacaoId && canViewPage,
+    });
+    const { funcionarios = [], allEmpresas = [] } = auxiliaryData || {};
+
+    // Efeito para salvar cache e notificar atualização
+    useEffect(() => {
+        if (allActivities && isActivitiesSuccess) {
+            try {
+                const cacheKey = ACTIVITIES_CACHE_KEY;
+                const cachedData = localStorage.getItem(cacheKey);
+
+                if (isInitialFetchCompleted.current && JSON.stringify(allActivities) !== cachedData) {
+                    toast.success('Página atualizada!', { duration: 2000 });
+                }
+                
+                localStorage.setItem(cacheKey, JSON.stringify(allActivities));
+
+                if (!isInitialFetchCompleted.current) {
+                    isInitialFetchCompleted.current = true;
+                }
+            } catch (error) {
+                console.error("Erro ao salvar ou notificar o cache de Atividades:", error);
+            }
+        }
+    }, [allActivities, isActivitiesSuccess]);
+
+    const filteredActivities = useMemo(() => {
+        return allActivities
+            .filter(act => {
+                if (selectedEmpreendimento !== 'all' && act.empreendimento_id != selectedEmpreendimento) return false;
+                if (selectedEmpreendimento === 'all') {
+                    if (filters.empresa && (!act.empreendimentos || act.empreendimentos.empresa_proprietaria_id != filters.empresa)) return false;
+                    if (filters.empreendimento && act.empreendimento_id != filters.empreendimento) return false;
+                }
+                if (filters.responsavel && act.funcionario_id != filters.responsavel) return false;
+                if (filters.status.length > 0 && !filters.status.includes(act.status)) return false;
+                if (filters.selectedDate && !(act.data_inicio_prevista && act.data_fim_prevista && filters.selectedDate >= act.data_inicio_prevista && filters.selectedDate <= act.data_fim_prevista)) return false;
+                return true;
+            })
+            .sort((a, b) => {
+                if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
+                if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
+                return 0;
+            });
+    }, [selectedEmpreendimento, allActivities, filters, sortConfig]);
 
     const kpiData = useMemo(() => {
         const today = new Date();
@@ -95,119 +199,10 @@ export default function AtividadesPage() {
         };
     }, [filteredActivities]);
 
-    const fetchPageData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const { data: funcData } = await supabase.from('funcionarios').select('id, full_name').order('full_name');
-            setFuncionarios(funcData || []);
-            const { data: empresasData } = await supabase.from('cadastro_empresa').select('id, razao_social').order('razao_social');
-            setAllEmpresas(empresasData || []);
-        } catch (error) {
-            console.error("Erro ao carregar dados da página:", error);
-        } finally {
-            setLoading(false);
-        }
-    }, [supabase]);
-
-    useEffect(() => {
-        if (canViewPage) {
-            setPageTitle('Painel de Atividades');
-            fetchPageData();
-        }
-    }, [setPageTitle, fetchPageData, canViewPage]);
-
-    const fetchAllActivities = useCallback(async () => {
-        setLoading(true);
-        const { data, error } = await supabase
-            .from('activities')
-            .select('*, empreendimentos(empresa_proprietaria_id), anexos:activity_anexos(*), atividade_pai:atividade_pai_id(id, nome)');
-        
-        if (error) {
-            console.error("Erro ao buscar todas as atividades:", error);
-            setAllActivities([]);
-        } else {
-            setAllActivities(data || []);
-        }
-        setLoading(false);
-    }, [supabase]);
-
-    // =================================================================================
-    // AQUI ESTÁ A CORREÇÃO PRINCIPAL
-    // O PORQUÊ: A lógica de filtragem anterior era conflitante e não combinava
-    // os diferentes filtros de forma correta. Esta nova versão unifica todas as
-    // regras de forma clara e sequencial, garantindo que uma atividade só
-    // apareça se passar por TODAS as condições de filtro ativas.
-    // =================================================================================
-    useEffect(() => {
-        const activitiesToDisplay = allActivities
-            .filter(act => {
-                // 1. Filtro principal pelo Empreendimento selecionado no contexto (topo da página)
-                if (selectedEmpreendimento !== 'all' && act.empreendimento_id != selectedEmpreendimento) {
-                    return false;
-                }
-
-                // 2. Filtros da barra de filtros (só são aplicados se "Todos os Empreendimentos" estiver selecionado)
-                if (selectedEmpreendimento === 'all') {
-                    // Filtro por Empresa
-                    if (filters.empresa && (!act.empreendimentos || act.empreendimentos.empresa_proprietaria_id != filters.empresa)) {
-                        return false;
-                    }
-                    // Filtro por Empreendimento específico na barra de filtros
-                    if (filters.empreendimento && act.empreendimento_id != filters.empreendimento) {
-                        return false;
-                    }
-                }
-
-                // 3. Filtros gerais que se aplicam sempre
-                // Filtro por Responsável
-                if (filters.responsavel && act.funcionario_id != filters.responsavel) {
-                    return false;
-                }
-
-                // Filtro por Status
-                if (filters.status.length > 0 && !filters.status.includes(act.status)) {
-                    return false;
-                }
-
-                // Filtro por Data
-                if (filters.selectedDate && !(
-                    act.data_inicio_prevista && act.data_fim_prevista &&
-                    filters.selectedDate >= act.data_inicio_prevista &&
-                    filters.selectedDate <= act.data_fim_prevista
-                )) {
-                    return false;
-                }
-                
-                // Se a atividade passou por todos os testes, ela será exibida!
-                return true;
-            })
-            .sort((a, b) => {
-                if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
-                if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
-                return 0;
-            });
-
-        setFilteredActivities(activitiesToDisplay);
-    }, [selectedEmpreendimento, allActivities, filters, sortConfig]);
-
-
-    useEffect(() => {
-        if (canViewPage && selectedEmpreendimento !== null) {
-            fetchAllActivities();
-        }
-    }, [selectedEmpreendimento, fetchAllActivities, canViewPage]);
-
-    const handleCardClick = (activity) => {
-        setSelectedActivityForSidebar(activity);
-        setIsSidebarOpen(true);
-    };
-
-    const handleEditClick = (activity) => { 
-        setEditingActivity(activity); 
-        setIsModalOpen(true); 
-        setIsSidebarOpen(false);
-    };
-
+    const queryClient = useQueryClient();
+    const refreshActivities = () => queryClient.invalidateQueries({ queryKey: ['atividades', organizacaoId] });
+    
+    // Todas as funções que modificam dados (handleDuplicate, handleDelete, handleStatusChange) agora chamam `refreshActivities` no sucesso.
     const handleDuplicateActivity = (activityToDuplicate) => {
         if (!canCreate) { toast.error("Você não tem permissão para criar atividades."); return; }
         
@@ -228,16 +223,13 @@ export default function AtividadesPage() {
                         
                         const { error } = await supabase.from('activities').insert(newActivityData);
                         
-                        if (error) {
-                            reject(new Error(error.message));
-                        } else {
-                            resolve("Atividade duplicada com sucesso!");
-                        }
+                        if (error) reject(new Error(error.message));
+                        else resolve("Atividade duplicada com sucesso!");
                     });
 
                     toast.promise(promise, {
                         loading: 'Duplicando atividade...',
-                        success: (msg) => { fetchAllActivities(); return msg; },
+                        success: (msg) => { refreshActivities(); return msg; },
                         error: (err) => `Erro: ${err.message}`,
                     });
                 }
@@ -256,7 +248,7 @@ export default function AtividadesPage() {
                     if (error) toast.error(`Erro ao deletar: ${error.message}`);
                     else {
                         toast.success('Atividade deletada com sucesso!');
-                        fetchAllActivities();
+                        refreshActivities();
                         setIsSidebarOpen(false);
                     }
                 }
@@ -278,7 +270,19 @@ export default function AtividadesPage() {
         }
         const { error } = await supabase.from('activities').update(updateData).eq('id', activityId);
         if (error) toast.error(`Erro ao atualizar o status: ${error.message}`);
-        else fetchAllActivities();
+        else refreshActivities();
+    };
+
+
+    const handleCardClick = (activity) => {
+        setSelectedActivityForSidebar(activity);
+        setIsSidebarOpen(true);
+    };
+
+    const handleEditClick = (activity) => { 
+        setEditingActivity(activity); 
+        setIsModalOpen(true); 
+        setIsSidebarOpen(false);
     };
 
     const requestSort = (key) => {
@@ -311,7 +315,7 @@ export default function AtividadesPage() {
         { id: 'Aguardando Material', text: 'Aguardando Material' }, { id: 'Cancelado', text: 'Cancelado' }
     ];
 
-    if (authLoading || loading) {
+    if (authLoading || (isLoadingActivities && !allActivities.length)) { // Mostra loading se não tiver dados do cache
         return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando...</div>;
     }
 
@@ -398,7 +402,7 @@ export default function AtividadesPage() {
             </div>
 
             <div className="mt-4">
-                {loading || selectedEmpreendimento === null ? <p className="text-center p-10">Carregando atividades...</p> : (
+                {(isLoadingActivities && !allActivities.length) ? <p className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin /> Carregando atividades...</p> : (
                     <>
                         {activeTab === 'kanban' && <KanbanBoard activities={filteredActivities} onEditActivity={handleCardClick} onStatusChange={handleStatusChange} canEdit={canEdit} onDeleteActivity={handleDeleteClick} onDuplicateActivity={handleDuplicateActivity} />}
                         {activeTab === 'list' && <ActivityList activities={filteredActivities} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} />}
@@ -412,7 +416,7 @@ export default function AtividadesPage() {
                 <AtividadeModal 
                     isOpen={isModalOpen} 
                     onClose={() => { setIsModalOpen(false); setEditingActivity(null); }} 
-                    onActivityAdded={() => fetchAllActivities()} 
+                    onActivityAdded={() => refreshActivities()} 
                     activityToEdit={editingActivity} 
                     selectedEmpreendimento={selectedEmpreendimentoObj} 
                     funcionarios={funcionarios} 
