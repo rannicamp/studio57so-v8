@@ -2,8 +2,6 @@
 
 import { NextResponse } from 'next/server';
 
-// ##### 1. LISTA DE MOEDAS EXPANDIDA #####
-// Lista com as principais moedas do mundo.
 const supportedCurrencies = [
     { id: 'USD', name: 'Dólar Americano', type: 'currency' },
     { id: 'EUR', name: 'Euro', type: 'currency' },
@@ -17,9 +15,6 @@ const supportedCurrencies = [
     { id: 'BTC', name: 'Bitcoin', type: 'currency' },
     { id: 'ETH', name: 'Ethereum', type: 'currency' },
 ];
-
-// ##### 2. LISTA DE COMMODITIES EXPANDIDA #####
-// Lista de commodities disponíveis na API Ninjas.
 const supportedCommodities = [
     { id: 'lumber', name: 'Madeira (Lumber)', type: 'commodity' },
     { id: 'aluminum', name: 'Alumínio', type: 'commodity' },
@@ -41,12 +36,8 @@ const supportedCommodities = [
     { id: 'zinc', name: 'Zinco', type: 'commodity' },
 ];
 
-// Cache simples em memória para evitar chamar as APIs externas toda hora
-const cache = {
-    data: null,
-    lastFetched: 0,
-};
-const CACHE_DURATION = 1000 * 60 * 30; // 30 minutos
+const cache = { data: null, lastFetched: 0 };
+const CACHE_DURATION = 1000 * 60 * 30;
 
 export async function GET() {
     const now = Date.now();
@@ -75,7 +66,11 @@ export async function GET() {
         }));
 
         const commodityApiKey = process.env.APININJAS_API_KEY;
-        if (!commodityApiKey) throw new Error('Chave da API de Commodities não encontrada.');
+        if (!commodityApiKey) {
+            // Log de erro mais específico
+            console.error("ERRO GRAVE: A variável de ambiente APININJAS_API_KEY não está configurada no servidor.");
+            throw new Error('Chave da API de Commodities não encontrada.');
+        }
 
         const commodityResults = await Promise.all(
             supportedCommodities.map(async (commodity) => {
@@ -84,7 +79,9 @@ export async function GET() {
                     headers: { 'X-Api-Key': commodityApiKey },
                 });
                 if (!commodityResponse.ok) {
-                    console.error(`Erro ao buscar cotação de ${commodity.name}:`, await commodityResponse.text());
+                    // Log de erro mais detalhado
+                    const errorText = await commodityResponse.text();
+                    console.error(`Erro ao buscar cotação de ${commodity.name} (Status: ${commodityResponse.status}):`, errorText);
                     return { id: commodity.id, name: commodity.name, value: 'N/A', type: 'commodity' };
                 }
                 const commodityData = await commodityResponse.json();
