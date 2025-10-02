@@ -1,5 +1,4 @@
 // Local do Arquivo: app/(main)/layout.js
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -20,14 +19,9 @@ config.autoAddCss = false;
 
 function MainLayout({ children }) {
     const [isCollapsed, setIsCollapsed] = useState(false);
-    // =================================================================================
-    // CORREÇÃO AQUI
-    // O PORQUÊ: Removemos 'sidebarPosition' da desestruturação principal.
-    // Agora vamos pegá-lo diretamente do objeto 'user' unificado.
-    // Pegamos também o `organizacao_id` para a correção de segurança.
-    // =================================================================================
+    
     const { user, isProprietario, loading: authLoading, organizacao_id } = useAuth();
-    const sidebarPosition = user?.sidebar_position || 'left'; // Pega a posição do usuário ou usa 'left' como padrão.
+    const sidebarPosition = user?.sidebar_position || 'left';
     
     const { empreendimentos } = useEmpreendimento();
     const router = useRouter();
@@ -37,6 +31,9 @@ function MainLayout({ children }) {
     const [isLoadingModalData, setIsLoadingModalData] = useState(false);
 
     const supabase = createClient();
+    
+    // A mesma lógica de visibilidade para garantir consistência
+    const isCotacoesBarVisible = user?.mostrar_barra_cotacoes && user?.cotacoes_visiveis?.length > 0;
 
     useEffect(() => {
         if (!authLoading && !user) {
@@ -46,13 +43,8 @@ function MainLayout({ children }) {
         }
     }, [authLoading, user, router, supabase]);
 
-    // =================================================================================
-    // CORREÇÃO DE SEGURANÇA BÔNUS
-    // O PORQUÊ: A busca de dados para a "Atividade Rápida" (Ctrl+A) não estava
-    // filtrando por organização. Agora ela está segura.
-    // =================================================================================
     const fetchModalData = useCallback(async () => {
-        if (!organizacao_id) return; // Não faz nada se não tiver a organização
+        if (!organizacao_id) return;
         setIsLoadingModalData(true);
         const [funcionariosRes, empresasRes] = await Promise.all([
             supabase.from('funcionarios').select('id, full_name').eq('organizacao_id', organizacao_id).order('full_name'),
@@ -117,8 +109,11 @@ function MainLayout({ children }) {
                     isAdmin={isProprietario}
                 />
                 <div className="flex-1">
-                    <Header isCollapsed={isCollapsed} headerPositionClass={finalHeaderMargin} />
-                    <main className={`p-6 transition-all duration-300 mt-[65px] ${finalMainContentMargin}`}>
+                    {/* O Header agora contém a barra, então ele gerencia sua própria posição */}
+                    <Header headerPositionClass={finalHeaderMargin} />
+                    
+                    {/* A margem do topo agora é calculada com base na altura total do cabeçalho + barra de cotações */}
+                    <main className={`p-6 transition-all duration-300 ${isCotacoesBarVisible ? 'mt-[89px]' : 'mt-[65px]'} ${finalMainContentMargin}`}>
                         {children}
                     </main>
                 </div>

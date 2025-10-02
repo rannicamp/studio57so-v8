@@ -1,18 +1,18 @@
-//app\(main)\configuracoes\page.js
+// Local do Arquivo: app/(main)/configuracoes/page.js
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faUsers, faLock, faBars, faFileInvoiceDollar, 
-    faFileAlt, faBuilding, faUserTie, faRoute, 
-    faComments, faTools, faChartPie 
+    faFileAlt, faRoute, faComments, faTools, 
+    faChartPie, faChartLine // ##### 1. IMPORTE O NOVO ÍCONE #####
 } from '@fortawesome/free-solid-svg-icons';
 
 const ConfigCard = ({ href, icon, title, description }) => (
     <Link href={href}>
-        <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1 cursor-pointer h-full flex flex-col">
+        <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:-translate-y-1 cursor-pointer h-full flex flex-col dark:bg-gray-800">
             <FontAwesomeIcon icon={icon} className="text-3xl text-blue-600 mb-4" />
-            <h3 className="text-lg font-bold text-gray-800 mb-2">{title}</h3>
-            <p className="text-gray-600 text-sm flex-grow">{description}</p>
+            <h3 className="text-lg font-bold text-gray-800 mb-2 dark:text-white">{title}</h3>
+            <p className="text-gray-600 text-sm flex-grow dark:text-gray-300">{description}</p>
         </div>
     </Link>
 );
@@ -20,15 +20,23 @@ const ConfigCard = ({ href, icon, title, description }) => (
 export default function ConfiguracoesPage() {
     return (
         <div className="p-4 md:p-6">
-            <h1 className="text-3xl font-bold mb-6 text-gray-800">Configurações</h1>
+            <h1 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white">Configurações</h1>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                
+                {/* ##### 2. NOVO CARD DE COTAÇÕES ADICIONADO AQUI ##### */}
+                <ConfigCard 
+                    href="/configuracoes/cotacoes"
+                    icon={faChartLine}
+                    title="Cotações"
+                    description="Gerencie a exibição de cotações de moedas e commodities no sistema."
+                />
+                
                 <ConfigCard 
                     href="/configuracoes/usuarios"
                     icon={faUsers}
                     title="Usuários"
                     description="Gerencie os usuários do sistema, suas funções e permissões de acesso."
                 />
-                {/* NOVO CARD ADICIONADO AQUI */}
                 <ConfigCard 
                     href="/configuracoes/painel/construtor"
                     icon={faChartPie}
