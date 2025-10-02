@@ -114,18 +114,13 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         return sanitized;
     };
 
-    // =================================================================================
-    // INÍCIO DA ATUALIZAÇÃO PRINCIPAL
-    // O PORQUÊ: Esta é a nova lógica de salvamento. Unificamos tudo para salvar
-    // apenas na tabela 'lancamentos', incluindo a nova lógica para 'recorrente'
-    // que cria todos os lançamentos futuros de uma vez só. A lógica antiga
-    // que tentava salvar em 'recorrencias' foi removida, corrigindo o erro.
-    // =================================================================================
     const mutation = useMutation({
         mutationFn: async (formData) => {
             if (!user || !organizacao_id) throw new Error("Usuário não autenticado ou organização não encontrada.");
-
-            const valorNumerico = parseFloat(String(formData.valor || '0').replace(/\./g, '').replace(',', '.')) || 0;
+            
+            // <<< ALTERAÇÃO: A conversão agora é mais direta e segura.
+            // parseFloat vai converter "120.23" para o número 120.23, que é o que o banco de dados espera.
+            const valorNumerico = parseFloat(String(formData.valor || '0').replace(',', '.')) || 0;
 
             let favorecidoFinalId = formData.favorecido_contato_id;
             if (formData.novo_favorecido && formData.novo_favorecido.nome) {
@@ -212,7 +207,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     const lancamentosParaInserir = [];
                     const isRecorrente = formData.form_type === 'recorrente';
 
-                    // Define o número de parcelas
                     let numeroDeLancamentos;
                     if (isRecorrente) {
                         if (formData.recorrencia_data_fim) {
@@ -245,7 +239,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                             parcela_grupo: grupo_id,
                         };
 
-                        // Adiciona os campos de recorrência apenas ao primeiro lançamento da série
                         if (isRecorrente && i === 0) {
                             lancamento.frequencia = formData.frequencia;
                             lancamento.recorrencia_data_fim = formData.recorrencia_data_fim;
@@ -265,7 +258,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 throw new Error("Não foi possível salvar os dados do lançamento.");
             }
             
-            // Lógica de anexo: anexa ao primeiro lançamento criado
             if (formData.anexos.length > 0) {
                 const lancamentoPrincipalId = lancamentosSalvos[0].id;
                 const uploadPromises = formData.anexos.map(async (anexo) => {
@@ -301,9 +293,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             toast.error(`Erro ao salvar: ${err.message}`);
         }
     });
-    // =================================================================================
-    // FIM DA ATUALIZAÇÃO PRINCIPAL
-    // =================================================================================
 
 
     useEffect(() => {
@@ -312,7 +301,8 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 const dataToLoad = { 
                     ...initialData, 
                     observacoes: initialData.observacao || '',
-                    valor: initialData.valor || '',
+                    // <<< ALTERAÇÃO: Garantimos que o valor seja sempre uma string com ponto para a máscara.
+                    valor: initialData.valor ? String(initialData.valor).replace(',', '.') : '', 
                     data_transacao: initialData.data_transacao ? new Date(initialData.data_transacao).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                     data_vencimento: initialData.data_vencimento ? new Date(initialData.data_vencimento).toISOString().split('T')[0] : null,
                     data_pagamento: initialData.data_pagamento ? new Date(initialData.data_pagamento).toISOString().split('T')[0] : null,
@@ -339,6 +329,13 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     const handleSubmit = (e) => {
         e.preventDefault();
         mutation.mutate(formData);
+    };
+
+    // <<< ALTERAÇÃO: Função super simplificada!
+    // Ela agora só pega o valor já traduzido pela máscara e o envia para o handleChange.
+    // O `unmaskedValue` que recebemos do `onAccept` já estará no formato "120.23".
+    const handleValorChange = (unmaskedValue) => {
+        handleChange({ target: { name: 'valor', value: unmaskedValue } });
     };
 
     const handleChange = (e) => {
@@ -493,9 +490,9 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     <div className="space-y-4 pt-4 border-t">
                         <input type="text" name="descricao" value={formData.descricao || ''} onChange={handleChange} required placeholder="Descrição do Lançamento *" className="w-full p-2 border rounded-md" />
                         
-                        {formData.form_type === 'parcelado' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes do Parcelamento</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor Total *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask="typed" name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Nº de Parcelas *</label> <input type="number" min="2" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">1º Vencimento *</label> <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
-                        {formData.form_type === 'recorrente' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes da Recorrência</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor da Parcela *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask="typed" name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Início *</label> <input type="date" name="recorrencia_data_inicio" value={formData.recorrencia_data_inicio} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Fim (Opcional)</label> <input type="date" name="recorrencia_data_fim" value={formData.recorrencia_data_fim || ''} onChange={handleChange} className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
-                        {(formData.form_type === 'simples' || formData.form_type === 'transferencia' || isEditing) && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div> <label className="block text-sm font-medium">Valor *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask="typed" name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleChange({target: {name: 'valor', value: unmaskedValue}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">{formData.form_type === 'transferencia' ? 'Data da Transferência *' : 'Data de Vencimento *'}</label> <input type="date" name="data_vencimento" value={formData.data_vencimento || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> )}
+                        {formData.form_type === 'parcelado' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes do Parcelamento</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor Total *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleValorChange(unmaskedValue)} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Nº de Parcelas *</label> <input type="number" min="2" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">1º Vencimento *</label> <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
+                        {formData.form_type === 'recorrente' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes da Recorrência</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor da Parcela *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleValorChange(unmaskedValue)} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Início *</label> <input type="date" name="recorrencia_data_inicio" value={formData.recorrencia_data_inicio} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Fim (Opcional)</label> <input type="date" name="recorrencia_data_fim" value={formData.recorrencia_data_fim || ''} onChange={handleChange} className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
+                        {(formData.form_type === 'simples' || formData.form_type === 'transferencia' || isEditing) && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div> <label className="block text-sm font-medium">Valor *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleValorChange(unmaskedValue)} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">{formData.form_type === 'transferencia' ? 'Data da Transferência *' : 'Data de Vencimento *'}</label> <input type="date" name="data_vencimento" value={formData.data_vencimento || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> )}
                         {isEditing && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div> <label className="block text-sm font-medium">Status</label> <select name="status" value={formData.status || 'Pendente'} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"> <option value="Pendente">Pendente</option> <option value="Pago">Pago</option> </select> </div> {formData.status === 'Pago' && ( <div className="animate-fade-in"> <label className="block text-sm font-medium">Data do Pagamento</label> <input type="date" name="data_pagamento" value={formData.data_pagamento || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md bg-green-50" /> </div> )} </div> )}
 
                         {formData.form_type === 'transferencia' ? ( 

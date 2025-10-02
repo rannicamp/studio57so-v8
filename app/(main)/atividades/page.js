@@ -18,12 +18,10 @@ import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory, 
 import MultiSelectDropdown from '../../../components/financeiro/MultiSelectDropdown';
 import { toast } from 'sonner';
 import AtividadeDetalhesSidebar from '@/components/atividades/AtividadeDetalhesSidebar';
-import { useQuery, useQueryClient } from '@tanstack/react-query'; // 1. Importar useQuery
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-// =================================================================================
-// INÍCIO DA OTIMIZAÇÃO DE PERFORMANCE (CACHE)
-// =================================================================================
 const ACTIVITIES_CACHE_KEY = 'atividadesPageData';
+const ACTIVITIES_UI_STATE_KEY = 'atividadesUiState';
 
 const fetchAllActivities = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
@@ -46,7 +44,6 @@ const fetchAuxiliaryData = async (supabase, organizacaoId) => {
 
     if (funcError || empresasError) {
         console.error("Erro ao carregar dados auxiliares:", { funcError, empresasError });
-        // Decide-se não lançar erro para não quebrar a página, mas poderia
     }
     return { funcionarios: funcData || [], allEmpresas: empresasData || [] };
 };
@@ -61,9 +58,6 @@ const getCachedData = (key) => {
     }
     return undefined;
 };
-// =================================================================================
-// FIM DA OTIMIZAÇÃO
-// =================================================================================
 
 export default function AtividadesPage() {
     const supabase = createClient();
@@ -75,9 +69,15 @@ export default function AtividadesPage() {
 
     const canViewPage = hasPermission('atividades', 'pode_ver');
     const canCreate = hasPermission('atividades', 'pode_criar');
+    // =================================================================================
+    // CORREÇÃO DO ERRO DE REFERÊNCIA
+    // O PORQUÊ: As variáveis `canEdit` e `canDelete` haviam sido removidas
+    // por engano na refatoração anterior. Elas foram restauradas para que as
+    // permissões de edição e exclusão funcionem corretamente nos componentes filhos.
+    // =================================================================================
     const canEdit = hasPermission('atividades', 'pode_editar');
     const canDelete = hasPermission('atividades', 'pode_excluir');
-
+    
     const [activeTab, setActiveTab] = useState('kanban');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingActivity, setEditingActivity] = useState(null);
@@ -86,7 +86,6 @@ export default function AtividadesPage() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [selectedActivityForSidebar, setSelectedActivityForSidebar] = useState(null);
     
-    // Ref para controle da notificação de atualização
     const isInitialFetchCompleted = useRef(false);
 
     useEffect(() => {
@@ -104,9 +103,12 @@ export default function AtividadesPage() {
                 if (!Array.isArray(parsedFilters.status)) parsedFilters.status = [];
                 setFilters(parsedFilters);
             }
+            const savedUiState = getCachedData(ACTIVITIES_UI_STATE_KEY);
+            if (savedUiState && savedUiState.activeTab) {
+                setActiveTab(savedUiState.activeTab);
+            }
         } catch (error) {
-            console.error("Falha ao carregar filtros do localStorage", error);
-            localStorage.removeItem('atividadesFilters');
+            console.error("Falha ao carregar estado do localStorage", error);
         }
     }, [setPageTitle]);
 
@@ -118,12 +120,16 @@ export default function AtividadesPage() {
         }
     }, [filters]);
 
-    // =================================================================================
-    // ATUALIZAÇÃO PARA useQuery (BUSCA DE DADOS PRINCIPAL)
-    // O PORQUÊ: Modernizamos a busca de dados para usar `useQuery`.
-    // `placeholderData` carrega os dados do cache instantaneamente, enquanto a query
-    // busca as informações mais recentes em segundo plano.
-    // =================================================================================
+    useEffect(() => {
+        try {
+            const uiState = { activeTab };
+            localStorage.setItem(ACTIVITIES_UI_STATE_KEY, JSON.stringify(uiState));
+        } catch (error) {
+            console.error("Falha ao salvar estado da UI no localStorage", error);
+        }
+    }, [activeTab]);
+
+
     const { data: allActivities = [], isLoading: isLoadingActivities, isSuccess: isActivitiesSuccess } = useQuery({
         queryKey: ['atividades', organizacaoId],
         queryFn: () => fetchAllActivities(supabase, organizacaoId),
@@ -131,14 +137,14 @@ export default function AtividadesPage() {
         placeholderData: () => getCachedData(ACTIVITIES_CACHE_KEY),
     });
 
-    const { data: auxiliaryData, isLoading: isLoadingAuxiliary } = useQuery({
+    const { data: auxiliaryData } = useQuery({
         queryKey: ['atividadesAuxData', organizacaoId],
         queryFn: () => fetchAuxiliaryData(supabase, organizacaoId),
         enabled: !!organizacaoId && canViewPage,
+        staleTime: 300000,
     });
     const { funcionarios = [], allEmpresas = [] } = auxiliaryData || {};
 
-    // Efeito para salvar cache e notificar atualização
     useEffect(() => {
         if (allActivities && isActivitiesSuccess) {
             try {
@@ -202,7 +208,6 @@ export default function AtividadesPage() {
     const queryClient = useQueryClient();
     const refreshActivities = () => queryClient.invalidateQueries({ queryKey: ['atividades', organizacaoId] });
     
-    // Todas as funções que modificam dados (handleDuplicate, handleDelete, handleStatusChange) agora chamam `refreshActivities` no sucesso.
     const handleDuplicateActivity = (activityToDuplicate) => {
         if (!canCreate) { toast.error("Você não tem permissão para criar atividades."); return; }
         
@@ -315,7 +320,7 @@ export default function AtividadesPage() {
         { id: 'Aguardando Material', text: 'Aguardando Material' }, { id: 'Cancelado', text: 'Cancelado' }
     ];
 
-    if (authLoading || (isLoadingActivities && !allActivities.length)) { // Mostra loading se não tiver dados do cache
+    if (authLoading || (isLoadingActivities && !allActivities.length)) {
         return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando...</div>;
     }
 
