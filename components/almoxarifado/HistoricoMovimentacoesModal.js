@@ -3,15 +3,10 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
-import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
+import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons';
 
-// =================================================================================
-// ATUALIZAÇÃO DE SEGURANÇA (organizacao_id)
-// O PORQUÊ: Adicionamos o `organizacaoId` para garantir que a busca pelo histórico
-// seja restrita à organização do usuário, criando uma camada extra de segurança.
-// =================================================================================
 const fetchHistorico = async (supabase, estoqueId, organizacaoId) => {
     if (!estoqueId || !organizacaoId) return [];
     
@@ -24,7 +19,7 @@ const fetchHistorico = async (supabase, estoqueId, organizacaoId) => {
             funcionario:funcionarios(id, full_name)
         `)
         .eq('estoque_id', estoqueId)
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId)
         .order('data_movimentacao', { ascending: false });
     
     if (error) throw new Error('Falha ao buscar histórico: ' + error.message);
@@ -33,14 +28,9 @@ const fetchHistorico = async (supabase, estoqueId, organizacaoId) => {
 
 export default function HistoricoMovimentacoesModal({ isOpen, onClose, estoqueItem }) {
     const supabase = createClient();
-    const { user } = useAuth(); // 2. Obter o usuário para pegar o ID da organização
+    const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE SEGURANÇA (queryKey e queryFn)
-    // O PORQUÊ: Adicionamos o `organizacaoId` à chave da query e o passamos para
-    // a função de busca, garantindo um cache seguro e uma consulta correta.
-    // =================================================================================
     const { data: historico, isLoading, isError, error } = useQuery({
         queryKey: ['historicoMovimentacoes', estoqueItem?.id, organizacaoId],
         queryFn: () => fetchHistorico(supabase, estoqueItem.id, organizacaoId),
@@ -49,7 +39,34 @@ export default function HistoricoMovimentacoesModal({ isOpen, onClose, estoqueIt
 
     const formatDate = (dateStr) => {
         if (!dateStr) return 'N/A';
-        return new Date(dateStr).toLocaleString('pt-BR');
+        return new Date(dateStr).toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    // =================================================================================
+    // CORREÇÃO DA LÓGICA DE EXIBIÇÃO
+    // O PORQUÊ: As funções agora verificam os tipos de movimentação de forma mais
+    // completa, garantindo que a cor, o ícone e as informações de responsável
+    // sejam exibidos corretamente para todos os casos definidos no banco de dados.
+    // =================================================================================
+    const isEntrada = (tipo) => ['Entrada por Compra', 'Devolução ao Estoque'].includes(tipo);
+
+    const getResponsavelOrigem = (mov) => {
+        if (mov.tipo === 'Entrada por Compra') {
+            return `Pedido de Compra #${mov.pedido_compra_id}`;
+        }
+        if (mov.funcionario) {
+            return mov.funcionario.full_name;
+        }
+        if (mov.usuario) {
+            return `${mov.usuario.nome} ${mov.usuario.sobrenome}`;
+        }
+        return 'Sistema';
     };
 
     if (!isOpen) return null;
@@ -86,12 +103,12 @@ export default function HistoricoMovimentacoesModal({ isOpen, onClose, estoqueIt
                                     historico.map(mov => (
                                         <tr key={mov.id}>
                                             <td className="p-2">{formatDate(mov.data_movimentacao)}</td>
-                                            <td className={`p-2 font-semibold flex items-center gap-2 ${mov.tipo === 'Entrada' ? 'text-green-600' : 'text-red-600'}`}>
-                                                <FontAwesomeIcon icon={mov.tipo === 'Entrada' ? faArrowUp : faArrowDown} />
+                                            <td className={`p-2 font-semibold flex items-center gap-2 ${isEntrada(mov.tipo) ? 'text-green-600' : 'text-red-600'}`}>
+                                                <FontAwesomeIcon icon={isEntrada(mov.tipo) ? faArrowUp : faArrowDown} />
                                                 {mov.tipo}
                                             </td>
                                             <td className="p-2 text-center font-bold">{mov.quantidade}</td>
-                                            <td className="p-2">{mov.tipo === 'Entrada' ? `Pedido #${mov.pedido_compra_id}` : (mov.funcionario?.full_name || 'N/A')}</td>
+                                            <td className="p-2">{getResponsavelOrigem(mov)}</td>
                                         </tr>
                                     ))
                                 )}

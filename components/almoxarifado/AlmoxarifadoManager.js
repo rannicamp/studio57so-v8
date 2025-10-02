@@ -1,13 +1,13 @@
 //components\almoxarifado\AlmoxarifadoManager.js
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { createClient } from '../../utils/supabase/client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 1. Adicionar useMutation
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-    faSpinner, faWarehouse, faFilter, faTimes, faArrowDown, faHistory, 
-    faArrowUp, faTools, faBox, faBoxOpen, faSearch, faPlus
+import {
+    faSpinner, faWarehouse, faFilter, faTimes, faArrowDown, faHistory,
+    faArrowUp, faTools, faBox, faBoxOpen, faSearch, faPlus, faSyncAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import BaixaEstoqueModal from './BaixaEstoqueModal';
@@ -17,14 +17,10 @@ import RegistrarDevolucaoModal from './RegistrarDevolucaoModal';
 import AdicionarMaterialManualModal from './AdicionarMaterialManualModal';
 import { useEmpreendimento } from '../../contexts/EmpreendimentoContext';
 import { useDebounce } from 'use-debounce';
-import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
+import { useAuth } from '../../contexts/AuthContext';
 
-// =================================================================================
-// ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-// O PORQUÊ: A função de busca agora também recebe o `organizacaoId` para adicionar
-// um filtro explícito na consulta. Isso cria uma dupla camada de segurança,
-// garantindo que apenas o estoque da organização correta seja exibido.
-// =================================================================================
+const getAlmoxarifadoCacheKey = (empreendimentoId) => `almoxarifadoEstoqueData_${empreendimentoId}`;
+
 const fetchEstoqueData = async (supabase, empreendimentoId, organizacaoId) => {
     if (!empreendimentoId || empreendimentoId === 'all' || !organizacaoId) return [];
 
@@ -35,22 +31,39 @@ const fetchEstoqueData = async (supabase, empreendimentoId, organizacaoId) => {
             material:materiais(id, nome, descricao, classificacao)
         `)
         .eq('empreendimento_id', empreendimentoId)
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId)
         .order('material(nome)', { ascending: true });
 
     if (error) throw new Error('Falha ao buscar dados do estoque.');
-    
+
     return data?.map(item => ({ ...item, quantidade_em_uso: item.quantidade_em_uso || 0 })) || [];
+};
+
+const getCachedEstoqueData = (empreendimentoId) => {
+    if (!empreendimentoId) return undefined;
+    try {
+        const cacheKey = getAlmoxarifadoCacheKey(empreendimentoId);
+        const cachedData = localStorage.getItem(cacheKey);
+        if (cachedData) {
+            return JSON.parse(cachedData);
+        }
+    } catch (error) {
+        console.error("Erro ao ler o cache do Almoxarifado:", error);
+        localStorage.removeItem(getAlmoxarifadoCacheKey(empreendimentoId));
+    }
+    return undefined;
 };
 
 export default function AlmoxarifadoManager() {
     const supabase = createClient();
     const queryClient = useQueryClient();
-    const { user } = useAuth(); // 2. Obter o usuário para pegar o ID da organização
+    const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
     const { selectedEmpreendimento: empreendimentoId } = useEmpreendimento();
-    
+
+    const isInitialFetchCompleted = useRef(false);
+
     const [filtroClassificacao, setFiltroClassificacao] = useState('Todos');
     const [termoBusca, setTermoBusca] = useState('');
     const [debouncedBusca] = useDebounce(termoBusca, 300);
@@ -64,21 +77,76 @@ export default function AlmoxarifadoManager() {
     const [selectedEstoqueItem, setSelectedEstoqueItem] = useState(null);
 
     // =================================================================================
-    // ATUALIZAÇÃO DE SEGURANÇA (queryKey e queryFn)
-    // O PORQUÊ: Adicionamos o `organizacaoId` na `queryKey` para que o cache seja
-    // único por organização, e o passamos para a função de busca.
+    // ATUALIZAÇÃO DE FUNCIONALIDADE (useMutation)
+    // O PORQUÊ: Esta nova `mutation` é responsável por atualizar a classificação
+    // de um material diretamente no banco de dados quando o usuário clica na tag.
     // =================================================================================
-    const { data: estoqueCompleto, isLoading, isError, error } = useQuery({
+    const [updatingMaterialId, setUpdatingMaterialId] = useState(null);
+    const updateClassificacaoMutation = useMutation({
+        mutationFn: async ({ materialId, novaClassificacao }) => {
+            const { error } = await supabase
+                .from('materiais')
+                .update({ classificacao: novaClassificacao })
+                .eq('id', materialId);
+            if (error) throw new Error(error.message);
+            return { materialId, novaClassificacao };
+        },
+        onMutate: ({ materialId }) => {
+            setUpdatingMaterialId(materialId);
+        },
+        onSuccess: (data, variables) => {
+            toast.success(`Material "${variables.materialNome}" atualizado para ${variables.novaClassificacao}.`);
+            queryClient.invalidateQueries({ queryKey: ['estoque', empreendimentoId, organizacaoId] });
+        },
+        onError: (error) => {
+            toast.error(`Erro ao atualizar classificação: ${error.message}`);
+        },
+        onSettled: () => {
+            setUpdatingMaterialId(null);
+        },
+    });
+
+    const handleChangeClassificacao = (material) => {
+        if (updatingMaterialId) return; // Impede cliques duplos
+
+        const novaClassificacao = material.classificacao === 'Insumo' ? 'Equipamento' : 'Insumo';
+        updateClassificacaoMutation.mutate({ 
+            materialId: material.id, 
+            novaClassificacao,
+            materialNome: material.nome // Passa o nome para a notificação
+        });
+    };
+
+    const { data: estoqueCompleto, isLoading, isError, error, isSuccess } = useQuery({
         queryKey: ['estoque', empreendimentoId, organizacaoId],
         queryFn: () => fetchEstoqueData(supabase, empreendimentoId, organizacaoId),
         enabled: !!empreendimentoId && empreendimentoId !== 'all' && !!organizacaoId,
+        placeholderData: () => getCachedEstoqueData(empreendimentoId),
     });
+
+    useEffect(() => {
+        if (estoqueCompleto && isSuccess) {
+            try {
+                const cacheKey = getAlmoxarifadoCacheKey(empreendimentoId);
+                const cachedData = localStorage.getItem(cacheKey);
+                if (isInitialFetchCompleted.current && JSON.stringify(estoqueCompleto) !== cachedData) {
+                    toast.success('Página atualizada!', { duration: 2000 });
+                }
+                localStorage.setItem(cacheKey, JSON.stringify(estoqueCompleto));
+                if (!isInitialFetchCompleted.current) {
+                    isInitialFetchCompleted.current = true;
+                }
+            } catch (error) {
+                console.error("Erro ao salvar ou notificar o cache do Almoxarifado:", error);
+            }
+        }
+    }, [estoqueCompleto, isSuccess, empreendimentoId]);
 
     const itensFiltrados = useMemo(() => {
         if (!estoqueCompleto) return [];
         return estoqueCompleto.filter(item => {
             const correspondeClassificacao = filtroClassificacao === 'Todos' || item.material.classificacao === filtroClassificacao;
-            const correspondeBusca = !debouncedBusca || 
+            const correspondeBusca = !debouncedBusca ||
                 (item.material.nome && item.material.nome.toLowerCase().includes(debouncedBusca.toLowerCase())) ||
                 (item.material.descricao && item.material.descricao.toLowerCase().includes(debouncedBusca.toLowerCase()));
             return correspondeClassificacao && correspondeBusca;
@@ -87,14 +155,14 @@ export default function AlmoxarifadoManager() {
 
     const equipamentosEmUso = useMemo(() => {
         if (!estoqueCompleto) return [];
-        return estoqueCompleto.filter(item => 
+        return estoqueCompleto.filter(item =>
             item.material.classificacao === 'Equipamento' && item.quantidade_em_uso > 0
         );
     }, [estoqueCompleto]);
 
     const handleSuccess = () => {
         toast.success("Operação realizada com sucesso!");
-        queryClient.invalidateQueries({ queryKey: ['estoque', empreendimentoId, organizacaoId] }); // Atualiza a queryKey
+        queryClient.invalidateQueries({ queryKey: ['estoque', empreendimentoId, organizacaoId] });
     };
 
     const handleOpenBaixaModal = (item) => { setSelectedEstoqueItem(item); setIsBaixaModalOpen(true); };
@@ -106,25 +174,23 @@ export default function AlmoxarifadoManager() {
     const TabButton = ({ tabName, label, icon, count }) => (
         <button
             onClick={() => setActiveTab(tabName)}
-            className={`flex items-center gap-2 py-2 px-4 font-semibold text-sm rounded-t-lg border-b-2 ${
-                activeTab === tabName
+            className={`flex items-center gap-2 py-2 px-4 font-semibold text-sm rounded-t-lg border-b-2 ${activeTab === tabName
                 ? 'border-blue-500 text-blue-600 bg-white'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+                }`}
         >
             <FontAwesomeIcon icon={icon} /> {label}
             {count > 0 && <span className="bg-gray-200 text-gray-700 text-xs font-bold px-2 py-1 rounded-full">{count}</span>}
         </button>
     );
-    
+
     const FilterButton = ({ value, label, icon }) => (
         <button
             onClick={() => setFiltroClassificacao(value)}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md transition-colors ${
-                filtroClassificacao === value
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md transition-colors ${filtroClassificacao === value
                 ? 'bg-blue-600 text-white shadow-md'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
+                }`}
         >
             <FontAwesomeIcon icon={icon} />
             {label}
@@ -140,12 +206,12 @@ export default function AlmoxarifadoManager() {
             </div>
         );
     }
-    
+
     return (
         <div className="space-y-4">
-            <AdicionarMaterialManualModal 
-                isOpen={isAdicionarMaterialModalOpen} 
-                onClose={() => setIsAdicionarMaterialModalOpen(false)} 
+            <AdicionarMaterialManualModal
+                isOpen={isAdicionarMaterialModalOpen}
+                onClose={() => setIsAdicionarMaterialModalOpen(false)}
                 onSuccess={handleSuccess}
                 empreendimentoId={empreendimentoId}
             />
@@ -159,7 +225,7 @@ export default function AlmoxarifadoManager() {
             )}
 
             <div className="flex justify-end">
-                <button 
+                <button
                     onClick={() => setIsAdicionarMaterialModalOpen(true)}
                     className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors flex items-center gap-2"
                 >
@@ -189,10 +255,10 @@ export default function AlmoxarifadoManager() {
                 </nav>
             </div>
 
-            {isLoading && <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando estoque...</div>}
+            {isLoading && !estoqueCompleto && <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando estoque...</div>}
             {isError && <div className="text-center p-10 text-red-600">Erro ao carregar dados: {error.message}</div>}
 
-            {!isLoading && !isError && (
+            {(isSuccess || estoqueCompleto) && (
                 <>
                     {activeTab === 'disponivel' && (
                         <div className="overflow-x-auto border rounded-lg">
@@ -217,9 +283,32 @@ export default function AlmoxarifadoManager() {
                                                     <div className="text-xs text-gray-500">{item.material.descricao}</div>
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${item.material.classificacao === 'Equipamento' ? 'bg-orange-100 text-orange-800' : 'bg-teal-100 text-teal-800'}`}>
-                                                        {item.material.classificacao}
-                                                    </span>
+                                                    {/* =================================================================================
+                                                        ATUALIZAÇÃO DE FUNCIONALIDADE (Botão Interativo)
+                                                        O PORQUÊ: A tag de classificação agora é um botão que, ao ser clicado,
+                                                        chama a função para alterar o tipo do material, oferecendo uma forma
+                                                        rápida e direta de corrigir erros de cadastro. Um ícone de spinner
+                                                        é exibido durante a atualização para feedback visual.
+                                                    ================================================================================== */}
+                                                    <button 
+                                                        onClick={() => handleChangeClassificacao(item.material)}
+                                                        disabled={updatingMaterialId === item.material.id}
+                                                        className={`w-28 text-center px-2 py-1 text-xs font-semibold rounded-full transition-all duration-300 ease-in-out transform hover:scale-105 group relative ${
+                                                            item.material.classificacao === 'Equipamento' ? 'bg-orange-100 text-orange-800' : 'bg-teal-100 text-teal-800'
+                                                        }`}
+                                                        title="Clique para alterar a classificação"
+                                                    >
+                                                        {updatingMaterialId === item.material.id ? (
+                                                            <FontAwesomeIcon icon={faSpinner} spin />
+                                                        ) : (
+                                                            <>
+                                                                <span className="group-hover:opacity-0 transition-opacity">{item.material.classificacao}</span>
+                                                                <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    <FontAwesomeIcon icon={faSyncAlt} className="mr-1" /> Alterar
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                    </button>
                                                 </td>
                                                 <td className="px-6 py-4 text-center font-bold text-xl">{item.quantidade_atual} <span className="text-xs font-normal text-gray-500">{item.unidade_medida}</span></td>
                                                 <td className="px-6 py-4 text-center font-bold text-lg text-gray-500">{item.quantidade_em_uso > 0 ? item.quantidade_em_uso : '-'}</td>
@@ -246,7 +335,7 @@ export default function AlmoxarifadoManager() {
                     )}
                     {activeTab === 'em_uso' && (
                         <div className="overflow-x-auto border rounded-lg">
-                           <table className="min-w-full divide-y divide-gray-200 text-sm">
+                            <table className="min-w-full divide-y divide-gray-200 text-sm">
                                 <thead className="bg-gray-50">
                                     <tr>
                                         <th className="px-6 py-3 text-left font-bold uppercase">Equipamento</th>
@@ -272,7 +361,7 @@ export default function AlmoxarifadoManager() {
                                                     <button onClick={() => handleOpenBaixaQuebraModal(item)} className="bg-orange-500 text-white px-3 py-1 rounded-md text-xs hover:bg-orange-600 font-bold">
                                                         Baixa (Quebra)
                                                     </button>
-                                                     <button onClick={() => handleOpenHistoricoModal(item)} className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-xs hover:bg-gray-300 font-bold" title="Ver Histórico">
+                                                    <button onClick={() => handleOpenHistoricoModal(item)} className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-xs hover:bg-gray-300 font-bold" title="Ver Histórico">
                                                         <FontAwesomeIcon icon={faHistory} />
                                                     </button>
                                                 </td>

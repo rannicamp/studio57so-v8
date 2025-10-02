@@ -7,55 +7,37 @@ import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 
-// =================================================================================
-// ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-// O PORQUÊ: A função agora recebe o `organizacaoId` para filtrar os funcionários
-// e garantir que apenas os funcionários da organização correta sejam listados.
-// =================================================================================
 const fetchFuncionarios = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
     const { data, error } = await supabase
         .from('funcionarios')
         .select('id, full_name')
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId)
         .order('full_name');
     if (error) throw new Error("Não foi possível carregar a lista de funcionários.");
     return data;
 };
 
 // =================================================================================
-// ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-// O PORQUÊ: A função agora recebe o `organizacaoId` para "etiquetar" o registro
-// de movimentação de estoque, garantindo que ele pertença à organização correta.
+// ATUALIZAÇÃO DE SEGURANÇA (RPC)
+// O PORQUÊ: A lógica foi movida para uma função no banco de dados (RPC) chamada
+// `dar_baixa_estoque_por_uso`. Isso garante que a atualização do estoque e a
+// inserção no histórico aconteçam de forma atômica (tudo ou nada), prevenindo
+// inconsistências nos dados.
 // =================================================================================
 const darBaixaEstoque = async ({ supabase, estoqueItem, quantidade, observacao, usuarioId, funcionarioId, organizacaoId }) => {
-    const qtdNum = parseFloat(quantidade);
+    const { error } = await supabase.rpc('dar_baixa_estoque_por_uso', {
+        p_estoque_id: estoqueItem.id,
+        p_quantidade: parseFloat(quantidade),
+        p_observacao: observacao,
+        p_usuario_id: usuarioId,
+        p_funcionario_id: funcionarioId,
+        p_organizacao_id: organizacaoId
+    });
 
-    // 1. Atualiza a quantidade no item do estoque
-    const novaQuantidade = estoqueItem.quantidade_atual - qtdNum;
-    const { error: updateError } = await supabase
-        .from('estoque')
-        .update({ quantidade_atual: novaQuantidade, ultima_atualizacao: new Date().toISOString() })
-        .eq('id', estoqueItem.id);
-
-    if (updateError) throw updateError;
-
-    // 2. Insere o registro na tabela de movimentações
-    const { error: insertError } = await supabase
-        .from('movimentacoes_estoque')
-        .insert({
-            estoque_id: estoqueItem.id,
-            tipo: 'Saída',
-            quantidade: qtdNum,
-            usuario_id: usuarioId,
-            observacao: observacao,
-            funcionario_id: funcionarioId,
-            organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
-        });
-
-    if (insertError) throw insertError;
+    if (error) throw error;
 
     return { success: true };
 };
@@ -64,18 +46,12 @@ const darBaixaEstoque = async ({ supabase, estoqueItem, quantidade, observacao, 
 export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSuccess }) {
     const supabase = createClient();
     const { user } = useAuth();
-    const organizacaoId = user?.organizacao_id; // Pegamos o ID da organização
-    const queryClient = useQueryClient();
+    const organizacaoId = user?.organizacao_id;
 
     const [quantidade, setQuantidade] = useState('');
     const [observacao, setObservacao] = useState('');
     const [funcionarioId, setFuncionarioId] = useState('');
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE SEGURANÇA (queryKey e queryFn)
-    // O PORQUÊ: Adicionamos o `organizacaoId` à chave da query para garantir um cache
-    // único por organização e o passamos para a função de busca.
-    // =================================================================================
     const { data: funcionarios, isLoading: isLoadingFuncionarios } = useQuery({
         queryKey: ['funcionarios', organizacaoId],
         queryFn: () => fetchFuncionarios(supabase, organizacaoId),
@@ -83,13 +59,14 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
     });
 
     const baixaMutation = useMutation({
-        mutationFn: darBaixaEstoque,
+        mutationFn: darBaixaEstoque, // Agora chama a função que usa a RPC
         onSuccess: () => {
             onSuccess();
             onClose();
         },
         onError: (error) => {
-            toast.error(`Erro ao dar baixa no estoque: ${error.message}`);
+            // A mensagem de erro agora virá diretamente do banco de dados, sendo mais clara.
+            toast.error(`Erro ao dar baixa: ${error.message}`);
         },
     });
 
@@ -122,7 +99,6 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
             return;
         }
         
-        // Passamos o `organizacaoId` para a mutation
         baixaMutation.mutate({
             supabase,
             estoqueItem,
@@ -130,7 +106,7 @@ export default function BaixaEstoqueModal({ isOpen, onClose, estoqueItem, onSucc
             observacao,
             usuarioId: user.id,
             funcionarioId,
-            organizacaoId, // <-- Passando a "chave mestra"
+            organizacaoId,
         });
     };
 

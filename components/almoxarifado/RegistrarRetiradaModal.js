@@ -9,27 +9,17 @@ import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQuery, useMutation } from '@tanstack/react-query';
 
-// =================================================================================
-// ATUALIZAÇÃO DE SEGURANÇA (organizacao_id)
-// O PORQUÊ: A função agora recebe o `organizacaoId` para filtrar os funcionários
-// e garantir que apenas os funcionários da organização correta sejam listados.
-// =================================================================================
 const fetchFuncionarios = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
     const { data, error } = await supabase
         .from('funcionarios')
         .select('id, full_name')
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId)
         .order('full_name');
     if (error) throw new Error("Não foi possível carregar a lista de funcionários.");
     return data;
 };
 
-// =================================================================================
-// ATUALIZAÇÃO DE SEGURANÇA (organizacao_id)
-// O PORQUÊ: A função agora recebe o `organizacaoId` para "etiquetar" o registro
-// de movimentação, garantindo que a retirada seja atribuída à organização correta.
-// =================================================================================
 const registrarRetiradaEquipamento = async ({ supabase, estoqueItem, quantidade, observacao, usuarioId, funcionarioId, organizacaoId }) => {
     const qtdNum = parseFloat(quantidade);
 
@@ -49,16 +39,21 @@ const registrarRetiradaEquipamento = async ({ supabase, estoqueItem, quantidade,
     if (updateError) throw updateError;
 
     // 2. Insere o registro na tabela de movimentações
+    // =================================================================================
+    // CORREÇÃO DO ERRO DE BAIXA (DE NOVO!)
+    // O PORQUÊ: O tipo de movimentação precisa corresponder EXATAMENTE ao valor
+    // definido na regra do banco de dados para passar na validação de segurança.
+    // =================================================================================
     const { error: insertError } = await supabase
         .from('movimentacoes_estoque')
         .insert({
             estoque_id: estoqueItem.id,
-            tipo: 'Retirada por Funcionário',
+            tipo: 'Retirada por Funcionário', // <-- GARANTINDO O VALOR CORRETO
             quantidade: qtdNum,
             usuario_id: usuarioId,
             observacao: observacao,
             funcionario_id: funcionarioId,
-            organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
+            organizacao_id: organizacaoId,
         });
 
     if (insertError) throw insertError;
@@ -70,17 +65,12 @@ const registrarRetiradaEquipamento = async ({ supabase, estoqueItem, quantidade,
 export default function RegistrarRetiradaModal({ isOpen, onClose, estoqueItem, onSuccess }) {
     const supabase = createClient();
     const { user } = useAuth();
-    const organizacaoId = user?.organizacao_id; // Pegamos o ID da organização
+    const organizacaoId = user?.organizacao_id;
 
     const [quantidade, setQuantidade] = useState('');
     const [observacao, setObservacao] = useState('');
     const [funcionarioId, setFuncionarioId] = useState('');
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE SEGURANÇA (queryKey e queryFn)
-    // O PORQUÊ: Adicionamos o `organizacaoId` à chave da query para garantir um cache
-    // único por organização e o passamos para a função de busca.
-    // =================================================================================
     const { data: funcionarios, isLoading: isLoadingFuncionarios } = useQuery({
         queryKey: ['funcionarios', organizacaoId],
         queryFn: () => fetchFuncionarios(supabase, organizacaoId),
@@ -127,7 +117,6 @@ export default function RegistrarRetiradaModal({ isOpen, onClose, estoqueItem, o
             return;
         }
         
-        // Passamos o `organizacaoId` para a mutation
         retiradaMutation.mutate({
             supabase,
             estoqueItem,
@@ -135,7 +124,7 @@ export default function RegistrarRetiradaModal({ isOpen, onClose, estoqueItem, o
             observacao,
             usuarioId: user.id,
             funcionarioId,
-            organizacaoId, // <-- Passando a "chave mestra"
+            organizacaoId,
         });
     };
 

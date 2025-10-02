@@ -19,6 +19,12 @@ import AtividadeModal from '@/components/AtividadeModal';
 import KpiCard from '@/components/KpiCard';
 import FiltroCrm from '@/components/crm/FiltroCrm';
 
+// =================================================================================
+// INÍCIO DA OTIMIZAÇÃO DE PERFORMANCE (CACHE)
+// O PORQUÊ: Esta chave identifica os dados do CRM no armazenamento local do navegador.
+// =================================================================================
+const CRM_CACHE_KEY = 'crmFunilData';
+
 const formatRelativeDate = (date) => {
     if (!date) return 'N/A';
     const today = startOfDay(new Date());
@@ -126,26 +132,8 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
 
     const contatosParaEstado = contatosFiltrados.filter(item => item.contatos?.id);
     
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO DE PERFORMANCE
-    // O PORQUÊ: A busca pela última mensagem de WhatsApp para CADA card
-    // estava causando a lentidão. Desativamos temporariamente para restaurar a
-    // velocidade da página.
-    // =================================================================================
-    // const contatoIds = contatosParaEstado.map(c => c.contatos.id);
-    // if (contatoIds.length === 0) {
-    //     return { funilId, colunasDoFunil, contatosNoFunil: [] };
-    // }
-    
-    // const { data: lastMessagesData } = await supabase.rpc('get_last_messages_for_contacts', { p_contact_ids: contatoIds, p_organizacao_id: organizacaoId });
-    // const lastMessagesMap = (lastMessagesData || []).reduce((map, msg) => { map[msg.contato_id] = { content: msg.content, sent_at: msg.sent_at }; return map; }, {});
-    // const contatosComMensagens = contatosParaEstado.map(item => ({ ...item, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, contatos: { ...item.contatos, last_whatsapp_message: lastMessagesMap[item.contatos.id]?.content || null, last_whatsapp_message_time: lastMessagesMap[item.contatos.id]?.sent_at || null, } }));
-    
-    // return { funilId, colunasDoFunil, contatosNoFunil: contatosComMensagens };
+    // A busca pela última mensagem de WhatsApp continua desativada para manter a performance.
     return { funilId, colunasDoFunil, contatosNoFunil: contatosParaEstado };
-    // =================================================================================
-    // FIM DA CORREÇÃO DE PERFORMANCE
-    // =================================================================================
 };
 
 const fetchFilterData = async (supabase, organizacaoId) => {
@@ -185,6 +173,24 @@ const fetchActivityModalData = async (supabase, organizacaoId) => {
     return { funcionarios, empresas };
 };
 
+// =================================================================================
+// INÍCIO DA OTIMIZAÇÃO DE PERFORMANCE (CACHE)
+// O PORQUÊ: Esta função lê os dados salvos no navegador para que a página
+// carregue instantaneamente.
+// =================================================================================
+const getCachedFunilData = () => {
+    try {
+        const cachedData = localStorage.getItem(CRM_CACHE_KEY);
+        if (cachedData) {
+            return JSON.parse(cachedData);
+        }
+    } catch (error) {
+        console.error("Erro ao ler o cache do CRM:", error);
+        localStorage.removeItem(CRM_CACHE_KEY); // Limpa o cache se estiver corrompido
+    }
+    return undefined; // Retorna undefined se não houver cache
+};
+
 export default function CrmPage() {
     const { setPageTitle } = useLayout();
     const { user, userData } = useAuth();
@@ -211,12 +217,38 @@ export default function CrmPage() {
 
     useEffect(() => { setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
 
+    // =================================================================================
+    // INÍCIO DA OTIMIZAÇÃO DE PERFORMANCE (CACHE)
+    // O PORQUÊ: `placeholderData` é usado para mostrar dados antigos enquanto os
+    // novos são buscados em segundo plano. Isso faz a página parecer instantânea.
+    // =================================================================================
     const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ 
         queryKey: ['funilData', organizacaoId, debouncedFilters], 
         queryFn: () => fetchFunilData(supabase, organizacaoId, debouncedFilters), 
-        enabled: !!organizacaoId 
+        enabled: !!organizacaoId,
+        placeholderData: getCachedFunilData(), // <-- MÁGICA ACONTECE AQUI!
     });
     const { funilId, colunasDoFunil = [], contatosNoFunil = [] } = funilData || {};
+
+    // =================================================================================
+    // INÍCIO DA OTIMIZAÇÃO DE PERFORMANCE (CACHE)
+    // O PORQUÊ: Este efeito salva os dados mais recentes no navegador sempre que
+    // eles são atualizados, garantindo que o próximo carregamento seja rápido.
+    // =================================================================================
+    useEffect(() => {
+        if (funilData && !loadingFunil) { // Apenas salva se não estiver carregando e tiver dados
+            try {
+                // Não salva se os filtros estiverem ativos para não poluir o cache principal
+                const hasActiveFilters = debouncedFilters.searchTerm || debouncedFilters.corretorIds.length > 0 || debouncedFilters.origens.length > 0 || debouncedFilters.unidadeIds.length > 0 || debouncedFilters.campaignIds.length > 0 || debouncedFilters.adIds.length > 0 || debouncedFilters.startDate;
+                if (!hasActiveFilters) {
+                    localStorage.setItem(CRM_CACHE_KEY, JSON.stringify(funilData));
+                }
+            } catch (error) {
+                console.error("Erro ao salvar o cache do CRM:", error);
+            }
+        }
+    }, [funilData, loadingFunil, debouncedFilters]);
+
 
     const { data: filterOptions, isLoading: loadingFilters } = useQuery({ queryKey: ['crmFilterOptions', organizacaoId], queryFn: () => fetchFilterData(supabase, organizacaoId), enabled: !!organizacaoId });
     const { data: availableProducts = [] } = useQuery({ queryKey: ['availableProducts', organizacaoId], queryFn: () => fetchAvailableProducts(supabase, organizacaoId), enabled: !!organizacaoId });
@@ -291,7 +323,8 @@ export default function CrmPage() {
                     ads={filterOptions?.ads}
                 />
                 
-                {loadingFunil || loadingFilters ? (
+                {/* O spinner agora só aparece no primeiro carregamento, se não houver cache */}
+                {loadingFunil && !funilData ? (
                     <div className="flex justify-center items-center h-full"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
                 ) : (
                     <FunilKanban

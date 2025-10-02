@@ -39,14 +39,9 @@ const InfoField = ({ label, value, fullWidth = false }) => (
     </div>
 );
 
-// PORQUÊ DA MUDANÇA: O componente de checklist foi alterado para receber
-// a lista de documentos como um parâmetro separado (`documents`).
-// Isso o desacopla da estrutura do objeto `employee`, consertando o bug
-// onde a lista de documentos não aparecia no checklist.
 const CadastroChecklist = ({ employee, documents }) => {
     const checklistItems = useMemo(() => {
         const items = [];
-        // A fonte da verdade sobre os documentos agora é o parâmetro 'documents'
         const uploadedSiglas = (documents || []).map(doc => doc.tipo?.sigla?.toUpperCase()).filter(Boolean);
         const requiredItems = [
             { label: 'Nome Completo', type: 'field', key: 'full_name' }, { label: 'CPF', type: 'field', key: 'cpf' },
@@ -64,7 +59,7 @@ const CadastroChecklist = ({ employee, documents }) => {
             items.push({ label: item.label, isCompleted });
         });
         return items;
-    }, [employee, documents]); // Adicionamos 'documents' à lista de dependências
+    }, [employee, documents]);
 
     return (
         <div className="space-y-4">
@@ -365,7 +360,17 @@ const PrintConfirmationModal = ({ isOpen, onClose, onConfirmComBonus, onConfirmS
     );
 };
 
-const ContrachequeSection = ({ employee, salarioAtual }) => {
+
+// =================================================================================
+// INÍCIO DA CORREÇÃO
+// O PORQUÊ: O componente do contracheque precisa saber a qual organização
+// o funcionário pertence para gerar o contracheque corretamente e evitar o erro.
+// Adicionamos `organizacaoId` como uma nova propriedade (prop) para o componente.
+// =================================================================================
+const ContrachequeSection = ({ employee, salarioAtual, organizacaoId }) => {
+// =================================================================================
+// FIM DA CORREÇÃO
+// =================================================================================
     const supabase = createClient();
     const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
     const [contracheque, setContracheque] = useState(null);
@@ -387,13 +392,27 @@ const ContrachequeSection = ({ employee, salarioAtual }) => {
     }, [contracheque, salarioAtual]);
 
     const fetchContracheque = useCallback(async (month) => {
-        if (!employee || !month) return;
+        // =================================================================================
+        // INÍCIO DA CORREÇÃO
+        // O PORQUÊ: Adicionamos uma verificação de segurança. Se o `organizacaoId` não
+        // estiver disponível, a função não tenta gerar o contracheque, evitando o erro.
+        // Em seguida, passamos o `p_organizacao_id` na chamada da função do banco de dados,
+        // garantindo que ele saiba para qual organização o contracheque deve ser criado.
+        // =================================================================================
+        if (!employee || !month || !organizacaoId) return;
         setLoading(true);
-        const { data, error } = await supabase.rpc('gerar_ou_atualizar_contracheque', { p_funcionario_id: employee.id, p_mes_referencia: month });
+        const { data, error } = await supabase.rpc('gerar_ou_atualizar_contracheque', { 
+            p_funcionario_id: employee.id, 
+            p_mes_referencia: month,
+            p_organizacao_id: organizacaoId
+        });
+        // =================================================================================
+        // FIM DA CORREÇÃO
+        // =================================================================================
         if (error) { toast.error(`Erro ao gerar contracheque: ${error.message}`); setContracheque(null); } 
         else { setContracheque(data[0]); }
         setLoading(false);
-    }, [supabase, employee]);
+    }, [supabase, employee, organizacaoId]); // Adicionamos 'organizacaoId' às dependências
 
     useEffect(() => { fetchContracheque(selectedMonth); }, [selectedMonth, fetchContracheque]);
     useEffect(() => { if (printView) { const timer = setTimeout(() => { window.print(); setPrintView(null); }, 100); return () => clearTimeout(timer); } }, [printView]);
@@ -679,20 +698,20 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                             <InfoField label="Observações" value={employee.observations} fullWidth={true} />
                         </dl>
                     )}
-                    {activeTab === 'contracheque' && <ContrachequeSection employee={employee} salarioAtual={salarioAtual} />}
                     {/*
-                      PORQUÊ DA MUDANÇA: Aqui estava o erro principal. O componente estava tentando
-                      acessar `employee.documentos_funcionarios`, mas os documentos são carregados
-                      separadamente e passados pela propriedade `allDocuments`. A correção foi
-                      simplesmente usar a propriedade correta (`allDocuments`).
+                    // =================================================================================
+                    // INÍCIO DA CORREÇÃO
+                    // O PORQUÊ: Aqui passamos a propriedade `organizacaoId` que acabamos de
+                    // adicionar ao componente `ContrachequeSection`.
+                    // =================================================================================
+                    */}
+                    {activeTab === 'contracheque' && <ContrachequeSection employee={employee} salarioAtual={salarioAtual} organizacaoId={organizacaoId} />}
+                    {/* =================================================================================
+                    // FIM DA CORREÇÃO
+                    // =================================================================================
                     */}
                     {activeTab === 'documentos' && ( <DocumentosSection documentos={allDocuments} employeeId={employee.id} employeeName={employee.full_name} organizacaoId={employee.organizacao_id} user={user} onUpdate={onUpdate} /> )}
                     {activeTab === 'financeiro' && ( <FinanceiroSection lancamentos={lancamentos} onEditLancamento={onEditLancamento} /> )}
-                    {/*
-                      PORQUÊ DA MUDANÇA: Assim como na aba de documentos, o checklist também
-                      precisa da lista correta de documentos para funcionar. Passamos
-                      a propriedade `allDocuments` para ele também.
-                    */}
                     {activeTab === 'checklist' && ( <CadastroChecklist employee={employee} documents={allDocuments} /> )}
                 </div>
             </div>
