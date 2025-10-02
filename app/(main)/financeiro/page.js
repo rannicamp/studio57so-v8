@@ -1,7 +1,7 @@
 //app\(main)\financeiro\page.js
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLayout } from '../../../contexts/LayoutContext';
 import { createClient } from '../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faCogs, faShieldAlt, faSpinner, faLock, faBalanceScale, faSitemap, faHandshake, faLandmark, faBuilding, faFileInvoice } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+import { useDebounce } from 'use-debounce';
 
 import LancamentosManager from '../../../components/financeiro/LancamentosManager';
 import ContasManager from '../../../components/financeiro/ContasManager';
@@ -20,6 +21,26 @@ import ExtratoManager from '../../../components/financeiro/ExtratoManager';
 import LancamentoDetalhesSidebar from '../../../components/financeiro/LancamentoDetalhesSidebar';
 
 const supabase = createClient();
+
+// =================================================================================
+// INÍCIO DA OTIMIZAÇÃO DE PERFORMANCE (CACHE)
+// =================================================================================
+const LANCAMENTOS_CACHE_KEY = 'financeiroLancamentosData';
+const FINANCEIRO_UI_STATE_KEY = 'financeiroUiState';
+
+const getCachedData = (key) => {
+    try {
+        const cachedData = localStorage.getItem(key);
+        return cachedData ? JSON.parse(cachedData) : undefined;
+    } catch (error) {
+        console.error(`Erro ao ler o cache (${key}):`, error);
+        localStorage.removeItem(key);
+    }
+    return undefined;
+};
+// =================================================================================
+// FIM DA OTIMIZAÇÃO
+// =================================================================================
 
 async function fetchInitialData(organizacao_id) {
     if (!organizacao_id) return { empresas: [], contas: [], categorias: [], empreendimentos: [], allContacts: [], funcionarios: [] };
@@ -50,12 +71,6 @@ async function fetchLancamentos({ queryKey }) {
     const from = (currentPage - 1) * itemsPerPage;
     const to = from + itemsPerPage - 1;
 
-    // =================================================================================
-    // INÍCIO DA ATUALIZAÇÃO
-    // O PORQUÊ: Adicionamos 'anexos:lancamentos_anexos(*)' à string de seleção.
-    // Isso instrui o Supabase a buscar não apenas o lançamento, mas também todos os
-    // registros da tabela 'lancamentos_anexos' que estão associados a ele.
-    // =================================================================================
     const selectString = `*, 
         conta:contas_financeiras(nome), 
         categoria:categorias_financeiras(nome), 
@@ -63,10 +78,6 @@ async function fetchLancamentos({ queryKey }) {
         empresa:cadastro_empresa!empresa_id(nome_fantasia, razao_social), 
         empreendimento:empreendimentos(nome),
         anexos:lancamentos_anexos(*)`;
-    // =================================================================================
-    // FIM DA ATUALIZAÇÃO
-    // =================================================================================
-
 
     const { data, error, count } = await supabase
         .rpc('consultar_lancamentos_filtrados', { 
@@ -140,28 +151,75 @@ export default function FinanceiroPage() {
         endDate: '',
         month: '', year: '', favorecidoId: null 
     });
+    
+    const isInitialFetchCompleted = useRef(false);
 
+    // Efeito para carregar o estado da UI do localStorage
     useEffect(() => {
         if (!authLoading && canViewPage) {
             setPageTitle('GESTÃO FINANCEIRA');
+            const savedUiState = getCachedData(FINANCEIRO_UI_STATE_KEY);
+            if (savedUiState) {
+                setActiveTab(savedUiState.activeTab || 'lancamentos');
+                setFilters(savedUiState.filters || {});
+                setCurrentPage(savedUiState.currentPage || 1);
+                setItemsPerPage(savedUiState.itemsPerPage || 150);
+                setSortConfig(savedUiState.sortConfig || { key: 'data_vencimento', direction: 'descending' });
+            }
         } else if (!authLoading && !canViewPage) {
             router.push('/'); 
         }
     }, [authLoading, canViewPage, setPageTitle, router]);
 
+    // Debounce e salva o estado da UI no localStorage
+    const uiStateToSave = { activeTab, filters, currentPage, itemsPerPage, sortConfig };
+    const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
+    useEffect(() => {
+        try {
+            localStorage.setItem(FINANCEIRO_UI_STATE_KEY, JSON.stringify(debouncedUiState));
+        } catch (error) {
+            console.error("Falha ao salvar estado da UI no localStorage:", error);
+        }
+    }, [debouncedUiState]);
+
+
     const { data: initialData, isLoading: isLoadingInitialData } = useQuery({
         queryKey: ['initialFinanceData', organizacao_id],
         queryFn: () => fetchInitialData(organizacao_id),
         enabled: canViewPage && !!organizacao_id,
+        staleTime: 300000, // Cache de 5 minutos
     });
     const { empresas = [], contas = [], categorias = [], empreendimentos = [], allContacts = [], funcionarios = [] } = initialData || {};
 
-    const { data: lancamentosData, isLoading: isLoadingLancamentos } = useQuery({
+    const { data: lancamentosData, isLoading: isLoadingLancamentos, isSuccess } = useQuery({
         queryKey: ['lancamentos', { filters, currentPage, itemsPerPage, sortConfig, organizacao_id }],
         queryFn: fetchLancamentos,
         enabled: canViewPage && activeTab === 'lancamentos' && !!organizacao_id,
+        placeholderData: () => getCachedData(LANCAMENTOS_CACHE_KEY),
     });
     const { data: lancamentos = [], count: totalCount = 0 } = lancamentosData || {};
+    
+    // Efeito para salvar cache de dados e notificar
+    useEffect(() => {
+        if (lancamentosData && isSuccess) {
+            const hasActiveFilters = Object.values(filters).some(val => Array.isArray(val) ? val.length > 0 : !!val);
+            if (hasActiveFilters) return; // Não salva cache de buscas filtradas
+
+            const cacheKey = LANCAMENTOS_CACHE_KEY;
+            const cachedData = localStorage.getItem(cacheKey);
+
+            if (isInitialFetchCompleted.current && JSON.stringify(lancamentosData) !== cachedData) {
+                toast.success('Página atualizada!', { duration: 2000 });
+            }
+            
+            localStorage.setItem(cacheKey, JSON.stringify(lancamentosData));
+
+            if (!isInitialFetchCompleted.current) {
+                isInitialFetchCompleted.current = true;
+            }
+        }
+    }, [lancamentosData, isSuccess, filters]);
+
     
     const { data: lancamentosFiltradosKpi = [] } = useQuery({
         queryKey: ['lancamentosKpi', { filters, organizacao_id }],
@@ -268,7 +326,7 @@ export default function FinanceiroPage() {
                     <LancamentosManager 
                         lancamentos={lancamentos}
                         allLancamentosKpi={lancamentosFiltradosKpi}
-                        loading={isLoadingLancamentos}
+                        loading={isLoadingLancamentos && !lancamentos.length}
                         contas={contas}
                         categorias={categorias}
                         empreendimentos={empreendimentos}

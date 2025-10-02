@@ -1,7 +1,7 @@
 //components\financeiro\FiltroFinanceiro.js
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faFilter, faTimes, faSave, faStar as faStarSolid, faEllipsisV,
@@ -13,7 +13,15 @@ import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useDebounce } from 'use-debounce'; // 1. Importar useDebounce
 import MultiSelectDropdown from './MultiSelectDropdown';
+
+// =================================================================================
+// ATUALIZAÇÃO DE FUNCIONALIDADE (CACHE DE ESTADO)
+// O PORQUÊ: Esta chave será usada para salvar o estado atual dos filtros
+// no localStorage, garantindo que eles persistam ao recarregar a página.
+// =================================================================================
+const FINANCEIRO_FILTERS_CACHE_KEY = 'financeiroCurrentFilters';
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
@@ -51,6 +59,9 @@ export default function FiltroFinanceiro({
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
+    // Debounce dos filtros para salvar no localStorage de forma otimizada
+    const [debouncedFilters] = useDebounce(filters, 1000);
+
     const [filtersVisible, setFiltersVisible] = useState(true);
     const [savedFilters, setSavedFilters] = useState([]);
     const [newFilterName, setNewFilterName] = useState('');
@@ -69,6 +80,15 @@ export default function FiltroFinanceiro({
         enabled: !!organizacaoId,
     });
     
+    // Efeito para salvar os filtros atuais no localStorage
+    useEffect(() => {
+        try {
+            localStorage.setItem(FINANCEIRO_FILTERS_CACHE_KEY, JSON.stringify(debouncedFilters));
+        } catch (error) {
+            console.error("Falha ao salvar filtros no localStorage", error);
+        }
+    }, [debouncedFilters]);
+    
     useEffect(() => {
         if (favorecidoSearchTerm.length < 2) {
             setFavorecidoSearchResults([]);
@@ -84,7 +104,7 @@ export default function FiltroFinanceiro({
                     p_organizacao_id: organizacaoId
                 });
 
-                if (error) throw error; // Lança o erro para o catch
+                if (error) throw error;
 
                 setFavorecidoSearchResults(data || []);
             } catch (error) {
@@ -114,7 +134,6 @@ export default function FiltroFinanceiro({
 
     const selectedFavorecidoName = useMemo(() => {
         if (!filters.favorecidoId) return '';
-        // Prioriza a busca no resultado da pesquisa, depois na lista geral
         const foundInSearch = favorecidoSearchResults.find(c => c.id === filters.favorecidoId);
         if (foundInSearch) return foundInSearch.nome || foundInSearch.razao_social;
         const contato = allContacts.find(c => c.id === filters.favorecidoId);
