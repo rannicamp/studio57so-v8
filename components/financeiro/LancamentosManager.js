@@ -14,10 +14,12 @@ import {
     faUserTag,
     faExchangeAlt,
     faCopy,
-    faReceipt 
+    faReceipt,
+    faLink // Ícone para identificar séries
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
 import KpiCard from '../KpiCard';
 import FiltroFinanceiro from './FiltroFinanceiro';
 import ReciboModal from './ReciboModal';
@@ -56,12 +58,13 @@ const BatchUpdateModal = ({ isOpen, onClose, onConfirm, fields, allData }) => {
 
 export default function LancamentosManager({
     lancamentos, allLancamentosKpi, loading, contas, categorias, empreendimentos, empresas, funcionarios, allContacts,
-    onEdit, onDelete, onUpdate, filters, setFilters, sortConfig, setSortConfig,
+    onEdit, onUpdate, filters, setFilters, sortConfig, setSortConfig,
     currentPage, setCurrentPage, itemsPerPage, setItemsPerPage, totalCount,
     onRowClick
 }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
+    const { user } = useAuth();
 
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [isBatchActionsOpen, setIsBatchActionsOpen] = useState(false);
@@ -94,12 +97,6 @@ export default function LancamentosManager({
     
     const duplicateMutation = useMutation({
         mutationFn: async (item) => {
-            // =================================================================================
-            // INÍCIO DA CORREÇÃO
-            // O PORQUÊ: Adicionamos 'anexos' à desestruturação. Isso "limpa"
-            // o objeto, removendo os dados da tabela de anexos que não podem ser inseridos
-            // diretamente na tabela de lançamentos, resolvendo o erro.
-            // =================================================================================
             const { id, created_at, conta, categoria, empreendimento, empresa, favorecido, anexos, ...lancamentoParaDuplicar } = item;
             lancamentoParaDuplicar.descricao = `(Cópia) ${lancamentoParaDuplicar.descricao}`;
             lancamentoParaDuplicar.status = 'Pendente';
@@ -110,9 +107,106 @@ export default function LancamentosManager({
         },
         onSuccess: onActionSuccess,
     });
+    
+    const deleteSingleMutation = useMutation({
+        mutationFn: async (id) => {
+            const { error } = await supabase.from('lancamentos').delete().eq('id', id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            onActionSuccess();
+        },
+        onError: (error) => toast.error(`Erro: ${error.message}`),
+    });
+
+    const deleteFutureMutation = useMutation({
+        mutationFn: async ({ parcela_grupo, data_vencimento }) => {
+            if (!user?.organizacao_id) throw new Error("Organização não identificada.");
+            const { error } = await supabase.rpc('delete_lancamentos_futuros_do_grupo', {
+                p_grupo_id: parcela_grupo,
+                p_data_referencia: data_vencimento,
+                p_organizacao_id: user.organizacao_id,
+            });
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            onActionSuccess();
+        },
+        onError: (error) => toast.error(`Erro ao excluir futuros: ${error.message}`),
+    });
+    
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO DA EXCLUSÃO INTELIGENTE
+    // O PORQUÊ: A biblioteca `sonner` não aceita múltiplos botões de ação da forma
+    // como eu tinha feito. A maneira correta é usar um componente customizado dentro
+    // da notificação. Este novo código cria um componente `DeletionToast` que contém
+    // os botões, e a função `handleDelete` agora chama o `toast` com este componente,
+    // garantindo que as opções sejam exibidas corretamente.
+    // =================================================================================
+    const DeletionToast = ({ toastId, onSingleDelete, onFutureDelete }) => (
+        <div className="w-full">
+            <p className="font-semibold">Este lançamento faz parte de uma série.</p>
+            <p className="text-sm text-gray-600 mb-3">O que você gostaria de fazer?</p>
+            <div className="flex gap-2">
+                <button
+                    onClick={() => {
+                        toast.dismiss(toastId);
+                        onSingleDelete();
+                    }}
+                    className="w-full text-sm font-semibold px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md"
+                >
+                    Excluir somente este
+                </button>
+                <button
+                    onClick={() => {
+                        toast.dismiss(toastId);
+                        onFutureDelete();
+                    }}
+                    className="w-full text-sm font-semibold px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"
+                >
+                    Excluir este e os futuros
+                </button>
+            </div>
+        </div>
+    );
+    
+    const handleDelete = (item) => {
+        if (!item.parcela_grupo) {
+            toast("Excluir Lançamento", {
+                description: `Tem certeza que deseja excluir "${item.descricao}"?`,
+                action: {
+                    label: "Excluir",
+                    onClick: () => toast.promise(deleteSingleMutation.mutateAsync(item.id), {
+                        loading: 'Excluindo...',
+                        success: 'Lançamento excluído!',
+                        error: (err) => `Erro: ${err.message}`,
+                    }),
+                },
+                cancel: { label: "Cancelar" },
+            });
+            return;
+        }
+
+        toast.custom((t) => (
+            <DeletionToast
+                toastId={t}
+                onSingleDelete={() => toast.promise(deleteSingleMutation.mutateAsync(item.id), {
+                    loading: 'Excluindo...',
+                    success: 'Lançamento excluído!',
+                    error: (err) => `Erro: ${err.message}`,
+                })}
+                onFutureDelete={() => toast.promise(deleteFutureMutation.mutateAsync(item), {
+                    loading: 'Excluindo lançamentos futuros...',
+                    success: 'Lançamentos futuros excluídos!',
+                    error: (err) => `Erro: ${err.message}`,
+                })}
+            />
+        ), { duration: 10000 }); // Aumenta a duração para o usuário decidir
+    };
     // =================================================================================
     // FIM DA CORREÇÃO
     // =================================================================================
+
 
     const bulkDeleteMutation = useMutation({
         mutationFn: async (ids) => {
@@ -342,11 +436,17 @@ export default function LancamentosManager({
                                         displayDate = item.data_vencimento; dateLabel = 'Data de Vencimento';
                                         if (statusInfo.text === 'Atrasada') dateClass = 'text-red-600 font-bold';
                                     }
+                                    
+                                    const formattedDescription = item.descricao.replace(/\s\((\d+)\/\d+\)$/, ' #$1');
+
                                     return (
                                         <tr key={item.id} onClick={() => onRowClick(item)} className={`cursor-pointer ${selectedIds.has(item.id) ? 'bg-blue-100' : ''} ${isTransfer ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}>
                                              <td className="p-4" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} /></td>
                                              <td className={`px-4 py-2 whitespace-nowrap ${dateClass}`} title={dateLabel}>{formatDate(displayDate)}</td>
-                                             <td className="px-4 py-2 font-medium">{item.descricao}</td>
+                                             <td className="px-4 py-2 font-medium flex items-center gap-2">
+                                                {item.parcela_grupo && <FontAwesomeIcon icon={faLink} className="text-gray-400" title="Este lançamento faz parte de uma série" />}
+                                                <span>{formattedDescription}</span>
+                                             </td>
                                              <td className="px-4 py-2 text-gray-600">{item.conta?.nome || 'N/A'}</td>
                                              <td className="px-4 py-2 text-gray-600 uppercase">{nomeEmpresa}</td>
                                              <td className="px-4 py-2 text-gray-600">{item.categoria?.nome || 'N/A'}</td>
@@ -370,7 +470,7 @@ export default function LancamentosManager({
                                                      {isPending && <button onClick={() => handleStatusUpdate(item.id, 'Pago')} className="text-green-500 hover:text-green-700" title="Marcar como Pago"><FontAwesomeIcon icon={faDollarSign} /></button>}
                                                      <button onClick={() => onEdit(item)} className="text-blue-500 hover:text-blue-700" title="Editar Completo"><FontAwesomeIcon icon={faPenToSquare} /></button>
                                                      <button onClick={() => handleDuplicate(item)} className="text-gray-500 hover:text-gray-700" title="Duplicar Lançamento"><FontAwesomeIcon icon={faCopy} /></button>
-                                                     <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
+                                                     <button onClick={() => handleDelete(item)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
                                                  </div>
                                              </td>
                                         </tr>

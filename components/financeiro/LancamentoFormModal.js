@@ -114,13 +114,20 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         return sanitized;
     };
 
+    // =================================================================================
+    // INÍCIO DA ATUALIZAÇÃO PRINCIPAL
+    // O PORQUÊ: Esta é a nova lógica de salvamento. Unificamos tudo para salvar
+    // apenas na tabela 'lancamentos', incluindo a nova lógica para 'recorrente'
+    // que cria todos os lançamentos futuros de uma vez só. A lógica antiga
+    // que tentava salvar em 'recorrencias' foi removida, corrigindo o erro.
+    // =================================================================================
     const mutation = useMutation({
         mutationFn: async (formData) => {
             if (!user || !organizacao_id) throw new Error("Usuário não autenticado ou organização não encontrada.");
 
-            const valorNumerico = parseFloat(String(formData.valor || '0')) || 0;
-            let favorecidoFinalId = formData.favorecido_contato_id;
+            const valorNumerico = parseFloat(String(formData.valor || '0').replace(/\./g, '').replace(',', '.')) || 0;
 
+            let favorecidoFinalId = formData.favorecido_contato_id;
             if (formData.novo_favorecido && formData.novo_favorecido.nome) {
                 const { data: novoContato, error: contatoError } = await supabase.from('contatos').insert({ 
                     nome: formData.novo_favorecido.nome, 
@@ -133,7 +140,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
 
             const baseData = {
                 descricao: formData.descricao,
-                status: formData.status,
                 categoria_id: formData.categoria_id,
                 empreendimento_id: formData.empreendimento_id,
                 etapa_id: formData.etapa_id,
@@ -146,18 +152,19 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 tipo: formData.tipo,
             };
 
-            let lancamentoPrincipal;
+            let lancamentosSalvos = [];
             let error = null;
 
             if (isEditing) {
                 const { data, error: updateError } = await supabase.from('lancamentos').update({ 
                     ...baseData, 
-                    valor: valorNumerico, 
+                    valor: valorNumerico,
+                    status: formData.status, 
                     data_vencimento: formData.data_vencimento, 
                     data_pagamento: formData.data_pagamento 
-                }).eq('id', formData.id).select().single();
+                }).eq('id', formData.id).select();
                 error = updateError;
-                lancamentoPrincipal = data;
+                lancamentosSalvos = data;
             } else {
                 if (formData.form_type === 'transferencia') {
                     const transferenciaId = crypto.randomUUID();
@@ -171,11 +178,10 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                         data_pagamento: formData.data_vencimento,
                         status: 'Conciliado',
                         transferencia_id: transferenciaId,
-                    }).select().single();
-                    if (despesaError) {
-                        error = despesaError;
-                    } else {
-                        lancamentoPrincipal = despesaData;
+                    }).select();
+                    if (despesaError) { error = despesaError; }
+                    else {
+                        lancamentosSalvos.push(...despesaData);
                         const { error: receitaError } = await supabase.from('lancamentos').insert({
                             ...baseData,
                             descricao: `Tranf. de ${dropdownData?.contas.find(c => c.id === formData.conta_origem_id)?.nome}: ${formData.descricao}`,
@@ -194,87 +200,85 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     const { data, error: insertError } = await supabase.from('lancamentos').insert({ 
                         ...baseData, 
                         valor: valorNumerico, 
+                        status: formData.status,
                         data_transacao: formData.data_transacao, 
                         data_vencimento: formData.data_vencimento, 
                         data_pagamento: formData.data_pagamento 
-                    }).select().single();
+                    }).select();
                     error = insertError;
-                    lancamentoPrincipal = data;
-                } else if (formData.form_type === 'parcelado') {
-                    const valorParcela = (valorNumerico / formData.numero_parcelas).toFixed(2);
+                    lancamentosSalvos = data;
+                } else if (formData.form_type === 'parcelado' || formData.form_type === 'recorrente') {
+                    const grupo_id = crypto.randomUUID();
                     const lancamentosParaInserir = [];
-                    const dataPrimeiroVencimento = new Date(formData.data_primeiro_vencimento + 'T12:00:00Z');
-                    const grupo_id = crypto.randomUUID(); 
+                    const isRecorrente = formData.form_type === 'recorrente';
 
-                    for (let i = 0; i < formData.numero_parcelas; i++) {
-                        const dataVencimento = new Date(dataPrimeiroVencimento);
+                    // Define o número de parcelas
+                    let numeroDeLancamentos;
+                    if (isRecorrente) {
+                        if (formData.recorrencia_data_fim) {
+                            const inicio = new Date(formData.recorrencia_data_inicio + 'T12:00:00Z');
+                            const fim = new Date(formData.recorrencia_data_fim + 'T12:00:00Z');
+                            let months = (fim.getFullYear() - inicio.getFullYear()) * 12;
+                            months -= inicio.getMonth();
+                            months += fim.getMonth();
+                            numeroDeLancamentos = months <= 0 ? 1 : months + 1;
+                        } else {
+                            numeroDeLancamentos = 60; // 5 anos por padrão
+                        }
+                    } else {
+                        numeroDeLancamentos = formData.numero_parcelas;
+                    }
+                    
+                    const valorLancamento = (valorNumerico / (isRecorrente ? 1 : formData.numero_parcelas)).toFixed(2);
+                    const dataPrimeiraOcorrencia = new Date((isRecorrente ? formData.recorrencia_data_inicio : formData.data_primeiro_vencimento) + 'T12:00:00Z');
+
+                    for (let i = 0; i < numeroDeLancamentos; i++) {
+                        const dataVencimento = new Date(dataPrimeiraOcorrencia);
                         dataVencimento.setUTCMonth(dataVencimento.getUTCMonth() + i);
 
-                        lancamentosParaInserir.push({
+                        const lancamento = {
                             ...baseData,
-                            descricao: `${formData.descricao} (${i + 1}/${formData.numero_parcelas})`,
-                            valor: parseFloat(valorParcela),
-                            data_transacao: new Date().toISOString().split('T')[0],
+                            descricao: `${formData.descricao} (${i + 1}/${numeroDeLancamentos})`,
+                            valor: parseFloat(isRecorrente ? valorNumerico : valorLancamento),
                             data_vencimento: dataVencimento.toISOString().split('T')[0],
                             status: 'Pendente',
-                            parcela_grupo: grupo_id, 
-                        });
+                            parcela_grupo: grupo_id,
+                        };
+
+                        // Adiciona os campos de recorrência apenas ao primeiro lançamento da série
+                        if (isRecorrente && i === 0) {
+                            lancamento.frequencia = formData.frequencia;
+                            lancamento.recorrencia_data_fim = formData.recorrencia_data_fim;
+                        }
+                        
+                        lancamentosParaInserir.push(lancamento);
                     }
 
                     const { data, error: insertError } = await supabase.from('lancamentos').insert(lancamentosParaInserir).select();
-                    
-                    if (insertError) {
-                        error = insertError;
-                    } else if (data && data.length > 0) {
-                        lancamentoPrincipal = data[0];
-                    }
-                // =================================================================================
-                // INÍCIO DA CORREÇÃO
-                // O PORQUÊ: Adicionamos este bloco para lidar com o formulário 'recorrente'.
-                // Ele insere os dados em uma tabela 'recorrencias' e guarda o resultado.
-                // =================================================================================
-                } else if (formData.form_type === 'recorrente') {
-                    const { data, error: recorrenciaError } = await supabase.from('recorrencias').insert({
-                        ...baseData,
-                        valor: valorNumerico,
-                        frequencia: formData.frequencia,
-                        data_inicio: formData.recorrencia_data_inicio,
-                        data_fim: formData.recorrencia_data_fim,
-                        status: 'Ativo' // Definindo um status padrão
-                    }).select().single();
-                    
-                    error = recorrenciaError;
-                    lancamentoPrincipal = data; // Agora lancamentoPrincipal terá o valor retornado
+                    error = insertError;
+                    lancamentosSalvos = data;
                 }
-                // =================================================================================
-                // FIM DA CORREÇÃO
-                // =================================================================================
             }
 
             if (error) throw error;
-            if (!lancamentoPrincipal) throw new Error("Não foi possível obter os dados do lançamento salvo.");
+            if (!lancamentosSalvos || lancamentosSalvos.length === 0) {
+                throw new Error("Não foi possível salvar os dados do lançamento.");
+            }
             
+            // Lógica de anexo: anexa ao primeiro lançamento criado
             if (formData.anexos.length > 0) {
-                // O ID para o anexo será o ID da recorrência se for recorrente, ou do lançamento nos outros casos.
-                const anexoOwnerId = lancamentoPrincipal.id; 
-
+                const lancamentoPrincipalId = lancamentosSalvos[0].id;
                 const uploadPromises = formData.anexos.map(async (anexo) => {
                     if (!anexo.file) return;
                     const file = anexo.file;
                     const fileName = `${crypto.randomUUID()}-${sanitizeFileName(file.name)}`;
-                    // Ajuste no caminho para diferenciar anexos de recorrências e lançamentos se necessário
-                    const basePath = formData.form_type === 'recorrente' ? 'recorrencias' : 'lancamentos';
-                    const filePath = `public/${organizacao_id}/${basePath}/${anexoOwnerId}/${fileName}`;
+                    const filePath = `public/${organizacao_id}/lancamentos/${lancamentoPrincipalId}/${fileName}`;
                     
                     const { error: uploadError } = await supabase.storage.from('documentos-financeiro').upload(filePath, file);
                     if (uploadError) throw new Error(`Falha no upload do anexo ${file.name}: ${uploadError.message}`);
 
-                    // Decidir em qual tabela de anexo salvar
-                    const anexoTable = formData.form_type === 'recorrente' ? 'recorrencias_anexos' : 'lancamentos_anexos';
-                    const anexoForeignKey = formData.form_type === 'recorrente' ? 'recorrencia_id' : 'lancamento_id';
-
-                    const { error: insertAnexoError } = await supabase.from(anexoTable).insert({
-                        [anexoForeignKey]: anexoOwnerId,
+                    const { error: insertAnexoError } = await supabase.from('lancamentos_anexos').insert({
+                        lancamento_id: lancamentoPrincipalId,
                         caminho_arquivo: filePath,
                         nome_arquivo: file.name,
                         descricao: anexo.descricao,
@@ -285,12 +289,10 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 });
                 await Promise.all(uploadPromises);
             }
-            return lancamentoPrincipal;
+            return lancamentosSalvos;
         },
         onSuccess: () => {
-            // Invalida tanto lançamentos quanto recorrências para garantir que a UI atualize
             queryClient.invalidateQueries({queryKey: ['lancamentos']});
-            queryClient.invalidateQueries({queryKey: ['recorrencias']});
             if (onSuccess) onSuccess();
             toast.success('Operação realizada com sucesso!');
             setTimeout(onClose, 1500);
@@ -299,6 +301,10 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             toast.error(`Erro ao salvar: ${err.message}`);
         }
     });
+    // =================================================================================
+    // FIM DA ATUALIZAÇÃO PRINCIPAL
+    // =================================================================================
+
 
     useEffect(() => {
         if (isOpen) {
@@ -487,9 +493,9 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     <div className="space-y-4 pt-4 border-t">
                         <input type="text" name="descricao" value={formData.descricao || ''} onChange={handleChange} required placeholder="Descrição do Lançamento *" className="w-full p-2 border rounded-md" />
                         
-                        {formData.form_type === 'parcelado' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes do Parcelamento</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor Total *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Nº de Parcelas *</label> <input type="number" min="2" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">1º Vencimento *</label> <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
-                        {formData.form_type === 'recorrente' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes da Recorrência</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor Mensal *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Início *</label> <input type="date" name="recorrencia_data_inicio" value={formData.recorrencia_data_inicio} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Fim (Opcional)</label> <input type="date" name="recorrencia_data_fim" value={formData.recorrencia_data_fim || ''} onChange={handleChange} className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
-                        {(formData.form_type === 'simples' || formData.form_type === 'transferencia' || isEditing) && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div> <label className="block text-sm font-medium">Valor *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleChange({target: {name: 'valor', value: unmaskedValue}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">{formData.form_type === 'transferencia' ? 'Data da Transferência *' : 'Data de Vencimento *'}</label> <input type="date" name="data_vencimento" value={formData.data_vencimento || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> )}
+                        {formData.form_type === 'parcelado' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes do Parcelamento</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor Total *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask="typed" name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Nº de Parcelas *</label> <input type="number" min="2" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">1º Vencimento *</label> <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
+                        {formData.form_type === 'recorrente' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes da Recorrência</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor da Parcela *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask="typed" name="valor" value={String(formData.valor || '')} onAccept={(v) => handleChange({target: {name: 'valor', value: v}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Início *</label> <input type="date" name="recorrencia_data_inicio" value={formData.recorrencia_data_inicio} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Fim (Opcional)</label> <input type="date" name="recorrencia_data_fim" value={formData.recorrencia_data_fim || ''} onChange={handleChange} className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
+                        {(formData.form_type === 'simples' || formData.form_type === 'transferencia' || isEditing) && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div> <label className="block text-sm font-medium">Valor *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask="typed" name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleChange({target: {name: 'valor', value: unmaskedValue}})} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">{formData.form_type === 'transferencia' ? 'Data da Transferência *' : 'Data de Vencimento *'}</label> <input type="date" name="data_vencimento" value={formData.data_vencimento || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> )}
                         {isEditing && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div> <label className="block text-sm font-medium">Status</label> <select name="status" value={formData.status || 'Pendente'} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"> <option value="Pendente">Pendente</option> <option value="Pago">Pago</option> </select> </div> {formData.status === 'Pago' && ( <div className="animate-fade-in"> <label className="block text-sm font-medium">Data do Pagamento</label> <input type="date" name="data_pagamento" value={formData.data_pagamento || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md bg-green-50" /> </div> )} </div> )}
 
                         {formData.form_type === 'transferencia' ? ( 
