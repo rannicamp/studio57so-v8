@@ -11,7 +11,6 @@ import {
 import { faBitcoin } from '@fortawesome/free-brands-svg-icons';
 import { useRef, useState, useEffect } from 'react';
 
-// O mapa de ícones e a função de busca continuam os mesmos
 const iconMap = {
     USD: { icon: faDollarSign, color: 'text-green-500' },
     EUR: { icon: faEuroSign, color: 'text-blue-500' },
@@ -39,7 +38,7 @@ const iconMap = {
     nickel: { icon: faShieldHalved, color: 'text-gray-500' },
     silver: { icon: faGem, color: 'text-slate-400' },
     soybeans: { icon: faCarrot, color: 'text-green-300' },
-    sugar: { icon: faSnowflake, color: 'text-gray-500' }, // Cor ajustada para ser visível em fundo branco
+    sugar: { icon: faSnowflake, color: 'text-gray-500' },
     wheat: { icon: faLeaf, color: 'text-amber-400' },
     zinc: { icon: faBox, color: 'text-slate-500' },
 };
@@ -53,20 +52,23 @@ const fetchCotacoes = async () => {
 };
 
 export default function CotacoesBar({ visibleCotacoes }) {
+    // ##### 1. MOVEMOS OS HOOKS PARA O TOPO, ANTES DE QUALQUER 'IF' #####
     const containerRef = useRef(null);
     const contentRef = useRef(null);
     const [isOverflowing, setIsOverflowing] = useState(false);
 
-    if (!visibleCotacoes || visibleCotacoes.length === 0) {
-        return null;
-    }
-
+    // ##### 2. USAMOS A OPÇÃO 'enabled' PARA FAZER A BUSCA CONDICIONAL #####
+    // Esta é a forma correta de controlar o useQuery. Ele só vai buscar os dados
+    // se 'visibleCotacoes' tiver algum item.
     const { data: cotacoes, isLoading, isError } = useQuery({
         queryKey: ['cotacoesData'],
         queryFn: fetchCotacoes,
+        // A busca só é ativada se a lista de cotações visíveis não for nula e tiver itens.
+        enabled: !!visibleCotacoes && visibleCotacoes.length > 0,
         refetchInterval: 1000 * 60 * 30,
     });
-
+    
+    // O useEffect também vem para o topo, seguindo a regra.
     useEffect(() => {
         const checkOverflow = () => {
             if (containerRef.current && contentRef.current) {
@@ -80,6 +82,12 @@ export default function CotacoesBar({ visibleCotacoes }) {
         return () => window.removeEventListener('resize', checkOverflow);
     }, [cotacoes, visibleCotacoes]);
 
+
+    // ##### 3. AGORA AS CONDIÇÕES DE RETORNO VÊM DEPOIS DOS HOOKS #####
+    if (!visibleCotacoes || visibleCotacoes.length === 0) {
+        return null;
+    }
+
     const filteredCotacoes = cotacoes?.filter(c => visibleCotacoes.includes(c.id));
 
     if (isLoading) {
@@ -92,18 +100,15 @@ export default function CotacoesBar({ visibleCotacoes }) {
 
     const Content = () => (
         <>
-            {/* ##### 2. Cor do título "Cotações:" ajustada para azul escuro ##### */}
             <span className="flex items-center mx-4 text-sm font-semibold text-blue-700 flex-shrink-0">
                 <FontAwesomeIcon icon={faChartLine} className="mr-2"/> Cotações:
             </span>
             {filteredCotacoes.map(c => {
                 const iconInfo = iconMap[c.id] || { icon: faDollarSign, color: 'text-gray-400' };
                 return (
-                    // ##### 3. Cor do nome da cotação ajustada para um cinza escuro #####
                     <span key={c.id} className="flex items-center mx-4 text-xs text-gray-700 flex-shrink-0">
                         <FontAwesomeIcon icon={iconInfo.icon} className={`mr-2 ${iconInfo.color}`} />
                         {c.name}: 
-                        {/* ##### 4. Cor do valor da cotação ajustada para um verde mais escuro e forte ##### */}
                         <strong className="ml-1.5 text-green-700 font-semibold">{c.type === 'currency' ? `R$ ${c.value}` : `$ ${c.value}`}</strong>
                     </span>
                 );
@@ -112,7 +117,6 @@ export default function CotacoesBar({ visibleCotacoes }) {
     );
 
     return (
-        // ##### 1. Fundo branco, texto principal preto e uma borda inferior para separar do header #####
         <div ref={containerRef} className="bg-white text-black border-b border-gray-200 overflow-hidden h-6 flex items-center">
             {isOverflowing ? (
                 <div className="flex animate-marquee whitespace-nowrap">
