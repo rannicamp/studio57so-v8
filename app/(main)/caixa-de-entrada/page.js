@@ -3,37 +3,36 @@
 
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { getConversations, markMessagesAsRead } from './actions'
+import { createClient } from '@/utils/supabase/client'
+import { useAuth } from '@/contexts/AuthContext'
+import { getConversations, markMessagesAsRead } from './data-fetching'
 import ConversationList from '@/components/whatsapp/ConversationList'
 import MessagePanel from '@/components/whatsapp/MessagePanel'
 import ContactProfile from '@/components/whatsapp/ContactProfile'
 import { Toaster, toast } from 'sonner'
 
 export default function CaixaDeEntrada() {
-  const [selectedContact, setSelectedContact] = useState(null)
-  const queryClient = useQueryClient()
+  const [selectedContact, setSelectedContact] = useState(null);
+  const queryClient = useQueryClient();
+  const supabase = createClient();
+  const { user } = useAuth();
+  const organizacaoId = user?.organizacao_id;
 
   const { data: conversations, isLoading: isLoadingConversations } = useQuery({
-    queryKey: ['conversations'],
-    queryFn: getConversations,
-    staleTime: 1000 * 60 * 5,
-    refetchInterval: 1000 * 30,
+    queryKey: ['conversations', organizacaoId],
+    queryFn: () => getConversations(supabase, organizacaoId),
+    enabled: !!organizacaoId,
+    refetchInterval: 30000, // a cada 30 segundos
     refetchOnWindowFocus: true,
-    onSuccess: (newData) => {
-        const oldData = queryClient.getQueryData(['conversations']);
-        if (oldData && JSON.stringify(oldData) !== JSON.stringify(newData)) {
-            toast.success('Página atualizada!');
-        }
-    }
-  })
+  });
 
   const handleSelectContact = async (contact) => {
-    setSelectedContact(contact)
+    setSelectedContact(contact);
     if (contact.unread_count > 0) {
-      await markMessagesAsRead(contact.contato_id)
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      await markMessagesAsRead(supabase, organizacaoId, contact.contato_id);
+      queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
     }
-  }
+  };
   
   return (
     <div className="flex h-[calc(100vh-64px)] bg-gray-100">
@@ -57,5 +56,5 @@ export default function CaixaDeEntrada() {
         </div>
       )}
     </div>
-  )
+  );
 }

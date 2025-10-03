@@ -1,44 +1,51 @@
 // components/whatsapp/MessagePanel.js
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getMessages } from '@/app/(main)/caixa-de-entrada/actions'
+import { getMessages } from '@/app/(main)/caixa-de-entrada/data-fetching'
+import { useAuth } from '@/contexts/AuthContext'
+import { createClient } from '@/utils/supabase/client'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPaperPlane, faSpinner, faUserCircle } from '@fortawesome/free-solid-svg-icons'
 import { format } from 'date-fns'
-import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
 
 export default function MessagePanel({ contact }) {
-  const queryClient = useQueryClient()
-  const [newMessage, setNewMessage] = useState('')
-  const messagesEndRef = useRef(null)
-  const supabase = createClient()
+  const queryClient = useQueryClient();
+  const [newMessage, setNewMessage] = useState('');
+  const messagesEndRef = useRef(null);
+  const supabase = createClient();
+  const { user } = useAuth();
+  const organizacaoId = user?.organizacao_id;
 
   const { data: messages, isLoading } = useQuery({
-    queryKey: ['messages', contact?.contato_id],
-    queryFn: () => getMessages(contact?.contato_id),
-    enabled: !!contact, 
-    staleTime: 1000 * 60 * 1,
-  })
+    queryKey: ['messages', organizacaoId, contact?.contato_id],
+    queryFn: () => getMessages(supabase, organizacaoId, contact?.contato_id),
+    enabled: !!organizacaoId && !!contact,
+  });
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
   
   useEffect(() => {
     if (!contact) return;
 
     const channel = supabase
-      .channel(`whatsapp_messages:${contact.contato_id}`)
+      .channel(`whatsapp_messages_org_${organizacaoId}`)
       .on('postgres_changes', { 
             event: 'INSERT', 
             schema: 'public', 
             table: 'whatsapp_messages', 
-            filter: `contato_id=eq.${contact.contato_id}` 
+            filter: `organizacao_id=eq.${organizacaoId}` 
         }, 
         (payload) => {
-            queryClient.invalidateQueries({ queryKey: ['messages', contact.contato_id] });
-            queryClient.invalidateQueries({ queryKey: ['conversations'] });
+            // Se a nova mensagem pertence à conversa aberta, atualiza as mensagens
+            if(payload.new.contato_id === contact.contato_id) {
+                queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact.contato_id] });
+            }
+            // Sempre atualiza a lista de conversas
+            queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
+            toast.info("Nova mensagem recebida!");
         }
       )
       .subscribe();
@@ -46,7 +53,7 @@ export default function MessagePanel({ contact }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [contact, supabase, queryClient]);
+  }, [contact, organizacaoId, supabase, queryClient]);
 
   const sendMessageMutation = useMutation({
       mutationFn: async (messageContent) => {
@@ -65,20 +72,19 @@ export default function MessagePanel({ contact }) {
         return response.json();
       },
       onSuccess: () => {
-        setNewMessage('')
+        setNewMessage('');
       },
       onError: (error) => {
-          console.error(error)
           toast.error(`Erro ao enviar: ${error.message}`);
       }
-  })
+  });
 
   const handleSendMessage = (e) => {
-      e.preventDefault()
+      e.preventDefault();
       if (newMessage.trim() && messages && messages.length > 0) {
-        sendMessageMutation.mutate(newMessage)
+        sendMessageMutation.mutate(newMessage);
       }
-  }
+  };
 
   if (!contact) {
     return (
@@ -86,7 +92,7 @@ export default function MessagePanel({ contact }) {
         <FontAwesomeIcon icon={faUserCircle} size="6x" />
         <p className="mt-4 text-lg">Selecione uma conversa para começar</p>
       </div>
-    )
+    );
   }
 
   if (isLoading) {
@@ -94,7 +100,7 @@ export default function MessagePanel({ contact }) {
       <div className="flex items-center justify-center h-full">
         <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-400" />
       </div>
-    )
+    );
   }
 
   return (
@@ -105,7 +111,6 @@ export default function MessagePanel({ contact }) {
         </div>
         <h2 className="font-semibold">{contact.nome}</h2>
       </div>
-
       <div className="flex-grow p-4 overflow-y-auto">
         {messages?.map(msg => (
           <div key={msg.id} className={`flex my-2 ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
@@ -119,7 +124,6 @@ export default function MessagePanel({ contact }) {
         ))}
         <div ref={messagesEndRef} />
       </div>
-
       <div className="p-4 bg-white border-t border-gray-200">
         <form onSubmit={handleSendMessage} className="flex items-center">
           <input
@@ -136,5 +140,5 @@ export default function MessagePanel({ contact }) {
         </form>
       </div>
     </div>
-  )
+  );
 }
