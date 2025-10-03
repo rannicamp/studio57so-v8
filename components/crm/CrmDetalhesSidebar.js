@@ -1,14 +1,19 @@
-//components\crm\CrmDetalhesSidebar.js
+// components/crm/CrmDetalhesSidebar.js
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faStickyNote, faTasks, faSpinner, faPlus, faPhone, faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, faSave, faBullhorn, faUserTie, faCalculator, faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faTimes, faStickyNote, faTasks, faSpinner, faPlus, faPhone, 
+    faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, 
+    faSave, faBullhorn, faUserTie, faCalculator, faExternalLinkAlt,
+    faHistory // 1. Ícone de histórico importado
+} from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Imports atualizados
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -54,26 +59,96 @@ const MetaFormData = ({ data }) => {
 };
 
 // =================================================================================
-// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
-// O PORQUÊ: Centralizamos a busca de dados em uma função para useQuery e adicionamos
-// o filtro de segurança `organizacaoId` em todas as consultas.
+// INÍCIO DA CORREÇÃO
+// O PORQUÊ: A função de busca foi atualizada para incluir a busca pelo histórico
+// de movimentações na nova tabela que criamos.
 // =================================================================================
-const fetchSidebarData = async (supabase, contatoId, organizacaoId) => {
-    if (!contatoId || !organizacaoId) return null;
+const fetchSidebarData = async (supabase, funilEntryId, contatoId, organizacaoId) => {
+    if (!funilEntryId || !contatoId || !organizacaoId) return null;
 
     const notesPromise = supabase.from('crm_notas').select('*, usuarios(nome, sobrenome)').eq('contato_id', contatoId).eq('organizacao_id', organizacaoId).order('created_at', { ascending: false });
     const activitiesPromise = supabase.from('activities').select('*').eq('contato_id', contatoId).eq('organizacao_id', organizacaoId).order('data_inicio_prevista', { ascending: true });
     const simulationsPromise = supabase.from('simulacoes').select('id, created_at, status, valor_venda').eq('contato_id', contatoId).eq('organizacao_id', organizacaoId).order('created_at', { ascending: false });
+    
+    // 2. Nova busca pelo histórico, já trazendo os nomes das colunas e do usuário
+    const historyPromise = supabase
+        .from('historico_movimentacao_funil')
+        .select('*, coluna_anterior:coluna_anterior_id(nome), coluna_nova:coluna_nova_id(nome), usuario:usuario_id(nome, sobrenome)')
+        .eq('contato_no_funil_id', funilEntryId)
+        .eq('organizacao_id', organizacaoId)
+        .order('data_movimentacao', { ascending: false });
 
-    const [{ data: notesData, error: notesError }, { data: activitiesData, error: activitiesError }, { data: simulationsData, error: simulationsError }] = await Promise.all([notesPromise, activitiesPromise, simulationsPromise]);
+    const [
+        { data: notesData, error: notesError }, 
+        { data: activitiesData, error: activitiesError }, 
+        { data: simulationsData, error: simulationsError },
+        { data: historyData, error: historyError }
+    ] = await Promise.all([notesPromise, activitiesPromise, simulationsPromise, historyPromise]);
 
-    if (notesError || activitiesError || simulationsError) {
-        console.error({ notesError, activitiesError, simulationsError });
+    if (notesError || activitiesError || simulationsError || historyError) {
+        console.error({ notesError, activitiesError, simulationsError, historyError });
         throw new Error("Erro ao carregar detalhes do contato.");
     }
 
-    return { notes: notesData || [], activities: activitiesData || [], simulations: simulationsData || [] };
+    return { 
+        notes: notesData || [], 
+        activities: activitiesData || [], 
+        simulations: simulationsData || [],
+        history: historyData || [] // 3. Retornando o histórico
+    };
 };
+// =================================================================================
+// FIM DA CORREÇÃO
+// =================================================================================
+
+
+// 4. Novo componente para renderizar a linha do tempo
+const HistoricoTimeline = ({ history }) => {
+    if (!history || history.length === 0) {
+        return <p className="text-xs text-center text-gray-500 py-4">Nenhuma movimentação registrada.</p>;
+    }
+
+    return (
+        <div className="flow-root">
+            <ul className="-mb-8">
+                {history.map((item, itemIdx) => (
+                    <li key={item.id}>
+                        <div className="relative pb-8">
+                            {itemIdx !== history.length - 1 ? (
+                                <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
+                            ) : null}
+                            <div className="relative flex space-x-3">
+                                <div>
+                                    <span className="h-8 w-8 rounded-full bg-gray-400 flex items-center justify-center ring-8 ring-white">
+                                        <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                                        </svg>
+                                    </span>
+                                </div>
+                                <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                                    <div>
+                                        <p className="text-sm text-gray-600">
+                                            Movido de <strong className="font-medium text-gray-900">{item.coluna_anterior?.nome || 'Início do Funil'}</strong> para <strong className="font-medium text-gray-900">{item.coluna_nova?.nome}</strong>
+                                        </p>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            por {item.usuario?.nome || 'Sistema'}
+                                        </p>
+                                    </div>
+                                    <div className="whitespace-nowrap text-right text-sm text-gray-500">
+                                        <time dateTime={item.data_movimentacao}>
+                                            {format(new Date(item.data_movimentacao), 'dd/MM/yy HH:mm', { locale: ptBR })}
+                                        </time>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+};
+
 
 export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddActivity, onEditActivity, onContactUpdate, refreshKey }) {
     const supabase = createClient();
@@ -90,14 +165,15 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
     const [editData, setEditData] = useState({});
     const [editingNoteId, setEditingNoteId] = useState(null);
     const [editingNoteContent, setEditingNoteContent] = useState('');
-
+    
     const { data: sidebarData, isLoading: loading } = useQuery({
-        queryKey: ['crmSidebarData', contato?.id, organizacaoId, refreshKey],
-        queryFn: () => fetchSidebarData(supabase, contato?.id, organizacaoId),
-        enabled: !!open && !!contato?.id && !!organizacaoId,
+        queryKey: ['crmSidebarData', contatoNoFunilId, organizacaoId, refreshKey],
+        queryFn: () => fetchSidebarData(supabase, contatoNoFunilId, contato?.id, organizacaoId),
+        enabled: !!open && !!contatoNoFunilId && !!contato?.id && !!organizacaoId,
     });
     
-    const { notes = [], activities = [], simulations = [] } = sidebarData || {};
+    // 5. Extraindo o histórico dos dados buscados
+    const { notes = [], activities = [], simulations = [], history = [] } = sidebarData || {};
 
     const initializeEditData = useCallback((c) => {
         if (!c) return;
@@ -119,20 +195,11 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
         }
     }, [contato?.id, initializeEditData]);
     
-    // =================================================================================
-    // ATUALIZAÇÃO DE PADRÃO E SEGURANÇA (useMutation)
-    // O PORQUÊ: Cada ação de escrita agora tem sua própria `mutation`. Isso padroniza
-    // o código, melhora o feedback com `toast`, e garante que o `organizacaoId`
-    // seja aplicado em todas as operações de segurança.
-    // =================================================================================
     const saveContactMutation = useMutation({
         mutationFn: async (updatedData) => {
             const { nome, razao_social, cpf, cnpj, origem, telefone, email } = updatedData;
-            // Atualiza o contato principal
             const { error: contactError } = await supabase.from('contatos').update({ nome, razao_social, cpf, cnpj, origem }).eq('id', contato.id);
             if (contactError) throw contactError;
-
-            // Lógica para upsert de telefone e email, garantindo a `organizacao_id`
             if (telefone) await supabase.from('telefones').upsert({ id: contato.telefones?.[0]?.id, contato_id: contato.id, telefone, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'id' });
             if (email) await supabase.from('emails').upsert({ id: contato.emails?.[0]?.id, contato_id: contato.id, email, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'id' });
         },
@@ -148,7 +215,7 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
         mutationFn: (noteContent) => supabase.from('crm_notas').insert({ contato_id: contato.id, contato_no_funil_id: contatoNoFunilId, conteudo: noteContent, usuario_id: user.id, organizacao_id: organizacaoId }).throwOnError(),
         onSuccess: () => {
             setNewNoteContent('');
-            queryClient.invalidateQueries({ queryKey: ['crmSidebarData', contato?.id, organizacaoId] });
+            queryClient.invalidateQueries({ queryKey: ['crmSidebarData', contatoNoFunilId, organizacaoId] });
         }
     });
     
@@ -161,7 +228,7 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
             if (error) throw error;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['crmSidebarData', contato?.id, organizacaoId] });
+            queryClient.invalidateQueries({ queryKey: ['crmSidebarData', contatoNoFunilId, organizacaoId] });
         }
     });
 
@@ -314,6 +381,16 @@ export default function CrmDetalhesSidebar({ open, onClose, funilEntry, onAddAct
                                             </div>
                                         )) : <p className="text-xs text-gray-500 text-center py-4">Nenhuma nota adicionada.</p>}
                                     </div>
+                                </div>
+                            </section>
+
+                            {/* 6. Nova seção para o histórico, logo abaixo das notas */}
+                            <section>
+                                <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                    <FontAwesomeIcon icon={faHistory} /> Histórico de Movimentações
+                                </h4>
+                                <div className="max-h-56 overflow-y-auto border rounded-md p-4 bg-gray-50">
+                                    <HistoricoTimeline history={history} />
                                 </div>
                             </section>
                         </>
