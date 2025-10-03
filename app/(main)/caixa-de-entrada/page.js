@@ -4,25 +4,23 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getConversations, markMessagesAsRead } from './actions'
-import ConversationList from '@/components/whatsapp/ConversationList' // <-- CAMINHO ATUALIZADO
-import MessagePanel from '@/components/whatsapp/MessagePanel' // <-- CAMINHO ATUALIZADO
-import ContactProfile from '@/components/whatsapp/ContactProfile' // <-- CAMINHO ATUALIZADO
+import ConversationList from '@/components/whatsapp/ConversationList'
+import MessagePanel from '@/components/whatsapp/MessagePanel'
+import ContactProfile from '@/components/whatsapp/ContactProfile'
 import { Toaster, toast } from 'sonner'
 
 export default function CaixaDeEntrada() {
   const [selectedContact, setSelectedContact] = useState(null)
   const queryClient = useQueryClient()
 
-  // Busca a lista de conversas com React Query
   const { data: conversations, isLoading: isLoadingConversations } = useQuery({
     queryKey: ['conversations'],
     queryFn: getConversations,
-    staleTime: 1000 * 60 * 5, // Cache de 5 minutos
-    refetchInterval: 1000 * 30, // Busca novas conversas a cada 30 segundos
+    staleTime: 1000 * 60 * 5,
+    refetchInterval: 1000 * 30,
     refetchOnWindowFocus: true,
     onSuccess: (newData) => {
         const oldData = queryClient.getQueryData(['conversations']);
-        // Evita a notificação no primeiro carregamento
         if (oldData && JSON.stringify(oldData) !== JSON.stringify(newData)) {
             toast.success('Página atualizada!');
         }

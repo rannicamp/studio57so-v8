@@ -1,12 +1,12 @@
 // components/whatsapp/MessagePanel.js
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getMessages } from '@/app/(main)/caixa-de-entrada/actions' // <-- Importa a action
+import { getMessages } from '@/app/(main)/caixa-de-entrada/actions'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPaperPlane, faSpinner, faUserCircle } from '@fortawesome/free-solid-svg-icons'
 import { format } from 'date-fns'
 import { createClient } from '@/utils/supabase/client'
-
+import { toast } from 'sonner'
 
 export default function MessagePanel({ contact }) {
   const queryClient = useQueryClient()
