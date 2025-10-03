@@ -1,3 +1,4 @@
+// components/rh/GerenciamentoPonto.js
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -32,31 +33,36 @@ const ImporterModal = ({ isOpen, onClose, children }) => {
     );
 };
 
-// O PORQUÊ: A função de busca agora é isolada e segura, recebendo a organizacao_id.
+// =================================================================================
+// INÍCIO DA ATUALIZAÇÃO 1
+// O PORQUÊ: Adicionamos o campo 'status' na consulta. Agora, além do nome e id,
+// também saberemos se o funcionário está ativo ou demitido.
+// =================================================================================
 const fetchAllEmployees = async (organizacao_id) => {
     if (!organizacao_id) return [];
     const supabase = createClient();
-    // BLINDADO: Adicionado o filtro .eq('organizacao_id', organizacao_id)
     const { data, error } = await supabase
         .from('funcionarios')
-        .select('id, full_name, numero_ponto')
-        .eq('organizacao_id', organizacao_id) // <-- Filtro de segurança
+        .select('id, full_name, numero_ponto, status') // <-- 'status' ADICIONADO AQUI
+        .eq('organizacao_id', organizacao_id) 
         .order('full_name');
         
     if (error) throw new Error('Não foi possível carregar a lista de funcionários.');
     return data || [];
 };
+// =================================================================================
+// FIM DA ATUALIZAÇÃO 1
+// =================================================================================
 
 export default function GerenciamentoPonto() {
-    const { hasPermission, organizacao_id } = useAuth(); // BLINDADO: Pegamos a organização
+    const { hasPermission, organizacao_id } = useAuth();
     const canCreate = hasPermission('ponto', 'pode_criar');
     const canEdit = hasPermission('ponto', 'pode_editar');
     
-    // PADRÃO OURO: Refinamos o useQuery para depender da organizacao_id.
     const { data: employees = [], isLoading, error, refetch: refetchEmployees } = useQuery({ 
         queryKey: ['employeesPonto', organizacao_id], 
         queryFn: () => fetchAllEmployees(organizacao_id),
-        enabled: !!organizacao_id, // A query só é executada se a organização existir.
+        enabled: !!organizacao_id,
     });
 
     const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
@@ -64,6 +70,17 @@ export default function GerenciamentoPonto() {
     const [isImporterOpen, setIsImporterOpen] = useState(false);
     const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
     const showToast = (message, type = 'info') => setToast({ show: true, message, type });
+
+    // =================================================================================
+    // INÍCIO DA ATUALIZAÇÃO 2
+    // O PORQUÊ: Com o 'status' disponível, agora filtramos a lista principal de 'employees'
+    // em duas listas separadas: uma para ativos e outra para demitidos.
+    // =================================================================================
+    const activeEmployees = employees.filter(emp => emp.status !== 'Demitido');
+    const dismissedEmployees = employees.filter(emp => emp.status === 'Demitido');
+    // =================================================================================
+    // FIM DA ATUALIZAÇÃO 2
+    // =================================================================================
 
     useEffect(() => {
         const today = new Date();
@@ -114,10 +131,35 @@ export default function GerenciamentoPonto() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                     <div>
                         <label htmlFor="employee-select" className="block text-sm font-medium text-gray-700">Funcionário</label>
-                        <select id="employee-select" value={selectedEmployeeId} onChange={(e) => handleEmployeeChange(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        {/* ================================================================================= */}
+                        {/* INÍCIO DA ATUALIZAÇÃO 3 */}
+                        {/* O PORQUÊ: Atualizamos o select para usar as novas listas. Primeiro, ele renderiza */}
+                        {/* os 'activeEmployees'. Depois, se houver algum demitido, ele cria um grupo separado */}
+                        {/* para os 'dismissedEmployees'. */}
+                        {/* ================================================================================= */}
+                        <select 
+                            id="employee-select" 
+                            value={selectedEmployeeId} 
+                            onChange={(e) => handleEmployeeChange(e.target.value)} 
+                            className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
+                        >
                             <option value="">-- Selecione um funcionário --</option>
-                            {employees.map(emp => (<option key={emp.id} value={emp.id}>{emp.full_name}</option>))}
+                            
+                            {activeEmployees.map(emp => (
+                                <option key={emp.id} value={emp.id}>{emp.full_name}</option>
+                            ))}
+                            
+                            {dismissedEmployees.length > 0 && (
+                                <optgroup label="--- Funcionários Demitidos ---">
+                                    {dismissedEmployees.map(emp => (
+                                        <option key={emp.id} value={emp.id}>{emp.full_name}</option>
+                                    ))}
+                                </optgroup>
+                            )}
                         </select>
+                        {/* ================================================================================= */}
+                        {/* FIM DA ATUALIZAÇÃO 3 */}
+                        {/* ================================================================================= */}
                     </div>
                     <div>
                         <label htmlFor="month-select" className="block text-sm font-medium text-gray-700">Mês/Ano</label>
