@@ -9,22 +9,20 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import MultiSelectDropdown from '../financeiro/MultiSelectDropdown';
 
-// O PORQUÊ: Adicionamos `campaignIds` and `adIds` ao estado padrão do filtro.
-// Agora, quando o filtro for limpo, esses campos também serão resetados.
 const getDefaultFilterState = () => ({
     searchTerm: '',
     corretorIds: [],
     origens: [],
     unidadeIds: [],
-    campaignIds: [], // <-- NOVO
-    adIds: [],       // <-- NOVO
+    campaignIds: [],
+    adIds: [],
     startDate: '',
     endDate: new Date().toISOString().split('T')[0],
 });
 
-// O PORQUÊ: O componente agora está pronto para receber as listas de `campanhas` e `anuncios`
-// da página principal para popular os novos dropdowns.
-export default function FiltroCrm({ filters, setFilters, corretores, unidades, origens, campaigns, ads }) {
+export default function FiltroCrm({ 
+    filters, setFilters, unidades, origens, campaigns, ads, corretores
+}) {
     const [filtersVisible, setFiltersVisible] = useState(true);
     const [activePeriodFilter, setActivePeriodFilter] = useState('');
 
@@ -74,16 +72,25 @@ export default function FiltroCrm({ filters, setFilters, corretores, unidades, o
                             <label className="text-xs uppercase font-medium text-gray-600">Buscar Contato</label>
                             <input type="text" name="searchTerm" placeholder="Nome, telefone, email..." value={filters.searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} className="p-2 border rounded-md shadow-sm w-full mt-1" />
                         </div>
+                        
+                        {/* ================================================================================= */}
+                        {/* A GRANDE MUDANÇA ESTÁ AQUI: Usando o MultiSelectDropdown para corretores!   */}
+                        {/* ================================================================================= */}
                         <div>
-                           <MultiSelectDropdown label="Corretor Responsável" options={corretores || []} selectedIds={filters.corretorIds} onChange={(selected) => handleFilterChange('corretorIds', selected)} placeholder="Todos os Corretores" />
+                           <MultiSelectDropdown 
+                                label="Corretor Responsável" 
+                                options={corretores || []} 
+                                selectedIds={filters.corretorIds} 
+                                onChange={(selected) => handleFilterChange('corretorIds', selected)} 
+                                placeholder="Todos os Corretores" 
+                           />
                         </div>
+
                         <div>
                              <MultiSelectDropdown label="Origem do Lead" options={origens || []} selectedIds={filters.origens} onChange={(selected) => handleFilterChange('origens', selected)} placeholder="Todas as Origens" />
                         </div>
                     </div>
 
-                    {/* O PORQUÊ: Adicionamos uma nova linha dedicada aos filtros de Meta Ads. */}
-                    {/* Isso mantém a organização visual e agrupa filtros relacionados. */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                            <MultiSelectDropdown label="Campanha" options={campaigns || []} selectedIds={filters.campaignIds} onChange={(selected) => handleFilterChange('campaignIds', selected)} placeholder="Todas as Campanhas" />

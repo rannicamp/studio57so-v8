@@ -1,7 +1,7 @@
 // app/(main)/crm/page.js
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useLayout } from '@/contexts/LayoutContext';
@@ -19,10 +19,6 @@ import AtividadeModal from '@/components/AtividadeModal';
 import KpiCard from '@/components/KpiCard';
 import FiltroCrm from '@/components/crm/FiltroCrm';
 
-// =================================================================================
-// INÍCIO DA OTIMIZAÇÃO DE PERFORMANCE (CACHE)
-// O PORQUÊ: Esta chave identifica os dados do CRM no armazenamento local do navegador.
-// =================================================================================
 const CRM_CACHE_KEY = 'crmFunilData';
 
 const formatRelativeDate = (date) => {
@@ -39,7 +35,7 @@ const formatRelativeDate = (date) => {
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
-    const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const regex = new RegExp(`(${highlight.replace(/[.*+?^${'}'}()|[\]\\]/g, '\\$&')})`, 'gi');
     const parts = text.split(regex);
     return ( <span> {parts.map((part, i) => regex.test(part) ? (<mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark>) : (<span key={i}>{part}</span>) )} </span> );
 };
@@ -90,15 +86,15 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
     
     let query = supabase.from('contatos_no_funil').select(`
         id, coluna_id, numero_card, corretor_id, created_at,
-        contatos:contato_id ( *, telefones ( telefone, tipo ), emails(email, tipo) ),
-        corretores:corretor_id (id, nome, razao_social),
-        produtos_interesse:contatos_no_funil_produtos (id, produto:produtos_empreendimento (id, unidade, tipo, valor_venda_calculado, empreendimento_id))
+        contatos:contato_id!inner(*, telefones(telefone, tipo), emails(email, tipo)),
+        corretores:corretor_id(id, nome, razao_social),
+        produtos_interesse:contatos_no_funil_produtos(id, produto:produtos_empreendimento(id, unidade, tipo, valor_venda_calculado, empreendimento_id))
     `);
     
     query = query.eq('organizacao_id', organizacaoId);
 
     if (filters.searchTerm) {
-        query = query.or(`contatos.nome.ilike.%${filters.searchTerm}%,contatos.razao_social.ilike.%${filters.searchTerm}%,contatos.telefones.telefone.ilike.%${filters.searchTerm}%`);
+        query = query.or(`nome.ilike.%${filters.searchTerm}%,razao_social.ilike.%${filters.searchTerm}%`, { foreignTable: 'contatos' });
     }
     if (filters.corretorIds?.length > 0) {
         query = query.in('corretor_id', filters.corretorIds);
@@ -119,43 +115,79 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
         query = query.lte('created_at', filters.endDate + 'T23:59:59');
     }
 
+    if (filters.unidadeIds?.length > 0) {
+        const { data: funilProductLinks, error: linkError } = await supabase
+            .from('contatos_no_funil_produtos')
+            .select('contato_no_funil_id')
+            .in('produto_id', filters.unidadeIds);
+        if (linkError) throw linkError;
+        const matchingFunilIds = (funilProductLinks || []).map(link => link.contato_no_funil_id);
+        if (matchingFunilIds.length === 0) {
+             return { funilId, colunasDoFunil, contatosNoFunil: [] };
+        }
+        query = query.in('id', matchingFunilIds);
+    }
+
     const { data: contatosNoFunilRaw, error: contatosError } = await query;
     if (contatosError) throw contatosError;
 
-    let contatosFiltrados = contatosNoFunilRaw || [];
-    if (filters.unidadeIds?.length > 0) {
-        contatosFiltrados = contatosFiltrados.filter(item => {
-            const unidadeIdsInteresse = (item.produtos_interesse || []).map(p => p.produto.id);
-            return filters.unidadeIds.some(id => unidadeIdsInteresse.includes(id));
-        });
-    }
-
-    const contatosParaEstado = contatosFiltrados.filter(item => item.contatos?.id);
+    const contatosParaEstado = (contatosNoFunilRaw || []).filter(item => item.contatos?.id);
     
-    // A busca pela última mensagem de WhatsApp continua desativada para manter a performance.
     return { funilId, colunasDoFunil, contatosNoFunil: contatosParaEstado };
 };
 
+// =================================================================================
+// INÍCIO DA CORREÇÃO (fetchFilterData)
+// O PORQUÊ: Esta função agora busca os corretores de forma precisa,
+// primeiro pegando os IDs da tabela `contatos_no_funil` e depois buscando
+// os nomes. Isso garante que só corretores ativos no funil apareçam.
+// =================================================================================
 const fetchFilterData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { corretores: [], origens: [], unidades: [], campaigns: [], ads: [] };
-    const { data: brokerIdsData, error: idsError } = await supabase.from('contatos_no_funil').select('corretor_id').eq('organizacao_id', organizacaoId).not('corretor_id', 'is', null);
-    if (idsError) throw idsError;
-    const uniqueBrokerIds = [...new Set(brokerIdsData.map(item => item.corretor_id))];
-    let corretores = [];
-    if (uniqueBrokerIds.length > 0) {
-        const { data: corretoresData, error: corretoresError } = await supabase.from('contatos').select('id, nome, razao_social').in('id', uniqueBrokerIds).eq('organizacao_id', organizacaoId);
-        if (corretoresError) throw corretoresError;
-        corretores = corretoresData.map(c => ({ id: c.id, nome: c.nome || c.razao_social })).sort((a, b) => a.nome.localeCompare(b.nome));
+
+    // 1. Busca os IDs dos corretores que estão no funil
+    const corretoresIdsPromise = supabase
+        .from('contatos_no_funil')
+        .select('corretor_id')
+        .eq('organizacao_id', organizacaoId)
+        .not('corretor_id', 'is', null);
+
+    const unidadesPromise = supabase
+        .from('produtos_empreendimento')
+        .select('id, unidade, tipo')
+        .eq('organizacao_id', organizacaoId)
+        .order('unidade');
+
+    const contatosDataPromise = supabase
+        .from('contatos')
+        .select('origem, meta_campaign_id, meta_campaign_name, meta_ad_id, meta_ad_name')
+        .eq('organizacao_id', organizacaoId);
+
+    const [
+        { data: corretoresIdsData, error: corretoresIdsError },
+        { data: unidadesData, error: unidadesError },
+        { data: contatosParaFiltro, error: contatosError }
+    ] = await Promise.all([corretoresIdsPromise, unidadesPromise, contatosDataPromise]);
+
+    if (corretoresIdsError || unidadesError || contatosError) {
+        console.error({ corretoresIdsError, unidadesError, contatosError });
+        throw new Error("Erro ao carregar dados para os filtros.");
     }
-    const origensPromise = supabase.rpc('get_distinct_origens', { p_organizacao_id: organizacaoId });
-    const unidadesPromise = supabase.from('produtos_empreendimento').select('id, unidade').eq('organizacao_id', organizacaoId).order('unidade');
-    const campaignsPromise = supabase.from('meta_campaigns').select('id, name').eq('organizacao_id', organizacaoId).order('name');
-    const adsPromise = supabase.from('meta_ads').select('id, name').eq('organizacao_id', organizacaoId).order('name');
-    const [{ data: origensData }, { data: unidadesData }, { data: campaignsData }, { data: adsData }] = await Promise.all([origensPromise, unidadesPromise, campaignsPromise, adsPromise]);
-    const origens = origensData.map(o => ({ id: o.origem, nome: o.origem }));
-    const unidades = unidadesData.map(u => ({ id: u.id, nome: u.unidade }));
-    const campaigns = campaignsData.map(c => ({ id: c.id, nome: c.name }));
-    const ads = adsData.map(a => ({ id: a.id, nome: a.name }));
+    
+    // 2. Busca os dados completos dos corretores encontrados
+    const uniqueCorretorIds = [...new Set(corretoresIdsData.map(c => c.corretor_id))];
+    let corretores = [];
+    if (uniqueCorretorIds.length > 0) {
+        const { data, error } = await supabase.from('contatos').select('id, nome, razao_social').in('id', uniqueCorretorIds);
+        if (error) throw error;
+        corretores = (data || []).map(c => ({ id: c.id, nome: c.nome || c.razao_social })).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+    }
+
+    const unidades = (unidadesData || []).map(u => ({ id: u.id, nome: `${u.unidade} (${u.tipo || 'N/A'})` }));
+    const origens = [...new Set((contatosParaFiltro || []).map(c => c.origem).filter(Boolean))].map(o => ({ id: o, nome: o })).sort((a, b) => a.nome.localeCompare(b.nome));
+    const campaigns = [...new Map((contatosParaFiltro || []).filter(c => c.meta_campaign_id && c.meta_campaign_name).map(c => [c.meta_campaign_id, { id: c.meta_campaign_id, nome: c.meta_campaign_name }])) .values()].sort((a, b) => a.nome.localeCompare(b.nome));
+    const ads = [...new Map((contatosParaFiltro || []).filter(c => c.meta_ad_id && c.meta_ad_name).map(c => [c.meta_ad_id, { id: c.meta_ad_id, nome: c.meta_ad_name }])) .values()].sort((a, b) => a.nome.localeCompare(b.nome));
+
     return { corretores, origens, unidades, campaigns, ads };
 };
 
@@ -173,11 +205,6 @@ const fetchActivityModalData = async (supabase, organizacaoId) => {
     return { funcionarios, empresas };
 };
 
-// =================================================================================
-// INÍCIO DA OTIMIZAÇÃO DE PERFORMANCE (CACHE)
-// O PORQUÊ: Esta função lê os dados salvos no navegador para que a página
-// carregue instantaneamente.
-// =================================================================================
 const getCachedFunilData = () => {
     try {
         const cachedData = localStorage.getItem(CRM_CACHE_KEY);
@@ -186,9 +213,9 @@ const getCachedFunilData = () => {
         }
     } catch (error) {
         console.error("Erro ao ler o cache do CRM:", error);
-        localStorage.removeItem(CRM_CACHE_KEY); // Limpa o cache se estiver corrompido
+        localStorage.removeItem(CRM_CACHE_KEY);
     }
-    return undefined; // Retorna undefined se não houver cache
+    return undefined;
 };
 
 export default function CrmPage() {
@@ -217,28 +244,17 @@ export default function CrmPage() {
 
     useEffect(() => { setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
 
-    // =================================================================================
-    // INÍCIO DA OTIMIZAÇÃO DE PERFORMANCE (CACHE)
-    // O PORQUÊ: `placeholderData` é usado para mostrar dados antigos enquanto os
-    // novos são buscados em segundo plano. Isso faz a página parecer instantânea.
-    // =================================================================================
     const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ 
         queryKey: ['funilData', organizacaoId, debouncedFilters], 
         queryFn: () => fetchFunilData(supabase, organizacaoId, debouncedFilters), 
         enabled: !!organizacaoId,
-        placeholderData: getCachedFunilData(), // <-- MÁGICA ACONTECE AQUI!
+        placeholderData: getCachedFunilData(),
     });
     const { funilId, colunasDoFunil = [], contatosNoFunil = [] } = funilData || {};
 
-    // =================================================================================
-    // INÍCIO DA OTIMIZAÇÃO DE PERFORMANCE (CACHE)
-    // O PORQUÊ: Este efeito salva os dados mais recentes no navegador sempre que
-    // eles são atualizados, garantindo que o próximo carregamento seja rápido.
-    // =================================================================================
     useEffect(() => {
-        if (funilData && !loadingFunil) { // Apenas salva se não estiver carregando e tiver dados
+        if (funilData && !loadingFunil) {
             try {
-                // Não salva se os filtros estiverem ativos para não poluir o cache principal
                 const hasActiveFilters = debouncedFilters.searchTerm || debouncedFilters.corretorIds.length > 0 || debouncedFilters.origens.length > 0 || debouncedFilters.unidadeIds.length > 0 || debouncedFilters.campaignIds.length > 0 || debouncedFilters.adIds.length > 0 || debouncedFilters.startDate;
                 if (!hasActiveFilters) {
                     localStorage.setItem(CRM_CACHE_KEY, JSON.stringify(funilData));
@@ -248,7 +264,6 @@ export default function CrmPage() {
             }
         }
     }, [funilData, loadingFunil, debouncedFilters]);
-
 
     const { data: filterOptions, isLoading: loadingFilters } = useQuery({ queryKey: ['crmFilterOptions', organizacaoId], queryFn: () => fetchFilterData(supabase, organizacaoId), enabled: !!organizacaoId });
     const { data: availableProducts = [] } = useQuery({ queryKey: ['availableProducts', organizacaoId], queryFn: () => fetchAvailableProducts(supabase, organizacaoId), enabled: !!organizacaoId });
@@ -323,7 +338,6 @@ export default function CrmPage() {
                     ads={filterOptions?.ads}
                 />
                 
-                {/* O spinner agora só aparece no primeiro carregamento, se não houver cache */}
                 {loadingFunil && !funilData ? (
                     <div className="flex justify-center items-center h-full"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
                 ) : (

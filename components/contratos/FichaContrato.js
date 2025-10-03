@@ -1,3 +1,4 @@
+// components/contratos/FichaContrato.js
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -10,16 +11,15 @@ import {
     faFileInvoiceDollar, faFileSignature, faSpinner,
     faFileLines, faHandshake, faDollarSign,
     faCheckCircle, faCalendarCheck, faBuilding,
-    faFileContract // Ícone corrigido e mais apropriado
+    faFileContract, faLock // Ícone de cadeado adicionado
 } from '@fortawesome/free-solid-svg-icons';
 
-import DetalhesVendaContrato from './DetalhesVendaContrato'; 
+import DetalhesVendaContrato from './DetalhesVendaContrato';
 import ContratoAnexos from './ContratoAnexos';
 import CronogramaFinanceiro from './CronogramaFinanceiro';
 import PlanoPagamentoContrato from './PlanoPagamentoContrato';
 import KpiCard from '../KpiCard';
-// A MÁGICA DA CORREÇÃO: A linha abaixo importa o 'export default' de GeradorContrato.
-import GeradorContrato from './GeradorContrato'; 
+import GeradorContrato from './GeradorContrato';
 
 export default function FichaContrato({ initialContratoData }) {
     const supabase = createClient();
@@ -55,13 +55,13 @@ export default function FichaContrato({ initialContratoData }) {
     useEffect(() => {
         setContrato(initialContratoData);
     }, [initialContratoData]);
-    
+
     const descontoConcedido = useMemo(() => {
         const somaProdutos = (contrato.produtos || []).reduce((sum, p) => sum + parseFloat(p.valor_venda_calculado || 0), 0);
         const valorFinal = parseFloat(contrato.valor_final_venda || 0);
         return somaProdutos > valorFinal ? somaProdutos - valorFinal : 0;
     }, [contrato.produtos, contrato.valor_final_venda]);
-    
+
     const kpiData = useMemo(() => {
         const valorTotal = parseFloat(contrato.valor_final_venda) || 0;
         const parcelasPagas = (contrato.contrato_parcelas || []).filter(p => p.status_pagamento === 'Pago');
@@ -77,7 +77,7 @@ export default function FichaContrato({ initialContratoData }) {
             proximaParcela: proximaParcela ? `${formatCurrency(proximaParcela.valor_parcela)} em ${formatDateForDisplay(proximaParcela.data_vencimento)}` : 'Nenhuma'
         };
     }, [contrato]);
-    
+
     const updateFieldMutation = useMutation({
         mutationFn: async ({ fieldName, value }) => {
             const { error } = await supabase.from('contratos').update({ [fieldName]: value }).eq('id', contrato.id);
@@ -87,12 +87,39 @@ export default function FichaContrato({ initialContratoData }) {
         onError: (error) => { toast.error(`Erro: ${error.message}`); }
     });
 
-    const TabButton = ({ tabId, label, icon }) => (
-        <button onClick={() => setActiveTab(tabId)} className={`flex items-center gap-2 py-3 px-4 font-medium text-sm border-b-4 transition-colors ${activeTab === tabId ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-            <FontAwesomeIcon icon={icon} /> {label}
-        </button>
-    );
-    
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO
+    // O PORQUÊ: Criamos uma variável `isClienteDefined` para verificar se o contrato
+    // já tem um cliente. Usaremos isso para habilitar/desabilitar as abas.
+    // O componente TabButton agora aceita a propriedade `disabled` para mudar seu estilo
+    // e comportamento se estiver desabilitado.
+    // =================================================================================
+    const isClienteDefined = !!contrato?.contato_id;
+
+    const TabButton = ({ tabId, label, icon, disabled = false }) => {
+        const isDisabled = disabled && !isClienteDefined;
+
+        return (
+            <button
+                onClick={() => !isDisabled && setActiveTab(tabId)}
+                disabled={isDisabled}
+                title={isDisabled ? "Defina um cliente na aba 'Resumo da Venda' para habilitar" : ""}
+                className={`flex items-center gap-2 py-3 px-4 font-medium text-sm border-b-4 transition-colors
+                    ${activeTab === tabId ? 'border-blue-500 text-blue-600' : 'border-transparent'}
+                    ${isDisabled
+                        ? 'text-gray-400 cursor-not-allowed'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`
+                }
+            >
+                <FontAwesomeIcon icon={isDisabled ? faLock : icon} /> {label}
+            </button>
+        );
+    };
+    // =================================================================================
+    // FIM DA CORREÇÃO
+    // =================================================================================
+
     if (!contrato.empreendimento_id) {
         return (
             <div className="print:hidden bg-white p-8 rounded-lg shadow-md border text-center animate-fade-in">
@@ -141,10 +168,16 @@ export default function FichaContrato({ initialContratoData }) {
 
             <div className="print:hidden border-b border-gray-200">
                 <nav className="flex gap-4">
+                    {/*
+                      =================================================================================
+                      CORREÇÃO APLICADA: As abas agora usam a propriedade `disabled` para
+                      bloquear o acesso até que um cliente seja definido.
+                      =================================================================================
+                    */}
                     <TabButton tabId="resumo" label="Resumo da Venda" icon={faHandshake} />
-                    <TabButton tabId="cronograma" label="Plano e Cronograma" icon={faFileInvoiceDollar} />
-                    <TabButton tabId="gerador" label="Gerar Contrato" icon={faFileContract} />
-                    <TabButton tabId="documentos" label="Documentos" icon={faFileLines} />
+                    <TabButton tabId="cronograma" label="Plano e Cronograma" icon={faFileInvoiceDollar} disabled={true} />
+                    <TabButton tabId="gerador" label="Gerar Contrato" icon={faFileContract} disabled={true} />
+                    <TabButton tabId="documentos" label="Documentos" icon={faFileLines} disabled={true} />
                 </nav>
             </div>
 
@@ -152,22 +185,22 @@ export default function FichaContrato({ initialContratoData }) {
                 {activeTab === 'resumo' && (
                     <DetalhesVendaContrato contratoData={contrato} onUpdate={refreshContratoData} />
                 )}
-                {activeTab === 'cronograma' && (
+                {activeTab === 'cronograma' && isClienteDefined && (
                     <div className="animate-fade-in space-y-6">
                         <div className="print:hidden">
                             <PlanoPagamentoContrato contrato={contrato} onRecalculateSuccess={refreshContratoData} />
                         </div>
-                        <CronogramaFinanceiro 
-                            contrato={contrato} 
+                        <CronogramaFinanceiro
+                            contrato={contrato}
                             desconto={descontoConcedido}
-                            onUpdate={refreshContratoData} 
+                            onUpdate={refreshContratoData}
                         />
                     </div>
                 )}
-                {activeTab === 'gerador' && (
+                {activeTab === 'gerador' && isClienteDefined && (
                     <GeradorContrato contrato={contrato} />
                 )}
-                {activeTab === 'documentos' && (
+                {activeTab === 'documentos' && isClienteDefined && (
                     <div className="print:hidden animate-fade-in">
                         <ContratoAnexos contratoId={contrato.id} onUpdate={refreshContratoData} />
                     </div>
