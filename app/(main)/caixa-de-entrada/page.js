@@ -5,20 +5,36 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useLayout } from '@/contexts/LayoutContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faBell } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { toast } from 'sonner';
 import WhatsAppChatManager from '@/components/WhatsAppChatManager';
 
-// 1. A lógica de busca de dados foi movida para uma função separada e assíncrona.
-// Isso organiza melhor o código e o torna reutilizável.
+// Lógica de busca de dados ATUALIZADA para ser mais robusta
 const fetchWhatsappContacts = async (supabase) => {
+    // 1. Busca primeiro a lista de contatos. A RLS da tabela 'contatos' já vai filtrar pela organização do usuário.
     const { data: contactsData, error: contactsDataError } = await supabase
         .from('contatos')
-        .select(`*, telefones (id, telefone, tipo), is_awaiting_name_response`);
-    
-    if (contactsDataError) throw contactsDataError;
-    
+        .select(`
+            id,
+            nome,
+            razao_social,
+            is_awaiting_name_response,
+            telefones (id, telefone, tipo)
+        `)
+        .order('created_at', { ascending: false });
+
+    if (contactsDataError) {
+        console.error("Erro ao buscar contatos:", contactsDataError);
+        throw new Error(`Falha ao buscar contatos: ${contactsDataError.message}`);
+    }
+
+    // Se nenhum contato for retornado, encerramos aqui.
+    if (!contactsData || contactsData.length === 0) {
+        return [];
+    }
+
+    // 2. Com a lista de contatos em mãos, buscamos os dados adicionais (mensagens não lidas e última mensagem)
     const { data: unreadData, error: unreadError } = await supabase
         .from('whatsapp_messages')
         .select('contato_id')
@@ -40,20 +56,21 @@ const fetchWhatsappContacts = async (supabase) => {
         return map;
     }, {});
 
+    // 3. Combinamos todos os dados
     const contatosComDados = contactsData.map(contact => ({
         ...contact,
         unread_count: unreadCounts[contact.id] || 0,
         last_whatsapp_message: lastMessagesMap[contact.id]?.content || null,
         last_whatsapp_message_time: lastMessagesMap[contact.id]?.sent_at || null
-    }));
+    })).filter(c => c.telefones && c.telefones.length > 0); // Garante que só contatos com telefone apareçam
 
-    // A ordenação agora faz parte da lógica de busca de dados
+    // 4. Ordenamos a lista final
     return contatosComDados.sort((a, b) => {
         const dateA = a.last_whatsapp_message_time ? new Date(a.last_whatsapp_message_time).getTime() : 0;
         const dateB = b.last_whatsapp_message_time ? new Date(b.last_whatsapp_message_time).getTime() : 0;
-        if(dateA && dateB) return dateB - dateA;
-        if(dateA) return -1;
-        if(dateB) return 1;
+        if (dateA && dateB) return dateB - dateA;
+        if (dateA) return -1;
+        if (dateB) return 1;
         return (a.nome || a.razao_social || '').localeCompare(b.nome || b.razao_social || '');
     });
 };
@@ -62,21 +79,19 @@ const fetchWhatsappContacts = async (supabase) => {
 export default function CaixaDeEntradaPage() {
     const { setPageTitle } = useLayout();
     const supabase = createClient();
-    const queryClient = useQueryClient(); // Cliente para interagir com o cache
+    const queryClient = useQueryClient();
     
     const [currentlyOpenContactId, setCurrentlyOpenContactId] = useState(null);
     const notificationSoundRef = useRef(null);
     const isFetchingRef = useRef(false);
 
-    // 2. Substituímos useState e useEffect pelo poderoso useQuery.
     const { data: contatosWhatsapp = [], isLoading: loadingWhatsapp, isFetching, isSuccess } = useQuery({
-        queryKey: ['whatsappContacts'], // Chave única para o cache
+        queryKey: ['whatsappContacts'],
         queryFn: () => fetchWhatsappContacts(supabase),
-        staleTime: 1000 * 60 * 1, // Considera os dados "frescos" por 1 minuto (Carregamento Mágico)
-        refetchOnWindowFocus: true, // Atualiza automaticamente ao voltar para a aba
+        staleTime: 1000 * 60 * 1,
+        refetchOnWindowFocus: true,
     });
 
-    // 3. Efeito para a notificação de "Página atualizada!"
     useEffect(() => {
         if (isFetchingRef.current && !isFetching && isSuccess) {
             toast.success('Página atualizada!');
@@ -88,24 +103,19 @@ export default function CaixaDeEntradaPage() {
         setPageTitle("Caixa de Entrada");
     }, [setPageTitle]);
     
-    // 4. O listener de tempo real agora é mais simples e robusto.
     useEffect(() => {
         const channel = supabase.channel('whatsapp_messages_global_listener')
             .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'whatsapp_messages' },
                 (payload) => {
+                    queryClient.invalidateQueries({ queryKey: ['whatsappContacts'] });
+                    
                     const newMessage = payload.new;
                     const contactId = newMessage.contato_id;
-                    
-                    // Notificação sonora apenas para mensagens de entrada que não estão na tela aberta
                     if (newMessage.direction === 'inbound' && contactId !== currentlyOpenContactId) {
                         notificationSoundRef.current?.play().catch(e => console.error("Erro ao tocar som:", e));
                     }
-                    
-                    // Invalida o cache, forçando o useQuery a buscar os dados mais recentes.
-                    // Isso é mais seguro do que manipular o estado manualmente.
-                    queryClient.invalidateQueries({ queryKey: ['whatsappContacts'] });
                 }
             )
             .subscribe();
@@ -118,7 +128,6 @@ export default function CaixaDeEntradaPage() {
     const handleMarkAsRead = useCallback(async (contactId) => {
         setCurrentlyOpenContactId(contactId);
         
-        // Atualiza a UI imediatamente para uma melhor experiência do usuário
         queryClient.setQueryData(['whatsappContacts'], (oldData) => 
             oldData.map(c => c.id === contactId ? { ...c, unread_count: 0 } : c)
         );
@@ -158,7 +167,6 @@ export default function CaixaDeEntradaPage() {
                     <WhatsAppChatManager 
                         contatos={contatosWhatsapp} 
                         onMarkAsRead={handleMarkAsRead}
-                        // Apenas invalida para buscar dados frescos
                         onNewMessageSent={() => queryClient.invalidateQueries({ queryKey: ['whatsappContacts'] })}
                         onContactSelected={(contactId) => setCurrentlyOpenContactId(contactId)}
                     />
