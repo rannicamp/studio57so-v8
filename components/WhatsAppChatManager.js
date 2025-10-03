@@ -4,19 +4,18 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '../utils/supabase/client';
-import { useAuth } from '../contexts/AuthContext'; // 1. Importar o useAuth
-import { toast } from 'sonner'; // 2. Importar a biblioteca de notificações
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faPaperPlane, faSpinner, faUserCircle, faSearch, faAddressBook,
     faPaperclip, faFileAlt, faMicrophone, faTimes, faFileImage,
-    faTrash, faCheck,
-    faCheckDouble,
-    faUserPlus
+    faTrash, faCheck, faCheckDouble, faUserPlus, faFileSignature // Ícone novo
 } from '@fortawesome/free-solid-svg-icons';
-import { sendWhatsAppMedia, sendWhatsAppText } from '../utils/whatsapp';
+import { sendWhatsAppMedia, sendWhatsAppText, sendWhatsAppTemplate } from '../utils/whatsapp'; // Importa a nova função
+import TemplateMessageModal from './whatsapp/TemplateMessageModal'; // Importa o novo modal
 
-// Componente para exibir as bolhas de mensagem
+// Componente para exibir as bolhas de mensagem (sem alterações)
 const MessageBubble = ({ message }) => {
     const isSentByUser = message.direction === 'outbound';
     const bubbleClasses = isSentByUser ? 'bg-blue-500 text-white self-end rounded-l-lg rounded-tr-lg' : 'bg-gray-200 text-gray-800 self-start rounded-r-lg rounded-tl-lg';
@@ -46,6 +45,10 @@ const MessageBubble = ({ message }) => {
                         Seu navegador não suporta o elemento de áudio.
                     </audio>
                 );
+            case 'template':
+                const bodyComponent = payload.template?.components?.find(c => c.type === 'body');
+                const text = bodyComponent?.parameters?.map(p => p.text).join(', ') || payload.template?.name || 'Template';
+                return <p className="text-sm break-words"><em>Modelo:</em> {text}</p>;
             case 'text': 
             default: 
                 return <p className="text-sm break-words">{message.content}</p>;
@@ -76,8 +79,8 @@ const MessageBubble = ({ message }) => {
 
 export default function WhatsAppChatManager({ contatos, onMarkAsRead, onNewMessageSent, onContactSelected }) {
     const supabase = createClient();
-    const { user } = useAuth(); // ADICIONADO para pegar o ID da organização
-    const organizacaoId = user?.organizacao_id; // ADICIONADO para usar no envio
+    const { user } = useAuth();
+    const organizacaoId = user?.organizacao_id;
 
     const [selectedContact, setSelectedContact] = useState(null);
     const [messages, setMessages] = useState([]);
@@ -94,7 +97,26 @@ export default function WhatsAppChatManager({ contatos, onMarkAsRead, onNewMessa
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
 
-    // Filtra contatos com base no termo de busca
+    // ##### INÍCIO DA NOVA LÓGICA DE TEMPLATES #####
+    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+
+    const handleSendTemplate = async (templateName, variables) => {
+        if (!selectedContact) throw new Error("Nenhum contato selecionado.");
+        if (!organizacaoId) throw new Error("A organização não foi identificada.");
+        const phoneNumber = selectedContact.telefones?.[0]?.telefone;
+        if (!phoneNumber) throw new Error("O contato não possui um número de telefone válido.");
+
+        // Monta o array de 'components' que a API da Meta espera
+        const components = [{
+            type: "body",
+            parameters: variables.map(v => ({ type: "text", text: v }))
+        }];
+        
+        await sendWhatsAppTemplate(phoneNumber, templateName, 'pt_BR', components, organizacaoId);
+        onNewMessageSent(); // Atualiza a lista de contatos
+    };
+    // ##### FIM DA NOVA LÓGICA DE TEMPLATES #####
+
     const filteredContacts = useMemo(() => {
         if (!searchTerm) { return contatos; }
         return contatos.filter(contact => { 
@@ -104,13 +126,11 @@ export default function WhatsAppChatManager({ contatos, onMarkAsRead, onNewMessa
         });
     }, [contatos, searchTerm]);
 
-    // Efeito para rolar para a última mensagem
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
     
-    // Função para selecionar um contato e carregar suas mensagens
     const handleSelectContact = useCallback(async (contact) => {
         setSelectedContact(contact); 
-        onContactSelected(contact.id); // Informa o componente pai qual contato está aberto
+        onContactSelected(contact.id);
         setLoadingMessages(true); 
         setMessages([]);
         setNewMessage(''); 
@@ -121,17 +141,13 @@ export default function WhatsAppChatManager({ contatos, onMarkAsRead, onNewMessa
             mediaRecorderRef.current?.stop(); 
             setIsRecording(false); 
         }
-
-        // Chama a função do pai para marcar mensagens como lidas
         if (contact.unread_count > 0) {
             await onMarkAsRead(contact.id);
         }
-
         const { data, error } = await supabase.from('whatsapp_messages')
             .select('*')
             .eq('contato_id', contact.id)
             .order('sent_at', { ascending: true });
-
         if (error) { 
             console.error("Erro ao buscar mensagens:", error); 
         } else { 
@@ -140,52 +156,33 @@ export default function WhatsAppChatManager({ contatos, onMarkAsRead, onNewMessa
         setLoadingMessages(false);
     }, [supabase, isRecording, onMarkAsRead, onContactSelected]);
 
-    // Efeito para o listener de tempo real do Supabase para o contato ABERTO
     useEffect(() => {
         if (!selectedContact) return;
-
         const channelName = `whatsapp_messages_for_${selectedContact.id}`;
         const channel = supabase.channel(channelName)
             .on(
                 'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'whatsapp_messages',
-                    filter: `contato_id=eq.${selectedContact.id}`
-                },
+                { event: '*', schema: 'public', table: 'whatsapp_messages', filter: `contato_id=eq.${selectedContact.id}` },
                 (payload) => {
                     if (payload.eventType === 'INSERT') {
                         const newMessage = payload.new;
                         setMessages(prevMessages => {
-                            if (prevMessages.some(msg => msg.id === newMessage.id)) {
-                                return prevMessages;
-                            }
-                            // Se a mensagem recebida for inbound, marca como lida imediatamente
+                            if (prevMessages.some(msg => msg.id === newMessage.id)) return prevMessages;
                             if (newMessage.direction === 'inbound') {
                                 supabase.from('whatsapp_messages').update({ is_read: true }).eq('id', newMessage.id).then();
                             }
                             return [...prevMessages, newMessage];
                         });
                     } else if (payload.eventType === 'UPDATE') {
-                        setMessages(prevMessages => 
-                            prevMessages.map(msg => 
-                                msg.id === payload.old.id ? { ...msg, ...payload.new } : msg
-                            )
-                        );
+                        setMessages(prevMessages => prevMessages.map(msg => msg.id === payload.old.id ? { ...msg, ...payload.new } : msg));
                     }
-                    // Informa o pai que uma nova mensagem chegou para reordenar a lista
                     onNewMessageSent();
                 }
             )
             .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        return () => { supabase.removeChannel(channel); };
     }, [selectedContact, supabase, setMessages, onNewMessageSent]);
 
-    // Manipulador para seleção de arquivo
     const handleFileSelected = (event) => {
         const file = event.target.files[0];
         if (file) { setAttachment(file); }
@@ -199,8 +196,8 @@ export default function WhatsAppChatManager({ contatos, onMarkAsRead, onNewMessa
         return 'document';
     };
 
-    // Função para converter áudio gravado para MP3 (usando lamejs)
     const convertToMp3 = async (audioBlob) => {
+        //... (lógica de conversão de áudio mantida, sem alterações)
         if (!window.lamejs) throw new Error("Biblioteca de conversão de áudio não carregou.");
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const arrayBuffer = await audioBlob.arrayBuffer();
@@ -238,7 +235,6 @@ export default function WhatsAppChatManager({ contatos, onMarkAsRead, onNewMessa
         }
     };
 
-    // Gravação de áudio
     const handleStartRecording = async () => {
         setAttachment(null);
         try {
@@ -269,24 +265,13 @@ export default function WhatsAppChatManager({ contatos, onMarkAsRead, onNewMessa
     };
     
     const handleStopRecording = () => { mediaRecorderRef.current?.stop(); setIsRecording(false); };
-    
-    const handleCancelRecording = () => { 
-        if (mediaRecorderRef.current && mediaRecorderRef.current.stream) { 
-            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop()); 
-        } 
-        mediaRecorderRef.current?.stop(); 
-        setIsRecording(false); 
-        setAudioBlob(null); 
-        setAudioUrl(null); 
-    };
+    const handleCancelRecording = () => { if (mediaRecorderRef.current && mediaRecorderRef.current.stream) { mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop()); } mediaRecorderRef.current?.stop(); setIsRecording(false); setAudioBlob(null); setAudioUrl(null); };
 
     const handleSendMessage = async () => {
         if (!selectedContact || (!newMessage.trim() && !attachment && !audioBlob)) return;
-
         const textToSend = newMessage; 
         const attachmentToSend = attachment; 
         const audioToSend = audioBlob;
-        
         setNewMessage(''); 
         setAttachment(null); 
         setAudioBlob(null); 
@@ -295,27 +280,21 @@ export default function WhatsAppChatManager({ contatos, onMarkAsRead, onNewMessa
         const promise = async () => {
             setIsSending(true);
             if (!organizacaoId) throw new Error("A organização não foi identificada. O envio foi cancelado.");
-
             const phoneNumber = selectedContact.telefones?.[0]?.telefone;
             if (!phoneNumber) throw new Error("O contato não possui um número de telefone válido.");
-            
             let fileToSend = attachmentToSend;
             if (audioToSend) {
                 if (audioToSend.size === 0) throw new Error("O áudio gravado está vazio.");
                 fileToSend = new File([audioToSend], "audio_gravado.mp3", { type: 'audio/mpeg' }); 
             }
-            
             if (fileToSend) {
                 const mediaType = getMediaType(fileToSend);
                 const sanitizedFileName = fileToSend.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9.\-_]/g, '_');
                 const filePath = `${selectedContact.id}/${Date.now()}_${sanitizedFileName}`;
-                
                 const { error: uploadError } = await supabase.storage.from('whatsapp-media').upload(filePath, fileToSend);
                 if (uploadError) throw uploadError;
-                
                 const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
                 if (!urlData?.publicUrl) throw new Error("Não foi possível obter a URL pública do arquivo.");
-                
                 await sendWhatsAppMedia(phoneNumber, mediaType, urlData.publicUrl, textToSend, organizacaoId, mediaType === 'document' ? fileToSend.name : undefined);
             } 
             else if (textToSend) { 
@@ -343,195 +322,134 @@ export default function WhatsAppChatManager({ contatos, onMarkAsRead, onNewMessa
         const name = contact?.nome || contact?.razao_social;
         const bgColor = contact?.is_awaiting_name_response ? 'bg-yellow-400' : 'bg-blue-200';
         const textColor = contact?.is_awaiting_name_response ? 'text-yellow-900' : 'text-blue-800';
-
         if (name && name.trim().length > 0) {
             const firstLetter = name.trim().charAt(0).toUpperCase();
-            return (
-                <div className={`w-10 h-10 rounded-full ${bgColor} ${textColor} flex items-center justify-center text-lg font-bold`}>
-                    {firstLetter}
-                </div>
-            );
+            return <div className={`w-10 h-10 rounded-full ${bgColor} ${textColor} flex items-center justify-center text-lg font-bold`}>{firstLetter}</div>;
         }
         return <FontAwesomeIcon icon={faUserCircle} className="text-3xl text-gray-400" />;
     };
 
     return (
-        <div className="grid grid-cols-[300px_1fr_250px] h-[calc(100vh-100px)] bg-white rounded-lg shadow-xl border">
-            {/* Coluna da Lista de Contatos */}
-            <div className="flex flex-col border-r overflow-hidden">
-                <div className="p-4 border-b">
-                    <h2 className="text-lg font-bold mb-2 flex items-center gap-2">
-                        <FontAwesomeIcon icon={faAddressBook} /> Contatos ({filteredContacts.length})
-                    </h2>
-                    <div className="relative">
-                        <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Pesquisar..."
-                            className="w-full p-2 pl-9 border rounded-md text-sm"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+        <>
+            {/* ##### RENDERIZAÇÃO DO NOVO MODAL ##### */}
+            <TemplateMessageModal
+                isOpen={isTemplateModalOpen}
+                onClose={() => setIsTemplateModalOpen(false)}
+                onSendTemplate={handleSendTemplate}
+                contactName={selectedContact?.nome || selectedContact?.razao_social || ''}
+            />
+            <div className="grid grid-cols-[300px_1fr_250px] h-[calc(100vh-100px)] bg-white rounded-lg shadow-xl border">
+                {/* Coluna da Lista de Contatos */}
+                <div className="flex flex-col border-r overflow-hidden">
+                    <div className="p-4 border-b">
+                        <h2 className="text-lg font-bold mb-2 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faAddressBook} /> Contatos ({filteredContacts.length})
+                        </h2>
+                        <div className="relative">
+                            <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input type="text" placeholder="Pesquisar..." className="w-full p-2 pl-9 border rounded-md text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        </div>
                     </div>
-                </div>
-                <ul className="overflow-y-auto flex-1">
-                    {filteredContacts.length === 0 ? (
-                        <p className="text-center text-gray-500 p-4 text-sm">Nenhum contato encontrado.</p>
-                    ) : (
-                        filteredContacts.map(contact => (
-                            <li
-                                key={contact.id}
-                                onClick={() => handleSelectContact(contact)}
-                                className={`p-3 cursor-pointer hover:bg-gray-100 flex justify-between items-start ${selectedContact?.id === contact.id ? 'bg-blue-100' : ''} ${contact.is_awaiting_name_response ? 'bg-yellow-50 border-l-4 border-yellow-500' : ''}`}
-                            >
-                                <div className="flex items-center gap-3 w-full">
-                                    {renderContactAvatar(contact)}
-                                    <div className="flex-1 overflow-hidden">
-                                        <p className="font-semibold truncate">
-                                            {contact.is_awaiting_name_response ? (
-                                                <span className="text-yellow-800 flex items-center gap-1">
-                                                    <FontAwesomeIcon icon={faUserPlus} className="text-sm" /> Novo Contato
-                                                </span>
-                                            ) : (
-                                                contact.nome || contact.razao_social
-                                            )}
-                                        </p>
-                                        <p className="text-sm text-gray-500 truncate">
-                                            {contact.telefones?.[0]?.telefone || 'Sem telefone'}
-                                        </p>
-                                        {contact.last_whatsapp_message_time && (
-                                            <p className="text-xs text-gray-400 mt-1">
-                                                Última: {new Date(contact.last_whatsapp_message_time).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} {new Date(contact.last_whatsapp_message_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    <ul className="overflow-y-auto flex-1">
+                        {filteredContacts.length === 0 ? ( <p className="text-center text-gray-500 p-4 text-sm">Nenhum contato encontrado.</p> ) : (
+                            filteredContacts.map(contact => (
+                                <li key={contact.id} onClick={() => handleSelectContact(contact)} className={`p-3 cursor-pointer hover:bg-gray-100 flex justify-between items-start ${selectedContact?.id === contact.id ? 'bg-blue-100' : ''} ${contact.is_awaiting_name_response ? 'bg-yellow-50 border-l-4 border-yellow-500' : ''}`}>
+                                    <div className="flex items-center gap-3 w-full">
+                                        {renderContactAvatar(contact)}
+                                        <div className="flex-1 overflow-hidden">
+                                            <p className="font-semibold truncate">
+                                                {contact.is_awaiting_name_response ? ( <span className="text-yellow-800 flex items-center gap-1"><FontAwesomeIcon icon={faUserPlus} className="text-sm" /> Novo Contato</span> ) : ( contact.nome || contact.razao_social )}
                                             </p>
-                                        )}
-                                    </div>
-                                </div>
-                                {/* Bolinha de notificação de mensagens não lidas */}
-                                {contact.unread_count > 0 && (
-                                    <div className="ml-2 mt-1">
-                                        <span className="bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">
-                                            {contact.unread_count}
-                                        </span>
-                                    </div>
-                                )}
-                            </li>
-                        ))
-                    )}
-                </ul>
-            </div>
-
-            {/* Coluna do Chat (Mensagens) */}
-            <div className="flex flex-col bg-gray-100 overflow-hidden">
-                {selectedContact ? (
-                    <>
-                        <div className="p-4 border-b flex items-center gap-3 bg-white">
-                            {renderContactAvatar(selectedContact)}
-                            <div>
-                                <h3 className="font-bold">
-                                    {selectedContact.is_awaiting_name_response ? (
-                                        <span className="text-yellow-800 flex items-center gap-1">
-                                            <FontAwesomeIcon icon={faUserPlus} className="text-lg" /> Novo Contato
-                                        </span>
-                                    ) : (
-                                        selectedContact.nome || selectedContact.razao_social
-                                    )}
-                                </h3>
-                                <p className="text-sm text-gray-500">
-                                    {selectedContact.telefones?.[0]?.telefone || 'Sem telefone'}
-                                    {selectedContact.is_awaiting_name_response && (
-                                        <span className="ml-2 text-yellow-700">(Aguardando nome)</span>
-                                    )}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50 flex flex-col">
-                            {loadingMessages ? (
-                                <div className="m-auto text-center">
-                                    <FontAwesomeIcon icon={faSpinner} spin /> Carregando...
-                                </div>
-                            ) : (
-                                messages.map(msg => <MessageBubble key={msg.id} message={msg} />)
-                            )}
-                            <div ref={chatEndRef} />
-                        </div>
-                        <div className="p-4 border-t bg-white space-y-2">
-                            {attachment && (
-                                <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in">
-                                    <div className="flex items-center gap-2 text-sm text-blue-800">
-                                        <FontAwesomeIcon icon={attachment.type.startsWith('image/') ? faFileImage : faFileAlt} />
-                                        <span className="font-medium truncate">{attachment.name}</span>
-                                    </div>
-                                    <button onClick={() => setAttachment(null)} className="text-blue-600 hover:text-blue-800">
-                                        <FontAwesomeIcon icon={faTimes} />
-                                    </button>
-                                </div>
-                            )}
-                            {audioUrl && (
-                                <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in">
-                                    <audio src={audioUrl} controls className="w-full h-10"></audio>
-                                    <button onClick={handleCancelRecording} className="text-red-500 hover:text-red-700 ml-2 p-1">
-                                        <FontAwesomeIcon icon={faTrash} />
-                                    </button>
-                                </div>
-                            )}
-                            <div className="flex items-center gap-3">
-                                {isRecording ? (
-                                    <div className="flex-1 flex items-center gap-4 bg-red-100 p-2 rounded-full">
-                                        <button onClick={handleStopRecording} className="text-red-600">
-                                            <FontAwesomeIcon icon={faCheck} className="text-xl" />
-                                        </button>
-                                        <div className="w-full text-center text-red-600 font-semibold animate-pulse">
-                                            Gravando...
+                                            <p className="text-sm text-gray-500 truncate">{contact.telefones?.[0]?.telefone || 'Sem telefone'}</p>
+                                            {contact.last_whatsapp_message_time && (
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    Última: {new Date(contact.last_whatsapp_message_time).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} {new Date(contact.last_whatsapp_message_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                </p>
+                                            )}
                                         </div>
-                                        <button onClick={handleCancelRecording} className="text-gray-600">
-                                            <FontAwesomeIcon icon={faTrash} className="text-xl" />
-                                        </button>
                                     </div>
-                                ) : (
-                                    <>
-                                        <input type="file" ref={fileInputRef} onChange={handleFileSelected} className="hidden" />
-                                        <button onClick={() => fileInputRef.current.click()} disabled={isSending || audioBlob} className="text-gray-500 hover:text-blue-500 p-2 rounded-full disabled:opacity-50">
-                                            <FontAwesomeIcon icon={faPaperclip} className="text-xl"/>
-                                        </button>
-                                        <input
-                                            type="text"
-                                            value={newMessage}
-                                            onChange={(e) => setNewMessage(e.target.value)}
-                                            onKeyDown={(e) => { if (e.key === 'Enter' && !isSending) handleSendMessage(); }}
-                                            placeholder={audioBlob ? "Áudio pronto para envio" : "Digite uma mensagem..."}
-                                            className="flex-1 p-2 border rounded-full"
-                                            disabled={audioBlob}
-                                        />
-                                        {newMessage.trim() || attachment || audioBlob ? (
-                                            <button onClick={handleSendMessage} disabled={isSending || (!newMessage.trim() && !attachment && !audioBlob)} className="bg-blue-500 text-white w-10 h-10 rounded-full flex items-center justify-center disabled:bg-gray-400">
-                                                {isSending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperPlane} />}
-                                            </button>
-                                        ) : (
-                                            <button onClick={handleStartRecording} disabled={isSending} className="text-gray-500 hover:text-blue-500 p-2 rounded-full disabled:opacity-50">
-                                                <FontAwesomeIcon icon={faMicrophone} className="text-xl"/>
-                                            </button>
-                                        )}
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </>
-                ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500">
-                        <p>Selecione um contato para ver as mensagens.</p>
-                    </div>
-                )}
-            </div>
+                                    {contact.unread_count > 0 && (
+                                        <div className="ml-2 mt-1"><span className="bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">{contact.unread_count}</span></div>
+                                    )}
+                                </li>
+                            ))
+                        )}
+                    </ul>
+                </div>
 
-            {/* Coluna do Assistente de IA (Desativado) */}
-            <div className="p-4 space-y-4 bg-white border-l border-gray-200">
-                <h3 className="text-md font-bold text-gray-800 flex items-center gap-2">
-                    Assistente de IA (Desativado)
-                </h3>
-                <div className="bg-gray-50 p-3 rounded-md text-sm text-gray-700">
-                    <p>O assistente de IA está temporariamente desativado para melhorias. Por favor, entre em contato com o suporte se precisar de ajuda adicional.</p>
+                {/* Coluna do Chat (Mensagens) */}
+                <div className="flex flex-col bg-gray-100 overflow-hidden">
+                    {selectedContact ? (
+                        <>
+                            <div className="p-4 border-b flex items-center gap-3 bg-white">
+                                {renderContactAvatar(selectedContact)}
+                                <div>
+                                    <h3 className="font-bold">
+                                        {selectedContact.is_awaiting_name_response ? ( <span className="text-yellow-800 flex items-center gap-1"><FontAwesomeIcon icon={faUserPlus} className="text-lg" /> Novo Contato</span> ) : ( selectedContact.nome || selectedContact.razao_social )}
+                                    </h3>
+                                    <p className="text-sm text-gray-500">{selectedContact.telefones?.[0]?.telefone || 'Sem telefone'}{selectedContact.is_awaiting_name_response && ( <span className="ml-2 text-yellow-700">(Aguardando nome)</span> )}</p>
+                                </div>
+                            </div>
+                            <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50 flex flex-col">
+                                {loadingMessages ? ( <div className="m-auto text-center"><FontAwesomeIcon icon={faSpinner} spin /> Carregando...</div> ) : ( messages.map(msg => <MessageBubble key={msg.id} message={msg} />) )}
+                                <div ref={chatEndRef} />
+                            </div>
+                            <div className="p-4 border-t bg-white space-y-2">
+                                {attachment && (
+                                    <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in">
+                                        <div className="flex items-center gap-2 text-sm text-blue-800"><FontAwesomeIcon icon={attachment.type.startsWith('image/') ? faFileImage : faFileAlt} /><span className="font-medium truncate">{attachment.name}</span></div>
+                                        <button onClick={() => setAttachment(null)} className="text-blue-600 hover:text-blue-800"><FontAwesomeIcon icon={faTimes} /></button>
+                                    </div>
+                                )}
+                                {audioUrl && (
+                                    <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in">
+                                        <audio src={audioUrl} controls className="w-full h-10"></audio>
+                                        <button onClick={handleCancelRecording} className="text-red-500 hover:text-red-700 ml-2 p-1"><FontAwesomeIcon icon={faTrash} /></button>
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-3">
+                                    {isRecording ? (
+                                        <div className="flex-1 flex items-center gap-4 bg-red-100 p-2 rounded-full">
+                                            <button onClick={handleStopRecording} className="text-red-600"><FontAwesomeIcon icon={faCheck} className="text-xl" /></button>
+                                            <div className="w-full text-center text-red-600 font-semibold animate-pulse">Gravando...</div>
+                                            <button onClick={handleCancelRecording} className="text-gray-600"><FontAwesomeIcon icon={faTrash} className="text-xl" /></button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* ##### BOTÃO PARA ABRIR O MODAL DE TEMPLATES ##### */}
+                                            <button onClick={() => setIsTemplateModalOpen(true)} title="Enviar Mensagem de Modelo" className="text-gray-500 hover:text-blue-500 p-2 rounded-full disabled:opacity-50" disabled={isSending}>
+                                                <FontAwesomeIcon icon={faFileSignature} className="text-xl"/>
+                                            </button>
+                                            <input type="file" ref={fileInputRef} onChange={handleFileSelected} className="hidden" />
+                                            <button onClick={() => fileInputRef.current.click()} disabled={isSending || audioBlob} className="text-gray-500 hover:text-blue-500 p-2 rounded-full disabled:opacity-50">
+                                                <FontAwesomeIcon icon={faPaperclip} className="text-xl"/>
+                                            </button>
+                                            <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !isSending) handleSendMessage(); }} placeholder={audioBlob ? "Áudio pronto para envio" : "Digite uma mensagem..."} className="flex-1 p-2 border rounded-full" disabled={audioBlob}/>
+                                            {newMessage.trim() || attachment || audioBlob ? (
+                                                <button onClick={handleSendMessage} disabled={isSending || (!newMessage.trim() && !attachment && !audioBlob)} className="bg-blue-500 text-white w-10 h-10 rounded-full flex items-center justify-center disabled:bg-gray-400">
+                                                    {isSending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperPlane} />}
+                                                </button>
+                                            ) : (
+                                                <button onClick={handleStartRecording} disabled={isSending} className="text-gray-500 hover:text-blue-500 p-2 rounded-full disabled:opacity-50">
+                                                    <FontAwesomeIcon icon={faMicrophone} className="text-xl"/>
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex items-center justify-center h-full text-gray-500"><p>Selecione um contato para ver as mensagens.</p></div>
+                    )}
+                </div>
+
+                {/* Coluna do Assistente de IA */}
+                <div className="p-4 space-y-4 bg-white border-l border-gray-200">
+                    <h3 className="text-md font-bold text-gray-800 flex items-center gap-2">Assistente de IA (Desativado)</h3>
+                    <div className="bg-gray-50 p-3 rounded-md text-sm text-gray-700"><p>O assistente de IA está temporariamente desativado para melhorias. Por favor, entre em contato com o suporte se precisar de ajuda adicional.</p></div>
                 </div>
             </div>
-        </div>
+        </>
     );
 }

@@ -1,9 +1,11 @@
+// utils/whatsapp.js
+
 /**
  * Função para enviar uma mensagem de template do WhatsApp através da API interna.
  * @param {string} to - O número de telefone do destinatário (ex: 5533999999999).
  * @param {string} templateName - O nome do modelo de mensagem aprovado pela Meta.
  * @param {string} languageCode - O código do idioma (ex: 'pt_BR', 'en_US').
- * @param {Array} [components] - Componentes opcionais para o corpo ou botões do template.
+ * @param {Array} [components] - Componentes para o corpo ou botões do template.
  * @returns {Promise<{success: boolean, error?: string}>} - Retorna um objeto indicando sucesso ou falha.
  */
 export async function sendWhatsAppTemplate(to, templateName, languageCode, components = []) {
