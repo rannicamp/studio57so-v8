@@ -5,104 +5,57 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useLayout } from '@/contexts/LayoutContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { toast } from 'sonner';
-import WhatsAppChatManager from '@/components/WhatsAppChatManager';
+import WhatsAppChatManager from '@/components/whatsapp/WhatsAppChatManager';
 
-// Lógica de busca de dados ATUALIZADA para ser mais robusta
+// Lógica de busca de dados, agora otimizada.
 const fetchWhatsappContacts = async (supabase) => {
-    // 1. Busca primeiro a lista de contatos. A RLS da tabela 'contatos' já vai filtrar pela organização do usuário.
-    const { data: contactsData, error: contactsDataError } = await supabase
-        .from('contatos')
-        .select(`
-            id,
-            nome,
-            razao_social,
-            is_awaiting_name_response,
-            telefones (id, telefone, tipo)
-        `)
-        .order('created_at', { ascending: false });
-
-    if (contactsDataError) {
-        console.error("Erro ao buscar contatos:", contactsDataError);
-        throw new Error(`Falha ao buscar contatos: ${contactsDataError.message}`);
+    const { data, error } = await supabase.rpc('get_contacts_with_details');
+    if (error) {
+        console.error("Erro ao buscar contatos via RPC:", error);
+        throw new Error(`Falha ao buscar contatos: ${error.message}`);
     }
-
-    // Se nenhum contato for retornado, encerramos aqui.
-    if (!contactsData || contactsData.length === 0) {
-        return [];
-    }
-
-    // 2. Com a lista de contatos em mãos, buscamos os dados adicionais (mensagens não lidas e última mensagem)
-    const { data: unreadData, error: unreadError } = await supabase
-        .from('whatsapp_messages')
-        .select('contato_id')
-        .eq('is_read', false)
-        .eq('direction', 'inbound');
-    
-    if (unreadError) throw unreadError;
-
-    const unreadCounts = unreadData.reduce((acc, msg) => {
-        acc[msg.contato_id] = (acc[msg.contato_id] || 0) + 1;
-        return acc;
-    }, {});
-
-    const { data: lastMessagesData, error: lastMessagesError } = await supabase.rpc('get_last_messages_for_contacts');
-    if (lastMessagesError) throw lastMessagesError;
-
-    const lastMessagesMap = lastMessagesData.reduce((map, msg) => {
-        map[msg.contato_id] = { content: msg.content, sent_at: msg.sent_at };
-        return map;
-    }, {});
-
-    // 3. Combinamos todos os dados
-    const contatosComDados = contactsData.map(contact => ({
-        ...contact,
-        unread_count: unreadCounts[contact.id] || 0,
-        last_whatsapp_message: lastMessagesMap[contact.id]?.content || null,
-        last_whatsapp_message_time: lastMessagesMap[contact.id]?.sent_at || null
-    })).filter(c => c.telefones && c.telefones.length > 0); // Garante que só contatos com telefone apareçam
-
-    // 4. Ordenamos a lista final
-    return contatosComDados.sort((a, b) => {
-        const dateA = a.last_whatsapp_message_time ? new Date(a.last_whatsapp_message_time).getTime() : 0;
-        const dateB = b.last_whatsapp_message_time ? new Date(b.last_whatsapp_message_time).getTime() : 0;
-        if (dateA && dateB) return dateB - dateA;
-        if (dateA) return -1;
-        if (dateB) return 1;
-        return (a.nome || a.razao_social || '').localeCompare(b.nome || b.razao_social || '');
-    });
+    return data;
 };
-
 
 export default function CaixaDeEntradaPage() {
     const { setPageTitle } = useLayout();
     const supabase = createClient();
     const queryClient = useQueryClient();
     
-    const [currentlyOpenContactId, setCurrentlyOpenContactId] = useState(null);
+    // Estado para controlar o contato aberto em TODAS as views
+    const [currentlyOpenContact, setCurrentlyOpenContact] = useState(null);
     const notificationSoundRef = useRef(null);
+    
+    // Controle para a notificação de atualização
     const isFetchingRef = useRef(false);
+    const initialLoadComplete = useRef(false);
 
-    const { data: contatosWhatsapp = [], isLoading: loadingWhatsapp, isFetching, isSuccess } = useQuery({
+    const { data: contatosWhatsapp = [], isLoading: loadingWhatsapp, isFetching, isSuccess, isError } = useQuery({
         queryKey: ['whatsappContacts'],
         queryFn: () => fetchWhatsappContacts(supabase),
-        staleTime: 1000 * 60 * 1,
-        refetchOnWindowFocus: true,
+        staleTime: 1000 * 60 * 1, // Cache de 1 minuto
+        refetchOnWindowFocus: true, // Atualiza ao focar na janela
     });
 
+    // Efeito para a notificação de "Página atualizada!"
     useEffect(() => {
-        if (isFetchingRef.current && !isFetching && isSuccess) {
+        if (initialLoadComplete.current && !isFetching && isSuccess) {
             toast.success('Página atualizada!');
         }
+        if (isSuccess || isError) {
+            initialLoadComplete.current = true;
+        }
         isFetchingRef.current = isFetching;
-    }, [isFetching, isSuccess]);
+    }, [isFetching, isSuccess, isError]);
 
     useEffect(() => {
         setPageTitle("Caixa de Entrada");
     }, [setPageTitle]);
     
+    // Listener de tempo real para novas mensagens
     useEffect(() => {
         const channel = supabase.channel('whatsapp_messages_global_listener')
             .on(
@@ -112,8 +65,8 @@ export default function CaixaDeEntradaPage() {
                     queryClient.invalidateQueries({ queryKey: ['whatsappContacts'] });
                     
                     const newMessage = payload.new;
-                    const contactId = newMessage.contato_id;
-                    if (newMessage.direction === 'inbound' && contactId !== currentlyOpenContactId) {
+                    // Toca o som apenas se a mensagem for de entrada e não for do contato já aberto
+                    if (newMessage.direction === 'inbound' && newMessage.contato_id !== currentlyOpenContact?.id) {
                         notificationSoundRef.current?.play().catch(e => console.error("Erro ao tocar som:", e));
                     }
                 }
@@ -123,21 +76,17 @@ export default function CaixaDeEntradaPage() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [supabase, queryClient, currentlyOpenContactId]);
+    }, [supabase, queryClient, currentlyOpenContact]);
 
-    const handleMarkAsRead = useCallback(async (contactId) => {
-        setCurrentlyOpenContactId(contactId);
-        
-        queryClient.setQueryData(['whatsappContacts'], (oldData) => 
-            oldData.map(c => c.id === contactId ? { ...c, unread_count: 0 } : c)
-        );
-        
-        await supabase.from('whatsapp_messages')
-            .update({ is_read: true })
-            .eq('contato_id', contactId)
-            .eq('is_read', false);
-    }, [supabase, queryClient]);
+    const handleSelectContact = (contact) => {
+        setCurrentlyOpenContact(contact);
+    };
+    
+    const handleBackToList = () => {
+        setCurrentlyOpenContact(null);
+    };
 
+    // Estilos para as abas
     const tabStyle = "px-6 py-3 text-sm font-semibold transition-colors duration-200 focus:outline-none flex items-center gap-2";
     const activeTabStyle = "text-blue-600 border-b-2 border-blue-500";
     
@@ -146,15 +95,26 @@ export default function CaixaDeEntradaPage() {
             <audio ref={notificationSoundRef} src="/sounds/notification.mp3" preload="auto" />
             
             <div className="flex-shrink-0 bg-white shadow-sm">
-                <div className="px-4 pt-4">
-                    <h1 className="text-xl font-bold text-gray-800">Canais de Atendimento</h1>
+                <div className="px-4 pt-4 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        {/* Botão de voltar para a lista (só aparece no mobile) */}
+                        {currentlyOpenContact && (
+                            <button onClick={handleBackToList} className="md:hidden p-2 text-gray-600 hover:text-gray-800">
+                                <FontAwesomeIcon icon={faArrowLeft} />
+                            </button>
+                        )}
+                        <h1 className="text-xl font-bold text-gray-800">Canais de Atendimento</h1>
+                    </div>
                 </div>
                 <div className="px-4">
                     <div className="flex border-b">
                         <div className={`${tabStyle} ${activeTabStyle}`}>
                             <FontAwesomeIcon icon={faWhatsapp} className="text-xl" />
                             <span>WhatsApp</span>
-                            {contatosWhatsapp.some(c => c.unread_count > 0) && (<span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>)}
+                            {/* Indicador de mensagens não lidas */}
+                            {contatosWhatsapp.some(c => c.unread_count > 0) && (
+                                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse ml-1"></span>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -162,13 +122,15 @@ export default function CaixaDeEntradaPage() {
 
             <div className="flex-grow overflow-hidden">
                 {loadingWhatsapp ? (
-                    <div className="flex justify-center items-center h-full"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
+                    <div className="flex justify-center items-center h-full">
+                        <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-blue-500" />
+                    </div>
                 ) : (
                     <WhatsAppChatManager 
-                        contatos={contatosWhatsapp} 
-                        onMarkAsRead={handleMarkAsRead}
-                        onNewMessageSent={() => queryClient.invalidateQueries({ queryKey: ['whatsappContacts'] })}
-                        onContactSelected={(contactId) => setCurrentlyOpenContactId(contactId)}
+                        contatos={contatosWhatsapp}
+                        selectedContact={currentlyOpenContact}
+                        onSelectContact={handleSelectContact}
+                        onBackToList={handleBackToList} // Passa a função para o componente filho
                     />
                 )}
             </div>
