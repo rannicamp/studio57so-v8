@@ -73,6 +73,12 @@ const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, exi
     );
 };
 
+// =================================================================================
+// INÍCIO DA CORREÇÃO
+// O PORQUÊ: A linha que causa o erro foi ajustada. A busca agora foca no nome e
+// na razão social, que são os campos principais, evitando a consulta complexa
+// no telefone que estava quebrando a página.
+// =================================================================================
 const fetchFunilData = async (supabase, organizacaoId, filters) => {
     if (!organizacaoId) return { funilId: null, colunasDoFunil: [], contatosNoFunil: [] };
 
@@ -94,6 +100,7 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
     query = query.eq('organizacao_id', organizacaoId);
 
     if (filters.searchTerm) {
+        // CORREÇÃO APLICADA AQUI: a busca por telefone foi removida para evitar o erro.
         query = query.or(`nome.ilike.%${filters.searchTerm}%,razao_social.ilike.%${filters.searchTerm}%`, { foreignTable: 'contatos' });
     }
     if (filters.corretorIds?.length > 0) {
@@ -135,17 +142,13 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
     
     return { funilId, colunasDoFunil, contatosNoFunil: contatosParaEstado };
 };
+// =================================================================================
+// FIM DA CORREÇÃO
+// =================================================================================
 
-// =================================================================================
-// INÍCIO DA CORREÇÃO (fetchFilterData)
-// O PORQUÊ: Esta função agora busca os corretores de forma precisa,
-// primeiro pegando os IDs da tabela `contatos_no_funil` e depois buscando
-// os nomes. Isso garante que só corretores ativos no funil apareçam.
-// =================================================================================
 const fetchFilterData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { corretores: [], origens: [], unidades: [], campaigns: [], ads: [] };
 
-    // 1. Busca os IDs dos corretores que estão no funil
     const corretoresIdsPromise = supabase
         .from('contatos_no_funil')
         .select('corretor_id')
@@ -174,7 +177,6 @@ const fetchFilterData = async (supabase, organizacaoId) => {
         throw new Error("Erro ao carregar dados para os filtros.");
     }
     
-    // 2. Busca os dados completos dos corretores encontrados
     const uniqueCorretorIds = [...new Set(corretoresIdsData.map(c => c.corretor_id))];
     let corretores = [];
     if (uniqueCorretorIds.length > 0) {
