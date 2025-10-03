@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // --- INICIALIZAÇÃO DOS SERVIÇOS ---
 const getSupabaseAdmin = () => createClient(
-    process.env.NEXT_PUBLIC_supabase_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
