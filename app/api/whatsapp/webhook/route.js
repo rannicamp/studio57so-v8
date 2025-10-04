@@ -10,7 +10,6 @@ const getSupabaseAdmin = () => createClient(
 );
 
 // --- FUNÇÕES DE COMUNICAÇÃO COM WHATSAPP (ATUALIZADAS) ---
-
 async function sendTextMessage(supabase, config, to, contatoId, text) {
     if (!text || text.trim() === "") return;
     const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
@@ -35,31 +34,6 @@ async function sendTextMessage(supabase, config, to, contatoId, text) {
             });
         }
     } catch (error) { console.error("ERRO de rede ao enviar mensagem de texto:", error); }
-}
-
-async function sendMediaMessage(supabase, config, to, contatoId, publicUrl, fileName, caption) {
-    const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
-    const payload = { messaging_product: "whatsapp", to: to, type: "document", document: { link: publicUrl, filename: fileName, caption: caption } };
-    try {
-        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.whatsapp_permanent_token}` }, body: JSON.stringify(payload) });
-        const responseData = await response.json();
-        if (!response.ok) { console.error("ERRO ao enviar mídia via WhatsApp:", responseData); return; }
-        const messageId = responseData.messages?.[0]?.id;
-        if (messageId) {
-            await supabase.from('whatsapp_messages').insert({ 
-                contato_id: contatoId, 
-                message_id: messageId, 
-                sender_id: config.whatsapp_phone_number_id, 
-                receiver_id: to, 
-                content: caption, 
-                direction: 'outbound', 
-                status: 'sent', 
-                raw_payload: payload, 
-                sent_at: new Date().toISOString(),
-                organizacao_id: config.organizacao_id
-            });
-        }
-    } catch (error) { console.error("ERRO de rede ao enviar mídia:", error); }
 }
 
 // --- FUNÇÕES AUXILIARES (MANTIDAS) ---
@@ -118,13 +92,14 @@ export async function POST(request) {
 
         const statusEntry = body.entry?.[0]?.changes?.[0]?.value?.statuses?.[0];
         if (statusEntry) {
-            // Lógica de status mantida...
+            // Lógica de status mantida... (não é a causa do problema)
             return NextResponse.json({ status: 'ok' });
         }
 
         const messageEntry = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
         if (messageEntry) {
-            console.log("[WEBHOOK MESSAGE] Nova mensagem recebida:", JSON.stringify(messageEntry, null, 2));
+            console.log("[WEBHOOK MESSAGE] Nova mensagem recebida, processando:", JSON.stringify(messageEntry, null, 2));
+            
             const messageContent = getTextContent(messageEntry);
             const contactPhoneNumber = messageEntry.from;
             let contatoId = null;
@@ -139,7 +114,7 @@ export async function POST(request) {
             }
             
             if (!contatoId) {
-                console.log(`[WEBHOOK MESSAGE] Contato não encontrado para ${contactPhoneNumber}. Criando provisório.`);
+                console.log(`[WEBHOOK MESSAGE] Contato não encontrado para ${contactPhoneNumber}. Criando novo.`);
                 const { data: newContact, error: contactError } = await supabaseAdmin
                     .from('contatos')
                     .insert({ 
@@ -152,24 +127,22 @@ export async function POST(request) {
                     .single();
 
                 if (contactError) {
-                    console.error("ERRO ao criar novo contato provisório:", contactError);
+                    console.error("ERRO ao criar novo contato:", contactError);
                     return NextResponse.json({ status: 'error', message: 'Falha ao criar contato.' }, { status: 500 });
                 }
                 contatoId = newContact.id;
                 currentContato = newContact;
                 
-                // ##### CORREÇÃO APLICADA AQUI #####
-                // Adiciona o organizacao_id também na tabela de telefones
                 await supabaseAdmin.from('telefones').insert({
                     contato_id: contatoId,
                     telefone: contactPhoneNumber,
                     tipo: 'celular',
                     organizacao_id: whatsappConfig.organizacao_id
                 });
-                // ##### FIM DA CORREÇÃO #####
                 
                 shouldSendAutoReply = true;
 
+                // Lógica de CRM mantida
                 const { data: funnelData } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', whatsappConfig.organizacao_id).order('created_at').limit(1).single();
                 if (funnelData) {
                     const { data: columnData } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funnelData.id).order('ordem').limit(1).single();
@@ -187,18 +160,37 @@ export async function POST(request) {
                 await supabaseAdmin.from('contatos').update({ nome: messageContent, is_awaiting_name_response: false }).eq('id', contatoId);
             }
             
-            await supabaseAdmin.from('whatsapp_messages').insert({
-                contato_id: contatoId,
-                message_id: messageEntry.id,
-                sender_id: messageEntry.from,
-                receiver_id: whatsappConfig.whatsapp_phone_number_id,
-                content: messageContent,
-                sent_at: new Date(parseInt(messageEntry.timestamp, 10) * 1000).toISOString(),
-                direction: 'inbound',
-                status: 'delivered',
-                raw_payload: messageEntry,
-                organizacao_id: whatsappConfig.organizacao_id
-            });
+            // ##### CORREÇÃO APLICADA AQUI #####
+            // Adicionamos verificação de erro e sucesso no salvamento da mensagem
+            const { data: insertedMessage, error: insertError } = await supabaseAdmin
+                .from('whatsapp_messages')
+                .insert({
+                    contato_id: contatoId,
+                    message_id: messageEntry.id,
+                    sender_id: messageEntry.from,
+                    receiver_id: whatsappConfig.whatsapp_phone_number_id,
+                    content: messageContent,
+                    sent_at: new Date(parseInt(messageEntry.timestamp, 10) * 1000).toISOString(),
+                    direction: 'inbound',
+                    status: 'delivered',
+                    raw_payload: messageEntry,
+                    organizacao_id: whatsappConfig.organizacao_id
+                })
+                .select()
+                .single();
+
+            if (insertError) {
+                console.error('[WEBHOOK MESSAGE] ERRO AO SALVAR MENSAGEM NO BANCO DE DADOS:', insertError);
+                return NextResponse.json({ status: 'error', message: 'Falha ao registrar mensagem no DB.' }, { status: 500 });
+            }
+
+            if (!insertedMessage) {
+                 console.warn('[WEBHOOK MESSAGE] A mensagem não foi inserida. Isso pode ser causado por uma política de segurança de linha (RLS) no banco de dados.');
+                 return NextResponse.json({ status: 'error', message: 'Inserção de mensagem foi bloqueada silenciosamente.' }, { status: 500 });
+            }
+
+            console.log(`[WEBHOOK MESSAGE] Mensagem de ${contactPhoneNumber} salva com sucesso no banco. ID: ${insertedMessage.id}`);
+            // ##### FIM DA CORREÇÃO #####
 
             await supabaseAdmin.from('whatsapp_conversations').upsert({ phone_number: contactPhoneNumber, updated_at: new Date().toISOString() }, { onConflict: ['phone_number'] });
 
