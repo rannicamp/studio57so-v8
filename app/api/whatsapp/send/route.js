@@ -1,3 +1,5 @@
+// app/api/whatsapp/send/route.js
+
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -47,13 +49,20 @@ export async function POST(request) {
             return NextResponse.json({ error: 'O número de destino (to) e o tipo (type) são obrigatórios.' }, { status: 400 });
         }
 
-        const { data: config, error: configError } = await supabaseAdmin.from('configuracoes_whatsapp').select('whatsapp_permanent_token, whatsapp_phone_number_id').limit(1).single();
+        // ##### CORREÇÃO APLICADA AQUI (1/2) #####
+        // Adicionamos 'organizacao_id' à busca de configurações
+        const { data: config, error: configError } = await supabaseAdmin
+            .from('configuracoes_whatsapp')
+            .select('whatsapp_permanent_token, whatsapp_phone_number_id, organizacao_id')
+            .limit(1)
+            .single();
 
         if (configError || !config) {
+            console.error('Erro ao buscar credenciais do WhatsApp:', configError);
             return NextResponse.json({ error: 'Credenciais do WhatsApp não encontradas.' }, { status: 500 });
         }
 
-        const { whatsapp_permanent_token: WHATSAPP_TOKEN, whatsapp_phone_number_id: WHATSAPP_PHONE_NUMBER_ID } = config;
+        const { whatsapp_permanent_token: WHATSAPP_TOKEN, whatsapp_phone_number_id: WHATSAPP_PHONE_NUMBER_ID, organizacao_id } = config;
         const url = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
         
         let payload = { messaging_product: 'whatsapp', to: to, type: type };
@@ -97,11 +106,13 @@ export async function POST(request) {
         const responseData = await apiResponse.json();
 
         if (!apiResponse.ok) {
+            console.error('Erro da API do WhatsApp ao enviar mensagem:', responseData);
             return NextResponse.json({ error: `Erro da API do WhatsApp: ${responseData.error?.message}` }, { status: apiResponse.status });
         }
 
         const newMessageId = responseData.messages?.[0]?.id;
         if (!newMessageId) {
+            console.warn('Mensagem enviada, mas não foi possível obter o ID da mensagem da resposta da API.', responseData);
             return NextResponse.json({ message: 'Mensagem enviada, mas não pôde ser salva (ID ausente).', data: responseData }, { status: 200 });
         }
 
@@ -109,6 +120,7 @@ export async function POST(request) {
         let enterpriseId = null;
         const possiblePhones = normalizeAndGeneratePhoneNumbers(to);
         const { data: matchingPhones } = await supabaseAdmin.from('telefones').select('contato_id').in('telefone', possiblePhones).limit(1);
+        
         if (matchingPhones && matchingPhones.length > 0) {
             contactId = matchingPhones[0].contato_id;
             if (contactId) {
@@ -117,6 +129,8 @@ export async function POST(request) {
             }
         }
         
+        // ##### CORREÇÃO APLICADA AQUI (2/2) #####
+        // Adicionamos 'organizacao_id' ao objeto que será salvo no banco
         const { error: dbError } = await supabaseAdmin.from('whatsapp_messages').insert({
             contato_id: contactId,
             enterprise_id: enterpriseId,
@@ -127,16 +141,19 @@ export async function POST(request) {
             sent_at: new Date().toISOString(),
             direction: 'outbound',
             status: 'sent',
-            raw_payload: payload
+            raw_payload: payload,
+            organizacao_id: organizacao_id // GARANTE QUE A MENSAGEM SEJA ASSOCIADA À ORGANIZAÇÃO
         });
 
         if (dbError) {
+            console.error('Erro ao salvar mensagem de saída no banco de dados:', dbError);
             return NextResponse.json({ message: 'Mensagem ENVIADA, mas falhou ao salvar no banco.', error: dbError.message }, { status: 206 });
         }
 
         return NextResponse.json({ message: 'Mensagem enviada e salva com sucesso!', data: responseData }, { status: 200 });
 
     } catch (error) {
+        console.error('Falha crítica na API /api/whatsapp/send:', error);
         return NextResponse.json({ error: 'Falha crítica ao processar a requisição.', details: error.message }, { status: 500 });
     }
 }
