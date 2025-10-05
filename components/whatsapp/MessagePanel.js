@@ -5,7 +5,6 @@ import { getMessages } from '@/app/(main)/caixa-de-entrada/data-fetching';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// ##### ÍCONE DE VOLTAR ADICIONADO #####
 import { faPaperPlane, faSpinner, faUserCircle, faPaperclip, faFileLines, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -18,7 +17,6 @@ const getAttachmentType = (fileType) => {
     return 'document';
 };
 
-// ##### PROPRIEDADE "onBack" ADICIONADA #####
 export default function MessagePanel({ contact, onBack }) {
     const queryClient = useQueryClient();
     const [newMessage, setNewMessage] = useState('');
@@ -54,7 +52,7 @@ export default function MessagePanel({ contact, onBack }) {
     }, [messages, contact]);
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }); // 'auto' para evitar pulos ao carregar
     }, [messages]);
     
     useEffect(() => {
@@ -144,16 +142,17 @@ export default function MessagePanel({ contact, onBack }) {
         <>
             <TemplateMessageModal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} onSendTemplate={handleSendTemplate} contactName={contact?.nome} />
             <div className="flex flex-col h-full bg-gray-50">
-                <div className="flex items-center p-3 border-b border-gray-200 bg-white">
-                    {/* ##### BOTÃO DE VOLTAR ADICIONADO AQUI ##### */}
-                    {/* Ele só aparece em telas pequenas (some em telas 'md' ou maiores) */}
+                {/* ##### CABEÇALHO FIXO ##### */}
+                <div className="flex items-center p-3 border-b border-gray-200 bg-white flex-shrink-0">
                     <button onClick={onBack} className="md:hidden mr-3 text-gray-600 hover:text-gray-800">
                         <FontAwesomeIcon icon={faArrowLeft} size="lg" />
                     </button>
                     <div className="w-10 h-10 bg-gray-300 rounded-full mr-3 flex items-center justify-center font-bold text-white">{contact.nome?.charAt(0).toUpperCase()}</div>
                     <h2 className="font-semibold">{contact.nome}</h2>
                 </div>
-                <div className="flex-grow p-4 overflow-y-auto">
+
+                {/* ##### ÁREA DE MENSAGENS ROLÁVEL ##### */}
+                <div className="flex-grow p-4 overflow-y-auto min-h-0">
                     {messages?.map(msg => (
                         <div key={msg.id} className={`flex my-2 ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
                             <div className={`max-w-xs lg:max-w-md p-3 rounded-lg ${msg.direction === 'outbound' ? 'bg-green-200' : 'bg-white shadow'}`}>
@@ -164,7 +163,9 @@ export default function MessagePanel({ contact, onBack }) {
                     ))}
                     <div ref={messagesEndRef} />
                 </div>
-                <div className="p-4 bg-white border-t border-gray-200">
+
+                {/* ##### RODAPÉ FIXO ##### */}
+                <div className="p-4 bg-white border-t border-gray-200 flex-shrink-0">
                     <form onSubmit={handleSendMessage} className="flex items-center gap-2">
                         <input type="file" ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />
                         <button type="button" onClick={() => fileInputRef.current.click()} className="p-3 rounded-full hover:bg-gray-200 text-gray-600" disabled={sendAttachmentMutation.isPending}>
