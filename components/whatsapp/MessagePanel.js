@@ -5,7 +5,8 @@ import { getMessages } from '@/app/(main)/caixa-de-entrada/data-fetching';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPaperPlane, faSpinner, faUserCircle, faPaperclip, faFileLines } from '@fortawesome/free-solid-svg-icons';
+// ##### ÍCONE DE VOLTAR ADICIONADO #####
+import { faPaperPlane, faSpinner, faUserCircle, faPaperclip, faFileLines, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import TemplateMessageModal from './TemplateMessageModal';
@@ -17,7 +18,8 @@ const getAttachmentType = (fileType) => {
     return 'document';
 };
 
-export default function MessagePanel({ contact }) {
+// ##### PROPRIEDADE "onBack" ADICIONADA #####
+export default function MessagePanel({ contact, onBack }) {
     const queryClient = useQueryClient();
     const [newMessage, setNewMessage] = useState('');
     const messagesEndRef = useRef(null);
@@ -88,14 +90,11 @@ export default function MessagePanel({ contact }) {
     });
 
     const sendTemplateMutation = useMutation({
-        // ##### CORREÇÃO APLICADA AQUI (2/3) #####
-        // A função agora espera receber o "language"
         mutationFn: async ({ templateName, language, variables }) => {
             if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
             const components = variables.length > 0 ? [{ type: 'body', parameters: variables.map(v => ({ type: 'text', text: v })) }] : [];
             const response = await fetch('/api/whatsapp/send', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                // E o "language" é enviado para a API
                 body: JSON.stringify({ to: recipientPhone, type: 'template', templateName: templateName, languageCode: language, components: components }),
             });
             if (!response.ok) throw new Error((await response.json()).error || 'Falha ao enviar modelo');
@@ -131,7 +130,6 @@ export default function MessagePanel({ contact }) {
 
     const handleSendMessage = (e) => { e.preventDefault(); if (newMessage.trim()) { sendMessageMutation.mutate(newMessage); } };
     const handleFileSelect = (e) => { const file = e.target.files[0]; if (file) { sendAttachmentMutation.mutate({ file }); } e.target.value = null; };
-    // A função de "handle" também é atualizada para passar o idioma para a mutação
     const handleSendTemplate = (templateName, language, variables) => { sendTemplateMutation.mutate({ templateName, language, variables }); };
 
     if (!contact) {
@@ -147,6 +145,11 @@ export default function MessagePanel({ contact }) {
             <TemplateMessageModal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} onSendTemplate={handleSendTemplate} contactName={contact?.nome} />
             <div className="flex flex-col h-full bg-gray-50">
                 <div className="flex items-center p-3 border-b border-gray-200 bg-white">
+                    {/* ##### BOTÃO DE VOLTAR ADICIONADO AQUI ##### */}
+                    {/* Ele só aparece em telas pequenas (some em telas 'md' ou maiores) */}
+                    <button onClick={onBack} className="md:hidden mr-3 text-gray-600 hover:text-gray-800">
+                        <FontAwesomeIcon icon={faArrowLeft} size="lg" />
+                    </button>
                     <div className="w-10 h-10 bg-gray-300 rounded-full mr-3 flex items-center justify-center font-bold text-white">{contact.nome?.charAt(0).toUpperCase()}</div>
                     <h2 className="font-semibold">{contact.nome}</h2>
                 </div>
