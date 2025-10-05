@@ -10,6 +10,7 @@ const getSupabaseAdmin = () => createClient(
 );
 
 // --- FUNÇÕES DE COMUNICAÇÃO COM WHATSAPP ---
+// (Esta função é mantida caso você queira usá-la para outra automação no futuro)
 async function sendTextMessage(supabase, config, to, contatoId, text) {
     if (!text || text.trim() === "") return;
     const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
@@ -50,9 +51,6 @@ function getTextContent(message) {
     }
 }
 
-// ##### CORREÇÃO APLICADA AQUI #####
-// Substituímos a função antiga por esta, que é muito mais inteligente
-// para lidar com as variações de números de telefone do Brasil.
 function normalizeAndGeneratePhoneNumbers(rawPhone) {
     const digitsOnly = rawPhone.replace(/\D/g, '');
     let numbersToSearch = new Set();
@@ -60,20 +58,17 @@ function normalizeAndGeneratePhoneNumbers(rawPhone) {
     const brazilDDI = '55';
     const minBrazilLength = 10;
     const maxBrazilLength = 11;
-    // Se não tiver DDI, adiciona
     if (!digitsOnly.startsWith(brazilDDI)) {
         if (digitsOnly.length === minBrazilLength || digitsOnly.length === maxBrazilLength) {
             numbersToSearch.add(brazilDDI + digitsOnly);
         }
     }
-    // Se tiver o 9º dígito, gera uma versão sem ele
     if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 13) {
         const ddiDdd = digitsOnly.substring(0, 4);
         const remainingDigits = digitsOnly.substring(4);
         if (remainingDigits.startsWith('9') && remainingDigits.length === 9) {
             numbersToSearch.add(ddiDdd + remainingDigits.substring(1));
         }
-    // Se não tiver o 9º dígito, gera uma versão com ele
     } else if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 12) {
         const ddiDdd = digitsOnly.substring(0, 4);
         const remainingDigits = digitsOnly.substring(4);
@@ -81,8 +76,6 @@ function normalizeAndGeneratePhoneNumbers(rawPhone) {
     }
     return Array.from(numbersToSearch);
 }
-// ##### FIM DA CORREÇÃO #####
-
 
 // --- ROTAS (WEBHOOK) ---
 
@@ -123,7 +116,6 @@ export async function POST(request) {
             const contactPhoneNumber = messageEntry.from;
             let contatoId = null;
             let currentContato = null;
-            let shouldSendAutoReply = false;
 
             const possiblePhones = normalizeAndGeneratePhoneNumbers(contactPhoneNumber);
             console.log(`[WEBHOOK MESSAGE] Procurando contato por variações de telefone: ${possiblePhones.join(', ')}`);
@@ -157,12 +149,12 @@ export async function POST(request) {
                 
                 await supabaseAdmin.from('telefones').insert({
                     contato_id: contatoId,
-                    telefone: contactPhoneNumber, // Salva o número original recebido
+                    telefone: contactPhoneNumber,
                     tipo: 'celular',
                     organizacao_id: whatsappConfig.organizacao_id
                 });
                 
-                shouldSendAutoReply = true;
+                // ##### LÓGICA DE MENSAGEM AUTOMÁTICA REMOVIDA DAQUI #####
 
                 const { data: funnelData } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', whatsappConfig.organizacao_id).order('created_at').limit(1).single();
                 if (funnelData) {
@@ -212,10 +204,7 @@ export async function POST(request) {
             
             await supabaseAdmin.from('whatsapp_conversations').upsert({ phone_number: contactPhoneNumber, updated_at: new Date().toISOString() }, { onConflict: ['phone_number'] });
 
-            if (shouldSendAutoReply) {
-                const autoReplyText = "Olá! 👋 Sou um assistente virtual. Recebi sua mensagem. Para que eu possa te ajudar melhor, poderia me informar o seu nome?";
-                await sendTextMessage(supabaseAdmin, whatsappConfig, contactPhoneNumber, contatoId, autoReplyText);
-            }
+            // ##### LÓGICA DE MENSAGEM AUTOMÁTICA REMOVIDA DAQUI #####
         }
         return NextResponse.json({ status: 'ok' });
 
