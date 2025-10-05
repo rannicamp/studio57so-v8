@@ -12,7 +12,6 @@ import ContactProfile from '@/components/whatsapp/ContactProfile';
 import { Toaster } from 'sonner';
 
 export default function CaixaDeEntrada() {
-    // ##### LÓGICA DE CONTROLE PARA CELULAR ADICIONADA AQUI #####
     const [selectedContact, setSelectedContact] = useState(null);
     const queryClient = useQueryClient();
     const supabase = createClient();
@@ -35,59 +34,51 @@ export default function CaixaDeEntrada() {
         }
     };
 
-    // Nova função para lidar com o botão "voltar" no celular
     const handleBackToList = () => {
         setSelectedContact(null);
     };
     
     return (
-        // A altura foi ajustada para ocupar a tela inteira corretamente
-        <div className="flex h-full w-full bg-gray-100">
+        // ##### ESTRUTURA PRINCIPAL ATUALIZADA #####
+        // O container agora organiza as colunas lado a lado e impede a rolagem da página inteira
+        <div className="flex h-full w-full bg-gray-100 overflow-hidden">
             <Toaster position="top-right" richColors />
 
-            {/* --- VISÃO PARA TELAS GRANDES (DESKTOP) --- */}
-            {/* Esta div só aparece em telas 'md' (médias) ou maiores */}
-            <div className="hidden md:flex w-full h-full">
-                <div className="w-full md:w-1/3 lg:w-1/4 bg-white border-r border-gray-200">
-                    <ConversationList
-                        conversations={conversations}
-                        isLoading={isLoadingConversations}
-                        onSelectContact={handleSelectContact}
-                        selectedContactId={selectedContact?.contato_id}
-                    />
-                </div>
-                <div className="flex-grow h-full">
-                    <MessagePanel 
-                        contact={selectedContact}
-                        onBack={handleBackToList} // Passamos a função, mas ela não será usada aqui
-                    />
-                </div>
-                {selectedContact && (
-                    <div className="hidden lg:block flex-shrink-0 w-1/4 bg-white border-l border-gray-200">
-                        <ContactProfile contact={selectedContact} onClose={() => {}} />
-                    </div>
-                )}
+            {/* --- COLUNA 1: LISTA DE CONVERSAS --- */}
+            {/* Mantém a lógica de mostrar/esconder no celular */}
+            <div className={`
+                w-full md:w-1/3 lg:w-1/4
+                bg-white border-r border-gray-200
+                h-full flex flex-col
+                ${selectedContact ? 'hidden md:flex' : 'flex'}
+            `}>
+                <ConversationList
+                    conversations={conversations}
+                    isLoading={isLoadingConversations}
+                    onSelectContact={handleSelectContact}
+                    selectedContactId={selectedContact?.contato_id}
+                />
             </div>
 
-            {/* --- VISÃO INTELIGENTE PARA TELAS PEQUENAS (CELULAR) --- */}
-            {/* Esta div só aparece em telas pequenas (some em telas 'md' ou maiores) */}
-            <div className="md:hidden w-full h-full">
-                {selectedContact ? (
-                    // Se uma conversa está selecionada, mostra SÓ o painel de mensagens
-                    <MessagePanel 
-                        contact={selectedContact} 
-                        onBack={handleBackToList} // A função "voltar" é crucial aqui
-                    />
-                ) : (
-                    // Se nenhuma conversa está selecionada, mostra SÓ a lista
-                    <ConversationList
-                        conversations={conversations}
-                        isLoading={isLoadingConversations}
-                        onSelectContact={handleSelectContact}
-                        selectedContactId={null}
-                    />
-                )}
+            {/* --- COLUNA 2: PAINEL DE MENSAGEM --- */}
+            {/* Ocupa o espaço central e também tem a lógica de mostrar/esconder */}
+            <div className={`
+                flex-grow h-full
+                ${selectedContact ? 'flex' : 'hidden md:flex'}
+            `}>
+                <MessagePanel 
+                    contact={selectedContact}
+                    onBack={handleBackToList}
+                />
             </div>
+
+            {/* --- COLUNA 3: PERFIL DO CONTATO --- */}
+            {/* Só aparece em telas grandes e agora também tem altura total e é uma coluna flex */}
+            {selectedContact && (
+                <div className="hidden lg:flex flex-shrink-0 w-1/4 bg-white border-l border-gray-200 h-full flex-col">
+                    <ContactProfile contact={selectedContact} onClose={() => {}}/>
+                </div>
+            )}
         </div>
     );
 }
