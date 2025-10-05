@@ -91,7 +91,8 @@ export async function POST(request) {
 
         if (change?.field !== 'leadgen') return new NextResponse(JSON.stringify({ status: 'not_a_leadgen_event' }), { status: 200 });
         
-        const { leadgen_id: leadId, page_id: pageId, campaign_id: campaignId, ad_id: adId } = change.value;
+        // <<< MUDANÇA AQUI: Capturamos o adgroup_id que o Meta nos envia
+        const { leadgen_id: leadId, page_id: pageId, campaign_id: campaignId, ad_id: adId, adgroup_id: adsetId } = change.value;
 
         if (!leadId || !pageId) {
             throw new Error("Payload do lead incompleto (faltando lead_id ou page_id).");
@@ -103,6 +104,7 @@ export async function POST(request) {
         const organizacaoId = await getOrganizationIdByPageId(supabase, pageId);
         
         let campaignName = null;
+        let adsetName = null; // <<< MUDANÇA AQUI: Variável para o nome do conjunto
         let adName = null;
 
         // O webhook agora assume a responsabilidade de enriquecer os dados.
@@ -111,10 +113,31 @@ export async function POST(request) {
             campaignName = await getMetaObjectName(campaignId);
             await supabase.from('meta_campaigns').upsert({ id: campaignId, name: campaignName, organizacao_id: organizacaoId }).throwOnError();
         }
+
+        // <<< MUDANÇA AQUI: Bloco inteiro para buscar e salvar o Conjunto de Anúncios
+        if (adsetId) {
+            adsetName = await getMetaObjectName(adsetId);
+            if (campaignId) { // Um conjunto de anúncios sempre precisa de uma campanha
+                await supabase.from('meta_adsets').upsert({ 
+                    id: adsetId, 
+                    name: adsetName, 
+                    campaign_id: campaignId, 
+                    organizacao_id: organizacaoId 
+                }).throwOnError();
+            }
+        }
+        
         if (adId) {
             adName = await getMetaObjectName(adId);
-            if (campaignId) { // Um anúncio sempre precisa de uma campanha
-                await supabase.from('meta_ads').upsert({ id: adId, name: adName, campaign_id: campaignId, organizacao_id: organizacaoId }).throwOnError();
+            // <<< MUDANÇA AQUI: Adicionamos o 'adset_id' ao salvar o anúncio para garantir a conexão correta
+            if (campaignId && adsetId) { 
+                await supabase.from('meta_ads').upsert({ 
+                    id: adId, 
+                    name: adName, 
+                    campaign_id: campaignId, 
+                    adset_id: adsetId, 
+                    organizacao_id: organizacaoId 
+                }).throwOnError();
             }
         }
 
@@ -134,13 +157,14 @@ export async function POST(request) {
             meta_lead_id: leadId,
             meta_ad_id: adId,
             meta_campaign_id: campaignId,
-            meta_adgroup_id: change.value.adgroup_id,
+            meta_adgroup_id: adsetId, // <<< MUDANÇA AQUI: Usando a variável correta
             meta_page_id: pageId,
             meta_form_id: change.value.form_id,
             meta_created_time: new Date(change.value.created_time * 1000).toISOString(),
             meta_form_data: allLeadData,
             meta_ad_name: adName,
-            meta_campaign_name: campaignName
+            meta_campaign_name: campaignName,
+            meta_adset_name: adsetName // <<< MUDANÇA AQUI: Salvando o nome do conjunto no contato!
         }).select('id').single();
 
         if (contactError) throw new Error(`Erro ao criar contato: ${contactError.message}`);
