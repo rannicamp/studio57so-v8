@@ -69,7 +69,6 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
         }
         setIsSending(true);
         try {
-            // ##### CORREÇÃO APLICADA AQUI (1/3) #####
             // Agora enviamos o nome, o IDIOMA e as variáveis.
             await onSendTemplate(selectedTemplate.name, selectedTemplate.language, variables);
             toast.success('Mensagem de modelo enviada!');

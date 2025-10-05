@@ -43,7 +43,6 @@ export async function POST(request) {
 
     try {
         const body = await request.json();
-        // ##### CORREÇÃO APLICADA AQUI (3/3) #####
         // Lemos o "languageCode" que o frontend está enviando
         const { to, type, templateName, languageCode, components, text, link, filename, caption } = body;
 
