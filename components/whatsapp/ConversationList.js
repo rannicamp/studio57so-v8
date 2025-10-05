@@ -1,6 +1,6 @@
 // components/whatsapp/ConversationList.js
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faSearch, faSpinner } from '@fortawesome/free-solid-svg-icons'
+import { faSpinner } from '@fortawesome/free-solid-svg-icons'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -14,20 +14,9 @@ export default function ConversationList({ conversations, isLoading, onSelectCon
     )
   }
 
+  // O componente agora é apenas a área de rolagem da lista.
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-gray-200">
-        <h1 className="text-xl font-bold">Caixa de Entrada</h1>
-        <div className="relative mt-4">
-          <input
-            type="text"
-            placeholder="Pesquisar ou começar uma nova conversa"
-            className="w-full pl-10 pr-4 py-2 border rounded-full bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <FontAwesomeIcon icon={faSearch} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-        </div>
-      </div>
-      <div className="flex-grow overflow-y-auto">
+    <div className="h-full overflow-y-auto">
         {conversations && conversations.length > 0 ? (
           conversations.map(convo => (
             <div
@@ -66,6 +55,5 @@ export default function ConversationList({ conversations, isLoading, onSelectCon
           </div>
         )}
       </div>
-    </div>
   )
 }

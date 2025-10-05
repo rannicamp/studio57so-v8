@@ -5,7 +5,7 @@ import { getMessages } from '@/app/(main)/caixa-de-entrada/data-fetching';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPaperPlane, faSpinner, faUserCircle, faPaperclip, faFileLines, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faPaperPlane, faSpinner, faUserCircle, faPaperclip, faFileLines } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import TemplateMessageModal from './TemplateMessageModal';
@@ -52,7 +52,7 @@ export default function MessagePanel({ contact, onBack }) {
     }, [messages, contact]);
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }); // 'auto' para evitar pulos ao carregar
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
     }, [messages]);
     
     useEffect(() => {
@@ -142,16 +142,9 @@ export default function MessagePanel({ contact, onBack }) {
         <>
             <TemplateMessageModal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} onSendTemplate={handleSendTemplate} contactName={contact?.nome} />
             <div className="flex flex-col h-full bg-gray-50">
-                {/* ##### CABEÇALHO FIXO ##### */}
-                <div className="flex items-center p-3 border-b border-gray-200 bg-white flex-shrink-0">
-                    <button onClick={onBack} className="md:hidden mr-3 text-gray-600 hover:text-gray-800">
-                        <FontAwesomeIcon icon={faArrowLeft} size="lg" />
-                    </button>
-                    <div className="w-10 h-10 bg-gray-300 rounded-full mr-3 flex items-center justify-center font-bold text-white">{contact.nome?.charAt(0).toUpperCase()}</div>
-                    <h2 className="font-semibold">{contact.nome}</h2>
-                </div>
+                {/* O CABEÇALHO FOI REMOVIDO DAQUI */}
 
-                {/* ##### ÁREA DE MENSAGENS ROLÁVEL ##### */}
+                {/* ÁREA DE MENSAGENS ROLÁVEL */}
                 <div className="flex-grow p-4 overflow-y-auto min-h-0">
                     {messages?.map(msg => (
                         <div key={msg.id} className={`flex my-2 ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
@@ -164,7 +157,7 @@ export default function MessagePanel({ contact, onBack }) {
                     <div ref={messagesEndRef} />
                 </div>
 
-                {/* ##### RODAPÉ FIXO ##### */}
+                {/* RODAPÉ FIXO PARA DIGITAR A MENSAGEM */}
                 <div className="p-4 bg-white border-t border-gray-200 flex-shrink-0">
                     <form onSubmit={handleSendMessage} className="flex items-center gap-2">
                         <input type="file" ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />

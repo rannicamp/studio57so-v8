@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from '../../components/sidebar';
 import Header from '../../components/Header';
 import { LayoutProvider } from '../../contexts/LayoutContext';
@@ -18,6 +18,9 @@ import { config } from '@fortawesome/fontawesome-svg-core';
 config.autoAddCss = false;
 
 function MainLayout({ children }) {
+    const pathname = usePathname();
+    const isCaixaDeEntrada = pathname === '/caixa-de-entrada';
+
     const [isCollapsed, setIsCollapsed] = useState(false);
     
     const { user, isProprietario, loading: authLoading, organizacao_id } = useAuth();
@@ -32,7 +35,6 @@ function MainLayout({ children }) {
 
     const supabase = createClient();
     
-    // A mesma lógica de visibilidade para garantir consistência
     const isCotacoesBarVisible = user?.mostrar_barra_cotacoes && user?.cotacoes_visiveis?.length > 0;
 
     useEffect(() => {
@@ -85,39 +87,37 @@ function MainLayout({ children }) {
     const finalMainContentMargin = mainContentMargins[sidebarPosition] || mainContentMargins.left;
     const finalHeaderMargin = headerMargins[sidebarPosition] || headerMargins.left;
 
+    const layoutCaixaDeEntrada = (
+        <div className={`${finalContainerClass} h-screen w-full bg-gray-100 overflow-hidden`}>
+            <Sidebar isCollapsed={isCollapsed} toggleSidebar={toggleSidebar} isAdmin={isProprietario}/>
+            <div className="flex flex-1 flex-col overflow-hidden">
+                <div className="flex-shrink-0">
+                    <Header />
+                </div>
+                {/* A ÚNICA MUDANÇA ESTÁ AQUI: ADICIONAMOS O 'p-6' */}
+                <main className="flex-grow min-h-0 p-6">
+                    {children}
+                </main>
+            </div>
+        </div>
+    );
+
+    const layoutPadrao = (
+        <div className={finalContainerClass}>
+            <Sidebar isCollapsed={isCollapsed} toggleSidebar={toggleSidebar} isAdmin={isProprietario}/>
+            <div className="flex-1">
+                <Header headerPositionClass={finalHeaderMargin} />
+                <main className={`p-6 transition-all duration-300 ${isCotacoesBarVisible ? 'mt-[89px]' : 'mt-[65px]'} ${finalMainContentMargin}`}>
+                    {children}
+                </main>
+            </div>
+        </div>
+    );
+
     return (
         <>
-            {isGlobalActivityModalOpen && (
-                <AtividadeModal
-                    isOpen={isGlobalActivityModalOpen}
-                    onClose={() => setIsGlobalActivityModalOpen(false)}
-                    onActivityAdded={() => {
-                        setIsGlobalActivityModalOpen(false);
-                        toast.success('Atividade rápida criada com sucesso!');
-                    }}
-                    activityToEdit={null}
-                    funcionarios={modalData.funcionarios}
-                    allEmpreendimentos={empreendimentos}
-                    allEmpresas={modalData.empresas}
-                />
-            )}
-            
-            <div className={finalContainerClass}>
-                <Sidebar
-                    isCollapsed={isCollapsed}
-                    toggleSidebar={toggleSidebar}
-                    isAdmin={isProprietario}
-                />
-                <div className="flex-1">
-                    {/* O Header agora contém a barra, então ele gerencia sua própria posição */}
-                    <Header headerPositionClass={finalHeaderMargin} />
-                    
-                    {/* A margem do topo agora é calculada com base na altura total do cabeçalho + barra de cotações */}
-                    <main className={`p-6 transition-all duration-300 ${isCotacoesBarVisible ? 'mt-[89px]' : 'mt-[65px]'} ${finalMainContentMargin}`}>
-                        {children}
-                    </main>
-                </div>
-            </div>
+            {isGlobalActivityModalOpen && ( <AtividadeModal isOpen={isGlobalActivityModalOpen} onClose={() => setIsGlobalActivityModalOpen(false)} onActivityAdded={() => { setIsGlobalActivityModalOpen(false); toast.success('Atividade rápida criada com sucesso!'); }} activityToEdit={null} funcionarios={modalData.funcionarios} allEmpreendimentos={empreendimentos} allEmpresas={modalData.empresas} /> )}
+            {isCaixaDeEntrada ? layoutCaixaDeEntrada : layoutPadrao}
         </>
     );
 }

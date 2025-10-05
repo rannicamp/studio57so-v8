@@ -10,6 +10,8 @@ import ConversationList from '@/components/whatsapp/ConversationList';
 import MessagePanel from '@/components/whatsapp/MessagePanel';
 import ContactProfile from '@/components/whatsapp/ContactProfile';
 import { Toaster } from 'sonner';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSearch, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
 export default function CaixaDeEntrada() {
     const [selectedContact, setSelectedContact] = useState(null);
@@ -17,6 +19,9 @@ export default function CaixaDeEntrada() {
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
+
+    const isCotacoesBarVisible = user?.mostrar_barra_cotacoes && user?.cotacoes_visiveis?.length > 0;
+    const headerHeight = isCotacoesBarVisible ? '113px' : '89px';
 
     const { data: conversations, isLoading: isLoadingConversations } = useQuery({
         queryKey: ['conversations', organizacaoId],
@@ -39,46 +44,81 @@ export default function CaixaDeEntrada() {
     };
     
     return (
-        // ##### ESTRUTURA PRINCIPAL ATUALIZADA #####
-        // O container agora organiza as colunas lado a lado e impede a rolagem da página inteira
-        <div className="flex h-full w-full bg-gray-100 overflow-hidden">
+        <div 
+            className="flex flex-col w-full bg-gray-100 overflow-hidden ml-[-24px] mr-[-24px]"
+            style={{ height: `calc(100vh - ${headerHeight})` }}
+        >
             <Toaster position="top-right" richColors />
 
-            {/* --- COLUNA 1: LISTA DE CONVERSAS --- */}
-            {/* Mantém a lógica de mostrar/esconder no celular */}
-            <div className={`
-                w-full md:w-1/3 lg:w-1/4
-                bg-white border-r border-gray-200
-                h-full flex flex-col
-                ${selectedContact ? 'hidden md:flex' : 'flex'}
-            `}>
-                <ConversationList
-                    conversations={conversations}
-                    isLoading={isLoadingConversations}
-                    onSelectContact={handleSelectContact}
-                    selectedContactId={selectedContact?.contato_id}
-                />
-            </div>
-
-            {/* --- COLUNA 2: PAINEL DE MENSAGEM --- */}
-            {/* Ocupa o espaço central e também tem a lógica de mostrar/esconder */}
-            <div className={`
-                flex-grow h-full
-                ${selectedContact ? 'flex' : 'hidden md:flex'}
-            `}>
-                <MessagePanel 
-                    contact={selectedContact}
-                    onBack={handleBackToList}
-                />
-            </div>
-
-            {/* --- COLUNA 3: PERFIL DO CONTATO --- */}
-            {/* Só aparece em telas grandes e agora também tem altura total e é uma coluna flex */}
-            {selectedContact && (
-                <div className="hidden lg:flex flex-shrink-0 w-1/4 bg-white border-l border-gray-200 h-full flex-col">
-                    <ContactProfile contact={selectedContact} onClose={() => {}}/>
+            {/* ================================================================= */}
+            {/* PARTE 1: O NOVO CABEÇALHO FIXO DA PÁGINA                       */}
+            {/* ================================================================= */}
+            <div className="flex flex-shrink-0 border-b bg-white">
+                {/* Cabeçalho da Coluna 1: Lista de Conversas */}
+                <div className="w-full md:w-1/3 lg:w-1/4 p-4 border-r">
+                    <h1 className="text-xl font-bold">Caixa de Entrada</h1>
+                    <div className="relative mt-4">
+                        <input
+                            type="text"
+                            placeholder="Pesquisar ou começar uma nova conversa"
+                            className="w-full pl-10 pr-4 py-2 border rounded-full bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <FontAwesomeIcon icon={faSearch} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                    </div>
                 </div>
-            )}
+
+                {/* Cabeçalho da Coluna 2: Painel de Mensagens */}
+                <div className="flex-grow p-3 flex items-center border-r">
+                    {selectedContact && (
+                        <>
+                            <button onClick={handleBackToList} className="md:hidden mr-3 text-gray-600 hover:text-gray-800">
+                                <FontAwesomeIcon icon={faArrowLeft} size="lg" />
+                            </button>
+                            <div className="w-10 h-10 bg-gray-300 rounded-full mr-3 flex items-center justify-center font-bold text-white">
+                                {selectedContact.nome?.charAt(0).toUpperCase()}
+                            </div>
+                            <h2 className="font-semibold">{selectedContact.nome}</h2>
+                        </>
+                    )}
+                </div>
+
+                {/* Cabeçalho da Coluna 3: Perfil do Contato */}
+                <div className="hidden lg:block flex-shrink-0 w-1/4 p-4">
+                    {selectedContact && (
+                        <h2 className="text-lg font-bold">Perfil do Contato</h2>
+                    )}
+                </div>
+            </div>
+
+            {/* ================================================================= */}
+            {/* PARTE 2: A NOVA ÁREA DE CONTEÚDO                             */}
+            {/* ================================================================= */}
+            <div className="flex flex-grow min-h-0">
+                {/* Conteúdo da Coluna 1 */}
+                <div className="w-full md:w-1/3 lg:w-1/4 bg-white border-r">
+                    <ConversationList
+                        conversations={conversations}
+                        isLoading={isLoadingConversations}
+                        onSelectContact={handleSelectContact}
+                        selectedContactId={selectedContact?.contato_id}
+                    />
+                </div>
+
+                {/* Conteúdo da Coluna 2 */}
+                <div className="flex-grow">
+                    <MessagePanel 
+                        contact={selectedContact}
+                        onBack={handleBackToList}
+                    />
+                </div>
+
+                {/* Conteúdo da Coluna 3 */}
+                {selectedContact && (
+                    <div className="hidden lg:block flex-shrink-0 w-1/4 bg-white border-l">
+                        <ContactProfile contact={selectedContact} />
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
