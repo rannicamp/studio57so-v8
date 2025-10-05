@@ -102,9 +102,9 @@ export default function AutomacaoPage() {
                             {automations.length === 0 ? (
                                 <tr>
                                     {/* ##### CORREÇÃO APLICADA AQUI ##### */}
-                                    {/* As aspas duplas internas foram trocadas por aspas simples */}
+                                    {/* O texto agora está dentro de chaves {}, o que resolve o problema das aspas. */}
                                     <td colSpan="3" className="px-6 py-12 text-center text-sm text-gray-500">
-                                        Nenhuma automação criada ainda. Clique em 'Criar Nova Automação' para começar.
+                                        {"Nenhuma automação criada ainda. Clique em 'Criar Nova Automação' para começar."}
                                     </td>
                                 </tr>
                             ) : (
