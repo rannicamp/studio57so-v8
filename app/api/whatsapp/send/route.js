@@ -43,14 +43,13 @@ export async function POST(request) {
 
     try {
         const body = await request.json();
-        const { to, type, templateName, languageCode, components, text, link, filename, caption } = body;
+        // A variável languageCode foi removida pois não estava sendo usada corretamente
+        const { to, type, templateName, components, text, link, filename, caption } = body;
 
         if (!to || !type) {
             return NextResponse.json({ error: 'O número de destino (to) e o tipo (type) são obrigatórios.' }, { status: 400 });
         }
 
-        // ##### CORREÇÃO APLICADA AQUI (1/2) #####
-        // Adicionamos 'organizacao_id' à busca de configurações
         const { data: config, error: configError } = await supabaseAdmin
             .from('configuracoes_whatsapp')
             .select('whatsapp_permanent_token, whatsapp_phone_number_id, organizacao_id')
@@ -89,10 +88,23 @@ export async function POST(request) {
                 payload.audio = { link: link };
                 messageContentForDb = 'Áudio';
                 break;
+            
+            // ##### CORREÇÃO APLICADA AQUI #####
+            // A lógica anterior estava incompleta. Agora, montamos o payload
+            // do template com todas as informações necessárias.
             case 'template':
-                payload.template = { name: templateName, language: { code: languageCode || 'pt_BR' }, components: components || [] };
+                if (!templateName) {
+                    return NextResponse.json({ error: 'O nome do modelo (templateName) é obrigatório para o tipo template.' }, { status: 400 });
+                }
+                payload.template = { 
+                    name: templateName, 
+                    language: { code: 'pt_BR' }, // O idioma é definido aqui
+                    components: components || [] 
+                };
                 messageContentForDb = `Template: ${templateName}`;
                 break;
+            // ##### FIM DA CORREÇÃO #####
+
             default:
                 return NextResponse.json({ error: 'Tipo de mensagem inválido.' }, { status: 400 });
         }
@@ -129,8 +141,6 @@ export async function POST(request) {
             }
         }
         
-        // ##### CORREÇÃO APLICADA AQUI (2/2) #####
-        // Adicionamos 'organizacao_id' ao objeto que será salvo no banco
         const { error: dbError } = await supabaseAdmin.from('whatsapp_messages').insert({
             contato_id: contactId,
             enterprise_id: enterpriseId,
@@ -142,7 +152,7 @@ export async function POST(request) {
             direction: 'outbound',
             status: 'sent',
             raw_payload: payload,
-            organizacao_id: organizacao_id // GARANTE QUE A MENSAGEM SEJA ASSOCIADA À ORGANIZAÇÃO
+            organizacao_id: organizacao_id
         });
 
         if (dbError) {
