@@ -31,7 +31,6 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
     const [variables, setVariables] = useState([]);
     const [isSending, setIsSending] = useState(false);
 
-    // Reseta o estado quando o modal é fechado ou reaberto
     useEffect(() => {
         if (isOpen) {
             setSelectedTemplate(null);
@@ -39,16 +38,13 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
         }
     }, [isOpen]);
 
-    // Atualiza as variáveis quando um template é selecionado
     const handleTemplateChange = (templateName) => {
         const template = templates.find(t => t.name === templateName);
         if (template) {
             setSelectedTemplate(template);
-            // Extrai as variáveis do corpo da mensagem
             const bodyComponent = template.components.find(c => c.type === 'BODY');
             const variableCount = (bodyComponent?.text?.match(/\{\{\d\}\}/g) || []).length;
             
-            // Pré-preenche a primeira variável com o nome do contato, se disponível
             const initialVars = Array(variableCount).fill('');
             if (contactName && variableCount > 0) {
                 initialVars[0] = contactName;
@@ -73,11 +69,13 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
         }
         setIsSending(true);
         try {
-            await onSendTemplate(selectedTemplate.name, variables);
+            // ##### CORREÇÃO APLICADA AQUI (1/3) #####
+            // Agora enviamos o nome, o IDIOMA e as variáveis.
+            await onSendTemplate(selectedTemplate.name, selectedTemplate.language, variables);
             toast.success('Mensagem de modelo enviada!');
             onClose();
         } catch (err) {
-            toast.error(`Erro ao enviar: ${err.message}`);
+            // O erro já é tratado na mutação, então não precisa de toast aqui.
         } finally {
             setIsSending(false);
         }
@@ -144,7 +142,6 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                         {variables.map((value, index) => (
                             <div key={index}>
                                 <label htmlFor={`variable-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                                    {/* ##### CORREÇÃO APLICADA AQUI ##### */}
                                     {`Variável {{${index + 1}}}`}
                                 </label>
                                 <input

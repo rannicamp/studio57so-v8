@@ -43,8 +43,9 @@ export async function POST(request) {
 
     try {
         const body = await request.json();
-        // A variável languageCode foi removida pois não estava sendo usada corretamente
-        const { to, type, templateName, components, text, link, filename, caption } = body;
+        // ##### CORREÇÃO APLICADA AQUI (3/3) #####
+        // Lemos o "languageCode" que o frontend está enviando
+        const { to, type, templateName, languageCode, components, text, link, filename, caption } = body;
 
         if (!to || !type) {
             return NextResponse.json({ error: 'O número de destino (to) e o tipo (type) são obrigatórios.' }, { status: 400 });
@@ -89,21 +90,18 @@ export async function POST(request) {
                 messageContentForDb = 'Áudio';
                 break;
             
-            // ##### CORREÇÃO APLICADA AQUI #####
-            // A lógica anterior estava incompleta. Agora, montamos o payload
-            // do template com todas as informações necessárias.
             case 'template':
                 if (!templateName) {
                     return NextResponse.json({ error: 'O nome do modelo (templateName) é obrigatório para o tipo template.' }, { status: 400 });
                 }
                 payload.template = { 
                     name: templateName, 
-                    language: { code: 'pt_BR' }, // O idioma é definido aqui
+                    // Usamos o "languageCode" recebido, com 'pt_BR' como um plano B.
+                    language: { code: languageCode || 'pt_BR' }, 
                     components: components || [] 
                 };
                 messageContentForDb = `Template: ${templateName}`;
                 break;
-            // ##### FIM DA CORREÇÃO #####
 
             default:
                 return NextResponse.json({ error: 'Tipo de mensagem inválido.' }, { status: 400 });

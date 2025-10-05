@@ -23,7 +23,7 @@ export default function MessagePanel({ contact }) {
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-    const [recipientPhone, setRecipientPhone] = useState(null); // NOVO: Estado para guardar o telefone do cliente
+    const [recipientPhone, setRecipientPhone] = useState(null);
 
     const supabase = createClient();
     const { user } = useAuth();
@@ -35,27 +35,21 @@ export default function MessagePanel({ contact }) {
         enabled: !!organizacaoId && !!contact,
     });
 
-    // =================================================================================
-    // A LÓGICA CORRIGIDA ESTÁ AQUI
-    // O porquê: Este bloco agora procura o número de telefone do cliente no lugar certo
-    // (no sender_id de uma mensagem recebida), como você indicou.
-    // =================================================================================
     useEffect(() => {
         if (messages && messages.length > 0) {
-            // Prioriza o sender_id de uma mensagem recebida (inbound)
             const inboundMsg = messages.find(m => m.direction === 'inbound');
             if (inboundMsg && inboundMsg.sender_id) {
                 setRecipientPhone(inboundMsg.sender_id);
                 return;
             }
-            // Se não houver, usa o receiver_id de uma mensagem enviada (outbound) como plano B
             const outboundMsg = messages.find(m => m.direction === 'outbound');
             if (outboundMsg && outboundMsg.receiver_id) {
                 setRecipientPhone(outboundMsg.receiver_id);
             }
+        } else if (contact?.telefone) {
+            setRecipientPhone(contact.telefone);
         }
-    }, [messages]);
-    // =================================================================================
+    }, [messages, contact]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -94,12 +88,15 @@ export default function MessagePanel({ contact }) {
     });
 
     const sendTemplateMutation = useMutation({
-        mutationFn: async ({ templateName, variables }) => {
+        // ##### CORREÇÃO APLICADA AQUI (2/3) #####
+        // A função agora espera receber o "language"
+        mutationFn: async ({ templateName, language, variables }) => {
             if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
             const components = variables.length > 0 ? [{ type: 'body', parameters: variables.map(v => ({ type: 'text', text: v })) }] : [];
             const response = await fetch('/api/whatsapp/send', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ to: recipientPhone, type: 'template', templateName: templateName, components: components }),
+                // E o "language" é enviado para a API
+                body: JSON.stringify({ to: recipientPhone, type: 'template', templateName: templateName, languageCode: language, components: components }),
             });
             if (!response.ok) throw new Error((await response.json()).error || 'Falha ao enviar modelo');
             return response.json();
@@ -134,7 +131,8 @@ export default function MessagePanel({ contact }) {
 
     const handleSendMessage = (e) => { e.preventDefault(); if (newMessage.trim()) { sendMessageMutation.mutate(newMessage); } };
     const handleFileSelect = (e) => { const file = e.target.files[0]; if (file) { sendAttachmentMutation.mutate({ file }); } e.target.value = null; };
-    const handleSendTemplate = (templateName, variables) => { sendTemplateMutation.mutate({ templateName, variables }); };
+    // A função de "handle" também é atualizada para passar o idioma para a mutação
+    const handleSendTemplate = (templateName, language, variables) => { sendTemplateMutation.mutate({ templateName, language, variables }); };
 
     if (!contact) {
         return <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500"><FontAwesomeIcon icon={faUserCircle} size="6x" /><p className="mt-4 text-lg">Selecione uma conversa para começar</p></div>;
