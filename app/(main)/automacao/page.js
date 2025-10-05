@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSpinner, faToggleOn, faToggleOff, faTrash, faPen, faRobot } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+import AutomacaoModal from '@/components/crm/AutomacaoModal'; // <-- IMPORTAMOS O MODAL
 
 // Função para buscar as automações existentes
 const fetchAutomations = async (supabase, organizacaoId) => {
@@ -36,29 +37,57 @@ export default function AutomacaoPage() {
         enabled: !!organizacaoId,
     });
 
-    // Lógica para deletar e ativar/desativar (será usada pelo modal que criaremos depois)
     const mutationOptions = {
-        onSuccess: () => {
+        onSuccess: (message) => {
             queryClient.invalidateQueries({ queryKey: ['automations', organizacaoId] });
-            toast.success("Operação realizada com sucesso!");
+            toast.success(message || "Operação realizada com sucesso!");
+            setIsModalOpen(false); // Fecha o modal após o sucesso
         },
         onError: (err) => toast.error(err.message),
     };
 
+    const saveAutomationMutation = useMutation({
+        mutationFn: async (automationData) => {
+            const { error } = await supabase.from('automacoes').upsert(automationData).select();
+            if (error) throw error;
+            return automationData.id ? "Automação atualizada!" : "Automação criada!";
+        },
+        ...mutationOptions
+    });
+
     const deleteAutomationMutation = useMutation({
-        mutationFn: async (id) => { /* Lógica de exclusão virá aqui */ },
+        mutationFn: async (id) => {
+            const { error } = await supabase.from('automacoes').delete().eq('id', id);
+            if (error) throw error;
+            return "Automação excluída!";
+        },
         ...mutationOptions
     });
 
     const toggleAutomationMutation = useMutation({
-        mutationFn: async ({ id, newStatus }) => { /* Lógica de ativar/desativar virá aqui */ },
+        mutationFn: async ({ id, newStatus }) => {
+            const { error } = await supabase.from('automacoes').update({ ativo: newStatus }).eq('id', id);
+            if (error) throw error;
+            return `Automação ${newStatus ? 'ativada' : 'desativada'}!`;
+        },
         ...mutationOptions
     });
 
     const handleOpenModal = (automation = null) => {
         setSelectedAutomation(automation);
         setIsModalOpen(true);
-        toast.info("A tela para criar/editar automações será implementada no próximo passo!");
+    };
+
+    const handleDelete = (automation) => {
+        toast("Confirmar Exclusão", {
+            description: `Tem certeza que deseja excluir a automação "${automation.nome}"?`,
+            action: {
+                label: "Excluir",
+                onClick: () => deleteAutomationMutation.mutate(automation.id),
+            },
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' }
+        });
     };
     
     if (isLoading) {
@@ -71,8 +100,17 @@ export default function AutomacaoPage() {
 
     return (
         <div className="p-6 bg-gray-100 h-full">
-            {/* Modal (será criado no próximo passo) */}
-            {/* {isModalOpen && <AutomacaoModal onClose={() => setIsModalOpen(false)} automation={selectedAutomation} />} */}
+            {/* O modal agora é renderizado e controlado pela página */}
+            {isModalOpen && (
+                <AutomacaoModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    onSave={(data) => saveAutomationMutation.mutate(data)}
+                    automation={selectedAutomation}
+                    supabase={supabase}
+                    organizacaoId={organizacaoId}
+                />
+            )}
 
             <header className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
@@ -101,8 +139,6 @@ export default function AutomacaoPage() {
                         <tbody className="bg-white divide-y divide-gray-200">
                             {automations.length === 0 ? (
                                 <tr>
-                                    {/* ##### CORREÇÃO APLICADA AQUI ##### */}
-                                    {/* O texto agora está dentro de chaves {}, o que resolve o problema das aspas. */}
                                     <td colSpan="3" className="px-6 py-12 text-center text-sm text-gray-500">
                                         {"Nenhuma automação criada ainda. Clique em 'Criar Nova Automação' para começar."}
                                     </td>
@@ -112,10 +148,10 @@ export default function AutomacaoPage() {
                                     <tr key={automation.id}>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm font-medium text-gray-900">{automation.nome}</div>
-                                            <div className="text-xs text-gray-500">Gatilho: {automation.gatilho_tipo}</div>
+                                            <div className="text-xs text-gray-500">Gatilho: Mover para coluna</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <button onClick={() => { /* Lógica de toggle virá aqui */ }}>
+                                            <button onClick={() => toggleAutomationMutation.mutate({ id: automation.id, newStatus: !automation.ativo })}>
                                                 <FontAwesomeIcon
                                                     icon={automation.ativo ? faToggleOn : faToggleOff}
                                                     className={`text-2xl ${automation.ativo ? 'text-green-500' : 'text-gray-400'}`}
@@ -126,7 +162,7 @@ export default function AutomacaoPage() {
                                             <button onClick={() => handleOpenModal(automation)} className="text-indigo-600 hover:text-indigo-900 mr-4">
                                                 <FontAwesomeIcon icon={faPen} className="mr-1"/> Editar
                                             </button>
-                                            <button onClick={() => { /* Lógica de exclusão virá aqui */ }} className="text-red-600 hover:text-red-900">
+                                            <button onClick={() => handleDelete(automation)} className="text-red-600 hover:text-red-900">
                                                 <FontAwesomeIcon icon={faTrash} className="mr-1"/> Excluir
                                             </button>
                                         </td>
