@@ -9,7 +9,7 @@ const getSupabaseAdmin = () => createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// --- FUNÇÕES DE COMUNICAÇÃO COM WHATSAPP (ATUALIZADAS) ---
+// --- FUNÇÕES DE COMUNICAÇÃO COM WHATSAPP ---
 async function sendTextMessage(supabase, config, to, contatoId, text) {
     if (!text || text.trim() === "") return;
     const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
@@ -36,7 +36,7 @@ async function sendTextMessage(supabase, config, to, contatoId, text) {
     } catch (error) { console.error("ERRO de rede ao enviar mensagem de texto:", error); }
 }
 
-// --- FUNÇÕES AUXILIARES (MANTIDAS) ---
+// --- FUNÇÕES AUXILIARES ---
 
 function getTextContent(message) {
     if (!message || !message.type) { return null; }
@@ -50,19 +50,39 @@ function getTextContent(message) {
     }
 }
 
+// ##### CORREÇÃO APLICADA AQUI #####
+// Substituímos a função antiga por esta, que é muito mais inteligente
+// para lidar com as variações de números de telefone do Brasil.
 function normalizeAndGeneratePhoneNumbers(rawPhone) {
     const digitsOnly = rawPhone.replace(/\D/g, '');
     let numbersToSearch = new Set();
     numbersToSearch.add(digitsOnly);
-    if (digitsOnly.startsWith('1') && digitsOnly.length === 11) {
-        numbersToSearch.add(digitsOnly); 
-    } else if (digitsOnly.startsWith('55') && (digitsOnly.length === 12 || digitsOnly.length === 13)) {
-        numbersToSearch.add(digitsOnly);
-    } else if (digitsOnly.length === 10 || digitsOnly.length === 11) {
-        numbersToSearch.add('55' + digitsOnly);
+    const brazilDDI = '55';
+    const minBrazilLength = 10;
+    const maxBrazilLength = 11;
+    // Se não tiver DDI, adiciona
+    if (!digitsOnly.startsWith(brazilDDI)) {
+        if (digitsOnly.length === minBrazilLength || digitsOnly.length === maxBrazilLength) {
+            numbersToSearch.add(brazilDDI + digitsOnly);
+        }
+    }
+    // Se tiver o 9º dígito, gera uma versão sem ele
+    if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 13) {
+        const ddiDdd = digitsOnly.substring(0, 4);
+        const remainingDigits = digitsOnly.substring(4);
+        if (remainingDigits.startsWith('9') && remainingDigits.length === 9) {
+            numbersToSearch.add(ddiDdd + remainingDigits.substring(1));
+        }
+    // Se não tiver o 9º dígito, gera uma versão com ele
+    } else if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 12) {
+        const ddiDdd = digitsOnly.substring(0, 4);
+        const remainingDigits = digitsOnly.substring(4);
+        numbersToSearch.add(ddiDdd + '9' + remainingDigits);
     }
     return Array.from(numbersToSearch);
 }
+// ##### FIM DA CORREÇÃO #####
+
 
 // --- ROTAS (WEBHOOK) ---
 
@@ -92,7 +112,6 @@ export async function POST(request) {
 
         const statusEntry = body.entry?.[0]?.changes?.[0]?.value?.statuses?.[0];
         if (statusEntry) {
-            // Lógica de status mantida... (não é a causa do problema)
             return NextResponse.json({ status: 'ok' });
         }
 
@@ -107,14 +126,17 @@ export async function POST(request) {
             let shouldSendAutoReply = false;
 
             const possiblePhones = normalizeAndGeneratePhoneNumbers(contactPhoneNumber);
+            console.log(`[WEBHOOK MESSAGE] Procurando contato por variações de telefone: ${possiblePhones.join(', ')}`);
+
             const { data: matchingPhones } = await supabaseAdmin.from('telefones').select('contato_id').in('telefone', possiblePhones).limit(1);
             
             if (matchingPhones?.length > 0) {
                 contatoId = matchingPhones[0].contato_id;
+                console.log(`[WEBHOOK MESSAGE] Contato encontrado. ID: ${contatoId}`);
             }
             
             if (!contatoId) {
-                console.log(`[WEBHOOK MESSAGE] Contato não encontrado para ${contactPhoneNumber}. Criando novo.`);
+                console.log(`[WEBHOOK MESSAGE] Contato não encontrado. Criando novo.`);
                 const { data: newContact, error: contactError } = await supabaseAdmin
                     .from('contatos')
                     .insert({ 
@@ -135,19 +157,18 @@ export async function POST(request) {
                 
                 await supabaseAdmin.from('telefones').insert({
                     contato_id: contatoId,
-                    telefone: contactPhoneNumber,
+                    telefone: contactPhoneNumber, // Salva o número original recebido
                     tipo: 'celular',
                     organizacao_id: whatsappConfig.organizacao_id
                 });
                 
                 shouldSendAutoReply = true;
 
-                // Lógica de CRM mantida
                 const { data: funnelData } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', whatsappConfig.organizacao_id).order('created_at').limit(1).single();
                 if (funnelData) {
                     const { data: columnData } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funnelData.id).order('ordem').limit(1).single();
                     if (columnData) {
-                        await supabaseAdmin.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: columnData.id });
+                        await supabaseAdmin.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: columnData.id, organizacao_id: whatsappConfig.organizacao_id });
                         console.log(`[WEBHOOK CRM] Card criado no CRM para novo contato.`);
                     }
                 }
@@ -160,8 +181,6 @@ export async function POST(request) {
                 await supabaseAdmin.from('contatos').update({ nome: messageContent, is_awaiting_name_response: false }).eq('id', contatoId);
             }
             
-            // ##### CORREÇÃO APLICADA AQUI #####
-            // Adicionamos verificação de erro e sucesso no salvamento da mensagem
             const { data: insertedMessage, error: insertError } = await supabaseAdmin
                 .from('whatsapp_messages')
                 .insert({
@@ -190,8 +209,7 @@ export async function POST(request) {
             }
 
             console.log(`[WEBHOOK MESSAGE] Mensagem de ${contactPhoneNumber} salva com sucesso no banco. ID: ${insertedMessage.id}`);
-            // ##### FIM DA CORREÇÃO #####
-
+            
             await supabaseAdmin.from('whatsapp_conversations').upsert({ phone_number: contactPhoneNumber, updated_at: new Date().toISOString() }, { onConflict: ['phone_number'] });
 
             if (shouldSendAutoReply) {
