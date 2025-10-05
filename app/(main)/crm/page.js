@@ -2,12 +2,14 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import Link from 'next/link'; // ##### IMPORT ADICIONADO #####
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useLayout } from '@/contexts/LayoutContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTimes, faSearch, faPlus, faUsers, faHandshake, faPercent, faSackDollar, faCalendarDay } from '@fortawesome/free-solid-svg-icons';
+// ##### ÍCONE DO ROBÔ ADICIONADO #####
+import { faSpinner, faTimes, faSearch, faPlus, faUsers, faHandshake, faPercent, faSackDollar, faCalendarDay, faRobot } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { differenceInCalendarDays, startOfDay } from 'date-fns';
 import { useDebounce } from 'use-debounce';
@@ -19,6 +21,7 @@ import AtividadeModal from '@/components/AtividadeModal';
 import KpiCard from '@/components/KpiCard';
 import FiltroCrm from '@/components/crm/FiltroCrm';
 
+// ... (O restante do arquivo permanece o mesmo, sem alterações)
 const CRM_CACHE_KEY = 'crmFunilData';
 
 const formatRelativeDate = (date) => {
@@ -73,12 +76,6 @@ const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, exi
     );
 };
 
-// =================================================================================
-// INÍCIO DA CORREÇÃO
-// O PORQUÊ: A linha que causa o erro foi ajustada. A busca agora foca no nome e
-// na razão social, que são os campos principais, evitando a consulta complexa
-// no telefone que estava quebrando a página.
-// =================================================================================
 const fetchFunilData = async (supabase, organizacaoId, filters) => {
     if (!organizacaoId) return { funilId: null, colunasDoFunil: [], contatosNoFunil: [] };
 
@@ -100,7 +97,6 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
     query = query.eq('organizacao_id', organizacaoId);
 
     if (filters.searchTerm) {
-        // CORREÇÃO APLICADA AQUI: a busca por telefone foi removida para evitar o erro.
         query = query.or(`nome.ilike.%${filters.searchTerm}%,razao_social.ilike.%${filters.searchTerm}%`, { foreignTable: 'contatos' });
     }
     if (filters.corretorIds?.length > 0) {
@@ -142,9 +138,6 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
     
     return { funilId, colunasDoFunil, contatosNoFunil: contatosParaEstado };
 };
-// =================================================================================
-// FIM DA CORREÇÃO
-// =================================================================================
 
 const fetchFilterData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { corretores: [], origens: [], unidades: [], campaigns: [], ads: [] };
@@ -294,7 +287,27 @@ export default function CrmPage() {
 
     const mutationOptions = { onSuccess: (message) => { toast.success(message || "Operação realizada com sucesso!"); queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] }); queryClient.invalidateQueries({ queryKey: ['availableProducts', organizacaoId] }); queryClient.invalidateQueries({ queryKey: ['crmFilterOptions', organizacaoId] }); }, onError: (error) => toast.error(error.message) };
     const associateProductMutation = useMutation({ mutationFn: async ({ contatoNoFunilId, productId }) => { if (!organizacaoId) { throw new Error("ID da organização não encontrado. Tente novamente."); } await supabase.from('contatos_no_funil_produtos').insert({ contato_no_funil_id: contatoNoFunilId, produto_id: productId, organizacao_id: organizacaoId }).throwOnError(); return "Produto associado!"; }, ...mutationOptions });
-    const updateContactColumnMutation = useMutation({ mutationFn: async ({ contatoNoFunilId, novaColunaId }) => { const { colunasDoFunil: cols } = queryClient.getQueryData(['funilData', organizacaoId, debouncedFilters]); const novaColuna = cols.find(c => c.id === novaColunaId); if (novaColuna.nome === 'Vendido') { const contatoMovido = contatosNoFunil.find(c => c.id === contatoNoFunilId); const produtosParaVender = contatoMovido.produtos_interesse || []; if (produtosParaVender.length === 0) throw new Error("Nenhum produto associado para vender."); const novosContratos = produtosParaVender.map(item => ({ contato_id: contatoMovido.contatos.id, produto_id: item.produto.id, empreendimento_id: item.produto.empreendimento_id, valor_final_venda: item.produto.valor_venda_calculado || 0, status_contrato: 'Em assinatura', organizacao_id: organizacaoId })); await supabase.from('contratos').insert(novosContratos).throwOnError(); } await supabase.from('contatos_no_funil').update({ coluna_id: novaColunaId }).eq('id', contatoNoFunilId).eq('organizacao_id', organizacaoId).throwOnError(); return "Contato movido!"; }, ...mutationOptions });
+    
+    const updateContactColumnMutation = useMutation({
+        mutationFn: async ({ contatoNoFunilId, novaColunaId }) => {
+            const response = await fetch('/api/crm', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    organizacaoId: organizacaoId,
+                    contatoId: contatoNoFunilId,
+                    novaColunaId,
+                }),
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || "Erro ao mover contato.");
+            }
+            return result.message;
+        },
+        ...mutationOptions
+    });
+
     const addContactMutation = useMutation({ mutationFn: async (contactId) => { const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).eq('organizacao_id', organizacaoId).order('ordem').limit(1).single(); if (!primeiraColuna) throw new Error("Coluna inicial não encontrada."); await supabase.from('contatos_no_funil').insert({ contato_id: contactId, coluna_id: primeiraColuna.id, organizacao_id: organizacaoId }).throwOnError(); return "Contato adicionado!"; }, onSuccess: (message) => { setIsAddContactModalOpen(false); mutationOptions.onSuccess(message); }, onError: mutationOptions.onError });
     const createColumnMutation = useMutation({ mutationFn: async (name) => { await supabase.from('colunas_funil').insert({ nome: name, funil_id: funilId, ordem: colunasDoFunil.length, organizacao_id: organizacaoId }).throwOnError(); return "Etapa criada!"; }, ...mutationOptions });
     const reorderColumnsMutation = useMutation({ mutationFn: async (cols) => { const updates = cols.map(c => supabase.from('colunas_funil').update({ ordem: c.ordem }).eq('id', c.id)); await Promise.all(updates); return "Ordem salva!"; }, ...mutationOptions });
@@ -316,9 +329,15 @@ export default function CrmPage() {
             <div className="flex-shrink-0 bg-white shadow-sm p-4 space-y-4">
                 <div className="flex justify-between items-center">
                     <h1 className="text-xl font-bold text-gray-800">Funil de Vendas</h1>
-                    <button onClick={openAddContactModal} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center gap-2">
-                        <FontAwesomeIcon icon={faPlus} /> Adicionar Contato
-                    </button>
+                    {/* ##### BOTÃO DE AUTOMAÇÃO ADICIONADO AQUI ##### */}
+                    <div className="flex items-center gap-2">
+                        <Link href="/automacao" className="bg-gray-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-gray-700 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faRobot} /> Automações
+                        </Link>
+                        <button onClick={openAddContactModal} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faPlus} /> Adicionar Contato
+                        </button>
+                    </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     <KpiCard title="Total de Leads" value={kpiData.totalLeads} icon={faUsers} />
