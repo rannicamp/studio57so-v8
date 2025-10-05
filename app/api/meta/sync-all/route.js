@@ -1,5 +1,4 @@
 // app/api/meta/sync-all/route.js
-
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { cookies } from 'next/headers';
@@ -8,26 +7,12 @@ const PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN;
 const API_VERSION = 'v20.0';
 const BASE_URL = `https://graph.facebook.com/${API_VERSION}`;
 
-// Função auxiliar para fazer requisições à API da Meta
-async function metaApiRequest(endpoint, params = {}) {
-    const urlParams = new URLSearchParams({ ...params, access_token: PAGE_ACCESS_TOKEN });
-    const url = `${BASE_URL}/${endpoint}?${urlParams.toString()}`;
-    const response = await fetch(url);
-    const data = await response.json();
-    if (!response.ok) {
-        console.error(`Erro na chamada para ${endpoint}:`, data.error);
-        throw new Error(data.error?.message || `Erro na API da Meta: ${response.statusText}`);
-    }
-    return data.data || [];
-}
-
 export async function GET(request) {
-    console.log("LOG: [SYNC-ALL] Processo de sincronização mestre iniciado.");
+    console.log("LOG: [SYNC-ALL] Iniciando Sincronização Inteligente a partir dos anúncios existentes.");
     const cookieStore = cookies();
     const supabase = createClient(cookieStore);
 
     try {
-        // Segurança: Valida se o usuário está logado
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
@@ -35,49 +20,83 @@ export async function GET(request) {
         if (!profile) return NextResponse.json({ error: 'Perfil não encontrado' }, { status: 403 });
         const organizacaoId = profile.organizacao_id;
 
-        // Encontra a conta de anúncios principal da empresa
-        const { data: empresa } = await supabase.from('cadastro_empresa').select('meta_ad_account_id').eq('organizacao_id', organizacaoId).single();
-        if (!empresa || !empresa.meta_ad_account_id) {
-            throw new Error("ID da Conta de Anúncios não configurado no sistema para esta organização.");
-        }
-        const adAccountId = empresa.meta_ad_account_id.replace('act_', '');
-
-        // 1. Busca TODAS as campanhas da conta de anúncios
-        const campaigns = await metaApiRequest(adAccountId + '/campaigns', { fields: 'id,name', limit: 500 });
-        if (campaigns.length > 0) {
-            const campaignsToUpsert = campaigns.map(c => ({ id: c.id, name: c.name, organizacao_id: organizacaoId }));
-            const { error: campError } = await supabase.from('meta_campaigns').upsert(campaignsToUpsert, { onConflict: 'id' });
-            if (campError) throw new Error(`Falha ao sincronizar campanhas: ${campError.message}`);
-            console.log(`LOG: [SYNC-ALL] ${campaigns.length} campanhas sincronizadas.`);
+        const { data: empresa } = await supabase.from('cadastro_empresa').select('meta_business_id').eq('organizacao_id', organizacaoId).not('meta_business_id', 'is', null).limit(1).single();
+        if (!empresa || !empresa.meta_business_id) {
+            throw new Error("ID do Gerenciador de Negócios (meta_business_id) não configurado.");
         }
 
-        // 2. Busca TODOS os conjuntos de anúncios
-        const adsets = await metaApiRequest(adAccountId + '/adsets', { fields: 'id,name,campaign_id', limit: 500 });
-        if (adsets.length > 0) {
-            const adsetsToUpsert = adsets.map(as => ({ id: as.id, name: as.name, campaign_id: as.campaign_id, organizacao_id: organizacaoId }));
-            const { error: adsetError } = await supabase.from('meta_adsets').upsert(adsetsToUpsert, { onConflict: 'id' });
-            if (adsetError) throw new Error(`Falha ao sincronizar conjuntos de anúncios: ${adsetError.message}`);
-            console.log(`LOG: [SYNC-ALL] ${adsets.length} conjuntos de anúncios sincronizados.`);
+        const adAccountsResponse = await fetch(`${BASE_URL}/${empresa.meta_business_id}/owned_ad_accounts?access_token=${PAGE_ACCESS_TOKEN}`);
+        const adAccountsData = await adAccountsResponse.json();
+        if (!adAccountsResponse.ok || !adAccountsData.data || adAccountsData.data.length === 0) {
+            throw new Error(adAccountsData.error?.message || "Nenhuma conta de anúncios encontrada.");
+        }
+        const adAccountId = adAccountsData.data[0].id;
+        
+        console.log(`LOG: [SYNC-ALL] Usando conta de anúncios: ${adAccountId}`);
+
+        const allFields = 'name,campaign{id,name,objective},adset{id,name,campaign_id}';
+        const adsUrl = `${BASE_URL}/${adAccountId}/ads?fields=${allFields.replace(/\s/g, '')}&limit=1000&access_token=${PAGE_ACCESS_TOKEN}`;
+
+        const adsResponse = await fetch(adsUrl);
+        const adsData = await adsResponse.json();
+        if (adsData.error) throw new Error(adsData.error.message);
+
+        const allAds = adsData.data || [];
+        if (allAds.length === 0) return NextResponse.json({ message: "Nenhum anúncio encontrado para sincronizar." });
+        
+        console.log(`LOG: [SYNC-ALL] ${allAds.length} anúncios encontrados na Meta. Sincronizando tabelas...`);
+
+        // Estruturas para evitar duplicatas
+        const campaignsToUpsert = new Map();
+        const adsetsToUpsert = new Map();
+        const adsToUpsert = [];
+
+        for (const ad of allAds) {
+            if (ad.campaign) {
+                campaignsToUpsert.set(ad.campaign.id, {
+                    id: ad.campaign.id,
+                    name: ad.campaign.name,
+                    objective: ad.campaign.objective,
+                    organizacao_id: organizacaoId,
+                    account_id: adAccountId.replace('act_', '')
+                });
+            }
+            if (ad.adset) {
+                adsetsToUpsert.set(ad.adset.id, {
+                    id: ad.adset.id,
+                    name: ad.adset.name,
+                    campaign_id: ad.adset.campaign_id,
+                    organizacao_id: organizacaoId
+                });
+            }
+            adsToUpsert.push({
+                id: ad.id,
+                name: ad.name,
+                campaign_id: ad.campaign?.id,
+                adset_id: ad.adset?.id,
+                organizacao_id: organizacaoId
+            });
         }
 
-        // 3. Busca TODOS os anúncios
-        const ads = await metaApiRequest(adAccountId + '/ads', { fields: 'id,name,campaign_id,adset_id', limit: 500 });
-        if (ads.length > 0) {
-            const adsToUpsert = ads.map(ad => ({ id: ad.id, name: ad.name, campaign_id: ad.campaign_id, adset_id: ad.adset_id, organizacao_id: organizacaoId }));
-            const { error: adError } = await supabase.from('meta_ads').upsert(adsToUpsert, { onConflict: 'id' });
-            if (adError) throw new Error(`Falha ao sincronizar anúncios: ${adError.message}`);
-            console.log(`LOG: [SYNC-ALL] ${ads.length} anúncios sincronizados.`);
-        }
+        // Executa as operações no banco de dados
+        const { error: campError } = await supabase.from('meta_campaigns').upsert(Array.from(campaignsToUpsert.values()));
+        if (campError) throw new Error(`Falha ao sincronizar campanhas: ${campError.message}`);
+
+        const { error: adsetError } = await supabase.from('meta_adsets').upsert(Array.from(adsetsToUpsert.values()));
+        if (adsetError) throw new Error(`Falha ao sincronizar conjuntos de anúncios: ${adsetError.message}`);
+        
+        const { error: adError } = await supabase.from('meta_ads').upsert(adsToUpsert);
+        if (adError) throw new Error(`Falha ao sincronizar anúncios: ${adError.message}`);
 
         return NextResponse.json({
-            message: "Sincronização Mestre concluída com sucesso!",
-            campaigns: campaigns.length,
-            adsets: adsets.length,
-            ads: ads.length
+            message: "Sincronização Inteligente concluída!",
+            campaigns: campaignsToUpsert.size,
+            adsets: adsetsToUpsert.size,
+            ads: adsToUpsert.length
         });
 
     } catch (error) {
         console.error('ERRO GERAL no /api/meta/sync-all:', error.message);
-        return NextResponse.json({ error: 'Ocorreu um erro inesperado durante a sincronização.', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Ocorreu um erro inesperado.', details: error.message }, { status: 500 });
     }
 }
