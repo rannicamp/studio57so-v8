@@ -20,9 +20,6 @@ export default function CaixaDeEntrada() {
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    const isCotacoesBarVisible = user?.mostrar_barra_cotacoes && user?.cotacoes_visiveis?.length > 0;
-    const headerHeight = isCotacoesBarVisible ? '113px' : '89px';
-
     const { data: conversations, isLoading: isLoadingConversations } = useQuery({
         queryKey: ['conversations', organizacaoId],
         queryFn: () => getConversations(supabase, organizacaoId),
@@ -44,58 +41,51 @@ export default function CaixaDeEntrada() {
     };
     
     return (
-        <div 
-            className="flex flex-col w-full bg-gray-100 overflow-hidden ml-[-24px] mr-[-24px]"
-            style={{ height: `calc(100vh - ${headerHeight})` }}
-        >
+        // =================================================================================
+        // ATUALIZAÇÃO FINAL: O componente agora é limpo e simples.
+        // O PORQUÊ: Como o layout.js agora nos dá um espaço limpo, não precisamos
+        // mais de margens negativas ou cálculos de altura. O 'h-full' faz com que
+        // ele ocupe todo o espaço vertical corretamente posicionado.
+        // =================================================================================
+        <div className="flex flex-col h-full w-full bg-gray-100 overflow-hidden">
             <Toaster position="top-right" richColors />
 
-            {/* ================================================================= */}
-            {/* PARTE 1: O NOVO CABEÇALHO FIXO DA PÁGINA                       */}
-            {/* ================================================================= */}
-            <div className="flex flex-shrink-0 border-b bg-white">
-                {/* Cabeçalho da Coluna 1: Lista de Conversas */}
-                <div className="w-full md:w-1/3 lg:w-1/4 p-4 border-r">
+            <div className="flex flex-shrink-0 border-b bg-white h-24">
+                <div className={`${selectedContact ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 lg:w-1/4 p-4 border-r flex-col justify-center`}>
                     <h1 className="text-xl font-bold">Caixa de Entrada</h1>
-                    <div className="relative mt-4">
+                    <div className="relative mt-1">
                         <input
                             type="text"
-                            placeholder="Pesquisar ou começar uma nova conversa"
-                            className="w-full pl-10 pr-4 py-2 border rounded-full bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Pesquisar..."
+                            className="w-full pl-10 pr-4 py-2 border rounded-full bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                         />
                         <FontAwesomeIcon icon={faSearch} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                     </div>
                 </div>
 
-                {/* Cabeçalho da Coluna 2: Painel de Mensagens */}
-                <div className="flex-grow p-3 flex items-center border-r">
+                <div className={`${selectedContact ? 'flex' : 'hidden md:flex'} flex-grow p-4 items-center border-r`}>
                     {selectedContact && (
                         <>
                             <button onClick={handleBackToList} className="md:hidden mr-3 text-gray-600 hover:text-gray-800">
                                 <FontAwesomeIcon icon={faArrowLeft} size="lg" />
                             </button>
-                            <div className="w-10 h-10 bg-gray-300 rounded-full mr-3 flex items-center justify-center font-bold text-white">
+                            <div className="w-10 h-10 bg-gray-300 rounded-full mr-3 flex items-center justify-center font-bold text-white shrink-0">
                                 {selectedContact.nome?.charAt(0).toUpperCase()}
                             </div>
-                            <h2 className="font-semibold">{selectedContact.nome}</h2>
+                            <h2 className="font-semibold truncate">{selectedContact.nome}</h2>
                         </>
                     )}
                 </div>
 
-                {/* Cabeçalho da Coluna 3: Perfil do Contato */}
-                <div className="hidden lg:block flex-shrink-0 w-1/4 p-4">
+                <div className="hidden lg:flex p-4 items-center flex-shrink-0 w-1/4">
                     {selectedContact && (
                         <h2 className="text-lg font-bold">Perfil do Contato</h2>
                     )}
                 </div>
             </div>
-
-            {/* ================================================================= */}
-            {/* PARTE 2: A NOVA ÁREA DE CONTEÚDO                             */}
-            {/* ================================================================= */}
+            
             <div className="flex flex-grow min-h-0">
-                {/* Conteúdo da Coluna 1 */}
-                <div className="w-full md:w-1/3 lg:w-1/4 bg-white border-r">
+                <div className={`${selectedContact ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 lg:w-1/4 bg-white border-r flex-col`}>
                     <ConversationList
                         conversations={conversations}
                         isLoading={isLoadingConversations}
@@ -104,20 +94,17 @@ export default function CaixaDeEntrada() {
                     />
                 </div>
 
-                {/* Conteúdo da Coluna 2 */}
-                <div className="flex-grow">
+                <div className={`${selectedContact ? 'flex' : 'hidden md:flex'} flex-grow flex-col`}>
                     <MessagePanel 
                         contact={selectedContact}
-                        onBack={handleBackToList}
                     />
                 </div>
-
-                {/* Conteúdo da Coluna 3 */}
-                {selectedContact && (
-                    <div className="hidden lg:block flex-shrink-0 w-1/4 bg-white border-l">
-                        <ContactProfile contact={selectedContact} />
-                    </div>
-                )}
+                
+                <div className="hidden lg:flex w-1/4 bg-white border-l flex-col">
+                    {selectedContact && (
+                       <ContactProfile contact={selectedContact} />
+                    )}
+                </div>
             </div>
         </div>
     );
