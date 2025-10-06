@@ -12,7 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useEmpreendimento } from '../contexts/EmpreendimentoContext';
 
 import LogoutButton from './LogoutButton';
-import NotificationBell from './NotificationBell';
+import NotificationBell from './notificacao/NotificationBell'; // <-- ESTA LINHA ESTÁ CORRETA!
 import CotacoesBar from './CotacoesBar';
 
 export default function Header({ headerPositionClass }) {
