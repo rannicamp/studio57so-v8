@@ -1,63 +1,64 @@
 // Caminho: app/api/notifications/send/route.js
-import { createClient } from '@/utils/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-import webpush from 'web-push';
+import webPush from 'web-push';
 
-// 1. Configura a biblioteca de envio com as chaves VAPID (remetente da notificação)
-// É crucial que as variáveis VAPID_PRIVATE_KEY e NEXT_PUBLIC_VAPID_PUBLIC_KEY estejam no seu .env.local
-webpush.setVapidDetails(
-  'mailto:rannierecampos@studio57.arq.br', // Seu e-mail de contato
+// Inicializa o Supabase Admin Client
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+// Configura o web-push com as chaves VAPID
+webPush.setVapidDetails(
+  process.env.VAPID_SUBJECT,
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 );
 
 export async function POST(request) {
-  const supabase = createClient();
-
   try {
     const body = await request.json();
-    const { title, message, url } = body;
+    const { organizacao_id, title, body: message } = body;
 
-    if (!title || !message) {
-      return NextResponse.json({ error: 'Título e mensagem são obrigatórios' }, { status: 400 });
+    if (!organizacao_id || !title || !message) {
+      return NextResponse.json({ error: 'organizacao_id, title e message são obrigatórios' }, { status: 400 });
     }
 
-    // 2. Busca TODAS as assinaturas salvas na nossa tabela correta
-    const { data: subscriptions, error: fetchError } = await supabase
-      .from('notification_subscriptions') // Lendo da tabela correta
-      .select('subscription'); // Lendo a coluna correta
+    // Busca as inscrições (subscriptions) da organização correta na tabela correta
+    const { data: subscriptions, error: fetchError } = await supabaseAdmin
+      .from('push_subscriptions') // Lendo da tabela correta: push_subscriptions
+      .select('id, subscription_data')
+      .eq('organizacao_id', organizacao_id);
 
     if (fetchError) {
-      console.error('Erro ao buscar assinaturas:', fetchError);
+      console.error('[API Send] Erro ao buscar assinaturas:', fetchError);
       throw fetchError;
     }
 
     if (!subscriptions || subscriptions.length === 0) {
+      console.log('[API Send] Nenhuma assinatura encontrada para a organização.');
       return NextResponse.json({ success: true, message: 'Nenhum dispositivo inscrito para receber notificações.' });
     }
 
-    // 3. Prepara o conteúdo da notificação
+    // Prepara o conteúdo da notificação no formato que o sw.js espera
     const notificationPayload = JSON.stringify({
-      title,
-      body: message,
-      icon: '/favicon.ico', // Ícone que aparecerá na notificação
-      data: {
-        url: url || '/', // URL para abrir ao clicar
-      },
+      title: title, // Ex: "Nova mensagem de Ranniere"
+      body: message // Ex: "Olá, tudo bem?"
     });
 
-    // 4. Envia a notificação para cada dispositivo inscrito
+    // Envia a notificação para cada dispositivo inscrito
     const sendPromises = subscriptions.map(sub =>
-      webpush.sendNotification(
-        sub.subscription, // A assinatura de cada dispositivo
+      webPush.sendNotification(
+        sub.subscription_data,
         notificationPayload
-      ).catch(err => {
-        // Se uma assinatura for inválida (ex: usuário limpou o cache), a removemos do banco
+      ).catch(async (err) => {
+        // Se a assinatura for inválida/expirada, removemos do banco
         if (err.statusCode === 410 || err.statusCode === 404) {
-          console.log('Assinatura expirada, removendo:', sub.subscription.endpoint);
-          return supabase.from('notification_subscriptions').delete().eq('subscription', sub.subscription);
+          console.log(`[API Send] Assinatura expirada ${sub.id}, removendo.`);
+          await supabaseAdmin.from('push_subscriptions').delete().eq('id', sub.id);
         } else {
-          console.error('Erro ao enviar notificação para um dispositivo:', err.statusCode);
+          console.error(`[API Send] Erro ao enviar notificação para ${sub.id}:`, err.statusCode);
         }
       })
     );

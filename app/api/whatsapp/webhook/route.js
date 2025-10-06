@@ -1,15 +1,33 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import webPush from 'web-push';
 
-// --- CONFIGURAÇÃO DAS NOTIFICAÇÕES PUSH ---
-// Configura o web-push com as chaves VAPID do seu ambiente.
-// Lembre-se de adicioná-las ao seu arquivo .env.local
-webPush.setVapidDetails(
-    process.env.VAPID_SUBJECT,
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-);
+// --- NOVA FUNÇÃO PARA CHAMAR O "CARTEIRO CENTRAL" ---
+// Esta função substitui a antiga 'sendPushNotificationsToOrg'.
+// Sua única responsabilidade é chamar nossa API dedicada de notificações.
+async function notifyOrg(organizacao_id, title, message) {
+    // Garante que temos uma URL base para fazer a chamada interna da API.
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const absoluteUrl = new URL('/api/notifications/send', baseUrl);
+
+    try {
+        // Dispara a chamada para a nossa rota central de notificações.
+        // O 'await' aqui não é estritamente necessário se não precisarmos esperar a resposta.
+        // Podemos deixar a notificação ser enviada em segundo plano.
+        fetch(absoluteUrl.href, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                organizacao_id: organizacao_id,
+                title: title, // O título que será usado no payload
+                body: message // O corpo da mensagem que será usado no payload
+            }),
+        });
+        console.log('[Webhook] Chamada para a API central de notificação foi enviada.');
+    } catch (error) {
+        console.error('[Webhook] Erro ao tentar chamar a API de notificação:', error);
+    }
+}
+
 
 // --- INICIALIZAÇÃO DOS SERVIÇOS ---
 const getSupabaseAdmin = () => createClient(
@@ -17,64 +35,8 @@ const getSupabaseAdmin = () => createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// --- NOVA FUNÇÃO PARA ENVIAR NOTIFICAÇÕES ---
-/**
- * Busca todas as inscrições de notificação de uma organização e envia uma mensagem.
- * @param {object} supabase - Cliente Supabase Admin.
- * @param {string} organizacao_id - ID da organização a ser notificada.
- * @param {string} title - O título da notificação.
- * @param {string} body - O corpo (conteúdo) da notificação.
- */
-async function sendPushNotificationsToOrg(supabase, organizacao_id, title, body) {
-    if (!organizacao_id) {
-        console.error('[Push Notification] ID da organização não fornecido.');
-        return;
-    }
 
-    try {
-        // 1. Busca no banco de dados todas as "inscrições" (endereços) para notificação.
-        const { data: subscriptions, error } = await supabase
-            .from('push_subscriptions')
-            .select('id, subscription_data')
-            .eq('organizacao_id', organizacao_id);
-
-        if (error) {
-            console.error('[Push Notification] Erro ao buscar inscrições:', error);
-            return;
-        }
-
-        if (!subscriptions || subscriptions.length === 0) {
-            console.log('[Push Notification] Nenhuma inscrição encontrada para a organização.');
-            return;
-        }
-
-        // 2. Prepara a mensagem (payload) que será enviada.
-        const payload = JSON.stringify({ title, body });
-
-        // 3. Envia a notificação para cada inscrição encontrada.
-        const notificationPromises = subscriptions.map(sub =>
-            webPush.sendNotification(sub.subscription_data, payload)
-            .catch(async (err) => {
-                // 4. Se uma inscrição estiver expirada (erro 410), remove ela do banco.
-                if (err.statusCode === 410) {
-                    console.log(`[Push Notification] Inscrição ${sub.id} expirou. Removendo.`);
-                    await supabase.from('push_subscriptions').delete().eq('id', sub.id);
-                } else {
-                    console.error(`[Push Notification] Falha ao enviar para ${sub.id}:`, err.statusCode, err.body);
-                }
-            })
-        );
-
-        await Promise.all(notificationPromises);
-        console.log(`[Push Notification] Notificações disparadas para ${subscriptions.length} dispositivo(s).`);
-
-    } catch (err) {
-        console.error('[Push Notification] Erro inesperado ao enviar notificações:', err);
-    }
-}
-
-
-// --- FUNÇÕES DE COMUNICAÇÃO COM WHATSAPP ---
+// --- FUNÇÕES DE COMUNICAÇÃO COM WHATSAPP (SEU CÓDIGO ORIGINAL, SEM ALTERAÇÕES) ---
 async function sendTemplateMessage(supabase, config, to, contato, templateName, language) {
     if (!templateName) {
         console.error("[Automação Webhook] Nome do template não fornecido.");
@@ -112,7 +74,7 @@ async function sendTemplateMessage(supabase, config, to, contato, templateName, 
 }
 
 
-// --- FUNÇÕES AUXILIARES ---
+// --- FUNÇÕES AUXILIARES (SEU CÓDIGO ORIGINAL, SEM ALTERAÇÕES) ---
 function getTextContent(message) {
     if (!message || !message.type) { return null; }
     switch (message.type) {
@@ -155,7 +117,7 @@ function normalizeAndGeneratePhoneNumbers(rawPhone) {
 export async function GET(request) {
     const searchParams = new URL(request.url).searchParams;
     const mode = searchParams.get('hub.mode');
-    const token = search_params.get('hub.verify_token');
+    const token = searchParams.get('hub.verify_token'); // Corrigido de search_params
     const challenge = searchParams.get('hub.challenge');
     const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
@@ -167,6 +129,7 @@ export async function GET(request) {
 export async function POST(request) {
     const supabaseAdmin = getSupabaseAdmin();
     try {
+        // --- TODA A SUA LÓGICA DE NEGÓCIO ESTÁ INTACTA ---
         const body = await request.json();
         const { data: whatsappConfig } = await supabaseAdmin.from('configuracoes_whatsapp').select('*, organizacao_id').limit(1).single();
         if (!whatsappConfig || !whatsappConfig.organizacao_id) {
@@ -219,14 +182,7 @@ export async function POST(request) {
                     if (columnData) {
                         await supabaseAdmin.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: columnData.id, organizacao_id: whatsappConfig.organizacao_id });
                         
-                        const { data: automacoes } = await supabaseAdmin
-                            .from('automacoes')
-                            .select('*')
-                            .eq('organizacao_id', whatsappConfig.organizacao_id)
-                            .eq('ativo', true)
-                            .eq('gatilho_tipo', 'CRIAR_CARD')
-                            .eq('gatilho_config->>coluna_id', columnData.id);
-
+                        const { data: automacoes } = await supabaseAdmin.from('automacoes').select('*').eq('organizacao_id', whatsappConfig.organizacao_id).eq('ativo', true).eq('gatilho_tipo', 'CRIAR_CARD').eq('gatilho_config->>coluna_id', columnData.id);
                         if (automacoes && automacoes.length > 0) {
                             for (const regra of automacoes) {
                                 if (regra.acao_tipo === 'ENVIAR_WHATSAPP') {
@@ -244,35 +200,28 @@ export async function POST(request) {
             
             if (currentContato?.is_awaiting_name_response && messageContent && messageContent.length > 2 && !/^(oi|olá|obrigado)$/i.test(messageContent.toLowerCase())) {
                 await supabaseAdmin.from('contatos').update({ nome: messageContent, is_awaiting_name_response: false }).eq('id', contatoId);
-                currentContato.nome = messageContent; // Atualiza o nome no objeto local
+                currentContato.nome = messageContent;
             }
             
             await supabaseAdmin.from('whatsapp_messages').insert({
-                contato_id: contatoId,
-                message_id: messageEntry.id,
-                sender_id: messageEntry.from,
-                receiver_id: whatsappConfig.whatsapp_phone_number_id,
-                content: messageContent,
+                contato_id: contatoId, message_id: messageEntry.id, sender_id: messageEntry.from,
+                receiver_id: whatsappConfig.whatsapp_phone_number_id, content: messageContent,
                 sent_at: new Date(parseInt(messageEntry.timestamp, 10) * 1000).toISOString(),
-                direction: 'inbound',
-                status: 'delivered',
-                raw_payload: messageEntry,
+                direction: 'inbound', status: 'delivered', raw_payload: messageEntry,
                 organizacao_id: whatsappConfig.organizacao_id
             });
             
-            // ########## INÍCIO DA LÓGICA DE NOTIFICAÇÃO PUSH ##########
-            // Só envia notificação se for uma mensagem de texto real
+            // ########## PONTO DA ALTERAÇÃO ##########
             if (messageContent) { 
                 const contatoNome = currentContato?.nome || `Lead (${contactPhoneNumber})`;
-                // Dispara a função que acabamos de criar!
-                await sendPushNotificationsToOrg(
-                    supabaseAdmin,
+                // Chamando a nossa nova função que usa a API central
+                await notifyOrg(
                     whatsappConfig.organizacao_id,
                     `Nova mensagem de ${contatoNome}`,
                     messageContent
                 );
             }
-            // ########## FIM DA LÓGICA DE NOTIFICAÇÃO PUSH ##########
+            // ######################################
 
             await supabaseAdmin.from('whatsapp_conversations').upsert({ phone_number: contactPhoneNumber, updated_at: new Date().toISOString() }, { onConflict: ['phone_number'] });
         }
