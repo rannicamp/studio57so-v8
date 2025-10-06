@@ -1,5 +1,8 @@
-// MUDAMOS O NOME DO CACHE PARA V2. Isso força o navegador a ver este arquivo como uma grande atualização.
-const CACHE_NAME = 'studio57-cache-v2';
+// sw.js - VERSÃO DE TESTE V4 - COMPLETA
+console.log('[Service Worker] Script de TESTE v4 (Completo) Carregado.');
+
+// MUDAMOS O NOME DO CACHE PARA V4. Forçando a atualização completa.
+const CACHE_NAME = 'studio57-cache-v4';
 
 const urlsToCache = [
   '/',
@@ -10,33 +13,31 @@ const urlsToCache = [
   '/caixa-de-entrada'
 ];
 
-// Evento 'install': Agora ele força a ativação do novo Service Worker.
+// 1. LÓGICA DE INSTALAÇÃO E CACHE (SEU CÓDIGO ORIGINAL MANTIDO)
 self.addEventListener('install', event => {
-  console.log('[Service Worker] Nova versão v2 tentando se instalar...');
+  console.log('[Service Worker] Evento INSTALL v4 Disparado.');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('[Service Worker] Cache v2 aberto e arquivos salvos.');
+        console.log('[Service Worker] Cache v4 aberto e arquivos salvos.');
         return cache.addAll(urlsToCache);
       })
       .then(() => {
-        // ESSA LINHA É CRUCIAL: Manda o SW antigo para o espaço e ativa o novo imediatamente.
         console.log('[Service Worker] Forçando a ativação da nova versão (skipWaiting).');
         return self.skipWaiting();
       })
   );
 });
 
-// Evento 'activate': Agora ele limpa o lixo antigo e assume o controle.
+// 2. LÓGICA DE ATIVAÇÃO E LIMPEZA (SEU CÓDIGO ORIGINAL MANTIDO)
 self.addEventListener('activate', event => {
-  console.log('[Service Worker] Nova versão v2 ativada.');
-  const cacheWhitelist = [CACHE_NAME]; // Só o nosso cache v2 pode viver.
+  console.log('[Service Worker] Evento ACTIVATE v4 Disparado.');
+  const cacheWhitelist = [CACHE_NAME];
 
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          // Se o cache não for o v2, ele é um zumbi. Delete!
           if (cacheWhitelist.indexOf(cacheName) === -1) {
             console.log('[Service Worker] Cache zumbi removido:', cacheName);
             return caches.delete(cacheName);
@@ -44,14 +45,13 @@ self.addEventListener('activate', event => {
         })
       );
     }).then(() => {
-        // ESSA LINHA É CRUCIAL: O novo SW toma controle de todas as páginas abertas.
         console.log('[Service Worker] Assumindo o controle de todos os clientes (clients.claim).');
         return self.clients.claim();
     })
   );
 });
 
-// Evento 'fetch' (sem alterações, continua servindo os arquivos do cache)
+// 3. LÓGICA DE FETCH (SEU CÓDIGO ORIGINAL MANTIDO)
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
@@ -70,26 +70,30 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// Evento 'push' (código correto, sem alterações)
+// 4. LÓGICA DE PUSH (MODIFICADA APENAS PARA O TESTE)
 self.addEventListener('push', event => {
-  console.log('[Service Worker] Push (v2) Recebido.');
-  let data = { title: 'Nova Mensagem', body: 'Você tem uma nova mensagem.' };
-  if (event.data) { try { data = event.data.json(); } catch (e) { data = { title: 'Nova Notificação', body: event.data.text() }; } }
+    console.log('[Service Worker] TESTE v4: Evento PUSH recebido.');
 
-  const notificationTitle = "Studio 57 - Caixa de Entrada";
-  const notificationBody = `${data.title}: ${data.body}`;
-  const options = {
-    body: notificationBody, icon: '/icons/icon-512x512.png', badge: '/icons/icon-192x192.png',
-    sound: '/sounds/notification.mp3', vibrate: [200, 100, 200],
-    data: { url: self.location.origin + '/caixa-de-entrada' }
-  };
-  event.waitUntil(self.registration.showNotification(notificationTitle, options));
+    // Ignoramos qualquer dado que venha do servidor e usamos um texto fixo.
+    const title = 'Isto é um Teste';
+    const options = {
+        body: 'Se você vê esta mensagem, o sistema funciona. O problema está nos dados.',
+        icon: '/icons/icon-512x512.png',
+        badge: '/icons/icon-192x192.png',
+        sound: '/sounds/notification.mp3',
+        vibrate: [200, 100, 200],
+        data: { url: self.location.origin + '/caixa-de-entrada' } // Mantemos o link
+    };
+
+    console.log('[Service Worker] TESTE v4: Tentando mostrar a notificação de teste.');
+    event.waitUntil(
+        self.registration.showNotification(title, options)
+    );
 });
 
-
-// Evento 'notificationclick' (código correto, sem alterações)
+// 5. LÓGICA DE CLIQUE (SEU CÓDIGO ORIGINAL MANTIDO)
 self.addEventListener('notificationclick', event => {
-  console.log('[Service Worker] Notificação (v2) clicada.');
+  console.log('[Service Worker] Notificação de TESTE (v4) clicada.');
   event.notification.close();
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
