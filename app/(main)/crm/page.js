@@ -2,13 +2,12 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import Link from 'next/link'; // ##### IMPORT ADICIONADO #####
+import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useLayout } from '@/contexts/LayoutContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// ##### ÍCONE DO ROBÔ ADICIONADO #####
 import { faSpinner, faTimes, faSearch, faPlus, faUsers, faHandshake, faPercent, faSackDollar, faCalendarDay, faRobot } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { differenceInCalendarDays, startOfDay } from 'date-fns';
@@ -21,7 +20,6 @@ import AtividadeModal from '@/components/AtividadeModal';
 import KpiCard from '@/components/KpiCard';
 import FiltroCrm from '@/components/crm/FiltroCrm';
 
-// ... (O restante do arquivo permanece o mesmo, sem alterações)
 const CRM_CACHE_KEY = 'crmFunilData';
 
 const formatRelativeDate = (date) => {
@@ -88,7 +86,7 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
     if (!colunasDoFunil || colunasDoFunil.length === 0) return { funilId, colunasDoFunil: [], contatosNoFunil: [] };
     
     let query = supabase.from('contatos_no_funil').select(`
-        id, coluna_id, numero_card, corretor_id, created_at,
+        id, coluna_id, numero_card, corretor_id, created_at, last_whatsapp_message_time,
         contatos:contato_id!inner(*, telefones(telefone, tipo), emails(email, tipo)),
         corretores:corretor_id(id, nome, razao_social),
         produtos_interesse:contatos_no_funil_produtos(id, produto:produtos_empreendimento(id, unidade, tipo, valor_venda_calculado, empreendimento_id))
@@ -201,6 +199,7 @@ const fetchActivityModalData = async (supabase, organizacaoId) => {
 };
 
 const getCachedFunilData = () => {
+    if (typeof window === 'undefined') return undefined;
     try {
         const cachedData = localStorage.getItem(CRM_CACHE_KEY);
         if (cachedData) {
@@ -288,25 +287,71 @@ export default function CrmPage() {
     const mutationOptions = { onSuccess: (message) => { toast.success(message || "Operação realizada com sucesso!"); queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] }); queryClient.invalidateQueries({ queryKey: ['availableProducts', organizacaoId] }); queryClient.invalidateQueries({ queryKey: ['crmFilterOptions', organizacaoId] }); }, onError: (error) => toast.error(error.message) };
     const associateProductMutation = useMutation({ mutationFn: async ({ contatoNoFunilId, productId }) => { if (!organizacaoId) { throw new Error("ID da organização não encontrado. Tente novamente."); } await supabase.from('contatos_no_funil_produtos').insert({ contato_no_funil_id: contatoNoFunilId, produto_id: productId, organizacao_id: organizacaoId }).throwOnError(); return "Produto associado!"; }, ...mutationOptions });
     
-    const updateContactColumnMutation = useMutation({
-        mutationFn: async ({ contatoNoFunilId, novaColunaId }) => {
-            const response = await fetch('/api/crm', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    organizacaoId: organizacaoId,
-                    contatoId: contatoNoFunilId,
-                    novaColunaId,
-                }),
-            });
-            const result = await response.json();
-            if (!response.ok) {
-                throw new Error(result.error || "Erro ao mover contato.");
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO
+    // O PORQUÊ: Substituímos a antiga `updateContactColumnMutation` por esta nova
+    // que interage diretamente com o Supabase. Ela é mais segura e eficiente.
+    // Também adicionamos a lógica para registrar o histórico da movimentação.
+    // =================================================================================
+    const handleStatusChangeMutation = useMutation({
+        mutationFn: async ({ contatoNoFunilId, newColumnId }) => {
+            // 1. Busca a coluna atual para registrar no histórico.
+            const { data: currentEntry, error: fetchError } = await supabase
+                .from('contatos_no_funil')
+                .select('coluna_id')
+                .eq('id', contatoNoFunilId)
+                .single();
+
+            if (fetchError) throw new Error(fetchError.message || "Card não encontrado para mover.");
+            if (!currentEntry) throw new Error("Card não encontrado.");
+            
+            const oldColumnId = currentEntry.coluna_id;
+
+            // Se for a mesma coluna, não faz nada.
+            if (oldColumnId === newColumnId) {
+                return "O card já está nesta etapa.";
             }
-            return result.message;
+
+            // 2. Atualiza o card com o ID da nova coluna.
+            // AQUI ESTÁ O SEGREDO: Enviamos *APENAS* o dado que mudou (`coluna_id`).
+            const { error: updateError } = await supabase
+                .from('contatos_no_funil')
+                .update({ coluna_id: newColumnId })
+                .eq('id', contatoNoFunilId);
+
+            if (updateError) throw updateError; // Se der erro, a execução para aqui.
+
+            // 3. Insere o registro na nova tabela de histórico.
+            const { error: historyError } = await supabase
+                .from('historico_movimentacao_funil')
+                .insert({
+                    contato_no_funil_id: contatoNoFunilId,
+                    coluna_anterior_id: oldColumnId,
+                    coluna_nova_id: newColumnId,
+                    usuario_id: user.id,
+                    organizacao_id: organizacaoId,
+                });
+
+            if (historyError) {
+                // Mesmo que o histórico falhe, o card foi movido. Apenas avisamos.
+                console.error("Erro ao registrar histórico de movimentação:", historyError);
+                toast.warning("O card foi movido, mas houve um erro ao salvar o histórico.");
+            }
+
+            return "Card movido com sucesso!";
         },
-        ...mutationOptions
+        // Atualiza os dados na tela após o sucesso e exibe as mensagens de erro/sucesso.
+        onSuccess: (message) => {
+            toast.success(message);
+            queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] });
+        },
+        onError: (error) => {
+            toast.error(`Erro ao mover o card: ${error.message}`);
+        }
     });
+    // =================================================================================
+    // FIM DA CORREÇÃO
+    // =================================================================================
 
     const addContactMutation = useMutation({ mutationFn: async (contactId) => { const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).eq('organizacao_id', organizacaoId).order('ordem').limit(1).single(); if (!primeiraColuna) throw new Error("Coluna inicial não encontrada."); await supabase.from('contatos_no_funil').insert({ contato_id: contactId, coluna_id: primeiraColuna.id, organizacao_id: organizacaoId }).throwOnError(); return "Contato adicionado!"; }, onSuccess: (message) => { setIsAddContactModalOpen(false); mutationOptions.onSuccess(message); }, onError: mutationOptions.onError });
     const createColumnMutation = useMutation({ mutationFn: async (name) => { await supabase.from('colunas_funil').insert({ nome: name, funil_id: funilId, ordem: colunasDoFunil.length, organizacao_id: organizacaoId }).throwOnError(); return "Etapa criada!"; }, ...mutationOptions });
@@ -319,7 +364,9 @@ export default function CrmPage() {
     const [debounceSearchTimeout, setDebounceSearchTimeout] = useState(null);
     const handleSearch = (term) => { clearTimeout(debounceSearchTimeout); if (!term.trim() || term.length < 2) { setSearchResults([]); return; } setDebounceSearchTimeout(setTimeout(async () => { const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term, p_organizacao_id: organizacaoId }); setSearchResults(data || []); }, 300)); };
     const openAddContactModal = () => { setSearchResults([]); setIsAddContactModalOpen(true); };
-    const handleStatusChange = (contactId, columnId) => updateContactColumnMutation.mutate({ contatoNoFunilId: contactId, novaColunaId: columnId });
+    
+    // Esta função agora chama a nossa nova e corrigida mutation.
+    const handleStatusChange = (contactId, columnId) => handleStatusChangeMutation.mutate({ contatoNoFunilId: contactId, newColumnId: columnId });
     
     return (
         <div className="h-full flex flex-col bg-gray-100">
@@ -329,9 +376,8 @@ export default function CrmPage() {
             <div className="flex-shrink-0 bg-white shadow-sm p-4 space-y-4">
                 <div className="flex justify-between items-center">
                     <h1 className="text-xl font-bold text-gray-800">Funil de Vendas</h1>
-                    {/* ##### BOTÃO DE AUTOMAÇÃO ADICIONADO AQUI ##### */}
                     <div className="flex items-center gap-2">
-                        <Link href="/automacao" className="bg-gray-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-gray-700 flex items-center gap-2">
+                        <Link href="/crm/automacao" className="bg-gray-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-gray-700 flex items-center gap-2">
                             <FontAwesomeIcon icon={faRobot} /> Automações
                         </Link>
                         <button onClick={openAddContactModal} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center gap-2">
