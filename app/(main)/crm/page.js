@@ -85,11 +85,6 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
     if (colunasError) throw colunasError;
     if (!colunasDoFunil || colunasDoFunil.length === 0) return { funilId, colunasDoFunil: [], contatosNoFunil: [] };
     
-    // =================================================================================
-    // CORREÇÃO APLICADA AQUI
-    // O PORQUÊ: O campo `last_whatsapp_message_time` foi removido da busca (`select`)
-    // para evitar o erro, já que a coluna não existe na tabela `contatos_no_funil`.
-    // =================================================================================
     let query = supabase.from('contatos_no_funil').select(`
         id, coluna_id, numero_card, corretor_id, created_at,
         contatos:contato_id!inner(*, telefones(telefone, tipo), emails(email, tipo)),
@@ -294,52 +289,19 @@ export default function CrmPage() {
     
     const handleStatusChangeMutation = useMutation({
         mutationFn: async ({ contatoNoFunilId, newColumnId }) => {
-            const { data: currentEntry, error: fetchError } = await supabase
-                .from('contatos_no_funil')
-                .select('coluna_id')
-                .eq('id', contatoNoFunilId)
-                .single();
-
+            const { data: currentEntry, error: fetchError } = await supabase.from('contatos_no_funil').select('coluna_id').eq('id', contatoNoFunilId).single();
             if (fetchError) throw new Error(fetchError.message || "Card não encontrado para mover.");
             if (!currentEntry) throw new Error("Card não encontrado.");
-            
             const oldColumnId = currentEntry.coluna_id;
-
-            if (oldColumnId === newColumnId) {
-                return "O card já está nesta etapa.";
-            }
-
-            const { error: updateError } = await supabase
-                .from('contatos_no_funil')
-                .update({ coluna_id: newColumnId })
-                .eq('id', contatoNoFunilId);
-
+            if (oldColumnId === newColumnId) return "O card já está nesta etapa.";
+            const { error: updateError } = await supabase.from('contatos_no_funil').update({ coluna_id: newColumnId }).eq('id', contatoNoFunilId);
             if (updateError) throw updateError;
-
-            const { error: historyError } = await supabase
-                .from('historico_movimentacao_funil')
-                .insert({
-                    contato_no_funil_id: contatoNoFunilId,
-                    coluna_anterior_id: oldColumnId,
-                    coluna_nova_id: newColumnId,
-                    usuario_id: user.id,
-                    organizacao_id: organizacaoId,
-                });
-
-            if (historyError) {
-                console.error("Erro ao registrar histórico de movimentação:", historyError);
-                toast.warning("O card foi movido, mas houve um erro ao salvar o histórico.");
-            }
-
+            const { error: historyError } = await supabase.from('historico_movimentacao_funil').insert({ contato_no_funil_id: contatoNoFunilId, coluna_anterior_id: oldColumnId, coluna_nova_id: newColumnId, usuario_id: user.id, organizacao_id: organizacaoId });
+            if (historyError) { console.error("Erro ao registrar histórico de movimentação:", historyError); toast.warning("O card foi movido, mas houve um erro ao salvar o histórico."); }
             return "Card movido com sucesso!";
         },
-        onSuccess: (message) => {
-            toast.success(message);
-            queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] });
-        },
-        onError: (error) => {
-            toast.error(`Erro ao mover o card: ${error.message}`);
-        }
+        onSuccess: (message) => { toast.success(message); queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] }); },
+        onError: (error) => { toast.error(`Erro ao mover o card: ${error.message}`); }
     });
 
     const addContactMutation = useMutation({ mutationFn: async (contactId) => { const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).eq('organizacao_id', organizacaoId).order('ordem').limit(1).single(); if (!primeiraColuna) throw new Error("Coluna inicial não encontrada."); await supabase.from('contatos_no_funil').insert({ contato_id: contactId, coluna_id: primeiraColuna.id, organizacao_id: organizacaoId }).throwOnError(); return "Contato adicionado!"; }, onSuccess: (message) => { setIsAddContactModalOpen(false); mutationOptions.onSuccess(message); }, onError: mutationOptions.onError });
@@ -350,6 +312,37 @@ export default function CrmPage() {
     const dissociateProductMutation = useMutation({ mutationFn: async (id) => { await supabase.from('contatos_no_funil_produtos').delete().eq('id', id).throwOnError(); return "Produto removido!"; }, ...mutationOptions });
     const associateCorretorMutation = useMutation({ mutationFn: async ({ contactId, corretorId }) => { await supabase.from('contatos_no_funil').update({ corretor_id: corretorId }).eq('id', contactId).throwOnError(); return "Corretor associado!"; }, ...mutationOptions });
     
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO
+    // O PORQUÊ: Adicionamos as lógicas para editar e deletar colunas. Antes, essas
+    // funções não estavam implementadas, causando o problema que você relatou.
+    // =================================================================================
+    const editColumnMutation = useMutation({
+        mutationFn: async ({ columnId, newName }) => {
+            const { error } = await supabase.from('colunas_funil').update({ nome: newName }).eq('id', columnId).eq('organizacao_id', organizacaoId);
+            if (error) throw error;
+            return "Nome da etapa atualizado!";
+        },
+        ...mutationOptions
+    });
+
+    const deleteColumnMutation = useMutation({
+        mutationFn: async (columnIdToDelete) => {
+            const { data: firstColumn, error: firstColumnError } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).eq('organizacao_id', organizacaoId).order('ordem', { ascending: true }).limit(1).single();
+            if (firstColumnError || !firstColumn) throw new Error('Não foi possível encontrar a coluna de destino para os contatos.');
+            if (columnIdToDelete === firstColumn.id) throw new Error('Não é possível excluir a primeira coluna do funil.');
+            const { error: moveError } = await supabase.from('contatos_no_funil').update({ coluna_id: firstColumn.id }).eq('coluna_id', columnIdToDelete);
+            if (moveError) throw new Error(`Erro ao mover os contatos: ${moveError.message}`);
+            const { error: deleteError } = await supabase.from('colunas_funil').delete().eq('id', columnIdToDelete);
+            if (deleteError) throw new Error(`Erro ao excluir a coluna: ${deleteError.message}`);
+            return "Etapa excluída! Os contatos foram movidos para a primeira etapa.";
+        },
+        ...mutationOptions
+    });
+    // =================================================================================
+    // FIM DA CORREÇÃO
+    // =================================================================================
+
     const [debounceSearchTimeout, setDebounceSearchTimeout] = useState(null);
     const handleSearch = (term) => { clearTimeout(debounceSearchTimeout); if (!term.trim() || term.length < 2) { setSearchResults([]); return; } setDebounceSearchTimeout(setTimeout(async () => { const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term, p_organizacao_id: organizacaoId }); setSearchResults(data || []); }, 300)); };
     const openAddContactModal = () => { setSearchResults([]); setIsAddContactModalOpen(true); };
@@ -401,8 +394,13 @@ export default function CrmPage() {
                         onStatusChange={handleStatusChange}
                         onCreateColumn={(name) => createColumnMutation.mutate(name)}
                         onAddContact={openAddContactModal}
-                        onEditColumn={() => {}}
-                        onDeleteColumn={() => {}}
+                        // =================================================================================
+                        // CONECTANDO AS FUNÇÕES
+                        // O PORQUÊ: Aqui, conectamos as novas funções de editar e deletar
+                        // ao componente do funil, passando as mutations que acabamos de criar.
+                        // =================================================================================
+                        onEditColumn={(id, name) => editColumnMutation.mutate({ columnId: id, newName: name })}
+                        onDeleteColumn={(id) => deleteColumnMutation.mutate(id)}
                         onReorderColumns={(cols) => reorderColumnsMutation.mutate(cols)}
                         onOpenNotesModal={(funilId, contatoId) => { setCurrentContactFunilIdForNotes(funilId); setCurrentContactIdForNotes(contatoId); setIsNotesModalOpen(true); }}
                         availableProducts={availableProducts}
