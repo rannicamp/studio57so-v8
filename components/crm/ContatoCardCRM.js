@@ -86,17 +86,8 @@ export default function ContatoCardCRM({
     const currentColumnId = funilEntry.coluna_id;
     const isMetaLead = contato.origem === 'Meta Lead Ad';
     
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO DE PERFORMANCE
-    // O PORQUÊ: As variáveis agora leem diretamente dos campos 'meta_ad_name' e
-    // 'meta_campaign_name' do objeto 'contato'. Isso é possível graças à nossa
-    // consulta simplificada e às otimizações do banco de dados.
-    // =================================================================================
     const adName = contato?.meta_ad_name;
     const campaignName = contato?.meta_campaign_name;
-    // =================================================================================
-    // FIM DA CORREÇÃO DE PERFORMANCE
-    // =================================================================================
 
     const handleAddProduct = () => {
         if (!selectedProductId) {
@@ -125,7 +116,6 @@ export default function ContatoCardCRM({
     const handleSelectCorretor = (corretorId) => { onAssociateCorretor(funilEntry.id, corretorId); setIsEditingCorretor(false); setSearchTerm(''); };
     const handleClearCorretor = () => onAssociateCorretor(funilEntry.id, null);
     const formatDate = (dateString) => dateString ? format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'N/A';
-    const truncateMessage = (message, len = 70) => message && message.length > len ? `${message.substring(0, len)}...` : message || 'Nenhuma mensagem recente';
     const displayName = contato.razao_social || contato.nome || 'Nome Indisponível';
     const displayPhone = contato.telefones?.[0]?.telefone || 'Sem telefone';
     const handleMoveClick = (columnId) => { onMoveToColumn(funilEntry.id, columnId); setIsDropdownOpen(false); };
@@ -231,8 +221,14 @@ export default function ContatoCardCRM({
                 ) : null}
             </div>
 
+            {/* =================================================================================
+              CORREÇÃO APLICADA AQUI
+              O PORQUÊ: A exibição da "Última msg" foi removida para evitar erros e 
+              inconsistências. Agora, exibimos apenas a data em que o card foi criado no funil.
+              =================================================================================
+            */}
             <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
-                {contato.last_whatsapp_message ? (<p className="text-gray-700">Última msg: <span className="font-medium">{truncateMessage(contato.last_whatsapp_message)}</span>{contato.last_whatsapp_message_time && ` (${formatDate(contato.last_whatsapp_message_time)})`}</p>) : (<p>Criado em: {formatDate(contato.created_at)}</p>)}
+                <p>Criado em: {formatDate(funilEntry.created_at)}</p>
             </div>
         </div>
     );

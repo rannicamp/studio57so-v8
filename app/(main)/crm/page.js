@@ -85,8 +85,13 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
     if (colunasError) throw colunasError;
     if (!colunasDoFunil || colunasDoFunil.length === 0) return { funilId, colunasDoFunil: [], contatosNoFunil: [] };
     
+    // =================================================================================
+    // CORREÇÃO APLICADA AQUI
+    // O PORQUÊ: O campo `last_whatsapp_message_time` foi removido da busca (`select`)
+    // para evitar o erro, já que a coluna não existe na tabela `contatos_no_funil`.
+    // =================================================================================
     let query = supabase.from('contatos_no_funil').select(`
-        id, coluna_id, numero_card, corretor_id, created_at, last_whatsapp_message_time,
+        id, coluna_id, numero_card, corretor_id, created_at,
         contatos:contato_id!inner(*, telefones(telefone, tipo), emails(email, tipo)),
         corretores:corretor_id(id, nome, razao_social),
         produtos_interesse:contatos_no_funil_produtos(id, produto:produtos_empreendimento(id, unidade, tipo, valor_venda_calculado, empreendimento_id))
@@ -287,15 +292,8 @@ export default function CrmPage() {
     const mutationOptions = { onSuccess: (message) => { toast.success(message || "Operação realizada com sucesso!"); queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] }); queryClient.invalidateQueries({ queryKey: ['availableProducts', organizacaoId] }); queryClient.invalidateQueries({ queryKey: ['crmFilterOptions', organizacaoId] }); }, onError: (error) => toast.error(error.message) };
     const associateProductMutation = useMutation({ mutationFn: async ({ contatoNoFunilId, productId }) => { if (!organizacaoId) { throw new Error("ID da organização não encontrado. Tente novamente."); } await supabase.from('contatos_no_funil_produtos').insert({ contato_no_funil_id: contatoNoFunilId, produto_id: productId, organizacao_id: organizacaoId }).throwOnError(); return "Produto associado!"; }, ...mutationOptions });
     
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: Substituímos a antiga `updateContactColumnMutation` por esta nova
-    // que interage diretamente com o Supabase. Ela é mais segura e eficiente.
-    // Também adicionamos a lógica para registrar o histórico da movimentação.
-    // =================================================================================
     const handleStatusChangeMutation = useMutation({
         mutationFn: async ({ contatoNoFunilId, newColumnId }) => {
-            // 1. Busca a coluna atual para registrar no histórico.
             const { data: currentEntry, error: fetchError } = await supabase
                 .from('contatos_no_funil')
                 .select('coluna_id')
@@ -307,21 +305,17 @@ export default function CrmPage() {
             
             const oldColumnId = currentEntry.coluna_id;
 
-            // Se for a mesma coluna, não faz nada.
             if (oldColumnId === newColumnId) {
                 return "O card já está nesta etapa.";
             }
 
-            // 2. Atualiza o card com o ID da nova coluna.
-            // AQUI ESTÁ O SEGREDO: Enviamos *APENAS* o dado que mudou (`coluna_id`).
             const { error: updateError } = await supabase
                 .from('contatos_no_funil')
                 .update({ coluna_id: newColumnId })
                 .eq('id', contatoNoFunilId);
 
-            if (updateError) throw updateError; // Se der erro, a execução para aqui.
+            if (updateError) throw updateError;
 
-            // 3. Insere o registro na nova tabela de histórico.
             const { error: historyError } = await supabase
                 .from('historico_movimentacao_funil')
                 .insert({
@@ -333,14 +327,12 @@ export default function CrmPage() {
                 });
 
             if (historyError) {
-                // Mesmo que o histórico falhe, o card foi movido. Apenas avisamos.
                 console.error("Erro ao registrar histórico de movimentação:", historyError);
                 toast.warning("O card foi movido, mas houve um erro ao salvar o histórico.");
             }
 
             return "Card movido com sucesso!";
         },
-        // Atualiza os dados na tela após o sucesso e exibe as mensagens de erro/sucesso.
         onSuccess: (message) => {
             toast.success(message);
             queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] });
@@ -349,9 +341,6 @@ export default function CrmPage() {
             toast.error(`Erro ao mover o card: ${error.message}`);
         }
     });
-    // =================================================================================
-    // FIM DA CORREÇÃO
-    // =================================================================================
 
     const addContactMutation = useMutation({ mutationFn: async (contactId) => { const { data: primeiraColuna } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).eq('organizacao_id', organizacaoId).order('ordem').limit(1).single(); if (!primeiraColuna) throw new Error("Coluna inicial não encontrada."); await supabase.from('contatos_no_funil').insert({ contato_id: contactId, coluna_id: primeiraColuna.id, organizacao_id: organizacaoId }).throwOnError(); return "Contato adicionado!"; }, onSuccess: (message) => { setIsAddContactModalOpen(false); mutationOptions.onSuccess(message); }, onError: mutationOptions.onError });
     const createColumnMutation = useMutation({ mutationFn: async (name) => { await supabase.from('colunas_funil').insert({ nome: name, funil_id: funilId, ordem: colunasDoFunil.length, organizacao_id: organizacaoId }).throwOnError(); return "Etapa criada!"; }, ...mutationOptions });
@@ -364,8 +353,6 @@ export default function CrmPage() {
     const [debounceSearchTimeout, setDebounceSearchTimeout] = useState(null);
     const handleSearch = (term) => { clearTimeout(debounceSearchTimeout); if (!term.trim() || term.length < 2) { setSearchResults([]); return; } setDebounceSearchTimeout(setTimeout(async () => { const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term, p_organizacao_id: organizacaoId }); setSearchResults(data || []); }, 300)); };
     const openAddContactModal = () => { setSearchResults([]); setIsAddContactModalOpen(true); };
-    
-    // Esta função agora chama a nossa nova e corrigida mutation.
     const handleStatusChange = (contactId, columnId) => handleStatusChangeMutation.mutate({ contatoNoFunilId: contactId, newColumnId: columnId });
     
     return (

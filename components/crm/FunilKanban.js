@@ -5,15 +5,9 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import ContatoCardCRM from './ContatoCardCRM';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faSort, faSpinner } from '@fortawesome/free-solid-svg-icons';
-import { useMutation } from '@tanstack/react-query'; // 1. Importar useMutation
+import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-// =================================================================================
-// ATUALIZAÇÃO DE PADRÃO (useMutation)
-// O PORQUÊ: Modernizamos este sub-componente para usar `useMutation`, eliminando
-// o controle manual de estado de `isSaving` e permitindo um feedback mais claro
-// ao usuário através do `toast.promise`.
-// =================================================================================
 const AddColumn = ({ onCreate }) => {
     const [isCreating, setIsCreating] = useState(false);
     const [newColumnName, setNewColumnName] = useState("");
@@ -171,11 +165,6 @@ export default function FunilKanban({
     const handleSaveEdit = async (columnId) => { if (!editedColumnName.trim()) return; await onEditColumn(columnId, editedColumnName); setEditingColumnId(null); setEditedColumnName(""); };
     const handleCancelEdit = () => { setEditingColumnId(null); setEditedColumnName(""); };
     
-    // =================================================================================
-    // ATUALIZAÇÃO DE UX (troca de window.confirm por toast)
-    // O PORQUÊ: Substituímos o alerta nativo por uma notificação toast, que é mais
-    // bonita e não interrompe o fluxo do usuário.
-    // =================================================================================
     const handleDeleteClick = (columnId, columnName) => {
         toast("Confirmar Exclusão da Etapa", {
             description: `Tem certeza que deseja deletar a etapa "${columnName}"? Todos os contatos nela serão movidos para a primeira etapa.`,
@@ -220,8 +209,17 @@ export default function FunilKanban({
         setOpenSortMenu(null);
     };
    
+    // =================================================================================
+    // CORREÇÃO APLICADA AQUI
+    // O PORQUÊ: As opções de ordenação por "Mensagem" foram removidas para
+    // evitar erros, já que não estamos mais buscando esses dados.
+    // =================================================================================
     const sortOptions = [
-        { value: '', label: 'Padrão (Número do Card)' }, { value: 'nome_asc', label: 'Nome (A-Z)' }, { value: 'nome_desc', label: 'Nome (Z-A)' }, { value: 'created_at_desc', label: 'Entrada (Mais Recente)' }, { value: 'created_at_asc', label: 'Entrada (Mais Antigo)' }, { value: 'last_whatsapp_message_time_desc', label: 'Mensagem (Mais Recente)' }, { value: 'last_whatsapp_message_time_asc', label: 'Mensagem (Mais Antigo)' },
+        { value: '', label: 'Padrão (Número do Card)' }, 
+        { value: 'nome_asc', label: 'Nome (A-Z)' }, 
+        { value: 'nome_desc', label: 'Nome (Z-A)' }, 
+        { value: 'created_at_desc', label: 'Entrada (Mais Recente)' }, 
+        { value: 'created_at_asc', label: 'Entrada (Mais Antigo)' },
     ];
 
     const contatosPorColuna = useMemo(() => {
@@ -234,7 +232,13 @@ export default function FunilKanban({
                     contatosDaColuna.sort((a, b) => {
                         const { sortBy, order } = sortConfig;
                         let valA, valB;
-                        if (sortBy === 'nome') { valA = a.contatos?.nome || a.contatos?.razao_social || null; valB = b.contatos?.nome || b.contatos?.razao_social || null; } else if (sortBy === 'created_at' || sortBy === 'last_whatsapp_message_time') { valA = a[sortBy] ? new Date(a[sortBy]) : null; valB = b[sortBy] ? new Date(b[sortBy]) : null; }
+                        if (sortBy === 'nome') { 
+                            valA = a.contatos?.nome || a.contatos?.razao_social || null; 
+                            valB = b.contatos?.nome || b.contatos?.razao_social || null; 
+                        } else if (sortBy === 'created_at') { 
+                            valA = a[sortBy] ? new Date(a[sortBy]) : null; 
+                            valB = b[sortBy] ? new Date(b[sortBy]) : null; 
+                        }
                         if (valA === valB) return 0; if (valA === null) return 1; if (valB === null) return -1;
                         const direction = order === 'asc' ? 1 : -1;
                         if (typeof valA === 'string') { return valA.localeCompare(valB) * direction; }
