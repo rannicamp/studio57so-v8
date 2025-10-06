@@ -7,7 +7,8 @@ const urlsToCache = [
   '/manifest.json',
   '/favicon.ico',
   '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png'
+  '/icons/icon-512x512.png',
+  '/caixa-de-entrada' // Adicionamos a caixa de entrada para uma melhor experiência offline
 ];
 
 // Evento 'install': é disparado quando o Service Worker é registrado pela primeira vez.
@@ -17,7 +18,7 @@ self.addEventListener('install', event => {
     // Abrimos o cache com o nome que definimos.
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Cache aberto');
+        console.log('[Service Worker] Cache aberto e arquivos essenciais salvos.');
         // Adicionamos todos os arquivos da nossa lista ao cache.
         return cache.addAll(urlsToCache);
       })
@@ -69,6 +70,7 @@ self.addEventListener('activate', event => {
         cacheNames.map(cacheName => {
           if (cacheWhitelist.indexOf(cacheName) === -1) {
             // Se o nome do cache não estiver na nossa lista de permissões, ele é um cache antigo. Apagamos!
+            console.log('[Service Worker] Cache antigo removido:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -77,19 +79,17 @@ self.addEventListener('activate', event => {
   );
 });
 
-// --- CÓDIGO NOVO A SER ADICIONADO NO FINAL DO ARQUIVO ---
 
 // Evento 'push': disparado quando o servidor envia uma notificação.
 self.addEventListener('push', event => {
   console.log('[Service Worker] Push Recebido.');
   
-  let data = { title: 'Nova Notificação', body: 'Você tem uma nova mensagem.' };
-  // Tenta extrair os dados da notificação (título, corpo, ícone, etc.)
+  let data = { title: 'Nova Mensagem', body: 'Você tem uma nova mensagem no Studio 57.' };
   if (event.data) {
     try {
       data = event.data.json();
     } catch (e) {
-      console.error('Erro ao ler dados do push como JSON:', e);
+      console.error('[Service Worker] Erro ao ler dados do push como JSON:', e);
       data = { title: 'Nova Notificação', body: event.data.text() };
     }
   }
@@ -97,18 +97,19 @@ self.addEventListener('push', event => {
   const title = data.title || 'Studio 57';
   const options = {
     body: data.body || 'Você tem uma nova atualização.',
-    icon: data.icon || '/icons/icon-192x192.png', // Ícone que aparece na notificação
+    icon: '/icons/icon-192x192.png', // Ícone que aparece na notificação
     badge: '/icons/icon-192x192.png', // Ícone para a barra de status em alguns Androids
     data: {
-      url: data.url || '/' // URL para abrir ao clicar na notificação
+      // Definimos a URL padrão para a caixa de entrada
+      url: self.location.origin + '/caixa-de-entrada'
     }
   };
 
-  // Pede para o navegador manter o service worker vivo até a notificação ser exibida.
   event.waitUntil(
     self.registration.showNotification(title, options)
   );
 });
+
 
 // Evento 'notificationclick': disparado quando o usuário clica na notificação.
 self.addEventListener('notificationclick', event => {
@@ -117,8 +118,20 @@ self.addEventListener('notificationclick', event => {
   // Fecha a notificação que foi clicada
   event.notification.close();
 
-  // Abre a URL que foi enviada com a notificação ou, na falta dela, a página inicial.
+  // Lógica inteligente para focar ou abrir a janela
   event.waitUntil(
-    clients.openWindow(event.notification.data.url || '/')
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      // Verifica se já existe uma janela do site aberta
+      for (const client of clientList) {
+        // Se encontrarmos uma janela, focamos nela
+        if (client.url.startsWith(self.location.origin) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Se não houver nenhuma janela aberta, abrimos uma nova
+      if (clients.openWindow) {
+        return clients.openWindow(event.notification.data.url || '/');
+      }
+    })
   );
 });
