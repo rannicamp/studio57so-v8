@@ -3,6 +3,7 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faPrint, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import extenso from 'extenso';
@@ -22,6 +23,7 @@ const numeroParaExtenso = (valor) => {
 
 export default function ReciboModal({ isOpen, onClose, lancamento: initialLancamento }) {
     const supabase = createClient();
+    const { user, userData } = useAuth();
     const [lancamentoCompleto, setLancamentoCompleto] = useState(initialLancamento);
     const [loading, setLoading] = useState(true);
 
@@ -57,19 +59,24 @@ export default function ReciboModal({ isOpen, onClose, lancamento: initialLancam
         }
     }, [isOpen, initialLancamento, supabase]);
 
+    const isReceita = lancamentoCompleto?.tipo === 'Receita';
+    
+    const pagador = isReceita ? lancamentoCompleto?.favorecido : lancamentoCompleto?.conta?.empresa;
+    const recebedor = isReceita ? lancamentoCompleto?.conta?.empresa : lancamentoCompleto?.favorecido;
+
+    const pagadorNome = isReceita ? (pagador?.nome || pagador?.razao_social) : pagador?.razao_social;
+    const pagadorDocumento = isReceita ? (pagador?.cpf || pagador?.cnpj) : pagador?.cnpj;
+
     const valorPorExtenso = useMemo(() => numeroParaExtenso(lancamentoCompleto?.valor), [lancamentoCompleto]);
-    const empresaPagadora = lancamentoCompleto?.conta?.empresa || lancamentoCompleto?.empresa;
-    const favorecido = lancamentoCompleto?.favorecido;
 
     const handlePrint = () => {
         const printContents = document.getElementById('recibo-imprimivel').innerHTML;
         const originalContents = document.body.innerHTML;
-        // Adicionamos as classes de estilo diretamente no HTML que será impresso
         document.body.innerHTML = `<style>
             body { font-family: sans-serif; } 
             .recibo-container { width: 100%; max-width: 800px; margin: auto; padding: 20px; border: 1px solid #ccc; } 
             h1 { text-align: center; } p { line-height: 1.6; } 
-            .assinatura { margin-top: 80px; text-align: center; } /* Aumentamos a margem aqui */
+            .assinatura { margin-top: 80px; text-align: center; }
             .footer-info { margin-top: 40px; font-size: 0.8em; color: #888; }
         </style>` + printContents;
         window.print();
@@ -83,7 +90,7 @@ export default function ReciboModal({ isOpen, onClose, lancamento: initialLancam
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[100] p-4">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl">
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-bold">Recibo de Pagamento</h3>
+                    <h3 className="text-xl font-bold">{isReceita ? 'Recibo de Recebimento' : 'Recibo de Pagamento'}</h3>
                     <div>
                         <button onClick={handlePrint} className="text-gray-600 hover:text-blue-700 mr-4"><FontAwesomeIcon icon={faPrint} /> Imprimir</button>
                         <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><FontAwesomeIcon icon={faTimes} /></button>
@@ -100,31 +107,41 @@ export default function ReciboModal({ isOpen, onClose, lancamento: initialLancam
                         <h1 className="text-2xl font-bold text-center mb-6">RECIBO</h1>
                         
                         <p className="text-lg leading-relaxed mb-6">
-                            Recebi(emos) de <strong>{empresaPagadora?.razao_social || 'N/A'}</strong>,
-                            CNPJ nº <strong>{empresaPagadora?.cnpj || 'N/A'}</strong>,
+                            {isReceita ? "Recebemos de" : "Recebi(emos) de"} <strong>{pagadorNome || 'N/A'}</strong>,
+                            CPF/CNPJ nº <strong>{pagadorDocumento || 'N/A'}</strong>,
                             a importância de <strong>R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(lancamentoCompleto?.valor || 0)}</strong>
                             ({valorPorExtenso}), referente a <strong>{lancamentoCompleto?.descricao}</strong>.
                         </p>
                         
                         {lancamentoCompleto?.observacao && (
                             <p className="text-md italic bg-gray-50 p-3 rounded-md">
-                               <strong>Observação:</strong> {lancamentoCompleto.observacao}
+                                <strong>Observação:</strong> {lancamentoCompleto.observacao}
                             </p>
                         )}
 
                         <p className="text-right mt-8">
-                            {empresaPagadora?.city || 'N/A'}, {new Date(lancamentoCompleto?.data_pagamento || lancamentoCompleto?.data_transacao).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' })}.
+                            {recebedor?.city || 'N/A'}, {new Date(lancamentoCompleto?.data_pagamento || lancamentoCompleto?.data_transacao).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' })}.
                         </p>
 
                         {/* ================================================================================= */}
                         {/* INÍCIO DA ATUALIZAÇÃO */}
-                        {/* O PORQUÊ: Adicionamos 'text-center' para centralizar o texto e 'mt-20' */}
-                        {/* para aumentar o espaçamento acima da linha de assinatura. */}
+                        {/* O PORQUÊ: Ajustamos a estrutura da assinatura para o formato solicitado,
+                        priorizando clareza e profissionalismo quando a empresa recebe um pagamento. */}
                         {/* ================================================================================= */}
                         <div className="assinatura text-center mt-20">
                             <div className="border-t border-black w-72 mx-auto"></div>
-                            <p className="mt-2 font-semibold">{favorecido?.nome || favorecido?.razao_social || 'N/A'}</p>
-                            <p className="text-sm">CPF/CNPJ: {favorecido?.cpf || favorecido?.cnpj || 'N/A'}</p>
+                            {isReceita ? (
+                                <>
+                                    <p className="mt-2 text-sm">Representante: {userData?.nome} {userData?.sobrenome}</p>
+                                    <p className="font-semibold">{recebedor?.razao_social || 'N/A'}</p>
+                                    <p className="text-sm">CNPJ: {recebedor?.cnpj || 'N/A'}</p>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="mt-2 font-semibold">{recebedor?.nome || recebedor?.razao_social || 'N/A'}</p>
+                                    <p className="text-sm">CPF/CNPJ: {recebedor?.cpf || recebedor?.cnpj || 'N/A'}</p>
+                                </>
+                            )}
                         </div>
                         {/* ================================================================================= */}
                         {/* FIM DA ATUALIZAÇÃO */}
