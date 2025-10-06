@@ -7,6 +7,9 @@ const withPWA = withPWAInit({
   disable: process.env.NODE_ENV === 'development',
   register: true,
   skipWaiting: true,
+  // --- A LINHA DA VITÓRIA ESTÁ AQUI ---
+  // Forçamos a biblioteca a usar nosso Service Worker customizado, em vez de gerar um novo.
+  swSrc: 'public/sw.js', 
 });
 
 /** @type {import('next').NextConfig} */
