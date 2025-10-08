@@ -6,11 +6,9 @@ import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faCalculator } from '@fortawesome/free-solid-svg-icons';
-import { IMaskInput } from 'react-imask'; // Voltamos a usar o IMaskInput diretamente
+import { IMaskInput } from 'react-imask';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-
-const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
 const fetchPlanoPagamento = async (supabase, contratoId, organizacaoId) => {
     if (!contratoId || !organizacaoId) return null;
@@ -205,6 +203,8 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
                     </div>
                 </div>
             </fieldset>
+
+            {/* A caixa de RESUMO DO PLANO foi removida daqui, como solicitado */}
         </div>
     );
 }
