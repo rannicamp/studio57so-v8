@@ -3,7 +3,8 @@
 
 import { useState, useEffect, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { createContact } from './actions';
+// ===== MUDANÇA AQUI: Corrigimos o caminho para encontrar o actions.js =====
+import { createContact } from '../actions';
 import { IMaskInput } from 'react-imask';
 
 const initialState = { message: null };
