@@ -1,4 +1,3 @@
-// components/contratos/ContratoList.js
 "use client";
 
 import { useState } from 'react';
@@ -115,7 +114,24 @@ export default function ContratoList({ contratos, sortConfig, requestSort, onUpd
                             <tr key={contrato.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/contratos/${contrato.id}`)}>
                                 <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-700">{contrato.id}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{contrato.contato?.nome || contrato.contato?.razao_social || 'N/A'}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">Unidade {contrato.produto?.unidade || 'N/A'}</td>
+                                
+                                {/* =================================================================================
+                                    AQUI ESTÁ A CORREÇÃO FINAL
+                                    O PORQUÊ: A string `Un. ` foi removida. Agora, a função
+                                    apenas pega o nome da unidade e o exibe diretamente.
+                                ================================================================================= */}
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    {contrato.contrato_produtos && contrato.contrato_produtos.length > 0
+                                        ? contrato.contrato_produtos
+                                            .map(cp => cp.produtos_empreendimento?.unidade || '?')
+                                            .join(', ')
+                                        : 'N/A'
+                                    }
+                                </td>
+                                {/* =================================================================================
+                                    FIM DA CORREÇÃO
+                                ================================================================================= */}
+
                                 <td className="px-6 py-4 whitespace-nowrap">{contrato.empreendimento?.nome || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{formatDate(contrato.data_venda)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>

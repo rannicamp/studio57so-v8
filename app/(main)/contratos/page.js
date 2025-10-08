@@ -1,4 +1,3 @@
-// app/(main)/contratos/page.js
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -83,7 +82,9 @@ export default function ContratosPage() {
                     id, data_venda, status_contrato, valor_final_venda,
                     contato:contato_id (id, nome, razao_social),
                     empreendimento:empreendimento_id (id, nome),
-                    produtos:contrato_produtos ( produtos_empreendimento (id, unidade) )
+                    contrato_produtos (
+                        produtos_empreendimento (unidade)
+                    )
                 `)
                 .eq('organizacao_id', organizacaoId);
 
@@ -124,12 +125,6 @@ export default function ContratosPage() {
         const contratosAssinados = dataParaKpis.length;
         const ticketMedio = contratosAssinados > 0 ? totalVendido / contratosAssinados : 0;
         
-        // =================================================================================
-        // INÍCIO DA CORREÇÃO
-        // O PORQUÊ: A lógica foi alterada para calcular o número total de meses entre a
-        // primeira e a última venda no período filtrado. A média agora é o total de
-        // contratos dividido por esse intervalo de meses, resultando em um valor correto.
-        // =================================================================================
         const datasVenda = dataParaKpis.map(c => new Date(c.data_venda));
         const dataMin = new Date(Math.min.apply(null, datasVenda));
         const dataMax = new Date(Math.max.apply(null, datasVenda));
@@ -140,9 +135,6 @@ export default function ContratosPage() {
         const totalMesesNoPeriodo = (diffAnos * 12) + diffMeses + 1;
         
         const mediaVendasPorMes = totalMesesNoPeriodo > 0 ? contratosAssinados / totalMesesNoPeriodo : 0;
-        // =================================================================================
-        // FIM DA CORREÇÃO
-        // =================================================================================
 
         const ultimaVenda = dataParaKpis.reduce((latest, current) => new Date(current.data_venda) > new Date(latest.data_venda) ? current : latest).data_venda;
 
