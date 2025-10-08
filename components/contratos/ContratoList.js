@@ -94,7 +94,8 @@ export default function ContratoList({ contratos, sortConfig, requestSort, onUpd
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <SortableHeader label="Nº Contrato" sortKey="id" />
+                            {/* ===== MUDANÇA 1: O botão agora ordena pela coluna `numero_contrato` ===== */}
+                            <SortableHeader label="Nº Contrato" sortKey="numero_contrato" />
                             <SortableHeader label="Cliente" sortKey="contato_id" />
                             <SortableHeader label="Produto" sortKey="produto_id" />
                             <SortableHeader label="Empreendimento" sortKey="empreendimento_id" />
@@ -112,14 +113,9 @@ export default function ContratoList({ contratos, sortConfig, requestSort, onUpd
                     <tbody className="bg-white divide-y divide-gray-200">
                         {contratos.length > 0 ? contratos.map((contrato) => (
                             <tr key={contrato.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/contratos/${contrato.id}`)}>
-                                <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-700">{contrato.id}</td>
+                                {/* ===== MUDANÇA 2: Agora exibimos o `numero_contrato` ou o ID se ainda não houver número ===== */}
+                                <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-700">{contrato.numero_contrato || `(Rascunho #${contrato.id})`}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{contrato.contato?.nome || contrato.contato?.razao_social || 'N/A'}</td>
-                                
-                                {/* =================================================================================
-                                    AQUI ESTÁ A CORREÇÃO FINAL
-                                    O PORQUÊ: A string `Un. ` foi removida. Agora, a função
-                                    apenas pega o nome da unidade e o exibe diretamente.
-                                ================================================================================= */}
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     {contrato.contrato_produtos && contrato.contrato_produtos.length > 0
                                         ? contrato.contrato_produtos
@@ -128,10 +124,6 @@ export default function ContratoList({ contratos, sortConfig, requestSort, onUpd
                                         : 'N/A'
                                     }
                                 </td>
-                                {/* =================================================================================
-                                    FIM DA CORREÇÃO
-                                ================================================================================= */}
-
                                 <td className="px-6 py-4 whitespace-nowrap">{contrato.empreendimento?.nome || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{formatDate(contrato.data_venda)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>

@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, faFileInvoiceDollar, faArrowUpRightDots, 
-    faCalendarCheck, faChartPie, faHandshake, faChartLine // Adicionado novo ícone
+    faCalendarCheck, faChartPie, faHandshake, faChartLine
 } from '@fortawesome/free-solid-svg-icons';
 import ContratoList from '../../../components/contratos/ContratoList';
 import KpiCard from '../../../components/KpiCard';
@@ -43,7 +43,6 @@ const formatUltimaVenda = (dateString) => {
     return formatDistanceToNow(date, { addSuffix: true, locale: ptBR });
 };
 
-// Nova função para buscar o VGV Possível
 const fetchVgvPossivel = async (organizacaoId) => {
     if (!organizacaoId) return 0;
     const supabase = createClient();
@@ -67,7 +66,8 @@ export default function ContratosPage() {
     });
     const [debouncedFilters] = useDebounce(filters, 500);
 
-    const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'descending' });
+    // ===== MUDANÇA 1: A ordenação inicial agora é por `numero_contrato` =====
+    const [sortConfig, setSortConfig] = useState({ key: 'numero_contrato', direction: 'descending' });
 
     const requestSort = (key) => {
         let direction = 'ascending';
@@ -83,17 +83,11 @@ export default function ContratosPage() {
         enabled: !!organizacaoId
     });
 
-    // =================================================================================
-    // NOVO HOOK USEQUERY PARA BUSCAR O VGV
-    // O PORQUÊ: Estamos chamando a função que criamos no Supabase.
-    // O React Query cuida do carregamento, cache e atualização para nós.
-    // =================================================================================
     const { data: vgvPossivel, isLoading: isLoadingVgv } = useQuery({
         queryKey: ['vgvPossivel', organizacaoId],
         queryFn: () => fetchVgvPossivel(organizacaoId),
         enabled: !!organizacaoId,
     });
-    // =================================================================================
 
     const { data: contratos, isLoading, error } = useQuery({
         queryKey: ['contratos', organizacaoId, debouncedFilters, sortConfig],
@@ -102,8 +96,9 @@ export default function ContratosPage() {
 
             let query = supabase
                 .from('contratos')
+                // ===== MUDANÇA 2: Adicionamos `numero_contrato` à busca =====
                 .select(`
-                    id, data_venda, status_contrato, valor_final_venda,
+                    id, data_venda, status_contrato, valor_final_venda, numero_contrato,
                     contato:contato_id (id, nome, razao_social),
                     empreendimento:empreendimento_id (id, nome),
                     contrato_produtos (
@@ -184,11 +179,6 @@ export default function ContratosPage() {
                 empreendimentos={filterData?.empreendimentos || []}
             />
 
-            {/* =================================================================================
-                GRID DE KPIS ATUALIZADO
-                O PORQUÊ: Adicionamos o novo KpiCard para "VGV Possível".
-                Ele usa `isLoadingVgv` para mostrar um carregamento próprio.
-            ================================================================================= */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <KpiCard 
                     title="VGV Possível" 
@@ -202,7 +192,6 @@ export default function ContratosPage() {
                 <KpiCard title="Média de Vendas/Mês" value={kpiData.mediaVendasPorMes.toFixed(2).replace('.', ',')} icon={faChartPie} tooltip="Média de contratos assinados por mês, com base no período filtrado." />
                 <KpiCard title="Última Venda (Filtro)" value={formatUltimaVenda(kpiData.ultimaVenda)} icon={faCalendarCheck} />
             </div>
-            {/* ================================================================================= */}
 
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
                 <ContratoList 
@@ -210,8 +199,9 @@ export default function ContratosPage() {
                     sortConfig={sortConfig}
                     requestSort={requestSort}
                     onUpdate={() => {
-                        queryClient.invalidateQueries({ queryKey: ['contratos'] });
-                        queryClient.invalidateQueries({ queryKey: ['vgvPossivel'] }); // Invalida o VGV também
+                        // Invalida ambos os caches para garantir que tudo seja atualizado
+                        queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, debouncedFilters, sortConfig] });
+                        queryClient.invalidateQueries({ queryKey: ['vgvPossivel', organizacaoId] });
                     }}
                 />
             </div>
