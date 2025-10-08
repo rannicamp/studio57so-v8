@@ -1,15 +1,12 @@
-// app/(public)/cadastro-cliente/page.js
+// app/(public)/cadastro/[slug]/CadastroForm.js
 'use client';
 
 import { useState, useEffect, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { createContact } from './actions';
 import { IMaskInput } from 'react-imask';
-// Removido o import do Image, pois não será mais usado
 
-const initialState = {
-  message: null,
-};
+const initialState = { message: null };
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -24,7 +21,8 @@ function SubmitButton() {
   );
 }
 
-export default function CadastroClientePage() {
+// O formulário agora recebe o ID da organização como uma "prop"
+export default function CadastroForm({ organizacaoId }) {
   const [state, formAction] = useActionState(createContact, initialState);
   const [tipoPessoa, setTipoPessoa] = useState('pf');
   const [cep, setCep] = useState('');
@@ -59,36 +57,24 @@ export default function CadastroClientePage() {
   }, [cep]);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="max-w-4xl w-full bg-white p-8 rounded-lg shadow-md">
-        
-        {/* ***** CÓDIGO CORRIGIDO PARA USAR A TAG <img> NORMAL ***** */}
-        <div className="flex justify-center mb-6">
-            <img
-                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG" 
-                alt="Studio 57"
-                className="h-16 w-auto" // Estilo para controlar o tamanho, como no simulador
-            />
-        </div>
-        
-        <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">Ficha Cadastral</h1>
-        <p className="text-center text-gray-500 mb-6">Preencha os campos abaixo para realizar o seu cadastro.</p>
-        
-        <form action={formAction}>
-          {/* O restante do formulário continua igual */}
-          <div className="mb-6">
-            <div className="flex border border-gray-300 rounded-md p-1">
-              <button type="button" onClick={() => setTipoPessoa('pf')} className={`w-1/2 p-2 rounded-md transition-colors ${tipoPessoa === 'pf' ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}>
-                Pessoa Física
-              </button>
-              <button type="button" onClick={() => setTipoPessoa('pj')} className={`w-1/2 p-2 rounded-md transition-colors ${tipoPessoa === 'pj' ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}>
-                Pessoa Jurídica
-              </button>
-            </div>
-            <input type="hidden" name="tipoPessoa" value={tipoPessoa} />
-          </div>
+    <form action={formAction}>
+      {/* ===== CAMPO SECRETO COM O CARIMBO DA ORGANIZAÇÃO ===== */}
+      <input type="hidden" name="organizacao_id" value={organizacaoId} />
 
-          {tipoPessoa === 'pf' ? (
+      <div className="mb-6">
+        <div className="flex border border-gray-300 rounded-md p-1">
+          <button type="button" onClick={() => setTipoPessoa('pf')} className={`w-1/2 p-2 rounded-md transition-colors ${tipoPessoa === 'pf' ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}>
+            Pessoa Física
+          </button>
+          <button type="button" onClick={() => setTipoPessoa('pj')} className={`w-1/2 p-2 rounded-md transition-colors ${tipoPessoa === 'pj' ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}>
+            Pessoa Jurídica
+          </button>
+        </div>
+        <input type="hidden" name="tipoPessoa" value={tipoPessoa} />
+      </div>
+
+      {/* O RESTO DO SEU FORMULÁRIO CONTINUA EXATAMENTE IGUAL... */}
+      {tipoPessoa === 'pf' ? (
             <div className="space-y-4">
                 <h2 className="text-xl font-semibold text-gray-700 border-b pb-2">Dados Pessoais</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -120,11 +106,11 @@ export default function CadastroClientePage() {
                            <IMaskInput mask="000.000.000-00" name="conjuge_cpf" placeholder="CPF do Cônjuge" className="input-style" />
                            <input name="conjuge_rg" placeholder="RG do Cônjuge" className="input-style" />
                            <select name="regime_bens" className="input-style md:col-span-3">
-                                <option value="">Regime de Bens</option>
-                                <option value="Comunhão Parcial de Bens">Comunhão Parcial de Bens</option>
-                                <option value="Comunhão Universal de Bens">Comunhão Universal de Bens</option>
-                                <option value="Separação Total de Bens">Separação Total de Bens</option>
-                                <option value="Participação Final nos Aquestos">Participação Final nos Aquestos</option>
+                               <option value="">Regime de Bens</option>
+                               <option value="Comunhão Parcial de Bens">Comunhão Parcial de Bens</option>
+                               <option value="Comunhão Universal de Bens">Comunhão Universal de Bens</option>
+                               <option value="Separação Total de Bens">Separação Total de Bens</option>
+                               <option value="Participação Final nos Aquestos">Participação Final nos Aquestos</option>
                            </select>
                         </div>
                     </>
@@ -174,27 +160,25 @@ export default function CadastroClientePage() {
             <textarea name="observations" placeholder="Observações (Opcional)" className="input-style w-full" rows="3"></textarea>
           </div>
 
-          <div className="mt-6">
-            <SubmitButton />
-          </div>
-          
-          {state?.message && <p className="mt-4 text-red-500 text-center">{state.message}</p>}
-        </form>
-        
-        <style jsx global>{`
-            .input-style {
-                width: 100%;
-                padding: 10px;
-                border: 1px solid #d1d5db;
-                border-radius: 6px;
-                transition: border-color 0.2s;
-            }
-            .input-style:focus {
-                outline: none;
-                border-color: #3b82f6;
-            }
-        `}</style>
+      <div className="mt-6">
+        <SubmitButton />
       </div>
-    </div>
+      
+      {state?.message && <p className="mt-4 text-red-500 text-center">{state.message}</p>}
+
+      <style jsx global>{`
+        .input-style {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            transition: border-color 0.2s;
+        }
+        .input-style:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+    `}</style>
+    </form>
   );
 }

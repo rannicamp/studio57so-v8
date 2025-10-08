@@ -48,10 +48,6 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
     const [contasBancarias, setContasBancarias] = useState([]);
     const [loadingContas, setLoadingContas] = useState(true);
 
-    // =================================================================================
-    // CORREÇÃO: Todos os Hooks foram movidos para o topo do componente,
-    // antes de qualquer return ou condicional.
-    // =================================================================================
     useEffect(() => {
         setContrato(contratoData);
     }, [contratoData]);
@@ -100,21 +96,39 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
     }, [contrato?.produtos]);
 
     const descontoConcedido = useMemo(() => {
-        const valorFinal = parseFloat(contrato?.valor_final_venda || 0);
+        // =================================================================================
+        // CORREÇÃO NO CÁLCULO DE DESCONTO
+        // O PORQUÊ: O estado agora guarda um número puro. Esta função foi simplificada
+        // para ler este número diretamente, sem precisar de limpeza de texto.
+        // =================================================================================
+        const valorFinal = Number(contrato?.valor_final_venda || 0);
         return somaProdutosTabela > valorFinal ? somaProdutosTabela - valorFinal : 0;
     }, [somaProdutosTabela, contrato?.valor_final_venda]);
     
     const updateFieldMutation = useMutation({
         mutationFn: async ({ fieldName, value }) => {
+            if (!organizacaoId) throw new Error("Organização não identificada.");
+
             let valorParaAtualizar = value;
 
+            // Lógica simplificada que confia no número puro vindo do estado
             if (['valor_final_venda', 'percentual_comissao_corretagem'].includes(fieldName)) {
-                valorParaAtualizar = parseFloat(String(value).replace(/[^0-9,]/g, '').replace(',', '.')) || null;
+                const valorNumerico = Number(value || 0);
+                valorParaAtualizar = isNaN(valorNumerico) ? null : valorNumerico;
             } else if (value === '') {
                 valorParaAtualizar = null;
             }
-            const { error } = await supabase.from('contratos').update({ [fieldName]: valorParaAtualizar }).eq('id', contrato.id);
+
+            const { data, error } = await supabase
+                .from('contratos')
+                .update({ [fieldName]: valorParaAtualizar })
+                .eq('id', contrato.id)
+                .eq('organizacao_id', organizacaoId)
+                .select()
+                .single();
+            
             if (error) throw error;
+            if (!data) throw new Error("A atualização falhou (0 linhas afetadas). Verifique as permissões (RLS).");
         },
         onSuccess: () => { 
             toast.success("Campo atualizado!");
@@ -148,7 +162,6 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
         setSearchResults(prev => ({ ...prev, [type]: data || [] }));
     }, [supabase, organizacaoId]);
 
-    // O "early return" agora fica DEPOIS dos Hooks.
     if (!contrato) {
         return (
             <div className="flex justify-center items-center p-10 bg-white rounded-lg shadow-md border">
@@ -158,7 +171,6 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
         );
     }
 
-    // O resto das funções que não são Hooks pode ficar aqui.
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toISOString().split('T')[0] : '';
 
@@ -194,29 +206,19 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
         <div className="bg-white p-6 rounded-lg shadow-md border animate-fade-in space-y-6">
             <h3 className="text-xl font-bold text-gray-800">Detalhes da Venda</h3>
             
+            {/* Fieldsets de Contatos (inalterados) */}
             <fieldset className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <SearchableField label="Cliente / Comprador" selectedName={contrato.contato?.nome || contrato.contato?.razao_social} onClear={() => handleClearContato('comprador')}>
                     <div className="relative"><input type="text" value={searchTerms.comprador} onChange={(e) => handleSearchContato('comprador', e.target.value)} placeholder="Buscar cliente..." className="w-full p-2 border rounded-md" />{searchResults.comprador.length > 0 && <ul className="absolute z-20 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto">{searchResults.comprador.map(c => <li key={c.id} onClick={() => handleSelectContato('comprador', c)} className="p-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={c.nome || c.razao_social} highlight={searchTerms.comprador} /></li>)}</ul>}</div>
                 </SearchableField>
-
                 <SearchableField label="Cônjuge / Companheiro(a)" selectedName={contrato.conjuge?.nome || contrato.conjuge?.razao_social} onClear={() => handleClearContato('conjuge')}>
                     <div className="relative"><input type="text" value={searchTerms.conjuge} onChange={(e) => handleSearchContato('conjuge', e.target.value)} placeholder="Buscar contato..." className="w-full p-2 border rounded-md" />{searchResults.conjuge.length > 0 && <ul className="absolute z-20 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto">{searchResults.conjuge.map(c => <li key={c.id} onClick={() => handleSelectContato('conjuge', c)} className="p-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={c.nome || c.razao_social} highlight={searchTerms.conjuge} /></li>)}</ul>}</div>
                 </SearchableField>
-
                 <div>
                     <label className="block text-sm font-medium text-gray-600">Regime de Bens</label>
-                    <input 
-                        type="text" 
-                        value={contrato.regime_bens || ''} 
-                        onChange={(e) => setContrato(prev => ({...prev, regime_bens: e.target.value}))} 
-                        onBlur={(e) => handleFieldUpdate('regime_bens', e.target.value)} 
-                        disabled={updateFieldMutation.isPending} 
-                        className="mt-1 w-full p-2 border rounded-md"
-                        placeholder="Ex: Comunhão Parcial de Bens"
-                    />
+                    <input type="text" value={contrato.regime_bens || ''} onChange={(e) => setContrato(prev => ({...prev, regime_bens: e.target.value}))} onBlur={(e) => handleFieldUpdate('regime_bens', e.target.value)} disabled={updateFieldMutation.isPending} className="mt-1 w-full p-2 border rounded-md" placeholder="Ex: Comunhão Parcial de Bens"/>
                 </div>
             </fieldset>
-
             <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t">
                 <SearchableField label="Representante (se houver)" selectedName={contrato.representante?.nome || contrato.representante?.razao_social} onClear={() => handleClearContato('representante')}>
                     <div className="relative"><input type="text" value={searchTerms.representante} onChange={(e) => handleSearchContato('representante', e.target.value)} placeholder="Buscar contato do representante..." className="w-full p-2 border rounded-md" />{searchResults.representante.length > 0 && <ul className="absolute z-20 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto">{searchResults.representante.map(c => <li key={c.id} onClick={() => handleSelectContato('representante', c)} className="p-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={c.nome || c.razao_social} highlight={searchTerms.representante} /></li>)}</ul>}</div>
@@ -226,50 +228,23 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
                 </SearchableField>
             </fieldset>
             
+            {/* Fieldsets de Produtos e Totais (inalterados) */}
             <fieldset className="space-y-4 pt-6 border-t">
                 <h4 className="text-lg font-semibold text-gray-700">Produtos do Contrato</h4>
-                
                 {contrato.produtos?.length > 0 ? (
-                    <ul className="space-y-2">
-                        {contrato.produtos.map(p => (
-                            <li key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md border">
-                                <div>
-                                    <p className="font-semibold text-gray-800">{p.unidade} ({p.tipo})</p>
-                                    <p className="text-sm text-gray-500">Matrícula: {p.matricula || 'N/A'} - Valor de Tabela: {formatCurrency(p.valor_venda_calculado)}</p>
-                                </div>
-                                <button 
-                                    onClick={() => removeProdutoMutation.mutate(p.id)} 
-                                    disabled={removeProdutoMutation.isPending}
-                                    className="text-red-500 hover:text-red-700 disabled:opacity-50"
-                                >
-                                    <FontAwesomeIcon icon={faTrash} />
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                ) : (
-                    <p className="text-sm text-gray-500 italic">Nenhum produto vinculado a este contrato.</p>
-                )}
-
+                    <ul className="space-y-2">{contrato.produtos.map(p => (<li key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md border"><div><p className="font-semibold text-gray-800">{p.unidade} ({p.tipo})</p><p className="text-sm text-gray-500">Matrícula: {p.matricula || 'N/A'} - Valor de Tabela: {formatCurrency(p.valor_venda_calculado)}</p></div><button onClick={() => removeProdutoMutation.mutate(p.id)} disabled={removeProdutoMutation.isPending} className="text-red-500 hover:text-red-700 disabled:opacity-50"><FontAwesomeIcon icon={faTrash} /></button></li>))}</ul>
+                ) : (<p className="text-sm text-gray-500 italic">Nenhum produto vinculado a este contrato.</p>)}
                 <div className="flex items-end gap-4">
                     <div className="flex-grow">
                         <label className="block text-sm font-medium">Adicionar Produto</label>
-                        <select 
-                            defaultValue=""
-                            onChange={(e) => addProdutoMutation.mutate(e.target.value)}
-                            className="mt-1 w-full p-2 border rounded-md"
-                            disabled={addProdutoMutation.isPending || produtosDisponiveis.length === 0}
-                        >
+                        <select defaultValue="" onChange={(e) => addProdutoMutation.mutate(e.target.value)} className="mt-1 w-full p-2 border rounded-md" disabled={addProdutoMutation.isPending || produtosDisponiveis.length === 0}>
                             <option value="" disabled>{produtosDisponiveis.length > 0 ? 'Selecione um produto para adicionar...' : 'Nenhum produto disponível'}</option>
-                            {produtosDisponiveis.map(p => (
-                                <option key={p.id} value={p.id}>{p.unidade} ({p.tipo}) - {formatCurrency(p.valor_venda_calculado)}</option>
-                            ))}
+                            {produtosDisponiveis.map(p => (<option key={p.id} value={p.id}>{p.unidade} ({p.tipo}) - {formatCurrency(p.valor_venda_calculado)}</option>))}
                         </select>
                     </div>
                     {(addProdutoMutation.isPending || removeProdutoMutation.isPending) && <FontAwesomeIcon icon={faSpinner} spin />}
                 </div>
             </fieldset>
-
             <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t">
                 <div>
                     <label className="block text-sm font-medium text-gray-600">Soma dos Produtos (Valor de Tabela)</label>
@@ -292,9 +267,14 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
                          <IMaskInput
                             mask="R$ num"
                             blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}}
-                            unmask={true}
+                            // =================================================================================
+                            // CORREÇÃO DEFINITIVA DO INPUT
+                            // O PORQUÊ: 'unmask: 'typed'' entrega um NÚMERO para a função onAccept,
+                            // que é salvo no estado. Isso impede o bug de travamento.
+                            // =================================================================================
+                            unmask={'typed'}
                             value={String(contrato.valor_final_venda || '')}
-                            onAccept={(value) => setContrato(prev => ({...prev, valor_final_venda: value}))}
+                            onAccept={(value) => setContrato(prev => ({ ...prev, valor_final_venda: value }))}
                             onBlur={() => handleFieldUpdate('valor_final_venda', contrato.valor_final_venda)}
                             disabled={updateFieldMutation.isPending}
                             className="mt-1 w-full p-2 border rounded-md font-semibold text-blue-600"
@@ -312,7 +292,8 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
                         scale={2}
                         padFractionalZeros={true}
                         radix=","
-                        value={String(contrato.percentual_comissao_corretagem || '').replace('.', ',')}
+                        unmask={'typed'} // Consistência: também retorna um número puro
+                        value={String(contrato.percentual_comissao_corretagem || '')}
                         onAccept={(value) => setContrato(prev => ({...prev, percentual_comissao_corretagem: value}))}
                         onBlur={() => handleFieldUpdate('percentual_comissao_corretagem', contrato.percentual_comissao_corretagem)}
                         disabled={updateFieldMutation.isPending}
@@ -326,46 +307,22 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
                         {formatCurrency(contrato.valor_comissao_corretagem)}
                     </p>
                 </div>
+                
+                {/* Outros campos (inalterados) */}
                 <div className="md:col-span-3">
                      <label className="block text-sm font-medium text-gray-600">Forma de Pagamento da Comissão</label>
-                     <input
-                        type="text"
-                        value={contrato.forma_pagamento_corretagem || ''}
-                        onChange={(e) => setContrato(prev => ({...prev, forma_pagamento_corretagem: e.target.value}))}
-                        onBlur={() => handleFieldUpdate('forma_pagamento_corretagem', contrato.forma_pagamento_corretagem)}
-                        disabled={updateFieldMutation.isPending}
-                        className="mt-1 w-full p-2 border rounded-md"
-                        placeholder="Ex: PIX em 3 parcelas"
-                    />
+                     <input type="text" value={contrato.forma_pagamento_corretagem || ''} onChange={(e) => setContrato(prev => ({...prev, forma_pagamento_corretagem: e.target.value}))} onBlur={() => handleFieldUpdate('forma_pagamento_corretagem', contrato.forma_pagamento_corretagem)} disabled={updateFieldMutation.isPending} className="mt-1 w-full p-2 border rounded-md" placeholder="Ex: PIX em 3 parcelas"/>
                 </div>
                 <div className="md:col-span-3">
-                    <label htmlFor="contaBancariaSelect" className="block text-sm font-medium text-gray-600">
-                        Conta Bancária para Pagamentos (Exibida no Contrato)
-                    </label>
-                    <select
-                        id="contaBancariaSelect"
-                        value={contrato.conta_bancaria_id || ''}
-                        onChange={(e) => handleFieldUpdate('conta_bancaria_id', e.target.value || null)}
-                        className="w-full p-2 border rounded-md mt-1"
-                        disabled={loadingContas || updateFieldMutation.isPending}
-                    >
+                    <label htmlFor="contaBancariaSelect" className="block text-sm font-medium text-gray-600">Conta Bancária para Pagamentos (Exibida no Contrato)</label>
+                    <select id="contaBancariaSelect" value={contrato.conta_bancaria_id || ''} onChange={(e) => handleFieldUpdate('conta_bancaria_id', e.target.value || null)} className="w-full p-2 border rounded-md mt-1" disabled={loadingContas || updateFieldMutation.isPending}>
                         <option value="">{loadingContas ? 'Carregando contas...' : '-- Nenhuma (não exibir no contrato) --'}</option>
-                        {contasBancarias.map(conta => (
-                            <option key={conta.id} value={conta.id}>{conta.nome} ({conta.instituicao})</option>
-                        ))}
+                        {contasBancarias.map(conta => (<option key={conta.id} value={conta.id}>{conta.nome} ({conta.instituicao})</option>))}
                     </select>
                 </div>
                 <div className="md:col-span-3">
                      <label className="block text-sm font-medium text-gray-600">Observações do Contrato</label>
-                     <textarea
-                        value={contrato.observacoes_contrato || ''}
-                        onChange={(e) => setContrato(prev => ({...prev, observacoes_contrato: e.target.value}))}
-                        onBlur={() => handleFieldUpdate('observacoes_contrato', contrato.observacoes_contrato)}
-                        disabled={updateFieldMutation.isPending}
-                        className="mt-1 w-full p-2 border rounded-md"
-                        rows={3}
-                        placeholder="Adicione qualquer cláusula ou observação especial sobre este contrato aqui."
-                    />
+                     <textarea value={contrato.observacoes_contrato || ''} onChange={(e) => setContrato(prev => ({...prev, observacoes_contrato: e.target.value}))} onBlur={() => handleFieldUpdate('observacoes_contrato', contrato.observacoes_contrato)} disabled={updateFieldMutation.isPending} className="mt-1 w-full p-2 border rounded-md" rows={3} placeholder="Adicione qualquer cláusula ou observação especial sobre este contrato aqui."/>
                 </div>
             </fieldset>
         </div>

@@ -6,7 +6,7 @@ import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faTrash, faSpinner, faSave, faFileInvoiceDollar, faExclamationTriangle, faPen, faTimes, faCopy, faExchangeAlt, faLink, faPrint } from '@fortawesome/free-solid-svg-icons';
-import { IMaskInput } from 'react-imask';
+import { IMaskInput } from 'react-imask'; // Voltamos a usar o IMaskInput diretamente
 import PlanoPagamentoPrint from './PlanoPagamentoPrint';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -26,7 +26,7 @@ const getParcelaStatus = (parcela) => {
         return { text: 'Paga', className: 'bg-green-100 text-green-800' };
     }
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Zera a hora para comparar apenas a data
+    today.setHours(0, 0, 0, 0);
     const dueDate = new Date(parcela.data_vencimento + 'T00:00:00Z');
     
     if (dueDate < today) {
@@ -103,14 +103,6 @@ export default function CronogramaFinanceiro({ contrato, desconto, onUpdate }) {
 
     const hasPendingParcelsToProvision = useMemo(() => localParcelas.some(p => !p.lancamento_id && p.status_pagamento === 'Pendente'), [localParcelas]);
     
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: A resposta do Supabase RPC (rpcResult) é um objeto que contém `data` e `error`.
-    // O erro `e.startsWith is not a function` ocorria porque tentávamos usar `startsWith`
-    // no objeto `rpcResult` inteiro, em vez de na mensagem de texto dentro de `rpcResult.data`.
-    // Esta nova versão extrai a mensagem de `rpcResult.data` e verifica se ela é um texto
-    // antes de continuar, tornando o código à prova de falhas.
-    // =================================================================================
     const handleProvisionarLancamentos = async () => {
         setIsProvisioning(true);
         const promise = supabase.rpc('provisionar_parcelas_contrato', { 
@@ -152,9 +144,6 @@ export default function CronogramaFinanceiro({ contrato, desconto, onUpdate }) {
             finally: () => setIsProvisioning(false)
         });
     };
-    // =================================================================================
-    // FIM DA CORREÇÃO
-    // =================================================================================
 
     const handleAddParcela = async () => {
         if (!newParcela.descricao || !newParcela.data_vencimento || !newParcela.valor_parcela) {
@@ -236,8 +225,7 @@ export default function CronogramaFinanceiro({ contrato, desconto, onUpdate }) {
         if (!newPermuta.descricao || !newPermuta.valor_permutado || !newPermuta.data_registro) return toast.error("Preencha todos os campos da permuta.");
         if (!organizacaoId) { toast.error("Organização não identificada."); return; }
         setLoading(true);
-        const valorString = String(newPermuta.valor_permutado || '');
-        const valorNumerico = parseFloat(valorString.replace(/[^0-9,]/g, '').replace(',', '.')) || 0;
+        const valorNumerico = parseFloat(newPermuta.valor_permutado) || 0;
         const { error } = await supabase.from('contrato_permutas').insert({ contrato_id: contratoId, descricao: newPermuta.descricao, valor_permutado: valorNumerico, data_registro: newPermuta.data_registro, organizacao_id: organizacaoId });
         if (error) { toast.error("Erro: " + error.message); } 
         else { toast.success("Permuta adicionada!"); setNewPermuta({ descricao: '', valor_permutado: '', data_registro: new Date().toISOString().split('T')[0] }); onUpdate(); }
@@ -325,7 +313,16 @@ export default function CronogramaFinanceiro({ contrato, desconto, onUpdate }) {
                                 <tr className="bg-gray-50">
                                     <td className="px-4 py-2"><input type="text" placeholder="Descrição do bem" value={newPermuta.descricao} onChange={e => setNewPermuta({...newPermuta, descricao: e.target.value})} className="p-2 border rounded w-full"/></td>
                                     <td className="px-4 py-2"><input type="date" value={newPermuta.data_registro} onChange={e => setNewPermuta({...newPermuta, data_registro: e.target.value})} className="p-2 border rounded w-full"/></td>
-                                    <td className="px-4 py-2"><IMaskInput mask="R$ num" blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}} unmask={true} value={String(newPermuta.valor_permutado || '')} onAccept={(value) => setNewPermuta({...newPermuta, valor_permutado: value})} className="p-2 border rounded w-full text-right"/></td>
+                                    <td className="px-4 py-2">
+                                        <IMaskInput
+                                            mask="R$ num"
+                                            blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}}
+                                            unmask={true}
+                                            value={String(newPermuta.valor_permutado || '')}
+                                            onAccept={(value) => setNewPermuta({...newPermuta, valor_permutado: value})}
+                                            className="p-2 border rounded w-full text-right"
+                                        />
+                                    </td>
                                     <td className="px-4 py-2 text-center"><button onClick={handleAddPermuta} disabled={loading} className="bg-green-500 text-white px-3 py-1 rounded-md text-xs hover:bg-green-600">{loading ? <FontAwesomeIcon icon={faSpinner} spin/> : <><FontAwesomeIcon icon={faPlus}/> Add</>}</button></td>
                                 </tr>
                             </tbody>
@@ -369,9 +366,17 @@ export default function CronogramaFinanceiro({ contrato, desconto, onUpdate }) {
                                     const statusInfo = getParcelaStatus(p);
                                     let dateClass = '';
                                     if (statusInfo.text === 'Atrasada') dateClass = 'text-red-600 font-bold';
-                                    return ( editingParcelaId === p.id ? ( <tr key={p.id} className="bg-yellow-50"> <td className="px-4 py-2"></td> <td className="px-4 py-2"><input type="text" value={editingParcelaData.descricao} onChange={e => handleEditingParcelaChange('descricao', e.target.value)} className="p-2 border rounded w-full bg-yellow-100"/></td> <td className="px-4 py-2">{p.tipo}</td> <td className="px-4 py-2"><input type="date" value={formatDateForInput(editingParcelaData.data_vencimento)} onChange={e => handleEditingParcelaChange('data_vencimento', e.target.value)} className="p-2 border rounded w-full bg-yellow-100"/></td> <td className="px-4 py-2"><IMaskInput mask="R$ num" blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}} unmask={true} value={String(editingParcelaData.valor_parcela || '')} onAccept={(value) => handleEditingParcelaChange('valor_parcela', value)} className="p-2 border rounded w-full text-right bg-yellow-100"/></td> <td className="px-4 py-2 text-center">{p.status_pagamento}</td> <td className="px-4 py-2 text-center"> <div className="flex justify-center items-center gap-3"> <button onClick={() => handleSaveEditingParcela(p.id)} disabled={loading} className="text-green-600" title="Salvar"><FontAwesomeIcon icon={faSave} /></button> <button onClick={handleCancelEditingParcela} className="text-gray-500" title="Cancelar"><FontAwesomeIcon icon={faTimes} /></button> </div> </td> </tr> ) : ( <tr key={p.id} className="hover:bg-gray-50"> <td className="px-4 py-3 text-center">{p.lancamento_id && <FontAwesomeIcon icon={faLink} className="text-green-500" title={`Vinculado ao Lançamento #${p.lancamento_id}`} />}</td> <td className="px-4 py-3 font-medium">{p.descricao}</td> <td className="px-4 py-3 text-gray-600">{p.tipo}</td> <td className={`px-4 py-3 whitespace-nowrap ${dateClass}`}>{formatDateForDisplay(p.data_vencimento)}</td> <td className="px-4 py-3 text-right font-bold text-green-600">{formatCurrency(p.valor_parcela)}</td> <td className="px-4 py-3 text-center"> <span className={`px-2 py-1 font-semibold leading-tight rounded-full ${statusInfo.className}`}> {statusInfo.text.toUpperCase()} </span> </td> <td className="px-4 py-3 text-center"> <div className="flex justify-center items-center gap-4"> <button onClick={() => handleDuplicateParcela(p.id)} disabled={loading} className="text-gray-500 hover:text-gray-700" title="Duplicar"><FontAwesomeIcon icon={faCopy} /></button> {p.status_pagamento === 'Pendente' && <button onClick={() => handleStartEditingParcela(p)} className="text-blue-600 hover:text-blue-800" title="Editar"><FontAwesomeIcon icon={faPen} /></button>} <button onClick={() => handleDeleteParcela(p.id)} disabled={loading} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button> </div> </td> </tr> ) )
+                                    return ( editingParcelaId === p.id ? ( <tr key={p.id} className="bg-yellow-50"> <td className="px-4 py-2"></td> <td className="px-4 py-2"><input type="text" value={editingParcelaData.descricao} onChange={e => handleEditingParcelaChange('descricao', e.target.value)} className="p-2 border rounded w-full bg-yellow-100"/></td> <td className="px-4 py-2">{p.tipo}</td> <td className="px-4 py-2"><input type="date" value={formatDateForInput(editingParcelaData.data_vencimento)} onChange={e => handleEditingParcelaChange('data_vencimento', e.target.value)} className="p-2 border rounded w-full bg-yellow-100"/></td>
+                                    <td className="px-4 py-2">
+                                        <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}} unmask={true} value={String(editingParcelaData.valor_parcela || '')} onAccept={(value) => handleEditingParcelaChange('valor_parcela', value)} className="p-2 border rounded w-full text-right bg-yellow-100"/>
+                                    </td>
+                                    <td className="px-4 py-2 text-center">{p.status_pagamento}</td> <td className="px-4 py-2 text-center"> <div className="flex justify-center items-center gap-3"> <button onClick={() => handleSaveEditingParcela(p.id)} disabled={loading} className="text-green-600" title="Salvar"><FontAwesomeIcon icon={faSave} /></button> <button onClick={handleCancelEditingParcela} className="text-gray-500" title="Cancelar"><FontAwesomeIcon icon={faTimes} /></button> </div> </td> </tr> ) : ( <tr key={p.id} className="hover:bg-gray-50"> <td className="px-4 py-3 text-center">{p.lancamento_id && <FontAwesomeIcon icon={faLink} className="text-green-500" title={`Vinculado ao Lançamento #${p.lancamento_id}`} />}</td> <td className="px-4 py-3 font-medium">{p.descricao}</td> <td className="px-4 py-3 text-gray-600">{p.tipo}</td> <td className={`px-4 py-3 whitespace-nowrap ${dateClass}`}>{formatDateForDisplay(p.data_vencimento)}</td> <td className="px-4 py-3 text-right font-bold text-green-600">{formatCurrency(p.valor_parcela)}</td> <td className="px-4 py-3 text-center"> <span className={`px-2 py-1 font-semibold leading-tight rounded-full ${statusInfo.className}`}> {statusInfo.text.toUpperCase()} </span> </td> <td className="px-4 py-3 text-center"> <div className="flex justify-center items-center gap-4"> <button onClick={() => handleDuplicateParcela(p.id)} disabled={loading} className="text-gray-500 hover:text-gray-700" title="Duplicar"><FontAwesomeIcon icon={faCopy} /></button> {p.status_pagamento === 'Pendente' && <button onClick={() => handleStartEditingParcela(p)} className="text-blue-600 hover:text-blue-800" title="Editar"><FontAwesomeIcon icon={faPen} /></button>} <button onClick={() => handleDeleteParcela(p.id)} disabled={loading} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button> </div> </td> </tr> ) )
                                 })}
-                                <tr className="bg-gray-50"> <td className="px-4 py-2"></td> <td className="px-4 py-2"><input type="text" placeholder="Nova Parcela Adicional" value={newParcela.descricao} onChange={e => setNewParcela({...newParcela, descricao: e.target.value})} className="p-2 border rounded w-full"/></td> <td className="px-4 py-2 text-gray-600">Adicional</td> <td className="px-4 py-2"><input type="date" value={newParcela.data_vencimento} onChange={e => setNewParcela({...newParcela, data_vencimento: e.target.value})} className="p-2 border rounded w-full"/></td> <td className="px-4 py-2"><IMaskInput mask="R$ num" blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}} unmask={true} value={String(newParcela.valor_parcela || '')} onAccept={(value) => setNewParcela({...newParcela, valor_parcela: value})} className="p-2 border rounded w-full text-right"/></td> <td className="px-4 py-2 text-center text-gray-600">Pendente</td> <td className="px-4 py-2 text-center"><button onClick={handleAddParcela} disabled={loading} className="bg-green-500 text-white px-3 py-1 rounded-md text-xs hover:bg-green-600">{loading ? <FontAwesomeIcon icon={faSpinner} spin/> : <><FontAwesomeIcon icon={faPlus}/> Add</>}</button></td> </tr>
+                                <tr className="bg-gray-50"> <td className="px-4 py-2"></td> <td className="px-4 py-2"><input type="text" placeholder="Nova Parcela Adicional" value={newParcela.descricao} onChange={e => setNewParcela({...newParcela, descricao: e.target.value})} className="p-2 border rounded w-full"/></td> <td className="px-4 py-2 text-gray-600">Adicional</td> <td className="px-4 py-2"><input type="date" value={newParcela.data_vencimento} onChange={e => setNewParcela({...newParcela, data_vencimento: e.target.value})} className="p-2 border rounded w-full"/></td>
+                                    <td className="px-4 py-2">
+                                        <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}} unmask={true} value={String(newParcela.valor_parcela || '')} onAccept={(value) => setNewParcela({...newParcela, valor_parcela: value})} className="p-2 border rounded w-full text-right"/>
+                                    </td>
+                                <td className="px-4 py-2 text-center text-gray-600">Pendente</td> <td className="px-4 py-2 text-center"><button onClick={handleAddParcela} disabled={loading} className="bg-green-500 text-white px-3 py-1 rounded-md text-xs hover:bg-green-600">{loading ? <FontAwesomeIcon icon={faSpinner} spin/> : <><FontAwesomeIcon icon={faPlus}/> Add</>}</button></td> </tr>
                             </tbody>
                              <tfoot className="bg-gray-200 font-bold">
                                 <tr>

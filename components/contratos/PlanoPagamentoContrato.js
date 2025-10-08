@@ -6,7 +6,7 @@ import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faCalculator } from '@fortawesome/free-solid-svg-icons';
-import { IMaskInput } from 'react-imask';
+import { IMaskInput } from 'react-imask'; // Voltamos a usar o IMaskInput diretamente
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -57,7 +57,7 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
 
     const handlePlanoChange = (name, value) => {
         const newPlanoState = { ...plano };
-        const numericValue = parseFloat(String(value).replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
+        const numericValue = parseFloat(value) || 0;
 
         if (name.includes('_percentual')) {
             const valueFieldName = name.replace('_percentual', '_valor');
@@ -86,21 +86,12 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
 
             const { id, ...updateData } = plano;
             
-            // =================================================================================
-            // INÍCIO DA CORREÇÃO
-            // O PORQUÊ: Aqui fazemos a "tradução". Se os campos de data forem um texto
-            // vazio (""), nós os convertemos para 'null' antes de enviar para o banco.
-            // Isso evita o erro de "sintaxe inválida para o tipo date".
-            // =================================================================================
             if (updateData.data_primeira_parcela_entrada === '') {
                 updateData.data_primeira_parcela_entrada = null;
             }
             if (updateData.data_primeira_parcela_obra === '') {
                 updateData.data_primeira_parcela_obra = null;
             }
-            // =================================================================================
-            // FIM DA CORREÇÃO
-            // =================================================================================
 
             const { error: saveError } = await supabase.from('simulacoes').update(updateData).eq('id', id);
             if (saveError) throw saveError;
@@ -143,7 +134,6 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
         return <div className="text-center p-10 text-red-500">Não foi possível carregar ou criar o plano de pagamento.</div>;
     }
 
-    // O resto do seu JSX (a parte visual do componente) continua exatamente o mesmo.
     return (
         <div className="bg-white p-6 rounded-lg shadow-md border space-y-8 animate-fade-in">
             <div className="flex justify-between items-center">
@@ -165,7 +155,14 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
                         </div>
                         <div>
                             <label className="block text-sm font-medium">Desconto (R$)</label>
-                            <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}} unmask={true} value={String(plano.desconto_valor || '')} onAccept={(value) => handlePlanoChange('desconto_valor', value)} className="mt-1 w-full p-2 border rounded-md" />
+                            <IMaskInput
+                                mask="R$ num"
+                                blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}}
+                                unmask={true}
+                                value={String(plano.desconto_valor || '')}
+                                onAccept={(value) => handlePlanoChange('desconto_valor', value)}
+                                className="mt-1 w-full p-2 border rounded-md"
+                            />
                         </div>
                     </div>
                 </div>
@@ -174,7 +171,16 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
                     <h4 className="font-semibold text-gray-600 mb-3">Entrada</h4>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div><label className="block text-sm font-medium">Entrada (%)</label><input type="number" step="0.01" name="entrada_percentual" value={plano.entrada_percentual || ''} onChange={e => handlePlanoChange(e.target.name, e.target.value)} className="mt-1 w-full p-2 border rounded-md" /></div>
-                        <div><label className="block text-sm font-medium">Entrada (R$)</label><IMaskInput mask="R$ num" blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}} unmask={true} value={String(plano.entrada_valor || '')} onAccept={(value) => handlePlanoChange('entrada_valor', value)} className="mt-1 w-full p-2 border rounded-md" /></div>
+                        <div><label className="block text-sm font-medium">Entrada (R$)</label>
+                            <IMaskInput
+                                mask="R$ num"
+                                blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}}
+                                unmask={true}
+                                value={String(plano.entrada_valor || '')}
+                                onAccept={(value) => handlePlanoChange('entrada_valor', value)}
+                                className="mt-1 w-full p-2 border rounded-md"
+                            />
+                        </div>
                         <div><label className="block text-sm font-medium">Nº Parcelas</label><input type="number" name="num_parcelas_entrada" value={plano.num_parcelas_entrada || ''} onChange={e => handlePlanoChange(e.target.name, e.target.value)} className="mt-1 w-full p-2 border rounded-md" /></div>
                         <div><label className="block text-sm font-medium">Data 1ª Parcela</label><input type="date" name="data_primeira_parcela_entrada" value={plano.data_primeira_parcela_entrada || ''} onChange={e => handlePlanoChange(e.target.name, e.target.value)} className="mt-1 w-full p-2 border rounded-md" /></div>
                     </div>
@@ -184,7 +190,16 @@ export default function PlanoPagamentoContrato({ contrato, onRecalculateSuccess 
                     <h4 className="font-semibold text-gray-600 mb-3">Parcelas de Obra</h4>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div><label className="block text-sm font-medium">Obra (%)</label><input type="number" step="0.01" name="parcelas_obra_percentual" value={plano.parcelas_obra_percentual || ''} onChange={e => handlePlanoChange(e.target.name, e.target.value)} className="mt-1 w-full p-2 border rounded-md" /></div>
-                        <div><label className="block text-sm font-medium">Obra (R$)</label><IMaskInput mask="R$ num" blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}} unmask={true} value={String(plano.parcelas_obra_valor || '')} onAccept={(value) => handlePlanoChange('parcelas_obra_valor', value)} className="mt-1 w-full p-2 border rounded-md" /></div>
+                        <div><label className="block text-sm font-medium">Obra (R$)</label>
+                            <IMaskInput
+                                mask="R$ num"
+                                blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}}
+                                unmask={true}
+                                value={String(plano.parcelas_obra_valor || '')}
+                                onAccept={(value) => handlePlanoChange('parcelas_obra_valor', value)}
+                                className="mt-1 w-full p-2 border rounded-md"
+                            />
+                        </div>
                         <div><label className="block text-sm font-medium">Nº Parcelas</label><input type="number" name="num_parcelas_obra" value={plano.num_parcelas_obra || ''} onChange={e => handlePlanoChange(e.target.name, e.target.value)} className="mt-1 w-full p-2 border rounded-md" /></div>
                         <div><label className="block text-sm font-medium">Data 1ª Parcela</label><input type="date" name="data_primeira_parcela_obra" value={plano.data_primeira_parcela_obra || ''} onChange={e => handlePlanoChange(e.target.name, e.target.value)} className="mt-1 w-full p-2 border rounded-md" /></div>
                     </div>
