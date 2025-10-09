@@ -9,8 +9,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserCircle, faSpinner, faClock, faDollarSign } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+import ConfirmReadmissionModal from './modals/ConfirmReadmissionModal'; // Importando nosso novo modal
 
-// Componente para o modal de alteração de salário
+// Componente para o modal de alteração de salário (sem alterações)
 const HistoricoSalarialModal = ({ isOpen, onClose, onSave, funcionarioId, organizacaoId }) => {
     const supabase = createClient();
     const { user } = useAuth();
@@ -39,7 +40,7 @@ const HistoricoSalarialModal = ({ isOpen, onClose, onSave, funcionarioId, organi
             ...novoHistorico,
             funcionario_id: funcionarioId,
             criado_por_usuario_id: user.id,
-            organizacao_id: organizacaoId // Garante a organização
+            organizacao_id: organizacaoId
         });
         setLoading(false);
         onClose();
@@ -80,7 +81,6 @@ const HistoricoSalarialModal = ({ isOpen, onClose, onSave, funcionarioId, organi
     );
 };
 
-
 export default function FuncionarioForm({ companies, empreendimentos, initialData, jornadas }) {
     const supabase = createClient();
     const router = useRouter();
@@ -103,8 +103,11 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
     const [photoPreview, setPhotoPreview] = useState(initialData?.foto_url || null);
     const [isUploading, setIsUploading] = useState(false);
     const [isModalSalarialOpen, setIsModalSalarialOpen] = useState(false);
-    
     const [salarioAtual, setSalarioAtual] = useState({ salario_base: null, valor_diaria: null });
+
+    // >>>>> NOVOS ESTADOS PARA O MODAL DE READMISSÃO <<<<<
+    const [isReadmissionModalOpen, setIsReadmissionModalOpen] = useState(false);
+    const [existingEmployee, setExistingEmployee] = useState(null);
 
     useEffect(() => {
         const fetchRelatedData = async () => {
@@ -166,11 +169,10 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
             });
         }
     };
-
-    const handleSubmit = async (event) => {
-        event.preventDefault();
-        setIsUploading(true);
     
+    // >>>>> NOVA FUNÇÃO PARA REALIZAR O CADASTRO <<<<<
+    const proceedWithCreation = async () => {
+        setIsUploading(true);
         const promise = new Promise(async (resolve, reject) => {
             const orgId = user?.organizacao_id;
             if (!orgId) {
@@ -250,7 +252,7 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
             success: () => {
                 setTimeout(() => {
                     // MUDANÇA IMPORTANTE AQUI: O caminho foi alterado conforme sua solicitação.
-                    router.push('/funcionario');
+                    router.push('/funcionarios'); // ATENÇÃO AQUI
                     router.refresh();
                 }, 1500);
                 setIsUploading(false);
@@ -261,6 +263,47 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
                 return `Erro ao salvar: ${err.message}`;
             },
         });
+    };
+    
+    // >>>>> FUNÇÃO `handleSubmit` ATUALIZADA <<<<<
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+
+        // Se estiver editando, salva direto sem checar CPF
+        if (isEditing) {
+            await proceedWithCreation();
+            return;
+        }
+
+        // Se for cadastro novo, verifica o CPF
+        if (formData.cpf && user?.organizacao_id) {
+            const { data: existing, error } = await supabase
+                .from('funcionarios')
+                .select('full_name, demission_date')
+                .eq('cpf', formData.cpf)
+                .eq('status', 'Demitido')
+                .eq('organizacao_id', user.organizacao_id)
+                .order('demission_date', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (error) {
+                toast.error(`Erro ao verificar CPF: ${error.message}`);
+                return;
+            }
+
+            if (existing) {
+                // Se encontrou um demitido, abre o modal
+                setExistingEmployee(existing);
+                setIsReadmissionModalOpen(true);
+            } else {
+                // Se não encontrou, cadastra normalmente
+                await proceedWithCreation();
+            }
+        } else {
+            // Se não tem CPF, cadastra normalmente
+            await proceedWithCreation();
+        }
     };
      
     const handleCepBlur = async (cep) => {
@@ -286,6 +329,17 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
 
     return (
         <div className="bg-white rounded-lg shadow p-6">
+            {/* >>>>> NOSSO MODAL DE READMISSÃO EM AÇÃO <<<<< */}
+            <ConfirmReadmissionModal
+                isOpen={isReadmissionModalOpen}
+                onClose={() => setIsReadmissionModalOpen(false)}
+                onConfirm={() => {
+                    setIsReadmissionModalOpen(false);
+                    proceedWithCreation(); // Chama a função de criação se o usuário confirmar
+                }}
+                funcionarioExistente={existingEmployee}
+            />
+
             <HistoricoSalarialModal 
                 isOpen={isModalSalarialOpen}
                 onClose={() => setIsModalSalarialOpen(false)}
@@ -427,13 +481,13 @@ export default function FuncionarioForm({ companies, empreendimentos, initialDat
                         ) : (
                             <>
                                  <div className="p-4 bg-gray-50 rounded-lg">
-                                    <label className="block text-sm font-medium text-gray-500">Salário Base Atual</label>
-                                    <p className="text-lg font-bold text-gray-800">{formatCurrency(salarioAtual.salario_base)}</p>
-                                </div>
-                                <div className="p-4 bg-gray-50 rounded-lg">
-                                    <label className="block text-sm font-medium text-gray-500">Valor Diária Atual</label>
-                                    <p className="text-lg font-bold text-gray-800">{formatCurrency(salarioAtual.valor_diaria)}</p>
-                                </div>
+                                     <label className="block text-sm font-medium text-gray-500">Salário Base Atual</label>
+                                     <p className="text-lg font-bold text-gray-800">{formatCurrency(salarioAtual.salario_base)}</p>
+                                 </div>
+                                 <div className="p-4 bg-gray-50 rounded-lg">
+                                     <label className="block text-sm font-medium text-gray-500">Valor Diária Atual</label>
+                                     <p className="text-lg font-bold text-gray-800">{formatCurrency(salarioAtual.valor_diaria)}</p>
+                                 </div>
                             </>
                         )}
                          <div>
