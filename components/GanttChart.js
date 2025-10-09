@@ -1,3 +1,4 @@
+// components/GanttChart.js
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -153,22 +154,22 @@ export default function GanttChart({ activities }) {
 
         return (
              <div key={task.id} className="relative h-[60px] border-b border-gray-100">
-                <div className="absolute h-1/2 top-0 left-0 right-0">
-                    <div className="absolute h-5 bg-gray-300 rounded-md flex items-center" style={{ left: `${plannedLeft}px`, width: `${plannedWidth}px`, top: '4px' }}>
-                        <span className="text-gray-800 text-[10px] font-semibold truncate px-2">{task.nome}</span>
-                    </div>
-                </div>
-                <div className="absolute h-1/2 bottom-0 left-0 right-0">
-                    {realWidth > 0 && (
-                        <div className={`absolute h-5 ${realBarColor} rounded-md flex items-center`} style={{ left: `${realLeft}px`, width: `${realWidth}px`, bottom: '4px' }}>
-                            <span className="text-white text-[10px] font-semibold truncate px-2">{task.nome}</span>
-                        </div>
-                    )}
-                </div>
-                {task.data_fim_original && (
-                    <FontAwesomeIcon icon={faHistory} className="absolute text-orange-500" style={{ left: `${plannedLeft + plannedWidth + 5}px`, top: '8px' }} title={`Reprogramado. Fim original: ${formatDate(task.data_fim_original)}`} />
-                )}
-            </div>
+                 <div className="absolute h-1/2 top-0 left-0 right-0">
+                     <div className="absolute h-5 bg-gray-300 rounded-md flex items-center" style={{ left: `${plannedLeft}px`, width: `${plannedWidth}px`, top: '4px' }}>
+                         <span className="text-gray-800 text-[10px] font-semibold truncate px-2">{task.nome}</span>
+                     </div>
+                 </div>
+                 <div className="absolute h-1/2 bottom-0 left-0 right-0">
+                     {realWidth > 0 && (
+                         <div className={`absolute h-5 ${realBarColor} rounded-md flex items-center`} style={{ left: `${realLeft}px`, width: `${realWidth}px`, bottom: '4px' }}>
+                             <span className="text-white text-[10px] font-semibold truncate px-2">{task.nome}</span>
+                         </div>
+                     )}
+                 </div>
+                 {task.data_fim_original && (
+                     <FontAwesomeIcon icon={faHistory} className="absolute text-orange-500" style={{ left: `${plannedLeft + plannedWidth + 5}px`, top: '8px' }} title={`Reprogramado. Fim original: ${formatDate(task.data_fim_original)}`} />
+                 )}
+             </div>
         );
     };
 
@@ -198,16 +199,17 @@ export default function GanttChart({ activities }) {
                 <div className="w-80 flex-shrink-0 border-r border-gray-200 bg-white">
                     <div className="h-[61px] flex items-center p-4 border-b border-gray-200 sticky top-0 bg-gray-50 z-20">
                          <button onClick={() => requestSort('tipo_atividade')} className="flex items-center font-semibold text-gray-800 hover:text-gray-900">
-                            <span>TAREFAS</span>
-                            {getSortIcon('tipo_atividade')}
-                        </button>
+                             <span>TAREFAS</span>
+                             {getSortIcon('tipo_atividade')}
+                         </button>
                     </div>
                     <div>
                         {sortedGroupEntries.map(([category, tasksInCategory]) => (
                             <div key={category}>
-                                <div className="w-full p-2 border-b border-t border-gray-200 bg-gray-100"><h4 className="font-bold text-gray-700 text-sm uppercase truncate" title={category}>{category}</h4></div>
+                                <div className="w-full h-[37px] flex items-center px-2 border-b border-t border-gray-200 bg-gray-100"><h4 className="font-bold text-gray-700 text-sm uppercase truncate" title={category}>{category}</h4></div>
                                 {tasksInCategory.map((task) => (
-                                    <div key={task.id} className="p-3 border-b border-gray-100 min-h-[60px] flex flex-col justify-center">
+                                    // >>>>> CORREÇÃO 1: Troquei 'min-h-[60px]' por 'h-[60px]' <<<<<
+                                    <div key={task.id} className="p-3 border-b border-gray-100 h-[60px] flex flex-col justify-center">
                                         <div className="font-medium text-gray-800 text-sm truncate" title={task.nome}>{task.nome}</div>
                                         <div className="text-xs text-gray-500">Previsto: {formatDate(task.data_inicio_prevista)} - {formatDate(task.data_fim_prevista)}</div>
                                         {task.data_inicio_real && <div className="text-xs text-blue-600">Real: {formatDate(task.data_inicio_real)} - {formatDate(task.data_fim_real)}</div>}
@@ -217,21 +219,22 @@ export default function GanttChart({ activities }) {
                         ))}
                          {deliveryTasks.length > 0 && (
                              <div key="delivery-category">
-                                <div className="w-full p-2 border-b border-t-2 border-blue-200 bg-blue-50"><h4 className="font-bold text-blue-800 text-sm uppercase truncate">ENTREGA DE PEDIDOS</h4></div>
-                                {deliveryTasks.map((task) => (
-                                    <div key={task.id} className="p-3 border-b border-gray-100 min-h-[60px] flex flex-col justify-center">
-                                        <div className="font-medium text-gray-800 text-sm truncate" title={task.nome}>{task.nome}</div>
-                                        <div className="text-xs text-gray-500">Previsto: {formatDate(task.data_inicio_prevista)} - {formatDate(task.data_fim_prevista)}</div>
-                                        {task.data_inicio_real && <div className="text-xs text-blue-600">Real: {formatDate(task.data_inicio_real)} - {formatDate(task.data_fim_real)}</div>}
-                                    </div>
-                                ))}
-                            </div>
+                                 <div className="w-full h-[37px] flex items-center px-2 border-b border-t-2 border-blue-200 bg-blue-50"><h4 className="font-bold text-blue-800 text-sm uppercase truncate">ENTREGA DE PEDIDOS</h4></div>
+                                 {deliveryTasks.map((task) => (
+                                     // >>>>> CORREÇÃO 2: Troquei 'min-h-[60px]' por 'h-[60px]' também aqui <<<<<
+                                     <div key={task.id} className="p-3 border-b border-gray-100 h-[60px] flex flex-col justify-center">
+                                         <div className="font-medium text-gray-800 text-sm truncate" title={task.nome}>{task.nome}</div>
+                                         <div className="text-xs text-gray-500">Previsto: {formatDate(task.data_inicio_prevista)} - {formatDate(task.data_fim_prevista)}</div>
+                                         {task.data_inicio_real && <div className="text-xs text-blue-600">Real: {formatDate(task.data_inicio_real)} - {formatDate(task.data_fim_real)}</div>}
+                                     </div>
+                                 ))}
+                             </div>
                          )}
                     </div>
                 </div>
                 <div className="flex-1 overflow-x-auto" ref={scrollContainerRef}>
                     <div className="relative" style={{ width: `${totalDays * 80}px` }}>
-                        <div className="flex sticky top-0 bg-white z-10 border-b border-gray-200">
+                        <div className="flex sticky top-0 bg-white z-10 border-b border-gray-200 h-[61px]">
                             {timelineDates.map(date => <DayColumn key={date.toISOString()} date={date} />)}
                         </div>
                         <div>
