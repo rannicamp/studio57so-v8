@@ -35,7 +35,7 @@ const GanttLegend = () => (
 );
 
 
-export default function GanttChart({ activities }) {
+export default function GanttChart({ activities, onEditActivity }) {
     const [sortConfig, setSortConfig] = useState({ key: 'tipo_atividade', direction: 'ascending' });
     const scrollContainerRef = useRef(null);
 
@@ -213,13 +213,16 @@ export default function GanttChart({ activities }) {
                                 <div className="w-full h-[37px] flex items-center px-2 border-b border-t border-gray-200 bg-gray-100"><h4 className="font-bold text-gray-700 text-sm uppercase truncate" title={category}>{category}</h4></div>
                                 {tasksInCategory.map((task) => (
                                     // =================================================================================
-                                    // CORREÇÃO APLICADA AQUI
-                                    // O PORQUÊ: Troquei 'p-3' por 'py-1 px-3'. Isso reduz o espaçamento
-                                    // vertical e cria espaço suficiente para as 3 linhas de texto (título,
-                                    // previsto e real) caberem dentro da altura fixa de 60px.
-                                    // Também voltei para 'justify-center' para o alinhamento ficar mais bonito.
+                                    // MUDANÇA PRINCIPAL AQUI
+                                    // O PORQUÊ: Adicionei o 'onClick' para chamar a função de edição que
+                                    // veio da página principal. Também adicionei 'cursor-pointer' e
+                                    // 'hover:bg-gray-50' para que o usuário perceba que a linha é clicável.
                                     // =================================================================================
-                                    <div key={task.id} className="py-1 px-3 border-b border-gray-100 h-[60px] flex flex-col justify-center">
+                                    <div 
+                                        key={task.id} 
+                                        onClick={() => onEditActivity(task)}
+                                        className="py-1 px-3 border-b border-gray-100 h-[60px] flex flex-col justify-center cursor-pointer hover:bg-gray-50"
+                                    >
                                         <div className="font-medium text-gray-800 text-sm truncate" title={task.nome}>{task.nome}</div>
                                         <div className="text-xs text-gray-500">Previsto: {formatDate(task.data_inicio_prevista)} - {formatDate(task.data_fim_prevista)}</div>
                                         {task.data_inicio_real && <div className="text-xs text-blue-600">Real: {formatDate(task.data_inicio_real)} - {formatDate(task.data_fim_real)}</div>}
@@ -231,7 +234,11 @@ export default function GanttChart({ activities }) {
                              <div key="delivery-category">
                                  <div className="w-full h-[37px] flex items-center px-2 border-b border-t-2 border-blue-200 bg-blue-50"><h4 className="font-bold text-blue-800 text-sm uppercase truncate">ENTREGA DE PEDIDOS</h4></div>
                                  {deliveryTasks.map((task) => (
-                                     <div key={task.id} className="py-1 px-3 border-b border-gray-100 h-[60px] flex flex-col justify-center">
+                                     <div 
+                                        key={task.id}
+                                        onClick={() => onEditActivity(task)}
+                                        className="py-1 px-3 border-b border-gray-100 h-[60px] flex flex-col justify-center cursor-pointer hover:bg-gray-50"
+                                    >
                                          <div className="font-medium text-gray-800 text-sm truncate" title={task.nome}>{task.nome}</div>
                                          <div className="text-xs text-gray-500">Previsto: {formatDate(task.data_inicio_prevista)} - {formatDate(task.data_fim_prevista)}</div>
                                          {task.data_inicio_real && <div className="text-xs text-blue-600">Real: {formatDate(task.data_inicio_real)} - {formatDate(task.data_fim_real)}</div>}
