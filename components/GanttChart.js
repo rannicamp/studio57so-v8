@@ -5,9 +5,6 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSort, faSortUp, faSortDown, faHistory, faCircle, faCalendarDay } from '@fortawesome/free-solid-svg-icons';
 
-// Por que: Substituímos a função original por esta versão mais segura,
-// que formata a data tratando-a como texto, para garantir que não haja
-// problemas com fuso horário, seguindo nossa regra principal.
 const formatDate = (dateString) => {
     if (!dateString || !/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
         return 'N/A';
@@ -38,7 +35,6 @@ const GanttLegend = () => (
 );
 
 
-// Componente Principal do Gráfico de Gantt
 export default function GanttChart({ activities }) {
     const [sortConfig, setSortConfig] = useState({ key: 'tipo_atividade', direction: 'ascending' });
     const scrollContainerRef = useRef(null);
@@ -141,27 +137,35 @@ export default function GanttChart({ activities }) {
     const renderTaskRow = (task) => {
         const plannedLeft = daysSinceStart(task.startDate) * 80;
         const plannedWidth = (daysSinceStart(task.endDate) - daysSinceStart(task.startDate) + 1) * 80;
+        
         let realLeft = 0, realWidth = 0;
-        if(task.realStartDate) {
+        
+        if (task.realStartDate) {
             realLeft = daysSinceStart(task.realStartDate) * 80;
-            const endPoint = task.realEndDate || (task.status === 'Em Andamento' ? today : null);
+            
+            let endPoint = task.realEndDate;
+            if (task.status === 'Em Andamento' && !task.realEndDate) {
+                endPoint = today;
+            }
+
             if (endPoint) {
                 realWidth = (daysSinceStart(endPoint) - daysSinceStart(task.realStartDate) + 1) * 80;
             }
         }
+        
         const isOverdue = task.realEndDate && task.endDate && task.realEndDate > task.endDate;
         const realBarColor = isOverdue ? 'bg-red-500' : 'bg-blue-500';
 
         return (
              <div key={task.id} className="relative h-[60px] border-b border-gray-100">
                  <div className="absolute h-1/2 top-0 left-0 right-0">
-                     <div className="absolute h-5 bg-gray-300 rounded-md flex items-center" style={{ left: `${plannedLeft}px`, width: `${plannedWidth}px`, top: '4px' }}>
+                     <div className="absolute h-5 bg-gray-300 rounded-md flex items-center overflow-hidden" style={{ left: `${plannedLeft}px`, width: `${plannedWidth}px`, top: '4px' }}>
                          <span className="text-gray-800 text-[10px] font-semibold truncate px-2">{task.nome}</span>
                      </div>
                  </div>
                  <div className="absolute h-1/2 bottom-0 left-0 right-0">
                      {realWidth > 0 && (
-                         <div className={`absolute h-5 ${realBarColor} rounded-md flex items-center`} style={{ left: `${realLeft}px`, width: `${realWidth}px`, bottom: '4px' }}>
+                         <div className={`absolute h-5 ${realBarColor} rounded-md flex items-center overflow-hidden`} style={{ left: `${realLeft}px`, width: `${realWidth}px`, bottom: '4px' }}>
                              <span className="text-white text-[10px] font-semibold truncate px-2">{task.nome}</span>
                          </div>
                      )}
@@ -208,8 +212,14 @@ export default function GanttChart({ activities }) {
                             <div key={category}>
                                 <div className="w-full h-[37px] flex items-center px-2 border-b border-t border-gray-200 bg-gray-100"><h4 className="font-bold text-gray-700 text-sm uppercase truncate" title={category}>{category}</h4></div>
                                 {tasksInCategory.map((task) => (
-                                    // >>>>> CORREÇÃO 1: Troquei 'min-h-[60px]' por 'h-[60px]' <<<<<
-                                    <div key={task.id} className="p-3 border-b border-gray-100 h-[60px] flex flex-col justify-center">
+                                    // =================================================================================
+                                    // CORREÇÃO APLICADA AQUI
+                                    // O PORQUÊ: Troquei 'p-3' por 'py-1 px-3'. Isso reduz o espaçamento
+                                    // vertical e cria espaço suficiente para as 3 linhas de texto (título,
+                                    // previsto e real) caberem dentro da altura fixa de 60px.
+                                    // Também voltei para 'justify-center' para o alinhamento ficar mais bonito.
+                                    // =================================================================================
+                                    <div key={task.id} className="py-1 px-3 border-b border-gray-100 h-[60px] flex flex-col justify-center">
                                         <div className="font-medium text-gray-800 text-sm truncate" title={task.nome}>{task.nome}</div>
                                         <div className="text-xs text-gray-500">Previsto: {formatDate(task.data_inicio_prevista)} - {formatDate(task.data_fim_prevista)}</div>
                                         {task.data_inicio_real && <div className="text-xs text-blue-600">Real: {formatDate(task.data_inicio_real)} - {formatDate(task.data_fim_real)}</div>}
@@ -221,8 +231,7 @@ export default function GanttChart({ activities }) {
                              <div key="delivery-category">
                                  <div className="w-full h-[37px] flex items-center px-2 border-b border-t-2 border-blue-200 bg-blue-50"><h4 className="font-bold text-blue-800 text-sm uppercase truncate">ENTREGA DE PEDIDOS</h4></div>
                                  {deliveryTasks.map((task) => (
-                                     // >>>>> CORREÇÃO 2: Troquei 'min-h-[60px]' por 'h-[60px]' também aqui <<<<<
-                                     <div key={task.id} className="p-3 border-b border-gray-100 h-[60px] flex flex-col justify-center">
+                                     <div key={task.id} className="py-1 px-3 border-b border-gray-100 h-[60px] flex flex-col justify-center">
                                          <div className="font-medium text-gray-800 text-sm truncate" title={task.nome}>{task.nome}</div>
                                          <div className="text-xs text-gray-500">Previsto: {formatDate(task.data_inicio_prevista)} - {formatDate(task.data_fim_prevista)}</div>
                                          {task.data_inicio_real && <div className="text-xs text-blue-600">Real: {formatDate(task.data_inicio_real)} - {formatDate(task.data_fim_real)}</div>}
