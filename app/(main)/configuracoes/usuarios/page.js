@@ -3,10 +3,6 @@ import { createClient } from '../../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import UserManagementForm from '@/components/UserManagementForm';
 
-// =================================================================================
-// CORREÇÃO DE SEGURANÇA (organização_id)
-// O PORQUÊ: A função agora recebe o `organizacaoId` para filtrar a busca.
-// =================================================================================
 async function getUsers(organizacaoId) {
     const supabase = createClient();
     const { data, error } = await supabase
@@ -20,7 +16,7 @@ async function getUsers(organizacaoId) {
             funcao:funcoes ( id, nome_funcao ),
             funcionario:funcionarios ( id, full_name, cpf )
         `)
-        .eq('organizacao_id', organizacaoId); // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId);
     if (error) {
         console.error('Erro ao buscar usuários:', error);
         return [];
@@ -28,16 +24,12 @@ async function getUsers(organizacaoId) {
     return data;
 }
 
-// =================================================================================
-// CORREÇÃO DE SEGURANÇA (organização_id)
-// O PORQUÊ: A função agora recebe o `organizacaoId` para filtrar a busca.
-// =================================================================================
 async function getEmployees(organizacaoId) {
     const supabase = createClient();
     const { data, error } = await supabase
         .from('funcionarios')
         .select('id, full_name, cpf')
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId)
         .order('full_name', { ascending: true });
     if (error) {
         console.error('Erro ao buscar funcionários:', error);
@@ -46,16 +38,12 @@ async function getEmployees(organizacaoId) {
     return data;
 }
 
-// =================================================================================
-// CORREÇÃO DE SEGURANÇA (organização_id)
-// O PORQUÊ: A função agora recebe o `organizacaoId` para filtrar a busca.
-// =================================================================================
 async function getRoles(organizacaoId) {
     const supabase = createClient();
     const { data, error } = await supabase
         .from('funcoes')
         .select('id, nome_funcao')
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId)
         .order('nome_funcao', { ascending: true });
     if (error) {
         console.error('Erro ao buscar funções:', error);
@@ -67,33 +55,26 @@ async function getRoles(organizacaoId) {
 export default async function UserManagementPage() {
     const supabase = createClient();
 
-    // Protege a rota e busca os dados do usuário logado
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         redirect('/login');
     }
 
-    // =================================================================================
-    // CORREÇÃO DE SEGURANÇA (organização_id)
-    // O PORQUÊ: Pegamos o `organizacao_id` junto com o perfil para usá-lo como
-    // chave de segurança em todas as buscas de dados subsequentes.
-    // =================================================================================
     const { data: userProfile, error: userProfileError } = await supabase
         .from('usuarios')
-        .select('organizacao_id, funcao:funcoes ( nome_funcao )') // <-- Pegamos o organizacao_id
+        .select('organizacao_id, funcao:funcoes ( nome_funcao )')
         .eq('id', user.id)
         .single();
 
     if (userProfileError || userProfile?.funcao?.nome_funcao !== 'Proprietário') {
-        redirect('/'); 
+        redirect('/');
     }
 
     const organizacaoId = userProfile.organizacao_id;
 
-    // Busca todos os dados necessários para a página, agora passando o organizacaoId
     const [users, employees, roles] = await Promise.all([
-        getUsers(organizacaoId), 
-        getEmployees(organizacaoId), 
+        getUsers(organizacaoId),
+        getEmployees(organizacaoId),
         getRoles(organizacaoId)
     ]);
 
@@ -101,12 +82,13 @@ export default async function UserManagementPage() {
         <div className="space-y-6">
             <h1 className="text-3xl font-bold text-gray-900">Gestão de Usuários</h1>
             <p className="text-gray-600 mt-1">Gerencie os usuários e suas permissões no sistema.</p>
-            
+
             <div className="bg-white rounded-lg shadow p-6 mt-8">
-                <UserManagementForm 
-                    initialUsers={users} 
-                    allEmployees={employees} 
+                <UserManagementForm
+                    initialUsers={users}
+                    allEmployees={employees}
                     allRoles={roles}
+                    organizationId={organizacaoId} // Passando o ID da organização para o formulário
                 />
             </div>
         </div>

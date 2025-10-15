@@ -1,3 +1,4 @@
+// Local do Arquivo: components/contratos/GeradorContrato.js
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -104,23 +105,16 @@ export default function GeradorContrato({ contrato }) {
         }
         return { entrada: entradaInfo, parcelasRegulares: regulares, parcelaSaldoFinal: saldoFinal };
     }, [contrato?.contrato_parcelas]);
-
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: A lógica agora encontra a data da primeira parcela regular e a
-    // adiciona ao final do texto de resumo.
-    // =================================================================================
+    
     const resumoParcelasRegulares = useMemo(() => {
         const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
         const formatExtenso = (value) => extenso(value, { mode: 'currency' });
 
         if (parcelasRegulares.length === 0) return "Nenhuma";
         
-        // 1. Encontra a data da primeira parcela regular, ordenando por data
         const primeiraData = [...parcelasRegulares].sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento))[0].data_vencimento;
         const dataInicioFormatada = formatDateForDisplay(primeiraData);
 
-        // 2. Agrupa as parcelas por valor (lógica existente)
         const grupos = parcelasRegulares.reduce((acc, p) => {
             const valor = parseFloat(p.valor_parcela || 0).toFixed(2);
             if (!acc[valor]) acc[valor] = 0;
@@ -128,17 +122,12 @@ export default function GeradorContrato({ contrato }) {
             return acc;
         }, {});
 
-        // 3. Gera o texto dos grupos
         const resumoGrupos = Object.entries(grupos).map(([valor, quantidade]) => 
             `${quantidade} parcelas de ${formatCurrency(parseFloat(valor))} (${formatExtenso(parseFloat(valor))})`
         ).join('; ');
         
-        // 4. Combina o texto dos grupos com a data de início
         return `${resumoGrupos}, subsequentes com início em ${dataInicioFormatada}`;
     }, [parcelasRegulares, formatDateForDisplay]);
-    // =================================================================================
-    // FIM DA CORREÇÃO
-    // =================================================================================
 
     if (!contrato) {
         return (
@@ -167,12 +156,38 @@ export default function GeradorContrato({ contrato }) {
         return extenso(value, { mode: 'currency' });
     };
     
+    // =================================================================================
+    // INÍCIO DA CORREÇÃO
+    // O PORQUÊ: A função foi atualizada para incluir o complemento. Ela junta a rua,
+    // o número e o complemento (se existir) na ordem correta, garantindo que
+    // o endereço seja o mais completo possível.
+    // =================================================================================
     const formatarEndereco = (entidade) => {
         if (!entidade) return 'Não informado';
-        const endereco = [ entidade.address_street, entidade.address_number, entidade.neighborhood, entidade.city, entidade.state ];
-        const parts = endereco.filter(Boolean);
-        return parts.join(', ').replace(/, ([A-Z]{2})$/, '/$1');
+    
+        // Junta Rua, Número e Complemento, ignorando os que estiverem vazios.
+        const ruaNumeroComplemento = [entidade.address_street, entidade.address_number, entidade.address_complement].filter(Boolean).join(', ');
+        
+        const bairro = entidade.neighborhood;
+        const cidadeEstado = [entidade.city, entidade.state].filter(Boolean).join('/');
+        
+        let cepFormatado = null;
+        if (entidade.cep) {
+            const cleanedCep = entidade.cep.replace(/\D/g, ''); // Remove tudo que não é número
+            if (cleanedCep.length === 8) {
+                cepFormatado = `CEP: ${cleanedCep.slice(0, 5)} - ${cleanedCep.slice(5)}`;
+            } else {
+                cepFormatado = `CEP: ${entidade.cep}`; // Usa o valor original se não tiver 8 dígitos
+            }
+        }
+    
+        const parts = [ruaNumeroComplemento, bairro, cidadeEstado, cepFormatado].filter(Boolean);
+        
+        return parts.join(', ');
     };
+    // =================================================================================
+    // FIM DA CORREÇÃO
+    // =================================================================================
 
     const unidadesTexto = produtos.map(p => p.unidade).join(', ');
     const vagasGaragemTexto = produtos.map(p => p.vaga_garagem).filter(Boolean).join(', ');
@@ -213,14 +228,13 @@ export default function GeradorContrato({ contrato }) {
                     DE PROMESSA DE COMPRA E VENDA DE IMÓVEL URBANO
                 </h2>
                 
-                {/* As seções de PARTES e OBJETO continuam aqui... */}
                  <div className="border border-gray-300 p-4 mb-4">
                     <TituloSecao numero="1" titulo="Partes" />
                     <div className="pl-4">
                         <p className="font-semibold text-sm mt-3 mb-1">1.1 Vendedora:</p>
                         <QuadroLinha label="Razão Social" value="STUDIO 57 INCORPORAÇÕES LTDA" />
                         <QuadroLinha label="CNPJ" value="41.464.589/0001-66" />
-                        <QuadroLinha label="Sede" value="Avenida Rio Doce, nº 1825, Loja, Sala A, Ilha dos Araújos, Governador Valadares/MG, CEP 35.020-500" />
+                        <QuadroLinha label="Sede" value="Avenida Rio Doce, nº 1825, Loja, Sala A, Ilha dos Araújos, Governador Valadares/MG, CEP: 35020 - 500" />
                         <QuadroLinha label="Representante" value="RANNIERE CAMPOS MENDES E/OU IGOR MONTE ALTO REZENDE" />
                         <p className="font-semibold text-sm mt-3 mb-1">1.2 Nome completo do(a) comprador(a):</p>
                         <QuadroTextoSimples texto={comprador?.nome || comprador?.razao_social || ' '}/>
@@ -302,7 +316,6 @@ export default function GeradorContrato({ contrato }) {
                     <QuadroLinha label="Índice de reajuste/atualização das parcelas" value="Índice Nacional de Custo da Construção (INCC)" />
                 </div>
                 
-                {/* O restante do seu código (outras seções, assinaturas, etc.) continua aqui sem alterações... */}
                 <div className="border border-gray-300 p-4 mb-4">
                     <TituloSecao numero="4" titulo="Inadimplemento das parcelas:" />
                     <QuadroTextoSimples texto="Multa: 2% (dois por cento) sobre valor vencido e não pago" />
@@ -335,7 +348,7 @@ export default function GeradorContrato({ contrato }) {
                     <div className="pl-4">
                         <p className="font-semibold text-sm my-2">11.1) Vendedora:</p>
                         <QuadroLinha label="Responsável" value="RANNIERE CAMPOS MENDES" />
-                        <QuadroLinha label="Endereço" value="Avenida Rio Doce, nº 1825, Loja, Sala A, Ilha dos Araújos, Governador Valadares/MG, CEP 35.020-500" />
+                        <QuadroLinha label="Endereço" value="Avenida Rio Doce, nº 1825, Loja, Sala A, Ilha dos Araújos, Governador Valadares/MG, CEP: 35020 - 500" />
                         <QuadroLinha label="E-mail" value="contato@studio57.arq.br" />
                         <QuadroLinha label="Telefone/Whatsapp" value="+55 33 99943-4841" />
                         <p className="font-semibold text-sm my-2 mt-4">11.2) Comprador(a):</p>
