@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Roboto } from 'next/font/google';
+import { Roboto, Montserrat } from 'next/font/google';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,9 +19,17 @@ import {
 import { salvarLead } from './actions';
 
 const roboto = Roboto({
-    weight: ['400', '500', '700'],
+    weight: ['100', '400', '500', '700', '900'], // Adicionado '900' para o "Black" ou "ExtraBold"
     subsets: ['latin'],
     display: 'swap',
+    variable: '--font-roboto',
+});
+
+const montserrat = Montserrat({
+    weight: ['700', '800'],
+    subsets: ['latin'],
+    display: 'swap',
+    variable: '--font-montserrat',
 });
 
 // --- Componentes de Ícones ---
@@ -32,7 +40,7 @@ const IconeCasa = () => <FontAwesomeIcon icon={faDraftingGavel} className="w-8 h
 const IconeCoracao = () => <FontAwesomeIcon icon={faMountainSun} className="w-8 h-8" />;
 const IconeSeguranca = () => <FontAwesomeIcon icon={faShieldHalved} className="w-8 h-8" />;
 
-const primaryColor = '#2c5234'; // Um tom de verde escuro, sofisticado
+const primaryColor = '#2c5234';
 
 export default function RefugioBraunasPage() {
     const [view, setView] = useState('investidor');
@@ -41,37 +49,38 @@ export default function RefugioBraunasPage() {
 
     const openModal = (imageUrl) => setSelectedImage(imageUrl);
     const closeModal = () => setSelectedImage(null);
-    
+
     const openLeadModal = () => setIsModalOpen(true);
     const closeLeadModal = () => setIsModalOpen(false);
 
     const floorPlanImage = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/IMG_1760615332918.png";
 
     return (
-        <div className={`${roboto.className} bg-white text-gray-800 font-sans`}>
-            
+        <div className={`${roboto.variable} ${montserrat.variable} font-sans bg-white text-gray-800`}>
+
             {/* Seção Hero */}
             <section className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden">
                 <div
                     className="absolute inset-0 bg-cover bg-center z-0"
                     style={{
-                        backgroundImage: "url('https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/IMG_1760614010702.png')",
+                        backgroundImage: "url('https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/IMG_1760619077139.png')",
                     }}
                 ></div>
                 <div className="absolute inset-0 bg-black opacity-40 z-10"></div>
                 <div className="relative z-30 flex flex-col items-center text-center p-4 w-full">
                     <Image
-                        src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/LOGO-P_1760614046416.png"
+                        src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/LOGO-P_1760619039077.png"
                         alt="Logo Refúgio Braúnas"
                         width={500}
                         height={200}
                         className="w-full max-w-xs md:max-w-md object-contain mb-8"
                         priority
                     />
-                    <h1 className="text-4xl md:text-6xl font-bold uppercase tracking-wider text-shadow-lg">
+                    {/* ===== FONTE DO TÍTULO ALTERADA AQUI ===== */}
+                    <h1 className={`font-sans text-4xl md:text-6xl font-extrabold uppercase tracking-wider text-shadow-lg`}>
                         Seu Refúgio
                     </h1>
-                    <p className="text-lg md:text-2xl mt-2 text-shadow">
+                    <p className={`font-sans text-lg md:text-2xl mt-4 text-shadow font-thin tracking-wider`}>
                         A 10 minutos do centro de Governador Valadares
                     </p>
                     <div className="bg-black/30 backdrop-blur-sm rounded-full p-1 flex items-center mt-8">
@@ -90,7 +99,9 @@ export default function RefugioBraunasPage() {
                     </div>
                 </div>
             </section>
-            
+
+            {/* O restante do código continua o mesmo... */}
+
             {/* Seção Gancho Principal */}
             <section className="bg-gray-50 py-16 md:py-20">
                 <div className="container mx-auto px-4 text-center">
@@ -193,7 +204,7 @@ export default function RefugioBraunasPage() {
                                 <FontAwesomeIcon icon={faCar} className="text-3xl text-primary mr-4 w-8" />
                                 <span className="text-md text-gray-700">A 10 min do Centro</span>
                             </div>
-                             <div className="flex items-center">
+                            <div className="flex items-center">
                                 <FontAwesomeIcon icon={faShieldHalved} className="text-3xl text-primary mr-4 w-8" />
                                 <span className="text-md text-gray-700">Segurança Jurídica Total</span>
                             </div>
@@ -215,10 +226,10 @@ export default function RefugioBraunasPage() {
 
             {/* Seção Proximidades e Mapa */}
             <section className="bg-gray-50 pt-16 md:pt-24 pb-16 md:pb-24">
-                 <div className="container mx-auto px-4">
+                <div className="container mx-auto px-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                         <div>
-                             <h3 className="text-2xl md:text-3xl font-bold text-gray-800 text-center md:text-left mb-12">
+                            <h3 className="text-2xl md:text-3xl font-bold text-gray-800 text-center md:text-left mb-12">
                                 Mapa de Proximidades
                             </h3>
                             <div className="relative max-w-sm mx-auto md:mx-0">
@@ -265,10 +276,10 @@ export default function RefugioBraunasPage() {
                             />
                         </div>
                     </div>
-                     <div className="container mx-auto px-4 text-center mt-16">
+                    <div className="container mx-auto px-4 text-center mt-16">
                         <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">Localização Privilegiada</h2>
                         <p className="max-w-2xl mx-auto mb-8 text-gray-600">
-                           Encontre o seu refúgio no bairro Braúnas, uma área de grande expansão que combina a tranquilidade da natureza com acesso rápido ao centro da cidade.
+                            Encontre o seu refúgio no bairro Braúnas, uma área de grande expansão que combina a tranquilidade da natureza com acesso rápido ao centro da cidade.
                         </p>
                         <div className="w-full h-96 rounded-lg shadow-xl overflow-hidden border">
                             <iframe
@@ -284,7 +295,7 @@ export default function RefugioBraunasPage() {
                     </div>
                 </div>
             </section>
-            
+
             {/* Seção de CTA Final */}
             <section className="bg-white py-16 md:py-20">
                 <div className="container mx-auto px-4 text-center">
@@ -298,7 +309,7 @@ export default function RefugioBraunasPage() {
                     </button>
                 </div>
             </section>
-            
+
             {/* Rodapé */}
             <footer className="bg-black text-white py-6">
                 <div className="container mx-auto px-4 text-center text-gray-400">
@@ -306,35 +317,35 @@ export default function RefugioBraunasPage() {
                     <p className="text-sm mt-1">Refúgio Braúnas - Lotes com matrícula individualizada.</p>
                 </div>
             </footer>
-            
+
             {/* Modal de Imagem */}
             {selectedImage && (
-                 <div
-                 className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-                 onClick={closeModal}
-             >
-                 <div
-                     className="relative max-w-4xl max-h-[90vh]"
-                     onClick={(e) => e.stopPropagation()}
-                 >
-                     <button
-                         className="absolute -top-4 -right-4 md:top-2 md:right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center text-gray-800 hover:bg-gray-200 transition-colors z-10"
-                         onClick={closeModal}
-                         aria-label="Fechar imagem"
-                     >
-                         <FontAwesomeIcon icon={faXmark} />
-                     </button>
-                     <Image
-                         src={selectedImage}
-                         alt="Imagem Ampliada"
-                         width={1200}
-                         height={800}
-                         className="rounded-lg shadow-2xl object-contain max-h-[90vh] w-auto"
-                     />
-                 </div>
-             </div>
+                <div
+                className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+                onClick={closeModal}
+            >
+                <div
+                    className="relative max-w-4xl max-h-[90vh]"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button
+                        className="absolute -top-4 -right-4 md:top-2 md:right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center text-gray-800 hover:bg-gray-200 transition-colors z-10"
+                        onClick={closeModal}
+                        aria-label="Fechar imagem"
+                    >
+                        <FontAwesomeIcon icon={faXmark} />
+                    </button>
+                    <Image
+                        src={selectedImage}
+                        alt="Imagem Ampliada"
+                        width={1200}
+                        height={800}
+                        className="rounded-lg shadow-2xl object-contain max-h-[90vh] w-auto"
+                    />
+                </div>
+            </div>
             )}
-            
+
             {/* Modal de Lead */}
             <AnimatePresence>
                 {isModalOpen && (
@@ -358,10 +369,10 @@ export default function RefugioBraunasPage() {
                             >
                                 <FontAwesomeIcon icon={faXmark} size="lg" />
                             </button>
-                            
+
                             <h3 className="text-2xl font-bold text-center text-gray-800">Receba o material completo</h3>
                             <p className="text-center text-gray-600">Preencha os dados abaixo para receber o book e a tabela de vendas.</p>
-                            
+
                             <form action={salvarLead} className="space-y-4">
                                 <input type="hidden" name="origem" value="Modal - Book Refúgio Braúnas" />
                                 <div>
@@ -384,7 +395,7 @@ export default function RefugioBraunasPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
-            
+
             {/* Botão Flutuante do WhatsApp */}
             <a
                 href="https://wa.me/5533998192119?text=Oi%2C%20gostaria%20de%20mais%20informa%C3%A7%C3%B5es%20sobre%20o%20Ref%C3%BAgio%20Bra%C3%BAnas"
@@ -399,6 +410,16 @@ export default function RefugioBraunasPage() {
             </a>
 
             <style jsx global>{`
+                :root {
+                    --font-roboto: ${roboto.variable};
+                    --font-montserrat: ${montserrat.variable};
+                }
+                .font-sans {
+                    font-family: var(--font-roboto);
+                }
+                .font-heading {
+                    font-family: var(--font-montserrat);
+                }
                 .bg-primary { background-color: ${primaryColor}; }
                 .text-primary { color: ${primaryColor}; }
                 .focus\\:border-primary:focus { border-color: ${primaryColor}; }

@@ -7,11 +7,12 @@ export default function PaginaObrigado() {
   return (
     <div className="h-screen bg-gray-800 flex flex-col items-center justify-center text-white text-center p-4">
       <h1 className="text-5xl font-bold mb-4">Obrigado!</h1>
+      {/* ===== TEXTO ALTERADO AQUI ===== */}
       <p className="text-xl max-w-2xl mb-8">
-        Recebemos suas informações com sucesso. Em breve, um de nossos especialistas entrará em contato com você.
+        Recebemos suas informações com sucesso. Em breve, um consultor entrará em contato com mais informações.
       </p>
       <Link href="/refugiobraunas">
-        <div 
+        <div
             className="text-white py-3 px-8 rounded-md font-bold text-lg hover:opacity-90 transition-colors cursor-pointer"
             style={{ backgroundColor: primaryColor }}
         >
