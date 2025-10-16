@@ -223,13 +223,18 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         setSearchTerm(material.descricao || material.nome);
     };
 
+    // O PORQUÊ DA MUDANÇA: A função de criar material agora é mais robusta.
+    // Ela apenas cria o material e retorna o objeto completo. A lógica de o que
+    // fazer com esse material (selecionar na UI ou salvar direto) fica a cargo
+    // de quem a chama (handleCreateAndSelectMaterial ou handleSaveClick).
     const createMaterialMutation = useMutation({
         mutationFn: async ({ nome, descricao, classificacao }) => {
+            if (!organizacaoId) throw new Error("A organização não foi identificada.");
             const { data, error } = await supabase
                 .from('materiais')
                 .insert({ 
-                    nome, 
-                    descricao,
+                    nome: nome.trim(), 
+                    descricao: descricao.trim(),
                     classificacao, 
                     organizacao_id: organizacaoId
                 })
@@ -238,30 +243,26 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
             if (error) throw error;
             return data;
         },
-        onSuccess: (newMaterial) => {
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['materiais', organizacaoId] });
-            handleSelectMaterial(newMaterial);
         },
+        onError: (error) => {
+            toast.error(`Erro ao criar material: ${error.message}`);
+        }
     });
     
     const handleCreateAndSelectMaterial = async () => {
-        if (!organizacaoId) {
-            toast.error("A organização não foi identificada. Não é possível criar o material.");
-            return;
-        }
-        
-        toast.promise(
-            createMaterialMutation.mutateAsync({
+        try {
+            const newMaterial = await createMaterialMutation.mutateAsync({
                 nome: searchTerm.trim(),
                 descricao: searchTerm.trim(),
                 classificacao: newMaterialClassification
-            }),
-            {
-                loading: "Criando novo material...",
-                success: (newMaterial) => `Material "${newMaterial.nome}" criado com sucesso!`,
-                error: (error) => `Erro ao criar material: ${error.message}`
-            }
-        );
+            });
+            toast.success(`Material "${newMaterial.nome}" criado com sucesso!`);
+            handleSelectMaterial(newMaterial);
+        } catch (error) {
+            // O erro já é exibido pelo onError da mutação.
+        }
     };
 
     const handleResetItemSelection = () => {
@@ -329,7 +330,18 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
         );
     };
 
-    const handleSaveClick = () => {
+    // ========================================================================
+    // INÍCIO DA CORREÇÃO DEFINITIVA
+    // O PORQUÊ: Esta função agora é 'async' para poder esperar (await) a criação
+    // do material antes de continuar.
+    // 1. Ela verifica se o usuário apenas digitou um novo item sem selecionar/criar.
+    // 2. Se sim, ela PRIMEIRO chama a função para criar o material na tabela 'materiais'.
+    // 3. Ela ESPERA o retorno com o novo ID.
+    // 4. SÓ ENTÃO, ela monta o objeto 'itemToSave' completo, já com o 'material_id' correto.
+    // 5. Finalmente, ela chama a função onSave, enviando o dado completo e correto para o PedidoForm.
+    // Este fluxo sequencial impede o erro de 'material_id' nulo.
+    // ========================================================================
+    const handleSaveClick = async () => {
         if (!isItemSelected && !searchTerm) { 
             setMessage('A descrição do item é obrigatória.'); 
             return; 
@@ -340,24 +352,49 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
             return;
         }
 
+        setIsSaving(true);
         setMessage('');
-        const itemToSave = { ...item };
-        
-        if (!isItemSelected && searchTerm) {
-            itemToSave.descricao_item = searchTerm;
-        }
+        let itemToSave = { ...item };
 
-        if (itemToSave.tipo_operacao !== 'Aluguel') {
-            itemToSave.dias_aluguel = null;
-        }
-        
-        itemToSave.etapa_id = itemToSave.etapa_id || null;
-        itemToSave.subetapa_id = itemToSave.subetapa_id || null;
+        try {
+            // PASSO 1: Verifica se o item é novo e precisa ser criado.
+            if (!isItemSelected && searchTerm) {
+                itemToSave.descricao_item = searchTerm.trim();
+                
+                // PASSO 2: Chama a criação do material e ESPERA o resultado.
+                const newMaterial = await createMaterialMutation.mutateAsync({
+                    nome: searchTerm.trim(),
+                    descricao: searchTerm.trim(),
+                    classificacao: newMaterialClassification
+                });
+                
+                // PASSO 3: Atualiza nosso objeto com o ID recém-criado.
+                itemToSave.material_id = newMaterial.id;
+            }
 
-        delete itemToSave.fornecedor_nome;
-        
-        onSave(itemToSave);
+            // Prepara o resto do objeto para ser salvo, agora com a garantia do material_id.
+            if (itemToSave.tipo_operacao !== 'Aluguel') {
+                itemToSave.dias_aluguel = null;
+            }
+            
+            itemToSave.etapa_id = itemToSave.etapa_id || null;
+            itemToSave.subetapa_id = itemToSave.subetapa_id || null;
+
+            delete itemToSave.fornecedor_nome;
+            
+            // PASSO 4: Envia o objeto COMPLETO para a função de salvar.
+            onSave(itemToSave);
+
+        } catch (error) {
+            // Se a criação do material falhar, a operação é interrompida.
+            console.error("Falha na sequência de salvamento do item:", error);
+        } finally {
+            setIsSaving(false);
+        }
     };
+    // ========================================================================
+    // FIM DA CORREÇÃO DEFINITIVA
+    // ========================================================================
 
     if (!isOpen) return null;
 
