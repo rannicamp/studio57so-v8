@@ -18,8 +18,11 @@ import {
 // Importando a Server Action para os formulários
 import { salvarLead } from './actions';
 
+// ===== IMPORTANDO O NOVO COMPONENTE DE MODAL =====
+import ZoomableImageModal from '../../../components/ZoomableImageModal';
+
 const roboto = Roboto({
-    weight: ['100', '400', '500', '700', '900'], // Adicionado '900' para o "Black" ou "ExtraBold"
+    weight: ['100', '400', '500', '700', '900'],
     subsets: ['latin'],
     display: 'swap',
     variable: '--font-roboto',
@@ -76,7 +79,6 @@ export default function RefugioBraunasPage() {
                         className="w-full max-w-xs md:max-w-md object-contain mb-8"
                         priority
                     />
-                    {/* ===== FONTE DO TÍTULO ALTERADA AQUI ===== */}
                     <h1 className={`font-sans text-4xl md:text-6xl font-extrabold uppercase tracking-wider text-shadow-lg`}>
                         Seu Refúgio
                     </h1>
@@ -100,9 +102,7 @@ export default function RefugioBraunasPage() {
                 </div>
             </section>
 
-            {/* O restante do código continua o mesmo... */}
-
-            {/* Seção Gancho Principal */}
+            {/* O restante do código da página... */}
             <section className="bg-gray-50 py-16 md:py-20">
                 <div className="container mx-auto px-4 text-center">
                     <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-md">
@@ -127,8 +127,6 @@ export default function RefugioBraunasPage() {
                     </div>
                 </div>
             </section>
-
-            {/* Seção de Argumentos (Investidor / Morador) */}
             {view === 'investidor' && (
                 <section className="py-16 md:py-24 bg-white">
                     <div className="container mx-auto px-4">
@@ -155,7 +153,6 @@ export default function RefugioBraunasPage() {
                     </div>
                 </section>
             )}
-
             {view === 'morador' && (
                 <section className="bg-gray-50 py-16 md:py-24">
                     <div className="container mx-auto px-4 text-center">
@@ -166,7 +163,7 @@ export default function RefugioBraunasPage() {
                             <div className="p-6 bg-white rounded-lg shadow-lg text-center">
                                 <div className="mb-4 inline-block text-primary"><FontAwesomeIcon icon={faBuildingColumns} className="w-8 h-8" /></div>
                                 <h3 className="text-xl font-bold mb-2 text-gray-900">Financiamento Facilitado</h3>
-                                <p className="text-gray-600">Realize o sonho da casa de campo com a segurança e as vantagens do financiamento pela Caixa para aquisição de lote e construção.</p>
+                                <p className="text-gray-600">Realize o sonho da casa de campo com a segurança e as vantagens do financiamento Caixa na modalidade aquisição de lote e construção.</p>
                             </div>
                             <div className="p-6 bg-white rounded-lg shadow-lg text-center">
                                 <div className="mb-4 inline-block text-primary"><IconeCasa /></div>
@@ -182,8 +179,6 @@ export default function RefugioBraunasPage() {
                     </div>
                 </section>
             )}
-
-            {/* Seção Detalhes do Imóvel */}
             <section className="py-16 md:py-24">
                 <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                     <div className="md:order-2">
@@ -223,8 +218,6 @@ export default function RefugioBraunasPage() {
                     </div>
                 </div>
             </section>
-
-            {/* Seção Proximidades e Mapa */}
             <section className="bg-gray-50 pt-16 md:pt-24 pb-16 md:pb-24">
                 <div className="container mx-auto px-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
@@ -295,8 +288,6 @@ export default function RefugioBraunasPage() {
                     </div>
                 </div>
             </section>
-
-            {/* Seção de CTA Final */}
             <section className="bg-white py-16 md:py-20">
                 <div className="container mx-auto px-4 text-center">
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">Pronto para construir seu sonho?</h2>
@@ -309,8 +300,6 @@ export default function RefugioBraunasPage() {
                     </button>
                 </div>
             </section>
-
-            {/* Rodapé */}
             <footer className="bg-black text-white py-6">
                 <div className="container mx-auto px-4 text-center text-gray-400">
                     <p>© {new Date().getFullYear()} Studio 57. Todos os direitos reservados.</p>
@@ -318,33 +307,12 @@ export default function RefugioBraunasPage() {
                 </div>
             </footer>
 
-            {/* Modal de Imagem */}
-            {selectedImage && (
-                <div
-                className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-                onClick={closeModal}
-            >
-                <div
-                    className="relative max-w-4xl max-h-[90vh]"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <button
-                        className="absolute -top-4 -right-4 md:top-2 md:right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center text-gray-800 hover:bg-gray-200 transition-colors z-10"
-                        onClick={closeModal}
-                        aria-label="Fechar imagem"
-                    >
-                        <FontAwesomeIcon icon={faXmark} />
-                    </button>
-                    <Image
-                        src={selectedImage}
-                        alt="Imagem Ampliada"
-                        width={1200}
-                        height={800}
-                        className="rounded-lg shadow-2xl object-contain max-h-[90vh] w-auto"
-                    />
-                </div>
-            </div>
-            )}
+            {/* ===== MODAL ANTIGO SUBSTITUÍDO PELO NOVO COMPONENTE ===== */}
+            <ZoomableImageModal 
+                isOpen={!!selectedImage} 
+                imageUrl={selectedImage} 
+                onClose={closeModal} 
+            />
 
             {/* Modal de Lead */}
             <AnimatePresence>
@@ -396,7 +364,6 @@ export default function RefugioBraunasPage() {
                 )}
             </AnimatePresence>
 
-            {/* Botão Flutuante do WhatsApp */}
             <a
                 href="https://wa.me/5533998192119?text=Oi%2C%20gostaria%20de%20mais%20informa%C3%A7%C3%B5es%20sobre%20o%20Ref%C3%BAgio%20Bra%C3%BAnas"
                 target="_blank"
