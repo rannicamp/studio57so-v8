@@ -1,4 +1,4 @@
-// V8 APP E COMPONENTS/components/ContatoForm.js
+// components/contatos/ContatoForm.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -11,7 +11,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTrashAlt, faPlusCircle, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
-// -- COMPONENTES AUXILIARES (sem alterações) --
+// IMPORTA A NOVA AÇÃO DO SERVIDOR
+import { saveContactAction, buscarDadosCnpj as buscarCnpjAction } from './actions';
+
+// -- COMPONENTES AUXILIARES (do seu código original, sem alterações) --
 const SearchableField = ({ label, selectedName, onClear, children }) => (
     <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -81,52 +84,8 @@ const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }
     );
 };
 
-// Lógica de salvar o contato
-const saveContact = async (supabase, { formData, isEditing, organizacaoId }) => {
-    const { id, telefones, emails, ...dataToSave } = formData;
-    dataToSave.organizacao_id = organizacaoId;
 
-    if (isEditing) delete dataToSave.origem;
-    if (dataToSave.birth_date === '') dataToSave.birth_date = null;
-    if (dataToSave.data_fundacao === '') dataToSave.data_fundacao = null;
-
-    const cleanedPhones = telefones.filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0);
-    const cleanedEmails = emails.filter(mail => mail.email && mail.email.trim() !== '');
-
-    let contatoId = isEditing ? id : null;
-    if (isEditing) {
-        await supabase.from('contatos').update(dataToSave).eq('id', contatoId).throwOnError();
-    } else {
-        const { data, error } = await supabase.from('contatos').insert(dataToSave).select('id').single();
-        if (error) throw error;
-        contatoId = data.id;
-    }
-
-    if (!contatoId) throw new Error("Falha ao obter o ID do contato.");
-
-    await supabase.from('telefones').delete().eq('contato_id', contatoId);
-    await supabase.from('emails').delete().eq('contato_id', contatoId);
-
-    if (cleanedPhones.length > 0) {
-        const phonesToInsert = cleanedPhones.map(tel => ({
-            contato_id: contatoId, telefone: tel.telefone, country_code: tel.country_code,
-            tipo: 'Celular', organizacao_id: organizacaoId
-        }));
-        await supabase.from('telefones').insert(phonesToInsert).throwOnError();
-    }
-
-    if (cleanedEmails.length > 0) {
-        const emailsToInsert = emails.map(mail => ({
-            contato_id: contatoId, email: mail.email.trim(),
-            tipo: 'Pessoal', organizacao_id: organizacaoId
-        }));
-        await supabase.from('emails').insert(emailsToInsert).throwOnError();
-    }
-
-    return contatoId;
-};
-
-
+// FORMULÁRIO PRINCIPAL (MODIFICADO para usar a server action)
 export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
     const supabase = createClient();
     const router = useRouter();
@@ -144,8 +103,8 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         telefones: [{ telefone: '', country_code: '+55' }],
         emails: [{ email: '' }],
         regime_bens: '', conjuge_id: null,
-        // Campos que serão preenchidos pela API
         inscricao_estadual: '',
+        inscricao_municipal: '',
         responsavel_legal: '',
     });
 
@@ -189,31 +148,33 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         }
     });
     
+    // **MODIFICAÇÃO: useMutation agora chama a server action**
     const saveMutation = useMutation({
-        mutationFn: (variables) => saveContact(supabase, variables),
-        onSuccess: (savedContactId) => {
+        mutationFn: saveContactAction, // <--- AQUI ESTÁ A MUDANÇA
+        onSuccess: (result) => {
+            if (result.error) {
+                toast.error(`Erro ao salvar: ${result.error}`);
+                return;
+            }
             toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
             queryClient.invalidateQueries({ queryKey: ['contatos'] });
             if (isEditing) {
-                queryClient.invalidateQueries({ queryKey: ['contactDetails', savedContactId] });
+                queryClient.invalidateQueries({ queryKey: ['contactDetails', result.contactId] });
             }
-            if (onSaveSuccess) onSaveSuccess(savedContactId);
+            if (onSaveSuccess) onSaveSuccess(result.contactId);
             if (onClose) onClose();
             else router.push('/contatos');
         },
         onError: (error) => {
-            toast.error(`Erro ao salvar: ${error.message}`);
+            toast.error(`Erro inesperado: ${error.message}`);
         }
     });
 
+    // **MODIFICAÇÃO: handleSubmit simplificado**
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const organizacaoId = user?.organizacao_id;
-        if (!organizacaoId) {
-            toast.error('Erro de segurança: Organização do usuário não encontrada.');
-            return;
-        }
-        saveMutation.mutate({ formData, isEditing, organizacaoId });
+        // A lógica de pegar organizacao_id e user.id agora é feita no servidor
+        saveMutation.mutate({ formData, isEditing });
     };
 
     const handleChange = (e) => {
@@ -296,87 +257,30 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         fetchAddressFromCep(cep);
     };
 
-    const fetchCnpjData = async (cnpj) => {
-        const cleanCnpj = cnpj.replace(/\D/g, '');
-        if (cleanCnpj.length !== 14) {
-            throw new Error('CNPJ inválido.');
-        }
-
-        const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
-        
-        if (!response.ok) {
-            try {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'CNPJ não encontrado ou serviço indisponível.');
-            } catch (e) {
-                throw new Error(`Erro ${response.status}: ${response.statusText}. Serviço indisponível.`);
-            }
-        }
-
-        const data = await response.json();
-        
-        // **NOVA LÓGICA PARA PEGAR MAIS DADOS**
-        let responsavelLegal = '';
-        if (data.qsa && data.qsa.length > 0) {
-            const admin = data.qsa.find(socio => socio.qualificacao_socio.includes('Administrador'));
-            if (admin) {
-                responsavelLegal = admin.nome_socio;
-            }
-        }
-
-        let inscricaoEstadual = '';
-        if (data.inscricoes_estaduais && data.inscricoes_estaduais.length > 0) {
-            const activeIE = data.inscricoes_estaduais.find(ie => ie.ativo && ie.uf === data.uf);
-            inscricaoEstadual = activeIE ? activeIE.inscricao_estadual : data.inscricoes_estaduais[0].inscricao_estadual;
-        }
-
-        return {
-            razao_social: data.razao_social,
-            nome_fantasia: data.nome_fantasia,
-            cep: (data.cep || '').replace(/\D/g, ''),
-            address_street: data.logradouro,
-            address_number: data.numero,
-            address_complement: data.complemento,
-            neighborhood: data.bairro,
-            city: data.municipio,
-            state: data.uf,
-            data_fundacao: data.data_inicio_atividade,
-            tipo_servico_produto: data.cnae_fiscal_descricao,
-            responsavel_legal: responsavelLegal,
-            inscricao_estadual: inscricaoEstadual,
-            api_telefone: data.ddd_telefone_1,
-            api_email: data.email,
-        };
-    };
-
     const handleCnpjLookup = useCallback(async (unmaskedCnpj) => {
         setIsApiLoading(true);
-        toast.promise(fetchCnpjData(unmaskedCnpj), {
+        const promise = buscarCnpjAction(unmaskedCnpj);
+        
+        toast.promise(promise, {
             loading: 'Buscando dados do CNPJ...',
-            success: (apiData) => {
-                const { api_telefone, api_email, ...formDataToUpdate } = apiData;
-
+            success: (result) => {
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                const { api_telefone, api_email, ...formDataToUpdate } = result.data;
                 setFormData(prev => {
                     const newTelefones = [...prev.telefones];
                     if (api_telefone && (!newTelefones[0] || !newTelefones[0].telefone)) {
                         newTelefones[0] = { telefone: api_telefone, country_code: '+55' };
                     }
-                    
                     const newEmails = [...prev.emails];
                     if (api_email && (!newEmails[0] || !newEmails[0].email)) {
                         newEmails[0] = { email: api_email };
                     }
-
-                    return {
-                        ...prev,
-                        ...formDataToUpdate,
-                        telefones: newTelefones,
-                        emails: newEmails,
-                    };
+                    return { ...prev, ...formDataToUpdate, telefones: newTelefones, emails: newEmails };
                 });
-                
-                if (apiData.cep) {
-                    fetchAddressFromCep(apiData.cep);
+                if (result.data.cep) {
+                    fetchAddressFromCep(result.data.cep);
                 }
                 return 'Dados do CNPJ preenchidos com sucesso!';
             },
@@ -389,8 +293,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         <form onSubmit={handleSubmit} className="space-y-6 p-6 bg-white rounded-lg shadow-md">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">{isEditing ? 'Editar Contato' : 'Cadastrar Novo Contato'}</h2>
             
-            {/* ... o restante do JSX do formulário continua aqui ... */}
-            {isEditing && formData.origem && (
+             {isEditing && formData.origem && (
                 <div className="p-3 bg-gray-100 rounded-md">
                     <label className="block text-sm font-medium text-gray-500">Origem do Contato</label>
                     <p className="text-md font-semibold text-gray-800">{formData.origem}</p>
