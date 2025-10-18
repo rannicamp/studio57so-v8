@@ -1,9 +1,8 @@
 // app/(corretor)/clientes/page.js
+'use client' // <--- CORREÇÃO: AGORA É A PRIMEIRA LINHA!
 
-// LINHA MOVIDA PARA O TOPO!
+// Agora esta vem depois:
 export const dynamic = 'force-dynamic'
-
-'use client' // Agora vem depois
 
 import React, { useState, useEffect, useRef } from 'react'
 import {
