@@ -1,5 +1,9 @@
-// app/(corretor)/painel/page.js
+// app/(corretor)/portal-painel/page.js
 'use client'
+
+// ESTA É A LINHA MÁGICA DA CORREÇÃO!
+// Ela diz ao Next.js para não pré-renderizar esta página no build.
+export const dynamic = 'force-dynamic'
 
 export default function PainelCorretor() {
   return (
