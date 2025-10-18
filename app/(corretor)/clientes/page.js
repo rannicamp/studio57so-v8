@@ -1,6 +1,5 @@
 // app/(corretor)/clientes/page.js
-'use client'
-// FORÇANDO ATUALIZAÇÃO PARA O GIT v2
+'use client' 
 
 // Agora esta vem depois:
 export const dynamic = 'force-dynamic'
@@ -13,7 +12,7 @@ import {
 } from '@tanstack/react-query'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
-import { useLayout } from '@/contexts/LayoutContext'
+import { useLayout } from '@/contexts/LayoutContext' // <--- ELE É USADO AQUI
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faPlus,
@@ -21,8 +20,6 @@ import {
   faTimes,
   faUser,
 } from '@fortawesome/free-solid-svg-icons'
-
-// ... (o restante do código continua igual) ...
 
 // 1. Função de busca
 async function fetchClientes() {
@@ -54,7 +51,10 @@ async function createCliente(novoCliente) {
 
 export default function ClientesCorretor() {
   const queryClient = useQueryClient()
-  const { user } = useLayout()
+  
+  // AQUI ESTÁ A CORREÇÃO PARA ESTE ARQUIVO!
+  const { user } = useLayout() || {} // <--- ADICIONAMOS O || {}
+  
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [novoNome, setNovoNome] = useState('')
   const isInitialMount = useRef(true)
@@ -97,7 +97,7 @@ export default function ClientesCorretor() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (!user) {
+    if (!user) { 
       toast.error('Você não está logado.')
       return
     }

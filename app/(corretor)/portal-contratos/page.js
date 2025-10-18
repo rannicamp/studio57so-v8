@@ -4,7 +4,14 @@
 // Agora esta vem depois:
 export const dynamic = 'force-dynamic'
 
+// Precisamos importar o useLayout para usá-lo
+import { useLayout } from '@/contexts/LayoutContext'
+
 export default function ContratosCorretor() {
+  
+  // AQUI ESTÁ A CORREÇÃO PROATIVA!
+  const { user } = useLayout() || {} // <--- ADICIONAMOS O || {}
+
   return (
     <div>
       <h2 className="text-xl font-semibold">Gerador de Contratos</h2>
