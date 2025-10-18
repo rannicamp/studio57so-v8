@@ -1,5 +1,9 @@
 // app/(corretor)/clientes/page.js
-'use client'
+
+// LINHA MOVIDA PARA O TOPO!
+export const dynamic = 'force-dynamic'
+
+'use client' // Agora vem depois
 
 import React, { useState, useEffect, useRef } from 'react'
 import {
@@ -9,11 +13,7 @@ import {
 } from '@tanstack/react-query'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
-
-// ESTA É A LINHA MÁGICA DA CORREÇÃO!
-export const dynamic = 'force-dynamic'
-
-import { useLayout } from '@/contexts/LayoutContext' // Para buscar o usuário logado
+import { useLayout } from '@/contexts/LayoutContext'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faPlus,
@@ -22,9 +22,9 @@ import {
   faUser,
 } from '@fortawesome/free-solid-svg-icons'
 
-// 1. Função de busca (separada, como manda a Regra 6.a)
-// A RLS (Passo 2) garante que esta função SÓ retorne
-// os contatos do corretor que está logado.
+// ... (o restante do código continua igual) ...
+
+// 1. Função de busca
 async function fetchClientes() {
   const supabase = createClient()
   const { data, error } = await supabase
@@ -38,7 +38,7 @@ async function fetchClientes() {
   return data
 }
 
-// 2. Função de criação (para o useMutation)
+// 2. Função de criação
 async function createCliente(novoCliente) {
   const supabase = createClient()
   const { data, error } = await supabase
@@ -54,57 +54,47 @@ async function createCliente(novoCliente) {
 
 export default function ClientesCorretor() {
   const queryClient = useQueryClient()
-  const { user } = useLayout() // Pegamos o usuário do nosso contexto
+  const { user } = useLayout()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [novoNome, setNovoNome] = useState('')
-
-  // Ref para controlar a notificação de atualização
   const isInitialMount = useRef(true)
 
-  // 3. Hook useQuery para buscar os dados
   const {
     data: clientes,
     isLoading,
-    isFetching, // "isFetching" é true quando a busca em 2º plano acontece
+    isFetching,
     isError,
     error,
   } = useQuery({
-    queryKey: ['clientesCorretor'], // Chave única para este cache
+    queryKey: ['clientesCorretor'],
     queryFn: fetchClientes,
   })
 
-  // 4. Efeito para a Notificação de Atualização
   useEffect(() => {
-    // Se não for a primeira carga da página
     if (!isInitialMount.current) {
-      // E se a busca em segundo plano (isFetching) acabou de terminar
       if (!isFetching) {
         toast.success('Página atualizada!', {
           description: 'Os dados foram sincronizados em segundo plano.',
         })
       }
     } else {
-      // Marca que a primeira carga já passou
       isInitialMount.current = false
     }
-  }, [isFetching]) // Roda sempre que 'isFetching' mudar
+  }, [isFetching])
 
-  // 5. Hook useMutation para criar o cliente
   const createMutation = useMutation({
     mutationFn: createCliente,
     onSuccess: () => {
       toast.success('Cliente cadastrado com sucesso!')
-      // Invalida o cache 'clientesCorretor' para forçar o useQuery a rodar de novo
       queryClient.invalidateQueries({ queryKey: ['clientesCorretor'] })
-      setIsModalOpen(false) // Fecha o modal
-      setNovoNome('') // Limpa o formulário
+      setIsModalOpen(false)
+      setNovoNome('')
     },
     onError: (error) => {
       toast.error('Erro ao cadastrar cliente:', error.message)
     },
   })
 
-  // 6. Função para lidar com o envio do formulário
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!user) {
@@ -115,14 +105,11 @@ export default function ClientesCorretor() {
       toast.error('O nome é obrigatório.')
       return
     }
-
-    // Monta o objeto para o Supabase, incluindo a "etiqueta" do criador
     const novoCliente = {
       nome: novoNome,
-      criado_por_usuario_id: user.id, // AQUI está a ligação com o corretor!
-      tipo_contato: 'Pessoa Física', // Um valor padrão
+      criado_por_usuario_id: user.id,
+      tipo_contato: 'Pessoa Física',
     }
-
     createMutation.mutate(novoCliente)
   }
 
@@ -141,7 +128,6 @@ export default function ClientesCorretor() {
         </button>
       </div>
 
-      {/* 7. Lógica de exibição (Carregando, Erro, Dados) */}
       {isLoading ? (
         <div className="text-center py-10">
           <FontAwesomeIcon
@@ -177,7 +163,6 @@ export default function ClientesCorretor() {
                     </p>
                   </div>
                 </div>
-                {/* TODO: Adicionar botões de editar/ver detalhes */}
               </li>
             ))}
           </ul>
@@ -193,7 +178,6 @@ export default function ClientesCorretor() {
         </div>
       )}
 
-      {/* 8. Modal de Cadastro Simples */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
           <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
@@ -226,7 +210,6 @@ export default function ClientesCorretor() {
                   required
                 />
               </div>
-              {/* Por enquanto, só pedimos o nome para provar o conceito */}
               <div className="flex justify-end mt-6">
                 <button
                   type="button"

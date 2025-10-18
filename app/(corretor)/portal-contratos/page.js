@@ -1,8 +1,9 @@
 // app/(corretor)/portal-contratos/page.js
-'use client'
 
-// ESTA É A LINHA MÁGICA DA CORREÇÃO!
+// LINHA MOVIDA PARA O TOPO!
 export const dynamic = 'force-dynamic'
+
+'use client' // Agora vem depois
 
 export default function ContratosCorretor() {
   return (
