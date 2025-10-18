@@ -9,7 +9,8 @@ import { useLayout } from '@/contexts/LayoutContext'
 
 export default function ContratosCorretor() {
   
-  // AQUI ESTÁ A CORREÇÃO PROATIVA!
+  // AQUI ESTÁ A CORREÇÃO FINAL PARA ESTE ARQUIVO!
+  // O log de erro mostra que esta página é a última a quebrar
   const { user } = useLayout() || {} // <--- ADICIONAMOS O || {}
 
   return (
