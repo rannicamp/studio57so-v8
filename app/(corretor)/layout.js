@@ -3,15 +3,18 @@
 
 import CorretorSidebar from '@/components/CorretorSidebar'
 import Header from '@/components/Header'
-import CotacoesBar from '@/components/CotacoesBar' // <-- CORREÇÃO AQUI! Removidas as chaves {}
+import CotacoesBar from '@/components/CotacoesBar'
 import { useLayout } from '@/contexts/LayoutContext'
 import { Toaster } from 'sonner'
-// import { CotacoesBar } from '@/components/CotacoesBar' // <-- Linha antiga com erro
+// import { CotacoesBar } from '@/components/CotacoesBar' // <-- Linha antiga com erro (já corrigida nos seus arquivos)
 
 // Este é o "molde" para todas as páginas do Portal do Corretor
 export default function CorretorLayout({ children }) {
   // Lê a posição do menu (left, right, bottom) do contexto!
-  const { sidebarPosition, mostrarBarraCotacoes } = useLayout()
+  
+  // ESTA É A CORREÇÃO DEFINITIVA:
+  // Adicionamos || {} para o caso do useLayout() retornar undefined durante o build
+  const { sidebarPosition, mostrarBarraCotacoes } = useLayout() || {}
 
   return (
     <>
@@ -19,6 +22,7 @@ export default function CorretorLayout({ children }) {
       <div
         className={`flex ${
           // Esta linha aplica a classe correta para a posição do menu!
+          // Se sidebarPosition for undefined (do build), ele usará 'flex-row'
           sidebarPosition === 'bottom' ? 'flex-col' : 'flex-row'
         } min-h-screen bg-gray-100`}
       >
@@ -35,6 +39,7 @@ export default function CorretorLayout({ children }) {
           </main>
           
           {/* Adiciona a barra de cotações, se estiver habilitada */}
+          {/* Se mostrarBarraCotacoes for undefined (do build), isso será falso e não renderiza */}
           {mostrarBarraCotacoes && <CotacoesBar />}
         </div>
       </div>
