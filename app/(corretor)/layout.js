@@ -1,11 +1,12 @@
 // app/(corretor)/layout.js
 'use client'
 
-import CorretorSidebar from '@/components/CorretorSidebar' // Importa o NOVO menu
-import Header from '@/components/Header' // Importa o Header existente
-import { useLayout } from '@/contexts/LayoutContext' // Importa o Contexto
-import { Toaster } from 'sonner' // Para as notificações futuras
-import { CotacoesBar } from '@/components/CotacoesBar'
+import CorretorSidebar from '@/components/CorretorSidebar'
+import Header from '@/components/Header'
+import CotacoesBar from '@/components/CotacoesBar' // <-- CORREÇÃO AQUI! Removidas as chaves {}
+import { useLayout } from '@/contexts/LayoutContext'
+import { Toaster } from 'sonner'
+// import { CotacoesBar } from '@/components/CotacoesBar' // <-- Linha antiga com erro
 
 // Este é o "molde" para todas as páginas do Portal do Corretor
 export default function CorretorLayout({ children }) {

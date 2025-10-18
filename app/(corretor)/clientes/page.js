@@ -182,7 +182,10 @@ export default function ClientesCorretor() {
             Nenhum cliente cadastrado por você ainda.
           </p>
           <p className="text-gray-400 text-sm mt-1">
-            Clique em "Novo Cliente" para começar.
+            {/* CORREÇÃO AQUI! 
+              Trocamos "Novo Cliente" por &quot;Novo Cliente&quot; 
+            */}
+            Clique em &quot;Novo Cliente&quot; para começar.
           </p>
         </div>
       )}
