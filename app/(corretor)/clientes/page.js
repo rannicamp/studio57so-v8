@@ -9,6 +9,10 @@ import {
 } from '@tanstack/react-query'
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
+
+// ESTA É A LINHA MÁGICA DA CORREÇÃO!
+export const dynamic = 'force-dynamic'
+
 import { useLayout } from '@/contexts/LayoutContext' // Para buscar o usuário logado
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
@@ -125,7 +129,9 @@ export default function ClientesCorretor() {
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-gray-800">Meus Clientes e Leads</h2>
+        <h2 className="text-3xl font-bold text-gray-800">
+          Meus Clientes e Leads
+        </h2>
         <button
           onClick={() => setIsModalOpen(true)}
           className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow flex items-center transition duration-200"
@@ -182,9 +188,6 @@ export default function ClientesCorretor() {
             Nenhum cliente cadastrado por você ainda.
           </p>
           <p className="text-gray-400 text-sm mt-1">
-            {/* CORREÇÃO AQUI! 
-              Trocamos "Novo Cliente" por &quot;Novo Cliente&quot; 
-            */}
             Clique em &quot;Novo Cliente&quot; para começar.
           </p>
         </div>
@@ -195,7 +198,9 @@ export default function ClientesCorretor() {
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
           <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-2xl font-bold text-gray-800">Cadastrar Novo Cliente</h3>
+              <h3 className="text-2xl font-bold text-gray-800">
+                Cadastrar Novo Cliente
+              </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600"
