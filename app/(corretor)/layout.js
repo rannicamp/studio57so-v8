@@ -6,17 +6,19 @@ import Header from '@/components/Header'
 import CotacoesBar from '@/components/CotacoesBar'
 import { useLayout } from '@/contexts/LayoutContext'
 import { Toaster } from 'sonner'
-// import { CotacoesBar } from '@/components/CotacoesBar' // <-- Linha antiga com erro
+
+// AQUI ESTÁ A IMPORTAÇÃO MÁGICA DA CORREÇÃO!
+import { EmpreendimentoProvider } from '@/contexts/EmpreendimentoContext'
 
 // Este é o "molde" para todas as páginas do Portal do Corretor
 export default function CorretorLayout({ children }) {
   // Lê a posição do menu (left, right, bottom) do contexto!
-  
-  // AQUI ESTÁ A CORREÇÃO (que você já fez)
   const { sidebarPosition, mostrarBarraCotacoes } = useLayout() || {}
 
   return (
-    <>
+    // AQUI ESTÁ A CORREÇÃO! Envolvemos tudo no EmpreendimentoProvider
+    // para que o Header possa usá-lo.
+    <EmpreendimentoProvider>
       <Toaster position="top-right" richColors />
       <div
         className={`flex ${
@@ -28,7 +30,7 @@ export default function CorretorLayout({ children }) {
         <CorretorSidebar />
 
         <div className="flex-1 flex flex-col">
-          {/* Renderiza o Header normal */}
+          {/* O Header agora vai funcionar! */}
           <Header />
 
           {/* O conteúdo da página (ex: /portal-painel, /clientes) */}
@@ -40,6 +42,6 @@ export default function CorretorLayout({ children }) {
           {mostrarBarraCotacoes && <CotacoesBar />}
         </div>
       </div>
-    </>
+    </EmpreendimentoProvider>
   )
 }

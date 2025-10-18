@@ -43,7 +43,11 @@ const menuItems = [
 
 const CorretorSidebar = () => {
   const pathname = usePathname()
-  const { user, sidebarPosition } = useLayout()
+  
+  // AQUI ESTÁ A CORREÇÃO (DE NOVO, PARA GARANTIR!)
+  // Adicionamos o || {} para impedir que o build quebre
+  const { user, sidebarPosition } = useLayout() || {}
+  
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [openSubmenus, setOpenSubmenus] = useState({})
 

@@ -7,17 +7,21 @@ import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft, faChevronRight, faHome, faUserCircle, faBuilding, faCog, faInbox, faUser, faChevronDown } from '@fortawesome/free-solid-svg-icons';
 
-import { useLayout } from '../contexts/LayoutContext';
+import { useLayout } from '../contexts/LayoutContext'; // <--- USADO AQUI
 import { useAuth } from '../contexts/AuthContext';
 import { useEmpreendimento } from '../contexts/EmpreendimentoContext';
 
 import LogoutButton from './LogoutButton';
-import NotificationBell from './notificacao/NotificationBell'; // <-- ESTA LINHA ESTÁ CORRETA!
+import NotificationBell from './notificacao/NotificationBell'; 
 import CotacoesBar from './CotacoesBar';
 
 export default function Header({ headerPositionClass }) {
     const router = useRouter();
-    const { pageTitle } = useLayout();
+    
+    // AQUI ESTÁ A CORREÇÃO FINAL DE TODO O BUG!
+    // Adicionamos o || {} para impedir que o build quebre
+    const { pageTitle } = useLayout() || {}; 
+    
     const { user } = useAuth();
     const { empreendimentos, selectedEmpreendimento, changeEmpreendimento, loading: loadingEmpreendimento } = useEmpreendimento();
     
@@ -60,6 +64,7 @@ export default function Header({ headerPositionClass }) {
                         <button onClick={() => router.push('/')} className="text-gray-600 hover:text-blue-500" title="Página Inicial"><FontAwesomeIcon icon={faHome} size="lg" /></button>
                         <button onClick={() => router.forward()} className="text-gray-600 hover:text-blue-500" title="Avançar"><FontAwesomeIcon icon={faChevronRight} size="lg" /></button>
                     </div>
+                    {/* Esta linha agora é segura, pois pageTitle será 'undefined' em vez de quebrar */}
                     <h1 className="text-xl font-semibold text-gray-800 hidden md:block">{pageTitle}</h1>
                 </div>
 
