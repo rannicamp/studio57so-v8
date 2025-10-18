@@ -1,5 +1,6 @@
 // app/(corretor)/clientes/page.js
-'use client' // <--- CORREÇÃO: AGORA É A PRIMEIRA LINHA!
+'use client'
+// FORÇANDO ATUALIZAÇÃO PARA O GIT v2
 
 // Agora esta vem depois:
 export const dynamic = 'force-dynamic'
