@@ -1,29 +1,37 @@
 // utils/getOrganizationId.js
 import { createClient } from './supabase/server';
 
-export const getOrganizationId = async (userId) => {
-    if (!userId) {
-        console.error("getOrganizationId foi chamado sem um userId.");
-        return null;
-    }
-    
-    const supabase = createClient();
-    
-    const { data: userProfile, error } = await supabase
-        .from('usuarios')
-        .select('organizacao_id')
-        .eq('id', userId)
-        .single();
+// ATUALIZAÇÃO: Removemos o 'userId' dos parênteses.
+// A função agora vai descobrir o usuário sozinha.
+export const getOrganizationId = async () => {
+    const supabase = createClient();
+    
+    // 1. Buscamos o usuário logado aqui dentro
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (error) {
-        console.error("Erro ao buscar organização do usuário no servidor:", error.message);
-        return null;
-    }
+    // Se deu erro ou não achou usuário, paramos aqui
+    if (authError || !user) {
+        console.error("getOrganizationId: Erro ao buscar usuário ou usuário não logado.", authError?.message);
+        return null;
+    }
+    
+    // 2. Agora usamos o 'user.id' que encontramos para buscar o perfil
+    const { data: userProfile, error: profileError } = await supabase
+        .from('usuarios')
+        .select('organizacao_id')
+        .eq('id', user.id) // ATUALIZAÇÃO: Usamos o user.id que buscamos aqui
+        .single();
 
-    if (!userProfile) {
-        console.error(`Nenhum perfil de usuário encontrado para o ID: ${userId}`);
-        return null;
-    }
+    if (profileError) {
+        console.error("Erro ao buscar organização do usuário no servidor:", profileError.message);
+        return null;
+    }
 
-    return userProfile.organizacao_id;
+    if (!userProfile) {
+        console.error(`Nenhum perfil de usuário encontrado para o ID: ${user.id}`);
+        return null;
+    }
+
+    // 3. Retornamos a organização!
+    return userProfile.organizacao_id;
 };

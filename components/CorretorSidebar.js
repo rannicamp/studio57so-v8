@@ -1,173 +1,228 @@
 // components/CorretorSidebar.js
 'use client'
-import React, { useState, Fragment } from 'react'
+
+import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome' //
 import {
   faTachometerAlt,
   faUserFriends,
   faTable,
   faFileSignature,
-  faBars,
-  faTimes,
-  faChevronDown,
-  faChevronUp,
-} from '@fortawesome/free-solid-svg-icons'
-import { useLayout } from '@/contexts/LayoutContext'
-import Image from 'next/image'
+  faChevronLeft,
+  faChevronRight,
+} from '@fortawesome/free-solid-svg-icons' //
+import { useAuth } from '../contexts/AuthContext' // Importa o useAuth corretamente
+import Tooltip from './Tooltip' // Importa o Tooltip como no original
+import Image from 'next/image' // Para usar a tag Image para o logo
 
-// Esta é a lista de links que aparecerá no menu do corretor
-const menuItems = [
+// Define os itens específicos para o menu do Corretor
+const navSections = [
   {
-    href: '/portal-painel',
-    icon: faTachometerAlt,
-    label: 'Painel',
-  },
-  {
-    href: '/clientes',
-    icon: faUserFriends,
-    label: 'Clientes',
-  },
-  {
-    href: '/tabela-de-vendas',
-    icon: faTable,
-    label: 'Tabela de Vendas',
-  },
-  {
-    href: '/portal-contratos',
-    icon: faFileSignature,
-    label: 'Contratos',
+    title: 'Portal do Corretor', // Um título genérico para a seção
+    items: [
+      {
+        href: '/portal-painel',
+        icon: faTachometerAlt,
+        label: 'Painel',
+        recurso: 'portal_painel', // Recurso para controle de permissão (se necessário)
+      },
+      {
+        href: '/clientes',
+        icon: faUserFriends,
+        label: 'Clientes',
+        recurso: 'portal_clientes',
+      },
+      {
+        href: '/tabela-de-vendas',
+        icon: faTable,
+        label: 'Tabela de Vendas',
+        recurso: 'portal_tabela_vendas',
+      },
+      {
+        href: '/portal-contratos',
+        icon: faFileSignature,
+        label: 'Contratos',
+        recurso: 'portal_contratos',
+      },
+    ],
   },
 ]
 
-const CorretorSidebar = () => {
-  const pathname = usePathname()
+// Mantém a lógica do componente Sidebar original, adaptando nomes e itens
+export default function CorretorSidebar({ isCollapsed: initialIsCollapsed = false, toggleSidebar: initialToggleSidebar }) {
+  // Pega user e hasPermission do AuthContext, como no original
+  const { hasPermission, user } = useAuth() || {} // Garante que não quebre se o contexto não estiver pronto
   
-  // AQUI ESTÁ A CORREÇÃO (DE NOVO, PARA GARANTIR!)
-  // Adicionamos o || {} para impedir que o build quebre
-  const { user, sidebarPosition } = useLayout() || {}
-  
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [openSubmenus, setOpenSubmenus] = useState({})
+  // Lógica interna de colapso, caso não seja controlado externamente
+  const [internalIsCollapsed, setInternalIsCollapsed] = useState(initialIsCollapsed);
+  const isCollapsed = initialToggleSidebar ? initialIsCollapsed : internalIsCollapsed;
+  const toggleSidebar = initialToggleSidebar ? initialToggleSidebar : () => setInternalIsCollapsed(!internalIsCollapsed);
 
-  const isActive = (href) => {
-    return pathname === href
-  }
+  // Pega a posição da sidebar das configurações do usuário, como no original
+  const sidebarPosition = user?.sidebar_position || 'left' //
 
-  const toggleSubmenu = (label) => {
-    setOpenSubmenus((prev) => ({
-      ...prev,
-      [label]: !prev[label],
-    }))
-  }
+  // URLs dos logos, como no original
+  const logoUrl =
+    'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE' //
+  const logoIconUrl = '/favicon.ico' //
 
-  const renderMenuItem = (item) => {
-    const active = isActive(item.href)
+  // Verifica se a sidebar é horizontal (não aplicável ao corretor, mas mantém a lógica)
+  const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom' //
 
-    if (item.submenu) {
-      const isSubmenuOpen = openSubmenus[item.label]
-      return (
-        <Fragment key={item.label}>
-          <button
-            onClick={() => toggleSubmenu(item.label)}
-            className={`w-full text-left flex justify-between items-center px-4 py-2 text-sm font-medium rounded-md ${
-              active
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            }`}
-          >
-            <div className="flex items-center">
-              <FontAwesomeIcon icon={item.icon} className="w-5 h-5 mr-3" />
-              {item.label}
-            </div>
-            <FontAwesomeIcon
-              icon={isSubmenuOpen ? faChevronUp : faChevronDown}
-              className="w-4 h-4"
-            />
-          </button>
-          {isSubmenuOpen && (
-            <div className="pl-8">
-              {item.submenu.map(renderMenuItem)}
-            </div>
-          )}
-        </Fragment>
-      )
-    }
+  // Renderização Horizontal (adaptada do original, provavelmente não será usada aqui)
+  if (isHorizontal) {
+    const allItems = navSections.flatMap((section) => section.items || []) //
 
-    return (
-      <Link
-        key={item.href}
-        href={item.href}
-        onClick={() => setIsMobileMenuOpen(false)}
-        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${
-          active
-            ? 'bg-gray-700 text-white'
-            : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-        }`}
-      >
-        <FontAwesomeIcon icon={item.icon} className="w-5 h-5 mr-3" />
-        {item.label}
-      </Link>
-    )
-  }
-
-  // === RENDERIZAÇÃO DO MENU NA LATERAL ===
-  // Exatamente como no seu sidebar.js original
-  if (sidebarPosition === 'left' || sidebarPosition === 'right') {
     return (
       <aside
-        className={`sticky top-0 h-screen bg-gray-800 text-white ${
-          sidebarPosition === 'right' ? 'order-last' : ''
-        } md:flex flex-col w-64 hidden`}
+        className={`bg-white shadow-lg h-[65px] w-full fixed left-0 ${
+          sidebarPosition === 'top' ? 'top-[65px]' : 'bottom-0'
+        } z-40 flex items-center justify-center px-4`} //
       >
-        <div className="flex items-center justify-center h-20 border-b border-gray-700">
-          <Image
-            src="/logo.png"
-            alt="Logo"
-            width={150}
-            height={50}
-            className="object-contain"
-          />
+        <div className="absolute left-4">
+          <Link href="/portal-painel"> {/* Link para o painel do corretor */}
+            <Image src={logoIconUrl} alt="Logo Studio 57" width={32} height={32} />
+          </Link>
         </div>
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {menuItems.map(renderMenuItem)}
+        <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2"> {/* */}
+          {allItems.map((item) => {
+            // Adapta a verificação de permissão se necessário, ou remove se não usar recursos
+             const canViewItem = true; // Simplificado: corretor vê todos os seus itens
+            // const canViewItem = hasPermission(item.recurso, 'pode_ver');
+            if (!item || !canViewItem) return null
+
+            return (
+              <Tooltip
+                key={item.label}
+                label={item.label}
+                position={sidebarPosition === 'top' ? 'bottom' : 'top'}
+              > {/* */}
+                <Link
+                  href={item.href}
+                  target={item.target}
+                  rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
+                  className="flex items-center justify-center h-12 w-12 text-gray-700 hover:bg-gray-100 rounded-md transition-colors duration-200" //
+                >
+                  <FontAwesomeIcon icon={item.icon} className="text-xl" /> {/* */}
+                </Link>
+              </Tooltip>
+            )
+          })}
         </nav>
       </aside>
     )
   }
 
-  // === RENDERIZAÇÃO DO MENU EMBAIXO ===
-  // Exatamente como no seu sidebar.js original
-  if (sidebarPosition === 'bottom') {
-    return (
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-gray-800 text-white shadow-lg md:hidden">
-        <div className="flex justify-around items-center px-4 py-2">
-          {menuItems.map((item) => {
-            if (item.submenu) return null // Simplificação: sem submenu no modo 'bottom'
-            const active = isActive(item.href)
+  // Renderização Vertical (esquerda/direita) - Lógica principal do sidebar.js original
+  return (
+    <aside
+      className={`bg-white shadow-lg h-full fixed top-0 z-40 flex flex-col transition-all duration-300 ${
+        isCollapsed ? 'w-[80px]' : 'w-[260px]' // Lógica de colapso
+      } ${sidebarPosition === 'left' ? 'left-0' : 'right-0'}`} // Lógica de posição
+    >
+      <div className="flex items-center justify-center h-[65px] border-b border-gray-200 flex-shrink-0"> {/* */}
+        <Link href="/portal-painel"> {/* Link para o painel do corretor */}
+          {/* Usa Image em vez de img para otimização do Next.js */}
+          <Image
+            src={isCollapsed ? logoIconUrl : logoUrl}
+            alt="Logo Studio 57"
+            width={isCollapsed ? 32 : 150} // Ajusta o tamanho do logo
+            height={isCollapsed ? 32 : 40}
+            className={`transition-all duration-300 w-auto ${isCollapsed ? 'h-8' : 'h-10'}`} //
+            priority // Carrega o logo principal com prioridade
+          />
+        </Link>
+      </div>
+      <nav className="mt-4 flex-grow flex flex-col"> {/* */}
+        <ul className="overflow-y-auto">
+          {navSections.map((section) => {
+            const sectionItems = section.items || [] //
+            // Adapta a verificação de permissão ou simplifica
+            const hasVisibleItems = sectionItems.some(item => true); // Simplificado: corretor vê tudo
+            // const hasVisibleItems = sectionItems.some(item => hasPermission(item.recurso, 'pode_ver'));
+
+            if (!hasVisibleItems) return null
+
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center justify-center p-2 rounded-lg ${
-                  active
-                    ? 'bg-gray-700 text-white'
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                }`}
-              >
-                <FontAwesomeIcon icon={item.icon} className="w-6 h-6" />
-                <span className="text-xs mt-1">{item.label}</span>
-              </Link>
+              <li key={section.title} className="mb-2"> {/* */}
+                {!isCollapsed && (
+                  <h3 className="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider my-2">
+                    {section.title}
+                  </h3> // Título da seção
+                )}
+                {isCollapsed && (
+                  <div className="flex justify-center my-4">
+                    <div className="w-8 border-t border-gray-200"></div>
+                  </div> // Divisor quando colapsado
+                )}
+
+                <ul>
+                  {sectionItems.map((item) => {
+                     const canViewItem = true; // Simplificado
+                    // const canViewItem = hasPermission(item.recurso, 'pode_ver');
+                    if (!canViewItem) return null
+
+                    return (
+                      <li key={item.label}> {/* */}
+                        <Tooltip
+                          label={item.label}
+                          position={sidebarPosition === 'left' ? 'right' : 'left'}
+                        > {/* */}
+                          <Link
+                            href={item.href}
+                            target={item.target}
+                            rel={
+                              item.target === '_blank'
+                                ? 'noopener noreferrer'
+                                : undefined
+                            }
+                            className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 w-full ${
+                              isCollapsed ? 'justify-center' : 'px-6' // Ajusta padding/justificação
+                            }`}
+                          >
+                            <FontAwesomeIcon
+                              icon={item.icon}
+                              className={`flex-shrink-0 ${
+                                isCollapsed ? 'text-xl' : 'text-lg w-6' // Ajusta tamanho do ícone
+                              }`}
+                            />
+                            {!isCollapsed && (
+                              <span className="ml-4 text-sm font-medium">
+                                {item.label}
+                              </span> // Exibe o label apenas se não estiver colapsado
+                            )}
+                          </Link>
+                        </Tooltip>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </li>
             )
           })}
-        </div>
+        </ul>
       </nav>
-    )
-  }
-
-  // Fallback (caso algo dê errado)
-  return null
+      {/* Botão de colapsar/expandir, como no original */}
+      <div className="border-t border-gray-200 p-2"> {/* */}
+        <button
+          onClick={toggleSidebar}
+          className="w-full h-12 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-md transition-colors" //
+        >
+          <FontAwesomeIcon
+            icon={
+              isCollapsed
+                ? sidebarPosition === 'right'
+                  ? faChevronLeft
+                  : faChevronRight
+                : sidebarPosition === 'right'
+                ? faChevronRight
+                : faChevronLeft
+            } // Ícone muda dependendo do estado e posição
+            size="lg"
+          />
+        </button>
+      </div>
+    </aside>
+  )
 }
-
-export default CorretorSidebar
