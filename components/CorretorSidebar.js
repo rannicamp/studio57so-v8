@@ -1,9 +1,9 @@
 // components/CorretorSidebar.js
 'use client'
 
-import { useState } from 'react'
+// import { useState } from 'react' // <-- 1. REMOVEMOS O useState
 import Link from 'next/link'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome' //
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faTachometerAlt,
   faUserFriends,
@@ -11,21 +11,23 @@ import {
   faFileSignature,
   faChevronLeft,
   faChevronRight,
-} from '@fortawesome/free-solid-svg-icons' //
-import { useAuth } from '../contexts/AuthContext' // Importa o useAuth corretamente
-import Tooltip from './Tooltip' // Importa o Tooltip como no original
-import Image from 'next/image' // Para usar a tag Image para o logo
+  faUserCircle,
+  faSpinner,
+} from '@fortawesome/free-solid-svg-icons'
+import { useLayout } from '@/contexts/LayoutContext'
+import Tooltip from './Tooltip'
+import Image from 'next/image'
 
-// Define os itens específicos para o menu do Corretor
+// Define os itens específicos para o menu do Corretor (sem mudanças)
 const navSections = [
   {
-    title: 'Portal do Corretor', // Um título genérico para a seção
+    title: 'Portal do Corretor',
     items: [
       {
         href: '/portal-painel',
         icon: faTachometerAlt,
         label: 'Painel',
-        recurso: 'portal_painel', // Recurso para controle de permissão (se necessário)
+        recurso: 'portal_painel',
       },
       {
         href: '/clientes',
@@ -49,62 +51,94 @@ const navSections = [
   },
 ]
 
-// Mantém a lógica do componente Sidebar original, adaptando nomes e itens
-export default function CorretorSidebar({ isCollapsed: initialIsCollapsed = false, toggleSidebar: initialToggleSidebar }) {
-  // Pega user e hasPermission do AuthContext, como no original
-  const { hasPermission, user } = useAuth() || {} // Garante que não quebre se o contexto não estiver pronto
+// Componente auxiliar para o Avatar (sem mudanças)
+function UserAvatar({ user, isCollapsed }) {
+  const avatarUrl = user?.avatar_url; 
+  const userName = user?.nome || 'Usuário';
+  const userEmail = user?.email || '...';
+
+  if (isCollapsed) {
+    return (
+      <Tooltip label={`${userName} (${userEmail})`} position="right">
+        <div className="flex items-center justify-center w-full h-16">
+          {avatarUrl ? (
+            <Image src={avatarUrl} alt="Avatar" width={36} height={36} className="rounded-full" />
+          ) : (
+            <FontAwesomeIcon icon={faUserCircle} className="text-gray-400 text-3xl" />
+          )}
+        </div>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <div className="flex items-center p-4 h-16">
+      {avatarUrl ? (
+        <Image src={avatarUrl} alt="Avatar" width={36} height={36} className="rounded-full" />
+      ) : (
+        <FontAwesomeIcon icon={faUserCircle} className="text-gray-400 text-3xl" />
+      )}
+      <div className="ml-3 overflow-hidden">
+        <p className="text-sm font-semibold text-gray-800 truncate">{userName}</p>
+        <p className="text-xs text-gray-500 truncate">{userEmail}</p>
+      </div>
+    </div>
+  );
+}
+
+
+// 2. AQUI ESTÁ A MUDANÇA
+export default function CorretorSidebar({ 
+  isCollapsed,    // <-- Agora recebe a prop direto
+  toggleSidebar   // <-- Agora recebe a prop direto
+}) {
   
-  // Lógica interna de colapso, caso não seja controlado externamente
-  const [internalIsCollapsed, setInternalIsCollapsed] = useState(initialIsCollapsed);
-  const isCollapsed = initialToggleSidebar ? initialIsCollapsed : internalIsCollapsed;
-  const toggleSidebar = initialToggleSidebar ? initialToggleSidebar : () => setInternalIsCollapsed(!internalIsCollapsed);
+  const { user, isUserLoading } = useLayout()
+  
+  // 3. REMOVEMOS TODA A LÓGICA DE 'internalIsCollapsed' DAQUI
+  // const [internalIsCollapsed, setInternalIsCollapsed] = useState(initialIsCollapsed);
+  // const isCollapsed = initialToggleSidebar ? initialIsCollapsed : internalIsCollapsed;
+  // const toggleSidebar = initialToggleSidebar ? initialToggleSidebar : () => setInternalIsCollapsed(!internalIsCollapsed);
 
-  // Pega a posição da sidebar das configurações do usuário, como no original
-  const sidebarPosition = user?.sidebar_position || 'left' //
+  const sidebarPosition = user?.sidebar_position || 'left'
 
-  // URLs dos logos, como no original
   const logoUrl =
-    'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE' //
-  const logoIconUrl = '/favicon.ico' //
+    'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE'
+  const logoIconUrl = '/favicon.ico'
 
-  // Verifica se a sidebar é horizontal (não aplicável ao corretor, mas mantém a lógica)
-  const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom' //
+  const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom'
 
-  // Renderização Horizontal (adaptada do original, provavelmente não será usada aqui)
+  // Renderização Horizontal (sem mudanças)
   if (isHorizontal) {
-    const allItems = navSections.flatMap((section) => section.items || []) //
-
+    const allItems = navSections.flatMap((section) => section.items || [])
     return (
       <aside
         className={`bg-white shadow-lg h-[65px] w-full fixed left-0 ${
           sidebarPosition === 'top' ? 'top-[65px]' : 'bottom-0'
-        } z-40 flex items-center justify-center px-4`} //
+        } z-40 flex items-center justify-center px-4`}
       >
         <div className="absolute left-4">
-          <Link href="/portal-painel"> {/* Link para o painel do corretor */}
+          <Link href="/portal-painel">
             <Image src={logoIconUrl} alt="Logo Studio 57" width={32} height={32} />
           </Link>
         </div>
-        <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2"> {/* */}
+        <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2">
           {allItems.map((item) => {
-            // Adapta a verificação de permissão se necessário, ou remove se não usar recursos
-             const canViewItem = true; // Simplificado: corretor vê todos os seus itens
-            // const canViewItem = hasPermission(item.recurso, 'pode_ver');
+            const canViewItem = true;
             if (!item || !canViewItem) return null
-
             return (
               <Tooltip
                 key={item.label}
                 label={item.label}
                 position={sidebarPosition === 'top' ? 'bottom' : 'top'}
-              > {/* */}
+              >
                 <Link
                   href={item.href}
                   target={item.target}
                   rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
-                  className="flex items-center justify-center h-12 w-12 text-gray-700 hover:bg-gray-100 rounded-md transition-colors duration-200" //
+                  className="flex items-center justify-center h-12 w-12 text-gray-700 hover:bg-gray-100 rounded-md transition-colors duration-200"
                 >
-                  <FontAwesomeIcon icon={item.icon} className="text-xl" /> {/* */}
+                  <FontAwesomeIcon icon={item.icon} className="text-xl" />
                 </Link>
               </Tooltip>
             )
@@ -114,61 +148,70 @@ export default function CorretorSidebar({ isCollapsed: initialIsCollapsed = fals
     )
   }
 
-  // Renderização Vertical (esquerda/direita) - Lógica principal do sidebar.js original
+  // Renderização Vertical (O JSX não muda, pois ele já usava as props)
   return (
     <aside
       className={`bg-white shadow-lg h-full fixed top-0 z-40 flex flex-col transition-all duration-300 ${
-        isCollapsed ? 'w-[80px]' : 'w-[260px]' // Lógica de colapso
-      } ${sidebarPosition === 'left' ? 'left-0' : 'right-0'}`} // Lógica de posição
+        isCollapsed ? 'w-[80px]' : 'w-[260px]'
+      } ${sidebarPosition === 'left' ? 'left-0' : 'right-0'}`}
     >
-      <div className="flex items-center justify-center h-[65px] border-b border-gray-200 flex-shrink-0"> {/* */}
-        <Link href="/portal-painel"> {/* Link para o painel do corretor */}
-          {/* Usa Image em vez de img para otimização do Next.js */}
+      
+      {/* 1. SEÇÃO DO USUÁRIO NO TOPO */}
+      <div className="flex-shrink-0 border-b border-gray-200">
+        {isUserLoading ? (
+          <div className="flex items-center justify-center p-4 h-16">
+            <FontAwesomeIcon icon={faSpinner} spin className="text-gray-400" />
+          </div>
+        ) : user ? (
+          <UserAvatar user={user} isCollapsed={isCollapsed} />
+        ) : (
+          <UserAvatar user={{ nome: 'Erro', email: 'Tente recarregar' }} isCollapsed={isCollapsed} />
+        )}
+      </div>
+
+      {/* 2. SEÇÃO DO LOGO */}
+      <div className="flex items-center justify-center h-[65px] flex-shrink-0">
+        <Link href="/portal-painel">
           <Image
             src={isCollapsed ? logoIconUrl : logoUrl}
             alt="Logo Studio 57"
-            width={isCollapsed ? 32 : 150} // Ajusta o tamanho do logo
+            width={isCollapsed ? 32 : 150}
             height={isCollapsed ? 32 : 40}
-            className={`transition-all duration-300 w-auto ${isCollapsed ? 'h-8' : 'h-10'}`} //
-            priority // Carrega o logo principal com prioridade
+            className={`transition-all duration-300 w-auto ${isCollapsed ? 'h-8' : 'h-10'}`}
+            priority
           />
         </Link>
       </div>
-      <nav className="mt-4 flex-grow flex flex-col"> {/* */}
+
+      {/* 3. NAVEGAÇÃO */}
+      <nav className="mt-4 flex-grow flex flex-col">
         <ul className="overflow-y-auto">
           {navSections.map((section) => {
-            const sectionItems = section.items || [] //
-            // Adapta a verificação de permissão ou simplifica
-            const hasVisibleItems = sectionItems.some(item => true); // Simplificado: corretor vê tudo
-            // const hasVisibleItems = sectionItems.some(item => hasPermission(item.recurso, 'pode_ver'));
-
+            const sectionItems = section.items || []
+            const hasVisibleItems = sectionItems.some(item => true);
             if (!hasVisibleItems) return null
-
             return (
-              <li key={section.title} className="mb-2"> {/* */}
+              <li key={section.title} className="mb-2">
                 {!isCollapsed && (
                   <h3 className="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider my-2">
                     {section.title}
-                  </h3> // Título da seção
+                  </h3>
                 )}
                 {isCollapsed && (
                   <div className="flex justify-center my-4">
                     <div className="w-8 border-t border-gray-200"></div>
-                  </div> // Divisor quando colapsado
+                  </div>
                 )}
-
                 <ul>
                   {sectionItems.map((item) => {
-                     const canViewItem = true; // Simplificado
-                    // const canViewItem = hasPermission(item.recurso, 'pode_ver');
+                    const canViewItem = true;
                     if (!canViewItem) return null
-
                     return (
-                      <li key={item.label}> {/* */}
+                      <li key={item.label}>
                         <Tooltip
                           label={item.label}
                           position={sidebarPosition === 'left' ? 'right' : 'left'}
-                        > {/* */}
+                        >
                           <Link
                             href={item.href}
                             target={item.target}
@@ -178,19 +221,19 @@ export default function CorretorSidebar({ isCollapsed: initialIsCollapsed = fals
                                 : undefined
                             }
                             className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 w-full ${
-                              isCollapsed ? 'justify-center' : 'px-6' // Ajusta padding/justificação
+                              isCollapsed ? 'justify-center' : 'px-6'
                             }`}
                           >
                             <FontAwesomeIcon
                               icon={item.icon}
                               className={`flex-shrink-0 ${
-                                isCollapsed ? 'text-xl' : 'text-lg w-6' // Ajusta tamanho do ícone
+                                isCollapsed ? 'text-xl' : 'text-lg w-6'
                               }`}
                             />
                             {!isCollapsed && (
                               <span className="ml-4 text-sm font-medium">
                                 {item.label}
-                              </span> // Exibe o label apenas se não estiver colapsado
+                              </span>
                             )}
                           </Link>
                         </Tooltip>
@@ -203,11 +246,12 @@ export default function CorretorSidebar({ isCollapsed: initialIsCollapsed = fals
           })}
         </ul>
       </nav>
-      {/* Botão de colapsar/expandir, como no original */}
-      <div className="border-t border-gray-200 p-2"> {/* */}
+      
+      {/* 4. BOTÃO DE COLAPSAR (Este botão agora usa o 'toggleSidebar' vindo do pai) */}
+      <div className="border-t border-gray-200 p-2">
         <button
-          onClick={toggleSidebar}
-          className="w-full h-12 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-md transition-colors" //
+          onClick={toggleSidebar} 
+          className="w-full h-12 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
         >
           <FontAwesomeIcon
             icon={
@@ -218,7 +262,7 @@ export default function CorretorSidebar({ isCollapsed: initialIsCollapsed = fals
                 : sidebarPosition === 'right'
                 ? faChevronRight
                 : faChevronLeft
-            } // Ícone muda dependendo do estado e posição
+            }
             size="lg"
           />
         </button>

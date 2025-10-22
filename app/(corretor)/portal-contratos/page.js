@@ -1,4 +1,4 @@
-// app/(corretor)/portal-painel/page.js
+// app/(corretor)/portal-contratos/page.js
 'use client'
 
 // ESTA É A LINHA MÁGICA DA CORREÇÃO!
@@ -10,9 +10,9 @@ import { useLayout } from '@/contexts/LayoutContext'
 
 export default function PainelCorretor() {
   
-  // AQUI ESTÁ A CORREÇÃO FINAL PARA ESTE ARQUIVO!
-  // O log de erro mostra que esta é a última página a quebrar
-  const { user } = useLayout() || {} // <--- ADICIONAMOS O || {}
+  // AQUI ESTÁ A CORREÇÃO FINAL!
+  // Removemos o || {} porque o useLayout() agora funciona!
+  const { user } = useLayout()
   
   return (
     <div>

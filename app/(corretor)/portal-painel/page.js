@@ -10,8 +10,9 @@ import { useLayout } from '@/contexts/LayoutContext'
 
 export default function PainelCorretor() {
   
-  // AQUI ESTÁ A CORREÇÃO PROATIVA!
-  const { user } = useLayout() || {} // <--- ADICIONAMOS O || {}
+  // AQUI ESTÁ A CORREÇÃO FINAL!
+  // Removemos o || {} porque o useLayout() agora funciona!
+  const { user } = useLayout()
   
   return (
     <div>

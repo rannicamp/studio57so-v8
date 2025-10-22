@@ -9,10 +9,9 @@ import { useLayout } from '@/contexts/LayoutContext'
 
 export default function TabelaVendasCorretor() {
   
-  // AQUI ESTÁ A CORREÇÃO DE HOJE!
-  // O log de erro mostra que esta página também tenta pegar o 'user'
-  // Adicionamos o || {} para segurança durante o build
-  const { user } = useLayout() || {}
+  // AQUI ESTÁ A CORREÇÃO FINAL!
+  // Removemos o || {} porque o useLayout() agora funciona!
+  const { user } = useLayout()
 
   return (
     <div>
