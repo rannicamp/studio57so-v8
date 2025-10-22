@@ -4,20 +4,19 @@
 import CorretorSidebar from '@/components/CorretorSidebar'
 import Header from '@/components/Header'
 import CotacoesBar from '@/components/CotacoesBar'
-import { useLayout } from '@/contexts/LayoutContext'
+import { useLayout, LayoutProvider } from '@/contexts/LayoutContext' // <<== IMPORTAMOS O PROVIDER
 import { Toaster } from 'sonner'
 
 // AQUI ESTÁ A IMPORTAÇÃO MÁGICA DA CORREÇÃO!
 import { EmpreendimentoProvider } from '@/contexts/EmpreendimentoContext'
 
-// Este é o "molde" para todas as páginas do Portal do Corretor
-export default function CorretorLayout({ children }) {
+// Este componente "interno" é necessário porque não podemos usar o `useLayout`
+// no mesmo componente que "provê" o `LayoutProvider`.
+function CorretorLayoutInner({ children }) {
   // Lê a posição do menu (left, right, bottom) do contexto!
   const { sidebarPosition, mostrarBarraCotacoes } = useLayout() || {}
 
   return (
-    // AQUI ESTÁ A CORREÇÃO! Envolvemos tudo no EmpreendimentoProvider
-    // para que o Header possa usá-lo.
     <EmpreendimentoProvider>
       <Toaster position="top-right" richColors />
       <div
@@ -43,5 +42,16 @@ export default function CorretorLayout({ children }) {
         </div>
       </div>
     </EmpreendimentoProvider>
+  )
+}
+
+// Este é o "molde" para todas as páginas do Portal do Corretor
+export default function CorretorLayout({ children }) {
+  return (
+    // AQUI ESTÁ A CORREÇÃO! Envolvemos tudo no LayoutProvider
+    // para que o CorretorLayoutInner e o CorretorSidebar possam usar o useLayout()
+    <LayoutProvider>
+      <CorretorLayoutInner>{children}</CorretorLayoutInner>
+    </LayoutProvider>
   )
 }
