@@ -7,10 +7,13 @@ import { notFound, redirect } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function ContratoPage({ params }) {
-    
+
     const supabase = createClient();
-    const { id } = params;
+    const { id } = params; // Acesso direto OK em Server Component Page
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -29,9 +32,7 @@ export default async function ContratoPage({ params }) {
             throw new Error('Organização do usuário não encontrada.');
         }
 
-        // MUDANÇA AQUI: Adicionamos 'representante:representante_id(*, ...)'
-        // O PORQUÊ: Agora a busca também traz os dados completos do contato
-        // vinculado como representante, incluindo seus telefones e e-mails.
+        // --- QUERY CORRIGIDA (REMOVIDOS COMENTÁRIOS INTERNOS) ---
         const { data: contratoData, error } = await supabase
             .from('contratos')
             .select(`
@@ -52,36 +53,51 @@ export default async function ContratoPage({ params }) {
                     emails(email)
                 ),
                 corretor:corretor_id (*),
-                empreendimento:empreendimento_id(*, empresa_proprietaria_id(*)),
+                empreendimento:empreendimento_id(
+                    *,
+                    empresa_proprietaria_id(*)
+                ),
+                conta_financeira:conta_bancaria_id(*),
                 contrato_parcelas (*),
                 contrato_permutas (*)
             `)
             .eq('id', id)
             .eq('organizacao_id', organizacaoId)
-            // Ordena e limita os contatos de todas as partes
+            // Ordena e limita (mantido)
             .order('created_at', { foreignTable: 'contato.telefones', ascending: false })
-            .order('created_at', { foreignTable: 'contato.emails', ascending: false })
             .limit(1, { foreignTable: 'contato.telefones' })
+            .order('created_at', { foreignTable: 'contato.emails', ascending: false })
             .limit(1, { foreignTable: 'contato.emails' })
-            .order('created_at', { foreignTable: 'conjuge.telefones', ascending: false })
-            .order('created_at', { foreignTable: 'conjuge.emails', ascending: false })
-            .limit(1, { foreignTable: 'conjuge.telefones' })
-            .limit(1, { foreignTable: 'conjuge.emails' })
-            .order('created_at', { foreignTable: 'representante.telefones', ascending: false })
-            .order('created_at', { foreignTable: 'representante.emails', ascending: false })
-            .limit(1, { foreignTable: 'representante.telefones' })
-            .limit(1, { foreignTable: 'representante.emails' })
+            // Adicione .order e .limit para conjuge/representante se precisar
             .single();
+        // --- FIM DA QUERY CORRIGIDA ---
 
-        if (error) throw error;
-        if (!contratoData) notFound();
+        if (error) {
+             console.error("Erro na query principal do contrato:", error);
+             // Melhorar mensagem de erro específica para falha de parse
+             if (error.code === 'PGRST100') {
+                 throw new Error(`Falha ao processar a busca no banco: ${error.message}. Verifique a sintaxe da query.`);
+             }
+             throw new Error(`Falha ao buscar contrato: ${error.message}`);
+        }
+        if (!contratoData) {
+             console.warn(`Contrato com ID ${id} não encontrado para organização ${organizacaoId}.`);
+             notFound(); // Mostra 404 se não achar
+        }
 
-        const { data: produtosDoContrato } = await supabase
+        // Busca de produtos (mantido)
+        const { data: produtosDoContrato, error: produtosError } = await supabase
             .from('contrato_produtos')
             .select('produtos_empreendimento (*)')
             .eq('contrato_id', id);
 
-        contratoData.produtos = produtosDoContrato.map(item => item.produtos_empreendimento) || [];
+        if (produtosError) {
+            console.error("Erro ao buscar produtos do contrato:", produtosError);
+            contratoData.produtos = []; // Define como array vazio
+        } else {
+            contratoData.produtos = produtosDoContrato?.map(item => item.produtos_empreendimento) || [];
+        }
+
 
         return (
             <div className="p-4 md:p-6 lg:p-8 space-y-6">
@@ -91,14 +107,15 @@ export default async function ContratoPage({ params }) {
                         Voltar para a Lista de Contratos
                     </Link>
                 </div>
-                <FichaContrato 
+                {/* Passa os dados buscados */}
+                <FichaContrato
                     initialContratoData={contratoData}
                 />
             </div>
         );
 
     } catch (error) {
-        console.error("Erro detalhado ao buscar dados do contrato:", error);
-        return <p className="p-4 text-red-500">Não foi possível carregar os dados do contrato. Verifique o console do servidor para mais detalhes.</p>;
+        console.error("Erro geral na página do contrato:", error);
+        return <p className="p-4 text-red-500">Não foi possível carregar os dados do contrato. Causa: {error.message}</p>;
     }
 }

@@ -28,7 +28,7 @@ import StarterKit from '@tiptap/starter-kit';
 
 // --- SUB-COMPONENTES (Sem mudanças) ---
 function InfoField({ label, value, fullWidth = false }) {
-     // ... (código inalterado) ...
+    // ... (código inalterado) ...
     if (value === null || value === undefined || value === '') return null;
     return (
      <div className={fullWidth ? "md:col-span-3" : ""}>
@@ -39,7 +39,7 @@ function InfoField({ label, value, fullWidth = false }) {
 }
 function KpiCard({ title, value, icon, colorClass = 'text-blue-500' }) {
     // ... (código inalterado) ...
-    return (
+     return (
      <div className="bg-white p-4 rounded-lg shadow flex items-center space-x-4">
       {icon && <FontAwesomeIcon icon={icon} className={`text-2xl ${colorClass}`} />}
       <div>
@@ -58,7 +58,7 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, catego
     const [isUploading, setIsUploading] = useState(false);
     const [isDraggingOver, setIsDraggingOver] = useState(false);
     const fileInputRef = useRef(null);
-    
+
     const handleFileSelect = async (selectedFile) => {
         if (!selectedFile) return;
 
@@ -66,7 +66,7 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, catego
             setFile(selectedFile);
             return;
         }
-        
+
         const options = {
             maxSizeMB: 2,
             maxWidthOrHeight: 1920,
@@ -107,23 +107,23 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, catego
             const { error: uploadError } = await supabase.storage.from('empreendimento-anexos').upload(newFileName, file, { upsert: true });
             if (uploadError) return reject(uploadError);
 
-            const { data, error: dbError } = await supabase.from('empreendimento_anexos').insert({ 
-                empreendimento_id: empreendimentoId, 
-                caminho_arquivo: newFileName, 
-                nome_arquivo: file.name, 
-                descricao: descricao, 
-                tipo_documento_id: tipoId, 
+            const { data, error: dbError } = await supabase.from('empreendimento_anexos').insert({
+                empreendimento_id: empreendimentoId,
+                caminho_arquivo: newFileName,
+                nome_arquivo: file.name,
+                descricao: descricao,
+                tipo_documento_id: tipoId,
                 categoria_aba: categoria,
                 organizacao_id: organizacaoId
             }).select().single();
 
             if (dbError) return reject(dbError);
             fetch('/api/empreendimentos/process-anexo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ anexoId: data.id }) }).catch(err => console.error("Erro ao chamar API de processamento da IA:", err));
-            
-            fetch('/api/generate-pdf-thumbnail', { 
+
+            fetch('/api/generate-pdf-thumbnail', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ anexo: data }) 
+                body: JSON.stringify({ anexo: data })
             }).catch(err => console.error("Erro ao iniciar a geração de thumbnail:", err));
 
             resolve({msg: "Anexo enviado! A IA começará a estudá-lo.", newAnexo: data});
@@ -159,7 +159,7 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, catego
 };
 const TabelaVendas = ({ produtos, empreendimentoId }) => {
     // ... (código inalterado) ...
-    const [sortConfig, setSortConfig] = useState({ key: 'unidade', direction: 'ascending' });
+     const [sortConfig, setSortConfig] = useState({ key: 'unidade', direction: 'ascending' });
     const requestSort = (key) => { let direction = 'ascending'; if (sortConfig.key === key && sortConfig.direction === 'ascending') { direction = 'descending'; } setSortConfig({ key, direction }); };
     const sortedProdutos = useMemo(() => { let sortableItems = [...produtos]; if (sortConfig.key !== null) { sortableItems.sort((a, b) => { const valA = a[sortConfig.key]; const valB = b[sortConfig.key]; if (valA === null || valA === undefined) return 1; if (valB === null || valB === undefined) return -1; if (sortConfig.key === 'valor_venda_calculado' || sortConfig.key === 'area_privativa') { const numA = parseFloat(valA) || 0; const numB = parseFloat(valB) || 0; return sortConfig.direction === 'ascending' ? numA - numB : numB - numA; } if (String(valA).toLowerCase() < String(valB).toLowerCase()) { return sortConfig.direction === 'ascending' ? -1 : 1; } if (String(valA).toLowerCase() > String(valB).toLowerCase()) { return sortConfig.direction === 'ascending' ? 1 : -1; } return 0; }); } return sortableItems; }, [produtos, sortConfig]);
     const SortableHeader = ({ label, sortKey, className = '' }) => { const getSortIcon = () => { if (sortConfig.key !== sortKey) return faSort; return sortConfig.direction === 'ascending' ? faSortUp : faSortDown; }; return ( <th className={`py-3 px-4 text-sm font-semibold text-gray-600 ${className}`}> <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 w-full"> <span>{label}</span> <FontAwesomeIcon icon={getSortIcon()} className="text-gray-400" /> </button> </th> ); };
@@ -219,7 +219,7 @@ const GaleriaMarketing = ({ anexos, onDelete }) => {
             }
         );
     };
-    
+
     if (!anexos || anexos.length === 0) return <p className="text-center text-gray-500 py-4 mt-4">Nenhum item de marketing encontrado.</p>;
 
     const isVideo = (path) => /\.(mp4|webm|ogg)$/i.test(path || '');
@@ -230,7 +230,7 @@ const GaleriaMarketing = ({ anexos, onDelete }) => {
             toast.error("Arquivo não encontrado.");
             return;
         }
-        
+
         const { data } = supabase.storage.from('empreendimento-anexos').getPublicUrl(filePath);
 
         if (data?.publicUrl) {
@@ -248,8 +248,8 @@ const GaleriaMarketing = ({ anexos, onDelete }) => {
 
     return (
         <>
-            <input 
-                type="file" 
+            <input
+                type="file"
                 ref={replaceFileInputRef}
                 className="hidden"
                 onChange={handleFileReplace}
@@ -271,7 +271,7 @@ const GaleriaMarketing = ({ anexos, onDelete }) => {
                                 anexo.public_url && <img src={anexo.public_url} alt={anexo.nome_arquivo} className="w-full h-48 object-contain"/>
                             )}
                         </a>
-                        
+
                         <div className="absolute top-0 right-0 p-1 flex items-center gap-1 bg-black/20 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={() => handleReplaceClick(anexo)} title="Substituir" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faRightLeft} /></button>
                             <a href={anexo.public_url} download={anexo.nome_arquivo} title="Baixar" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faDownload} /></a>
@@ -292,6 +292,7 @@ const GaleriaMarketing = ({ anexos, onDelete }) => {
     );
 };
 
+
 // --- COMPONENTE DO MODAL (Reintroduzido com a correção) ---
 const ModalModeloContrato = ({ isOpen, onClose, modeloToEdit, empreendimentoId, organizacaoId, onSaveSuccess }) => {
     // ... (código do modal com TipTap e immediatelyRender: false - inalterado) ...
@@ -307,22 +308,22 @@ const ModalModeloContrato = ({ isOpen, onClose, modeloToEdit, empreendimentoId, 
     });
 
     useEffect(() => {
-        if (isOpen) { 
+        if (isOpen) {
             const initialHtml = modeloToEdit?.clausulas_html || '';
             setNomeModelo(modeloToEdit?.nome_modelo || '');
             if(editor) {
                editor.commands.setContent(initialHtml);
             }
         }
-    }, [modeloToEdit, isOpen, editor]); 
+    }, [modeloToEdit, isOpen, editor]);
 
     const MenuBar = ({ editor }) => {
         if (!editor) return null;
 
         const Button = ({ onClick, icon, title, isActive }) => (
-            <button 
-                type="button" 
-                onClick={onClick} 
+            <button
+                type="button"
+                onClick={onClick}
                 title={title}
                 className={`p-2 rounded hover:bg-gray-200 ${isActive ? 'bg-gray-200 text-blue-600' : 'text-gray-700'}`}
             >
@@ -348,7 +349,7 @@ const ModalModeloContrato = ({ isOpen, onClose, modeloToEdit, empreendimentoId, 
                 empreendimento_id: empreendimentoId,
                 organizacao_id: organizacaoId,
                 nome_modelo: nome,
-                clausulas_html: html, 
+                clausulas_html: html,
                 updated_at: new Date(),
             };
             let result;
@@ -384,7 +385,7 @@ const ModalModeloContrato = ({ isOpen, onClose, modeloToEdit, empreendimentoId, 
             return;
         }
         setIsSaving(true);
-        const currentHtml = editor.getHTML(); 
+        const currentHtml = editor.getHTML();
         mutation.mutate({ nome: nomeModelo, html: currentHtml });
     };
 
@@ -423,10 +424,10 @@ const ModalModeloContrato = ({ isOpen, onClose, modeloToEdit, empreendimentoId, 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Cláusulas do Contrato</label>
                         <div className="border rounded-md overflow-hidden h-[55vh] flex flex-col">
-                           {editor && <MenuBar editor={editor} />} 
-                           <EditorContent 
-                                editor={editor} 
-                                className="p-3 flex-grow overflow-y-auto prose max-w-none prose-sm editor-styles" 
+                           {editor && <MenuBar editor={editor} />}
+                           <EditorContent
+                                editor={editor}
+                                className="p-3 flex-grow overflow-y-auto prose max-w-none prose-sm editor-styles"
                             />
                         </div>
                     </div>
@@ -451,10 +452,11 @@ const ModalModeloContrato = ({ isOpen, onClose, modeloToEdit, empreendimentoId, 
     );
 };
 
+
 // --- COMPONENTE GerenciamentoModelosContrato (Reintroduzido) ---
 const GerenciamentoModelosContrato = ({ empreendimentoId, organizacaoId }) => {
     // ... (código do gerenciador de modelos - inalterado) ...
-    const supabase = createClient();
+     const supabase = createClient();
     const queryClient = useQueryClient();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modeloToEdit, setModeloToEdit] = useState(null);
@@ -522,8 +524,8 @@ const GerenciamentoModelosContrato = ({ empreendimentoId, organizacaoId }) => {
         <div className="space-y-6 animate-fade-in">
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-semibold text-gray-800">Modelos de Contrato</h2>
-                <button 
-                    onClick={() => handleOpenModal()} 
+                <button
+                    onClick={() => handleOpenModal()}
                     className="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 flex items-center gap-2"
                 >
                     <FontAwesomeIcon icon={faPlus} /> Adicionar Novo Modelo
@@ -578,7 +580,7 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
     const handleGerarResumo = async () => {
          // ... (código inalterado) ...
          setIsGeneratingSummary(true);
-        setSummary(''); 
+        setSummary('');
         toast.info("A Stella começou a trabalhar... Isso pode levar um minuto.");
 
         try {
@@ -619,34 +621,34 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
         vgvTotal: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(vgvTotal),
         };
     }, [produtos]);
-    
+
     // handleDeleteAnexo (sem mudanças)
     const handleDeleteAnexo = async (anexoId) => {
         // ... (código inalterado) ...
-        const anexoToDelete = anexos.find(a => a.id === anexoId);
+         const anexoToDelete = anexos.find(a => a.id === anexoId);
         if (!anexoToDelete || !window.confirm(`Tem certeza que deseja excluir o anexo "${anexoToDelete.nome_arquivo}"?`)) return;
-        
+
         toast.promise(
             new Promise(async (resolve, reject) => {
                 const { error: storageError } = await supabase.storage.from('empreendimento-anexos').remove([anexoToDelete.caminho_arquivo]);
                 if (storageError && storageError.statusCode !== '404') return reject(storageError);
-                
+
                 const { error: dbError } = await supabase.from('empreendimento_anexos').delete().eq('id', anexoId);
                 if (dbError) return reject(dbError);
-                
+
                 resolve("Anexo excluído com sucesso!");
             }),
             {
                 loading: 'Excluindo...',
-                success: (msg) => { 
+                success: (msg) => {
                     setAnexos(currentAnexos => currentAnexos.filter(a => a.id !== anexoId));
-                    return msg; 
+                    return msg;
                 },
                 error: (err) => `Erro ao excluir: ${err.message}`,
             }
         );
     };
-    
+
     // Memos (incorporadora, etc. - sem mudanças)
     const incorporadora = useMemo(() => corporateEntities.find(e => e.id === empreendimento.incorporadora_id), [corporateEntities, empreendimento.incorporadora_id]);
     const construtora = useMemo(() => corporateEntities.find(e => e.id === empreendimento.construtora_id), [corporateEntities, empreendimento.construtora_id]);
@@ -668,11 +670,11 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
 
     // TabButton (sem mudanças)
     const TabButton = ({ tabId, label }) => (
-        <button 
-            onClick={() => setActiveTab(tabId)} 
+        <button
+            onClick={() => setActiveTab(tabId)}
             className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${
-                activeTab === tabId 
-                ? 'border-blue-500 text-blue-600' 
+                activeTab === tabId
+                ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
         >
@@ -684,6 +686,7 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
         <div className="p-6 bg-white shadow-md rounded-lg">
         {/* Header (sem mudanças) */}
         <div className="flex justify-between items-start mb-6 gap-4">
+             {/* ... */}
             <h1 className="text-3xl font-bold text-gray-800">{empreendimento.nome}</h1>
             <div className="flex items-center gap-2 flex-shrink-0">
                 <button
@@ -699,12 +702,13 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
                 </Link>
             </div>
         </div>
-        
+
         {/* Resumo IA (sem mudanças) */}
         {summary && (
             <div className="mb-6 p-4 border border-purple-200 bg-purple-50 rounded-lg animate-fade-in">
-                 <h3 className="text-lg font-semibold text-purple-800 mb-2">Resumo Gerado pela Stella</h3>
-                <div 
+                 {/* ... */}
+                <h3 className="text-lg font-semibold text-purple-800 mb-2">Resumo Gerado pela Stella</h3>
+                <div
                     className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap"
                     dangerouslySetInnerHTML={{ __html: summary.replace(/\n/g, '<br />') }}
                 />
@@ -713,6 +717,7 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
 
         {/* KPIs (sem mudanças) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+             {/* ... */}
             <KpiCard title="Status Atual" value={empreendimento.status || 'N/A'} icon={faBuilding} />
             <KpiCard title="Total de Unidades" value={kpiData.totalUnidades} icon={faBoxOpen} />
             <KpiCard title="Unidades Vendidas" value={kpiData.unidadesVendidas} icon={faBoxOpen} colorClass="text-green-500" />
@@ -764,18 +769,18 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
             )}
 
             {activeTab === 'produtos' && <TabelaVendas produtos={produtos} empreendimentoId={empreendimento.id} />}
-            
+
             {activeTab === 'gerenciamento_contratos' && (
-                <GerenciamentoModelosContrato 
-                    empreendimentoId={empreendimento.id} 
-                    organizacaoId={organizacaoId} 
+                <GerenciamentoModelosContrato
+                    empreendimentoId={empreendimento.id}
+                    organizacaoId={organizacaoId}
                 />
             )}
-            
+
             {['documentos_juridicos', 'documentos_gerais', 'marketing'].includes(activeTab) && (
                 <div className="space-y-6 animate-fade-in">
                     {/* Conteúdo das Abas de Documentos (original) */}
-                     {activeTab === 'documentos_juridicos' && (
+                    {activeTab === 'documentos_juridicos' && (
                         <>
                             <AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="juridico" organizacaoId={organizacaoId} />
                             <ListaAnexos anexos={anexos.filter(a => a.categoria_aba === 'juridico')} onDelete={handleDeleteAnexo} />

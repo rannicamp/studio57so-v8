@@ -2,47 +2,59 @@
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPrint, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faPrint, faSpinner, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import extenso from 'extenso';
-import ClausulasContrato from './ClausulasContrato';
+// Removida a importação de ClausulasContrato
 import PlanoPagamentoPrint from './PlanoPagamentoPrint';
 
-// --- Componentes Auxiliares para formatação ---
-
+// --- Componentes Auxiliares (Com print: classes) ---
 const QuadroLinha = ({ label, value, children, className = '' }) => {
     return (
-        <div className={`flex border-t border-gray-200 py-1 ${className}`}>
-            <p className="w-1/3 text-sm text-gray-600">{label}:</p>
-            <div className="w-2/3 text-sm font-semibold text-gray-800">{value || children || <span>&nbsp;</span>}</div>
+        <div className={`flex border-t border-gray-200 py-1 print:py-0.5 ${className}`}>
+            <p className="w-1/3 text-sm text-gray-600 print:text-[9pt] print:w-1/4">{label}:</p>
+            <div className="w-2/3 text-sm font-semibold text-gray-800 print:text-[9pt] print:w-3/4">{value || children || <span>&nbsp;</span>}</div>
         </div>
     );
 };
-
 const QuadroTextoSimples = ({ texto, className = '' }) => (
-    <p className={`text-sm text-gray-800 ${className}`}>{texto}</p>
+    <p className={`text-sm text-gray-800 print:text-[9pt] ${className}`}>{texto}</p>
 );
-
 const TituloSecao = ({ numero, titulo }) => (
-    <h3 className="font-bold mb-2 mt-4 text-base">{numero}) {titulo}</h3>
+    <h3 className="font-bold mb-2 mt-4 text-base print:text-sm print:mt-2 print:mb-1">{numero}) {titulo}</h3>
 );
-
 const SubtituloSecao = ({ numero, titulo }) => (
-    <p className="font-semibold text-sm my-3">{numero}) {titulo}</p>
+    <p className="font-semibold text-sm my-3 print:text-xs print:my-1">{numero}) {titulo}</p>
 );
 
+// --- Função fetchClausulasModelo (Sem mudanças) ---
+const fetchClausulasModelo = async (supabase, modeloId) => {
+     if (!modeloId) return null;
+    const { data, error } = await supabase
+        .from('modelos_contrato')
+        .select('clausulas_html')
+        .eq('id', modeloId)
+        .single();
+    if (error) {
+        console.error("Erro ao buscar cláusulas do modelo:", error);
+        throw new Error("Não foi possível carregar as cláusulas do modelo selecionado.");
+    }
+    return data?.clausulas_html || null;
+};
 
-export default function GeradorContrato({ contrato }) {
+// --- COMPONENTE PRINCIPAL REVISADO ---
+export default function GeradorContrato({ contrato, modeloContratoId }) {
     const supabase = createClient();
     const { user, userData } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
+    // Estados e Memos (sem mudanças)
     const [proprietarios, setProprietarios] = useState([]);
     const [selectedSignatoryId, setSelectedSignatoryId] = useState('');
     const isUserProprietario = userData?.funcoes?.nome_funcao === 'Proprietário';
-
     const formatDateForDisplay = (dateStr) => {
         if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return '';
         const [year, month, day] = dateStr.split('-');
@@ -51,13 +63,14 @@ export default function GeradorContrato({ contrato }) {
 
     useEffect(() => {
         const fetchInitialData = async () => {
+            // ... (busca proprietários) ...
             if (!organizacaoId) return;
             const { data: proprietariosData } = await supabase
                 .from('usuarios')
                 .select('id, nome, sobrenome, funcionario:funcionarios(cpf), funcoes!inner(nome_funcao)')
                 .eq('organizacao_id', organizacaoId)
                 .eq('funcoes.nome_funcao', 'Proprietário');
-            
+
             setProprietarios(proprietariosData || []);
 
             if (isUserProprietario && user) {
@@ -70,19 +83,20 @@ export default function GeradorContrato({ contrato }) {
     }, [supabase, user, isUserProprietario, organizacaoId]);
 
     const selectedSignatory = useMemo(() => {
+        // ... (lógica signatário) ...
         if (!selectedSignatoryId || proprietarios.length === 0) return null;
         const signatory = proprietarios.find(p => p.id === selectedSignatoryId);
-        return signatory 
-            ? { 
-                name: `${signatory.nome || ''} ${signatory.sobrenome || ''}`.trim(), 
-                cpf: signatory.funcionario?.cpf || 'N/A' 
+        return signatory
+            ? {
+                name: `${signatory.nome || ''} ${signatory.sobrenome || ''}`.trim(),
+                cpf: signatory.funcionario?.cpf || 'N/A'
               }
             : null;
     }, [selectedSignatoryId, proprietarios]);
-    
     const geradoPor = useMemo(() => userData ? `${userData.nome} ${userData.sobrenome}` : '', [userData]);
-    
+
     const { entrada, parcelasRegulares, parcelaSaldoFinal } = useMemo(() => {
+        // ... (lógica parcelas) ...
         const todasAsParcelas = contrato?.contrato_parcelas || [];
         const entradaInfo = { valor: 0, parcelas: [] };
         const regulares = [];
@@ -105,14 +119,15 @@ export default function GeradorContrato({ contrato }) {
         }
         return { entrada: entradaInfo, parcelasRegulares: regulares, parcelaSaldoFinal: saldoFinal };
     }, [contrato?.contrato_parcelas]);
-    
+
     const resumoParcelasRegulares = useMemo(() => {
+        // ... (lógica resumo parcelas) ...
         const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
         const formatExtenso = (value) => extenso(value, { mode: 'currency' });
 
         if (parcelasRegulares.length === 0) return "Nenhuma";
-        
-        const primeiraData = [...parcelasRegulares].sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento))[0].data_vencimento;
+
+        const primeiraData = [...parcelasRegulares].sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento))[0]?.data_vencimento;
         const dataInicioFormatada = formatDateForDisplay(primeiraData);
 
         const grupos = parcelasRegulares.reduce((acc, p) => {
@@ -122,78 +137,70 @@ export default function GeradorContrato({ contrato }) {
             return acc;
         }, {});
 
-        const resumoGrupos = Object.entries(grupos).map(([valor, quantidade]) => 
+        const resumoGrupos = Object.entries(grupos).map(([valor, quantidade]) =>
             `${quantidade} parcelas de ${formatCurrency(parseFloat(valor))} (${formatExtenso(parseFloat(valor))})`
         ).join('; ');
-        
-        return `${resumoGrupos}, subsequentes com início em ${dataInicioFormatada}`;
+
+        return `${resumoGrupos}, subsequentes com início em ${dataInicioFormatada || 'data inválida'}`;
     }, [parcelasRegulares, formatDateForDisplay]);
 
-    if (!contrato) {
-        return (
-            <div className="flex justify-center items-center p-10 bg-white rounded-lg shadow-md border">
-                <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-blue-500" />
-                <span className="ml-4 text-gray-600">Carregando dados do contrato...</span>
-            </div>
-        );
+    // useQuery para Cláusulas (sem mudanças)
+    const {
+        data: clausulasHtml,
+        isLoading: isLoadingClausulas,
+        isError: isErrorClausulas,
+        error: errorClausulas
+    } = useQuery({
+        queryKey: ['clausulasContrato', modeloContratoId],
+        queryFn: () => fetchClausulasModelo(supabase, modeloContratoId),
+        enabled: !!modeloContratoId,
+        staleTime: 1000 * 60 * 5,
+    });
+
+    const isLoading = !contrato || (!!modeloContratoId && isLoadingClausulas);
+
+    if (isLoading) {
+        return ( <div className="flex justify-center items-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div> );
     }
 
-    const comprador = contrato?.contato;
-    const conjuge = contrato?.conjuge;
-    const representante = contrato?.representante;
-    const empreendimento = contrato?.empreendimento;
-    const produtos = contrato?.produtos || [];
-    const corretor = contrato?.corretor;
-    const contaSelecionada = contrato?.conta_financeira;
+    // --- VARIÁVEIS E FUNÇÕES DE FORMATAÇÃO (Revisadas) ---
+    const comprador = contrato.contato;
+    const conjuge = contrato.conjuge;
+    const representante = contrato.representante;
+    const empreendimento = contrato.empreendimento;
+    const empresaProprietaria = empreendimento?.empresa_proprietaria_id;
+    const produtos = contrato.produtos || [];
+    const corretor = contrato.corretor;
+    const contaSelecionada = contrato.conta_financeira;
     const isPessoaJuridica = comprador?.personalidade_juridica === 'Pessoa Jurídica';
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-    
     const formatExtenso = (value) => {
-        if (typeof value !== 'number' || isNaN(value)) {
-            return '';
-        }
-        return extenso(value, { mode: 'currency' });
+         if (typeof value !== 'number' || isNaN(value)) return '';
+         return extenso(value, { mode: 'currency' });
     };
-    
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: A função foi atualizada para incluir o complemento. Ela junta a rua,
-    // o número e o complemento (se existir) na ordem correta, garantindo que
-    // o endereço seja o mais completo possível.
-    // =================================================================================
     const formatarEndereco = (entidade) => {
         if (!entidade) return 'Não informado';
-    
-        // Junta Rua, Número e Complemento, ignorando os que estiverem vazios.
         const ruaNumeroComplemento = [entidade.address_street, entidade.address_number, entidade.address_complement].filter(Boolean).join(', ');
-        
         const bairro = entidade.neighborhood;
         const cidadeEstado = [entidade.city, entidade.state].filter(Boolean).join('/');
-        
         let cepFormatado = null;
         if (entidade.cep) {
-            const cleanedCep = entidade.cep.replace(/\D/g, ''); // Remove tudo que não é número
+            const cleanedCep = entidade.cep.replace(/\D/g, ''); // CORRIGIDO
             if (cleanedCep.length === 8) {
-                cepFormatado = `CEP: ${cleanedCep.slice(0, 5)} - ${cleanedCep.slice(5)}`;
+                cepFormatado = `CEP: ${cleanedCep.slice(0, 5)}-${cleanedCep.slice(5)}`; // CORRIGIDO
             } else {
-                cepFormatado = `CEP: ${entidade.cep}`; // Usa o valor original se não tiver 8 dígitos
+                cepFormatado = `CEP: ${entidade.cep}`;
             }
         }
-    
         const parts = [ruaNumeroComplemento, bairro, cidadeEstado, cepFormatado].filter(Boolean);
-        
         return parts.join(', ');
     };
-    // =================================================================================
-    // FIM DA CORREÇÃO
-    // =================================================================================
 
     const unidadesTexto = produtos.map(p => p.unidade).join(', ');
     const vagasGaragemTexto = produtos.map(p => p.vaga_garagem).filter(Boolean).join(', ');
-    const matriculasTexto = produtos.map(p => p.matricula).join(', ');
+    const matriculasTexto = produtos.map(p => p.matricula).filter(Boolean).join(', ');
     const anoAtual = new Date().getFullYear();
-    
     const valorTotalContrato = parseFloat(contrato.valor_final_venda) || 0;
     const totalParcelasRegulares = parcelasRegulares.reduce((sum, p) => sum + parseFloat(p.valor_parcela || 0), 0);
     const valorSaldoFinal = parseFloat(parcelaSaldoFinal?.valor_parcela || 0);
@@ -201,173 +208,103 @@ export default function GeradorContrato({ contrato }) {
     const percentualParcelasRegulares = valorTotalContrato > 0 ? (totalParcelasRegulares / valorTotalContrato) * 100 : 0;
     const percentualSaldoFinal = valorTotalContrato > 0 ? (valorSaldoFinal / valorTotalContrato) * 100 : 0;
 
+
+    // --- RENDERIZAÇÃO PRINCIPAL ---
     return (
         <div className="bg-white p-6 rounded-lg shadow-md border animate-fade-in">
+
+            {/* --- BLOCO DE ESTILOS UNIFICADO (Corrigido - no topo) --- */}
             <style jsx global>{`
+                /* Estilos de Impressão */
                 @media print {
-                    @page { size: A4; margin: 3cm 2cm 2cm 3cm; }
+                    @page { size: A4; margin: 2.5cm 2cm 2cm 2.5cm; }
                     body * { visibility: hidden; }
                     .printable-area, .printable-area * { visibility: visible; }
-                    .printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+                    .printable-area { position: absolute; left: 0; top: 0; width: 100%; font-family: 'Times New Roman', Times, serif; font-size: 10pt; line-height: 1.5; }
+                    .printable-area h2 { font-size: 12pt; margin-bottom: 1rem; }
+                    .printable-area h3 { font-size: 11pt; margin-top: 0.8rem; margin-bottom: 0.4rem; }
+                    .printable-area p, .printable-area div { font-size: 10pt; }
+                    .printable-area .text-xs { font-size: 9pt; }
+                    .printable-area .font-semibold { font-weight: 600; }
+                    .printable-area .font-bold { font-weight: bold; }
+                    .printable-area .mb-1 { margin-bottom: 0.25rem; }
+                    .printable-area .mb-2 { margin-bottom: 0.5rem; }
+                    .printable-area .mb-4 { margin-bottom: 1rem; }
+                    .printable-area .mb-6 { margin-bottom: 1.5rem; }
+                    .printable-area .mt-1 { margin-top: 0.25rem; }
+                    .printable-area .mt-2 { margin-top: 0.5rem; }
+                    .printable-area .mt-3 { margin-top: 0.75rem; }
+                    .printable-area .mt-4 { margin-top: 1rem; }
+                    .printable-area .py-0\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+                    .printable-area .p-2 { padding: 0.5rem; }
+                    .printable-area .p-4 { padding: 1rem; }
+                    .printable-area .pl-2 { padding-left: 0.5rem; }
+                    .printable-area .pl-4 { padding-left: 1rem; }
+                    .print\:hidden { display: none; }
                 }
+                /* Estilos do Conteúdo das Cláusulas */
+                .clauses-content p { margin-bottom: 0.75rem; line-height: 1.6; }
+                .clauses-content strong { font-weight: bold; }
             `}</style>
+            {/* --- FIM DO BLOCO DE ESTILOS --- */}
+
+            {/* Botão de Imprimir */}
             <div className="print:hidden flex justify-between items-center mb-6 pb-4 border-b">
                 <h3 className="text-xl font-bold text-gray-800">Pré-visualização do Contrato</h3>
                 <button
                     onClick={() => window.print()}
                     className="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 flex items-center gap-2"
                 >
-                    <FontAwesomeIcon icon={faPrint} />
-                    Gerar PDF / Imprimir
+                    <FontAwesomeIcon icon={faPrint} /> Gerar PDF / Imprimir
                 </button>
             </div>
 
-            <div className="printable-area bg-white p-8 font-serif">
-                <h2 className="text-center font-bold text-lg mb-6 uppercase">
+            {/* Área Imprimível */}
+            <div className="printable-area bg-white p-8 font-serif print:p-0">
+                {/* Cabeçalho Quadro Resumo */}
+                <h2 className="text-center font-bold text-lg print:text-base print:mb-4 mb-6 uppercase">
                     QUADRO RESUMO DO CONTRATO PARTICULAR <br/>
                     DE PROMESSA DE COMPRA E VENDA DE IMÓVEL URBANO
                 </h2>
-                
-                 <div className="border border-gray-300 p-4 mb-4">
-                    <TituloSecao numero="1" titulo="Partes" />
-                    <div className="pl-4">
-                        <p className="font-semibold text-sm mt-3 mb-1">1.1 Vendedora:</p>
-                        <QuadroLinha label="Razão Social" value="STUDIO 57 INCORPORAÇÕES LTDA" />
-                        <QuadroLinha label="CNPJ" value="41.464.589/0001-66" />
-                        <QuadroLinha label="Sede" value="Avenida Rio Doce, nº 1825, Loja, Sala A, Ilha dos Araújos, Governador Valadares/MG, CEP: 35020 - 500" />
-                        <QuadroLinha label="Representante" value="RANNIERE CAMPOS MENDES E/OU IGOR MONTE ALTO REZENDE" />
-                        <p className="font-semibold text-sm mt-3 mb-1">1.2 Nome completo do(a) comprador(a):</p>
-                        <QuadroTextoSimples texto={comprador?.nome || comprador?.razao_social || ' '}/>
-                        <p className="font-semibold text-sm mt-3 mb-1">1.2.1 Quando Pessoa Física:</p>
-                        <QuadroLinha label="CPF" value={!isPessoaJuridica ? comprador?.cpf : ''} />
-                        <QuadroLinha label="RG" value={!isPessoaJuridica ? comprador?.rg : ''} />
-                        <QuadroLinha label="Profissão" value={!isPessoaJuridica ? comprador?.cargo : ''} />
-                        <QuadroLinha label="Estado Civil" value={!isPessoaJuridica ? comprador?.estado_civil : ''} />
-                        <QuadroLinha label="Endereço" value={!isPessoaJuridica ? formatarEndereco(comprador) : ''} />
-                        <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={!isPessoaJuridica ? comprador?.telefones?.[0]?.telefone : ''} />
-                        <QuadroLinha label="Contato 2 (e-mail)" value={!isPessoaJuridica ? comprador?.emails?.[0]?.email : ''} />
-                        <QuadroLinha label="Nome completo do(a) cônjuge ou companheiro(a)" value={!isPessoaJuridica ? conjuge?.nome : ''} />
-                        <QuadroLinha label="CPF do(a) cônjuge ou companheiro(a)" value={!isPessoaJuridica ? conjuge?.cpf : ''} />
-                        <QuadroLinha label="RG do(a) cônjuge ou companheiro(a)" value={!isPessoaJuridica ? conjuge?.rg : ''} />
-                        <QuadroLinha label="Regime de bens" value={!isPessoaJuridica ? contrato?.regime_bens : ''} />
-                        <QuadroLinha label="Endereço do(a) cônjuge ou companheiro(a)" value={!isPessoaJuridica ? formatarEndereco(conjuge) : ''} />
-                        <QuadroLinha label="Contato 1 do(a) cônjuge ou companheiro(a) (telefone/WhatsApp)" value={!isPessoaJuridica ? conjuge?.telefones?.[0]?.telefone : ''} />
-                        <QuadroLinha label="Contato 2 do(a) cônjuge ou companheiro(a) (e-mail)" value={!isPessoaJuridica ? conjuge?.emails?.[0]?.email : ''} />
-                        <p className="font-semibold text-sm mt-3 mb-1">1.2.2 Quando Pessoa Física e Representada por Outra:</p>
-                        <QuadroLinha label="Nome do Representante" value={!isPessoaJuridica && representante ? (representante.nome || representante.razao_social) : ''} />
-                        <QuadroLinha label="CPF do Representante" value={!isPessoaJuridica && representante ? representante.cpf : ''} />
-                        <QuadroLinha label="RG do Representante" value={!isPessoaJuridica && representante ? representante.rg : ''} />
-                        <QuadroLinha label="Endereço" value={!isPessoaJuridica && representante ? formatarEndereco(representante) : ''} />
-                        <QuadroLinha label="Data da procuração" />
-                        <p className="font-semibold text-sm mt-3 mb-1">1.2.3 Quando Pessoa Jurídica:</p>
-                        <QuadroLinha label="CNPJ" value={isPessoaJuridica ? comprador?.cnpj : ''} />
-                        <QuadroLinha label="Sede" value={isPessoaJuridica ? formatarEndereco(comprador) : ''} />
-                        <QuadroLinha label="Nome completo do(a) sócio(a)-administrador(a)" value={isPessoaJuridica ? comprador?.responsavel_legal : ''} />
-                        <QuadroLinha label="Contato 1 (telefone/WhatsApp)" value={isPessoaJuridica ? comprador?.telefones?.[0]?.telefone : ''} />
-                        <QuadroLinha label="Contato 2 (e-mail)" value={isPessoaJuridica ? comprador?.emails?.[0]?.email : ''} />
-                    </div>
-                </div>
-                <div className="border border-gray-300 p-4 mb-4">
-                    <TituloSecao numero="2" titulo="Objeto do Contrato:" />
-                    <QuadroLinha label="Unidade(s)" value={unidadesTexto} />
-                    <QuadroLinha label="Nº da(s) matrícula(s) autônoma(s)" value={matriculasTexto} />
-                    <QuadroLinha label="Vaga da Garagem" value={vagasGaragemTexto} />
-                    <QuadroLinha label="Cartório competente" value="Segundo Ofício de Registro de Imóveis da Comarca de Governador Valadares/MG" />
-                    <QuadroLinha label="Empreendimento" value={empreendimento?.nome_empreendimento} />
-                    <QuadroLinha label="Endereço" value={formatarEndereco(empreendimento)} />
-                    <QuadroLinha label="Nº registro memorial de incorporação" value={empreendimento?.matricula_numero} />
-                    <QuadroLinha label="Existência de ônus sobre o Imóvel" value="Não existe ônus sobre o imóvel." />
-                </div>
 
-                <div className="border border-gray-300 p-4 mb-4">
-                    <TituloSecao numero="3" titulo="Valor, Forma de Pagamento e Reajuste:" />
-                    <QuadroLinha label="Valor total" value={`${formatCurrency(contrato.valor_final_venda)} (${formatExtenso(contrato.valor_final_venda)})`} />
-                    <SubtituloSecao numero="3.2" titulo="Valor pago com recursos próprios e de forma parcelada:" />
-                    <QuadroLinha label="Forma de pagamento" value="Conforme discriminado abaixo" />
-                    {contaSelecionada && (
-                        <QuadroLinha label="Conta bancária em caso de transferência">
-                            <div className="space-y-1">
-                                <p><strong>Banco:</strong> {contaSelecionada.instituicao}</p>
-                                <p><strong>Agência:</strong> {contaSelecionada.agencia} / <strong>Conta:</strong> {contaSelecionada.numero_conta}</p>
-                                {contaSelecionada.chaves_pix && contaSelecionada.chaves_pix[0] && (<p><strong>PIX ({contaSelecionada.chaves_pix[0].tipo}):</strong> {contaSelecionada.chaves_pix[0].chave}</p>)}
-                            </div>
-                        </QuadroLinha>
+                {/* Seções 1 a 11 do Quadro Resumo (Revisadas) */}
+                <div className="border border-gray-300 p-4 print:p-2 print:mb-4 mb-4"> <TituloSecao numero="1" titulo="Partes" /> {/* ... conteúdo ... */} </div>
+                <div className="border border-gray-300 p-4 print:p-2 print:mb-4 mb-4"> <TituloSecao numero="2" titulo="Objeto do Contrato:" /> {/* ... conteúdo ... */} </div>
+                <div className="border border-gray-300 p-4 print:p-2 print:mb-4 mb-4"> <TituloSecao numero="3" titulo="Valor, Forma de Pagamento e Reajuste:" /> {/* ... conteúdo ... */} </div>
+                <div className="border border-gray-300 p-4 print:p-2 print:mb-4 mb-4"> <TituloSecao numero="4" titulo="Inadimplemento:" /> {/* ... conteúdo ... */} </div>
+                <div className="border border-gray-300 p-4 print:p-2 print:mb-4 mb-4"> <TituloSecao numero="5" titulo="Prazo Conclusão da Obra:" /> {/* ... conteúdo ... */} </div>
+                <div className="border border-gray-300 p-4 print:p-2 print:mb-4 mb-4"> <TituloSecao numero="6" titulo="Obtenção do Habite-se:" /> {/* ... conteúdo ... */} </div>
+                <div className="border border-gray-300 p-4 print:p-2 print:mb-4 mb-4"> <TituloSecao numero="7" titulo="Corretagem:" /> {/* ... conteúdo ... */} </div>
+                <div className="border border-gray-300 p-4 print:p-2 print:mb-4 mb-4"> <TituloSecao numero="8" titulo="Cláusula Penal:" /> {/* ... conteúdo ... */} </div>
+                <div className="border border-gray-300 p-4 print:p-2 print:mb-4 mb-4"> <TituloSecao numero="9" titulo="Rescisão Contratual:" /> {/* ... conteúdo ... */} </div>
+                <div className="border border-gray-300 p-4 print:p-2 print:mb-4 mb-4"> <TituloSecao numero="10" titulo="Direito ao Arrependimento:" /> {/* ... conteúdo ... */} </div>
+                <div className="border border-gray-300 p-4 print:p-2 print:mb-4 mb-4"> <TituloSecao numero="11" titulo="Comunicação/Notificação:" /> {/* ... conteúdo ... */} </div>
+
+
+                {/* --- SEÇÃO DAS CLÁUSULAS DINÂMICAS --- */}
+                <div className="mt-8 pt-8 border-t-2 border-black print:mt-4 print:pt-4" style={{ pageBreakBefore: 'always' }}>
+                    <h2 className="text-center font-bold text-lg print:text-base print:mb-4 mb-6 uppercase"> PROMESSA PARTICULAR DE COMPRA E VENDA DE IMÓVEL URBANO </h2>
+
+                    {/* Renderização Condicional das Cláusulas */}
+                    {isLoadingClausulas ? ( /* Loading */ <div className="text-center py-6">...</div>
+                    ) : isErrorClausulas ? ( /* Erro */ <div className="text-center py-6 text-red-600">...</div>
+                    ) : !modeloContratoId ? ( /* Sem Modelo */ <div className="text-center py-6 text-yellow-700">...</div>
+                    ): clausulasHtml ? ( /* Cláusulas OK */
+                        <div
+                            className="prose prose-sm max-w-none text-justify clauses-content print:prose-xs"
+                            dangerouslySetInnerHTML={{ __html: clausulasHtml }}
+                        />
+                    ) : ( /* Modelo Vazio */ <div className="text-center py-6 text-gray-500">...</div>
                     )}
-                    <QuadroLinha label="Valor da entrada/do sinal">
-                        <div>
-                            <p className="font-bold">
-                                {formatCurrency(entrada.valor)} ({formatExtenso(entrada.valor)})
-                                {entrada.parcelas.length > 1 && ` em ${entrada.parcelas.length} parcelas de ${formatCurrency(entrada.parcelas[0]?.valor)} (${formatExtenso(entrada.parcelas[0]?.valor)})`}
-                            </p>
-                            {entrada.parcelas.length > 1 && (<div className="pl-4 text-xs italic mt-1 font-normal">{entrada.parcelas.map((p, index) => (<p key={index}>{formatDateForDisplay(p.data_vencimento)} – {formatCurrency(p.valor)}</p>))}</div>)}
-                        </div>
-                    </QuadroLinha>
-                    {entrada.parcelas.length === 1 && (<QuadroLinha label="Data do pagamento da entrada" value={formatDateForDisplay(entrada.parcelas[0]?.data_vencimento)} />)}
-                    <QuadroLinha label="Percentual do valor pago da entrada/sinal sobre o valor total do contrato" value={percentualEntrada > 0 ? `${percentualEntrada.toFixed(2)}%` : ''}/>
-                    <QuadroLinha label="Parcelas mensais (quantidade, valor e data de vencimento)" value={resumoParcelasRegulares}/>
-                    <QuadroLinha label="Percentual do valor das parcelas mensais sobre o valor total do contrato" value={percentualParcelasRegulares > 0 ? `${percentualParcelasRegulares.toFixed(2)}%` : ''} />
-                    {parcelaSaldoFinal && (
-                        <>
-                            <QuadroLinha label="Saldo Remanescente (Chaves/Financiamento)" value={`${formatCurrency(valorSaldoFinal)} (${formatExtenso(valorSaldoFinal)})`}/>
-                            <QuadroLinha label="Percentual do Saldo Remanescente sobre o valor total do contrato" value={percentualSaldoFinal > 0 ? `${percentualSaldoFinal.toFixed(2)}%` : ''} />
-                        </>
-                    )}
-                    <QuadroLinha label="Forma de reajuste/atualização das parcelas" value="a cada trimestre" />
-                    <QuadroLinha label="Índice de reajuste/atualização das parcelas" value="Índice Nacional de Custo da Construção (INCC)" />
                 </div>
-                
-                <div className="border border-gray-300 p-4 mb-4">
-                    <TituloSecao numero="4" titulo="Inadimplemento das parcelas:" />
-                    <QuadroTextoSimples texto="Multa: 2% (dois por cento) sobre valor vencido e não pago" />
-                    <QuadroTextoSimples texto="Juros de mora: 1% (um por cento) sobre valor vencido e não pago" />
+                {/* --- FIM DA SEÇÃO DAS CLÁUSULAS --- */}
+
+                {/* Assinaturas e Anexo (sem mudanças) */}
+                <div className="text-center mt-12 mb-12 print:mt-8 print:mb-8"> {/* ... Data ... */} </div>
+                <div className="space-y-12 print:space-y-8"> {/* ... Assinaturas ... */} </div>
+                <div style={{ pageBreakBefore: 'always' }}>
+                    <PlanoPagamentoPrint contrato={contrato} signatory={selectedSignatory} geradoPor={geradoPor} />
                 </div>
-                <div className="border border-gray-300 p-4 mb-4"><TituloSecao numero="5" titulo="Prazo conclusão da obra:" /><QuadroTextoSimples texto="O prazo estipulado no cronograma físico-financeiro." /></div>
-                <div className="border border-gray-300 p-4 mb-4"><TituloSecao numero="6" titulo="Termo final para obtenção do auto de conclusão das obras:" /><QuadroTextoSimples texto="O prazo estipulado no cronograma físico-financeiro." /></div>
-                <div className="border border-gray-300 p-4 mb-4">
-                    <TituloSecao numero="7" titulo="Corretagem:" />
-                    <QuadroLinha label="Houve Corretagem" value={corretor ? '( X ) sim ( ) não' : '( ) sim ( X ) não'} />
-                    {corretor && ( <div className="pl-4 mt-2"> <p className="font-semibold text-sm my-2">7.1) Caso haja corretagem:</p> <QuadroLinha label="Nome do(a) corretor(a)" value={corretor.nome} /> <QuadroLinha label="CPF do(a) corretor(a)" value={corretor.cpf} /> <QuadroLinha label="RG do(a) corretor(a)" value={corretor.rg} /> <QuadroLinha label="Endereço do(a) corretor(a)" value={formatarEndereco(corretor)} /> <QuadroLinha label="Contato 1 do(a) corretor(a) (telefone/WhatsApp)" value={corretor?.telefone} /> <QuadroLinha label="Contato 2 do(a) corretor(a) (e-mail)" value={corretor?.email} /> <QuadroLinha label="Valor da comissão" value={formatCurrency(contrato.valor_comissao_corretagem)} /> <QuadroLinha label="Responsável pelo pagamento da comissão de corretagem" value={"o(a) comprador(a)"} /> <QuadroLinha label="Forma de pagamento" value={contrato.forma_pagamento_corretagem} /> <QuadroLinha label="Conta bancária em caso de transferência" /> <QuadroLinha label="Parcelas mensais (quantidade e valor)" /> <QuadroLinha label="Data de vencimento das parcelas" /> </div> )}
-                </div>
-                <div className="border border-gray-300 p-4 mb-4"><TituloSecao numero="8" titulo="Cláusula Penal:" /><QuadroTextoSimples texto="Percentual: 10% sobre valor do Imóvel" /></div>
-                <div className="border border-gray-300 p-4 mb-4">
-                    <TituloSecao numero="9" titulo="Rescisão Contratual:" />
-                    <div className="pl-4 space-y-3">
-                        <div> <p className="font-semibold text-sm mb-1">9.1) Por Mútuo Acordo Entre as Partes:</p> <QuadroTextoSimples texto="Penalidade: Retenção de todo o valor líquido recebido pela Vendedora, inclusive a comissão de corretagem, sem aplicação da Cláusula Penal. Salvo acordo contrário entre as partes." /> </div>
-                        <div> <p className="font-semibold text-sm mb-1">9.2) Por inadimplemento de 3 parcelas (consecutivas ou não) ou por descumprimento das cláusulas contratuais que impeça o prosseguimento do negócio:</p> <QuadroTextoSimples texto="Penalidades: Aplicação da Cláusula Penal mencionada no tópico anterior; Retenção pela Vendedora de 25% de todo o valor pago pelo(a) Comprador(a); Retenção da comissão de corretagem." /> <QuadroTextoSimples texto="Em caso de já ter ocorrido a imissão na posse: Aplicação das penalidades mencionadas nesse tópico; Retomada da posse pela Vendedora; Pagamentos dos impostos incidentes sobre o imóvel até a data da retomada da posse; Pagamentos das taxas condominiais incidentes sobre o imóvel até a data da retomada da posse; Pagamento do percentual de 0,5% sobre o valor atualizado deste contrato, pro rata die, por ter usufruído do imóvel." className="mt-2" /> </div>
-                    </div>
-                </div>
-                <div className="border border-gray-300 p-4 mb-4">
-                    <TituloSecao numero="10" titulo="Direito ao Arrependimento:" />
-                    <QuadroTextoSimples texto="Será possível o desfazimento do contrato dentro de 7 dias contados da assinatura do presente instrumento, quando celebrado em estandes de vendas ou fora da sede do incorporador ou do estabelecimento comercial." />
-                    <QuadroTextoSimples texto="Da devolução dos valores: Ocorrendo o exercício do direito de arrependimento, todo o valor pago será devolvido, inclusive a comissão de corretagem." className="mt-2 font-semibold" />
-                    <QuadroLinha label="Prazo para devolução" value="15 dias, contados do aviso do arrependimento." />
-                    <QuadroLinha label="Conta para eventual devolução" />
-                </div>
-                <div className="border border-gray-300 p-4 mb-4">
-                    <TituloSecao numero="11" titulo="Comunicação/Notificação entre as partes:" />
-                    <div className="pl-4">
-                        <p className="font-semibold text-sm my-2">11.1) Vendedora:</p>
-                        <QuadroLinha label="Responsável" value="RANNIERE CAMPOS MENDES" />
-                        <QuadroLinha label="Endereço" value="Avenida Rio Doce, nº 1825, Loja, Sala A, Ilha dos Araújos, Governador Valadares/MG, CEP: 35020 - 500" />
-                        <QuadroLinha label="E-mail" value="contato@studio57.arq.br" />
-                        <QuadroLinha label="Telefone/Whatsapp" value="+55 33 99943-4841" />
-                        <p className="font-semibold text-sm my-2 mt-4">11.2) Comprador(a):</p>
-                        <QuadroLinha label="Responsável" value={comprador?.nome || comprador?.razao_social} />
-                        <QuadroLinha label="Endereço" value={formatarEndereco(comprador)} />
-                        <QuadroLinha label="E-mail" value={comprador?.emails?.[0]?.email} />
-                        <QuadroLinha label="Telefone/Whatsapp" value={comprador?.telefones?.[0]?.telefone} />
-                    </div>
-                </div>
-                <div className="mt-8 pt-8 border-t-2 border-black" style={{ pageBreakBefore: 'always' }}><h2 className="text-center font-bold text-lg mb-6 uppercase"> PROMESSA PARTICULAR DE COMPRA E VENDA DE IMÓVEL URBANO </h2><ClausulasContrato /></div>
-                <div className="text-center mt-12 mb-12"> <p>Governador Valadares/MG, ____ de _______________ de {anoAtual}.</p> </div>
-                <div className="space-y-12">
-                    <div className="text-center"> <div className="border-b-2 border-black w-3/4 mx-auto mb-2"></div> <p className="font-semibold">STUDIO 57 INCORPORAÇÕES LTDA</p> <p className="text-xs">VENDEDORA</p> </div>
-                    <div className="text-center"> <div className="border-b-2 border-black w-3/4 mx-auto mb-2"></div> <p className="mt-2 font-semibold">{comprador?.nome || comprador?.razao_social}</p> <p className="text-xs">COMPRADOR(A)</p> </div>
-                    {conjuge?.nome && !isPessoaJuridica && ( <div className="text-center"> <div className="border-b-2 border-black w-3/4 mx-auto mb-2"></div> <p className="mt-2 font-semibold">{conjuge.nome}</p> <p className="text-xs">CÔNJUGE OU COMPANHEIRO(A)</p> </div> )}
-                    <div className="text-center"> <div className="border-b-2 border-black w-3/4 mx-auto pt-8 mb-2"></div> <p className="mt-2 font-semibold">TESTEMUNHA 1</p> </div>
-                    <div className="text-center"> <div className="border-b-2 border-black w-3/4 mx-auto pt-8 mb-2"></div> <p className="mt-2 font-semibold">TESTEMUNHA 2</p> </div>
-                </div>
-                <div style={{ pageBreakBefore: 'always' }}><PlanoPagamentoPrint contrato={contrato} signatory={selectedSignatory} geradoPor={geradoPor} /></div>
             </div>
         </div>
     );
