@@ -3,8 +3,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
-import { useAuth } from '../../contexts/AuthContext';
-// Importa o useQuery
+// 1. REMOVIDO o useAuth - Este componente não deve depender do contexto
+// import { useAuth } from '../../contexts/AuthContext';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'; 
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -12,9 +12,8 @@ import { faSpinner, faTrash, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 
 // --- FUNÇÕES DE BUSCA (Isoladas para useQuery) ---
-
-// 1. Busca Contas Bancárias
 const fetchContasBancarias = async (supabase, organizacaoId) => {
+    // (Código inalterado)
     if (!organizacaoId) return [];
     const { data, error } = await supabase
         .from('contas_financeiras')
@@ -29,8 +28,8 @@ const fetchContasBancarias = async (supabase, organizacaoId) => {
     return data || [];
 };
 
-// 2. Busca Todos os Produtos Disponíveis do Empreendimento
 const fetchProdutosDisponiveis = async (supabase, empreendimentoId, organizacaoId) => {
+    // (Código inalterado)
     if (!empreendimentoId || !organizacaoId) return [];
     const { data, error } = await supabase
        .from('produtos_empreendimento')
@@ -49,8 +48,8 @@ const fetchProdutosDisponiveis = async (supabase, empreendimentoId, organizacaoI
 
 
 // --- COMPONENTES AUXILIARES (Inalterados) ---
-
 const HighlightedText = ({ text = '', highlight = '' }) => {
+    // (Código inalterado)
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
     const regex = new RegExp(`(${highlight.replace(/[.*+?^${'}'}()|[\]\\]/g, '\\$&')})`, 'gi');
     const parts = text.split(regex);
@@ -58,6 +57,7 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
 };
 
 const SearchableField = ({ label, selectedName, onClear, children }) => {
+    // (Código inalterado)
     return (
         <div>
             <label className="block text-sm font-medium text-gray-600">{label}</label>
@@ -77,9 +77,15 @@ const SearchableField = ({ label, selectedName, onClear, children }) => {
 
 // --- COMPONENTE PRINCIPAL ---
 
-export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
+// 2. ADICIONADO `user` e `clientSearchScope` nas props
+export default function DetalhesVendaContrato({ 
+    contratoData, 
+    onUpdate, 
+    user, // <-- Prop obrigatória vinda do "pai"
+    clientSearchScope = "organization" // <-- Escopo padrão (organization)
+}) {
     const supabase = createClient();
-    const { user } = useAuth();
+    // 3. O 'organizacaoId' agora vem do 'user' passado como prop
     const organizacaoId = user?.organizacao_id;
     const queryClient = useQueryClient();
 
@@ -91,58 +97,44 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
         setContrato(contratoData);
     }, [contratoData]);
     
-    // =================================================================================
-    // ATUALIZAÇÃO (useState/useEffect -> useQuery)
-    // O PORQUÊ: Usando o "Carregamento Mágico" para buscar contas e produtos.
-    // =================================================================================
-
-    // 1. Busca Contas Bancárias com useQuery
+    // (useQuery para Contas e Produtos inalterado, pois 'organizacaoId' está correto)
     const { data: contasBancarias = [], isLoading: loadingContas } = useQuery({
         queryKey: ['contasBancarias', organizacaoId],
         queryFn: () => fetchContasBancarias(supabase, organizacaoId),
         enabled: !!organizacaoId,
     });
-
-    // 2. Busca Produtos Disponíveis com useQuery
     const { data: todosProdutosDisponiveis = [], isLoading: loadingProdutos } = useQuery({
         queryKey: ['produtosDisponiveisEmpreendimento', contrato?.empreendimento_id, organizacaoId],
         queryFn: () => fetchProdutosDisponiveis(supabase, contrato.empreendimento_id, organizacaoId),
         enabled: !!contrato?.empreendimento_id && !!organizacaoId,
     });
 
-    // 3. Filtra os produtos que já estão no contrato (usando useMemo para performance)
+    // (useMemo para filtrar produtos inalterado)
     const idsProdutosNoContrato = useMemo(() => (contrato.produtos || []).map(p => p.id), [contrato.produtos]);
-    
     const produtosDisponiveis = useMemo(() => {
         return todosProdutosDisponiveis.filter(p => !idsProdutosNoContrato.includes(p.id));
     }, [todosProdutosDisponiveis, idsProdutosNoContrato]);
 
-    // =================================================================================
-    // FIM DA ATUALIZAÇÃO
-    // =================================================================================
-
+    // (useMemo para soma e desconto inalterados)
     const somaProdutosTabela = useMemo(() => {
         return (contrato?.produtos || []).reduce((sum, p) => sum + parseFloat(p.valor_venda_calculado || 0), 0);
     }, [contrato?.produtos]);
-
     const descontoConcedido = useMemo(() => {
         const valorFinal = Number(contrato?.valor_final_venda || 0);
         return somaProdutosTabela > valorFinal ? somaProdutosTabela - valorFinal : 0;
     }, [somaProdutosTabela, contrato?.valor_final_venda]);
     
+    // (Mutations inalteradas, pois 'organizacaoId' está correto)
     const updateFieldMutation = useMutation({
         mutationFn: async ({ fieldName, value }) => {
             if (!organizacaoId) throw new Error("Organização não identificada.");
-
             let valorParaAtualizar = value;
-
             if (['valor_final_venda', 'percentual_comissao_corretagem'].includes(fieldName)) {
                 const valorNumerico = Number(value || 0);
                 valorParaAtualizar = isNaN(valorNumerico) ? null : valorNumerico;
             } else if (value === '') {
                 valorParaAtualizar = null;
             }
-
             const { data, error } = await supabase
                 .from('contratos')
                 .update({ [fieldName]: valorParaAtualizar })
@@ -150,7 +142,6 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
                 .eq('organizacao_id', organizacaoId)
                 .select()
                 .single();
-            
             if (error) throw error;
             if (!data) throw new Error("A atualização falhou (0 linhas afetadas). Verifique as permissões (RLS).");
         },
@@ -160,7 +151,6 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
         },
         onError: (error) => { toast.error(`Erro ao salvar: ${error.message}`); }
     });
-
     const addProdutoMutation = useMutation({
         mutationFn: async (produtoId) => {
             const { error: insertError } = await supabase.from('contrato_produtos').insert({ contrato_id: contrato.id, produto_id: produtoId, organizacao_id: organizacaoId });
@@ -168,11 +158,10 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
         },
         onSuccess: () => { 
             toast.success("Produto adicionado ao contrato!"); 
-            onUpdate(); // onUpdate vai recarregar o contrato, o que atualiza o useMemo
+            onUpdate();
         },
         onError: (error) => { toast.error(`Erro ao adicionar produto: ${error.message}`); }
     });
-
     const removeProdutoMutation = useMutation({
         mutationFn: async (produtoId) => {
             const { error: deleteError } = await supabase.from('contrato_produtos').delete().match({ contrato_id: contrato.id, produto_id: produtoId });
@@ -180,17 +169,52 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
         },
         onSuccess: () => { 
             toast.success("Produto removido do contrato!"); 
-            onUpdate(); // onUpdate vai recarregar o contrato
+            onUpdate();
         },
         onError: (error) => { toast.error(`Erro ao remover produto: ${error.message}`); }
     });
 
+    // --- 4. A CORREÇÃO DE SEGURANÇA NA BUSCA ---
     const handleSearchContato = useCallback(async (type, term) => {
         setSearchTerms(prev => ({ ...prev, [type]: term }));
-        if (term.length < 2) { setSearchResults(prev => ({ ...prev, [type]: [] })); return; }
-        const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term, p_organizacao_id: organizacaoId });
-        setSearchResults(prev => ({ ...prev, [type]: data || [] }));
-    }, [supabase, organizacaoId]);
+        
+        if (term.length < 2 || !organizacaoId) { 
+            setSearchResults(prev => ({ ...prev, [type]: [] })); 
+            return; 
+        }
+
+        // Substituímos o RPC por uma query direta para aplicar o filtro
+        let query = supabase
+            .from('contatos')
+            .select('id, nome, razao_social')
+            .or(`nome.ilike.%${term}%,razao_social.ilike.%${term}%`)
+            .eq('organizacao_id', organizacaoId);
+
+        // --- A MÁGICA! ---
+        // Se o escopo for "user" (Corretor), filtramos pelo ID do usuário
+        if (clientSearchScope === 'user' && user?.id) {
+            query = query.eq('criado_por_usuario_id', user.id);
+        }
+        
+        // Se for busca por Corretor, filtramos o tipo de contato
+        if (type === 'corretor') {
+            query = query.eq('tipo_contato', 'Corretor');
+        }
+        
+        query = query.limit(10);
+
+        const { data, error } = await query;
+
+        if (error) {
+            console.error(`Erro ao buscar contatos (${type}):`, error.message);
+            setSearchResults(prev => ({ ...prev, [type]: [] }));
+        } else {
+            setSearchResults(prev => ({ ...prev, [type]: data || [] }));
+        }
+
+    }, [supabase, organizacaoId, user, clientSearchScope]); // Adicionadas as novas dependências
+    // --- FIM DA CORREÇÃO ---
+
 
     if (!contrato) {
         return (
@@ -201,6 +225,7 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
         );
     }
 
+    // (Funções de formatação e handlers inalterados)
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     const formatDate = (dateStr) => dateStr ? new Date(dateStr).toISOString().split('T')[0] : '';
 
@@ -233,10 +258,10 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
     };
 
     return (
+        // O JSX (layout) permanece 100% o mesmo
         <div className="bg-white p-6 rounded-lg shadow-md border animate-fade-in space-y-6">
             <h3 className="text-xl font-bold text-gray-800">Detalhes da Venda</h3>
             
-            {/* Fieldsets de Contatos (inalterados) */}
             <fieldset className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <SearchableField label="Cliente / Comprador" selectedName={contrato.contato?.nome || contrato.contato?.razao_social} onClear={() => handleClearContato('comprador')}>
                     <div className="relative"><input type="text" value={searchTerms.comprador} onChange={(e) => handleSearchContato('comprador', e.target.value)} placeholder="Buscar cliente..." className="w-full p-2 border rounded-md" />{searchResults.comprador.length > 0 && <ul className="absolute z-20 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto">{searchResults.comprador.map(c => <li key={c.id} onClick={() => handleSelectContato('comprador', c)} className="p-2 hover:bg-gray-100 cursor-pointer"><HighlightedText text={c.nome || c.razao_social} highlight={searchTerms.comprador} /></li>)}</ul>}</div>
@@ -258,7 +283,6 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
                 </SearchableField>
             </fieldset>
             
-            {/* Fieldsets de Produtos e Totais (inalterados) */}
             <fieldset className="space-y-4 pt-6 border-t">
                 <h4 className="text-lg font-semibold text-gray-700">Produtos do Contrato</h4>
                 {contrato.produtos?.length > 0 ? (
@@ -310,7 +334,7 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
                             onBlur={() => handleFieldUpdate('valor_final_venda', contrato.valor_final_venda)}
                             disabled={updateFieldMutation.isPending}
                             className="mt-1 w-full p-2 border rounded-md font-semibold text-blue-600"
-                        />
+                         />
                         {updateFieldMutation.isPending && <FontAwesomeIcon icon={faSpinner} spin className="absolute right-3 top-3 text-gray-400"/>}
                     </div>
                 </div>
@@ -340,7 +364,6 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
                     </p>
                 </div>
                 
-                {/* Outros campos (inalterados) */}
                 <div className="md:col-span-3">
                      <label className="block text-sm font-medium text-gray-600">Forma de Pagamento da Comissão</label>
                      <input type="text" value={contrato.forma_pagamento_corretagem || ''} onChange={(e) => setContrato(prev => ({...prev, forma_pagamento_corretagem: e.target.value}))} onBlur={() => handleFieldUpdate('forma_pagamento_corretagem', contrato.forma_pagamento_corretagem)} disabled={updateFieldMutation.isPending} className="mt-1 w-full p-2 border rounded-md" placeholder="Ex: PIX em 3 parcelas"/>

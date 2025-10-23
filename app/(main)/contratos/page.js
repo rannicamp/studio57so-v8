@@ -2,8 +2,9 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { createClient } from '../../../utils/supabase/client';
-import { useAuth } from '../../../contexts/AuthContext';
+// 1. Caminhos de importação corrigidos para o padrão
+import { createClient } from '@/utils/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -11,19 +12,18 @@ import {
     faCalendarCheck, faChartPie, faHandshake, faChartLine,
     faPlus, faTimes
 } from '@fortawesome/free-solid-svg-icons';
-import ContratoList from '../../../components/contratos/ContratoList';
-import KpiCard from '../../../components/KpiCard';
-import FiltroContratos from '../../../components/contratos/FiltroContratos';
+import ContratoList from '@/components/contratos/ContratoList';
+import KpiCard from '@/components/KpiCard';
+import FiltroContratos from '@/components/contratos/FiltroContratos';
 import { useDebounce } from 'use-debounce';
 import { createNewContrato } from './actions';
 import { formatDistanceToNow, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner'; // <-- Importa o toast
+import { toast } from 'sonner'; 
 
-// Funções fetchFilterData, formatUltimaVenda, fetchVgvPossivel (sem mudanças)
+// (As funções fetchFilterData, formatUltimaVenda, e fetchVgvPossivel continuam iguais...)
 const fetchFilterData = async (organizacaoId) => {
-    // ... (código inalterado) ...
     if (!organizacaoId) {
         return { clientes: [], corretores: [], produtos: [], empreendimentos: [] };
     }
@@ -42,7 +42,6 @@ const fetchFilterData = async (organizacaoId) => {
 };
 
 const formatUltimaVenda = (dateString) => {
-    // ... (código inalterado) ...
     if (!dateString) return 'Nenhuma venda no período';
     const date = new Date(dateString);
     if (isToday(date)) return 'Hoje';
@@ -51,7 +50,6 @@ const formatUltimaVenda = (dateString) => {
 };
 
 const fetchVgvPossivel = async (organizacaoId) => {
-    // ... (código inalterado) ...
     if (!organizacaoId) return 0;
     const supabase = createClient();
     const { data, error } = await supabase.rpc('calcular_vgv_possivel', { p_organizacao_id: organizacaoId });
@@ -66,10 +64,11 @@ const fetchVgvPossivel = async (organizacaoId) => {
 export default function ContratosPage() {
     const supabase = createClient();
     const queryClient = useQueryClient();
-    const { user } = useAuth();
-    const organizacaoId = user?.organizacao_id;
+    const { user } = useAuth(); // <-- A página admin usa useAuth
+    const organizacaoId = user?.organizacao_id; // <-- E pega o ID aqui
     const router = useRouter();
 
+    // (O resto dos 'useState' e 'useQuery' continuam iguais...)
     const [filters, setFilters] = useState({
         searchTerm: '', clienteId: [], corretorId: [], produtoId: [], empreendimentoId: [],
         status: [], startDate: '', endDate: ''
@@ -123,7 +122,6 @@ export default function ContratosPage() {
     const { data: contratos, isLoading, error } = useQuery({
         queryKey: ['contratos', organizacaoId, debouncedFilters, sortConfig],
         queryFn: async () => {
-            // ... (lógica da query inalterada) ...
              if (!organizacaoId) return [];
             let query = supabase
                 .from('contratos')
@@ -157,7 +155,7 @@ export default function ContratosPage() {
     });
 
     const kpiData = useMemo(() => {
-        // ... (lógica inalterada) ...
+        // (lógica inalterada)
         if (!contratos) {
             return { totalVendido: 0, contratosAssinados: 0, ticketMedio: 0, mediaVendasPorMes: 0, ultimaVenda: null };
         }
@@ -187,47 +185,34 @@ export default function ContratosPage() {
         return <div className="text-center py-10 text-red-500">Erro ao carregar contratos: {error.message}</div>;
     }
 
-    // --- FUNÇÃO handleCreateContrato REFINADA ---
     const handleCreateContrato = async () => {
+        // (lógica inalterada)
         if (!selectedEmpreendimentoId) {
             toast.error("Selecione um empreendimento.");
             return;
         }
-
-        setIsCreating(true); // Ativa o loading
-
+        setIsCreating(true); 
         try {
-            // Chama a Server Action
             const result = await createNewContrato(selectedEmpreendimentoId);
-
-            // Verifica explicitamente a resposta
             if (result?.success && result?.newContractId) {
                 toast.success("Contrato criado! Redirecionando...");
-                // Primeiro fecha o modal e limpa o estado
                 setIsModalOpen(false);
                 setSelectedEmpreendimentoId('');
-                // DEPOIS redireciona
-                router.push(`/contratos/${result.newContractId}`);
-                // Invalida a query da lista para atualizar em segundo plano
+                router.push(`/contratos/${result.newContractId}`); // <-- Rota do admin
                 queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId] });
             } else if (result?.error) {
-                // Se a action retornou um erro conhecido
                 toast.error(`Erro ao criar contrato: ${result.error}`);
             } else {
-                // Se a action retornou algo inesperado
                 console.error("Resposta inesperada da action:", result);
                 toast.error("Ocorreu um erro inesperado ao criar o contrato.");
             }
         } catch (err) {
-            // Captura erros de rede ou exceções não tratadas na action
             console.error("Erro ao chamar createNewContrato:", err);
             toast.error(`Erro: ${err.message || "Falha na comunicação com o servidor."}`);
         } finally {
-            // Garante que o loading sempre seja desativado
             setIsCreating(false);
         }
     };
-    // --- FIM DA FUNÇÃO REFINADA ---
 
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-6">
@@ -246,7 +231,7 @@ export default function ContratosPage() {
                 filters={filters}
                 setFilters={setFilters}
                 clientes={filterData?.clientes || []}
-                corretores={filterData?.corretores || []}
+                corretores={filterData?.corretores || []} // <-- Página admin passa os corretores
                 produtos={filterData?.produtos || []}
                 empreendimentos={filterData?.empreendimentos || []}
             />
@@ -265,6 +250,7 @@ export default function ContratosPage() {
             </div>
 
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                {/* --- AQUI ESTÁ A CORREÇÃO (PROATIVA) --- */}
                 <ContratoList
                     contratos={contratos || []}
                     sortConfig={sortConfig}
@@ -273,10 +259,13 @@ export default function ContratosPage() {
                         queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, debouncedFilters, sortConfig] });
                         queryClient.invalidateQueries({ queryKey: ['vgvPossivel', organizacaoId] });
                     }}
+                    organizacaoId={organizacaoId} // <-- Passa a prop obrigatória
+                    // O basePath não é necessário, pois o padrão "/contratos" está correto
                 />
+                {/* --- FIM DA CORREÇÃO --- */}
             </div>
 
-            {/* --- MODAL DE SELEÇÃO DE EMPREENDIMENTO --- */}
+            {/* --- MODAL (sem mudanças) --- */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
                     <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">

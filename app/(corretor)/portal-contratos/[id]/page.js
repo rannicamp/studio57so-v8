@@ -1,7 +1,7 @@
-// app/(main)/contratos/[id]/page.js
+// app/(corretor)/portal-contratos/[id]/page.js
 
-import { createClient } from '../../../../utils/supabase/server';
-import FichaContrato from '../../../../components/contratos/FichaContrato';
+import { createClient } from '@/utils/supabase/server';
+import FichaContrato from '@/components/contratos/FichaContrato';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -10,10 +10,10 @@ import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function ContratoPage({ params }) {
+export default async function ContratoPageCorretor({ params }) {
 
     const supabase = createClient();
-    const { id } = params; 
+    const { id } = params;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -27,16 +27,17 @@ export default async function ContratoPage({ params }) {
             .select('organizacao_id')
             .eq('id', user.id)
             .single();
-        
+
         // Tratamento de erro caso não ache o perfil
         if (profileError || !userProfile?.organizacao_id) {
              console.error("Erro ao buscar perfil do usuário ou organização não encontrada:", profileError);
+             // Você pode redirecionar ou mostrar uma mensagem de erro mais específica
              throw new Error('Perfil do usuário ou Organização não encontrada.');
         }
 
         const organizacaoId = userProfile.organizacao_id; // <-- Temos o ID aqui
 
-        // Query principal do contrato (Admin - sem filtro de usuário)
+        // Query principal do contrato (com filtro de segurança)
         const { data: contratoData, error } = await supabase
             .from('contratos')
             .select(`
@@ -52,6 +53,7 @@ export default async function ContratoPage({ params }) {
             `)
             .eq('id', id)
             .eq('organizacao_id', organizacaoId)
+            .eq('criado_por_usuario_id', user.id) 
             .order('created_at', { foreignTable: 'contato.telefones', ascending: false })
             .limit(1, { foreignTable: 'contato.telefones' })
             .order('created_at', { foreignTable: 'contato.emails', ascending: false })
@@ -65,9 +67,10 @@ export default async function ContratoPage({ params }) {
              }
              throw new Error(`Falha ao buscar contrato: ${error.message}`);
         }
+        
         if (!contratoData) {
-             console.warn(`Contrato com ID ${id} não encontrado para organização ${organizacaoId}.`);
-             notFound(); 
+             console.warn(`Tentativa de acesso negada ou contrato não encontrado. ID: ${id}, Usuário: ${user.id}`);
+             notFound();
         }
 
         // Busca de produtos (mantido)
@@ -94,23 +97,24 @@ export default async function ContratoPage({ params }) {
         return (
             <div className="p-4 md:p-6 lg:p-8 space-y-6">
                 <div className="print:hidden">
-                    <Link href="/contratos" className="text-blue-600 hover:underline mb-4 inline-flex items-center gap-2">
+                    <Link href="/portal-contratos" className="text-blue-600 hover:underline mb-4 inline-flex items-center gap-2">
                         <FontAwesomeIcon icon={faArrowLeft} />
-                        Voltar para a Lista de Contratos
+                        Voltar para Meus Contratos
                     </Link>
                 </div>
                 
                 {/* 3. Passamos o objeto 'combinedUser' */}
                 <FichaContrato
                     initialContratoData={contratoData}
-                    user={combinedUser}
-                    clientSearchScope="organization" // <-- Escopo do Admin
+                    user={combinedUser} 
+                    clientSearchScope="user" 
                 />
             </div>
         );
 
     } catch (error) {
         console.error("Erro geral na página do contrato:", error);
+        // Garante que o usuário veja uma mensagem de erro clara
         return <p className="p-4 text-red-500">Não foi possível carregar os dados do contrato. Causa: {error.message}</p>;
     }
 }

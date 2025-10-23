@@ -1,30 +1,44 @@
+// components/contratos/ContratoList.js
 "use client";
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../utils/supabase/client';
-import { useAuth } from '../../contexts/AuthContext';
+// 1. REMOVIDO useAuth - O componente não deve saber o contexto
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faTrash, faCopy, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-export default function ContratoList({ contratos, sortConfig, requestSort, onUpdate }) {
+// 2. ADICIONADO `basePath` e `organizacaoId` nas props
+export default function ContratoList({ 
+    contratos, 
+    sortConfig, 
+    requestSort, 
+    onUpdate, 
+    basePath = "/contratos", // 3. Valor padrão para não quebrar o admin
+    organizacaoId 
+}) {
     const router = useRouter();
     const supabase = createClient();
     const queryClient = useQueryClient();
-    const { user } = useAuth();
-    const organizacaoId = user?.organizacao_id;
+
+    // 4. REMOVIDO useAuth e a busca pelo organizacaoId
+    // const { user } = useAuth();
+    // const organizacaoId = user?.organizacao_id;
 
     const [editingStatusId, setEditingStatusId] = useState(null);
 
     const updateStatusMutation = useMutation({
         mutationFn: async ({ id, newStatus }) => {
+            // 5. Garante que o organizacaoId foi passado
+            if (!organizacaoId) throw new Error("ID da Organização não fornecido.");
+            
             const { error } = await supabase
                 .from('contratos')
                 .update({ status_contrato: newStatus })
                 .eq('id', id)
-                .eq('organizacao_id', organizacaoId);
+                .eq('organizacao_id', organizacaoId); // 6. Usa o ID da prop
             if (error) throw new Error(error.message);
         },
         onSuccess: () => {
@@ -53,6 +67,10 @@ export default function ContratoList({ contratos, sortConfig, requestSort, onUpd
 
     const handleDuplicate = (e, contrato) => {
         e.stopPropagation();
+        if (!organizacaoId) {
+            toast.error("Erro: ID da Organização não encontrado.");
+            return;
+        }
         toast.promise(supabase.rpc('duplicar_contrato_e_detalhes', { p_contrato_id: contrato.id, p_organizacao_id: organizacaoId }), {
             loading: 'Duplicando contrato...',
             success: () => { if(onUpdate) onUpdate(); return "Contrato duplicado!"; },
@@ -62,6 +80,10 @@ export default function ContratoList({ contratos, sortConfig, requestSort, onUpd
 
     const handleDelete = (e, contrato) => {
         e.stopPropagation();
+        if (!organizacaoId) {
+            toast.error("Erro: ID da Organização não encontrado.");
+            return;
+        }
         toast.promise(supabase.rpc('excluir_contrato_e_liberar_unidade', { p_contrato_id: contrato.id, p_organizacao_id: organizacaoId }), {
             loading: 'Excluindo contrato...',
             success: () => { if(onUpdate) onUpdate(); return "Contrato excluído!"; },
@@ -78,13 +100,14 @@ export default function ContratoList({ contratos, sortConfig, requestSort, onUpd
         </th>
     );
     
-    const statusOptions = ['Em assinatura', 'Assinado', 'Distratado', 'Finalizado'];
+    const statusOptions = ['Rascunho', 'Em assinatura', 'Assinado', 'Distratado', 'Finalizado'];
     const getStatusClass = (status) => {
         switch (status) {
             case 'Assinado': return 'bg-green-100 text-green-800';
             case 'Distratado': return 'bg-red-100 text-red-800';
             case 'Finalizado': return 'bg-blue-100 text-blue-800';
-            default: return 'bg-yellow-100 text-yellow-800';
+            case 'Em assinatura': return 'bg-yellow-100 text-yellow-800';
+            default: return 'bg-gray-100 text-gray-800'; // Rascunho
         }
     };
 
@@ -94,10 +117,9 @@ export default function ContratoList({ contratos, sortConfig, requestSort, onUpd
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            {/* ===== MUDANÇA 1: O botão agora ordena pela coluna `numero_contrato` ===== */}
                             <SortableHeader label="Nº Contrato" sortKey="numero_contrato" />
                             <SortableHeader label="Cliente" sortKey="contato_id" />
-                            <SortableHeader label="Produto" sortKey="produto_id" />
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Produto</th>
                             <SortableHeader label="Empreendimento" sortKey="empreendimento_id" />
                             <SortableHeader label="Data da Venda" sortKey="data_venda" />
                             <SortableHeader label="Status" sortKey="status_contrato" />
@@ -112,8 +134,8 @@ export default function ContratoList({ contratos, sortConfig, requestSort, onUpd
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {contratos.length > 0 ? contratos.map((contrato) => (
-                            <tr key={contrato.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/contratos/${contrato.id}`)}>
-                                {/* ===== MUDANÇA 2: Agora exibimos o `numero_contrato` ou o ID se ainda não houver número ===== */}
+                            // 7. A MÁGICA ACONTECE AQUI! Usa o `basePath`
+                            <tr key={contrato.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`${basePath}/${contrato.id}`)}>
                                 <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-700">{contrato.numero_contrato || `(Rascunho #${contrato.id})`}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">{contrato.contato?.nome || contrato.contato?.razao_social || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -149,7 +171,8 @@ export default function ContratoList({ contratos, sortConfig, requestSort, onUpd
                                 <td className="px-6 py-4 whitespace-nowrap text-right font-semibold">{formatCurrency(contrato.valor_final_venda)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-center">
                                     <div className="flex items-center justify-center gap-4">
-                                        <button onClick={(e) => { e.stopPropagation(); router.push(`/contratos/${contrato.id}`); }} className="text-blue-600 hover:text-blue-800" title="Visualizar/Editar Contrato"><FontAwesomeIcon icon={faEye} /></button>
+                                        {/* 8. E AQUI TAMBÉM! Usa o `basePath` */}
+                                        <button onClick={(e) => { e.stopPropagation(); router.push(`${basePath}/${contrato.id}`); }} className="text-blue-600 hover:text-blue-800" title="Visualizar/Editar Contrato"><FontAwesomeIcon icon={faEye} /></button>
                                         <button onClick={(e) => handleDuplicate(e, contrato)} className="text-gray-500 hover:text-gray-700" title="Duplicar Contrato"><FontAwesomeIcon icon={faCopy} /></button>
                                         <button onClick={(e) => handleDelete(e, contrato)} className="text-red-600 hover:text-red-800" title="Excluir Contrato"><FontAwesomeIcon icon={faTrash} /></button>
                                     </div>
