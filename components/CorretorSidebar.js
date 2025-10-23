@@ -1,7 +1,7 @@
 // components/CorretorSidebar.js
 'use client'
 
-// import { useState } from 'react' // <-- 1. REMOVEMOS O useState
+import { useState } from 'react'
 import Link from 'next/link'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
@@ -13,12 +13,17 @@ import {
   faChevronRight,
   faUserCircle,
   faSpinner,
+  faSignOutAlt,
+  faCalculator, // <-- 1. ÍCONE NOVO
 } from '@fortawesome/free-solid-svg-icons'
 import { useLayout } from '@/contexts/LayoutContext'
+import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/utils/supabase/client'
 import Tooltip from './Tooltip'
 import Image from 'next/image'
 
-// Define os itens específicos para o menu do Corretor (sem mudanças)
+// Define os itens específicos para o menu do Corretor
 const navSections = [
   {
     title: 'Portal do Corretor',
@@ -41,6 +46,14 @@ const navSections = [
         label: 'Tabela de Vendas',
         recurso: 'portal_tabela_vendas',
       },
+      // --- 2. AQUI ESTÁ O NOVO ITEM ---
+      {
+        href: '/simulador-financiamento',
+        icon: faCalculator,
+        label: 'Simulador',
+        recurso: 'portal_simulador',
+      },
+      // --- FIM DO NOVO ITEM ---
       {
         href: '/portal-contratos',
         icon: faFileSignature,
@@ -87,18 +100,21 @@ function UserAvatar({ user, isCollapsed }) {
 }
 
 
-// 2. AQUI ESTÁ A MUDANÇA
 export default function CorretorSidebar({ 
-  isCollapsed,    // <-- Agora recebe a prop direto
-  toggleSidebar   // <-- Agora recebe a prop direto
+  isCollapsed,
+  toggleSidebar 
 }) {
   
   const { user, isUserLoading } = useLayout()
-  
-  // 3. REMOVEMOS TODA A LÓGICA DE 'internalIsCollapsed' DAQUI
-  // const [internalIsCollapsed, setInternalIsCollapsed] = useState(initialIsCollapsed);
-  // const isCollapsed = initialToggleSidebar ? initialIsCollapsed : internalIsCollapsed;
-  // const toggleSidebar = initialToggleSidebar ? initialToggleSidebar : () => setInternalIsCollapsed(!internalIsCollapsed);
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    queryClient.clear();
+    router.push('/login');
+  };
 
   const sidebarPosition = user?.sidebar_position || 'left'
 
@@ -148,7 +164,7 @@ export default function CorretorSidebar({
     )
   }
 
-  // Renderização Vertical (O JSX não muda, pois ele já usava as props)
+  // Renderização Vertical (sem mudanças, apenas o array 'navSections' foi atualizado)
   return (
     <aside
       className={`bg-white shadow-lg h-full fixed top-0 z-40 flex flex-col transition-all duration-300 ${
@@ -247,7 +263,34 @@ export default function CorretorSidebar({
         </ul>
       </nav>
       
-      {/* 4. BOTÃO DE COLAPSAR (Este botão agora usa o 'toggleSidebar' vindo do pai) */}
+      {/* 4. BOTÃO DE LOGOUT */}
+      <div className="flex-shrink-0 border-t border-gray-200 p-2">
+        <Tooltip
+          label="Sair do sistema"
+          position={sidebarPosition === 'left' ? 'right' : 'left'}
+        >
+          <button
+            onClick={handleLogout}
+            className={`flex items-center py-3 text-red-600 hover:bg-red-50 transition-colors duration-200 w-full rounded-md ${
+              isCollapsed ? 'justify-center' : 'px-6'
+            }`}
+          >
+            <FontAwesomeIcon
+              icon={faSignOutAlt}
+              className={`flex-shrink-0 ${
+                isCollapsed ? 'text-xl' : 'text-lg w-6'
+              }`}
+            />
+            {!isCollapsed && (
+              <span className="ml-4 text-sm font-medium">
+                Sair
+              </span>
+            )}
+          </button>
+        </Tooltip>
+      </div>
+
+      {/* 5. BOTÃO DE COLAPSAR */}
       <div className="border-t border-gray-200 p-2">
         <button
           onClick={toggleSidebar} 
