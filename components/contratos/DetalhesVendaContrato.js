@@ -4,11 +4,51 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+// Importa o useQuery
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'; 
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTrash, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
+
+// --- FUNÇÕES DE BUSCA (Isoladas para useQuery) ---
+
+// 1. Busca Contas Bancárias
+const fetchContasBancarias = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return [];
+    const { data, error } = await supabase
+        .from('contas_financeiras')
+        .select('id, nome, instituicao')
+        .eq('organizacao_id', organizacaoId)
+        .order('nome');
+    if (error) {
+        console.error("Erro ao buscar contas bancárias:", error);
+        toast.error("Erro ao carregar contas bancárias.");
+        return [];
+    }
+    return data || [];
+};
+
+// 2. Busca Todos os Produtos Disponíveis do Empreendimento
+const fetchProdutosDisponiveis = async (supabase, empreendimentoId, organizacaoId) => {
+    if (!empreendimentoId || !organizacaoId) return [];
+    const { data, error } = await supabase
+       .from('produtos_empreendimento')
+       .select('id, unidade, tipo, valor_venda_calculado, matricula')
+       .eq('empreendimento_id', empreendimentoId)
+       .eq('organizacao_id', organizacaoId)
+       .eq('status', 'Disponível')
+       .order('unidade', { ascending: true });
+   if(error) { 
+       console.error("Erro ao buscar produtos:", error);
+       toast.error("Erro ao carregar produtos disponíveis.");
+       return [];
+   }
+   return data || [];
+};
+
+
+// --- COMPONENTES AUXILIARES (Inalterados) ---
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
@@ -35,6 +75,8 @@ const SearchableField = ({ label, selectedName, onClear, children }) => {
     );
 };
 
+// --- COMPONENTE PRINCIPAL ---
+
 export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
     const supabase = createClient();
     const { user } = useAuth();
@@ -42,65 +84,48 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
     const queryClient = useQueryClient();
 
     const [contrato, setContrato] = useState(contratoData);
-    const [produtosDisponiveis, setProdutosDisponiveis] = useState([]);
     const [searchTerms, setSearchTerms] = useState({ comprador: '', corretor: '', conjuge: '', representante: '' });
     const [searchResults, setSearchResults] = useState({ comprador: [], corretor: [], conjuge: [], representante: [] });
-    const [contasBancarias, setContasBancarias] = useState([]);
-    const [loadingContas, setLoadingContas] = useState(true);
 
     useEffect(() => {
         setContrato(contratoData);
     }, [contratoData]);
     
-    useEffect(() => {
-        const fetchContas = async () => {
-            if (!organizacaoId) return;
-            setLoadingContas(true);
-            const { data, error } = await supabase
-                .from('contas_financeiras')
-                .select('id, nome, instituicao')
-                .eq('organizacao_id', organizacaoId)
-                .order('nome');
-            
-            if (error) {
-                console.error("Erro ao buscar contas bancárias:", error);
-                toast.error("Erro ao carregar contas bancárias.");
-            } else {
-                setContasBancarias(data || []);
-            }
-            setLoadingContas(false);
-        };
-        fetchContas();
-    }, [organizacaoId, supabase]);
+    // =================================================================================
+    // ATUALIZAÇÃO (useState/useEffect -> useQuery)
+    // O PORQUÊ: Usando o "Carregamento Mágico" para buscar contas e produtos.
+    // =================================================================================
 
-    useEffect(() => {
-        const fetchProdutosDisponiveis = async () => {
-            if (contrato?.empreendimento_id && organizacaoId) {
-                const { data: produtosData } = await supabase
-                    .from('produtos_empreendimento')
-                    .select('id, unidade, tipo, valor_venda_calculado, matricula')
-                    .eq('empreendimento_id', contrato.empreendimento_id)
-                    .eq('organizacao_id', organizacaoId)
-                    .eq('status', 'Disponível')
-                    .order('unidade', { ascending: true });
-                
-                const idsProdutosNoContrato = (contrato.produtos || []).map(p => p.id);
-                setProdutosDisponiveis((produtosData || []).filter(p => !idsProdutosNoContrato.includes(p.id)));
-            }
-        };
-        fetchProdutosDisponiveis();
-    }, [supabase, contrato, organizacaoId]);
+    // 1. Busca Contas Bancárias com useQuery
+    const { data: contasBancarias = [], isLoading: loadingContas } = useQuery({
+        queryKey: ['contasBancarias', organizacaoId],
+        queryFn: () => fetchContasBancarias(supabase, organizacaoId),
+        enabled: !!organizacaoId,
+    });
+
+    // 2. Busca Produtos Disponíveis com useQuery
+    const { data: todosProdutosDisponiveis = [], isLoading: loadingProdutos } = useQuery({
+        queryKey: ['produtosDisponiveisEmpreendimento', contrato?.empreendimento_id, organizacaoId],
+        queryFn: () => fetchProdutosDisponiveis(supabase, contrato.empreendimento_id, organizacaoId),
+        enabled: !!contrato?.empreendimento_id && !!organizacaoId,
+    });
+
+    // 3. Filtra os produtos que já estão no contrato (usando useMemo para performance)
+    const idsProdutosNoContrato = useMemo(() => (contrato.produtos || []).map(p => p.id), [contrato.produtos]);
+    
+    const produtosDisponiveis = useMemo(() => {
+        return todosProdutosDisponiveis.filter(p => !idsProdutosNoContrato.includes(p.id));
+    }, [todosProdutosDisponiveis, idsProdutosNoContrato]);
+
+    // =================================================================================
+    // FIM DA ATUALIZAÇÃO
+    // =================================================================================
 
     const somaProdutosTabela = useMemo(() => {
         return (contrato?.produtos || []).reduce((sum, p) => sum + parseFloat(p.valor_venda_calculado || 0), 0);
     }, [contrato?.produtos]);
 
     const descontoConcedido = useMemo(() => {
-        // =================================================================================
-        // CORREÇÃO NO CÁLCULO DE DESCONTO
-        // O PORQUÊ: O estado agora guarda um número puro. Esta função foi simplificada
-        // para ler este número diretamente, sem precisar de limpeza de texto.
-        // =================================================================================
         const valorFinal = Number(contrato?.valor_final_venda || 0);
         return somaProdutosTabela > valorFinal ? somaProdutosTabela - valorFinal : 0;
     }, [somaProdutosTabela, contrato?.valor_final_venda]);
@@ -111,7 +136,6 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
 
             let valorParaAtualizar = value;
 
-            // Lógica simplificada que confia no número puro vindo do estado
             if (['valor_final_venda', 'percentual_comissao_corretagem'].includes(fieldName)) {
                 const valorNumerico = Number(value || 0);
                 valorParaAtualizar = isNaN(valorNumerico) ? null : valorNumerico;
@@ -142,7 +166,10 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
             const { error: insertError } = await supabase.from('contrato_produtos').insert({ contrato_id: contrato.id, produto_id: produtoId, organizacao_id: organizacaoId });
             if (insertError) throw insertError;
         },
-        onSuccess: () => { toast.success("Produto adicionado ao contrato!"); onUpdate(); },
+        onSuccess: () => { 
+            toast.success("Produto adicionado ao contrato!"); 
+            onUpdate(); // onUpdate vai recarregar o contrato, o que atualiza o useMemo
+        },
         onError: (error) => { toast.error(`Erro ao adicionar produto: ${error.message}`); }
     });
 
@@ -151,7 +178,10 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
             const { error: deleteError } = await supabase.from('contrato_produtos').delete().match({ contrato_id: contrato.id, produto_id: produtoId });
             if (deleteError) throw deleteError;
         },
-        onSuccess: () => { toast.success("Produto removido do contrato!"); onUpdate(); },
+        onSuccess: () => { 
+            toast.success("Produto removido do contrato!"); 
+            onUpdate(); // onUpdate vai recarregar o contrato
+        },
         onError: (error) => { toast.error(`Erro ao remover produto: ${error.message}`); }
     });
 
@@ -237,8 +267,15 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
                 <div className="flex items-end gap-4">
                     <div className="flex-grow">
                         <label className="block text-sm font-medium">Adicionar Produto</label>
-                        <select defaultValue="" onChange={(e) => addProdutoMutation.mutate(e.target.value)} className="mt-1 w-full p-2 border rounded-md" disabled={addProdutoMutation.isPending || produtosDisponiveis.length === 0}>
-                            <option value="" disabled>{produtosDisponiveis.length > 0 ? 'Selecione um produto para adicionar...' : 'Nenhum produto disponível'}</option>
+                        <select 
+                            defaultValue="" 
+                            onChange={(e) => addProdutoMutation.mutate(e.target.value)} 
+                            className="mt-1 w-full p-2 border rounded-md" 
+                            disabled={addProdutoMutation.isPending || loadingProdutos || produtosDisponiveis.length === 0}
+                        >
+                            <option value="" disabled>
+                                {loadingProdutos ? 'Carregando produtos...' : (produtosDisponiveis.length > 0 ? 'Selecione um produto para adicionar...' : 'Nenhum produto disponível')}
+                            </option>
                             {produtosDisponiveis.map(p => (<option key={p.id} value={p.id}>{p.unidade} ({p.tipo}) - {formatCurrency(p.valor_venda_calculado)}</option>))}
                         </select>
                     </div>
@@ -267,11 +304,6 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
                          <IMaskInput
                             mask="R$ num"
                             blocks={{ num: { mask: Number, scale: 2, padFractionalZeros: true, thousandsSeparator: '.', radix: ',', mapToRadix: ['.'] }}}
-                            // =================================================================================
-                            // CORREÇÃO DEFINITIVA DO INPUT
-                            // O PORQUÊ: 'unmask: 'typed'' entrega um NÚMERO para a função onAccept,
-                            // que é salvo no estado. Isso impede o bug de travamento.
-                            // =================================================================================
                             unmask={'typed'}
                             value={String(contrato.valor_final_venda || '')}
                             onAccept={(value) => setContrato(prev => ({ ...prev, valor_final_venda: value }))}
@@ -292,7 +324,7 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
                         scale={2}
                         padFractionalZeros={true}
                         radix=","
-                        unmask={'typed'} // Consistência: também retorna um número puro
+                        unmask={'typed'}
                         value={String(contrato.percentual_comissao_corretagem || '')}
                         onAccept={(value) => setContrato(prev => ({...prev, percentual_comissao_corretagem: value}))}
                         onBlur={() => handleFieldUpdate('percentual_comissao_corretagem', contrato.percentual_comissao_corretagem)}
@@ -315,7 +347,13 @@ export default function DetalhesVendaContrato({ contratoData, onUpdate }) {
                 </div>
                 <div className="md:col-span-3">
                     <label htmlFor="contaBancariaSelect" className="block text-sm font-medium text-gray-600">Conta Bancária para Pagamentos (Exibida no Contrato)</label>
-                    <select id="contaBancariaSelect" value={contrato.conta_bancaria_id || ''} onChange={(e) => handleFieldUpdate('conta_bancaria_id', e.target.value || null)} className="w-full p-2 border rounded-md mt-1" disabled={loadingContas || updateFieldMutation.isPending}>
+                    <select 
+                        id="contaBancariaSelect" 
+                        value={contrato.conta_bancaria_id || ''} 
+                        onChange={(e) => handleFieldUpdate('conta_bancaria_id', e.target.value || null)} 
+                        className="w-full p-2 border rounded-md mt-1" 
+                        disabled={loadingContas || updateFieldMutation.isPending}
+                    >
                         <option value="">{loadingContas ? 'Carregando contas...' : '-- Nenhuma (não exibir no contrato) --'}</option>
                         {contasBancarias.map(conta => (<option key={conta.id} value={conta.id}>{conta.nome} ({conta.instituicao})</option>))}
                     </select>

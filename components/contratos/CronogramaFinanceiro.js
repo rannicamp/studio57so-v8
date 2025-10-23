@@ -201,9 +201,44 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
     
     return (
         <div>
-            <style jsx global>{` @media print { body * { visibility: hidden; } .printable-area, .printable-area * { visibility: visible; } .printable-area { position: absolute; left: 0; top: 0; width: 100%; } } `}</style>
-            <div className="hidden print:block printable-area"><PlanoPagamentoPrint contrato={contrato} signatory={selectedSignatory} geradoPor={geradoPor} /></div>
+            {/* --- BLOCO DE ESTILOS ATUALIZADO --- */}
+            <style jsx global>{`
+                @media print { 
+                    /* 1. Esconde TUDO por padrão */
+                    body * { 
+                        visibility: hidden; 
+                    } 
 
+                    /* 2. FORÇA o esconderijo de toasts (biblioteca sonner) */
+                    [data-sonner-toast] {
+                        visibility: hidden !important;
+                        display: none !important;
+                    }
+                    
+                    /* 3. Mostra SOMENTE nossa área e seus filhos */
+                    .printable-area, 
+                    .printable-area * { 
+                        visibility: visible; 
+                    } 
+                    
+                    /* 4. Reposiciona a área para a página inteira */
+                    .printable-area { 
+                        position: absolute; 
+                        left: 0; 
+                        top: 0; 
+                        width: 100%;
+                        padding-left: 2cm; /* <-- SUA NOVA BORDA DE 2CM */
+                        box-sizing: border-box; /* <-- Para garantir que o padding não estoure a largura */
+                    } 
+                } 
+            `}</style>
+            
+            {/* Esta div 'printable-area' é o que será impresso */}
+            <div className="hidden print:block printable-area">
+                <PlanoPagamentoPrint contrato={contrato} signatory={selectedSignatory} geradoPor={geradoPor} />
+            </div>
+
+            {/* Esta div 'print:hidden' é o que NÃO será impresso */}
             <div className="print:hidden bg-white p-6 rounded-lg shadow-md border space-y-6">
                 <div className="space-y-4">
                     <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2"><FontAwesomeIcon icon={faExchangeAlt} /> Permutas Registradas</h3>
