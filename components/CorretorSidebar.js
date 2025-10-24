@@ -16,8 +16,9 @@ import {
   faSignOutAlt,
   faCalculator,
   faChevronDown, // <-- Ícone da setinha
-  faUser,        // <-- Ícone para Editar Perfil
-  faCog,         // <-- Ícone para Configurações
+  faUser, // <-- Ícone para Editar Perfil
+  faCog, // <-- Ícone para Configurações
+  faFolderOpen, // <-- AQUI! Ícone novo para Arquivos
 } from '@fortawesome/free-solid-svg-icons'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
@@ -25,10 +26,9 @@ import { createClient } from '@/utils/supabase/client'
 import Tooltip from './Tooltip'
 import Image from 'next/image'
 
-// Define os itens específicos para o menu do Corretor (sem mudanças)
+// Define os itens específicos para o menu do Corretor
 const navSections = [
-    // ... (seu array navSections continua igual) ...
-    {
+  {
     title: 'Portal do Corretor',
     items: [
       {
@@ -61,6 +61,14 @@ const navSections = [
         label: 'Contratos',
         recurso: 'portal_contratos',
       },
+      // ======================= A CORREÇÃO ESTÁ AQUI =======================
+      {
+        href: '/arquivos',
+        icon: faFolderOpen,
+        label: 'Arquivos',
+        recurso: 'portal_arquivos',
+      },
+      // ======================= FIM DA CORREÇÃO =======================
     ],
   },
 ]
@@ -69,43 +77,42 @@ export default function CorretorSidebar({
   user,
   isUserLoading,
   isCollapsed,
-  toggleSidebar
+  toggleSidebar,
 }) {
-
   const router = useRouter()
   const queryClient = useQueryClient()
   const supabase = createClient()
 
   // --- Lógica do Menu Dropdown ---
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useRef(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const menuRef = useRef(null)
 
   useEffect(() => {
     function handleClickOutside(event) {
-        if (menuRef.current && !menuRef.current.contains(event.target)) {
-            setIsMenuOpen(false);
-        }
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false)
+      }
     }
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside)
     return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [menuRef]);
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [menuRef])
   // --- Fim da Lógica do Menu Dropdown ---
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    queryClient.clear();
-    router.push('/login');
-  };
+    await supabase.auth.signOut()
+    queryClient.clear()
+    router.push('/login')
+  }
 
   const sidebarPosition = user?.sidebar_position || 'left'
 
   // Dados do usuário
-  const firstName = user?.nome?.split(' ')[0];
-  const userName = firstName || user?.email || 'Usuário';
-  const userEmail = user?.email || '...';
-  const userPhoto = user?.avatar_url || null;
+  const firstName = user?.nome?.split(' ')[0]
+  const userName = firstName || user?.email || 'Usuário'
+  const userEmail = user?.email || '...'
+  const userPhoto = user?.avatar_url || null
 
   const logoUrl =
     'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE'
@@ -124,12 +131,17 @@ export default function CorretorSidebar({
       >
         <div className="absolute left-4">
           <Link href="/portal-painel">
-            <Image src={logoIconUrl} alt="Logo Studio 57" width={32} height={32} />
+            <Image
+              src={logoIconUrl}
+              alt="Logo Studio 57"
+              width={32}
+              height={32}
+            />
           </Link>
         </div>
         <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2">
           {allItems.map((item) => {
-            const canViewItem = true;
+            const canViewItem = true
             if (!item || !canViewItem) return null
             return (
               <Tooltip
@@ -160,90 +172,123 @@ export default function CorretorSidebar({
         isCollapsed ? 'w-[80px]' : 'w-[260px]'
       } ${sidebarPosition === 'left' ? 'left-0' : 'right-0'}`}
     >
-
       {/* 1. SEÇÃO DO USUÁRIO COM DROPDOWN */}
-      <div className="flex-shrink-0 border-b border-gray-200 relative" ref={menuRef}>
+      <div
+        className="flex-shrink-0 border-b border-gray-200 relative"
+        ref={menuRef}
+      >
         {isUserLoading ? (
           <div className="flex items-center justify-center p-4 h-16">
             <FontAwesomeIcon icon={faSpinner} spin className="text-gray-400" />
           </div>
         ) : user ? (
-           <button
-             onClick={() => setIsMenuOpen(!isMenuOpen)}
-             className={`w-full flex items-center p-4 h-16 text-left hover:bg-gray-50 focus:outline-none ${isCollapsed ? 'justify-center' : ''}`}
-           >
-             {userPhoto ? (
-               <Image src={userPhoto} alt="Foto do perfil" width={36} height={36} className="rounded-full flex-shrink-0" />
-             ) : (
-               <FontAwesomeIcon icon={faUserCircle} className="text-gray-400 text-3xl flex-shrink-0" />
-             )}
-             {!isCollapsed && (
-               <div className="ml-3 overflow-hidden flex-grow mr-2">
-                 <p className="text-sm font-semibold text-gray-800 truncate">{userName}</p>
-                 <p className="text-xs text-gray-500 truncate">{userEmail}</p>
-               </div>
-             )}
-             {!isCollapsed && (
-                <FontAwesomeIcon
-                  icon={faChevronDown}
-                  className={`w-3 h-3 text-gray-500 transition-transform duration-200 flex-shrink-0 ${isMenuOpen ? 'rotate-180' : ''}`}
-                />
-             )}
-           </button>
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className={`w-full flex items-center p-4 h-16 text-left hover:bg-gray-50 focus:outline-none ${isCollapsed ? 'justify-center' : ''}`}
+          >
+            {userPhoto ? (
+              <Image
+                src={userPhoto}
+                alt="Foto do perfil"
+                width={36}
+                height={36}
+                className="rounded-full flex-shrink-0"
+              />
+            ) : (
+              <FontAwesomeIcon
+                icon={faUserCircle}
+                className="text-gray-400 text-3xl flex-shrink-0"
+              />
+            )}
+            {!isCollapsed && (
+              <div className="ml-3 overflow-hidden flex-grow mr-2">
+                <p className="text-sm font-semibold text-gray-800 truncate">
+                  {userName}
+                </p>
+                <p className="text-xs text-gray-500 truncate">{userEmail}</p>
+              </div>
+            )}
+            {!isCollapsed && (
+              <FontAwesomeIcon
+                icon={faChevronDown}
+                className={`w-3 h-3 text-gray-500 transition-transform duration-200 flex-shrink-0 ${isMenuOpen ? 'rotate-180' : ''}`}
+              />
+            )}
+          </button>
         ) : (
-          <div className={`w-full flex items-center p-4 h-16 text-left ${isCollapsed ? 'justify-center' : ''}`}>
-             <FontAwesomeIcon icon={faUserCircle} className="text-red-400 text-3xl flex-shrink-0" />
-              {!isCollapsed && (
-               <div className="ml-3 overflow-hidden">
-                 <p className="text-sm font-semibold text-red-800 truncate">Erro</p>
-                 <p className="text-xs text-red-500 truncate">Recarregue</p>
-               </div>
-             )}
+          <div
+            className={`w-full flex items-center p-4 h-16 text-left ${isCollapsed ? 'justify-center' : ''}`}
+          >
+            <FontAwesomeIcon
+              icon={faUserCircle}
+              className="text-red-400 text-3xl flex-shrink-0"
+            />
+            {!isCollapsed && (
+              <div className="ml-3 overflow-hidden">
+                <p className="text-sm font-semibold text-red-800 truncate">
+                  Erro
+                </p>
+                <p className="text-xs text-red-500 truncate">Recarregue</p>
+              </div>
+            )}
           </div>
         )}
 
         {/* O Menu Dropdown */}
         {isMenuOpen && !isUserLoading && user && (
-            <div className={`absolute mt-1 w-56 bg-white rounded-md shadow-lg z-50 border border-gray-200 ${
-                isCollapsed
-                    ? (sidebarPosition === 'left' ? 'left-full ml-1 top-0' : 'right-full mr-1 top-0')
-                    : (sidebarPosition === 'left' ? 'left-4' : 'right-4')
-             }`}>
-                <ul className="py-1">
-                    <li>
-                        {/* ======================= A CORREÇÃO ESTÁ AQUI ======================= */}
-                        <Link
-                           href="/perfil" // <-- CORRIGIDO para a página existente
-                           onClick={() => setIsMenuOpen(false)}
-                           className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        >
-                            <FontAwesomeIcon icon={faUser} className="w-4 h-4 text-gray-500" />
-                            <span>Editar Perfil</span>
-                        </Link>
-                        {/* ======================= FIM DA CORREÇÃO ======================= */}
-                    </li>
-                    <li>
-                        <Link
-                          href="/portal-configuracoes" // Mantém o link para a nova página de configurações do portal
-                          onClick={() => setIsMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        >
-                            <FontAwesomeIcon icon={faCog} className="w-4 h-4 text-gray-500" />
-                            <span>Configurações</span>
-                        </Link>
-                    </li>
-                    <li className="border-t border-gray-200 my-1"></li>
-                    <li>
-                       <button
-                         onClick={() => { handleLogout(); setIsMenuOpen(false); }}
-                         className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                       >
-                            <FontAwesomeIcon icon={faSignOutAlt} className="w-4 h-4" />
-                            <span>Sair</span>
-                        </button>
-                    </li>
-                </ul>
-            </div>
+          <div
+            className={`absolute mt-1 w-56 bg-white rounded-md shadow-lg z-50 border border-gray-200 ${
+              isCollapsed
+                ? sidebarPosition === 'left'
+                  ? 'left-full ml-1 top-0'
+                  : 'right-full mr-1 top-0'
+                : sidebarPosition === 'left'
+                  ? 'left-4'
+                  : 'right-4'
+            }`}
+          >
+            <ul className="py-1">
+              <li>
+                <Link
+                  href="/portal-perfil" // <-- Link da página de perfil do corretor
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <FontAwesomeIcon
+                    icon={faUser}
+                    className="w-4 h-4 text-gray-500"
+                  />
+                  <span>Editar Perfil</span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/portal-configuracoes" // Mantém o link para a nova página de configurações do portal
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <FontAwesomeIcon
+                    icon={faCog}
+                    className="w-4 h-4 text-gray-500"
+                  />
+                  <span>Configurações</span>
+                </Link>
+              </li>
+              <li className="border-t border-gray-200 my-1"></li>
+              <li>
+                <button
+                  onClick={() => {
+                    handleLogout()
+                    setIsMenuOpen(false)
+                  }}
+                  className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                >
+                  <FontAwesomeIcon icon={faSignOutAlt} className="w-4 h-4" />
+                  <span>Sair</span>
+                </button>
+              </li>
+            </ul>
+          </div>
         )}
       </div>
 
@@ -266,7 +311,7 @@ export default function CorretorSidebar({
         <ul className="overflow-y-auto">
           {navSections.map((section) => {
             const sectionItems = section.items || []
-            const hasVisibleItems = sectionItems.some(item => true);
+            const hasVisibleItems = sectionItems.some((item) => true)
             if (!hasVisibleItems) return null
             return (
               <li key={section.title} className="mb-2">
@@ -282,13 +327,15 @@ export default function CorretorSidebar({
                 )}
                 <ul>
                   {sectionItems.map((item) => {
-                    const canViewItem = true;
+                    const canViewItem = true
                     if (!canViewItem) return null
                     return (
                       <li key={item.label}>
                         <Tooltip
                           label={item.label}
-                          position={sidebarPosition === 'left' ? 'right' : 'left'}
+                          position={
+                            sidebarPosition === 'left' ? 'right' : 'left'
+                          }
                           disabled={!isCollapsed}
                         >
                           <Link
@@ -339,8 +386,8 @@ export default function CorretorSidebar({
                   ? faChevronLeft
                   : faChevronRight
                 : sidebarPosition === 'right'
-                ? faChevronRight
-                : faChevronLeft
+                  ? faChevronRight
+                  : faChevronLeft
             }
             size="lg"
           />
