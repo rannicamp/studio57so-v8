@@ -1,7 +1,7 @@
 // components/CorretorSidebar.js
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react' // <-- Importa useEffect e useRef
 import Link from 'next/link'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
@@ -14,18 +14,21 @@ import {
   faUserCircle,
   faSpinner,
   faSignOutAlt,
-  faCalculator, // <-- 1. ÍCONE NOVO
+  faCalculator,
+  faChevronDown, // <-- Ícone da setinha
+  faUser,        // <-- Ícone para Editar Perfil
+  faCog,         // <-- Ícone para Configurações
 } from '@fortawesome/free-solid-svg-icons'
-import { useLayout } from '@/contexts/LayoutContext'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/utils/supabase/client'
 import Tooltip from './Tooltip'
 import Image from 'next/image'
 
-// Define os itens específicos para o menu do Corretor
+// Define os itens específicos para o menu do Corretor (sem mudanças)
 const navSections = [
-  {
+    // ... (seu array navSections continua igual) ...
+    {
     title: 'Portal do Corretor',
     items: [
       {
@@ -46,14 +49,12 @@ const navSections = [
         label: 'Tabela de Vendas',
         recurso: 'portal_tabela_vendas',
       },
-      // --- 2. AQUI ESTÁ O NOVO ITEM ---
       {
         href: '/simulador-financiamento',
         icon: faCalculator,
         label: 'Simulador',
         recurso: 'portal_simulador',
       },
-      // --- FIM DO NOVO ITEM ---
       {
         href: '/portal-contratos',
         icon: faFileSignature,
@@ -64,51 +65,33 @@ const navSections = [
   },
 ]
 
-// Componente auxiliar para o Avatar (sem mudanças)
-function UserAvatar({ user, isCollapsed }) {
-  const avatarUrl = user?.avatar_url; 
-  const userName = user?.nome || 'Usuário';
-  const userEmail = user?.email || '...';
-
-  if (isCollapsed) {
-    return (
-      <Tooltip label={`${userName} (${userEmail})`} position="right">
-        <div className="flex items-center justify-center w-full h-16">
-          {avatarUrl ? (
-            <Image src={avatarUrl} alt="Avatar" width={36} height={36} className="rounded-full" />
-          ) : (
-            <FontAwesomeIcon icon={faUserCircle} className="text-gray-400 text-3xl" />
-          )}
-        </div>
-      </Tooltip>
-    );
-  }
-
-  return (
-    <div className="flex items-center p-4 h-16">
-      {avatarUrl ? (
-        <Image src={avatarUrl} alt="Avatar" width={36} height={36} className="rounded-full" />
-      ) : (
-        <FontAwesomeIcon icon={faUserCircle} className="text-gray-400 text-3xl" />
-      )}
-      <div className="ml-3 overflow-hidden">
-        <p className="text-sm font-semibold text-gray-800 truncate">{userName}</p>
-        <p className="text-xs text-gray-500 truncate">{userEmail}</p>
-      </div>
-    </div>
-  );
-}
-
-
-export default function CorretorSidebar({ 
+export default function CorretorSidebar({
+  user,
+  isUserLoading,
   isCollapsed,
-  toggleSidebar 
+  toggleSidebar
 }) {
-  
-  const { user, isUserLoading } = useLayout()
+
   const router = useRouter()
   const queryClient = useQueryClient()
   const supabase = createClient()
+
+  // --- Lógica do Menu Dropdown ---
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+        if (menuRef.current && !menuRef.current.contains(event.target)) {
+            setIsMenuOpen(false);
+        }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [menuRef]);
+  // --- Fim da Lógica do Menu Dropdown ---
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -118,13 +101,19 @@ export default function CorretorSidebar({
 
   const sidebarPosition = user?.sidebar_position || 'left'
 
+  // Dados do usuário
+  const firstName = user?.nome?.split(' ')[0];
+  const userName = firstName || user?.email || 'Usuário';
+  const userEmail = user?.email || '...';
+  const userPhoto = user?.avatar_url || null;
+
   const logoUrl =
     'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE'
   const logoIconUrl = '/favicon.ico'
 
   const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom'
 
-  // Renderização Horizontal (sem mudanças)
+  // Renderização Horizontal (mantida igual)
   if (isHorizontal) {
     const allItems = navSections.flatMap((section) => section.items || [])
     return (
@@ -164,28 +153,101 @@ export default function CorretorSidebar({
     )
   }
 
-  // Renderização Vertical (sem mudanças, apenas o array 'navSections' foi atualizado)
+  // Renderização Vertical
   return (
     <aside
       className={`bg-white shadow-lg h-full fixed top-0 z-40 flex flex-col transition-all duration-300 ${
         isCollapsed ? 'w-[80px]' : 'w-[260px]'
       } ${sidebarPosition === 'left' ? 'left-0' : 'right-0'}`}
     >
-      
-      {/* 1. SEÇÃO DO USUÁRIO NO TOPO */}
-      <div className="flex-shrink-0 border-b border-gray-200">
+
+      {/* 1. SEÇÃO DO USUÁRIO COM DROPDOWN */}
+      <div className="flex-shrink-0 border-b border-gray-200 relative" ref={menuRef}>
         {isUserLoading ? (
           <div className="flex items-center justify-center p-4 h-16">
             <FontAwesomeIcon icon={faSpinner} spin className="text-gray-400" />
           </div>
         ) : user ? (
-          <UserAvatar user={user} isCollapsed={isCollapsed} />
+           <button
+             onClick={() => setIsMenuOpen(!isMenuOpen)}
+             className={`w-full flex items-center p-4 h-16 text-left hover:bg-gray-50 focus:outline-none ${isCollapsed ? 'justify-center' : ''}`}
+           >
+             {userPhoto ? (
+               <Image src={userPhoto} alt="Foto do perfil" width={36} height={36} className="rounded-full flex-shrink-0" />
+             ) : (
+               <FontAwesomeIcon icon={faUserCircle} className="text-gray-400 text-3xl flex-shrink-0" />
+             )}
+             {!isCollapsed && (
+               <div className="ml-3 overflow-hidden flex-grow mr-2">
+                 <p className="text-sm font-semibold text-gray-800 truncate">{userName}</p>
+                 <p className="text-xs text-gray-500 truncate">{userEmail}</p>
+               </div>
+             )}
+             {!isCollapsed && (
+                <FontAwesomeIcon
+                  icon={faChevronDown}
+                  className={`w-3 h-3 text-gray-500 transition-transform duration-200 flex-shrink-0 ${isMenuOpen ? 'rotate-180' : ''}`}
+                />
+             )}
+           </button>
         ) : (
-          <UserAvatar user={{ nome: 'Erro', email: 'Tente recarregar' }} isCollapsed={isCollapsed} />
+          <div className={`w-full flex items-center p-4 h-16 text-left ${isCollapsed ? 'justify-center' : ''}`}>
+             <FontAwesomeIcon icon={faUserCircle} className="text-red-400 text-3xl flex-shrink-0" />
+              {!isCollapsed && (
+               <div className="ml-3 overflow-hidden">
+                 <p className="text-sm font-semibold text-red-800 truncate">Erro</p>
+                 <p className="text-xs text-red-500 truncate">Recarregue</p>
+               </div>
+             )}
+          </div>
+        )}
+
+        {/* O Menu Dropdown */}
+        {isMenuOpen && !isUserLoading && user && (
+            <div className={`absolute mt-1 w-56 bg-white rounded-md shadow-lg z-50 border border-gray-200 ${
+                isCollapsed
+                    ? (sidebarPosition === 'left' ? 'left-full ml-1 top-0' : 'right-full mr-1 top-0')
+                    : (sidebarPosition === 'left' ? 'left-4' : 'right-4')
+             }`}>
+                <ul className="py-1">
+                    <li>
+                        {/* ======================= A CORREÇÃO ESTÁ AQUI ======================= */}
+                        <Link
+                           href="/perfil" // <-- CORRIGIDO para a página existente
+                           onClick={() => setIsMenuOpen(false)}
+                           className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                            <FontAwesomeIcon icon={faUser} className="w-4 h-4 text-gray-500" />
+                            <span>Editar Perfil</span>
+                        </Link>
+                        {/* ======================= FIM DA CORREÇÃO ======================= */}
+                    </li>
+                    <li>
+                        <Link
+                          href="/portal-configuracoes" // Mantém o link para a nova página de configurações do portal
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                            <FontAwesomeIcon icon={faCog} className="w-4 h-4 text-gray-500" />
+                            <span>Configurações</span>
+                        </Link>
+                    </li>
+                    <li className="border-t border-gray-200 my-1"></li>
+                    <li>
+                       <button
+                         onClick={() => { handleLogout(); setIsMenuOpen(false); }}
+                         className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                       >
+                            <FontAwesomeIcon icon={faSignOutAlt} className="w-4 h-4" />
+                            <span>Sair</span>
+                        </button>
+                    </li>
+                </ul>
+            </div>
         )}
       </div>
 
-      {/* 2. SEÇÃO DO LOGO */}
+      {/* 2. SEÇÃO DO LOGO (sem mudanças) */}
       <div className="flex items-center justify-center h-[65px] flex-shrink-0">
         <Link href="/portal-painel">
           <Image
@@ -199,7 +261,7 @@ export default function CorretorSidebar({
         </Link>
       </div>
 
-      {/* 3. NAVEGAÇÃO */}
+      {/* 3. NAVEGAÇÃO (sem mudanças) */}
       <nav className="mt-4 flex-grow flex flex-col">
         <ul className="overflow-y-auto">
           {navSections.map((section) => {
@@ -227,6 +289,7 @@ export default function CorretorSidebar({
                         <Tooltip
                           label={item.label}
                           position={sidebarPosition === 'left' ? 'right' : 'left'}
+                          disabled={!isCollapsed}
                         >
                           <Link
                             href={item.href}
@@ -262,38 +325,11 @@ export default function CorretorSidebar({
           })}
         </ul>
       </nav>
-      
-      {/* 4. BOTÃO DE LOGOUT */}
-      <div className="flex-shrink-0 border-t border-gray-200 p-2">
-        <Tooltip
-          label="Sair do sistema"
-          position={sidebarPosition === 'left' ? 'right' : 'left'}
-        >
-          <button
-            onClick={handleLogout}
-            className={`flex items-center py-3 text-red-600 hover:bg-red-50 transition-colors duration-200 w-full rounded-md ${
-              isCollapsed ? 'justify-center' : 'px-6'
-            }`}
-          >
-            <FontAwesomeIcon
-              icon={faSignOutAlt}
-              className={`flex-shrink-0 ${
-                isCollapsed ? 'text-xl' : 'text-lg w-6'
-              }`}
-            />
-            {!isCollapsed && (
-              <span className="ml-4 text-sm font-medium">
-                Sair
-              </span>
-            )}
-          </button>
-        </Tooltip>
-      </div>
 
-      {/* 5. BOTÃO DE COLAPSAR */}
-      <div className="border-t border-gray-200 p-2">
+      {/* 4. BOTÃO DE COLAPSAR (sem mudanças) */}
+      <div className="border-t border-gray-200 p-2 mt-auto">
         <button
-          onClick={toggleSidebar} 
+          onClick={toggleSidebar}
           className="w-full h-12 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
         >
           <FontAwesomeIcon
