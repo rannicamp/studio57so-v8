@@ -25,6 +25,7 @@ export async function middleware(req) {
     '/',
     '/login',
     '/register',
+    '/cadastro-corretor', // <-- AQUI ESTÁ A CORREÇÃO!
     '/empreendimentosstudio',
     '/refugiobraunas',
     '/residencialalfa',
@@ -38,7 +39,7 @@ export async function middleware(req) {
   const publicPrefixPaths = [
     '/cadastrocliente', // Permite /cadastrocliente/obrigado e /cadastrocliente/[slug]
     '/simulador-financiamento', // Permite /simulador-financiamento/[id]
-    '/api/auth', // <--- !! AQUI ESTÁ A CORREÇÃO !!
+    '/api/auth', 
   ]
 
   // Verifica se o caminho atual é um match exato

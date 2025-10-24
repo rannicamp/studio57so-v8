@@ -1,27 +1,28 @@
 // app/(corretor)/layout.js
 'use client'
 
-import { useState } from 'react' // MANTÉM O useState
+import { useState } from 'react'
 import CorretorSidebar from '@/components/CorretorSidebar'
 import CotacoesBar from '@/components/CotacoesBar'
-import { useLayout, LayoutProvider } from '@/contexts/LayoutContext' // Importações corretas
+import { useLayout, LayoutProvider } from '@/contexts/LayoutContext'
 import { Toaster } from 'sonner'
 import { EmpreendimentoProvider } from '@/contexts/EmpreendimentoContext'
 
 // =================================================================
 // 1. COMPONENTE "INTERNO" (O CONSUMIDOR)
-// Esta é a parte que CONSOME o contexto (usa useLayout())
 // =================================================================
 function CorretorLayoutInner({ children }) {
-  // AQUI SIM: Estamos "dentro" do Provider, então useLayout() funciona!
-  const { user, mostrarBarraCotacoes } = useLayout()
+  
+  // --- MUDANÇA AQUI ---
+  // Agora pegamos o isUserLoading aqui também
+  const { user, isUserLoading, mostrarBarraCotacoes } = useLayout()
+  // --- FIM DA MUDANÇA ---
+
   const sidebarPosition = user?.sidebar_position || 'left'
   
-  // O estado de colapso mora aqui, junto com quem o consome
   const [isCollapsed, setIsCollapsed] = useState(false);
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
-  // Lógica do padding (como na última versão)
   const getMainContentPadding = () => {
     if (sidebarPosition === 'bottom') return ''; 
     const paddingClass = isCollapsed ? 'pl-[80px]' : 'pl-[260px]';
@@ -37,13 +38,18 @@ function CorretorLayoutInner({ children }) {
           sidebarPosition === 'bottom' ? 'flex-col' : 'flex-row'
         } min-h-screen bg-gray-100`}
       >
-        {/* Passamos o estado e a função para a sidebar */}
+        
+        {/* --- MUDANÇA PRINCIPAL AQUI --- */}
+        {/* Passamos o 'user' e 'isUserLoading' como props */}
         <CorretorSidebar 
+          user={user} 
+          isUserLoading={isUserLoading} 
           isCollapsed={isCollapsed} 
           toggleSidebar={toggleSidebar} 
         />
+        {/* --- FIM DA MUDANÇA --- */}
 
-        {/* Aplicamos o padding dinâmico */}
+
         <div 
           className={`flex-1 flex flex-col transition-all duration-300 ${getMainContentPadding()}`}
         >
@@ -60,12 +66,9 @@ function CorretorLayoutInner({ children }) {
 
 // =================================================================
 // 2. COMPONENTE "EXTERNO" (O PROVEDOR)
-// Este é o export default, e sua ÚNICA função é PROVER o contexto.
-// Ele não pode, de jeito nenhum, chamar o useLayout().
 // =================================================================
 export default function CorretorLayout({ children }) {
   return (
-    // Ele "abraça" o componente interno com o Provider
     <LayoutProvider>
       <CorretorLayoutInner>{children}</CorretorLayoutInner>
     </LayoutProvider>
