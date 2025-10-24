@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import CorretorSidebar from '@/components/CorretorSidebar'
-import CotacoesBar from '@/components/CotacoesBar'
+// --- MUDANÇA 1: REMOVIDO CotacoesBar ---
 import { useLayout, LayoutProvider } from '@/contexts/LayoutContext'
 import { Toaster } from 'sonner'
 import { EmpreendimentoProvider } from '@/contexts/EmpreendimentoContext'
@@ -13,9 +13,9 @@ import { EmpreendimentoProvider } from '@/contexts/EmpreendimentoContext'
 // =================================================================
 function CorretorLayoutInner({ children }) {
   
-  // --- MUDANÇA AQUI ---
-  // Agora pegamos o isUserLoading aqui também
-  const { user, isUserLoading, mostrarBarraCotacoes } = useLayout()
+  // --- MUDANÇA 2: REMOVIDO 'mostrarBarraCotacoes' ---
+  // Pegamos apenas o que o LayoutContext realmente fornece
+  const { user, isUserLoading } = useLayout()
   // --- FIM DA MUDANÇA ---
 
   const sidebarPosition = user?.sidebar_position || 'left'
@@ -39,16 +39,12 @@ function CorretorLayoutInner({ children }) {
         } min-h-screen bg-gray-100`}
       >
         
-        {/* --- MUDANÇA PRINCIPAL AQUI --- */}
-        {/* Passamos o 'user' e 'isUserLoading' como props */}
         <CorretorSidebar 
           user={user} 
           isUserLoading={isUserLoading} 
           isCollapsed={isCollapsed} 
           toggleSidebar={toggleSidebar} 
         />
-        {/* --- FIM DA MUDANÇA --- */}
-
 
         <div 
           className={`flex-1 flex flex-col transition-all duration-300 ${getMainContentPadding()}`}
@@ -57,7 +53,9 @@ function CorretorLayoutInner({ children }) {
             {children}
           </main>
           
-          {mostrarBarraCotacoes && <CotacoesBar />}
+          {/* --- MUDANÇA 3: REMOVIDA a renderização da barra --- */}
+          {/* {mostrarBarraCotacoes && <CotacoesBar />} */}
+          {/* --- FIM DA MUDANÇA --- */}
         </div>
       </div>
     </EmpreendimentoProvider>

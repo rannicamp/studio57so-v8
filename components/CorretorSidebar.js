@@ -61,14 +61,15 @@ const navSections = [
         label: 'Contratos',
         recurso: 'portal_contratos',
       },
-      // ======================= A CORREÇÃO ESTÁ AQUI =======================
+      // ======================= MUDANÇA AQUI =======================
       {
-        href: '/arquivos',
+        // O link agora aponta para o novo nome da pasta
+        href: '/portal-arquivos',
         icon: faFolderOpen,
         label: 'Arquivos',
         recurso: 'portal_arquivos',
       },
-      // ======================= FIM DA CORREÇÃO =======================
+      // ======================= FIM DA MUDANÇA =======================
     ],
   },
 ]

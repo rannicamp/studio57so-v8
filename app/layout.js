@@ -4,8 +4,13 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'sonner';
 import Script from 'next/script';
-import { Providers } from './providers'; // Já importado
+import { Providers } from './providers';
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
+
+// --- MUDANÇA AQUI ---
+// 1. Importamos o seu QueryProvider que criamos
+import QueryProvider from './QueryProvider';
+// --- FIM DA MUDANÇA ---
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -52,9 +57,15 @@ export default function RootLayout({ children }) {
         <Script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" strategy="beforeInteractive" />
 
         {/* ##### INÍCIO DA CORREÇÃO ##### */}
-        {/* Agora apenas usamos o componente <Providers>, que já contém o SessionProvider internamente. */}
+        {/* Agora, envolvemos os 'children' com o QueryProvider
+            DENTRO do componente <Providers> que já existia. */}
         <Providers>
-          {children}
+          {/* --- MUDANÇA AQUI --- */}
+          {/* 2. Ligamos o "Carregamento Mágico" em toda a aplicação */}
+          <QueryProvider>
+            {children}
+          </QueryProvider>
+          {/* --- FIM DA MUDANÇA --- */}
         </Providers>
         {/* ##### FIM DA CORREÇÃO ##### */}
 
