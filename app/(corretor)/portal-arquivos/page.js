@@ -7,29 +7,20 @@ import { createClient } from '@/utils/supabase/client'
 import { useLayout } from '@/contexts/LayoutContext'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
-  faSpinner,
-  faFolderBlank,
-  faFilePdf,
-  faFileImage,
-  faFileArchive,
-  faFileAlt,
-  faDownload,
-  faFolderOpen,
-  faEye,
+  faSpinner, faFolderBlank, faFilePdf, faFileImage, faFileArchive,
+  faFileAlt, faDownload, faFolderOpen, faEye, faFileVideo, faLink,
+  faSearch, faFilter, faTimes,
 } from '@fortawesome/free-solid-svg-icons'
 import { toast } from 'sonner'
+import Image from 'next/image'
+import { useDebounce } from 'use-debounce'
 
 // 1. Função de busca de dados (Query para o useQuery)
-async function fetchArquivosCorretor(organizacaoId) {
-  if (!organizacaoId) {
-    return []
-  }
-
+async function fetchArquivosCorretor(organizacaoId, searchTerm, empreendimentoId) {
+  if (!organizacaoId) return []
   const supabase = createClient()
 
-  // --- CORREÇÃO FINAL (AGORA SIM!) ---
-  // Removi DEFINITIVAMENTE todos os comentários de dentro do .select()
-  const { data, error } = await supabase
+  let query = supabase
     .from('empreendimento_anexos')
     .select(
       `
@@ -38,68 +29,95 @@ async function fetchArquivosCorretor(organizacaoId) {
       caminho_arquivo,
       created_at,
       empreendimento_id,
-      empreendimentos ( nome ),
-      tipo:documento_tipos ( sigla, nome:descricao ) 
-    ` // <-- Limpo, sem comentários!
+      empreendimentos!inner ( nome ),
+      tipo:documento_tipos ( sigla, nome:descricao ),
+      thumbnail_url
+    `
     )
     .eq('organizacao_id', organizacaoId)
-    .eq('disponivel_corretor', true) // <-- O FILTRO MÁGICO!
-    .order('nome', { foreignTable: 'empreendimentos', ascending: true })
-    .order('nome_arquivo', { ascending: true })
+    .eq('disponivel_corretor', true)
 
-  if (error) {
-    console.error('Erro ao buscar arquivos para o corretor:', error.message)
-    // Lança o erro para ser pego pelo useQuery
-    throw new Error(error.message)
+  // --- CORREÇÃO NA LÓGICA DO FILTRO .or() ---
+  if (searchTerm) {
+    // A sintaxe correta para OR com ILIKE em tabelas diferentes
+    // é passar uma string formatada diretamente no .or()
+    // referenciando a coluna da tabela relacionada corretamente.
+    query = query.or(`nome_arquivo.ilike.%${searchTerm}%,empreendimentos.nome.ilike.%${searchTerm}%`, { referencedTable: 'empreendimentos' })
+  }
+  // --- FIM DA CORREÇÃO ---
+
+  if (empreendimentoId) {
+    query = query.eq('empreendimento_id', empreendimentoId)
   }
 
-  // Adiciona a URL pública a cada anexo para visualização direta
-  const anexosComUrl = await Promise.all(
-    (data || []).map(async (anexo) => {
-      // Usar getPublicUrl que não precisa de async/await direto
-      const { data: urlData } = supabase.storage
-        .from('empreendimento-anexos')
-        .getPublicUrl(anexo.caminho_arquivo)
-      return { ...anexo, public_url: urlData?.publicUrl }
-    })
-  )
+  // Ordenação
+  query = query.order('nome', { foreignTable: 'empreendimentos', ascending: true })
+            .order('nome_arquivo', { ascending: true })
+
+  const { data, error } = await query
+
+  if (error) throw new Error(error.message)
+
+  // Adiciona a URL pública
+  const anexosComUrl = (data || []).map((anexo) => {
+    const { data: urlData } = supabase.storage
+      .from('empreendimento-anexos')
+      .getPublicUrl(anexo.caminho_arquivo)
+    return { ...anexo, public_url: urlData?.publicUrl }
+  })
 
   return anexosComUrl
 }
 
-// 2. Componente da Página
+// Função para buscar empreendimentos do corretor
+async function fetchEmpreendimentosCorretor(organizacaoId) {
+    if (!organizacaoId) return [];
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc('get_empreendimentos_com_anexos_corretor', { org_id: organizacaoId });
+    if (error) {
+        console.error("Erro ao buscar empreendimentos:", error);
+        throw new Error("Não foi possível carregar os empreendimentos.");
+    }
+    return (data || []).sort((a, b) => a.nome.localeCompare(b.nome));
+}
+
+
+// 2. Componente da Página (Restante do código igual)
 export default function ArquivosCorretorPage() {
   const { user, isUserLoading } = useLayout()
   const organizacaoId = user?.organizacao_id
-  const supabase = createClient() // Instância separada para o handleDownload, se necessário
+  const supabase = createClient()
+  const [downloadingId, setDownloadingId] = useState(null)
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedEmpreendimento, setSelectedEmpreendimento] = useState('');
+  const [debouncedSearchTerm] = useDebounce(searchTerm, 500);
 
-  const [downloadingId, setDownloadingId] = useState(null) // Controla o spinner de download
+  const { data: empreendimentosOptions = [], isLoading: isLoadingEmpreendimentos } = useQuery({
+      queryKey: ['empreendimentosCorretor', organizacaoId],
+      queryFn: () => fetchEmpreendimentosCorretor(organizacaoId),
+      enabled: !!organizacaoId,
+  });
 
-  // 3. Hook useQuery para buscar os dados
   const {
     data: arquivos,
     isLoading: isLoadingArquivos,
     isError,
-    error, // O erro capturado da função fetchArquivosCorretor
+    error,
     isFetching,
   } = useQuery({
-    queryKey: ['arquivosCorretor', organizacaoId],
-    queryFn: () => fetchArquivosCorretor(organizacaoId),
+    queryKey: ['arquivosCorretor', organizacaoId, debouncedSearchTerm, selectedEmpreendimento],
+    queryFn: () => fetchArquivosCorretor(organizacaoId, debouncedSearchTerm, selectedEmpreendimento),
     enabled: !!organizacaoId,
   })
 
-  // 4. Lógica da Notificação de Atualização
   const prevIsFetchingRef = useRef(false)
   useEffect(() => {
-    // Só mostra a notificação se não estiver carregando pela primeira vez,
-    // se estava buscando antes e parou agora, E se não deu erro na busca.
     if (!isLoadingArquivos && prevIsFetchingRef.current && !isFetching && !isError) {
-      toast.success('Página atualizada!')
+      toast.info('Lista de arquivos atualizada.')
     }
     prevIsFetchingRef.current = isFetching
-  }, [isFetching, isLoadingArquivos, isError]) // Depende de isError também
+  }, [isFetching, isLoadingArquivos, isError])
 
-  // 5. Hook useMemo para agrupar os arquivos por empreendimento
   const arquivosAgrupados = useMemo(() => {
     if (!arquivos) return {}
     return arquivos.reduce((acc, anexo) => {
@@ -111,91 +129,82 @@ export default function ArquivosCorretorPage() {
     }, {})
   }, [arquivos])
 
-  // 6. Função para lidar com o Download (usando public_url)
   const handleDownload = (anexo) => {
-    // Não precisa mais do async/await aqui se a URL já foi buscada
-    if (downloadingId === anexo.id) return // Já está baixando
-    if (!anexo.public_url) {
-      toast.error('Erro ao obter URL para download.')
-      console.error('Anexo sem public_url:', anexo) // Log para debug
-      return
-    }
-
-    setDownloadingId(anexo.id) // Ativa o spinner ANTES de tentar o download
-    toast.loading('Iniciando download...', { id: `download-${anexo.id}` })
-
+    if (downloadingId === anexo.id) return
+    if (!anexo.public_url) { toast.error('Erro URL.'); return; }
+    setDownloadingId(anexo.id)
+    toast.loading('Iniciando...', { id: `d-${anexo.id}` })
     try {
-      // Tenta forçar o download criando um link temporário
-      const link = document.createElement('a')
-      link.href = anexo.public_url
-      // Adiciona target="_blank" para tentar abrir em nova aba se o download falhar
-      link.target = '_blank'
-      link.setAttribute('download', anexo.nome_arquivo || 'arquivo')
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      toast.success('Download iniciado!', { id: `download-${anexo.id}` })
-    } catch (err) {
-      console.error('Erro ao tentar forçar download:', err)
-      toast.error('Falha ao iniciar download.', { id: `download-${anexo.id}` })
-      // Como fallback, tenta abrir a URL em nova aba (pode abrir em vez de baixar)
-      window.open(anexo.public_url, '_blank')
-    } finally {
-      // Garante que o spinner seja desativado mesmo se houver erro
-      // Adiciona um pequeno delay para o usuário ver a mensagem de sucesso/erro
-      setTimeout(() => setDownloadingId(null), 500)
-    }
+        const link = document.createElement('a'); link.href = anexo.public_url; link.target = '_blank';
+        link.setAttribute('download', anexo.nome_arquivo || 'arquivo'); document.body.appendChild(link);
+        link.click(); document.body.removeChild(link);
+        toast.success('Iniciado!', { id: `d-${anexo.id}` })
+    } catch (err) { console.error('Erro dl:', err); toast.error('Falha.', { id: `d-${anexo.id}` }); window.open(anexo.public_url, '_blank');
+    } finally { setTimeout(() => setDownloadingId(null), 500); }
   }
 
+  const isLoading = isUserLoading || isLoadingArquivos || isLoadingEmpreendimentos;
 
-  // Função para escolher o ícone certo (mantida)
-  const getFileIcon = (sigla) => {
-    const s = sigla?.toUpperCase()
-    if (s === 'PDF') return faFilePdf
-    if (['PNG', 'JPG', 'JPEG', 'GIF', 'WEBP'].includes(s)) return faFileImage
-    if (['ZIP', 'RAR'].includes(s)) return faFileArchive
-    return faFileAlt // Ícone padrão para outros tipos
-  }
-
-  // Define o estado de "carregando" principal
-  const isLoading = isUserLoading || isLoadingArquivos
-
-  // 7. Renderização (Loading, Erro, Sucesso)
   if (isLoading) {
-    return (
-        <div className="flex justify-center items-center h-64">
-          <FontAwesomeIcon icon={faSpinner} className="text-blue-500 text-4xl" spin />
-          <p className="ml-4 text-gray-600">Carregando arquivos...</p>
-        </div>
-      )
+     return (<div className="flex justify-center items-center h-64"><FontAwesomeIcon icon={faSpinner} className="text-blue-500 text-4xl" spin /><p className="ml-4 text-gray-600">Carregando...</p></div>)
   }
-
-  // --- MUDANÇA: Exibe a mensagem de erro específica do useQuery ---
   if (isError) {
-    return (
-        <div className="text-center py-10 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-          <strong className="font-bold">Erro!</strong>
-          {/* Mostra a mensagem de erro vinda do Supabase ou da rede */}
-          <span className="block sm:inline"> {error?.message || 'Não foi possível carregar os arquivos.'}</span>
-        </div>
-      )
+    return (<div className="text-center py-10 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"><strong className="font-bold">Erro!</strong><span className="block sm:inline"> {error?.message || 'Não foi possível carregar.'}</span></div>)
   }
 
   const empreendimentoIds = Object.keys(arquivosAgrupados)
 
-  // 8. Sucesso: Renderiza a lista de arquivos
+  const getMediaType = (anexo) => {
+    const fileName = anexo.nome_arquivo || '';
+    if (/\.(mp4|webm|ogg)$/i.test(fileName)) return 'video';
+    if (/\.(png|jpg|jpeg|gif|webp)$/i.test(fileName)) return 'image';
+    if (/\.(pdf)$/i.test(fileName)) return 'pdf';
+    return 'other';
+  };
+
+   const clearFilters = () => {
+       setSearchTerm('');
+       setSelectedEmpreendimento('');
+   };
+
   return (
     <div className="max-w-full mx-auto space-y-8">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">
-        Biblioteca de Arquivos
-      </h1>
+      <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-800"> Biblioteca de Arquivos </h1>
+      </div>
 
-      {empreendimentoIds.length === 0 ? (
-        <div className="text-center py-10 bg-gray-50 rounded-lg">
-           <div className="text-center">
+      {/* Seção de Filtros */}
+      <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <div className="md:col-span-2">
+                  <label htmlFor="search-term" className="block text-sm font-medium text-gray-700 mb-1">Buscar por nome</label>
+                  <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><FontAwesomeIcon icon={faSearch} className="text-gray-400" /></div>
+                      <input type="text" id="search-term" placeholder="Digite o nome do arquivo ou empreendimento..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-2 pl-10 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"/>
+                  </div>
+              </div>
+              <div>
+                  <label htmlFor="empreendimento-filter" className="block text-sm font-medium text-gray-700 mb-1">Filtrar por Empreendimento</label>
+                  <select id="empreendimento-filter" value={selectedEmpreendimento} onChange={(e) => setSelectedEmpreendimento(e.target.value)} className="w-full p-2 border rounded-md shadow-sm bg-white focus:ring-blue-500 focus:border-blue-500 h-[42px]">
+                      <option value="">Todos os Empreendimentos</option>
+                      {empreendimentosOptions.map(emp => (<option key={emp.id} value={emp.id}>{emp.nome}</option>))}
+                  </select>
+              </div>
+          </div>
+           {(searchTerm || selectedEmpreendimento) && (
+             <div className="flex justify-end">
+               <button onClick={clearFilters} className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"><FontAwesomeIcon icon={faTimes} /> Limpar Filtros</button>
+             </div>
+           )}
+      </div>
+
+      {/* Exibição dos Resultados */}
+      {arquivos && arquivos.length === 0 ? (
+         <div className="text-center py-10 bg-gray-50 rounded-lg">
+            <div className="text-center">
              <FontAwesomeIcon icon={faFolderBlank} className="text-5xl text-gray-300 mb-4"/>
              <h3 className="text-lg font-semibold text-gray-700">Nenhum arquivo encontrado</h3>
-             <p className="text-gray-500 text-sm mt-1">Nenhum arquivo foi disponibilizado para os corretores ainda.</p>
+             <p className="text-gray-500 text-sm mt-1">{searchTerm || selectedEmpreendimento ? "Ajuste os filtros ou verifique se há arquivos disponíveis." : "Nenhum arquivo foi disponibilizado para os corretores ainda."}</p>
            </div>
         </div>
       ) : (
@@ -207,59 +216,30 @@ export default function ArquivosCorretorPage() {
                 <FontAwesomeIcon icon={faFolderOpen} className="text-blue-500" />
                 {grupo.nome}
               </h2>
-              <ul className="space-y-3">
-                {grupo.arquivos.map((anexo) => (
-                  <li
-                    key={anexo.id}
-                    className="bg-white p-3 rounded-md border flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors"
-                  >
-                    {/* Detalhes do Anexo */}
-                    <div className="flex items-center gap-4 min-w-0">
-                      <FontAwesomeIcon
-                        icon={getFileIcon(anexo.tipo?.sigla)}
-                        className="text-xl text-gray-500 flex-shrink-0 w-5 h-5"
-                      />
-                      <div className="flex-grow min-w-0">
-                        <p
-                          className="font-medium text-gray-800 truncate"
-                          title={anexo.nome_arquivo}
-                        >
-                          {anexo.nome_arquivo}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {anexo.tipo?.nome || 'Arquivo'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Botões de Ação */}
-                    <div className="flex items-center gap-4 flex-shrink-0">
-                      <a
-                        href={anexo.public_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`p-1 ${anexo.public_url ? 'text-blue-600 hover:text-blue-800' : 'text-gray-400 cursor-not-allowed'}`}
-                        title={anexo.public_url ? "Visualizar" : "URL não disponível"}
-                        onClick={(e) => !anexo.public_url && e.preventDefault()} // Impede clique se não houver URL
-                      >
-                        <FontAwesomeIcon icon={faEye} />
-                      </a>
-                      <button
-                        onClick={() => handleDownload(anexo)}
-                        disabled={downloadingId === anexo.id || !anexo.public_url} // Desabilita se não tiver URL
-                        className={`p-1 ${anexo.public_url ? 'text-green-600 hover:text-green-800' : 'text-gray-400'} disabled:text-gray-400 disabled:cursor-not-allowed`}
-                        title={anexo.public_url ? "Baixar" : "URL não disponível"}
-                      >
-                        {downloadingId === anexo.id ? (
-                          <FontAwesomeIcon icon={faSpinner} spin />
-                        ) : (
-                          <FontAwesomeIcon icon={faDownload} />
-                        )}
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                {grupo.arquivos.map((anexo) => {
+                   const mediaType = getMediaType(anexo);
+                   return (
+                     <div key={anexo.id} className="relative group rounded-lg overflow-hidden shadow-md border bg-white flex flex-col h-64">
+                       <div className="flex-grow flex items-center justify-center overflow-hidden bg-gray-100 h-4/5 relative">
+                         {mediaType === 'video' && anexo.public_url ? ( <video controls src={anexo.public_url} className="w-full h-full object-contain bg-black">Video não suportado. <a href={anexo.public_url} target="_blank" rel="noopener noreferrer">Assista aqui</a></video>
+                         ) : anexo.thumbnail_url ? ( <a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="w-full h-full flex items-center justify-center"><Image src={anexo.thumbnail_url} alt={`Preview ${anexo.nome_arquivo}`} width={200} height={160} className="object-contain max-h-full max-w-full" unoptimized /></a>
+                         ) : mediaType === 'image' && anexo.public_url ? ( <a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="w-full h-full flex items-center justify-center"><Image src={anexo.public_url} alt={`Preview ${anexo.nome_arquivo}`} width={200} height={160} className="object-contain max-h-full max-w-full" unoptimized /></a>
+                         ) : mediaType === 'pdf' ? ( <a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="text-center text-red-500"><FontAwesomeIcon icon={faFilePdf} size="3x" /><p className="text-xs mt-1">PDF</p></a>
+                         ) : ( <a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="text-center text-gray-500"><FontAwesomeIcon icon={faFileAlt} size="3x" /><p className="text-xs mt-1">Arquivo</p></a> )}
+                         <div className="absolute top-0 right-0 p-1 flex items-center gap-1 bg-black/40 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                           <a href={anexo.public_url} target="_blank" rel="noopener noreferrer" title="Abrir" className={`text-white h-7 w-7 flex items-center justify-center hover:bg-black/30 rounded-full transition-colors ${!anexo.public_url && 'hidden'}`}><FontAwesomeIcon icon={faEye} /></a>
+                           <button onClick={() => handleDownload(anexo)} disabled={downloadingId === anexo.id || !anexo.public_url} title="Baixar" className={`text-white h-7 w-7 flex items-center justify-center hover:bg-black/30 rounded-full transition-colors ${!anexo.public_url && 'hidden'}`}>{downloadingId === anexo.id ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faDownload} />}</button>
+                         </div>
+                       </div>
+                       <div className="p-2 border-t h-1/5 flex flex-col justify-center">
+                         <p className="font-medium text-sm text-gray-800 truncate" title={anexo.nome_arquivo}>{anexo.nome_arquivo}</p>
+                         <p className="text-xs text-gray-500 truncate">{anexo.tipo?.nome || 'Arquivo'}</p>
+                       </div>
+                     </div>
+                   );
+                })}
+              </div>
             </section>
           )
         })
