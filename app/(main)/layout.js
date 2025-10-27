@@ -65,7 +65,7 @@ function MainLayout({ children }) {
                 event.preventDefault();
                 fetchModalData();
                 setIsGlobalActivityModalOpen(true);
-            }
+  S           }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => {
@@ -87,12 +87,6 @@ function MainLayout({ children }) {
     const finalMainContentMargin = mainContentMargins[sidebarPosition] || mainContentMargins.left;
     const finalHeaderMargin = headerMargins[sidebarPosition] || headerMargins.left;
 
-    // =================================================================================
-    // AQUI ESTÁ A CORREÇÃO
-    // O PORQUÊ: Voltamos a ter dois layouts distintos. A diferença crucial é que
-    // o 'layoutCaixaDeEntrada' agora tem uma tag <main> sem padding ('p-6').
-    // Isso elimina a causa raiz de todos os problemas de espaçamento e sobreposição.
-    // =================================================================================
     const layoutCaixaDeEntrada = (
         <div className={`${finalContainerClass} h-screen w-full bg-gray-100 overflow-hidden`}>
             <Sidebar isCollapsed={isCollapsed} toggleSidebar={toggleSidebar} isAdmin={isProprietario}/>
@@ -112,7 +106,15 @@ function MainLayout({ children }) {
             <Sidebar isCollapsed={isCollapsed} toggleSidebar={toggleSidebar} isAdmin={isProprietario}/>
             <div className="flex-1">
                 <Header headerPositionClass={finalHeaderMargin} />
-                <main className={`p-6 transition-all duration-300 ${isCotacoesBarVisible ? 'mt-[89px]' : 'mt-[65px]'} ${finalMainContentMargin}`}>
+                
+                {/* ================== AQUI ESTÁ A CORREÇÃO ==================
+                 * O PORQUÊ: Eu removi o 'p-6' desta linha.
+                 * Antes: className={`p-6 transition-all...`}
+                 * Agora: className={`transition-all...`}
+                 * Isso remove o padding cinza global que estava "empurrando"
+                 * o seu card branco para dentro.
+                 ============================================================= */}
+                <main className={`transition-all duration-300 ${isCotacoesBarVisible ? 'mt-[89px]' : 'mt-[65px]'} ${finalMainContentMargin}`}>
                     {children}
                 </main>
             </div>
