@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import SimuladorFinanceiroPublico from '@/components/SimuladorFinanceiroPublico';
+import BotaoVoltar from '@/components/BotaoVoltar'; // <-- 1. IMPORTAMOS O BOTÃO
 import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
@@ -27,6 +28,9 @@ export default async function SimuladorPage() {
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-5xl mx-auto">
+                
+                <BotaoVoltar /> {/* <-- 2. ADICIONAMOS O BOTÃO AQUI */}
+
                 <div className="mb-8 flex justify-center">
                     <img src={logoUrl} alt="Logo Studio 57" className="h-16 w-auto" />
                 </div>

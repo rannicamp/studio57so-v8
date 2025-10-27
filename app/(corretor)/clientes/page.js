@@ -6,6 +6,8 @@ export const dynamic = 'force-dynamic'
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   useQuery,
+  // --- MUDANÇA: Importa useMutation ---
+  useMutation,
   useQueryClient,
 } from '@tanstack/react-query'
 import { createClient } from '@/utils/supabase/client'
@@ -16,13 +18,17 @@ import {
   faPlus, faSpinner, faTimes, faUser, faBuilding,
   faAddressBook, faSort, faSortUp, faSortDown, faSearch,
   faPen, faUserCircle,
+  // --- MUDANÇA: Ícones para Excluir e Duplicar ---
+  faTrash, faCopy,
 } from '@fortawesome/free-solid-svg-icons'
 import { useDebounce } from 'use-debounce'
 import Image from 'next/image'
-import ContatoForm from '@/components/contatos/ContatoForm' // Usa o formulário diretamente
+import ContatoForm from '@/components/contatos/ContatoForm'
+// --- MUDANÇA: Importa a server action para salvar (usada na duplicação) ---
+import { saveContactAction } from '@/components/contatos/actions';
 
-// Função de busca (sem mudanças desta vez)
-async function fetchClientesCorretor(organizacaoId, userId, searchTerm) {
+// Função de busca (sem mudanças)
+async function fetchClientesCorretor(organizacaoId, userId, searchTerm) { /* ... (código igual) ... */
   if (!organizacaoId || !userId) return [];
   const supabase = createClient()
   let query = supabase.from('contatos').select(`*, telefones(telefone), emails(email)`)
@@ -33,12 +39,8 @@ async function fetchClientesCorretor(organizacaoId, userId, searchTerm) {
   const { data, error } = await query
   if (error) { console.error("Erro busca clientes:", error.message); throw new Error(error.message) }
   return (data || []).map(contato => ({
-    ...contato,
-    telefone: contato.telefones?.[0]?.telefone || null,
-    email: contato.emails?.[0]?.email || null,
-    nome_display: contato.nome || contato.razao_social || 'Nome Indefinido',
-    etapa_funil: 'N/A', // Simplificado por agora
-    nome_funil: 'N/A',  // Simplificado por agora
+    ...contato, telefone: contato.telefones?.[0]?.telefone || null, email: contato.emails?.[0]?.email || null,
+    nome_display: contato.nome || contato.razao_social || 'Nome Indefinido', etapa_funil: 'N/A', nome_funil: 'N/A',
   }));
 }
 
@@ -46,7 +48,8 @@ export default function ClientesCorretor() {
   const queryClient = useQueryClient()
   const { user, isUserLoading } = useLayout()
   const organizacaoId = user?.organizacao_id
-  const userId = user?.id // ID do usuário para filtro
+  const userId = user?.id
+  const supabase = createClient() // Instancia o Supabase client
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const isInitialMount = useRef(true)
@@ -55,11 +58,104 @@ export default function ClientesCorretor() {
   const [sortConfig, setSortConfig] = useState({ key: 'nome_display', direction: 'ascending' })
   const [contatoParaEditar, setContatoParaEditar] = useState(null)
 
+  // Query para buscar clientes (sem mudanças)
   const { data: clientes, isLoading, isFetching, isError, error, } = useQuery({
     queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm],
     queryFn: () => fetchClientesCorretor(organizacaoId, userId, debouncedSearchTerm),
     enabled: !!organizacaoId && !!userId,
   })
+
+  // --- MUDANÇA: Mutation para Excluir Contato ---
+  const deleteMutation = useMutation({
+      mutationFn: async (contatoId) => {
+          // *** IMPORTANTE: Verifica RLS (Regras de Segurança) ***
+          // Garanta que suas RLS no Supabase só permitem que o usuário
+          // delete contatos que ele criou ou que pertençam à sua organização.
+          const { error } = await supabase
+              .from('contatos')
+              .delete()
+              .eq('id', contatoId);
+          if (error) throw new Error(error.message);
+      },
+      onSuccess: () => {
+          toast.success('Cliente excluído com sucesso!');
+          // Invalida a query para atualizar a lista
+          queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm] });
+      },
+      onError: (err) => {
+          toast.error(`Erro ao excluir cliente: ${err.message}`);
+          console.error("Erro Supabase Delete:", err);
+      },
+  });
+
+  // --- MUDANÇA: Mutation para Duplicar Contato ---
+  const duplicateMutation = useMutation({
+      mutationFn: async (contatoOriginal) => {
+          // 1. Cria um novo objeto SEM o ID e ajusta o nome
+          const { id, created_at, updated_at, foto_url, ...dadosParaDuplicar } = contatoOriginal;
+          const novoNome = `${dadosParaDuplicar.nome_display || 'Contato'} (Cópia)`;
+
+          // Prepara o formData para a saveContactAction
+          const formDataDuplicado = {
+              ...dadosParaDuplicar,
+              // Ajusta nome/razão social dependendo do tipo
+              nome: contatoOriginal.personalidade_juridica === 'Pessoa Física' ? novoNome : dadosParaDuplicar.nome,
+              razao_social: contatoOriginal.personalidade_juridica === 'Pessoa Jurídica' ? novoNome : dadosParaDuplicar.razao_social,
+              nome_display: novoNome, // Atualiza nome_display também
+              // Mantém telefones e emails (a action deve salvá-los)
+              telefones: contatoOriginal.telefones || [{ telefone: '', country_code: '+55' }],
+              emails: contatoOriginal.emails || [{ email: '' }],
+              // Garante que IDs de relacionamento não sejam copiados diretamente
+              // (a menos que a lógica da sua action lide com isso)
+              conjuge_id: null, // Ou busca o ID novamente se necessário
+              // Garante que o criador seja o usuário atual
+              criado_por_usuario_id: userId,
+              organizacao_id: organizacaoId,
+          };
+
+          // 2. Chama a Server Action para CRIAR o novo contato (isEditing = false)
+          const result = await saveContactAction({ formData: formDataDuplicado, isEditing: false });
+
+          if (result.error) {
+              throw new Error(result.error);
+          }
+          // 3. Retorna o ID do novo contato criado
+          return result.contactId;
+      },
+      onSuccess: (novoContatoId) => {
+          toast.success('Cliente duplicado! Abrindo para edição...');
+          // Invalida a query para atualizar a lista no background
+          queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm] });
+
+          // Busca os dados completos do NOVO contato para abrir no modal
+          const novoContato = clientes?.find(c => c.id === novoContatoId); // Tenta encontrar na lista atualizada (pode não estar ainda)
+          if(novoContato) {
+              handleOpenModal(novoContato); // Abre o modal com os dados do duplicado
+          } else {
+              // Se não encontrou (cache ainda não atualizou), busca do Supabase
+              supabase.from('contatos').select(`*, telefones(telefone), emails(email)`).eq('id', novoContatoId).single()
+              .then(({data, error}) => {
+                  if(data) {
+                       handleOpenModal({
+                            ...data,
+                            telefone: data.telefones?.[0]?.telefone || null,
+                            email: data.emails?.[0]?.email || null,
+                            nome_display: data.nome || data.razao_social || 'Nome Indefinido',
+                            etapa_funil: 'N/A', nome_funil: 'N/A',
+                       });
+                  } else {
+                       console.error("Erro ao buscar dados do contato duplicado:", error);
+                       toast.warning("Contato duplicado, mas não foi possível abrir para edição.");
+                  }
+              });
+          }
+      },
+      onError: (err) => {
+          toast.error(`Erro ao duplicar cliente: ${err.message}`);
+          console.error("Erro Duplicação:", err);
+      },
+  });
+  // --- FIM DA MUDANÇA ---
 
   // Notificação (sem mudanças)
   useEffect(() => { /* ... */
@@ -69,8 +165,7 @@ export default function ClientesCorretor() {
 
   // Ordenação (sem mudanças)
   const sortedClientes = useMemo(() => { /* ... */
-    let sortableItems = [...(clientes || [])];
-    if (sortConfig.key !== null) { sortableItems.sort((a, b) => { const valA = a[sortConfig.key]; const valB = b[sortConfig.key]; if (valA === null || valA === undefined) return sortConfig.direction === 'ascending' ? 1 : -1; if (valB === null || valB === undefined) return sortConfig.direction === 'ascending' ? -1 : 1; const compareResult = String(valA).toLowerCase().localeCompare(String(valB).toLowerCase()); return sortConfig.direction === 'ascending' ? compareResult : -compareResult; }); } return sortableItems;
+    let sortableItems = [...(clientes || [])]; if (sortConfig.key !== null) { sortableItems.sort((a, b) => { const valA = a[sortConfig.key]; const valB = b[sortConfig.key]; if (valA === null || valA === undefined) return sortConfig.direction === 'ascending' ? 1 : -1; if (valB === null || valB === undefined) return sortConfig.direction === 'ascending' ? -1 : 1; const compareResult = String(valA).toLowerCase().localeCompare(String(valB).toLowerCase()); return sortConfig.direction === 'ascending' ? compareResult : -compareResult; }); } return sortableItems;
    }, [clientes, sortConfig]);
 
   // Request Sort (sem mudanças)
@@ -87,9 +182,27 @@ export default function ClientesCorretor() {
     setIsModalOpen(false); setContatoParaEditar(null); toast.success(contatoParaEditar ? 'Cliente atualizado!' : 'Contato salvo!'); queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm] });
   }, [queryClient, organizacaoId, userId, debouncedSearchTerm, contatoParaEditar]);
 
+  // --- MUDANÇA: Função para confirmar e chamar exclusão ---
+  const handleDelete = (cliente) => {
+      toast.error(
+          `Tem certeza que deseja excluir "${cliente.nome_display}"?`,
+          {
+              action: {
+                  label: 'Excluir',
+                  onClick: () => deleteMutation.mutate(cliente.id),
+              },
+              cancel: {
+                  label: 'Cancelar',
+              },
+              duration: 10000, // Tempo maior para confirmação
+          }
+      );
+  };
+  // --- FIM DA MUDANÇA ---
+
   // Sortable Header (sem mudanças)
   const SortableHeader = ({ label, sortKey, className = '' }) => { /* ... */
-    const getSortIcon = () => { if (sortConfig.key !== sortKey) return faSort; return sortConfig.direction === 'ascending' ? faSortUp : faSortDown; }; return ( <th className={`py-3 px-4 text-sm font-semibold text-gray-600 ${className}`}><button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 w-full"><span>{label}</span><FontAwesomeIcon icon={getSortIcon()} className="text-gray-400" /></button></th> );
+     const getSortIcon = () => { if (sortConfig.key !== sortKey) return faSort; return sortConfig.direction === 'ascending' ? faSortUp : faSortDown; }; return ( <th className={`py-3 px-4 text-sm font-semibold text-gray-600 ${className}`}><button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 w-full"><span>{label}</span><FontAwesomeIcon icon={getSortIcon()} className="text-gray-400" /></button></th> );
   };
 
   const isPageLoading = isLoading || isUserLoading;
@@ -131,7 +244,7 @@ export default function ClientesCorretor() {
              </thead>
              <tbody className="divide-y divide-gray-200">
               {sortedClientes.map((cliente) => (
-                <tr key={cliente.id} className="hover:bg-gray-50">
+                <tr key={cliente.id} className="hover:bg-gray-50 group"> {/* Adicionado group para hover dos botões */}
                    <td className="py-2 px-4">
                      {cliente.foto_url ? (<Image src={cliente.foto_url} alt={`Foto ${cliente.nome_display}`} width={40} height={40} className="rounded-full object-cover w-10 h-10" unoptimized />
                      ) : (<FontAwesomeIcon icon={cliente.personalidade_juridica === 'Pessoa Jurídica' ? faBuilding : faUserCircle} className={`w-10 h-10 rounded-full p-2 flex-shrink-0 ${ cliente.personalidade_juridica === 'Pessoa Jurídica' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600' }`} /> )}
@@ -141,9 +254,38 @@ export default function ClientesCorretor() {
                   <td className="py-3 px-4 text-sm text-gray-600">{cliente.email || '---'}</td>
                   <td className="py-3 px-4 text-sm text-gray-500">{cliente.tipo_contato || 'Contato'}</td>
                   <td className="py-3 px-4 text-right">
-                    <button onClick={() => handleOpenModal(cliente)} className="text-blue-600 hover:text-blue-800 p-1" title="Editar Cliente">
-                      <FontAwesomeIcon icon={faPen} />
-                    </button>
+                     {/* --- MUDANÇA: Botões Editar, Duplicar, Excluir --- */}
+                     <div className="flex items-center justify-end space-x-2">
+                        {/* Editar */}
+                        <button onClick={() => handleOpenModal(cliente)} className="text-blue-600 hover:text-blue-800 p-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity" title="Editar Cliente">
+                          <FontAwesomeIcon icon={faPen} />
+                        </button>
+                        {/* Duplicar */}
+                        <button
+                            onClick={() => duplicateMutation.mutate(cliente)}
+                            disabled={duplicateMutation.isPending}
+                            className="text-green-600 hover:text-green-800 p-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity disabled:text-gray-400"
+                            title="Duplicar Cliente"
+                        >
+                            {duplicateMutation.isPending && duplicateMutation.variables?.id === cliente.id
+                             ? <FontAwesomeIcon icon={faSpinner} spin />
+                             : <FontAwesomeIcon icon={faCopy} />
+                            }
+                        </button>
+                         {/* Excluir */}
+                        <button
+                            onClick={() => handleDelete(cliente)}
+                            disabled={deleteMutation.isPending && deleteMutation.variables === cliente.id}
+                            className="text-red-500 hover:text-red-700 p-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity disabled:text-gray-400"
+                            title="Excluir Cliente"
+                        >
+                             {deleteMutation.isPending && deleteMutation.variables === cliente.id
+                             ? <FontAwesomeIcon icon={faSpinner} spin />
+                             : <FontAwesomeIcon icon={faTrash} />
+                            }
+                        </button>
+                     </div>
+                     {/* --- FIM DA MUDANÇA --- */}
                   </td>
                 </tr>
               ))}
@@ -164,10 +306,7 @@ export default function ClientesCorretor() {
             </div>
             <div className="flex-grow overflow-y-auto">
               <ContatoForm
-                // --- CORREÇÃO AQUI ---
-                // Passa a prop com o nome que o ContatoForm espera: 'contactToEdit'
-                contactToEdit={contatoParaEditar}
-                // --- FIM DA CORREÇÃO ---
+                contactToEdit={contatoParaEditar} // Passa com 'c' minúsculo
                 onClose={handleCloseModal}
                 onSaveSuccess={handleSaveSuccess}
                 organizacaoId={organizacaoId}
