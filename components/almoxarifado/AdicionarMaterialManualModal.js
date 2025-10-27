@@ -1,4 +1,3 @@
-// components/almoxarifado/AdicionarMaterialManualModal.js
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -9,15 +8,10 @@ import { toast } from 'sonner';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 
-// =================================================================================
-// ATUALIZAÇÃO DE SEGURANÇA (organizacao_id)
-// O PORQUÊ: A função agora recebe o `organizacaoId` para garantir que todas as
-// operações (criação de material, entrada em estoque, movimentação) sejam
-// "etiquetadas" e restritas à organização correta.
-// =================================================================================
 const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId, organizacaoId, materialData }) => {
     let materialId = materialData.material_id;
 
+    // 1. Cria o material se ele for novo
     if (!materialId) {
         const { data: novoMaterial, error: materialError } = await supabase
             .from('materiais')
@@ -26,7 +20,7 @@ const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId,
                 descricao: materialData.descricao,
                 classificacao: materialData.classificacao,
                 unidade_medida: materialData.unidade_medida,
-                organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
+                organizacao_id: organizacaoId, // <-- Segurança OK
             })
             .select('id')
             .single();
@@ -35,6 +29,7 @@ const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId,
         materialId = novoMaterial.id;
     }
 
+    // 2. Verifica se já existe no estoque para este empreendimento
     const { data: estoqueExistente, error: estoqueSelectError } = await supabase
         .from('estoque')
         .select('id, quantidade_atual')
@@ -42,12 +37,14 @@ const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId,
         .eq('material_id', materialId)
         .single();
 
+    // Ignora o erro se for 'nenhum resultado encontrado', o que é esperado para itens novos
     if (estoqueSelectError && estoqueSelectError.code !== 'PGRST116') {
         throw new Error(`Falha ao verificar o estoque: ${estoqueSelectError.message}`);
     }
 
     let estoqueId;
     if (estoqueExistente) {
+        // 2a. Atualiza a quantidade se já existe
         estoqueId = estoqueExistente.id;
         const novaQuantidade = Number(estoqueExistente.quantidade_atual) + Number(materialData.quantidade);
         const { error: updateError } = await supabase
@@ -56,6 +53,7 @@ const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId,
             .eq('id', estoqueId);
         if (updateError) throw new Error(`Falha ao atualizar o estoque: ${updateError.message}`);
     } else {
+        // 2b. Cria a entrada no estoque se não existe
         const { data: novoEstoque, error: insertError } = await supabase
             .from('estoque')
             .insert({
@@ -63,7 +61,7 @@ const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId,
                 material_id: materialId,
                 quantidade_atual: materialData.quantidade,
                 unidade_medida: materialData.unidade_medida,
-                organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
+                organizacao_id: organizacaoId, // <-- Segurança OK
             })
             .select('id')
             .single();
@@ -71,26 +69,32 @@ const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId,
         estoqueId = novoEstoque.id;
     }
 
+    // 3. Registra a movimentação de entrada
     const { error: movimentacaoError } = await supabase
         .from('movimentacoes_estoque')
         .insert({
             estoque_id: estoqueId,
-            tipo: 'Entrada',
+            // ======================= CORREÇÃO APLICADA =======================
+            tipo: 'Entrada por Compra', // <-- Usando um tipo VÁLIDO do CHECK constraint
+            // ===============================================================
             quantidade: materialData.quantidade,
             usuario_id: usuarioId,
             observacao: `Adição manual de material: ${materialData.descricao}`,
-            organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
+            organizacao_id: organizacaoId, // <-- Segurança OK
         });
 
+    // Se a inserção da movimentação falhar, lança o erro
     if (movimentacaoError) throw new Error(`Falha ao registrar a movimentação: ${movimentacaoError.message}`);
 
+    // Se chegou até aqui, tudo deu certo
     return { success: true };
 };
+
 
 export default function AdicionarMaterialManualModal({ isOpen, onClose, onSuccess, empreendimentoId }) {
     const supabase = createClient();
     const { user } = useAuth();
-    const organizacaoId = user?.organizacao_id; // Pegamos o ID da organização
+    const organizacaoId = user?.organizacao_id;
     const queryClient = useQueryClient();
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -108,14 +112,17 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
     const mutation = useMutation({
         mutationFn: adicionarMaterialEstoque,
         onSuccess: () => {
-            onSuccess();
-            onClose();
+            toast.success("Material adicionado ao estoque com sucesso!"); // Mensagem adicionada aqui
+            onSuccess(); // Chama a função de sucesso do Manager (que invalida a query)
+            onClose(); // Fecha o modal
         },
         onError: (error) => {
-            toast.error(error.message);
+            // Exibe a mensagem de erro específica que veio da mutationFn
+            toast.error(error.message); 
         },
     });
 
+    // Função para resetar o estado do modal
     const resetState = () => {
         setSearchTerm('');
         setSearchResults([]);
@@ -128,15 +135,17 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
             unidade_medida: 'unid.',
             classificacao: 'Equipamento',
         });
-        mutation.reset();
+        mutation.reset(); // Reseta o estado da mutation (isPending, etc.)
     };
 
+    // Reseta o estado sempre que o modal for aberto
     useEffect(() => {
         if (isOpen) {
             resetState();
         }
     }, [isOpen]);
 
+    // Lógica de busca de materiais existentes
     const handleSearchChange = async (e) => {
         const value = e.target.value;
         setSearchTerm(value);
@@ -149,21 +158,17 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
             return;
         }
         setIsSearching(true);
-        // =================================================================================
-        // ATUALIZAÇÃO DE SEGURANÇA (organização_id na busca)
-        // O PORQUÊ: A busca agora filtra também pela organização, mostrando apenas
-        // os materiais que pertencem ao usuário logado.
-        // =================================================================================
         const { data } = await supabase
             .from('materiais')
             .select('id, nome, descricao, unidade_medida, classificacao')
-            .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+            .eq('organizacao_id', organizacaoId) // <-- Filtro de segurança OK
             .or(`nome.ilike.%${value}%,descricao.ilike.%${value}%`)
             .limit(10);
         setSearchResults(data || []);
         setIsSearching(false);
     };
 
+    // Lógica para selecionar um material da busca
     const handleSelectMaterial = (material) => {
         setSearchTerm(material.descricao || material.nome);
         setItem({
@@ -177,12 +182,9 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
         setSearchResults([]);
     };
 
+    // Lógica para criar um novo material na hora
     const handleCreateAndSelectMaterial = async () => {
         const toastId = toast.loading("Criando novo material...");
-        // =================================================================================
-        // ATUALIZAÇÃO DE SEGURANÇA (organização_id na criação)
-        // O PORQUÊ: Ao criar um novo material, já o "etiquetamos" com o ID da organização.
-        // =================================================================================
         const { data: newMaterial, error } = await supabase
             .from('materiais')
             .insert({ 
@@ -190,7 +192,7 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
                 descricao: searchTerm.trim(),
                 classificacao: item.classificacao,
                 unidade_medida: item.unidade_medida,
-                organizacao_id: organizacaoId, // <-- ETIQUETA DE SEGURANÇA!
+                organizacao_id: organizacaoId, // <-- Segurança OK
             })
             .select()
             .single();
@@ -201,10 +203,11 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
         }
         
         toast.success(`Material "${newMaterial.nome}" criado com sucesso!`, { id: toastId });
-        queryClient.invalidateQueries({ queryKey: ['materiais', organizacaoId] });
-        handleSelectMaterial(newMaterial);
+        queryClient.invalidateQueries({ queryKey: ['materiais', organizacaoId] }); // Invalida cache de materiais
+        handleSelectMaterial(newMaterial); // Seleciona o material recém-criado
     };
 
+    // Lógica para salvar (chama a mutation)
     const handleSave = () => {
         const finalDescription = isItemSelected ? item.descricao : searchTerm;
         if (!finalDescription.trim()) {
@@ -218,14 +221,16 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
         
         const materialDataPayload = {
             ...item,
-            descricao: finalDescription
+            descricao: finalDescription // Garante que a descrição correta seja enviada
         };
 
+        // Chama a mutation com todos os parâmetros necessários
         mutation.mutate({ supabase, empreendimentoId, usuarioId: user.id, organizacaoId, materialData: materialDataPayload });
     };
 
     if (!isOpen) return null;
 
+    // JSX do Modal (sem alterações significativas, apenas a correção na função de salvar)
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl">
@@ -241,7 +246,7 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
                         {isItemSelected ? (
                             <div className="flex items-center justify-between mt-1 w-full p-2 border rounded-md bg-gray-100">
                                 <span className="font-semibold text-gray-800">{item.descricao}</span>
-                                <button onClick={() => { setIsItemSelected(false); setSearchTerm(''); }} className="text-blue-600 hover:text-blue-800 text-sm font-semibold flex items-center gap-1">
+                                <button onClick={() => { setIsItemSelected(false); setSearchTerm(''); resetState(); /* Reseta tudo ao alterar */ }} className="text-blue-600 hover:text-blue-800 text-sm font-semibold flex items-center gap-1">
                                     <FontAwesomeIcon icon={faPenToSquare} /> Alterar
                                 </button>
                             </div>
@@ -256,24 +261,26 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
                                 />
                                 {isSearching && <p className="text-xs text-gray-500 absolute">Buscando...</p>}
                                 
-                                <div className="absolute z-10 w-full bg-white border rounded-md mt-1 shadow-lg max-h-48 overflow-y-auto">
-                                    {searchResults.length > 0 && searchResults.map(material => (
-                                        <div key={material.id} onClick={() => handleSelectMaterial(material)} className="p-2 hover:bg-gray-100 cursor-pointer">
-                                            {material.descricao || material.nome}
-                                        </div>
-                                    ))}
-                                    {!isSearching && searchTerm.length > 2 && searchResults.length === 0 && (
-                                        <div className="p-3">
-                                            <button 
-                                                type="button" 
-                                                onClick={handleCreateAndSelectMaterial} 
-                                                className="text-blue-600 font-semibold flex items-center gap-2 w-full text-left hover:text-blue-800"
-                                            > 
-                                                <FontAwesomeIcon icon={faPlus} /> Criar e usar &quot;{searchTerm}&quot;
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
+                                {searchTerm.length >= 2 && (
+                                    <div className="absolute z-10 w-full bg-white border rounded-md mt-1 shadow-lg max-h-48 overflow-y-auto">
+                                        {searchResults.length > 0 && searchResults.map(material => (
+                                            <div key={material.id} onClick={() => handleSelectMaterial(material)} className="p-2 hover:bg-gray-100 cursor-pointer">
+                                                {material.descricao || material.nome}
+                                            </div>
+                                        ))}
+                                        {!isSearching && searchResults.length === 0 && (
+                                            <div className="p-3">
+                                                <button 
+                                                    type="button" 
+                                                    onClick={handleCreateAndSelectMaterial} 
+                                                    className="text-blue-600 font-semibold flex items-center gap-2 w-full text-left hover:text-blue-800"
+                                                > 
+                                                    <FontAwesomeIcon icon={faPlus} /> Criar e usar &quot;{searchTerm}&quot;
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </>
                         )}
                     </div>
@@ -295,7 +302,9 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
                                 type="text"
                                 value={item.unidade_medida}
                                 onChange={(e) => setItem({ ...item, unidade_medida: e.target.value })}
-                                className="mt-1 w-full p-2 border rounded-md"
+                                // Desabilita se o item foi selecionado, pois a unidade vem do material
+                                disabled={isItemSelected} 
+                                className="mt-1 w-full p-2 border rounded-md disabled:bg-gray-200"
                             />
                         </div>
                         <div>
@@ -303,7 +312,8 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
                             <select
                                 value={item.classificacao}
                                 onChange={(e) => setItem({ ...item, classificacao: e.target.value })}
-                                disabled={isItemSelected}
+                                // Desabilita se o item foi selecionado, pois a classificação vem do material
+                                disabled={isItemSelected} 
                                 className="mt-1 w-full p-2 border rounded-md disabled:bg-gray-200"
                             >
                                 <option value="Equipamento">Equipamento</option>
@@ -316,7 +326,7 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
                     <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">
                         Cancelar
                     </button>
-                    <button onClick={handleSave} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400" disabled={mutation.isPending}>
+                    <button onClick={handleSave} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400" disabled={mutation.isPending || (!isItemSelected && !searchTerm.trim())}>
                         {mutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Salvar Material'}
                     </button>
                 </div>
