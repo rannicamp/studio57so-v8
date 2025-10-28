@@ -6,13 +6,19 @@
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation'; 
 
-export async function createNewContrato(empreendimentoId) { 
+// --- MUDANÇA 1: Recebe 'empreendimentoId' E 'tipoDocumento' ---
+export async function createNewContrato(empreendimentoId, tipoDocumento) { 
     const supabase = createClient();
 
     // Validação de entrada
     if (!empreendimentoId) {
-        return { error: "O Empreendimento é obrigatório para criar um contrato." };
+        return { error: "O Empreendimento é obrigatório." };
     }
+    // --- MUDANÇA 2: Validação do tipo de documento ---
+    if (!tipoDocumento) {
+        return { error: "O Tipo de Documento é obrigatório." };
+    }
+
 
     // Busca usuário e organização (como antes)
     const { data: { user } } = await supabase.auth.getUser();
@@ -33,11 +39,12 @@ export async function createNewContrato(empreendimentoId) {
 
     const organizacaoId = userProfile.organizacao_id;
 
-    // --- Lógica de inserção (estava correta e foi mantida) ---
+    // --- MUDANÇA 3: Insere o 'tipo_documento' no banco ---
     const { data: newContrato, error: insertError } = await supabase
         .from('contratos')
         .insert({
             empreendimento_id: empreendimentoId,
+            tipo_documento: tipoDocumento,       // <-- CAMPO ADICIONADO!
             organizacao_id: organizacaoId,
             status_contrato: 'Rascunho',
             valor_final_venda: 0, 
@@ -49,14 +56,14 @@ export async function createNewContrato(empreendimentoId) {
 
     if (insertError) {
         console.error("Erro ao criar novo contrato:", insertError);
-        return { error: "Falha ao criar o contrato no banco de dados." }; 
+        return { error: "Falha ao criar o documento no banco de dados." }; 
     }
 
     if (newContrato) {
         return { success: true, newContractId: newContrato.id }; 
     }
 
-    return { error: "Ocorreu um erro inesperado ao criar o contrato." }; 
+    return { error: "Ocorreu um erro inesperado ao criar o documento." }; 
 }
 
 // Manter outras actions se houver...
