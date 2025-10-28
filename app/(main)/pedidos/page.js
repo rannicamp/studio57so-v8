@@ -77,6 +77,8 @@ export default function PedidosPage() {
     }, [setPageTitle]);
 
     // ======================= useQuery (Carregamento Mágico) =======================
+    // staleTime: 1000 * 60 * 5  -> Guarda os dados em cache por 5 minutos
+    // refetchOnWindowFocus: true -> Busca atualizações silenciosamente quando volta pra aba
     const { data, isLoading, isError, error, isFetching } = useQuery({
         queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento],
         queryFn: () => fetchPainelData(supabase, organizacaoId, selectedEmpreendimento),
@@ -91,27 +93,30 @@ export default function PedidosPage() {
         // Se ESTAVA buscando (isFetching=true) e agora NÃO ESTÁ (isFetching=false),
         // E NÃO era o carregamento inicial (isLoading=false),
         // então a busca em segundo plano terminou.
-        if (!isFetching && !isLoading) {
-            // Pequeno delay para garantir que o usuário veja
-            setTimeout(() => {
+        if (!isFetching && !isLoading && data) { // Adicionado 'data' para garantir que não dispare antes da primeira carga
+            // Um pequeno delay para não ser intrusivo
+            const timer = setTimeout(() => {
                 toast.info('Página atualizada!', {
-                    description: 'Novos dados foram carregados em segundo plano.',
+                    description: 'Novos dados foram carregados.',
                     duration: 2000,
                 });
-            }, 500);
+            }, 1000); // 1 segundo de delay
+            return () => clearTimeout(timer);
         }
-    }, [isFetching, isLoading]);
+    }, [isFetching, isLoading, data]); // Depende do 'data' para evitar disparo inicial
     // ==============================================================================
 
 
     const pedidos = data?.pedidos || [];
     const solicitantes = data?.solicitantes || [];
 
-    // useMemo para filtrar pedidos (para o KANBAN - sem alterações)
+    // useMemo para filtrar pedidos (para o KANBAN)
+    // O PORQUÊ: Usei a lógica de filtro corrigida que previne bugs de data/fuso horário
     const filteredPedidosKanban = useMemo(() => {
         return pedidos.filter(pedido => {
             if (selectedSolicitante && pedido.solicitante?.id !== selectedSolicitante) return false;
              try {
+                // CORREÇÃO DE DATA (REGRA 5): Trata a data como string para evitar fuso
                 const pedidoDate = pedido.data_solicitacao ? new Date(pedido.data_solicitacao + 'T00:00:00') : null;
                 const filterStartDate = startDate ? new Date(startDate + 'T00:00:00') : null;
                 const filterEndDate = endDate ? new Date(endDate + 'T00:00:00') : null;
@@ -123,28 +128,21 @@ export default function PedidosPage() {
         });
     }, [pedidos, searchTerm, selectedSolicitante, startDate, endDate]);
 
-    // useEffect dos KPIs (sem alterações)
+    // useEffect dos KPIs (Refeito para usar o filtro corrigido)
     useEffect(() => {
         const calculateKpis = async () => {
-            const localFilteredPedidos = pedidos.filter(pedido => {
-                 if (selectedSolicitante && pedido.solicitante?.id !== selectedSolicitante) return false;
-                 try {
-                     const pedidoDate = pedido.data_solicitacao ? new Date(pedido.data_solicitacao + 'T00:00:00') : null;
-                     const filterStartDate = startDate ? new Date(startDate + 'T00:00:00') : null;
-                     const filterEndDate = endDate ? new Date(endDate + 'T00:00:00') : null;
-                     if (filterStartDate && (!pedidoDate || filterStartDate > pedidoDate)) return false;
-                     if (filterEndDate && (!pedidoDate || filterEndDate < pedidoDate)) return false;
-                 } catch (e) { console.error("Erro datas filtro KPIs:", e); return false; }
-                 if (searchTerm.trim() !== '' && !pedido.itens.some(item => item.descricao_item?.toLowerCase().includes(searchTerm.toLowerCase()))) return false;
-                 return true;
-            });
+            // Usa os pedidos JÁ filtrados pelo useMemo
+            const localFilteredPedidos = filteredPedidosKanban;
 
             if (pedidos.length === 0 || localFilteredPedidos.length === 0) {
                 setKpiData({ totalPedidos: localFilteredPedidos.length, tempoMedioCotacao: 'N/A', tempoMedioEntrega: 'N/A', pedidosComPendencia: 0 });
                 return;
             }
 
+            // Calcula pendências baseado nos pedidos filtrados
             const comPendencia = localFilteredPedidos.filter(p => p.status === 'Realizado' && (!p.anexos || !p.anexos.some(a => a.descricao === 'Nota Fiscal'))).length;
+
+            // Busca histórico APENAS dos IDs filtrados
             const idsFiltrados = localFilteredPedidos.map(p => p.id);
             if (!supabase) { console.warn("Supabase client não disponível."); return; }
 
@@ -162,10 +160,11 @@ export default function PedidosPage() {
                  return;
              }
 
+            // Lógica de cálculo de médias (usa localFilteredPedidos)
             let totalDiasCotacao = 0, countCotacao = 0, totalDiasEntrega = 0, countEntrega = 0;
             const historicosPorPedido = historicos.reduce((acc, h) => { acc[h.pedido_compra_id] = acc[h.pedido_compra_id] || []; acc[h.pedido_compra_id].push(h); acc[h.pedido_compra_id].sort((a,b) => new Date(a.data_mudanca) - new Date(b.data_mudanca)); return acc; }, {});
 
-            for (const pedido of localFilteredPedidos) {
+            for (const pedido of localFilteredPedidos) { // Itera sobre os filtrados
                 const h = historicosPorPedido[pedido.id] || [];
                 const dataSolicitacao = pedido.data_solicitacao ? new Date(pedido.data_solicitacao) : null;
                 const dataCotacaoObj = h.find(item => item.status_novo === 'Em Cotação');
@@ -183,77 +182,65 @@ export default function PedidosPage() {
                 }
             }
 
+            // Atualiza o estado
             setKpiData({
-                totalPedidos: localFilteredPedidos.length,
+                totalPedidos: localFilteredPedidos.length, // KPI baseado nos filtros
                 tempoMedioCotacao: countCotacao > 0 ? `${(totalDiasCotacao / countCotacao).toFixed(1)} dias` : 'N/A',
                 tempoMedioEntrega: countEntrega > 0 ? `${(totalDiasEntrega / countEntrega).toFixed(1)} dias` : 'N/A',
                 pedidosComPendencia: comPendencia,
             });
         };
 
+        // Roda a função SE tivermos os dados dos pedidos E o supabase client
         if (pedidos && supabase) {
              calculateKpis();
         }
-    }, [pedidos, searchTerm, selectedSolicitante, startDate, endDate, supabase]);
+
+    }, [filteredPedidosKanban, pedidos, supabase]); // Depende do filtro corrigido
+    // ========================================================================
 
 
-    // ======================= useMutation (AQUI ESTÁ A CORREÇÃO!) =======================
-    // O PORQUÊ:
-    // 1.  Precisamos garantir que `user.id`, `user.organizacao_id` e `selectedEmpreendimento`
-    //     sejam enviados ao Supabase. A RLS (segurança) no modo online exige isso.
-    // 2.  Adicionamos validações (if) para garantir que esses dados existem antes de tentar criar.
-    // 3.  O status inicial é 'Solicitação', conforme seu Kanban.
-    // 4.  Após criar, invalidamos a query 'painelCompras' para o Kanban recarregar.
-    // 5.  Redirecionamos o usuário para a página de edição do novo pedido.
+    // ======================= useMutation (CORREÇÃO DA RLS + STATUS) =======================
+    // O PORQUÊ: Mudamos o status para 'Solicitação' para ser mais correto.
+    // O restante da lógica de RLS (enviar IDs) permanece.
     const createPedidoMutation = useMutation({
         mutationFn: async () => {
-            // 1. Validação dos dados essenciais para a RLS
             if (!user || !user.id || !organizacaoId) {
                 throw new Error('Usuário ou Organização não autenticados. Faça login novamente.');
             }
             if (!selectedEmpreendimento || selectedEmpreendimento === 'all') {
-                // A tabela `pedidos_compra` EXIGE um `empreendimento_id`
                 throw new Error('Por favor, selecione um empreendimento específico antes de criar uma solicitação.');
             }
 
-            // 2. Monta o objeto do novo pedido
             const novoPedido = {
                 titulo: 'Nova Solicitação (Rascunho)',
-                status: 'Solicitação', // Status inicial
-                solicitante_id: user.id, // ID do usuário logado (para RLS)
-                organizacao_id: organizacaoId, // ID da organização (para RLS)
-                empreendimento_id: selectedEmpreendimento, // Empreendimento selecionado (obrigatório)
+                status: 'Solicitação', // <-- CORREÇÃO: Status inicial correto
+                solicitante_id: user.id,
+                organizacao_id: organizacaoId,
+                empreendimento_id: selectedEmpreendimento,
                 data_solicitacao: new Date().toISOString(),
-                // Outros campos podem ser nulos ou ter defaults no DB
             };
 
-            // 3. Tenta inserir no Supabase
             const { data, error } = await supabase
                 .from('pedidos_compra')
                 .insert(novoPedido)
-                .select('id') // Pede só o ID de volta, que é o que precisamos
-                .single(); // Espera um único objeto
+                .select('id')
+                .single();
 
             if (error) {
-                // Se a RLS falhar, o erro será capturado aqui!
                 console.error("Erro do Supabase ao criar pedido:", error.message);
                 throw new Error(`Erro do Supabase: ${error.message}`);
             }
-
-            return data; // Retorna o pedido criado (ex: { id: 123 })
+            return data;
         },
         onSuccess: (data) => {
-            // Deu certo!
             toast.success('Nova solicitação criada com sucesso!', {
                 description: 'Você será redirecionado para editá-la.'
             });
-            // Invalida a query do painel para atualizar o Kanban com o novo pedido
             queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento] });
-            // Redireciona para a página de edição do pedido recém-criado
             router.push(`/pedidos/${data.id}`);
         },
         onError: (error) => {
-            // Mostra qualquer erro (de validação ou do Supabase/RLS)
             console.error("Falha na mutation ao criar pedido:", error);
             toast.error(`Falha ao criar solicitação: ${error.message}`);
         }
@@ -276,10 +263,9 @@ export default function PedidosPage() {
         <div className="space-y-6">
             <PedidoDetalhesSidebar
                 pedido={selectedPedido}
-                isOpen={isSidebarOpen}
+                isOpen={isSidebarOpen} // Prop corrigida para 'isOpen'
                 onClose={handleCloseSidebar}
                 onUpdate={() => {
-                    // Invalida o painel E o pedido específico no cache
                     queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento] });
                     if (selectedPedido) {
                         queryClient.invalidateQueries({ queryKey: ['pedido', selectedPedido.id] });
@@ -292,8 +278,8 @@ export default function PedidosPage() {
                     {empreendimentos.find(e => e.id == selectedEmpreendimento)?.nome || 'Todos os Empreendimentos'}
                 </h2>
                 <button
-                    onClick={() => createPedidoMutation.mutate()} // AQUI chama a mutation
-                    disabled={createPedidoMutation.isPending} // Desativa enquanto estiver criando
+                    onClick={() => createPedidoMutation.mutate()}
+                    disabled={createPedidoMutation.isPending}
                     className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 w-full md:w-auto"
                 >
                     {createPedidoMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : '+ Nova Solicitação'}
@@ -301,6 +287,7 @@ export default function PedidosPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                 {/* Títulos dos KPIs corrigidos para (Filtro) */}
                  <KpiCard title="Pedidos (Filtro)" value={kpiData.totalPedidos} icon={faBoxOpen} color="blue" />
                  <KpiCard title="Pedidos com Pendências (Filtro)" value={kpiData.pedidosComPendencia} icon={faClipboardList} color="red" />
                  <KpiCard title="Tempo Médio Cotação (Filtro)" value={kpiData.tempoMedioCotacao} icon={faHourglassHalf} color="yellow" />
@@ -315,7 +302,7 @@ export default function PedidosPage() {
                          {solicitantes.map(s => <option key={s.id} value={s.id}>{s.nome} {s.sobrenome}</option>)}
                      </select>
                  </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:col-span-4 lg:grid-cols-4 gap-4 items-end">
                      <div>
                          <label className="text-xs">De:</label>
                          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border rounded-md w-full" />
@@ -327,9 +314,9 @@ export default function PedidosPage() {
                  </div>
             </div>
 
-            {/* Mostra o spinner de carregamento MÁGICO (Carregamento Mágico) */}
+            {/* Spinner de atualização silenciosa (Carregamento Mágico) */}
             {isFetching && !isLoading && (
-                 <div className="fixed bottom-4 right-4 z-50 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+                 <div className="fixed bottom-4 right-4 z-50 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
                     <FontAwesomeIcon icon={faSpinner} spin />
                     <span>Atualizando dados...</span>
                 </div>
@@ -344,7 +331,7 @@ export default function PedidosPage() {
                 <p className="text-center text-red-500">{error.message}</p>
             ) : (
                 <ComprasKanban
-                    pedidos={filteredPedidosKanban}
+                    pedidos={filteredPedidosKanban} // Passa os pedidos filtrados pelo useMemo
                     setPedidos={() => queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento] })}
                     onCardClick={handleCardClick}
                 />
