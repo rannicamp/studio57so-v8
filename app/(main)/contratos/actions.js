@@ -5,13 +5,16 @@
 import { createClient } from '../../../utils/supabase/server';
 import { redirect } from 'next/navigation'; // Mantemos para o redirect final
 
-// --- ATUALIZAÇÃO: A função agora aceita empreendimentoId ---
-export async function createNewContrato(empreendimentoId) { 
+// --- ATUALIZAÇÃO: A função agora aceita empreendimentoId E tipoDocumento ---
+export async function createNewContrato(empreendimentoId, tipoDocumento) { 
     const supabase = createClient();
 
     // Validação de entrada
     if (!empreendimentoId) {
-        return { error: "O Empreendimento é obrigatório para criar um contrato." };
+        return { error: "O Empreendimento é obrigatório." };
+    }
+    if (!tipoDocumento) {
+        return { error: "O Tipo de Documento é obrigatório." };
     }
 
     // Busca usuário e organização (como antes)
@@ -33,11 +36,12 @@ export async function createNewContrato(empreendimentoId) {
 
     const organizacaoId = userProfile.organizacao_id;
 
-    // --- ATUALIZAÇÃO: Insere o contrato JÁ COM o empreendimento_id ---
+    // --- ATUALIZAÇÃO: Insere o contrato JÁ COM o empreendimento_id E tipo_documento ---
     const { data: newContrato, error: insertError } = await supabase
         .from('contratos')
         .insert({
-            empreendimento_id: empreendimentoId, // <-- USA O PARÂMETRO!
+            empreendimento_id: empreendimentoId,   // <-- USA O PARÂMETRO!
+            tipo_documento: tipoDocumento,       // <-- USA O NOVO PARÂMETRO!
             organizacao_id: organizacaoId,
             status_contrato: 'Rascunho',
             valor_final_venda: 0, 
@@ -50,7 +54,7 @@ export async function createNewContrato(empreendimentoId) {
     if (insertError) {
         console.error("Erro ao criar novo contrato:", insertError);
         // Retorna o erro em vez de redirecionar em caso de falha
-        return { error: "Falha ao criar o contrato no banco de dados." }; 
+        return { error: "Falha ao criar o documento no banco de dados." }; 
     }
 
     // --- ATUALIZAÇÃO: Retorna o ID para o cliente redirecionar ---
@@ -60,7 +64,7 @@ export async function createNewContrato(empreendimentoId) {
     }
 
     // Fallback caso algo muito estranho aconteça
-    return { error: "Ocorreu um erro inesperado ao criar o contrato." }; 
+    return { error: "Ocorreu um erro inesperado ao criar o documento." }; 
 }
 
 // Manter outras actions se houver...

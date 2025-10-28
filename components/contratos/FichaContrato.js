@@ -23,6 +23,7 @@ import KpiCard from '../KpiCard';
 import GeradorContrato from './GeradorContrato';
 
 // --- FUNÇÕES DE BUSCA (Inalteradas) ---
+// A query com SELECT * já vai buscar nossa nova coluna 'tipo_documento'
 const fetchContratoData = async (supabase, contratoId, organizacaoId) => {
     // (Código inalterado)
     if (!contratoId || !organizacaoId) return null;
@@ -152,6 +153,7 @@ export default function FichaContrato({
         const valorFinal = parseFloat(contrato.valor_final_venda || 0);
         return somaProdutos > valorFinal ? somaProdutos - valorFinal : 0;
     }, [contrato.produtos, contrato.valor_final_venda]);
+    
     const kpiData = useMemo(() => {
         const valorTotal = parseFloat(contrato.valor_final_venda) || 0;
         const parcelasPagas = (contrato.contrato_parcelas || []).filter(p => p.status_pagamento === 'Pago');
@@ -192,7 +194,16 @@ export default function FichaContrato({
     // (Lógica de Abas 'TabButton' inalterada)
     const isClienteDefined = !!contrato?.contato_id;
     const TabButton = ({ tabId, label, icon, disabled = false }) => {
-        const isDisabled = disabled && !isClienteDefined;
+        // --- MUDANÇA AQUI ---
+        // Adiciona uma checagem específica para a aba de cronograma
+        let finalDisabled = disabled;
+        if (tabId === 'cronograma') {
+            finalDisabled = true; // Sempre começa desabilitada
+        }
+
+        const isDisabled = finalDisabled && !isClienteDefined;
+        // --- FIM DA MUDANÇA ---
+
         return (
             <button
                 onClick={() => !isDisabled && setActiveTab(tabId)}
@@ -222,7 +233,12 @@ export default function FichaContrato({
             <div className="print:hidden bg-white p-6 rounded-lg shadow-md border">
                 <div className="flex justify-between items-start">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Contrato #{contrato.id}</h2>
+                        {/* --- MUDANÇA AQUI --- */}
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                            {contrato.tipo_documento === 'TERMO_DE_INTERESSE' ? 'Termo de Interesse #' : 'Contrato #'}
+                            {contrato.id}
+                        </h2>
+                        {/* --- FIM DA MUDANÇA --- */}
                         <p className="text-gray-600"><strong>Cliente:</strong> <span className={contrato.contato ? 'font-semibold text-gray-800' : 'font-semibold text-red-500'}>{contrato.contato?.nome || contrato.contato?.razao_social || 'NÃO DEFINIDO'}</span></p>
                         <p className="text-gray-600"><strong>Empreendimento:</strong> {contrato.empreendimento?.nome}</p>
                     </div>
@@ -260,29 +276,36 @@ export default function FichaContrato({
                 <KpiCard title="Próxima Parcela" value={kpiData.proximaParcela} icon={faCalendarCheck} colorClass="text-purple-500" />
             </div>
 
-            {/* Abas (inalterado) */}
+            {/* Abas (COM MUDANÇA) */}
             <div className="print:hidden border-b border-gray-200">
                 <nav className="flex gap-4 overflow-x-auto">
                     <TabButton tabId="resumo" label="Resumo da Venda" icon={faHandshake} />
-                    <TabButton tabId="cronograma" label="Plano e Cronograma" icon={faFileInvoiceDollar} disabled={true} /> 
-                    <TabButton tabId="gerador" label="Gerar Contrato" icon={faFileContract} disabled={true} />
+                    
+                    {/* --- MUDANÇA AQUI: Renderização Condicional da Aba --- */}
+                    {contrato.tipo_documento === 'CONTRATO' && (
+                        <TabButton tabId="cronograma" label="Plano e Cronograma" icon={faFileInvoiceDollar} disabled={true} /> 
+                    )}
+                    {/* --- FIM DA MUDANÇA --- */}
+                    
+                    {/* --- MUDANÇA AQUI: Label alterado --- */}
+                    <TabButton tabId="gerador" label="Gerar Documento" icon={faFileContract} disabled={true} />
                     <TabButton tabId="documentos" label="Documentos" icon={faFileLines} disabled={true} />
                 </nav>
             </div>
 
-            {/* Conteúdo das Abas */}
+            {/* Conteúdo das Abas (COM MUDANÇA) */}
             <div>
                 {activeTab === 'resumo' && (
-                    // 4. PASSANDO AS NOVAS PROPS PARA O FILHO
                     <DetalhesVendaContrato 
                         contratoData={contrato} 
                         onUpdate={refreshContratoData} 
-                        user={user} // <-- Passa o usuário
-                        clientSearchScope={clientSearchScope} // <-- Passa o escopo
+                        user={user} 
+                        clientSearchScope={clientSearchScope} 
                     />
                 )}
-                {activeTab === 'cronograma' && isClienteDefined && (
-                    // (Restante inalterado)
+
+                {/* --- MUDANÇA AQUI: Condição extra --- */}
+                {activeTab === 'cronograma' && isClienteDefined && contrato.tipo_documento === 'CONTRATO' && (
                     <div className="animate-fade-in space-y-6">
                         <div className="print:hidden">
                             <PlanoPagamentoContrato contrato={contrato} onRecalculateSuccess={refreshContratoData} onUpdate={refreshContratoData} /> 
@@ -294,6 +317,8 @@ export default function FichaContrato({
                         />
                     </div>
                 )}
+                {/* --- FIM DA MUDANÇA --- */}
+
                 {activeTab === 'gerador' && isClienteDefined && (
                     <GeradorContrato contrato={contrato} modeloContratoId={contrato.modelo_contrato_id} /> 
                 )}

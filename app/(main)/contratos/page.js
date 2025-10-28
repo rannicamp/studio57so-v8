@@ -76,7 +76,12 @@ export default function ContratosPage() {
     const [debouncedFilters] = useDebounce(filters, 500);
     const [sortConfig, setSortConfig] = useState({ key: 'numero_contrato', direction: 'descending' });
     const [isModalOpen, setIsModalOpen] = useState(false);
+    
+    // --- NOSSAS MUDANÇAS AQUI ---
     const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState('');
+    const [selectedTipoDocumento, setSelectedTipoDocumento] = useState('CONTRATO'); // <-- NOVO ESTADO
+    // --- FIM DAS MUDANÇAS ---
+    
     const [isCreating, setIsCreating] = useState(false);
 
     const requestSort = (key) => {
@@ -185,26 +190,30 @@ export default function ContratosPage() {
         return <div className="text-center py-10 text-red-500">Erro ao carregar contratos: {error.message}</div>;
     }
 
+
+    // --- NOSSA MUDANÇA AQUI ---
     const handleCreateContrato = async () => {
-        // (lógica inalterada)
-        if (!selectedEmpreendimentoId) {
-            toast.error("Selecione um empreendimento.");
+        if (!selectedEmpreendimentoId || !selectedTipoDocumento) { // <-- VALIDADO OS DOIS CAMPOS
+            toast.error("Selecione o tipo de documento e o empreendimento.");
             return;
         }
         setIsCreating(true); 
         try {
-            const result = await createNewContrato(selectedEmpreendimentoId);
+            // --- PASSA OS DOIS PARÂMETROS PARA A ACTION ---
+            const result = await createNewContrato(selectedEmpreendimentoId, selectedTipoDocumento); 
+            
             if (result?.success && result?.newContractId) {
-                toast.success("Contrato criado! Redirecionando...");
+                toast.success("Documento criado! Redirecionando...");
                 setIsModalOpen(false);
                 setSelectedEmpreendimentoId('');
+                setSelectedTipoDocumento('CONTRATO'); // <-- Limpa o estado
                 router.push(`/contratos/${result.newContractId}`); // <-- Rota do admin
                 queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId] });
             } else if (result?.error) {
-                toast.error(`Erro ao criar contrato: ${result.error}`);
+                toast.error(`Erro ao criar documento: ${result.error}`);
             } else {
                 console.error("Resposta inesperada da action:", result);
-                toast.error("Ocorreu um erro inesperado ao criar o contrato.");
+                toast.error("Ocorreu um erro inesperado ao criar o documento.");
             }
         } catch (err) {
             console.error("Erro ao chamar createNewContrato:", err);
@@ -212,6 +221,13 @@ export default function ContratosPage() {
         } finally {
             setIsCreating(false);
         }
+    };
+    // --- FIM DA MUDANÇA ---
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false); 
+        setSelectedEmpreendimentoId(''); 
+        setSelectedTipoDocumento('CONTRATO'); // <-- Limpa o estado
     };
 
     return (
@@ -223,7 +239,7 @@ export default function ContratosPage() {
                     onClick={() => setIsModalOpen(true)}
                     className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center gap-2"
                 >
-                    <FontAwesomeIcon icon={faPlus} /> Novo Contrato
+                    <FontAwesomeIcon icon={faPlus} /> Novo Documento
                 </button>
             </div>
 
@@ -231,7 +247,7 @@ export default function ContratosPage() {
                 filters={filters}
                 setFilters={setFilters}
                 clientes={filterData?.clientes || []}
-                corretores={filterData?.corretores || []} // <-- Página admin passa os corretores
+                corretores={filterData?.corretores || []} 
                 produtos={filterData?.produtos || []}
                 empreendimentos={filterData?.empreendimentos || []}
             />
@@ -250,7 +266,6 @@ export default function ContratosPage() {
             </div>
 
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                {/* --- AQUI ESTÁ A CORREÇÃO (PROATIVA) --- */}
                 <ContratoList
                     contratos={contratos || []}
                     sortConfig={sortConfig}
@@ -259,47 +274,64 @@ export default function ContratosPage() {
                         queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, debouncedFilters, sortConfig] });
                         queryClient.invalidateQueries({ queryKey: ['vgvPossivel', organizacaoId] });
                     }}
-                    organizacaoId={organizacaoId} // <-- Passa a prop obrigatória
-                    // O basePath não é necessário, pois o padrão "/contratos" está correto
+                    organizacaoId={organizacaoId} 
                 />
-                {/* --- FIM DA CORREÇÃO --- */}
             </div>
 
-            {/* --- MODAL (sem mudanças) --- */}
+            {/* --- MODAL (COM MUDANÇAS) --- */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-                    <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold text-gray-800">Criar Novo Contrato</h3>
-                             <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">
+                    <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md space-y-4">
+                        <div className="flex justify-between items-center">
+                            {/* --- MUDANÇA AQUI --- */}
+                            <h3 className="text-xl font-bold text-gray-800">Criar Novo Documento</h3>
+                             <button onClick={handleCloseModal} className="text-gray-400 hover:text-gray-600 p-1">
                                  <FontAwesomeIcon icon={faTimes} size="lg"/>
                              </button>
                         </div>
-                        <p className="text-gray-600 mb-4">Selecione o empreendimento para iniciar:</p>
-
-                        {isLoadingEmpreendimentosModal ? (
-                            <div className="text-center py-4">
-                                <FontAwesomeIcon icon={faSpinner} spin /> Carregando empreendimentos...
-                            </div>
-                        ) : empreendimentosParaVenda.length === 0 ? (
-                             <p className="text-center text-red-500 py-4">Nenhum empreendimento listado para venda encontrado.</p>
-                        ) : (
+                        
+                        {/* --- CAMPO NOVO AQUI --- */}
+                        <div>
+                            <label htmlFor="tipoDocumento" className="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento</label>
                             <select
-                                value={selectedEmpreendimentoId}
-                                onChange={(e) => setSelectedEmpreendimentoId(e.target.value)}
-                                className="w-full p-2 border rounded-md mb-6"
+                                id="tipoDocumento"
+                                value={selectedTipoDocumento}
+                                onChange={(e) => setSelectedTipoDocumento(e.target.value)}
+                                className="w-full p-2 border rounded-md"
                             >
-                                <option value="">-- Selecione o Empreendimento --</option>
-                                {empreendimentosParaVenda.map(emp => (
-                                    <option key={emp.id} value={emp.id}>{emp.nome}</option>
-                                ))}
+                                <option value="CONTRATO">Contrato Completo</option>
+                                <option value="TERMO_DE_INTERESSE">Termo de Interesse</option>
                             </select>
-                        )}
+                        </div>
+                        {/* --- FIM DO CAMPO NOVO --- */}
 
-                        <div className="flex justify-end gap-3">
+                        <div>
+                            <label htmlFor="empreendimento" className="block text-sm font-medium text-gray-700 mb-1">Empreendimento</label>
+                            {isLoadingEmpreendimentosModal ? (
+                                <div className="text-center py-4">
+                                    <FontAwesomeIcon icon={faSpinner} spin /> Carregando empreendimentos...
+                                </div>
+                            ) : empreendimentosParaVenda.length === 0 ? (
+                                 <p className="text-center text-red-500 py-4">Nenhum empreendimento listado para venda encontrado.</p>
+                            ) : (
+                                <select
+                                    id="empreendimento"
+                                    value={selectedEmpreendimentoId}
+                                    onChange={(e) => setSelectedEmpreendimentoId(e.target.value)}
+                                    className="w-full p-2 border rounded-md"
+                                >
+                                    <option value="">-- Selecione o Empreendimento --</option>
+                                    {empreendimentosParaVenda.map(emp => (
+                                        <option key={emp.id} value={emp.id}>{emp.nome}</option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-4">
                             <button
                                 type="button"
-                                onClick={() => { setIsModalOpen(false); setSelectedEmpreendimentoId(''); }}
+                                onClick={handleCloseModal}
                                 className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
                             >
                                 Cancelar
@@ -307,7 +339,8 @@ export default function ContratosPage() {
                             <button
                                 type="button"
                                 onClick={handleCreateContrato}
-                                disabled={!selectedEmpreendimentoId || isLoadingEmpreendimentosModal || isCreating}
+                                // --- MUDANÇA NA VALIDAÇÃO ---
+                                disabled={!selectedEmpreendimentoId || !selectedTipoDocumento || isLoadingEmpreendimentosModal || isCreating}
                                 className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center min-w-[150px]"
                             >
                                 {isCreating ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Criar e Continuar'}
