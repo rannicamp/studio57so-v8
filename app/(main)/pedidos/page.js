@@ -15,18 +15,44 @@ import PedidoDetalhesSidebar from '@/components/pedidos/PedidoDetalhesSidebar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-// Função de busca de dados (sem alterações)
+// ======================= FUNÇÃO DE BUSCA (Carregamento Mágico) =======================
+// O 'staleTime' e 'refetchOnWindowFocus' fazem a mágica do cache.
 const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
-    // ... (código igual)
     if (!organizacaoId) throw new Error("Organização não identificada.");
-    const { data: solData, error: solError } = await supabase.from('usuarios').select('id, nome, sobrenome').eq('organizacao_id', organizacaoId).order('nome');
+
+    // 1. Solicitantes
+    const { data: solData, error: solError } = await supabase
+        .from('usuarios')
+        .select('id, nome, sobrenome')
+        .eq('organizacao_id', organizacaoId)
+        .order('nome');
     if (solError) throw new Error(`Falha ao carregar solicitantes: ${solError.message}`);
-    let query = supabase.from('pedidos_compra').select(`*, titulo, turno_entrega, empreendimentos(nome), solicitante:solicitante_id(id, nome), itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(nome, razao_social)), anexos:pedidos_compra_anexos(descricao)`).eq('organizacao_id', organizacaoId);
-    if (empreendimentoId && empreendimentoId !== 'all') { query = query.eq('empreendimento_id', empreendimentoId); }
+
+    // 2. Pedidos
+    let query = supabase
+        .from('pedidos_compra')
+        .select(`
+            *, 
+            titulo, 
+            turno_entrega, 
+            empreendimentos(nome), 
+            solicitante:solicitante_id(id, nome), 
+            itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(nome, razao_social)), 
+            anexos:pedidos_compra_anexos(descricao)
+        `)
+        .eq('organizacao_id', organizacaoId);
+
+    if (empreendimentoId && empreendimentoId !== 'all') {
+        query = query.eq('empreendimento_id', empreendimentoId);
+    }
+
     const { data: pedidosData, error: pedidosError } = await query.order('data_solicitacao', { ascending: false });
     if (pedidosError) throw new Error(`Falha ao carregar pedidos: ${pedidosError.message}`);
+
     return { solicitantes: solData || [], pedidos: pedidosData || [] };
 };
+// ====================================================================================
+
 
 export default function PedidosPage() {
     const { setPageTitle } = useLayout();
@@ -50,18 +76,38 @@ export default function PedidosPage() {
         setPageTitle('Painel de Compras');
     }, [setPageTitle]);
 
-    // useQuery para buscar dados (sem alterações)
-    const { data, isLoading, isError, error } = useQuery({
+    // ======================= useQuery (Carregamento Mágico) =======================
+    const { data, isLoading, isError, error, isFetching } = useQuery({
         queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento],
         queryFn: () => fetchPainelData(supabase, organizacaoId, selectedEmpreendimento),
         enabled: !!organizacaoId,
+        staleTime: 1000 * 60 * 5, // Cache de 5 minutos (carregamento instantâneo)
+        refetchOnWindowFocus: true, // Busca silenciosa ao focar na janela
     });
+
+    // Efeito para a notificação de atualização (Carregamento Mágico)
+    useEffect(() => {
+        // Se NÃO estava buscando, e AGORA está buscando (em segundo plano), não faz nada.
+        // Se ESTAVA buscando (isFetching=true) e agora NÃO ESTÁ (isFetching=false),
+        // E NÃO era o carregamento inicial (isLoading=false),
+        // então a busca em segundo plano terminou.
+        if (!isFetching && !isLoading) {
+            // Pequeno delay para garantir que o usuário veja
+            setTimeout(() => {
+                toast.info('Página atualizada!', {
+                    description: 'Novos dados foram carregados em segundo plano.',
+                    duration: 2000,
+                });
+            }, 500);
+        }
+    }, [isFetching, isLoading]);
+    // ==============================================================================
+
 
     const pedidos = data?.pedidos || [];
     const solicitantes = data?.solicitantes || [];
 
     // useMemo para filtrar pedidos (para o KANBAN - sem alterações)
-    // Este useMemo continua aqui, pois é usado para renderizar o Kanban, não para o useEffect dos KPIs
     const filteredPedidosKanban = useMemo(() => {
         return pedidos.filter(pedido => {
             if (selectedSolicitante && pedido.solicitante?.id !== selectedSolicitante) return false;
@@ -77,11 +123,9 @@ export default function PedidosPage() {
         });
     }, [pedidos, searchTerm, selectedSolicitante, startDate, endDate]);
 
-    // ======================= useEffect DOS KPIs REFEITO =======================
+    // useEffect dos KPIs (sem alterações)
     useEffect(() => {
         const calculateKpis = async () => {
-            // **PASSO 1: REFILTRAR OS PEDIDOS AQUI DENTRO**
-            // Aplicamos a mesma lógica do useMemo, mas localmente.
             const localFilteredPedidos = pedidos.filter(pedido => {
                  if (selectedSolicitante && pedido.solicitante?.id !== selectedSolicitante) return false;
                  try {
@@ -95,16 +139,12 @@ export default function PedidosPage() {
                  return true;
             });
 
-            // Se não houver pedidos (brutos ou filtrados localmente), reseta KPIs
             if (pedidos.length === 0 || localFilteredPedidos.length === 0) {
                 setKpiData({ totalPedidos: localFilteredPedidos.length, tempoMedioCotacao: 'N/A', tempoMedioEntrega: 'N/A', pedidosComPendencia: 0 });
                 return;
             }
 
-            // Calcula pendências baseado nos pedidos filtrados localmente
             const comPendencia = localFilteredPedidos.filter(p => p.status === 'Realizado' && (!p.anexos || !p.anexos.some(a => a.descricao === 'Nota Fiscal'))).length;
-
-            // Busca histórico APENAS dos IDs filtrados localmente
             const idsFiltrados = localFilteredPedidos.map(p => p.id);
             if (!supabase) { console.warn("Supabase client não disponível."); return; }
 
@@ -122,11 +162,10 @@ export default function PedidosPage() {
                  return;
              }
 
-            // Lógica de cálculo de médias (usa localFilteredPedidos)
             let totalDiasCotacao = 0, countCotacao = 0, totalDiasEntrega = 0, countEntrega = 0;
-            const historicosPorPedido = historicos.reduce((acc, h) => { /*...*/ acc[h.pedido_compra_id] = acc[h.pedido_compra_id] || []; acc[h.pedido_compra_id].push(h); acc[h.pedido_compra_id].sort((a,b) => new Date(a.data_mudanca) - new Date(b.data_mudanca)); return acc; }, {});
+            const historicosPorPedido = historicos.reduce((acc, h) => { acc[h.pedido_compra_id] = acc[h.pedido_compra_id] || []; acc[h.pedido_compra_id].push(h); acc[h.pedido_compra_id].sort((a,b) => new Date(a.data_mudanca) - new Date(b.data_mudanca)); return acc; }, {});
 
-            for (const pedido of localFilteredPedidos) { // Itera sobre os filtrados localmente
+            for (const pedido of localFilteredPedidos) {
                 const h = historicosPorPedido[pedido.id] || [];
                 const dataSolicitacao = pedido.data_solicitacao ? new Date(pedido.data_solicitacao) : null;
                 const dataCotacaoObj = h.find(item => item.status_novo === 'Em Cotação');
@@ -144,43 +183,117 @@ export default function PedidosPage() {
                 }
             }
 
-            // Atualiza o estado
             setKpiData({
-                totalPedidos: localFilteredPedidos.length, // KPI baseado nos filtros locais
+                totalPedidos: localFilteredPedidos.length,
                 tempoMedioCotacao: countCotacao > 0 ? `${(totalDiasCotacao / countCotacao).toFixed(1)} dias` : 'N/A',
                 tempoMedioEntrega: countEntrega > 0 ? `${(totalDiasEntrega / countEntrega).toFixed(1)} dias` : 'N/A',
                 pedidosComPendencia: comPendencia,
             });
         };
 
-        // Roda a função SE tivermos os dados dos pedidos E o supabase client
         if (pedidos && supabase) {
              calculateKpis();
         }
-
-    // **PASSO 2: DEPENDÊNCIAS ESTÁVEIS**
-    // Agora depende apenas dos dados brutos e dos filtros primitivos.
     }, [pedidos, searchTerm, selectedSolicitante, startDate, endDate, supabase]);
-    // ========================================================================
 
-    // useMutation para criar pedido (sem alterações)
-    const createPedidoMutation = useMutation({ /* ... */ });
+
+    // ======================= useMutation (AQUI ESTÁ A CORREÇÃO!) =======================
+    // O PORQUÊ:
+    // 1.  Precisamos garantir que `user.id`, `user.organizacao_id` e `selectedEmpreendimento`
+    //     sejam enviados ao Supabase. A RLS (segurança) no modo online exige isso.
+    // 2.  Adicionamos validações (if) para garantir que esses dados existem antes de tentar criar.
+    // 3.  O status inicial é 'Solicitação', conforme seu Kanban.
+    // 4.  Após criar, invalidamos a query 'painelCompras' para o Kanban recarregar.
+    // 5.  Redirecionamos o usuário para a página de edição do novo pedido.
+    const createPedidoMutation = useMutation({
+        mutationFn: async () => {
+            // 1. Validação dos dados essenciais para a RLS
+            if (!user || !user.id || !organizacaoId) {
+                throw new Error('Usuário ou Organização não autenticados. Faça login novamente.');
+            }
+            if (!selectedEmpreendimento || selectedEmpreendimento === 'all') {
+                // A tabela `pedidos_compra` EXIGE um `empreendimento_id`
+                throw new Error('Por favor, selecione um empreendimento específico antes de criar uma solicitação.');
+            }
+
+            // 2. Monta o objeto do novo pedido
+            const novoPedido = {
+                titulo: 'Nova Solicitação (Rascunho)',
+                status: 'Solicitação', // Status inicial
+                solicitante_id: user.id, // ID do usuário logado (para RLS)
+                organizacao_id: organizacaoId, // ID da organização (para RLS)
+                empreendimento_id: selectedEmpreendimento, // Empreendimento selecionado (obrigatório)
+                data_solicitacao: new Date().toISOString(),
+                // Outros campos podem ser nulos ou ter defaults no DB
+            };
+
+            // 3. Tenta inserir no Supabase
+            const { data, error } = await supabase
+                .from('pedidos_compra')
+                .insert(novoPedido)
+                .select('id') // Pede só o ID de volta, que é o que precisamos
+                .single(); // Espera um único objeto
+
+            if (error) {
+                // Se a RLS falhar, o erro será capturado aqui!
+                console.error("Erro do Supabase ao criar pedido:", error.message);
+                throw new Error(`Erro do Supabase: ${error.message}`);
+            }
+
+            return data; // Retorna o pedido criado (ex: { id: 123 })
+        },
+        onSuccess: (data) => {
+            // Deu certo!
+            toast.success('Nova solicitação criada com sucesso!', {
+                description: 'Você será redirecionado para editá-la.'
+            });
+            // Invalida a query do painel para atualizar o Kanban com o novo pedido
+            queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento] });
+            // Redireciona para a página de edição do pedido recém-criado
+            router.push(`/pedidos/${data.id}`);
+        },
+        onError: (error) => {
+            // Mostra qualquer erro (de validação ou do Supabase/RLS)
+            console.error("Falha na mutation ao criar pedido:", error);
+            toast.error(`Falha ao criar solicitação: ${error.message}`);
+        }
+    });
+    // ===================================================================================
+
+
     // Funções handleCardClick e handleCloseSidebar (sem alterações)
-    const handleCardClick = (pedido) => { /* ... */ };
-    const handleCloseSidebar = () => { /* ... */ };
+    const handleCardClick = (pedido) => {
+        setSelectedPedido(pedido);
+        setIsSidebarOpen(true);
+    };
+    const handleCloseSidebar = () => {
+        setIsSidebarOpen(false);
+        setSelectedPedido(null);
+    };
 
     // JSX Principal
     return (
         <div className="space-y-6">
-            <PedidoDetalhesSidebar /* ... */ />
+            <PedidoDetalhesSidebar
+                pedido={selectedPedido}
+                isOpen={isSidebarOpen}
+                onClose={handleCloseSidebar}
+                onUpdate={() => {
+                    // Invalida o painel E o pedido específico no cache
+                    queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento] });
+                    if (selectedPedido) {
+                        queryClient.invalidateQueries({ queryKey: ['pedido', selectedPedido.id] });
+                    }
+                }}
+            />
 
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <h2 className="text-xl font-semibold">
                     {empreendimentos.find(e => e.id == selectedEmpreendimento)?.nome || 'Todos os Empreendimentos'}
                 </h2>
                 <button
-                    onClick={() => createPedidoMutation.mutate()}
-                    disabled={createPedidoMutation.isPending}
+                    onClick={() => createPedidoMutation.mutate()} // AQUI chama a mutation
+                    disabled={createPedidoMutation.isPending} // Desativa enquanto estiver criando
                     className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 w-full md:w-auto"
                 >
                     {createPedidoMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : '+ Nova Solicitação'}
@@ -188,7 +301,6 @@ export default function PedidosPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                 {/* KpiCards usam o estado kpiData */}
                  <KpiCard title="Pedidos (Filtro)" value={kpiData.totalPedidos} icon={faBoxOpen} color="blue" />
                  <KpiCard title="Pedidos com Pendências (Filtro)" value={kpiData.pedidosComPendencia} icon={faClipboardList} color="red" />
                  <KpiCard title="Tempo Médio Cotação (Filtro)" value={kpiData.tempoMedioCotacao} icon={faHourglassHalf} color="yellow" />
@@ -196,7 +308,6 @@ export default function PedidosPage() {
             </div>
 
             <div className="p-4 bg-gray-50 border rounded-lg space-y-4">
-                 {/* Filtros de busca, solicitante, datas */}
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                      <input type="text" placeholder="Buscar por item..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded-md lg:col-span-2"/>
                      <select value={selectedSolicitante} onChange={e => setSelectedSolicitante(e.target.value)} className="p-2 border rounded-md">
@@ -216,13 +327,24 @@ export default function PedidosPage() {
                  </div>
             </div>
 
+            {/* Mostra o spinner de carregamento MÁGICO (Carregamento Mágico) */}
+            {isFetching && !isLoading && (
+                 <div className="fixed bottom-4 right-4 z-50 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+                    <FontAwesomeIcon icon={faSpinner} spin />
+                    <span>Atualizando dados...</span>
+                </div>
+            )}
+
             {isLoading ? (
-                <div className="text-center py-10"> {/* Spinner */} </div>
+                <div className="text-center py-10">
+                    <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-blue-600" />
+                    <p className="mt-2">Carregando painel...</p>
+                </div>
             ) : isError ? (
                 <p className="text-center text-red-500">{error.message}</p>
             ) : (
                 <ComprasKanban
-                    pedidos={filteredPedidosKanban} // Passa os pedidos filtrados pelo useMemo para o Kanban
+                    pedidos={filteredPedidosKanban}
                     setPedidos={() => queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento] })}
                     onCardClick={handleCardClick}
                 />
