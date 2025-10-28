@@ -45,42 +45,57 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
     const handleDragStart = (e, pedido) => {
         // Não deixa o "pan" ser ativado
         setIsPanning(false);
-        
+
         e.dataTransfer.setData('pedidoId', pedido.id);
         e.dataTransfer.effectAllowed = 'move';
         draggedItemRef.current = pedido;
         setIsDragging(true);
-        e.currentTarget.style.opacity = '0.5';
+        // Aplica estilo diretamente para feedback visual rápido
+        if (e.currentTarget) e.currentTarget.style.opacity = '0.5';
     };
 
     const handleDragEnd = (e) => {
         setIsDragging(false);
         draggedItemRef.current = null;
         setDragOverColumn(null);
+        // Remove o estilo diretamente
         if (e.currentTarget) e.currentTarget.style.opacity = '1';
     };
 
     const handleDragOver = (e) => {
-        e.preventDefault();
+        e.preventDefault(); // Necessário para permitir o drop
     };
 
     const handleDragEnter = (e, columnId) => {
         e.preventDefault();
-        setDragOverColumn(columnId);
+        // Evita re-renderizações desnecessárias se já estiver sobre a mesma coluna
+        if (dragOverColumn !== columnId) {
+            setDragOverColumn(columnId);
+        }
     };
+
+     const handleDragLeave = (e, columnId) => {
+        // Verifica se o mouse realmente saiu da coluna e não apenas entrou em um filho
+        if (e.currentTarget.contains(e.relatedTarget)) return;
+        if (dragOverColumn === columnId) {
+            setDragOverColumn(null);
+        }
+    };
+
 
     const handleDrop = (e, columnId) => {
         e.preventDefault();
         const pedidoId = e.dataTransfer.getData('pedidoId');
-        if (draggedItemRef.current && draggedItemRef.current.id == pedidoId) {
+        // Verifica se o ID é válido e corresponde ao item arrastado
+        if (pedidoId && draggedItemRef.current && draggedItemRef.current.id == pedidoId) {
             handleStatusChange(parseInt(pedidoId), columnId);
         }
         setDragOverColumn(null);
-        setIsDragging(false);
-        if (draggedItemRef.current) {
-            const draggedElement = document.querySelector(`[data-pedido-id="${pedidoId}"]`);
-            if (draggedElement) draggedElement.style.opacity = '1';
-        }
+        setIsDragging(false); // Garante que isDragging seja resetado
+         // Remove o estilo diretamente do elemento que foi arrastado
+        const draggedElement = document.querySelector(`[data-pedido-id="${pedidoId}"]`);
+        if (draggedElement) draggedElement.style.opacity = '1';
+
         draggedItemRef.current = null;
     };
 
@@ -92,50 +107,58 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
 
         draggedItemRef.current = pedido;
         setIsDragging(true);
+        // Feedback visual
         e.currentTarget.style.opacity = '0.5';
-        e.currentTarget.classList.add('dragging-touch');
+        e.currentTarget.classList.add('dragging-touch'); // Classe para estilos adicionais se necessário
     };
 
     const handleTouchMove = (e) => {
         if (!isDragging || !draggedItemRef.current) return;
-        e.preventDefault(); // Previne scroll da página
+        // Previne o scroll da página enquanto arrasta o card
+         if (e.cancelable) e.preventDefault();
+
         const touch = e.touches[0];
+        // Encontra o elemento da coluna sob o toque
         const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
         const columnElement = targetElement?.closest('[data-column-id]');
-        if (columnElement) {
-            const columnId = columnElement.getAttribute('data-column-id');
-            if (columnId !== dragOverColumn) {
-                setDragOverColumn(columnId);
-            }
-        } else {
-            setDragOverColumn(null);
+        const columnId = columnElement ? columnElement.getAttribute('data-column-id') : null;
+
+        // Atualiza a coluna de destino visualmente
+        if (columnId !== dragOverColumn) {
+            setDragOverColumn(columnId);
         }
     };
 
     const handleTouchEnd = (e) => {
         if (!isDragging || !draggedItemRef.current) {
-            setIsDragging(false);
+            setIsDragging(false); // Reseta se não estava arrastando
             return;
         }
         const pedidoId = draggedItemRef.current.id;
+        // Remove feedback visual
         const targetElement = document.querySelector(`[data-pedido-id="${pedidoId}"]`);
         if (targetElement) {
             targetElement.style.opacity = '1';
             targetElement.classList.remove('dragging-touch');
         }
+
+        // Se soltou sobre uma coluna válida, atualiza o status
         if (dragOverColumn) {
             handleStatusChange(pedidoId, dragOverColumn);
         }
+
+        // Reseta os estados
         setDragOverColumn(null);
         setIsDragging(false);
         draggedItemRef.current = null;
     };
 
-    // useEffect para listeners de touch (Previne scroll global)
+
+    // useEffect para listeners de touch (Previne scroll global ao arrastar card)
     useEffect(() => {
         const preventDefault = (e) => {
             if (isDragging) { // Só previne se estiver arrastando CARD
-                e.preventDefault();
+                if (e.cancelable) e.preventDefault();
             }
         };
         const container = scrollContainerRef.current;
@@ -158,13 +181,13 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
 
         const handleMouseDown = (e) => {
             // 1. Ignora se for clique do botão direito/meio
-            if (e.button !== 0) return; 
-            
+            if (e.button !== 0) return;
+
             // 2. CORREÇÃO: Ignora se o clique for em um CARD (para não quebrar o drag-drop do card)
             if (e.target.closest('[draggable="true"]')) return;
-            
-            // 3. Ignora se for em botões, links ou na própria barra de rolagem
-            if (e.target.closest('button') || e.target.closest('a') || e.clientY >= container.clientHeight - 20) { // 20px de tolerância para a barra
+
+            // 3. Ignora se for em botões, links, selects, inputs ou na própria barra de rolagem
+            if (e.target.closest('button, a, select, input') || e.clientY >= container.clientHeight - 20) { // 20px de tolerância para a barra
                 return;
             }
 
@@ -172,34 +195,36 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
             setIsPanning(true);
             setStartX(e.pageX - container.offsetLeft);
             setScrollLeft(container.scrollLeft);
-            container.style.cursor = 'grabbing';
+            container.style.cursor = 'grabbing'; // Muda o cursor
             container.style.userSelect = 'none'; // Previne seleção de texto
         };
 
         const handleMouseLeaveOrUp = () => {
-            setIsPanning(false);
-            container.style.cursor = 'grab';
-            container.style.userSelect = 'auto';
+             if (isPanning) { // Só executa se estava fazendo pan
+                setIsPanning(false);
+                container.style.cursor = 'grab'; // Restaura o cursor
+                container.style.userSelect = 'auto'; // Restaura seleção de texto
+            }
         };
 
         const handleMouseMove = (e) => {
             if (!isPanning) return;
-            e.preventDefault();
+            e.preventDefault(); // Previne outros comportamentos como seleção
             const x = e.pageX - container.offsetLeft;
-            const walk = (x - startX) * 1.5; // Multiplicador da velocidade
+            const walk = (x - startX) * 1.5; // Multiplicador da velocidade do scroll
             container.scrollLeft = scrollLeft - walk;
         };
 
-        // Adiciona os listeners
+        // Adiciona os listeners ao container
         container.addEventListener('mousedown', handleMouseDown);
         container.addEventListener('mouseleave', handleMouseLeaveOrUp);
         container.addEventListener('mouseup', handleMouseLeaveOrUp);
         container.addEventListener('mousemove', handleMouseMove);
-        
+
         // Define o cursor inicial
         container.style.cursor = 'grab';
 
-        // Limpeza
+        // Limpeza: remove os listeners quando o componente desmonta ou as dependências mudam
         return () => {
             container.removeEventListener('mousedown', handleMouseDown);
             container.removeEventListener('mouseleave', handleMouseLeaveOrUp);
@@ -217,20 +242,38 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
                 .from('pedidos_compra')
                 .update({ status: newStatus })
                 .eq('id', pedidoId)
-                .select('*, empreendimento_id')
+                .select('*, empreendimento_id') // Seleciona empreendimento_id para invalidação do estoque
                 .single();
             if (statusError) {
                 throw new Error(`Erro ao atualizar status: ${statusError.message}`);
             }
+
+            // Adiciona entrada no histórico
+             const { error: historyError } = await supabase
+                .from('pedidos_compra_status_historico')
+                .insert({
+                    pedido_compra_id: pedidoId,
+                    status_novo: newStatus,
+                    usuario_id: user?.id,
+                    data_mudanca: new Date().toISOString(),
+                    organizacao_id: organizacaoId,
+                });
+            if (historyError) {
+                console.warn(`Erro ao registrar histórico de status: ${historyError.message}`);
+                // Não lança erro aqui, atualização principal funcionou
+            }
+
             return updatedPedido;
         },
         onSuccess: (updatedPedido, variables) => {
             toast.success(`Status do pedido "${updatedPedido.titulo || updatedPedido.id}" atualizado para ${variables.newStatus}!`);
-            
+
             // Invalida as queries para buscar dados frescos (sem alterar o estado local)
-            queryClient.invalidateQueries({ queryKey: ['painelCompras'] });
+            // Usar queryKey mais específico se possível
+            queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId] });
             queryClient.invalidateQueries({ queryKey: ['pedido', variables.pedidoId] });
 
+            // Invalida estoque se o status for 'Entregue'
             if (variables.newStatus === 'Entregue' && updatedPedido?.empreendimento_id && organizacaoId) {
                 queryClient.invalidateQueries({ queryKey: ['estoque', updatedPedido.empreendimento_id, organizacaoId] });
             }
@@ -241,8 +284,8 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
                 icon: <FontAwesomeIcon icon={faExclamationTriangle} />,
                 duration: 8000
             });
-            // Força a revalidação em caso de erro para reverter
-            queryClient.invalidateQueries({ queryKey: ['painelCompras'] });
+            // Força a revalidação em caso de erro para reverter visualmente
+            queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId] });
         },
     });
 
@@ -261,24 +304,24 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
     const handleDuplicatePedido = async (pedidoOriginal) => {
         const toastId = toast.loading('Duplicando pedido...');
         try {
-            const { id, created_at, data_solicitacao, ...pedidoBase } = pedidoOriginal;
+            // Remove campos que não devem ser copiados ou que serão redefinidos
+             const { id, created_at, data_solicitacao, empreendimentos, solicitante, itens, anexos, ...pedidoBase } = pedidoOriginal;
+
             const novoPedidoData = {
                 ...pedidoBase,
-                status: 'Solicitação',
-                solicitante_id: user.id,
+                status: 'Solicitação', // Status inicial para cópia
+                solicitante_id: user.id, // Usuário atual como solicitante
                 titulo: pedidoBase.titulo ? `${pedidoBase.titulo} (Cópia)` : `Cópia do Pedido ${id}`,
-                data_solicitacao: new Date().toISOString(),
-                organizacao_id: organizacaoId,
+                data_solicitacao: new Date().toISOString(), // Data atual
+                organizacao_id: organizacaoId, // Organização atual
+                // Resetar datas de entrega e valor
                 data_entrega_prevista: null,
                 data_entrega_real: null,
-                valor_total_estimado: null,
+                valor_total_estimado: null, // Será recalculado
+                valor_total_real: null, // Será recalculado
             };
 
-            if (novoPedidoData.empreendimentos) delete novoPedidoData.empreendimentos;
-            if (novoPedidoData.solicitante) delete novoPedidoData.solicitante;
-            delete novoPedidoData.itens;
-            delete novoPedidoData.anexos;
-
+            // Insere o novo pedido
             const { data: novoPedido, error: pedidoError } = await supabase
                 .from('pedidos_compra')
                 .insert(novoPedidoData)
@@ -287,26 +330,37 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
 
             if (pedidoError) throw pedidoError;
 
-            if (pedidoOriginal.itens && pedidoOriginal.itens.length > 0) {
-                const novosItens = pedidoOriginal.itens.map(item => {
-                    const { id: itemId, pedido_compra_id, created_at, fornecedor, ...itemBase } = item;
+            // Copia os itens, se existirem
+            if (itens && itens.length > 0) {
+                const novosItens = itens.map(item => {
+                    // Remove IDs e campos relacionados ao pedido original
+                    const { id: itemId, pedido_compra_id, created_at, fornecedor, etapa, ...itemBase } = item;
                     return {
                         ...itemBase,
-                        pedido_compra_id: novoPedido.id,
+                        pedido_compra_id: novoPedido.id, // Linka ao novo pedido
                         organizacao_id: organizacaoId,
+                        // Mantém fornecedor e etapa se existirem no original
                         fornecedor_id: item.fornecedor_id ? item.fornecedor_id : null,
+                        etapa_id: item.etapa_id ? item.etapa_id : null,
+                        // Resetar custos
+                        preco_unitario_estimado: item.preco_unitario_estimado, // Mantem estimativa?
+                        preco_unitario_real: null,
+                        custo_total_estimado: item.custo_total_estimado, // Mantem estimativa?
+                        custo_total_real: null,
                     };
                 });
                 const { error: itensError } = await supabase
                     .from('pedidos_compra_itens')
                     .insert(novosItens);
+
+                // Se a cópia dos itens falhar, remove o pedido criado
                 if (itensError) {
                     await supabase.from('pedidos_compra').delete().eq('id', novoPedido.id);
                     throw itensError;
                 }
             }
             toast.success('Pedido duplicado com sucesso!', { id: toastId });
-            queryClient.invalidateQueries({ queryKey: ['painelCompras'] });
+            queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId] }); // Atualiza o painel
         } catch (error) {
             console.error("Erro ao duplicar pedido:", error);
             toast.error(`Falha ao duplicar pedido: ${error.message}`, { id: toastId });
@@ -320,45 +374,49 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
             setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
         } else {
             setSortCriteria(criteria);
-            setSortDirection('asc');
+            setSortDirection('asc'); // Padrão é ascendente ao trocar critério
         }
     };
 
-    // Agrupamento e Ordenação (sem alterações)
+    // Agrupamento e Ordenação (sem alterações na lógica principal)
     const groupedData = useMemo(() => {
         const grouped = statusColumns.reduce((acc, column) => {
-            acc[column.id] = { title: column.title, pedidos: [], valorTotal: 0 };
+            acc[column.id] = { title: column.title, pedidos: [], valorTotalEstimado: 0 }; // Renomeado para clareza
             return acc;
         }, {});
 
         pedidos.forEach(pedido => {
-            // O PORQUÊ: O status 'Pedido Realizado' (do código antigo) agora é 'Solicitação'.
-            // Esta lógica garante que ambos caiam na coluna 'Solicitação'.
+             // Garante que o status 'Pedido Realizado' (antigo) seja mapeado para 'Solicitação'
             const statusKey = pedido.status === 'Pedido Realizado' ? 'Solicitação' : pedido.status;
             if (grouped[statusKey]) {
                 grouped[statusKey].pedidos.push(pedido);
-                const valorEstimado = parseFloat(pedido.valor_total_estimado);
-                if (!isNaN(valorEstimado)) {
-                    grouped[statusKey].valorTotal += valorEstimado;
-                }
+                 // Calcula o valor total estimado da coluna
+                const valorEstimadoPedido = pedido.itens?.reduce((sum, item) => sum + (parseFloat(item.custo_total_estimado) || 0), 0) || 0;
+                grouped[statusKey].valorTotalEstimado += valorEstimadoPedido;
             } else {
-                 console.warn(`Pedido ${pedido.id} com status inesperado: ${pedido.status}`);
+                console.warn(`Pedido ${pedido.id} com status inesperado ou não mapeado: ${pedido.status}`);
+                 // Opcional: Adicionar a uma coluna 'Outros' ou tratar como erro
             }
         });
 
+        // Ordena os pedidos dentro de cada coluna
         Object.keys(grouped).forEach(status => {
             grouped[status].pedidos.sort((a, b) => {
                 let valA, valB;
                 if (sortCriteria === 'data_solicitacao' || sortCriteria === 'data_entrega_prevista') {
-                    valA = a[sortCriteria] ? new Date(a[sortCriteria]) : (sortDirection === 'asc' ? new Date(0) : new Date(8640000000000000));
+                    // Trata datas nulas para ordenação consistente
+                    valA = a[sortCriteria] ? new Date(a[sortCriteria]) : (sortDirection === 'asc' ? new Date(0) : new Date(8640000000000000)); // Data muito antiga ou muito futura
                     valB = b[sortCriteria] ? new Date(b[sortCriteria]) : (sortDirection === 'asc' ? new Date(0) : new Date(8640000000000000));
                 } else if (sortCriteria === 'valor_total_estimado') {
-                    valA = parseFloat(a[sortCriteria]) || 0;
-                    valB = parseFloat(b[sortCriteria]) || 0;
-                } else {
-                    valA = a[sortCriteria]?.toString().toLowerCase() || '';
-                    valB = b[sortCriteria]?.toString().toLowerCase() || '';
+                    // Calcula valor estimado on-the-fly para ordenação, se não estiver no pedido principal
+                    valA = a.itens?.reduce((sum, item) => sum + (parseFloat(item.custo_total_estimado) || 0), 0) || 0;
+                    valB = b.itens?.reduce((sum, item) => sum + (parseFloat(item.custo_total_estimado) || 0), 0) || 0;
+                } else { // Ordena por título (case-insensitive)
+                    valA = a.titulo?.toString().toLowerCase() || '';
+                    valB = b.titulo?.toString().toLowerCase() || '';
                 }
+
+                // Lógica de comparação padrão
                 if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
                 if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
                 return 0;
@@ -368,11 +426,12 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
     }, [pedidos, sortCriteria, sortDirection]);
 
 
-    // Função de checagem (sem alterações)
+    // Função de checagem de itens pendentes (sem alterações)
     const checkPendingItems = (pedido) => {
         if (!pedido || !pedido.itens || pedido.itens.length === 0) {
-            return false;
+            return false; // Não há itens, logo não há pendências de itens
         }
+        // Verifica se ALGUM item não tem fornecedor OU não tem preço real definido (ou é <= 0)
         return pedido.itens.some(item =>
             !item.fornecedor_id || item.preco_unitario_real === null || item.preco_unitario_real === undefined || item.preco_unitario_real <= 0
         );
@@ -380,16 +439,18 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
 
     // ======================= JSX DO KANBAN (COM CORREÇÃO DE LAYOUT) =======================
     return (
-        <div 
-            ref={scrollContainerRef} 
-            // O PORQUÊ: Removemos 'space-x-4' (que causava a coluna branca)
-            // Adicionamos 'pl-4' para dar o espaçamento inicial
-            className="flex overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 relative pl-4"
-            onDragOver={handleDragOver}
+        <div
+            ref={scrollContainerRef}
+            // ***** CORREÇÃO DE LAYOUT: Remove padding esquerdo *****
+            // O 'porquê': O contêiner pai na page.js agora controla o padding geral.
+            // O espaçamento entre colunas é dado pelo 'mr-4' em cada coluna.
+            className="flex overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 relative"
+            onDragOver={handleDragOver} // DragOver no container pai
         >
-            {/* Botão de Ordenação (sem alterações, mas agora flutua sobre o 'pl-4') */}
-            <div className="sticky left-4 top-2 z-20 bg-white p-1 rounded-full shadow border flex items-center text-xs">
-                <button
+            {/* Botão de Ordenação (Posicionado sticky à esquerda) */}
+            {/* O 'porquê': Mantido sticky, mas 'left-0' garante que cole na borda do contêiner pai */}
+            <div className="sticky left-0 top-2 z-20 bg-white p-1 rounded-full shadow border flex items-center text-xs ml-1 mr-3"> {/* Ajustes de margem */}
+                 <button
                     onClick={() => toggleSort('data_solicitacao')}
                     title={`Ordenar por Data da Solicitação (${sortCriteria === 'data_solicitacao' ? (sortDirection === 'asc' ? ' crescente' : ' decrescente') : ''})`}
                     className={`p-1 rounded-full ${sortCriteria === 'data_solicitacao' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
@@ -403,22 +464,30 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
                 >
                     <FontAwesomeIcon icon={faSort} rotation={sortCriteria === 'data_entrega_prevista' && sortDirection === 'desc' ? 180 : 0} /> Data Ent.
                 </button>
+                 <button
+                    onClick={() => toggleSort('valor_total_estimado')}
+                    title={`Ordenar por Valor Estimado (${sortCriteria === 'valor_total_estimado' ? (sortDirection === 'asc' ? ' crescente' : ' decrescente') : ''})`}
+                    className={`p-1 rounded-full ${sortCriteria === 'valor_total_estimado' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    <FontAwesomeIcon icon={faSort} rotation={sortCriteria === 'valor_total_estimado' && sortDirection === 'desc' ? 180 : 0} /> Valor
+                </button>
             </div>
 
             {/* Colunas */}
-            {statusColumns.map(column => {
-                const columnData = groupedData[column.id] || { title: column.title, pedidos: [], valorTotal: 0 };
-                const valorTotalFormatado = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(columnData.valorTotal);
+            {statusColumns.map((column, index) => { // Adicionado index
+                const columnData = groupedData[column.id] || { title: column.title, pedidos: [], valorTotalEstimado: 0 };
+                const valorTotalFormatado = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(columnData.valorTotalEstimado);
 
                 return (
                     <div
                         key={column.id}
                         data-column-id={column.id}
-                        // O PORQUÊ: Adicionamos 'mr-4' (margin-right) para espaçar as colunas, substituindo o 'space-x-4'
-                        className={`bg-gray-100 rounded-lg shadow-md w-72 flex-shrink-0 flex flex-col border-t-4 transition-colors duration-200 mr-4 ${dragOverColumn === column.id ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}
+                        // ***** CORREÇÃO DE LAYOUT: Garante margem direita, exceto na última *****
+                        // O 'porquê': Cria o espaçamento correto entre as colunas.
+                        className={`bg-gray-100 rounded-lg shadow-md w-72 flex-shrink-0 flex flex-col border-t-4 transition-colors duration-200 ${index < statusColumns.length -1 ? 'mr-4' : ''} ${dragOverColumn === column.id ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}
                         onDragEnter={(e) => handleDragEnter(e, column.id)}
-                        onDragLeave={() => setDragOverColumn(null)}
-                        onDragEnd={handleDragEnd}
+                        onDragLeave={(e) => handleDragLeave(e, column.id)} // Adicionado DragLeave na coluna
+                        // onDragEnd={handleDragEnd} // DragEnd é no item arrastado
                         onDrop={(e) => handleDrop(e, column.id)}
                     >
                         {/* Cabeçalho da Coluna */}
@@ -427,44 +496,54 @@ export default function ComprasKanban({ pedidos, setPedidos, onCardClick }) {
                             <span className="text-xs font-normal bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">{columnData.pedidos.length}</span>
                         </div>
 
-                        {/* Valor Total da Coluna */}
+                        {/* Valor Total Estimado da Coluna */}
                         <p className="text-xs text-gray-500 px-3 pt-2 font-medium">
-                            Valor Total: <span className="font-bold text-gray-700">{valorTotalFormatado}</span>
+                            Valor Estimado: <span className="font-bold text-gray-700">{valorTotalFormatado}</span>
                         </p>
 
                         {/* Cards */}
-                        <div className="p-2 space-y-3 min-h-[100px] overflow-y-auto flex-1">
+                         {/* O 'porquê': max-h-[calc(100vh-250px)] tenta fazer a coluna ocupar mais altura vertical */}
+                        <div className="p-2 space-y-3 min-h-[100px] overflow-y-auto flex-1 max-h-[calc(100vh-250px)]">
                             {columnData.pedidos.map(pedido => {
+                                // Exibe o status atual do pedido
                                 const displayStatus = pedido.status;
-                                const hasPendingInvoice = pedido.status === 'Realizado' && (!pedido.anexos || !pedido.anexos.some(anexo => anexo.descricao === 'Nota Fiscal'));
+                                // Pendência de NF: Status 'Entregue' E (sem anexos OU nenhum anexo é NF)
+                                const hasPendingInvoice = displayStatus === 'Entregue' && (!pedido.anexos || pedido.anexos.length === 0 || !pedido.anexos.some(anexo => anexo.descricao && anexo.descricao.toLowerCase().includes('nota fiscal')));
+                                // Pendência de Itens: Status intermediários E função checkPendingItems retorna true
                                 const hasPendingItems = ['Em Cotação', 'Em Negociação', 'Revisão do Responsável'].includes(displayStatus) && checkPendingItems(pedido);
 
                                 return (
                                     <PedidoCard
                                         key={pedido.id}
+                                        // Passa o pedido com o status correto para exibição
                                         pedido={{ ...pedido, status: displayStatus }}
                                         onStatusChange={handleStatusChange}
                                         onDuplicate={handleDuplicatePedido}
                                         allStatusColumns={statusColumns.map(s => s.id)}
                                         hasPendingInvoice={hasPendingInvoice}
-                                        hasPendingItems={hasPendingItems}
+                                        hasPendingItems={hasPendingItems} // Passa a flag de itens pendentes
                                         onCardClick={onCardClick}
-                                        // Handlers de drag/touch
+                                        // Handlers de drag/touch para o card
                                         draggable="true"
                                         onDragStart={(e) => handleDragStart(e, pedido)}
+                                        onDragEnd={handleDragEnd} // DragEnd no item
                                         onTouchStart={(e) => handleTouchStart(e, pedido)}
-                                        data-pedido-id={pedido.id}
                                         onTouchMove={handleTouchMove}
                                         onTouchEnd={handleTouchEnd}
+                                        data-pedido-id={pedido.id} // Para identificar o elemento arrastado
                                     />
                                 );
                             })}
-                            {/* Feedback de Drop */}
+                            {/* Feedback de Drop (Placeholder visual) */}
                             {dragOverColumn === column.id && (
-                                <div className="border-2 border-dashed border-blue-400 rounded-lg p-4 text-center text-blue-500 text-sm">
-                                    Solte aqui para mover
+                                <div className="border-2 border-dashed border-blue-400 rounded-lg p-4 text-center text-blue-500 text-sm mt-2 h-20 flex items-center justify-center"> {/* Estilo de placeholder */}
+                                    Solte aqui
                                 </div>
                             )}
+                             {/* Espaço vazio se não houver cards e não estiver arrastando sobre */}
+                             {columnData.pedidos.length === 0 && dragOverColumn !== column.id && (
+                                 <div className="h-10"></div> // Pequeno espaço
+                             )}
                         </div>
                     </div>
                 );

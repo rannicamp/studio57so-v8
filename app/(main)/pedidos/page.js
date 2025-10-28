@@ -16,7 +16,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 // ======================= FUNÇÃO DE BUSCA (Carregamento Mágico) =======================
-// O 'staleTime' e 'refetchOnWindowFocus' fazem a mágica do cache.
 const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
     if (!organizacaoId) throw new Error("Organização não identificada.");
 
@@ -29,25 +28,32 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
     if (solError) throw new Error(`Falha ao carregar solicitantes: ${solError.message}`);
 
     // 2. Pedidos
+    // ***** INÍCIO DA CORREÇÃO *****
+    // O 'porquê': Corrigido para buscar 'nome_etapa' da tabela 'etapa_obra',
+    // pois a coluna 'nome' não existe nela, conforme esquema do banco.
     let query = supabase
         .from('pedidos_compra')
         .select(`
-            *, 
-            titulo, 
-            turno_entrega, 
-            empreendimentos(nome), 
-            solicitante:solicitante_id(id, nome), 
-            itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(nome, razao_social)), 
-            anexos:pedidos_compra_anexos(descricao)
+            *,
+            titulo,
+            turno_entrega,
+            empreendimentos(nome, empresa_proprietaria_id),
+            solicitante:solicitante_id(id, nome),
+            itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(nome, razao_social), etapa:etapa_id(nome_etapa)),
+            anexos:pedidos_compra_anexos(*)
         `)
         .eq('organizacao_id', organizacaoId);
+    // ***** FIM DA CORREÇÃO *****
 
     if (empreendimentoId && empreendimentoId !== 'all') {
         query = query.eq('empreendimento_id', empreendimentoId);
     }
 
     const { data: pedidosData, error: pedidosError } = await query.order('data_solicitacao', { ascending: false });
-    if (pedidosError) throw new Error(`Falha ao carregar pedidos: ${pedidosError.message}`);
+    if (pedidosError) {
+        console.error("Erro detalhado ao carregar pedidos:", pedidosError);
+        throw new Error(`Falha ao carregar pedidos: "${pedidosError.message}"`);
+    }
 
     return { solicitantes: solData || [], pedidos: pedidosData || [] };
 };
@@ -77,33 +83,34 @@ export default function PedidosPage() {
     }, [setPageTitle]);
 
     // ======================= useQuery (Carregamento Mágico) =======================
-    // staleTime: 1000 * 60 * 5  -> Guarda os dados em cache por 5 minutos
-    // refetchOnWindowFocus: true -> Busca atualizações silenciosamente quando volta pra aba
     const { data, isLoading, isError, error, isFetching } = useQuery({
         queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento],
         queryFn: () => fetchPainelData(supabase, organizacaoId, selectedEmpreendimento),
         enabled: !!organizacaoId,
-        staleTime: 1000 * 60 * 5, // Cache de 5 minutos (carregamento instantâneo)
-        refetchOnWindowFocus: true, // Busca silenciosa ao focar na janela
+        staleTime: 1000 * 60 * 5,
+        refetchOnWindowFocus: true,
     });
 
     // Efeito para a notificação de atualização (Carregamento Mágico)
     useEffect(() => {
-        // Se NÃO estava buscando, e AGORA está buscando (em segundo plano), não faz nada.
-        // Se ESTAVA buscando (isFetching=true) e agora NÃO ESTÁ (isFetching=false),
-        // E NÃO era o carregamento inicial (isLoading=false),
-        // então a busca em segundo plano terminou.
-        if (!isFetching && !isLoading && data) { // Adicionado 'data' para garantir que não dispare antes da primeira carga
-            // Um pequeno delay para não ser intrusivo
+        let isRefetching = false;
+        // Verifica se está buscando E se não é o carregamento inicial
+        if (queryClient.getQueryState(['painelCompras', organizacaoId, selectedEmpreendimento])?.isFetching && !isLoading) {
+            isRefetching = true;
+        }
+
+        // Mostra notificação apenas se a re-busca terminou (isFetching=false), não era o loading inicial,
+        // temos dados (data) E identificamos que era uma re-busca (isRefetching).
+        if (!isFetching && !isLoading && data && isRefetching) {
             const timer = setTimeout(() => {
                 toast.info('Página atualizada!', {
                     description: 'Novos dados foram carregados.',
                     duration: 2000,
                 });
-            }, 1000); // 1 segundo de delay
+            }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [isFetching, isLoading, data]); // Depende do 'data' para evitar disparo inicial
+    }, [isFetching, isLoading, data, queryClient, organizacaoId, selectedEmpreendimento]); // Monitora todas as dependências relevantes
     // ==============================================================================
 
 
@@ -111,98 +118,116 @@ export default function PedidosPage() {
     const solicitantes = data?.solicitantes || [];
 
     // useMemo para filtrar pedidos (para o KANBAN)
-    // O PORQUÊ: Usei a lógica de filtro corrigida que previne bugs de data/fuso horário
     const filteredPedidosKanban = useMemo(() => {
         return pedidos.filter(pedido => {
-            if (selectedSolicitante && pedido.solicitante?.id !== selectedSolicitante) return false;
-             try {
-                // CORREÇÃO DE DATA (REGRA 5): Trata a data como string para evitar fuso
-                const pedidoDate = pedido.data_solicitacao ? new Date(pedido.data_solicitacao + 'T00:00:00') : null;
-                const filterStartDate = startDate ? new Date(startDate + 'T00:00:00') : null;
-                const filterEndDate = endDate ? new Date(endDate + 'T00:00:00') : null;
-                if (filterStartDate && (!pedidoDate || filterStartDate > pedidoDate)) return false;
-                if (filterEndDate && (!pedidoDate || filterEndDate < pedidoDate)) return false;
+            // Filtro por Solicitante
+            if (selectedSolicitante && pedido.solicitante?.id?.toString() !== selectedSolicitante) return false;
+
+            // Filtro por Data (usando string YYYY-MM-DD para evitar fuso)
+            try {
+                const pedidoDateStr = pedido.data_solicitacao?.split('T')[0];
+                if (startDate && (!pedidoDateStr || startDate > pedidoDateStr)) return false;
+                if (endDate && (!pedidoDateStr || endDate < pedidoDateStr)) return false;
             } catch (e) { console.error("Erro datas filtro Kanban:", e); return false; }
-            if (searchTerm.trim() !== '' && !pedido.itens.some(item => item.descricao_item?.toLowerCase().includes(searchTerm.toLowerCase()))) return false;
-            return true;
+
+            // Filtro por Termo de Busca (no título OU nos itens)
+             if (searchTerm.trim() !== '') {
+                const term = searchTerm.toLowerCase();
+                const tituloMatch = pedido.titulo?.toLowerCase().includes(term);
+                // Garante que 'pedido.itens' existe e é um array antes de usar 'some'
+                const itemMatch = Array.isArray(pedido.itens) && pedido.itens.some(item => item.descricao_item?.toLowerCase().includes(term));
+                if (!tituloMatch && !itemMatch) return false;
+            }
+            return true; // Se passou por todos os filtros, inclui o pedido
         });
     }, [pedidos, searchTerm, selectedSolicitante, startDate, endDate]);
 
-    // useEffect dos KPIs (Refeito para usar o filtro corrigido)
+    // useEffect dos KPIs
     useEffect(() => {
         const calculateKpis = async () => {
-            // Usa os pedidos JÁ filtrados pelo useMemo
             const localFilteredPedidos = filteredPedidosKanban;
 
-            if (pedidos.length === 0 || localFilteredPedidos.length === 0) {
-                setKpiData({ totalPedidos: localFilteredPedidos.length, tempoMedioCotacao: 'N/A', tempoMedioEntrega: 'N/A', pedidosComPendencia: 0 });
-                return;
+            if (localFilteredPedidos.length === 0) {
+                 setKpiData({ totalPedidos: 0, tempoMedioCotacao: 'N/A', tempoMedioEntrega: 'N/A', pedidosComPendencia: 0 });
+                 return;
             }
 
-            // Calcula pendências baseado nos pedidos filtrados
-            const comPendencia = localFilteredPedidos.filter(p => p.status === 'Realizado' && (!p.anexos || !p.anexos.some(a => a.descricao === 'Nota Fiscal'))).length;
+            const comPendencia = localFilteredPedidos.filter(p =>
+                p.status === 'Entregue' &&
+                (!p.anexos || p.anexos.length === 0 || !p.anexos.some(a => a.descricao && a.descricao.toLowerCase().includes('nota fiscal')))
+            ).length;
 
-            // Busca histórico APENAS dos IDs filtrados
             const idsFiltrados = localFilteredPedidos.map(p => p.id);
-            if (!supabase) { console.warn("Supabase client não disponível."); return; }
+            if (!supabase || idsFiltrados.length === 0) {
+                 setKpiData(prev => ({ ...prev, totalPedidos: localFilteredPedidos.length, tempoMedioCotacao: 'N/A', tempoMedioEntrega: 'N/A', pedidosComPendencia: comPendencia }));
+                 return;
+             }
 
-             let historicos = [];
-             try {
+            let historicos = [];
+            try {
                 const { data: histData, error: histError } = await supabase
                     .from('pedidos_compra_status_historico')
                     .select('pedido_compra_id, status_novo, data_mudanca')
                     .in('pedido_compra_id', idsFiltrados);
                 if (histError) { throw histError; }
                 historicos = histData || [];
-             } catch (error) {
-                 console.error("Erro ao buscar histórico para KPIs:", error);
-                 setKpiData(prev => ({ ...prev, totalPedidos: localFilteredPedidos.length, tempoMedioCotacao: 'Erro', tempoMedioEntrega: 'Erro', pedidosComPendencia: comPendencia }));
-                 return;
-             }
+            } catch (error) {
+                console.error("Erro ao buscar histórico para KPIs:", error);
+                setKpiData(prev => ({ ...prev, totalPedidos: localFilteredPedidos.length, tempoMedioCotacao: 'Erro', tempoMedioEntrega: 'Erro', pedidosComPendencia: comPendencia }));
+                return;
+            }
 
-            // Lógica de cálculo de médias (usa localFilteredPedidos)
             let totalDiasCotacao = 0, countCotacao = 0, totalDiasEntrega = 0, countEntrega = 0;
-            const historicosPorPedido = historicos.reduce((acc, h) => { acc[h.pedido_compra_id] = acc[h.pedido_compra_id] || []; acc[h.pedido_compra_id].push(h); acc[h.pedido_compra_id].sort((a,b) => new Date(a.data_mudanca) - new Date(b.data_mudanca)); return acc; }, {});
+            const historicosPorPedido = historicos.reduce((acc, h) => {
+                acc[h.pedido_compra_id] = acc[h.pedido_compra_id] || [];
+                acc[h.pedido_compra_id].push(h);
+                acc[h.pedido_compra_id].sort((a,b) => new Date(a.data_mudanca) - new Date(b.data_mudanca));
+                return acc;
+             }, {});
 
-            for (const pedido of localFilteredPedidos) { // Itera sobre os filtrados
+            for (const pedido of localFilteredPedidos) {
                 const h = historicosPorPedido[pedido.id] || [];
-                const dataSolicitacao = pedido.data_solicitacao ? new Date(pedido.data_solicitacao) : null;
+                 const dataSolicitacao = pedido.data_solicitacao ? new Date(pedido.data_solicitacao) : null;
                 const dataCotacaoObj = h.find(item => item.status_novo === 'Em Cotação');
                 const dataCotacao = dataCotacaoObj ? new Date(dataCotacaoObj.data_mudanca) : null;
-                const dataEntregueObj = h.find(item => item.status_novo === 'Entregue');
-                const dataEntregue = dataEntregueObj ? new Date(dataEntregueObj.data_mudanca) : null;
                 const dataRealizadoObj = h.find(item => item.status_novo === 'Realizado');
                 const dataRealizado = dataRealizadoObj ? new Date(dataRealizadoObj.data_mudanca) : null;
+                const dataEntregueObj = h.find(item => item.status_novo === 'Entregue');
+                const dataEntregue = dataEntregueObj ? new Date(dataEntregueObj.data_mudanca) : null;
 
                 if (dataSolicitacao && dataCotacao && dataCotacao >= dataSolicitacao) {
-                    const diffTime = dataCotacao - dataSolicitacao; totalDiasCotacao += diffTime / (1000 * 60 * 60 * 24); countCotacao++;
+                    const diffTime = dataCotacao.getTime() - dataSolicitacao.getTime(); // Use getTime() for milliseconds
+                    if (!isNaN(diffTime)) { // Check if diffTime is a valid number
+                        totalDiasCotacao += diffTime / (1000 * 60 * 60 * 24);
+                        countCotacao++;
+                    }
                 }
                 if (dataRealizado && dataEntregue && dataEntregue >= dataRealizado) {
-                    const diffTime = dataEntregue - dataRealizado; totalDiasEntrega += diffTime / (1000 * 60 * 60 * 24); countEntrega++;
+                     const diffTime = dataEntregue.getTime() - dataRealizado.getTime(); // Use getTime()
+                     if (!isNaN(diffTime)) { // Check validity
+                        totalDiasEntrega += diffTime / (1000 * 60 * 60 * 24);
+                        countEntrega++;
+                    }
                 }
             }
 
-            // Atualiza o estado
             setKpiData({
-                totalPedidos: localFilteredPedidos.length, // KPI baseado nos filtros
+                totalPedidos: localFilteredPedidos.length,
                 tempoMedioCotacao: countCotacao > 0 ? `${(totalDiasCotacao / countCotacao).toFixed(1)} dias` : 'N/A',
                 tempoMedioEntrega: countEntrega > 0 ? `${(totalDiasEntrega / countEntrega).toFixed(1)} dias` : 'N/A',
                 pedidosComPendencia: comPendencia,
             });
         };
 
-        // Roda a função SE tivermos os dados dos pedidos E o supabase client
         if (pedidos && supabase) {
              calculateKpis();
         }
 
-    }, [filteredPedidosKanban, pedidos, supabase]); // Depende do filtro corrigido
+    }, [filteredPedidosKanban, supabase]); // Depende apenas do filtro e do supabase client
     // ========================================================================
 
 
-    // ======================= useMutation (CORREÇÃO DA RLS + STATUS) =======================
-    // O PORQUÊ: Mudamos o status para 'Solicitação' para ser mais correto.
-    // O restante da lógica de RLS (enviar IDs) permanece.
+    // ======================= useMutation (Criar Pedido) =======================
     const createPedidoMutation = useMutation({
         mutationFn: async () => {
             if (!user || !user.id || !organizacaoId) {
@@ -214,7 +239,7 @@ export default function PedidosPage() {
 
             const novoPedido = {
                 titulo: 'Nova Solicitação (Rascunho)',
-                status: 'Solicitação', // <-- CORREÇÃO: Status inicial correto
+                status: 'Solicitação',
                 solicitante_id: user.id,
                 organizacao_id: organizacaoId,
                 empreendimento_id: selectedEmpreendimento,
@@ -248,7 +273,6 @@ export default function PedidosPage() {
     // ===================================================================================
 
 
-    // Funções handleCardClick e handleCloseSidebar (sem alterações)
     const handleCardClick = (pedido) => {
         setSelectedPedido(pedido);
         setIsSidebarOpen(true);
@@ -263,7 +287,7 @@ export default function PedidosPage() {
         <div className="space-y-6">
             <PedidoDetalhesSidebar
                 pedido={selectedPedido}
-                isOpen={isSidebarOpen} // Prop corrigida para 'isOpen'
+                isOpen={isSidebarOpen}
                 onClose={handleCloseSidebar}
                 onUpdate={() => {
                     queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento] });
@@ -287,19 +311,19 @@ export default function PedidosPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                 {/* Títulos dos KPIs corrigidos para (Filtro) */}
                  <KpiCard title="Pedidos (Filtro)" value={kpiData.totalPedidos} icon={faBoxOpen} color="blue" />
-                 <KpiCard title="Pedidos com Pendências (Filtro)" value={kpiData.pedidosComPendencia} icon={faClipboardList} color="red" />
+                 <KpiCard title="Pendências NF (Filtro)" value={kpiData.pedidosComPendencia} icon={faClipboardList} color="red" />
                  <KpiCard title="Tempo Médio Cotação (Filtro)" value={kpiData.tempoMedioCotacao} icon={faHourglassHalf} color="yellow" />
                  <KpiCard title="Tempo Médio Entrega (Filtro)" value={kpiData.tempoMedioEntrega} icon={faClock} color="green" />
             </div>
 
             <div className="p-4 bg-gray-50 border rounded-lg space-y-4">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                     <input type="text" placeholder="Buscar por item..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded-md lg:col-span-2"/>
+                     <input type="text" placeholder="Buscar por título ou item..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded-md lg:col-span-2"/>
                      <select value={selectedSolicitante} onChange={e => setSelectedSolicitante(e.target.value)} className="p-2 border rounded-md">
                          <option value="">Todos Solicitantes</option>
-                         {solicitantes.map(s => <option key={s.id} value={s.id}>{s.nome} {s.sobrenome}</option>)}
+                         {/* Garante que o ID seja string para comparação no filtro */}
+                         {solicitantes.map(s => <option key={s.id} value={s.id.toString()}>{s.nome} {s.sobrenome}</option>)}
                      </select>
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:col-span-4 lg:grid-cols-4 gap-4 items-end">
@@ -314,7 +338,6 @@ export default function PedidosPage() {
                  </div>
             </div>
 
-            {/* Spinner de atualização silenciosa (Carregamento Mágico) */}
             {isFetching && !isLoading && (
                  <div className="fixed bottom-4 right-4 z-50 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
                     <FontAwesomeIcon icon={faSpinner} spin />
@@ -328,13 +351,18 @@ export default function PedidosPage() {
                     <p className="mt-2">Carregando painel...</p>
                 </div>
             ) : isError ? (
-                <p className="text-center text-red-500">{error.message}</p>
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                    <strong className="font-bold">Erro ao carregar dados!</strong>
+                    <span className="block sm:inline"> {error.message}</span>
+                </div>
             ) : (
-                <ComprasKanban
-                    pedidos={filteredPedidosKanban} // Passa os pedidos filtrados pelo useMemo
-                    setPedidos={() => queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento] })}
-                    onCardClick={handleCardClick}
-                />
+                <div className="bg-white p-4 rounded-lg shadow">
+                    <ComprasKanban
+                        pedidos={filteredPedidosKanban}
+                        // setPedidos não é mais necessário aqui, use invalidateQueries
+                        onCardClick={handleCardClick}
+                    />
+                </div>
             )}
         </div>
     );
