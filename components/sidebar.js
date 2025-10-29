@@ -1,5 +1,5 @@
 // components/sidebar.js
-// CÓDIGO ATUALIZADO E COMPLETO
+// CÓDIGO ATUALIZADO E CORRIGIDO
 
 "use client";
 
@@ -34,7 +34,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         {
             title: 'Administrativo',
             items: [
-                { href: '/', label: 'Painel', icon: faTachometerAlt, recurso: 'painel' },
+                // =================================================================
+                // INÍCIO DA CORREÇÃO 1 de 3
+                // O PORQUÊ: O link do "Painel" agora aponta para /painel,
+                // pois / é a homepage pública.
+                { href: '/painel', label: 'Painel', icon: faTachometerAlt, recurso: 'painel' },
+                // FIM DA CORREÇÃO 1 de 3
+                // =================================================================
                 { href: '/financeiro', label: 'Financeiro', icon: faDollarSign, recurso: 'financeiro' },
                 { 
                     href: '/recursos-humanos', 
@@ -87,18 +93,24 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         return (
             <aside className={`bg-white shadow-lg h-[65px] w-full fixed left-0 ${sidebarPosition === 'top' ? 'top-[65px]' : 'bottom-0'} z-40 flex items-center justify-center px-4`}>
                 <div className="absolute left-4">
-                    <Link href="/">
+                    {/* =================================================================
+                    // INÍCIO DA CORREÇÃO 2 de 3
+                    // O PORQUÊ: O logo na barra horizontal também deve levar
+                    // o usuário logado para o /painel.
+                    // ================================================================= */}
+                    <Link href="/painel">
                         <img src={logoIconUrl} alt="Logo Studio 57" className="h-8 w-auto" />
                     </Link>
+                    {/* FIM DA CORREÇÃO 2 de 3 */}
                 </div>
                 <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2">
                     {allItems.map((item) => {
                         // =================================================================
-                        // INÍCIO DA CORREÇÃO 1 de 3
+                        // INÍCIO DA CORREÇÃO (Mantida da última vez)
                         // O PORQUÊ: Removemos 'caixa_de_entrada' e 'anuncios' da lista de exceções.
-                        // Agora, a exibição deles depende APENAS da permissão.
+                        // =================================================================
                         const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil'].includes(item.recurso);
-                        // FIM DA CORREÇÃO 1 de 3
+                        // FIM DA CORREÇÃO (Mantida da última vez)
                         // =================================================================
                         if (!item || !canViewItem) return null;
                         return (
@@ -122,9 +134,15 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
     return (
         <aside className={`bg-white shadow-lg h-full fixed top-0 z-40 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
             <div className="flex items-center justify-center h-[65px] border-b border-gray-200 flex-shrink-0">
-                <Link href="/">
+                 {/* =================================================================
+                // INÍCIO DA CORREÇÃO 3 de 3
+                // O PORQUÊ: O logo na barra vertical também deve levar
+                // o usuário logado para o /painel.
+                // ================================================================= */}
+                <Link href="/painel">
                     <img src={isCollapsed ? logoIconUrl : logoUrl} alt="Logo Studio 57" className={`transition-all duration-300 ${isCollapsed ? 'h-8' : 'h-10'} w-auto`} />
                 </Link>
+                {/* FIM DA CORREÇÃO 3 de 3 */}
             </div>
             <nav className="mt-4 flex-grow flex flex-col">
                 <ul className="overflow-y-auto">
@@ -132,13 +150,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                         const sectionItems = section.items || [];
                         
                         // =================================================================
-                        // INÍCIO DA CORREÇÃO 2 de 3
+                        // INÍCIO DA CORREÇÃO (Mantida da última vez)
                         // O PORQUÊ: Também precisamos corrigir a lista de exceções aqui.
-                        // Esta linha decide se o TÍTULO da seção (ex: "Comercial") deve aparecer.
+                        // =================================================================
                         const hasVisibleItems = sectionItems.some(item => 
                             hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil'].includes(item.recurso)
                         );
-                        // FIM DA CORREÇÃO 2 de 3
+                        // FIM DA CORREÇÃO (Mantida da última vez)
                         // =================================================================
 
                         if (!hasVisibleItems) return null;
@@ -151,11 +169,11 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                                 <ul>
                                     {sectionItems.map((item) => {
                                         // =================================================================
-                                        // INÍCIO DA CORREÇÃO 3 de 3
+                                        // INÍCIO DA CORREÇÃO (Mantida da última vez)
                                         // O PORQUÊ: E corrigimos a lista de exceções aqui pela última vez.
-                                        // Esta linha decide se o ITEM de menu (ex: "Caixa de Entrada") deve aparecer.
+                                        // =================================================================
                                         const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil'].includes(item.recurso);
-                                        // FIM DA CORREÇÃO 3 de 3
+                                        // FIM DA CORREÇÃO (Mantida da última vez)
                                         // =================================================================
                                         if (!canViewItem) return null;
 
