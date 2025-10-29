@@ -1,3 +1,6 @@
+// components/sidebar.js
+// CÓDIGO ATUALIZADO E COMPLETO
+
 "use client";
 
 import { useState } from 'react';
@@ -90,7 +93,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 </div>
                 <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2">
                     {allItems.map((item) => {
-                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['caixa_de_entrada', 'painel', 'perfil', 'anuncios'].includes(item.recurso);
+                        // =================================================================
+                        // INÍCIO DA CORREÇÃO 1 de 3
+                        // O PORQUÊ: Removemos 'caixa_de_entrada' e 'anuncios' da lista de exceções.
+                        // Agora, a exibição deles depende APENAS da permissão.
+                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil'].includes(item.recurso);
+                        // FIM DA CORREÇÃO 1 de 3
+                        // =================================================================
                         if (!item || !canViewItem) return null;
                         return (
                             <Tooltip key={item.label} label={item.label} position={sidebarPosition === 'top' ? 'bottom' : 'top'}>
@@ -121,9 +130,16 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 <ul className="overflow-y-auto">
                     {navSections.map((section) => {
                         const sectionItems = section.items || [];
+                        
+                        // =================================================================
+                        // INÍCIO DA CORREÇÃO 2 de 3
+                        // O PORQUÊ: Também precisamos corrigir a lista de exceções aqui.
+                        // Esta linha decide se o TÍTULO da seção (ex: "Comercial") deve aparecer.
                         const hasVisibleItems = sectionItems.some(item => 
-                            hasPermission(item.recurso, 'pode_ver') || ['caixa_de_entrada', 'painel', 'perfil', 'anuncios'].includes(item.recurso)
+                            hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil'].includes(item.recurso)
                         );
+                        // FIM DA CORREÇÃO 2 de 3
+                        // =================================================================
 
                         if (!hasVisibleItems) return null;
 
@@ -134,7 +150,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
 
                                 <ul>
                                     {sectionItems.map((item) => {
-                                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['caixa_de_entrada', 'painel', 'perfil', 'anuncios'].includes(item.recurso);
+                                        // =================================================================
+                                        // INÍCIO DA CORREÇÃO 3 de 3
+                                        // O PORQUÊ: E corrigimos a lista de exceções aqui pela última vez.
+                                        // Esta linha decide se o ITEM de menu (ex: "Caixa de Entrada") deve aparecer.
+                                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil'].includes(item.recurso);
+                                        // FIM DA CORREÇÃO 3 de 3
+                                        // =================================================================
                                         if (!canViewItem) return null;
 
                                         return (
