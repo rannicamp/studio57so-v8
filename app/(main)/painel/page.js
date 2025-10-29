@@ -1,67 +1,111 @@
-// Caminho do arquivo: app/page.js
+// app/(main)/painel/page.js
+// CÓDIGO ATUALIZADO E COMPLETO
 
-'use client';
+"use client";
 
-import Image from 'next/image';
-import Link from 'next/link';
-import { Roboto } from 'next/font/google';
+import React, { Suspense } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
-const roboto = Roboto({
-    weight: ['400', '500', '700'],
-    subsets: ['latin'],
-    display: 'swap',
-});
+// O PORQUÊ: Esta é a página principal do Painel, agora transformada em um Dashboard.
+// 1. Usamos o useAuth para pegar os dados do 'user' e a função 'hasPermission'.
+// 2. Importamos todos os widgets que acabamos de criar.
+// 3. Importamos o CustomKpiSection (que JÁ EXISTIA) para carregar os KPIs personalizados.
+// 4. Usamos um layout de Grid (Tailwind) para organizar os cards.
+// 5. Renderizamos condicionalmente os widgets:
+//    - Minhas Atividades e Meu RH só aparecem se o usuário for um funcionário.
+//    - Financeiro e Comercial só aparecem se o usuário tiver permissão para vê-los.
 
-export default function HomePage() {
+// Importação dinâmica dos Widgets
+// Usamos React.lazy para que a página carregue mais rápido
+const WelcomeCard = React.lazy(() => import('@/components/painel/widgets/WelcomeCard'));
+const QuickActionsWidget = React.lazy(() => import('@/components/painel/widgets/QuickActionsWidget'));
+const MinhasAtividadesWidget = React.lazy(() => import('@/components/painel/widgets/MinhasAtividadesWidget'));
+const MeuRhWidget = React.lazy(() => import('@/components/painel/widgets/MeuRhWidget'));
+const FinanceiroWidget = React.lazy(() => import('@/components/painel/widgets/FinanceiroWidget'));
+const ComercialWidget = React.lazy(() => import('@/components/painel/widgets/ComercialWidget'));
+
+// Importação do widget de KPI personalizado que já existe
+import CustomKpiSection from '@/components/painel/CustomKpiSection';
+
+const WidgetSkeleton = () => (
+  <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100 h-48 flex justify-center items-center">
+    <FontAwesomeIcon icon={faSpinner} spin className="text-2xl text-gray-300" />
+  </div>
+);
+
+export default function Painel() {
+  const { user, hasPermission, isLoading: authLoading } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center h-[calc(100vh-200px)]">
+        <FontAwesomeIcon icon={faSpinner} spin size="3x" className="text-gray-400" />
+      </div>
+    );
+  }
+
   return (
-    <div className={`${roboto.className} bg-white text-gray-800 font-sans`}>
-        {/* Header com o botão de Login */}
-        <header className="absolute top-0 left-0 right-0 z-40 p-4">
-            <div className="container mx-auto flex justify-between items-center">
-                {/* Logo da sua empresa - ajuste a URL se necessário */}
-                <Image
-                    src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/marcas/studiologo-preto.png"
-                    alt="Logo Studio 57"
-                    width={150}
-                    height={50}
-                    className="object-contain"
-                />
-                <Link href="/login">
-                    <div className="bg-blue-600 text-white font-bold py-2 px-6 rounded-full hover:bg-blue-700 transition-colors duration-300 shadow-lg">
-                        Login
-                    </div>
-                </Link>
-            </div>
-        </header>
+    <div className="container mx-auto p-6 space-y-6">
+      
+      {/* Suspense é um componente do React que mostra um 'fallback' (o esqueleto)
+          enquanto os componentes dinâmicos (widgets) estão sendo carregados. */}
+      <Suspense fallback={<WidgetSkeleton />}>
+        {user && <WelcomeCard user={user} />}
+      </Suspense>
 
-        {/* Seção Principal (Hero) */}
-        <section className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden">
-            <div
-                className="absolute inset-0 bg-cover bg-center z-0"
-                style={{
-                    backgroundImage: "url('https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/capa%20vazia2.png')",
-                }}
-            ></div>
-            <div className="absolute inset-0 bg-black opacity-40 z-10"></div>
-            
-            <div className="relative z-30 flex flex-col items-center p-4 w-full text-center">
-                <div className="max-w-3xl">
-                    <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white mb-4" style={{ textShadow: '2px 2px 8px rgba(0,0,0,0.7)' }}>
-                        Bem-vindo ao Studio 57
-                    </h1>
-                    <p className="text-lg md:text-xl text-gray-200" style={{ textShadow: '1px 1px 4px rgba(0,0,0,0.8)' }}>
-                        Sua plataforma completa para gestão de empreendimentos, finanças e clientes.
-                    </p>
-                </div>
-            </div>
-        </section>
+      {/* Layout principal do Dashboard em grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* Rodapé Simples */}
-        <footer className="bg-gray-800 text-white py-4">
-            <div className="container mx-auto px-4 text-center text-gray-400 text-sm">
-                <p>© {new Date().getFullYear()} Studio 57. Todos os direitos reservados.</p>
-            </div>
-        </footer>
+        {/* Coluna 1: Itens de alta prioridade */}
+        <div className="lg:col-span-2 space-y-6">
+          <Suspense fallback={<WidgetSkeleton />}>
+            {/* Renderiza "Minhas Atividades" apenas se o usuário for um funcionário */}
+            {user?.funcionario_id && (
+              <MinhasAtividadesWidget funcionario_id={user.funcionario_id} />
+            )}
+          </Suspense>
+        </div>
+
+        {/* Coluna 2: Itens secundários */}
+        <div className="lg:col-span-1 space-y-6">
+          <Suspense fallback={<WidgetSkeleton />}>
+            <QuickActionsWidget />
+          </Suspense>
+          
+          <Suspense fallback={<WidgetSkeleton />}>
+            {/* Renderiza "Meu RH" apenas se o usuário for um funcionário */}
+            {user?.funcionario_id && (
+              <MeuRhWidget funcionario_id={user.funcionario_id} />
+            )}
+          </Suspense>
+        </div>
+      </div>
+
+      {/* Seção de KPIs Personalizados (do Construtor de KPIs) */}
+      {/* Este componente já existe e busca seus próprios dados */}
+      <Suspense fallback={null}>
+        <CustomKpiSection />
+      </Suspense>
+
+      {/* Seção de Widgets por Permissão */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Suspense fallback={<WidgetSkeleton />}>
+          {/* Renderiza "Financeiro" apenas se tiver permissão */}
+          {hasPermission('financeiro', 'pode_ver') && (
+            <FinanceiroWidget />
+          )}
+        </Suspense>
+
+        <Suspense fallback={<WidgetSkeleton />}>
+          {/* Renderiza "Comercial" apenas se tiver permissão */}
+          {hasPermission('crm', 'pode_ver') && (
+            <ComercialWidget />
+          )}
+        </Suspense>
+      </div>
+
     </div>
   );
 }
