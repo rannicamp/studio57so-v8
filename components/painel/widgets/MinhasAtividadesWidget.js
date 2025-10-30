@@ -1,25 +1,21 @@
 // components/painel/widgets/MinhasAtividadesWidget.js
-// CÓDIGO COMPLETO
+// CÓDIGO CORRIGIDO - Removidos comentários inválidos do JSX
 
 "use client";
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+// Trocamos o cliente antigo pelo novo (o mesmo do FolhaPonto.js)
+import { createClient } from '../../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTasks } from '@fortawesome/free-solid-svg-icons';
 import AtividadeCard from './AtividadeCard';
 import Link from 'next/link';
 
-// O PORQUÊ: Este é o widget "Minhas Atividades" que você pediu.
-// Ele segue a Regra 6a: Usa useQuery para buscar dados.
-// A lógica de busca (fetchMinhasAtividades) está separada.
-// Ele busca as 10 atividades mais próximas do vencimento que NÃO estejam concluídas
-// e que sejam do funcionário logado.
-
 // Função de busca de dados
 async function fetchMinhasAtividades(funcionario_id) {
-  const supabase = createClientComponentClient();
+  // Usamos o novo cliente Supabase (createClient)
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('activities')
     .select(`
@@ -48,8 +44,9 @@ export default function MinhasAtividadesWidget({ funcionario_id }) {
     enabled: !!funcionario_id, // Só executa a query se o funcionario_id existir
   });
 
+  // Removemos o 'h-full' para que o widget se ajuste à altura
   return (
-    <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100 h-full">
+    <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-gray-800">Minhas Atividades Pendentes</h3>
         <Link href="/atividades">

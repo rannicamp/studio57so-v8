@@ -1,5 +1,5 @@
 // components/painel/widgets/QuickActionsWidget.js
-// CÓDIGO COMPLETO
+// CÓDIGO CORRIGIDO - Removidos comentários inválidos do JSX
 
 "use client";
 
@@ -9,10 +9,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faTasks, faReceipt, faShoppingCart } from '@fortawesome/free-solid-svg-icons';
 import Tooltip from '@/components/Tooltip';
-
-// O PORQUÊ: Este widget usa o hook useAuth() para acessar a função hasPermission.
-// Cada botão de atalho (Ação Rápida) só é renderizado (desenhado na tela) se o
-// usuário logado tiver a permissão de "pode_criar" para aquele módulo específico.
 
 const ActionButton = ({ href, icon, label, canView, position }) => {
   if (!canView) return null;
@@ -31,8 +27,9 @@ const ActionButton = ({ href, icon, label, canView, position }) => {
 export default function QuickActionsWidget() {
   const { hasPermission } = useAuth();
 
+  // Removemos o 'h-full' para que o widget se ajuste à altura
   return (
-    <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100 h-full">
+    <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
       <h3 className="text-lg font-semibold text-gray-800 mb-4">Ações Rápidas</h3>
       <div className="grid grid-cols-3 gap-4">
         <ActionButton

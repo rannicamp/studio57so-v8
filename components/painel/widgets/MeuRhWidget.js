@@ -1,5 +1,5 @@
 // components/painel/widgets/MeuRhWidget.js
-// CÓDIGO ATUALIZADO - Substituído layout de Grid/KpiCard por Lista/RhKpiItem
+// CÓDIGO CORRIGIDO - Removidos comentários inválidos de dentro do JSX
 
 "use client";
 
@@ -12,13 +12,7 @@ import {
     faCalendarXmark, faUmbrellaBeach, faHistory
 } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
-// =================================================================
-// INÍCIO DA CORREÇÃO DE LAYOUT
-// O PORQUÊ: Trocamos o KpiCard (instável) pelo nosso novo RhKpiItem (estável).
-import RhKpiItem from './RhKpiItem';
-// =================================================================
-// FIM DA CORREÇÃO
-// =================================================================
+import RhKpiItem from './RhKpiItem'; // Importa o componente de lista
 import {
     format, startOfMonth, endOfMonth, eachDayOfInterval, getISODay,
     differenceInMinutes, parseISO, isValid
@@ -248,7 +242,7 @@ export default function MeuRhWidget({ funcionario_id }) {
     }, [rhData, isLoading, isError]);
 
 
-    // ---- Renderização (A GRANDE MUDANÇA) ----
+    // ---- Renderização ----
     const renderContent = () => {
         if (isLoading) {
             return (
@@ -283,11 +277,7 @@ export default function MeuRhWidget({ funcionario_id }) {
         const { saldoBancoHoras, feriasGozadas } = rhData;
         const { dias, horas, faltas } = kpisCalculados;
 
-        // =================================================================
-        // INÍCIO DA CORREÇÃO DE LAYOUT
-        // O PORQUÊ: Trocamos o 'grid' instável por uma lista vertical simples,
-        // usando o novo componente RhKpiItem.
-        // =================================================================
+        // Renderiza a lista de KPIs (agora sem os comentários errados)
         return (
             <div className="flex flex-col space-y-2">
                 <RhKpiItem
@@ -322,13 +312,11 @@ export default function MeuRhWidget({ funcionario_id }) {
                 />
             </div>
         );
-        // =================================================================
-        // FIM DA CORREÇÃO
-        // =================================================================
     };
 
+    // Renderiza o widget principal (agora sem os comentários errados)
     return (
-        <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100 h-full min-h-[200px]">
+        <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-800">Meu Resumo RH</h3>
                 {/* Link só aparece se os dados foram carregados */}
