@@ -1,22 +1,23 @@
 // app/(main)/painel/page.js
-// CÓDIGO CORRIGIDO - Usando os imports originais
-// MeuRhWidget ATIVO
-// CustomKpiSection (da imagem) OCULTO
+// CÓDIGO CORRIGIDO - MeuRhWidget ATIVADO
+// Widgets Financeiro, Comercial e KPIs Personalizados Ocultos
 
 "use client";
 
 import React, { Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; // LINHA CORRETA
-import { faSpinner } from '@fortawesome/free-solid-svg-icons'; // LINHA CORRETA
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
 // Importação dinâmica dos Widgets restantes
 const WelcomeCard = React.lazy(() => import('@/components/painel/widgets/WelcomeCard'));
 const QuickActionsWidget = React.lazy(() => import('@/components/painel/widgets/QuickActionsWidget'));
 const MinhasAtividadesWidget = React.lazy(() => import('@/components/painel/widgets/MinhasAtividadesWidget'));
 // =========================================================================
+// WIDGETS ATIVADO
+const MeuRhWidget = React.lazy(() => import('@/components/painel/widgets/MeuRhWidget'));
+// =========================================================================
 // WIDGETS REMOVIDOS TEMPORARIAMENTE
-const MeuRhWidget = React.lazy(() => import('@/components/painel/widgets/MeuRhWidget')); // ATIVADO
 // const FinanceiroWidget = React.lazy(() => import('@/components/painel/widgets/FinanceiroWidget'));
 // const ComercialWidget = React.lazy(() => import('@/components/painel/widgets/ComercialWidget'));
 // =========================================================================
@@ -75,8 +76,9 @@ export default function Painel() {
         </div>
       </div>
 
-      {/* Seção de KPIs Personalizados (OCULTA) */}
-      {/* <Suspense fallback={null}>
+      {/* Seção de KPIs Personalizados (Comentada) */}
+      {/*
+      <Suspense fallback={null}>
         <CustomKpiSection />
       </Suspense>
       */}
