@@ -1,25 +1,18 @@
 // components/painel/widgets/MeuRhWidget.js
-// CÓDIGO CORRIGIDO - Usando o Supabase Client correto e com o caminho de import correto
+// CÓDIGO CORRIGIDO - Corrigido o typo 'totalDiasCoo' para 'totalDiasTrabalhados'
 
 "use client";
 
 import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-// =================================================================
-// INÍCIO DA CORREÇÃO
-// O PORQUÊ: Trocamos o import do cliente antigo ('@supabase/auth-helpers-nextjs')
-// pelo import do cliente novo (ssr), o mesmo usado pelo FolhaPonto.js.
 import { createClient } from '../../../utils/supabase/client'; // Caminho corrigido
-// =================================================================
-// FIM DA CORREÇÃO
-// =================================================================
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faSpinner, faClock, faHourglassHalf, faCalendarCheck,
     faCalendarXmark, faUmbrellaBeach, faHistory
 } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
-import KpiCard from '@/components/KpiCard'; // Assumindo que @/components aponta para a pasta 'components'
+import KpiCard from '@/components/KpiCard';
 import {
     format, startOfMonth, endOfMonth, eachDayOfInterval, getISODay,
     differenceInMinutes, parseISO, isValid
@@ -111,13 +104,7 @@ const calculateTotalHoursForEmployee = (dayData, employee) => {
 async function fetchWidgetRhData(funcionario_id) {
     if (!funcionario_id) return null; // Retorna cedo se ID for inválido
 
-    // =================================================================
-    // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: Trocamos o cliente para o mesmo do FolhaPonto.js
     const supabase = createClient();
-    // =================================================================
-    // FIM DA CORREÇÃO
-    // =================================================================
 
     const hoje = new Date(); // Data local para referência do mês/ano
     const anoAtual = hoje.getFullYear();
@@ -321,7 +308,15 @@ export default function MeuRhWidget({ funcionario_id }) {
             const totalDiasTrabalhados = diasConsideradosTrabalhados.size;
             const horasTrabalhadasFormatada = formatMinutesToHours(totalMinutosTrabalhados);
             const cargaHorariaEsperadaFormatada = formatMinutesToHours(Math.max(0, cargaHorariaEsperadaMinutos)); // Evita negativo
-            const faltas = Math.max(0, diasUteisNoPeriodo - totalDiasCoo); // Faltas = Dias úteis menos os dias trabalhados/abonados
+            
+            // =================================================================
+            // INÍCIO DA CORREÇÃO
+            // O PORQUÊ: Corrigindo o erro de digitação de 'totalDiasCoo'
+            // para a variável correta 'totalDiasTrabalhados'.
+            const faltas = Math.max(0, diasUteisNoPeriodo - totalDiasTrabalhados); 
+            // =================================================================
+            // FIM DA CORREÇÃO
+            // =================================================================
 
             return {
                 status: 'ok', // Indica que os cálculos foram bem sucedidos
