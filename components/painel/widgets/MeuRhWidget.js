@@ -321,7 +321,7 @@ export default function MeuRhWidget({ funcionario_id }) {
             const totalDiasTrabalhados = diasConsideradosTrabalhados.size;
             const horasTrabalhadasFormatada = formatMinutesToHours(totalMinutosTrabalhados);
             const cargaHorariaEsperadaFormatada = formatMinutesToHours(Math.max(0, cargaHorariaEsperadaMinutos)); // Evita negativo
-            const faltas = Math.max(0, diasUteisNoPeriodo - totalDiasTrabalhados); // Faltas = Dias úteis menos os dias trabalhados/abonados
+            const faltas = Math.max(0, diasUteisNoPeriodo - totalDiasCoo); // Faltas = Dias úteis menos os dias trabalhados/abonados
 
             return {
                 status: 'ok', // Indica que os cálculos foram bem sucedidos
