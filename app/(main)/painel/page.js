@@ -1,25 +1,25 @@
 // app/(main)/painel/page.js
-// CÓDIGO ATUALIZADO - Widget MeuRhWidget COMENTADO
+// CÓDIGO CORRIGIDO - Usando os imports originais
+// MeuRhWidget ATIVO
+// CustomKpiSection (da imagem) OCULTO
 
 "use client";
 
 import React, { Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; // LINHA CORRETA
+import { faSpinner } from '@fortawesome/free-solid-svg-icons'; // LINHA CORRETA
 
-// Importação dinâmica dos Widgets
+// Importação dinâmica dos Widgets restantes
 const WelcomeCard = React.lazy(() => import('@/components/painel/widgets/WelcomeCard'));
 const QuickActionsWidget = React.lazy(() => import('@/components/painel/widgets/QuickActionsWidget'));
 const MinhasAtividadesWidget = React.lazy(() => import('@/components/painel/widgets/MinhasAtividadesWidget'));
 // =========================================================================
-// INÍCIO DA REMOÇÃO TEMPORÁRIA
-// O PORQUÊ: Comentamos a importação do MeuRhWidget conforme solicitado.
-// const MeuRhWidget = React.lazy(() => import('@/components/painel/widgets/MeuRhWidget'));
-// FIM DA REMOÇÃO TEMPORÁRIA
+// WIDGETS REMOVIDOS TEMPORARIAMENTE
+const MeuRhWidget = React.lazy(() => import('@/components/painel/widgets/MeuRhWidget')); // ATIVADO
+// const FinanceiroWidget = React.lazy(() => import('@/components/painel/widgets/FinanceiroWidget'));
+// const ComercialWidget = React.lazy(() => import('@/components/painel/widgets/ComercialWidget'));
 // =========================================================================
-const FinanceiroWidget = React.lazy(() => import('@/components/painel/widgets/FinanceiroWidget'));
-const ComercialWidget = React.lazy(() => import('@/components/painel/widgets/ComercialWidget'));
 
 // Importação do widget de KPI personalizado que já existe
 import CustomKpiSection from '@/components/painel/CustomKpiSection';
@@ -53,6 +53,7 @@ export default function Painel() {
         {/* Coluna 1: Itens de alta prioridade */}
         <div className="lg:col-span-2 space-y-6">
           <Suspense fallback={<WidgetSkeleton />}>
+            {/* Renderiza "Minhas Atividades" apenas se o usuário for um funcionário */}
             {user?.funcionario_id && (
               <MinhasAtividadesWidget funcionario_id={user.funcionario_id} />
             )}
@@ -65,36 +66,40 @@ export default function Painel() {
             <QuickActionsWidget />
           </Suspense>
 
-          {/* =========================================================================
-          // INÍCIO DA REMOÇÃO TEMPORÁRIA
-          // O PORQUÊ: Comentamos a renderização do MeuRhWidget.
+          {/* Widget RH - ATIVADO */}
           <Suspense fallback={<WidgetSkeleton />}>
             {user?.funcionario_id && (
-              // <MeuRhWidget funcionario_id={user.funcionario_id} />
+              <MeuRhWidget funcionario_id={user.funcionario_id} />
             )}
           </Suspense>
-          // FIM DA REMOÇÃO TEMPORÁRIA
-          // ========================================================================= */}
         </div>
       </div>
 
-      <Suspense fallback={null}>
+      {/* Seção de KPIs Personalizados (OCULTA) */}
+      {/* <Suspense fallback={null}>
         <CustomKpiSection />
       </Suspense>
+      */}
 
+      {/* Seção de Widgets por Permissão (Comentada) */}
+      {/* =========================================================================
+      // INÍCIO DA REMOÇÃO TEMPORÁRIA
+      // O PORQUÊ: Comentamos a renderização dos widgets Financeiro e Comercial.
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Suspense fallback={<WidgetSkeleton />}>
           {hasPermission('financeiro', 'pode_ver') && (
-            <FinanceiroWidget />
+            // <FinanceiroWidget />
           )}
         </Suspense>
 
         <Suspense fallback={<WidgetSkeleton />}>
           {hasPermission('crm', 'pode_ver') && (
-            <ComercialWidget />
+            // <ComercialWidget />
           )}
         </Suspense>
       </div>
+      // FIM DA REMOÇÃO TEMPORÁRIA
+      // ========================================================================= */}
 
     </div>
   );
