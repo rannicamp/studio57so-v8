@@ -1,9 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
-// =================================================================================
-// ATUALIZAÇÃO 1: Importar o useMutation e o ícone de "desfazer" (faUndo)
-// =================================================================================
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,7 +8,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, faUpload, faLink, faFileImport, faCheckCircle, faMagic, faPlus, 
     faExclamationTriangle, faEraser, faCalendarDay, faCalendarWeek, faCalendarAlt, 
-    faUndo // <-- ÍCONE NOVO
+    faUndo, faEye, faEyeSlash, faPenToSquare,
+    // =================================================================================
+    // ATUALIZAÇÃO 1: Importar o ícone de "Excluir"
+    // =================================================================================
+    faTrash
 } from '@fortawesome/free-solid-svg-icons';
 import LancamentoFormModal from './LancamentoFormModal';
 import { useDebouncedCallback } from 'use-debounce';
@@ -37,7 +38,11 @@ const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, startDa
 
     const { data, error } = await supabase
         .from('lancamentos')
-        .select('*')
+        .select(`
+            *,
+            favorecido:favorecido_contato_id ( id, nome, razao_social ),
+            anexos:lancamentos_anexos ( id, nome_arquivo, caminho_arquivo )
+        `)
         .eq('conta_id', contaId)
         .eq('organizacao_id', organizacaoId)
         .or(filterQuery);
@@ -45,6 +50,37 @@ const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, startDa
     if (error) throw new Error(error.message);
     return data;
 };
+
+// =================================================================================
+// ATUALIZAÇÃO 2: Componente de toast customizado para exclusão de série
+// =================================================================================
+const DeletionToast = ({ toastId, onSingleDelete, onFutureDelete }) => (
+    <div className="w-full">
+        <p className="font-semibold">Este lançamento faz parte de uma série.</p>
+        <p className="text-sm text-gray-600 mb-3">O que você gostaria de fazer?</p>
+        <div className="flex gap-2">
+            <button
+                onClick={() => {
+                    toast.dismiss(toastId);
+                    onSingleDelete();
+                }}
+                className="w-full text-sm font-semibold px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md"
+            >
+                Excluir somente este
+            </button>
+            <button
+                onClick={() => {
+                    toast.dismiss(toastId);
+                    onFutureDelete();
+                }}
+                className="w-full text-sm font-semibold px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"
+            >
+                Excluir este e os futuros
+            </button>
+        </div>
+    </div>
+);
+
 
 export default function ConciliacaoManager({ contas }) {
     const supabase = createClient();
@@ -60,13 +96,18 @@ export default function ConciliacaoManager({ contas }) {
     
     const [extratoPeriodo, setExtratoPeriodo] = useState({ startDate: null, endDate: null });
     const [selectedItems, setSelectedItems] = useState({ extrato: null, sistema: null });
+    
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [lancamentoParaCriar, setLancamentoParaCriar] = useState(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [lancamentoParaEditar, setLancamentoParaEditar] = useState(null);
+
 
     const [lines, setLines] = useState([]);
     const itemRefs = useRef(new Map());
     const containerRef = useRef(null);
     const [activePeriodFilter, setActivePeriodFilter] = useState('');
+    const [showConciliados, setShowConciliados] = useState(false);
     
     const { data: lancamentosSistema, isLoading: isLoadingLancamentos } = useQuery({
         queryKey: ['lancamentosSistemaConciliacao', selectedContaId, organizacaoId, extratoPeriodo.startDate, extratoPeriodo.endDate],
@@ -74,16 +115,14 @@ export default function ConciliacaoManager({ contas }) {
         enabled: !!(selectedContaId && organizacaoId && extratoPeriodo.startDate && extratoPeriodo.endDate),
     });
 
-    // =================================================================================
-    // ATUALIZAÇÃO 2: Criar a 'mutation' para DESFAZER uma conciliação
-    // =================================================================================
+    // Ação de DESFAZER (já existia)
     const undoConciliationMutation = useMutation({
         mutationFn: async (lancamentoId) => {
             const { data, error } = await supabase
                 .from('lancamentos')
                 .update({
                     conciliado: false,
-                    status: 'Pendente', // Reverte para pendente
+                    status: 'Pendente', 
                     data_pagamento: null,
                     id_transacao_externa: null
                 })
@@ -104,6 +143,82 @@ export default function ConciliacaoManager({ contas }) {
         }
     });
 
+    // =================================================================================
+    // ATUALIZAÇÃO 3: Adicionar as 'mutations' de exclusão
+    // =================================================================================
+    const onActionSuccess = () => {
+        queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
+    };
+
+    const deleteSingleMutation = useMutation({
+        mutationFn: async (id) => {
+            const { error } = await supabase.from('lancamentos').delete().eq('id', id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            toast.success('Lançamento excluído!');
+            onActionSuccess();
+        },
+        onError: (error) => toast.error(`Erro: ${error.message}`),
+    });
+
+    const deleteFutureMutation = useMutation({
+        mutationFn: async ({ parcela_grupo, data_vencimento }) => {
+            if (!organizacaoId) throw new Error("Organização não identificada.");
+            const { error } = await supabase.rpc('delete_lancamentos_futuros_do_grupo', {
+                p_grupo_id: parcela_grupo,
+                p_data_referencia: data_vencimento,
+                p_organizacao_id: organizacaoId,
+            });
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            toast.success('Lançamentos futuros excluídos!');
+            onActionSuccess();
+        },
+        onError: (error) => toast.error(`Erro ao excluir futuros: ${error.message}`),
+    });
+
+    // =================================================================================
+    // ATUALIZAÇÃO 4: Adicionar a função 'handleDelete' (lógica de confirmação)
+    // =================================================================================
+    const handleDelete = (item) => {
+        // Se não for de um grupo (parcela), usa o toast simples
+        if (!item.parcela_grupo) {
+            toast("Excluir Lançamento", {
+                description: `Tem certeza que deseja excluir "${item.descricao}"?`,
+                action: {
+                    label: "Excluir",
+                    onClick: () => toast.promise(deleteSingleMutation.mutateAsync(item.id), {
+                        loading: 'Excluindo...',
+                        success: 'Lançamento excluído!',
+                        error: (err) => `Erro: ${err.message}`,
+                    }),
+                },
+                cancel: { label: "Cancelar" },
+            });
+            return;
+        }
+
+        // Se for de um grupo, usa o toast customizado
+        toast.custom((t) => (
+            <DeletionToast
+                toastId={t}
+                onSingleDelete={() => toast.promise(deleteSingleMutation.mutateAsync(item.id), {
+                    loading: 'Excluindo...',
+                    success: 'Lançamento excluído!',
+                    error: (err) => `Erro: ${err.message}`,
+                })}
+                onFutureDelete={() => toast.promise(deleteFutureMutation.mutateAsync(item), {
+                    loading: 'Excluindo lançamentos futuros...',
+                    success: 'Lançamentos futuros excluídos!',
+                    error: (err) => `Erro: ${err.message}`,
+                })}
+            />
+        ), { duration: 10000 }); // Tempo extra para o usuário decidir
+    };
+
+
     useEffect(() => {
         if (isLoadingLancamentos || !lancamentosSistema) return;
         const availableSistema = lancamentosSistema.filter(l => !l.conciliado);
@@ -111,7 +226,6 @@ export default function ConciliacaoManager({ contas }) {
         let pairCounter = 0;
         
         conciliationState.extrato.forEach(extratoItem => {
-            // Só tenta fazer match se o item do extrato não estiver já pareado na sessão
             const isAlreadyMatchedInSession = conciliationState.matches.some(m => m.extratoId === extratoItem.id);
             if (isAlreadyMatchedInSession) return;
 
@@ -128,7 +242,6 @@ export default function ConciliacaoManager({ contas }) {
             }
         });
 
-        // Adiciona os novos matches aos matches existentes (caso o usuário tenha desmarcado algum)
         setConciliationState(prev => ({ 
             ...prev, 
             sistema: lancamentosSistema, 
@@ -139,7 +252,7 @@ export default function ConciliacaoManager({ contas }) {
             toast.success(`${newMatches.length} pares foram sugeridos automaticamente!`);
         }
         setIsProcessing(false);
-    }, [lancamentosSistema]); // Dependência de 'conciliationState.matches' removida daqui para evitar re-processamento desnecessário
+    }, [lancamentosSistema]);
 
     const calculateLines = useDebouncedCallback(() => {
         if (!containerRef.current) return;
@@ -236,7 +349,6 @@ export default function ConciliacaoManager({ contas }) {
         if (!file || !selectedContaId) { toast.warning('Por favor, selecione uma conta e um arquivo OFX.'); return; }
         const toastId = toast.loading('Lendo arquivo...');
         setIsProcessing(true);
-        // Reseta o estado de 'matches' ao processar um novo arquivo
         setConciliationState(prev => ({ ...prev, matches: [] })); 
 
         const fileContent = await file.text();
@@ -249,7 +361,6 @@ export default function ConciliacaoManager({ contas }) {
         const dataInicio = new Date(Math.min.apply(null, datasDoExtrato)).toISOString().split('T')[0];
         const dataFim = new Date(Math.max.apply(null, datasDoExtrato)).toISOString().split('T')[0];
         
-        // Limpa o estado, garantindo que 'matches' seja zerado
         setConciliationState({ extrato: transacoesDoExtrato, sistema: [], matches: [], dateFilter: { startDate: dataInicio, endDate: dataFim } });
         setExtratoPeriodo({ startDate: dataInicio, endDate: dataFim });
     };
@@ -381,19 +492,29 @@ export default function ConciliacaoManager({ contas }) {
         const extratoId = lancamentoParaCriar.id_transacao_externa;
         if (!extratoId || !createdLancamento) return;
         
-        // Adiciona o novo lançamento à lista do sistema
         setConciliationState(prev => ({
             ...prev, 
             sistema: [...prev.sistema, { ...createdLancamento, conciliado: true }]
         }));
         
-        // Remove o item do extrato, pois ele foi "criado e conciliado"
         const updatedExtrato = conciliationState.extrato.filter(item => item.id !== extratoId);
         setConciliationState(prev => ({...prev, extrato: updatedExtrato}));
         
-        // Invalida a query para garantir que, se o usuário reprocessar, o item venha do banco
         queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
     };
+
+    const handleOpenEditModal = (lancamento) => {
+        setLancamentoParaEditar(lancamento);
+        setIsEditModalOpen(true);
+    };
+
+    const handleSuccessEdit = () => {
+        setIsEditModalOpen(false);
+        setLancamentoParaEditar(null);
+        queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
+        toast.success('Lançamento atualizado com sucesso!');
+    };
+
 
     const resetState = () => {
         if (selectedContaId) sessionStorage.removeItem(`conciliationProgress_${selectedContaId}`);
@@ -452,15 +573,22 @@ export default function ConciliacaoManager({ contas }) {
             });
         };
         
-        return {
-            sortedSistema: classifyAndSort(filterByDate(conciliationState.sistema, 'sistema'), 'sistema'),
-            sortedExtrato: classifyAndSort(filterByDate(conciliationState.extrato, 'extrato'), 'extrato'),
-        };
-    }, [conciliationState]);
+        const fullSortedSistema = classifyAndSort(filterByDate(conciliationState.sistema, 'sistema'), 'sistema');
+        const fullSortedExtrato = classifyAndSort(filterByDate(conciliationState.extrato, 'extrato'), 'extrato');
+        
+        if (!showConciliados) {
+            return {
+                sortedSistema: fullSortedSistema.filter(item => item.conciliationStatus !== 'dbConciliated'),
+                sortedExtrato: fullSortedExtrato.filter(item => item.conciliationStatus !== 'dbConciliated'),
+            };
+        }
 
-    // =================================================================================
-    // ATUALIZAÇÃO 3: Lógica para DESMARCAR um par
-    // =================================================================================
+        return {
+            sortedSistema: fullSortedSistema,
+            sortedExtrato: fullSortedExtrato,
+        };
+    }, [conciliationState, showConciliados]); 
+
     const handleItemClick = (item, listName) => {
         if (item.conciliationStatus === 'pendente') {
             setSelectedItems(prev => {
@@ -470,26 +598,20 @@ export default function ConciliacaoManager({ contas }) {
                 return { ...prev, [listName]: item.id };
             });
         } 
-        // Se o item clicado já está pareado na sessão (ex: amarelo), vamos desmarcá-lo
         else if (item.conciliationStatus === 'sessionMatch') {
             const matchToRemove = conciliationState.matches.find(m => m[`${listName}Id`] === item.id);
             if (!matchToRemove) return;
 
-            // Remove o 'match' da lista de 'matches' usando o pairId
             setConciliationState(prev => ({
                 ...prev,
                 matches: prev.matches.filter(m => m.pairId !== matchToRemove.pairId)
             }));
             
-            // Limpa a seleção para evitar cliques confusos
             setSelectedItems({ extrato: null, sistema: null });
             toast.info('Conciliação desmarcada.');
         }
     };
 
-    // =================================================================================
-    // ATUALIZAÇÃO 4: Adicionar o botão de DESFAZER no item
-    // =================================================================================
     const renderItem = (item, type, listName) => {
         const isSelected = selectedItems[listName] === item.id;
         const match = item.conciliationStatus === 'sessionMatch' ? conciliationState.matches.find(m => m[`${listName}Id`] === item.id) : null;
@@ -498,21 +620,26 @@ export default function ConciliacaoManager({ contas }) {
         
         if (item.conciliationStatus === 'sessionMatch' && match) {
             rowClass = getColorForPair(match.pairId);
-            interactionClass = 'cursor-pointer hover:opacity-80'; // Permite clicar para desmarcar
+            interactionClass = 'cursor-pointer hover:opacity-80';
         }
         
         if (item.conciliationStatus === 'dbConciliated') {
             rowClass = 'bg-green-50 border-green-300';
-            interactionClass = 'opacity-60 cursor-default'; // Já está conciliado, não mexe
+            interactionClass = 'opacity-60 cursor-default';
         }
         
         if (item.conciliationStatus === 'pendente' && isSelected) {
-            rowClass = 'ring-2 ring-blue-500 bg-blue-50'; // Destaque para seleção
+            rowClass = 'ring-2 ring-blue-500 bg-blue-50';
         }
 
         const isReceita = (type === 'sistema' && item.tipo === 'Receita') || (type === 'extrato' && item.valor > 0);
         const valorClass = isReceita ? 'text-green-600' : 'text-red-600';
         const dataExibicao = type === 'sistema' ? (item.data_pagamento || item.data_vencimento) : item.data;
+
+        // =================================================================================
+        // ATUALIZAÇÃO 5: Adicionar 'gap-2' para espaçar os ícones de ação
+        // =================================================================================
+        const actionsCellClass = "col-span-2 text-center h-8 flex items-center justify-center gap-2";
         
         return (
             <div 
@@ -524,25 +651,54 @@ export default function ConciliacaoManager({ contas }) {
                 <div className="col-span-3">{formatDate(dataExibicao)}</div>
                 <div className="col-span-5 truncate">{item.descricao}</div>
                 <div className={`col-span-2 text-right font-bold ${valorClass}`}>{formatCurrency(item.valor)}</div>
-                <div className="col-span-2 text-center">
+                
+                <div className={actionsCellClass}>
                     
-                    {/* Ação: Criar Lançamento (só no extrato pendente) */}
                     {type === 'extrato' && item.conciliationStatus === 'pendente' && (
                         <button onClick={(e) => { e.stopPropagation(); handleCreateLancamento(item); }} className="bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold px-2 py-1 rounded-md">
                             <FontAwesomeIcon icon={faPlus} /> Criar
                         </button>
                     )}
                     
-                    {/* Status: Conciliado no Banco (Extrato) */}
                     {type === 'extrato' && item.conciliationStatus === 'dbConciliated' && (
                         <FontAwesomeIcon icon={faCheckCircle} className="text-green-600" title="Conciliado" />
                     )}
 
-                    {/* Ação: Desfazer Conciliação (só no sistema conciliado) */}
+                    {type === 'sistema' && (
+                        <>
+                            {/* Botão Editar */}
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation(); 
+                                    handleOpenEditModal(item);
+                                }}
+                                className="text-blue-600 hover:text-blue-800 text-xs font-bold px-1 py-1 rounded-md"
+                                title="Editar Lançamento"
+                            >
+                                <FontAwesomeIcon icon={faPenToSquare} />
+                            </button>
+
+                            {/* =================================================================================
+                            // ATUALIZAÇÃO 6: Adicionar o botão de "Excluir"
+                            // ================================================================================= */}
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(item);
+                                }}
+                                className="text-red-500 hover:text-red-700 text-xs font-bold px-1 py-1 rounded-md"
+                                title="Excluir Lançamento"
+                            >
+                                <FontAwesomeIcon icon={faTrash} />
+                            </button>
+                        </>
+                    )}
+
                     {type === 'sistema' && item.conciliationStatus === 'dbConciliated' && (
+                        /* Botão Desfazer */
                         <button
                             onClick={(e) => {
-                                e.stopPropagation(); // Impede que o 'handleItemClick' da linha seja disparado
+                                e.stopPropagation();
                                 toast.warning('Tem certeza que deseja desfazer esta conciliação?', {
                                     description: 'Isso reabrirá o lançamento no sistema.',
                                     action: { label: 'Desfazer', onClick: () => undoConciliationMutation.mutate(item.id) },
@@ -550,7 +706,7 @@ export default function ConciliacaoManager({ contas }) {
                                 });
                             }}
                             disabled={undoConciliationMutation.isPending}
-                            className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1 rounded-md disabled:opacity-50"
+                            className="text-gray-500 hover:text-gray-700 text-xs font-bold px-1 py-1 rounded-md disabled:opacity-50"
                             title="Desfazer conciliação"
                         >
                             <FontAwesomeIcon icon={faUndo} spin={undoConciliationMutation.isPending} />
@@ -564,7 +720,20 @@ export default function ConciliacaoManager({ contas }) {
 
     return (
         <div className="space-y-6">
-            <LancamentoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={handleSuccessCreate} initialData={lancamentoParaCriar}/>
+            <LancamentoFormModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                onSuccess={handleSuccessCreate} 
+                initialData={lancamentoParaCriar}
+            />
+
+            <LancamentoFormModal 
+                isOpen={isEditModalOpen} 
+                onClose={() => setIsEditModalOpen(false)} 
+                onSuccess={handleSuccessEdit} 
+                initialData={lancamentoParaEditar}
+            />
+
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div><label className="block text-sm font-medium">1. Selecione a Conta</label><select value={selectedContaId} onChange={(e) => setSelectedContaId(e.target.value)} className="mt-1 w-full p-2 border rounded-md"><option value="">-- Escolha uma conta --</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
@@ -572,18 +741,30 @@ export default function ConciliacaoManager({ contas }) {
                 </div>
                 <div className="flex flex-col md:flex-row justify-end items-center gap-3 pt-3 border-t">
                     <button onClick={resetState} className="text-sm text-gray-600 hover:text-red-600 font-semibold flex items-center gap-2"><FontAwesomeIcon icon={faEraser} /> Limpar Tela</button>
+
                     <button onClick={handleProcessFile} disabled={isProcessing || !file || !selectedContaId} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center gap-2"><FontAwesomeIcon icon={isProcessing ? faSpinner : faMagic} spin={isProcessing} /> Processar Arquivo</button>
                 </div>
             </div>
             
             {conciliationState.extrato.length > 0 &&
                 <div className="p-4 border rounded-lg bg-gray-50 space-y-3">
-                    <div className="flex items-end gap-2">
+                    <div className="flex flex-wrap items-end gap-2">
                         <div><label className="block text-sm font-medium">Filtrar período de:</label><input type="date" name="startDate" value={conciliationState.dateFilter.startDate} onChange={(e) => handleDateFilterChange('startDate', e.target.value)} className="mt-1 w-full p-2 border rounded-md"/></div>
                         <div><label className="block text-sm font-medium">Até:</label><input type="date" name="endDate" value={conciliationState.dateFilter.endDate} onChange={(e) => handleDateFilterChange('endDate', e.target.value)} className="mt-1 w-full p-2 border rounded-md"/></div>
                         <button onClick={() => setDateRange('today')} className={`text-sm border px-3 py-2 rounded-md h-fit ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white' : 'bg-white'}`}><FontAwesomeIcon icon={faCalendarDay}/></button>
                         <button onClick={() => setDateRange('week')} className={`text-sm border px-3 py-2 rounded-md h-fit ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white' : 'bg-white'}`}><FontAwesomeIcon icon={faCalendarWeek}/></button>
                         <button onClick={() => setDateRange('month')} className={`text-sm border px-3 py-2 rounded-md h-fit ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white' : 'bg-white'}`}><FontAwesomeIcon icon={faCalendarAlt}/></button>
+                    </div>
+                    <div className="border-t pt-3">
+                         <button
+                            onClick={() => setShowConciliados(!showConciliados)}
+                            className={`text-sm border px-3 py-2 rounded-md h-fit flex items-center gap-2 transition-colors ${
+                                showConciliados ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                            }`}
+                        >
+                            <FontAwesomeIcon icon={showConciliados ? faEyeSlash : faEye} />
+                            {showConciliados ? 'Ocultar Conciliados' : 'Mostrar Conciliados'}
+                        </button>
                     </div>
                 </div>
             }
@@ -598,12 +779,14 @@ export default function ConciliacaoManager({ contas }) {
                         <div className="border rounded-lg max-h-[60vh] overflow-y-auto space-y-1 p-1">
                             {isLoadingLancamentos && extratoPeriodo.startDate && <div className="text-center p-4"><FontAwesomeIcon icon={faSpinner} spin /> Buscando...</div>}
                             {!isLoadingLancamentos && processedLists.sortedSistema.map(item => renderItem(item, 'sistema', 'sistema'))}
+                            {!isLoadingLancamentos && processedLists.sortedSistema.length === 0 && <p className="p-3 text-sm text-gray-500 text-center">Nenhum lançamento encontrado para os filtros aplicados.</p>}
                         </div>
                     </div> 
                     <div>
                         <h3 className="font-semibold mb-2">Transações do Extrato</h3>
                         <div className="border rounded-lg max-h-[60vh] overflow-y-auto space-y-1 p-1">
                             {processedLists.sortedExtrato.map(item => renderItem(item, 'extrato', 'extrato'))}
+                            {processedLists.sortedExtrato.length === 0 && <p className="p-3 text-sm text-gray-500 text-center">Nenhuma transação de extrato para os filtros aplicados.</p>}
                         </div>
                     </div>
                 </div>
