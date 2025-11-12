@@ -1,12 +1,18 @@
-//components\financeiro\ConciliacaoManager.js
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+// =================================================================================
+// ATUALIZAÇÃO 1: Importar o useMutation e o ícone de "desfazer" (faUndo)
+// =================================================================================
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faUpload, faLink, faFileImport, faCheckCircle, faMagic, faPlus, faExclamationTriangle, faEraser, faCalendarDay, faCalendarWeek, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faSpinner, faUpload, faLink, faFileImport, faCheckCircle, faMagic, faPlus, 
+    faExclamationTriangle, faEraser, faCalendarDay, faCalendarWeek, faCalendarAlt, 
+    faUndo // <-- ÍCONE NOVO
+} from '@fortawesome/free-solid-svg-icons';
 import LancamentoFormModal from './LancamentoFormModal';
 import { useDebouncedCallback } from 'use-debounce';
 import { toast } from 'sonner';
@@ -27,13 +33,14 @@ const getColorForPair = (pairId) => {
 const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, startDate, endDate) => {
     if (!contaId || !organizacaoId || !startDate || !endDate) return [];
     
+    const filterQuery = `and(data_pagamento.gte.${startDate},data_pagamento.lte.${endDate}),and(data_pagamento.is.null,data_vencimento.gte.${startDate},data_vencimento.lte.${endDate})`;
+
     const { data, error } = await supabase
         .from('lancamentos')
         .select('*')
         .eq('conta_id', contaId)
         .eq('organizacao_id', organizacaoId)
-        .gte('data_transacao', startDate)
-        .lte('data_transacao', endDate);
+        .or(filterQuery);
         
     if (error) throw new Error(error.message);
     return data;
@@ -67,6 +74,36 @@ export default function ConciliacaoManager({ contas }) {
         enabled: !!(selectedContaId && organizacaoId && extratoPeriodo.startDate && extratoPeriodo.endDate),
     });
 
+    // =================================================================================
+    // ATUALIZAÇÃO 2: Criar a 'mutation' para DESFAZER uma conciliação
+    // =================================================================================
+    const undoConciliationMutation = useMutation({
+        mutationFn: async (lancamentoId) => {
+            const { data, error } = await supabase
+                .from('lancamentos')
+                .update({
+                    conciliado: false,
+                    status: 'Pendente', // Reverte para pendente
+                    data_pagamento: null,
+                    id_transacao_externa: null
+                })
+                .eq('id', lancamentoId)
+                .eq('organizacao_id', organizacaoId)
+                .select()
+                .single();
+
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        onSuccess: () => {
+            toast.success('Conciliação desfeita! O lançamento voltou a ser pendente.');
+            queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
+        },
+        onError: (error) => {
+            toast.error(`Erro ao desfazer: ${error.message}`);
+        }
+    });
+
     useEffect(() => {
         if (isLoadingLancamentos || !lancamentosSistema) return;
         const availableSistema = lancamentosSistema.filter(l => !l.conciliado);
@@ -74,8 +111,12 @@ export default function ConciliacaoManager({ contas }) {
         let pairCounter = 0;
         
         conciliationState.extrato.forEach(extratoItem => {
+            // Só tenta fazer match se o item do extrato não estiver já pareado na sessão
+            const isAlreadyMatchedInSession = conciliationState.matches.some(m => m.extratoId === extratoItem.id);
+            if (isAlreadyMatchedInSession) return;
+
             const matchIndex = availableSistema.findIndex(sistemaItem => {
-                const dataSistema = sistemaItem.data_pagamento || sistemaItem.data_vencimento || sistemaItem.data_transacao;
+                const dataSistema = sistemaItem.data_pagamento || sistemaItem.data_vencimento;
                 const valorSistema = Math.abs(sistemaItem.valor);
                 const valorExtrato = Math.abs(extratoItem.valor);
                 const isValorSimilar = Math.abs(valorSistema - valorExtrato) < 0.01;
@@ -87,12 +128,18 @@ export default function ConciliacaoManager({ contas }) {
             }
         });
 
-        setConciliationState(prev => ({ ...prev, sistema: lancamentosSistema, matches: newMatches }));
+        // Adiciona os novos matches aos matches existentes (caso o usuário tenha desmarcado algum)
+        setConciliationState(prev => ({ 
+            ...prev, 
+            sistema: lancamentosSistema, 
+            matches: [...prev.matches, ...newMatches] 
+        }));
+
         if (newMatches.length > 0) {
             toast.success(`${newMatches.length} pares foram sugeridos automaticamente!`);
         }
         setIsProcessing(false);
-    }, [lancamentosSistema]);
+    }, [lancamentosSistema]); // Dependência de 'conciliationState.matches' removida daqui para evitar re-processamento desnecessário
 
     const calculateLines = useDebouncedCallback(() => {
         if (!containerRef.current) return;
@@ -140,13 +187,13 @@ export default function ConciliacaoManager({ contas }) {
                 if (!savedState.dateFilter) savedState.dateFilter = { startDate: '', endDate: '' };
                 setConciliationState(savedState);
                 if(savedState.extrato.length > 0) {
-                     const datasDoExtrato = savedState.extrato.map(t => new Date(t.data));
-                     const dataInicio = new Date(Math.min.apply(null, datasDoExtrato)).toISOString().split('T')[0];
-                     const dataFim = new Date(Math.max.apply(null, datasDoExtrato)).toISOString().split('T')[0];
-                     setExtratoPeriodo({ startDate: dataInicio, endDate: dataFim });
-                     if (!savedState.dateFilter.startDate) {
-                          setConciliationState(prev => ({ ...prev, dateFilter: { startDate: dataInicio, endDate: dataFim } }));
-                     }
+                        const datasDoExtrato = savedState.extrato.map(t => new Date(t.data));
+                        const dataInicio = new Date(Math.min.apply(null, datasDoExtrato)).toISOString().split('T')[0];
+                        const dataFim = new Date(Math.max.apply(null, datasDoExtrato)).toISOString().split('T')[0];
+                        setExtratoPeriodo({ startDate: dataInicio, endDate: dataFim });
+                        if (!savedState.dateFilter.startDate) {
+                                setConciliationState(prev => ({ ...prev, dateFilter: { startDate: dataInicio, endDate: dataFim } }));
+                        }
                 }
                 toast.info("Encontrei um progresso salvo e restaurei para você!");
             } else {
@@ -189,6 +236,9 @@ export default function ConciliacaoManager({ contas }) {
         if (!file || !selectedContaId) { toast.warning('Por favor, selecione uma conta e um arquivo OFX.'); return; }
         const toastId = toast.loading('Lendo arquivo...');
         setIsProcessing(true);
+        // Reseta o estado de 'matches' ao processar um novo arquivo
+        setConciliationState(prev => ({ ...prev, matches: [] })); 
+
         const fileContent = await file.text();
         const transacoesDoExtrato = parseOfxFile(fileContent);
         if (!transacoesDoExtrato || transacoesDoExtrato.length === 0) { toast.error('Nenhuma transação válida encontrada no arquivo.', { id: toastId }); setIsProcessing(false); return; }
@@ -199,6 +249,7 @@ export default function ConciliacaoManager({ contas }) {
         const dataInicio = new Date(Math.min.apply(null, datasDoExtrato)).toISOString().split('T')[0];
         const dataFim = new Date(Math.max.apply(null, datasDoExtrato)).toISOString().split('T')[0];
         
+        // Limpa o estado, garantindo que 'matches' seja zerado
         setConciliationState({ extrato: transacoesDoExtrato, sistema: [], matches: [], dateFilter: { startDate: dataInicio, endDate: dataFim } });
         setExtratoPeriodo({ startDate: dataInicio, endDate: dataFim });
     };
@@ -226,7 +277,6 @@ export default function ConciliacaoManager({ contas }) {
     
     const handleConfirmMatches = async () => {
         if (conciliationState.matches.length === 0) return;
-        // Validação para garantir que o arquivo ainda existe no estado.
         if (!file) {
             toast.error("O arquivo OFX não foi encontrado. Por favor, reinicie o processo.");
             return;
@@ -236,8 +286,6 @@ export default function ConciliacaoManager({ contas }) {
         setIsProcessing(true);
 
         try {
-            // NOVO CÓDIGO COMEÇA AQUI
-            // Passo 1: Fazer o upload do arquivo para o Storage
             toast.loading('Salvando arquivo do extrato...', { id: toastId });
 
             const dataAtual = new Date();
@@ -252,7 +300,6 @@ export default function ConciliacaoManager({ contas }) {
             if (uploadError) {
                 throw new Error(`Falha ao salvar o arquivo: ${uploadError.message}`);
             }
-            // NOVO CÓDIGO TERMINA AQUI
 
             toast.loading('Confirmando conciliações no banco de dados...', { id: toastId });
 
@@ -288,18 +335,16 @@ export default function ConciliacaoManager({ contas }) {
                 };
             });
             
-            // Passo 2: Atualizar os lançamentos existentes
             for (const item of updates) {
                 const { error } = await supabase.from('lancamentos').update(item.updates).eq('id', item.id).eq('organizacao_id', organizacaoId);
                 if (error) throw error;
             }
             
-            // Passo 3: Criar o registro de histórico da conciliação com o caminho do arquivo
             const historicoRecord = {
                 usuario_id: user.id,
                 conta_financeira_id: selectedContaId,
                 organizacao_id: organizacaoId,
-                caminho_arquivo_ofx: uploadData.path, // Usando o caminho retornado pelo upload
+                caminho_arquivo_ofx: uploadData.path,
                 periodo_inicio_extrato: extratoPeriodo.startDate,
                 periodo_fim_extrato: extratoPeriodo.endDate,
                 lancamentos_conciliados: lancamentosConciliadosJSON,
@@ -335,9 +380,18 @@ export default function ConciliacaoManager({ contas }) {
         toast.success('Lançamento criado e conciliado com sucesso a partir do extrato!');
         const extratoId = lancamentoParaCriar.id_transacao_externa;
         if (!extratoId || !createdLancamento) return;
-        setConciliationState(prev => ({...prev, sistema: [...prev.sistema, { ...createdLancamento, conciliado: true }]}));
+        
+        // Adiciona o novo lançamento à lista do sistema
+        setConciliationState(prev => ({
+            ...prev, 
+            sistema: [...prev.sistema, { ...createdLancamento, conciliado: true }]
+        }));
+        
+        // Remove o item do extrato, pois ele foi "criado e conciliado"
         const updatedExtrato = conciliationState.extrato.filter(item => item.id !== extratoId);
         setConciliationState(prev => ({...prev, extrato: updatedExtrato}));
+        
+        // Invalida a query para garantir que, se o usuário reprocessar, o item venha do banco
         queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
     };
 
@@ -375,7 +429,7 @@ export default function ConciliacaoManager({ contas }) {
             const { startDate, endDate } = conciliationState.dateFilter;
             if (!startDate || !endDate) return items;
             return items.filter(item => {
-                const itemDate = type === 'sistema' ? item.data_transacao : item.data;
+                const itemDate = type === 'sistema' ? (item.data_pagamento || item.data_vencimento) : item.data;
                 return itemDate >= startDate && itemDate <= endDate;
             });
         };
@@ -392,8 +446,8 @@ export default function ConciliacaoManager({ contas }) {
             }).sort((a, b) => {
                 const order = { sessionMatch: 1, pendente: 2, dbConciliated: 3 };
                 if (order[a.conciliationStatus] !== order[b.conciliationStatus]) return order[a.conciliationStatus] - order[b.conciliationStatus];
-                const dateA = new Date(type === 'sistema' ? a.data_transacao : a.data);
-                const dateB = new Date(type === 'sistema' ? b.data_transacao : b.data);
+                const dateA = new Date(type === 'sistema' ? (a.data_pagamento || a.data_vencimento) : a.data);
+                const dateB = new Date(type === 'sistema' ? (b.data_pagamento || b.data_vencimento) : b.data);
                 return dateA - dateB;
             });
         };
@@ -404,6 +458,9 @@ export default function ConciliacaoManager({ contas }) {
         };
     }, [conciliationState]);
 
+    // =================================================================================
+    // ATUALIZAÇÃO 3: Lógica para DESMARCAR um par
+    // =================================================================================
     const handleItemClick = (item, listName) => {
         if (item.conciliationStatus === 'pendente') {
             setSelectedItems(prev => {
@@ -412,32 +469,94 @@ export default function ConciliacaoManager({ contas }) {
                 }
                 return { ...prev, [listName]: item.id };
             });
+        } 
+        // Se o item clicado já está pareado na sessão (ex: amarelo), vamos desmarcá-lo
+        else if (item.conciliationStatus === 'sessionMatch') {
+            const matchToRemove = conciliationState.matches.find(m => m[`${listName}Id`] === item.id);
+            if (!matchToRemove) return;
+
+            // Remove o 'match' da lista de 'matches' usando o pairId
+            setConciliationState(prev => ({
+                ...prev,
+                matches: prev.matches.filter(m => m.pairId !== matchToRemove.pairId)
+            }));
+            
+            // Limpa a seleção para evitar cliques confusos
+            setSelectedItems({ extrato: null, sistema: null });
+            toast.info('Conciliação desmarcada.');
         }
     };
 
+    // =================================================================================
+    // ATUALIZAÇÃO 4: Adicionar o botão de DESFAZER no item
+    // =================================================================================
     const renderItem = (item, type, listName) => {
         const isSelected = selectedItems[listName] === item.id;
         const match = item.conciliationStatus === 'sessionMatch' ? conciliationState.matches.find(m => m[`${listName}Id`] === item.id) : null;
         let rowClass = 'bg-white';
         let interactionClass = 'cursor-pointer hover:bg-gray-100';
-        if (item.conciliationStatus === 'sessionMatch' && match) rowClass = getColorForPair(match.pairId);
-        if (item.conciliationStatus === 'dbConciliated') rowClass = 'bg-green-50 border-green-300';
-        if (item.conciliationStatus !== 'pendente') interactionClass = 'opacity-60 cursor-default';
+        
+        if (item.conciliationStatus === 'sessionMatch' && match) {
+            rowClass = getColorForPair(match.pairId);
+            interactionClass = 'cursor-pointer hover:opacity-80'; // Permite clicar para desmarcar
+        }
+        
+        if (item.conciliationStatus === 'dbConciliated') {
+            rowClass = 'bg-green-50 border-green-300';
+            interactionClass = 'opacity-60 cursor-default'; // Já está conciliado, não mexe
+        }
+        
+        if (item.conciliationStatus === 'pendente' && isSelected) {
+            rowClass = 'ring-2 ring-blue-500 bg-blue-50'; // Destaque para seleção
+        }
+
         const isReceita = (type === 'sistema' && item.tipo === 'Receita') || (type === 'extrato' && item.valor > 0);
         const valorClass = isReceita ? 'text-green-600' : 'text-red-600';
+        const dataExibicao = type === 'sistema' ? (item.data_pagamento || item.data_vencimento) : item.data;
         
         return (
-            <div key={item.id} ref={node => itemRefs.current.set(`${listName}-${item.id}`, node)} onClick={() => handleItemClick(item, listName)} className={`p-2 border grid grid-cols-12 gap-2 text-sm items-center rounded-md transition-all ${interactionClass} ${isSelected ? 'ring-2 ring-blue-500' : ''} ${rowClass}`}>
-                <div className="col-span-3">{formatDate(type === 'sistema' ? item.data_transacao : item.data)}</div>
+            <div 
+                key={item.id} 
+                ref={node => itemRefs.current.set(`${listName}-${item.id}`, node)} 
+                onClick={() => handleItemClick(item, listName)} 
+                className={`p-2 border grid grid-cols-12 gap-2 text-sm items-center rounded-md transition-all ${interactionClass} ${rowClass}`}
+            >
+                <div className="col-span-3">{formatDate(dataExibicao)}</div>
                 <div className="col-span-5 truncate">{item.descricao}</div>
                 <div className={`col-span-2 text-right font-bold ${valorClass}`}>{formatCurrency(item.valor)}</div>
                 <div className="col-span-2 text-center">
+                    
+                    {/* Ação: Criar Lançamento (só no extrato pendente) */}
                     {type === 'extrato' && item.conciliationStatus === 'pendente' && (
                         <button onClick={(e) => { e.stopPropagation(); handleCreateLancamento(item); }} className="bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold px-2 py-1 rounded-md">
                             <FontAwesomeIcon icon={faPlus} /> Criar
                         </button>
                     )}
-                    {item.conciliationStatus === 'dbConciliated' && <FontAwesomeIcon icon={faCheckCircle} className="text-green-600" title="Conciliado" />}
+                    
+                    {/* Status: Conciliado no Banco (Extrato) */}
+                    {type === 'extrato' && item.conciliationStatus === 'dbConciliated' && (
+                        <FontAwesomeIcon icon={faCheckCircle} className="text-green-600" title="Conciliado" />
+                    )}
+
+                    {/* Ação: Desfazer Conciliação (só no sistema conciliado) */}
+                    {type === 'sistema' && item.conciliationStatus === 'dbConciliated' && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation(); // Impede que o 'handleItemClick' da linha seja disparado
+                                toast.warning('Tem certeza que deseja desfazer esta conciliação?', {
+                                    description: 'Isso reabrirá o lançamento no sistema.',
+                                    action: { label: 'Desfazer', onClick: () => undoConciliationMutation.mutate(item.id) },
+                                    cancel: { label: 'Cancelar' },
+                                });
+                            }}
+                            disabled={undoConciliationMutation.isPending}
+                            className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1 rounded-md disabled:opacity-50"
+                            title="Desfazer conciliação"
+                        >
+                            <FontAwesomeIcon icon={faUndo} spin={undoConciliationMutation.isPending} />
+                        </button>
+                    )}
+
                 </div>
             </div>
         );
@@ -480,7 +599,7 @@ export default function ConciliacaoManager({ contas }) {
                             {isLoadingLancamentos && extratoPeriodo.startDate && <div className="text-center p-4"><FontAwesomeIcon icon={faSpinner} spin /> Buscando...</div>}
                             {!isLoadingLancamentos && processedLists.sortedSistema.map(item => renderItem(item, 'sistema', 'sistema'))}
                         </div>
-                    </div>
+                    </div> 
                     <div>
                         <h3 className="font-semibold mb-2">Transações do Extrato</h3>
                         <div className="border rounded-lg max-h-[60vh] overflow-y-auto space-y-1 p-1">

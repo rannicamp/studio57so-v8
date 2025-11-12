@@ -104,6 +104,20 @@ CREATE TABLE public.ajustes_banco_horas (
   CONSTRAINT ajustes_banco_horas_lancamento_financeiro_id_fkey FOREIGN KEY (lancamento_financeiro_id) REFERENCES public.lancamentos(id),
   CONSTRAINT ajustes_banco_horas_criado_por_usuario_id_fkey FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id)
 );
+CREATE TABLE public.automacoes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  nome text NOT NULL,
+  gatilho_tipo text NOT NULL,
+  gatilho_config jsonb,
+  acao_tipo text NOT NULL,
+  acao_config jsonb,
+  ativo boolean NOT NULL DEFAULT true,
+  organizacao_id bigint NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT automacoes_pkey PRIMARY KEY (id),
+  CONSTRAINT automacoes_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+);
 CREATE TABLE public.banco_de_horas (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   funcionario_id bigint NOT NULL,
@@ -138,6 +152,9 @@ CREATE TABLE public.cadastro_empresa (
   created_at timestamp with time zone DEFAULT now(),
   organizacao_id bigint NOT NULL,
   meta_business_id text,
+  objeto_social text,
+  capital_social numeric,
+  natureza_juridica text,
   CONSTRAINT cadastro_empresa_pkey PRIMARY KEY (id),
   CONSTRAINT cadastro_empresa_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
 );
@@ -156,8 +173,10 @@ CREATE TABLE public.chat_conversations (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid,
   created_at timestamp with time zone DEFAULT now(),
+  organizacao_id bigint NOT NULL,
   CONSTRAINT chat_conversations_pkey PRIMARY KEY (id),
-  CONSTRAINT chat_conversations_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+  CONSTRAINT chat_conversations_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT chat_conversations_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
 );
 CREATE TABLE public.chat_messages (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -313,14 +332,23 @@ CREATE TABLE public.contatos (
   meta_page_id text,
   meta_form_id text,
   meta_created_time timestamp with time zone,
-  regime_bens text,
-  dados_conjuge jsonb,
   meta_form_data jsonb,
   organizacao_id bigint NOT NULL,
   meta_ad_name text,
+  conjuge_id bigint,
+  regime_bens text,
+  meta_campaign_id text,
+  meta_campaign_name text,
+  meta_adset_name text,
+  criado_por uuid,
+  criado_por_usuario_id uuid,
+  creci text,
   CONSTRAINT contatos_pkey PRIMARY KEY (id),
   CONSTRAINT contatos_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id),
-  CONSTRAINT contatos_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+  CONSTRAINT contatos_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id),
+  CONSTRAINT contatos_conjuge_id_fkey FOREIGN KEY (conjuge_id) REFERENCES public.contatos(id),
+  CONSTRAINT contatos_criado_por_fkey FOREIGN KEY (criado_por) REFERENCES public.usuarios(id),
+  CONSTRAINT contatos_criado_por_usuario_id_fkey FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id)
 );
 CREATE TABLE public.contatos_no_funil (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -451,19 +479,31 @@ CREATE TABLE public.contratos (
   multa_inadimplencia_percentual numeric,
   juros_mora_inadimplencia_percentual numeric,
   clausula_penal_percentual numeric,
-  numero_contrato text UNIQUE,
+  numero_contrato integer UNIQUE,
   organizacao_id bigint NOT NULL,
   percentual_comissao_corretagem numeric,
   valor_comissao_corretagem numeric,
   forma_pagamento_corretagem text,
   observacoes_contrato text,
+  conjuge_id bigint,
+  regime_bens text,
+  representante_id bigint,
+  conta_bancaria_id bigint,
+  criado_por_usuario_id uuid,
+  modelo_contrato_id bigint,
+  tipo_documento text NOT NULL DEFAULT 'CONTRATO'::text,
   CONSTRAINT contratos_pkey PRIMARY KEY (id),
   CONSTRAINT contratos_contato_id_fkey FOREIGN KEY (contato_id) REFERENCES public.contatos(id),
   CONSTRAINT contratos_produto_id_fkey FOREIGN KEY (produto_id) REFERENCES public.produtos_empreendimento(id),
   CONSTRAINT contratos_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id),
   CONSTRAINT contratos_simulacao_id_fkey FOREIGN KEY (simulacao_id) REFERENCES public.simulacoes(id),
   CONSTRAINT contratos_corretor_id_fkey FOREIGN KEY (corretor_id) REFERENCES public.contatos(id),
-  CONSTRAINT contratos_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+  CONSTRAINT contratos_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id),
+  CONSTRAINT contratos_conjuge_id_fkey FOREIGN KEY (conjuge_id) REFERENCES public.contatos(id),
+  CONSTRAINT contratos_representante_id_fkey FOREIGN KEY (representante_id) REFERENCES public.contatos(id),
+  CONSTRAINT contratos_conta_bancaria_id_fkey FOREIGN KEY (conta_bancaria_id) REFERENCES public.contas_financeiras(id),
+  CONSTRAINT contratos_criado_por_usuario_id_fkey FOREIGN KEY (criado_por_usuario_id) REFERENCES public.usuarios(id),
+  CONSTRAINT contratos_modelo_contrato_id_fkey FOREIGN KEY (modelo_contrato_id) REFERENCES public.modelos_contrato(id)
 );
 CREATE TABLE public.crm_notas (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -549,11 +589,15 @@ CREATE TABLE public.empreendimento_anexos (
   pode_enviar_anexo boolean DEFAULT false,
   status text DEFAULT 'Pendente'::text,
   organizacao_id bigint,
+  thumbnail_url text,
+  empresa_id bigint,
+  disponivel_corretor boolean DEFAULT false,
   CONSTRAINT empreendimento_anexos_pkey PRIMARY KEY (id),
   CONSTRAINT empreendimento_anexos_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id),
   CONSTRAINT empreendimento_anexos_tipo_documento_id_fkey FOREIGN KEY (tipo_documento_id) REFERENCES public.documento_tipos(id),
   CONSTRAINT empreendimento_anexos_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES auth.users(id),
-  CONSTRAINT empreendimento_anexos_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+  CONSTRAINT empreendimento_anexos_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id),
+  CONSTRAINT fk_empreendimento_anexos_empresa FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id)
 );
 CREATE TABLE public.empreendimento_documento_embeddings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -598,11 +642,29 @@ CREATE TABLE public.empreendimentos (
   dados_contrato text,
   listado_para_venda boolean DEFAULT false,
   organizacao_id bigint NOT NULL,
+  imagem_capa_url text,
   CONSTRAINT empreendimentos_pkey PRIMARY KEY (id),
   CONSTRAINT empreendimentos_empresa_proprietaria_id_fkey FOREIGN KEY (empresa_proprietaria_id) REFERENCES public.cadastro_empresa(id),
   CONSTRAINT empreendimentos_incorporadora_id_fkey FOREIGN KEY (incorporadora_id) REFERENCES public.contatos(id),
   CONSTRAINT empreendimentos_construtora_id_fkey FOREIGN KEY (construtora_id) REFERENCES public.contatos(id),
   CONSTRAINT empreendimentos_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+);
+CREATE TABLE public.empresa_anexos (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  empresa_id bigint NOT NULL,
+  organizacao_id bigint NOT NULL,
+  caminho_arquivo text NOT NULL,
+  nome_arquivo text,
+  descricao text,
+  tipo_documento_id bigint,
+  categoria_aba text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  thumbnail_url text,
+  conteudo_extraido text,
+  CONSTRAINT empresa_anexos_pkey PRIMARY KEY (id),
+  CONSTRAINT empresa_anexos_empresa_id_fkey FOREIGN KEY (empresa_id) REFERENCES public.cadastro_empresa(id),
+  CONSTRAINT empresa_anexos_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id),
+  CONSTRAINT empresa_anexos_tipo_documento_id_fkey FOREIGN KEY (tipo_documento_id) REFERENCES public.documento_tipos(id)
 );
 CREATE TABLE public.estoque (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -683,12 +745,26 @@ CREATE TABLE public.feriados (
   CONSTRAINT feriados_pkey PRIMARY KEY (id),
   CONSTRAINT feriados_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
 );
+CREATE TABLE public.filtros_salvos_usuarios (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  organizacao_id bigint NOT NULL,
+  pagina text NOT NULL,
+  nome_filtro text NOT NULL,
+  configuracoes jsonb NOT NULL,
+  e_favorito boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT filtros_salvos_usuarios_pkey PRIMARY KEY (id),
+  CONSTRAINT filtros_salvos_usuarios_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT filtros_salvos_usuarios_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+);
 CREATE TABLE public.funcionarios (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   empresa_id bigint NOT NULL,
   empreendimento_atual_id bigint,
   full_name text NOT NULL,
-  cpf character varying NOT NULL UNIQUE,
+  cpf character varying NOT NULL,
   rg character varying,
   birth_date character varying,
   phone character varying,
@@ -746,6 +822,21 @@ CREATE TABLE public.funis (
   CONSTRAINT funis_pkey PRIMARY KEY (id),
   CONSTRAINT funis_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id),
   CONSTRAINT funis_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+);
+CREATE TABLE public.historico_movimentacao_funil (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  contato_no_funil_id uuid NOT NULL,
+  coluna_anterior_id uuid,
+  coluna_nova_id uuid,
+  usuario_id uuid,
+  data_movimentacao timestamp with time zone NOT NULL DEFAULT now(),
+  organizacao_id bigint NOT NULL,
+  CONSTRAINT historico_movimentacao_funil_pkey PRIMARY KEY (id),
+  CONSTRAINT historico_movimentacao_funil_contato_no_funil_id_fkey FOREIGN KEY (contato_no_funil_id) REFERENCES public.contatos_no_funil(id),
+  CONSTRAINT historico_movimentacao_funil_coluna_anterior_id_fkey FOREIGN KEY (coluna_anterior_id) REFERENCES public.colunas_funil(id),
+  CONSTRAINT historico_movimentacao_funil_coluna_nova_id_fkey FOREIGN KEY (coluna_nova_id) REFERENCES public.colunas_funil(id),
+  CONSTRAINT historico_movimentacao_funil_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id),
+  CONSTRAINT historico_movimentacao_funil_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
 );
 CREATE TABLE public.historico_salarial (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -844,6 +935,9 @@ CREATE TABLE public.lancamentos (
   transferencia_id uuid,
   auditoria_verificado boolean NOT NULL DEFAULT false,
   organizacao_id bigint NOT NULL,
+  parcela_grupo uuid,
+  frequencia text,
+  recorrencia_data_fim date,
   CONSTRAINT lancamentos_pkey PRIMARY KEY (id),
   CONSTRAINT lancamentos_conta_id_fkey FOREIGN KEY (conta_id) REFERENCES public.contas_financeiras(id),
   CONSTRAINT lancamentos_categoria_id_fkey FOREIGN KEY (categoria_id) REFERENCES public.categorias_financeiras(id),
@@ -895,6 +989,83 @@ CREATE TABLE public.materiais (
   CONSTRAINT materiais_empresa_fornecedor_id_fkey FOREIGN KEY (empresa_fornecedor_id) REFERENCES public.cadastro_empresa(id),
   CONSTRAINT materiais_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
 );
+CREATE TABLE public.meta_ads (
+  id text NOT NULL,
+  name text,
+  adset_id text,
+  campaign_id text,
+  status text,
+  creative_title text,
+  creative_body text,
+  thumbnail_url text,
+  organizacao_id bigint NOT NULL,
+  last_synced_at timestamp with time zone DEFAULT now(),
+  created_time timestamp with time zone,
+  insights jsonb,
+  CONSTRAINT meta_ads_pkey PRIMARY KEY (id),
+  CONSTRAINT meta_ads_adset_id_fkey FOREIGN KEY (adset_id) REFERENCES public.meta_adsets(id),
+  CONSTRAINT meta_ads_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES public.meta_campaigns(id),
+  CONSTRAINT meta_ads_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+);
+CREATE TABLE public.meta_ads_historico (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  ad_id text NOT NULL,
+  data_snapshot date NOT NULL DEFAULT CURRENT_DATE,
+  spend numeric,
+  impressions integer,
+  clicks integer,
+  reach integer,
+  leads integer,
+  created_at timestamp with time zone DEFAULT now(),
+  organizacao_id bigint NOT NULL,
+  ad_name text,
+  campaign_name text,
+  adset_name text,
+  CONSTRAINT meta_ads_historico_pkey PRIMARY KEY (id),
+  CONSTRAINT meta_ads_historico_ad_id_fkey FOREIGN KEY (ad_id) REFERENCES public.meta_ads(id),
+  CONSTRAINT meta_ads_historico_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+);
+CREATE TABLE public.meta_adsets (
+  id text NOT NULL,
+  name text,
+  campaign_id text,
+  status text,
+  daily_budget bigint,
+  lifetime_budget bigint,
+  billing_event text,
+  start_time timestamp with time zone,
+  end_time timestamp with time zone,
+  organizacao_id bigint NOT NULL,
+  last_synced_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT meta_adsets_pkey PRIMARY KEY (id),
+  CONSTRAINT meta_adsets_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES public.meta_campaigns(id),
+  CONSTRAINT meta_adsets_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+);
+CREATE TABLE public.meta_campaigns (
+  id text NOT NULL,
+  name text,
+  objective text,
+  status text,
+  buying_type text,
+  spend_cap bigint,
+  account_id text,
+  organizacao_id bigint NOT NULL,
+  last_synced_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT meta_campaigns_pkey PRIMARY KEY (id),
+  CONSTRAINT meta_campaigns_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+);
+CREATE TABLE public.modelos_contrato (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  empreendimento_id bigint NOT NULL,
+  nome_modelo text NOT NULL,
+  clausulas_html text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  organizacao_id bigint NOT NULL,
+  CONSTRAINT modelos_contrato_pkey PRIMARY KEY (id),
+  CONSTRAINT modelos_contrato_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id),
+  CONSTRAINT modelos_contrato_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+);
 CREATE TABLE public.movimentacoes_estoque (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   estoque_id bigint NOT NULL,
@@ -916,11 +1087,14 @@ CREATE TABLE public.movimentacoes_estoque (
   CONSTRAINT movimentacoes_estoque_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
 );
 CREATE TABLE public.notification_subscriptions (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   user_id uuid NOT NULL,
-  subscription jsonb NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
+  organizacao_id bigint,
+  endpoint text NOT NULL UNIQUE,
+  subscription_data jsonb NOT NULL,
   CONSTRAINT notification_subscriptions_pkey PRIMARY KEY (id),
+  CONSTRAINT notification_subscriptions_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id),
   CONSTRAINT notification_subscriptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.ocorrencias (
@@ -986,6 +1160,7 @@ CREATE TABLE public.organizacoes (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   nome text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
+  public_form_slug text UNIQUE,
   CONSTRAINT organizacoes_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.parcelas_adicionais (
@@ -1010,6 +1185,7 @@ CREATE TABLE public.pedidos_compra (
   titulo text,
   turno_entrega text,
   organizacao_id bigint NOT NULL,
+  data_entrega_real date,
   CONSTRAINT pedidos_compra_pkey PRIMARY KEY (id),
   CONSTRAINT pedidos_compra_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id),
   CONSTRAINT pedidos_compra_solicitante_id_fkey FOREIGN KEY (solicitante_id) REFERENCES public.usuarios(id),
@@ -1055,6 +1231,18 @@ CREATE TABLE public.pedidos_compra_itens (
   CONSTRAINT pedidos_compra_itens_etapa_id_fkey FOREIGN KEY (etapa_id) REFERENCES public.etapa_obra(id),
   CONSTRAINT pedidos_compra_itens_subetapa_id_fkey FOREIGN KEY (subetapa_id) REFERENCES public.subetapas(id),
   CONSTRAINT fk_pedidos_compra_itens_organizacao_id FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+);
+CREATE TABLE public.pedidos_compra_notas (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  pedido_id bigint NOT NULL,
+  usuario_id uuid,
+  conteudo text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  organizacao_id bigint NOT NULL,
+  CONSTRAINT pedidos_compra_notas_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_pedido FOREIGN KEY (pedido_id) REFERENCES public.pedidos_compra(id),
+  CONSTRAINT fk_usuario FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id),
+  CONSTRAINT fk_organizacao FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
 );
 CREATE TABLE public.pedidos_compra_status_historico (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -1112,6 +1300,7 @@ CREATE TABLE public.produtos_empreendimento (
   created_at timestamp with time zone DEFAULT now(),
   organizacao_id bigint NOT NULL,
   matricula text,
+  preco_m2 numeric,
   CONSTRAINT produtos_empreendimento_pkey PRIMARY KEY (id),
   CONSTRAINT produtos_empreendimento_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id),
   CONSTRAINT produtos_empreendimento_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
@@ -1251,6 +1440,8 @@ CREATE TABLE public.usuarios (
   data_aceite_termos timestamp with time zone,
   sidebar_position text NOT NULL DEFAULT 'left'::text,
   organizacao_id bigint NOT NULL,
+  cotacoes_visiveis jsonb NOT NULL DEFAULT '[]'::jsonb,
+  mostrar_barra_cotacoes boolean NOT NULL DEFAULT true,
   CONSTRAINT usuarios_pkey PRIMARY KEY (id),
   CONSTRAINT usuarios_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
   CONSTRAINT usuarios_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id),
@@ -1289,13 +1480,11 @@ CREATE TABLE public.whatsapp_attachments (
   CONSTRAINT whatsapp_attachments_contato_id_fkey FOREIGN KEY (contato_id) REFERENCES public.contatos(id)
 );
 CREATE TABLE public.whatsapp_conversations (
-  phone_number text NOT NULL,
-  context jsonb,
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  phone_number text NOT NULL UNIQUE,
   updated_at timestamp with time zone DEFAULT now(),
-  is_archived boolean DEFAULT false,
-  contato_id bigint,
-  CONSTRAINT whatsapp_conversations_pkey PRIMARY KEY (phone_number),
-  CONSTRAINT fk_contato_id_whatsapp_conversations FOREIGN KEY (contato_id) REFERENCES public.contatos(id)
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT whatsapp_conversations_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.whatsapp_messages (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
