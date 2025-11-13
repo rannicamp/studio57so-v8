@@ -1,15 +1,18 @@
 // components/pedidos/PedidoDetalhesSidebar.js
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faPenToSquare, faCalendarAlt, faUser, faBuilding, faClipboardList, faAlignLeft, faPaperclip, faSpinner, faDollarSign, faTruck, faHandHoldingDollar } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faPenToSquare, faCalendarAlt, faUser, faBuilding, faClipboardList, faAlignLeft, faPaperclip, faSpinner, faDollarSign, faTruck, faHandHoldingDollar, faFloppyDisk, faBan, faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import LancamentoFormModal from '../financeiro/LancamentoFormModal';
+import { createClient } from '@/utils/supabase/client';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+// Componente de Leitura
 const InfoField = ({ icon, label, value }) => {
-    if (!value && value !== 0) return null; // Permite exibir 0
+    if (!value && value !== 0) return null;
     return (
         <div>
             <dt className="text-xs font-medium text-gray-500 flex items-center gap-2">
@@ -21,131 +24,193 @@ const InfoField = ({ icon, label, value }) => {
     );
 };
 
-export default function PedidoDetalhesSidebar({ isOpen, onClose, pedido, onUpdate }) {
+// Componente de Edição
+const EditField = ({ label, name, value, onChange, type = 'text', children }) => (
+    <div>
+        <label htmlFor={name} className="block text-xs font-medium text-gray-700">{label}</label>
+        {type === 'textarea' ? (
+            <textarea
+                id={name}
+                name={name}
+                value={value || ''}
+                onChange={onChange}
+                rows="4"
+                className="mt-1 w-full p-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+            />
+        ) : type === 'select' ? (
+            <select
+                id={name}
+                name={name}
+                value={value || ''}
+                onChange={onChange}
+                className="mt-1 w-full p-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+            >
+                {children}
+            </select>
+        ) : (
+            <input
+                type={type}
+                id={name}
+                name={name}
+                value={value || ''}
+                onChange={onChange}
+                className="mt-1 w-full p-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+            />
+        )}
+    </div>
+);
+
+
+export default function PedidoDetalhesSidebar({ 
+    isOpen, 
+    onClose, 
+    pedido, 
+    onUpdate, 
+    solicitantes = [], 
+    empreendimentos = [],
+    onEditCompleto // <--- NOVA PROP PARA ABRIR O MODAL
+}) {
     const router = useRouter();
+    const supabase = createClient();
+    const queryClient = useQueryClient();
+
+    // Estados para o Modal Financeiro
     const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false);
     const [lancamentoInitialData, setLancamentoInitialData] = useState(null);
 
-    if (!isOpen || !pedido) return null;
+    // Estados para Edição Rápida
+    const [isEditing, setIsEditing] = useState(false);
+    const [editableData, setEditableData] = useState(null);
+
+    useEffect(() => {
+        if (pedido) {
+            setEditableData(pedido);
+            setIsEditing(false);
+        }
+    }, [pedido]);
+
+    const updatePedidoMutation = useMutation({
+        mutationFn: async (updatedData) => {
+            const { data, error } = await supabase
+                .from('pedidos_compra')
+                .update(updatedData)
+                .eq('id', pedido.id)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: (data) => {
+            toast.success("Pedido atualizado com sucesso!");
+            setIsEditing(false);
+            setEditableData(data);
+            if (onUpdate) onUpdate();
+            queryClient.invalidateQueries({ queryKey: ['pedido', pedido.id] });
+        },
+        onError: (error) => {
+            toast.error(`Erro ao salvar: ${error.message}`);
+        }
+    });
+
+    if (!isOpen || !pedido || !editableData) return null;
 
     const formatDate = (dateStr) => {
         if (!dateStr) return 'N/A';
         try {
-            // Se for timestamp completo (com T e Z ou offset)
-            if (dateStr.includes('T') && (dateStr.includes('Z') || dateStr.match(/[+-]\d{2}:\d{2}$/))) {
+            if (dateStr.includes('T')) {
                 const date = new Date(dateStr);
-                 // Adiciona verificação para data inválida
                 if (isNaN(date.getTime())) return 'Data inválida';
-                return date.toLocaleDateString('pt-BR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    timeZone: 'UTC' // Importante para evitar problemas de fuso
-                });
+                return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
             }
-            // Se for apenas YYYY-MM-DD
             const parts = dateStr.split('-');
-            if (parts.length === 3) {
-                 const [year, month, day] = parts;
-                 // Verifica se são números válidos
-                 if (!isNaN(parseInt(year)) && !isNaN(parseInt(month)) && !isNaN(parseInt(day))) {
-                     return `${day}/${month}/${year}`;
-                 }
-            }
-            // Se não for nenhum dos formatos esperados, retorna a string original
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
             return dateStr;
-        } catch (error) {
-            console.error("Erro ao formatar data:", dateStr, error);
-            return 'Erro na data';
-        }
+        } catch (error) { return 'Erro na data'; }
     };
 
     const formatCurrency = (value) => {
-         if (value === null || value === undefined || isNaN(Number(value))) {
-             return 'R$ 0,00'; // Ou 'N/A', dependendo do contexto
-         }
+         if (value === null || value === undefined || isNaN(Number(value))) return 'R$ 0,00';
          return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value));
      };
 
-
-    // Calcula o total real (baseado no preço real)
-     const totalPedidoReal = pedido.itens?.reduce((acc, item) => acc + (Number(item.custo_total_real) || 0), 0) || 0;
-
-    // Calcula o total estimado (baseado no preço estimado, se houver, senão usa o real)
+    const totalPedidoReal = pedido.itens?.reduce((acc, item) => acc + (Number(item.custo_total_real) || 0), 0) || 0;
     const totalPedidoEstimado = pedido.itens?.reduce((acc, item) => {
         const valorEstimado = Number(item.custo_total_estimado) || Number(item.custo_total_real) || 0;
         return acc + valorEstimado;
     }, 0) || 0;
 
-
-    const handleEditClick = () => {
-        router.push(`/pedidos/${pedido.id}`);
+    // =================================================================================
+    // ALTERAÇÃO: Em vez de navegar, chama a função do pai para abrir o Modal
+    // =================================================================================
+    const handleEditCompletoClick = () => {
+        if (onEditCompleto) {
+            onEditCompleto(pedido);
+        } else {
+            // Fallback caso a prop não seja passada (apenas segurança)
+            router.push(`/pedidos/${pedido.id}`);
+        }
     };
 
     const handleOpenLancamentoModal = () => {
-        if (!pedido.itens || pedido.itens.length === 0) {
-            toast.error("Adicione itens ao pedido antes de planejar um pagamento.");
-            return;
-        }
-
-         // Usa o total REAL para o lançamento
+        if (!pedido.itens || pedido.itens.length === 0) { toast.error("Adicione itens ao pedido antes de planejar um pagamento."); return; }
         const totalPedidoValor = pedido.itens.reduce((acc, item) => acc + (parseFloat(item.custo_total_real) || 0), 0);
-
-        if (totalPedidoValor <= 0) {
-            toast.error("O valor total do pedido (real) deve ser maior que zero para planejar um pagamento.");
-            return;
-        }
-
+        if (totalPedidoValor <= 0) { toast.error("O valor total deve ser maior que zero."); return; }
+        
         const firstFornecedorId = pedido.itens[0].fornecedor_id;
         const allSameFornecedor = pedido.itens.every(item => item.fornecedor_id === firstFornecedorId);
-
         const notaFiscalAnexo = pedido.anexos?.find(a => a.descricao && a.descricao.toLowerCase().includes('nota fiscal'));
-
         let etapaObraId = null;
         if (pedido.itens.length > 0) {
             const firstEtapaId = pedido.itens[0].etapa_id;
-            // Garante que todas as etapas sejam iguais E que a primeira etapa exista
-            if (firstEtapaId && pedido.itens.every(item => item.etapa_id === firstEtapaId)) {
-                etapaObraId = firstEtapaId;
-            }
+            if (firstEtapaId && pedido.itens.every(item => item.etapa_id === firstEtapaId)) etapaObraId = firstEtapaId;
         }
-
         const empresaIdCorreta = pedido.empreendimentos?.empresa_proprietaria_id || null;
 
         const initial = {
             descricao: `Pagamento Ref. Pedido de Compra #${pedido.id} - ${pedido.titulo || ''}`.trim(),
             valor: totalPedidoValor.toFixed(2),
-            data_vencimento: new Date().toISOString().split('T')[0], // Sugere data atual
+            data_vencimento: new Date().toISOString().split('T')[0],
             tipo: 'Despesa',
             status: 'Pendente',
             favorecido_contato_id: allSameFornecedor ? firstFornecedorId : null,
             empreendimento_id: pedido.empreendimento_id,
-            empresa_id: empresaIdCorreta, // Usa a variável corrigida
+            empresa_id: empresaIdCorreta,
             etapa_obra_id: etapaObraId,
-            anexo_preexistente: notaFiscalAnexo ? {
-                caminho_arquivo: notaFiscalAnexo.caminho_arquivo,
-                nome_arquivo: notaFiscalAnexo.nome_arquivo,
-                descricao: notaFiscalAnexo.descricao,
-            } : null,
+            anexo_preexistente: notaFiscalAnexo ? { caminho_arquivo: notaFiscalAnexo.caminho_arquivo, nome_arquivo: notaFiscalAnexo.nome_arquivo, descricao: notaFiscalAnexo.descricao } : null,
              pedido_compra_id: pedido.id
         };
-
         setLancamentoInitialData(initial);
         setIsLancamentoModalOpen(true);
     };
 
+    const handleQuickEditToggle = () => {
+        if (isEditing) setEditableData(pedido);
+        setIsEditing(!isEditing);
+    };
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setEditableData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSaveClick = (e) => {
+        e.preventDefault();
+        const dataToSave = {
+            titulo: editableData.titulo,
+            empreendimento_id: editableData.empreendimento_id,
+            solicitante_id: editableData.solicitante_id,
+            data_entrega_prevista: editableData.data_entrega_prevista || null,
+            turno_entrega: editableData.turno_entrega || null,
+            observacoes: editableData.observacoes || null,
+        };
+        updatePedidoMutation.mutate(dataToSave);
+    };
+
+
     return (
         <>
-            <LancamentoFormModal
-                isOpen={isLancamentoModalOpen}
-                onClose={() => setIsLancamentoModalOpen(false)}
-                onSuccess={() => {
-                    toast.success("Planejamento de pagamento registrado com sucesso!");
-                    setIsLancamentoModalOpen(false);
-                    if (onUpdate) onUpdate(); // Atualiza a lista/kanban
-                }}
-                initialData={lancamentoInitialData}
-            />
+            <LancamentoFormModal isOpen={isLancamentoModalOpen} onClose={() => setIsLancamentoModalOpen(false)} onSuccess={() => { toast.success("Pagamento registrado!"); setIsLancamentoModalOpen(false); if (onUpdate) onUpdate(); }} initialData={lancamentoInitialData} />
 
             <div className={`fixed top-0 right-0 h-full w-full md:w-[450px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                 <div className="flex flex-col h-full">
@@ -158,35 +223,60 @@ export default function PedidoDetalhesSidebar({ isOpen, onClose, pedido, onUpdat
                     </header>
 
                     <main className="flex-1 overflow-y-auto p-6 space-y-6">
-                        <section>
-                            <div className="flex justify-between items-center mb-4">
-                                <h4 className="text-xl font-semibold text-gray-900">{pedido.titulo || `Pedido #${pedido.id}`}</h4>
-                                <button onClick={handleEditClick} className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
-                                    <FontAwesomeIcon icon={faPenToSquare} /> Editar Completo
-                                </button>
-                            </div>
-                            <dl className="grid grid-cols-1 gap-y-4">
-                                <InfoField icon={faAlignLeft} label="Justificativa" value={pedido.justificativa} />
-                                {/* // =================================================================================
-                                // INÍCIO DA ALTERAÇÃO
-                                // O PORQUÊ: Adicionamos a exibição do novo campo 'observacoes'.
-                                // Também adicionei 'whitespace-pre-wrap' ao InfoField para 
-                                // respeitar quebras de linha que o usuário digitar.
-                                // =================================================================================
-                                */}
-                                <InfoField icon={faAlignLeft} label="Observações do Solicitante" value={pedido.observacoes} />
-                                {/* // =================================================================================
-                                // FIM DA ALTERAÇÃO
-                                // =================================================================================
-                                */}
-                                <InfoField icon={faBuilding} label="Empreendimento" value={pedido.empreendimentos?.nome} />
-                                <InfoField icon={faUser} label="Solicitante" value={pedido.solicitante?.nome} />
-                                <div>
-                                    <dt className="text-xs font-medium text-gray-500 flex items-center gap-2"><FontAwesomeIcon icon={faClipboardList} /> Status</dt>
-                                    <dd className="mt-1 text-sm font-semibold px-2 py-1 bg-blue-100 text-blue-800 rounded-full inline-block">{pedido.status}</dd>
+                        {isEditing ? (
+                            <form onSubmit={handleSaveClick} className="space-y-4">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h4 className="text-xl font-semibold text-gray-900">Editando Pedido</h4>
+                                    <div className="flex gap-2">
+                                        <button type="button" onClick={handleQuickEditToggle} className="text-sm font-semibold text-gray-600 hover:text-gray-900 flex items-center gap-1"><FontAwesomeIcon icon={faBan} /> Cancelar</button>
+                                        <button type="submit" disabled={updatePedidoMutation.isPending} className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 disabled:opacity-50"><FontAwesomeIcon icon={updatePedidoMutation.isPending ? faSpinner : faFloppyDisk} spin={updatePedidoMutation.isPending} /> Salvar</button>
+                                    </div>
                                 </div>
-                            </dl>
-                        </section>
+                                <EditField label="Título do Pedido" name="titulo" value={editableData.titulo} onChange={handleInputChange} />
+                                <EditField label="Empreendimento" name="empreendimento_id" value={editableData.empreendimento_id} onChange={handleInputChange} type="select">
+                                    <option value="">Selecione...</option>
+                                    {empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                                </EditField>
+                                <EditField label="Solicitante" name="solicitante_id" value={editableData.solicitante_id} onChange={handleInputChange} type="select">
+                                    <option value="">Selecione...</option>
+                                    {solicitantes.map(s => <option key={s.id} value={s.id}>{s.nome} {s.sobrenome}</option>)}
+                                </EditField>
+                                <EditField label="Observações do Solicitante" name="observacoes" value={editableData.observacoes} onChange={handleInputChange} type="textarea" />
+                                <hr />
+                                <EditField label="Entrega Prevista" name="data_entrega_prevista" value={editableData.data_entrega_prevista?.split('T')[0] || ''} onChange={handleInputChange} type="date" />
+                                <EditField label="Turno de Entrega" name="turno_entrega" value={editableData.turno_entrega} onChange={handleInputChange} type="select">
+                                    <option value="">Nenhum</option>
+                                    <option value="Manhã">Manhã</option>
+                                    <option value="Tarde">Tarde</option>
+                                    <option value="Noite">Noite</option>
+                                </EditField>
+                            </form>
+                        ) : (
+                            <section>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h4 className="text-xl font-semibold text-gray-900">{pedido.titulo || `Pedido #${pedido.id}`}</h4>
+                                    <div className="flex gap-3">
+                                        <button onClick={handleQuickEditToggle} className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-200" title="Editar campos principais">
+                                            <FontAwesomeIcon icon={faPenToSquare} /> Editar Rápido
+                                        </button>
+                                        {/* BOTÃO ALTERADO PARA CHAMAR O MODAL */}
+                                        <button onClick={handleEditCompletoClick} className="text-xs font-semibold text-gray-700 hover:text-gray-900 flex items-center gap-1 bg-gray-100 px-2 py-1 rounded border border-gray-300" title="Abrir formulário completo com itens e anexos">
+                                            <FontAwesomeIcon icon={faExternalLinkAlt} /> Abrir Completo
+                                        </button>
+                                    </div>
+                                </div>
+                                <dl className="grid grid-cols-1 gap-y-4">
+                                    <InfoField icon={faAlignLeft} label="Justificativa" value={pedido.justificativa} />
+                                    <InfoField icon={faAlignLeft} label="Observações do Solicitante" value={pedido.observacoes} />
+                                    <InfoField icon={faBuilding} label="Empreendimento" value={pedido.empreendimentos?.nome} />
+                                    <InfoField icon={faUser} label="Solicitante" value={pedido.solicitante?.nome} />
+                                    <div>
+                                        <dt className="text-xs font-medium text-gray-500 flex items-center gap-2"><FontAwesomeIcon icon={faClipboardList} /> Status</dt>
+                                        <dd className="mt-1 text-sm font-semibold px-2 py-1 bg-blue-100 text-blue-800 rounded-full inline-block">{pedido.status}</dd>
+                                    </div>
+                                </dl>
+                            </section>
+                        )}
 
                         <section className="border-t pt-4">
                             <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2"><FontAwesomeIcon icon={faCalendarAlt} /> Datas e Prazos</h4>
@@ -205,17 +295,13 @@ export default function PedidoDetalhesSidebar({ isOpen, onClose, pedido, onUpdat
                              </div>
                         </section>
 
-                         {/* Apenas mostra o botão se o status permitir e tiver valor real > 0 */}
                          {['Entregue', 'Realizado'].includes(pedido.status) && totalPedidoReal > 0 && (
                             <section className="border-t pt-4">
                                 <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                     <FontAwesomeIcon icon={faHandHoldingDollar} />
                                     Ações Financeiras
                                 </h4>
-                                <button
-                                    onClick={handleOpenLancamentoModal}
-                                    className="w-full bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 flex items-center justify-center gap-2"
-                                >
+                                <button onClick={handleOpenLancamentoModal} className="w-full bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 flex items-center justify-center gap-2">
                                     <FontAwesomeIcon icon={faHandHoldingDollar} />
                                     Planejar Pagamento
                                 </button>
@@ -229,24 +315,9 @@ export default function PedidoDetalhesSidebar({ isOpen, onClose, pedido, onUpdat
                                     pedido.itens.map(item => (
                                         <div key={item.id} className="p-2 bg-white rounded-md text-sm border">
                                             <p className="font-semibold">{item.descricao_item}</p>
-                                            {item.fornecedor && (
-                                                <p className="text-xs text-gray-500">
-                                                    Fornecedor: <span className="font-medium text-gray-700">{item.fornecedor.nome || item.fornecedor.razao_social}</span>
-                                                </p>
-                                            )}
-                                            {item.etapa && (
-                                                <p className="text-xs text-gray-500">
-                                                    Etapa: <span className="font-medium text-gray-700">{item.etapa.nome}</span>
-                                                </p>
-                                            )}
-                                            <p className="text-xs text-gray-600 mt-1">
-                                                 {item.quantidade_solicitada} {item.unidade_medida}
-                                                 {item.preco_unitario_real ? ` x ${formatCurrency(item.preco_unitario_real)} = ` : ' (aguardando preço)'}
-                                                 {item.custo_total_real ? <span className="font-bold">{formatCurrency(item.custo_total_real)}</span> : ''}
-                                            </p>
-                                            {item.custo_total_estimado && item.custo_total_real !== item.custo_total_estimado && (
-                                                <p className="text-xs text-gray-500 italic"> (Estimado: {formatCurrency(item.custo_total_estimado)}) </p>
-                                            )}
+                                            {item.fornecedor && <p className="text-xs text-gray-500">Fornecedor: <span className="font-medium text-gray-700">{item.fornecedor.nome || item.fornecedor.razao_social}</span></p>}
+                                            {item.etapa && <p className="text-xs text-gray-500">Etapa: <span className="font-medium text-gray-700">{item.etapa.nome}</span></p>}
+                                            <p className="text-xs text-gray-600 mt-1">{item.quantidade_solicitada} {item.unidade_medida}{item.preco_unitario_real ? ` x ${formatCurrency(item.preco_unitario_real)} = ` : ' (aguardando preço)'}{item.custo_total_real ? <span className="font-bold">{formatCurrency(item.custo_total_real)}</span> : ''}</p>
                                         </div>
                                     ))
                                 ) : <p className="text-xs text-gray-500 text-center py-4">Nenhum item adicionado.</p>}

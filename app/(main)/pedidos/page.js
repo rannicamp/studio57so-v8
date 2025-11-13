@@ -8,12 +8,13 @@ import { useLayout } from '../../../contexts/LayoutContext';
 import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faBoxOpen, faClock, faHourglassHalf, faClipboardList } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faBoxOpen, faClock, faHourglassHalf, faClipboardList, faPlus, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
 import KpiCard from '@/components/KpiCard';
 import PedidoDetalhesSidebar from '@/components/pedidos/PedidoDetalhesSidebar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import PedidoForm from '@/components/PedidoForm';
 
 // ======================= FUNÇÃO DE BUSCA (Carregamento Mágico) =======================
 const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
@@ -28,9 +29,6 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
     if (solError) throw new Error(`Falha ao carregar solicitantes: ${solError.message}`);
 
     // 2. Pedidos
-    // ***** INÍCIO DA CORREÇÃO *****
-    // O 'porquê': Corrigido para buscar 'nome_etapa' da tabela 'etapa_obra',
-    // pois a coluna 'nome' não existe nela, conforme esquema do banco.
     let query = supabase
         .from('pedidos_compra')
         .select(`
@@ -43,7 +41,6 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
             anexos:pedidos_compra_anexos(*)
         `)
         .eq('organizacao_id', organizacaoId);
-    // ***** FIM DA CORREÇÃO *****
 
     if (empreendimentoId && empreendimentoId !== 'all') {
         query = query.eq('empreendimento_id', empreendimentoId);
@@ -74,6 +71,9 @@ export default function PedidosPage() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [selectedPedido, setSelectedPedido] = useState(null);
 
+    const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
+    const [newPedidoId, setNewPedidoId] = useState(null);
+
     const supabase = createClient();
     const router = useRouter();
     const queryClient = useQueryClient();
@@ -94,13 +94,9 @@ export default function PedidosPage() {
     // Efeito para a notificação de atualização (Carregamento Mágico)
     useEffect(() => {
         let isRefetching = false;
-        // Verifica se está buscando E se não é o carregamento inicial
         if (queryClient.getQueryState(['painelCompras', organizacaoId, selectedEmpreendimento])?.isFetching && !isLoading) {
             isRefetching = true;
         }
-
-        // Mostra notificação apenas se a re-busca terminou (isFetching=false), não era o loading inicial,
-        // temos dados (data) E identificamos que era uma re-busca (isRefetching).
         if (!isFetching && !isLoading && data && isRefetching) {
             const timer = setTimeout(() => {
                 toast.info('Página atualizada!', {
@@ -110,7 +106,7 @@ export default function PedidosPage() {
             }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [isFetching, isLoading, data, queryClient, organizacaoId, selectedEmpreendimento]); // Monitora todas as dependências relevantes
+    }, [isFetching, isLoading, data, queryClient, organizacaoId, selectedEmpreendimento]);
     // ==============================================================================
 
 
@@ -120,49 +116,39 @@ export default function PedidosPage() {
     // useMemo para filtrar pedidos (para o KANBAN)
     const filteredPedidosKanban = useMemo(() => {
         return pedidos.filter(pedido => {
-            // Filtro por Solicitante
             if (selectedSolicitante && pedido.solicitante?.id?.toString() !== selectedSolicitante) return false;
-
-            // Filtro por Data (usando string YYYY-MM-DD para evitar fuso)
             try {
                 const pedidoDateStr = pedido.data_solicitacao?.split('T')[0];
                 if (startDate && (!pedidoDateStr || startDate > pedidoDateStr)) return false;
                 if (endDate && (!pedidoDateStr || endDate < pedidoDateStr)) return false;
             } catch (e) { console.error("Erro datas filtro Kanban:", e); return false; }
-
-            // Filtro por Termo de Busca (no título OU nos itens)
              if (searchTerm.trim() !== '') {
-                const term = searchTerm.toLowerCase();
-                const tituloMatch = pedido.titulo?.toLowerCase().includes(term);
-                // Garante que 'pedido.itens' existe e é um array antes de usar 'some'
-                const itemMatch = Array.isArray(pedido.itens) && pedido.itens.some(item => item.descricao_item?.toLowerCase().includes(term));
-                if (!tituloMatch && !itemMatch) return false;
-            }
-            return true; // Se passou por todos os filtros, inclui o pedido
+                 const term = searchTerm.toLowerCase();
+                 const tituloMatch = pedido.titulo?.toLowerCase().includes(term);
+                 const itemMatch = Array.isArray(pedido.itens) && pedido.itens.some(item => item.descricao_item?.toLowerCase().includes(term));
+                 if (!tituloMatch && !itemMatch) return false;
+             }
+            return true;
         });
     }, [pedidos, searchTerm, selectedSolicitante, startDate, endDate]);
 
-    // useEffect dos KPIs
+    // useEffect dos KPIs (SEU CÓDIGO ORIGINAL MANTIDO)
     useEffect(() => {
         const calculateKpis = async () => {
             const localFilteredPedidos = filteredPedidosKanban;
-
             if (localFilteredPedidos.length === 0) {
                  setKpiData({ totalPedidos: 0, tempoMedioCotacao: 'N/A', tempoMedioEntrega: 'N/A', pedidosComPendencia: 0 });
                  return;
             }
-
             const comPendencia = localFilteredPedidos.filter(p =>
                 p.status === 'Entregue' &&
                 (!p.anexos || p.anexos.length === 0 || !p.anexos.some(a => a.descricao && a.descricao.toLowerCase().includes('nota fiscal')))
             ).length;
-
             const idsFiltrados = localFilteredPedidos.map(p => p.id);
             if (!supabase || idsFiltrados.length === 0) {
                  setKpiData(prev => ({ ...prev, totalPedidos: localFilteredPedidos.length, tempoMedioCotacao: 'N/A', tempoMedioEntrega: 'N/A', pedidosComPendencia: comPendencia }));
                  return;
              }
-
             let historicos = [];
             try {
                 const { data: histData, error: histError } = await supabase
@@ -176,7 +162,6 @@ export default function PedidosPage() {
                 setKpiData(prev => ({ ...prev, totalPedidos: localFilteredPedidos.length, tempoMedioCotacao: 'Erro', tempoMedioEntrega: 'Erro', pedidosComPendencia: comPendencia }));
                 return;
             }
-
             let totalDiasCotacao = 0, countCotacao = 0, totalDiasEntrega = 0, countEntrega = 0;
             const historicosPorPedido = historicos.reduce((acc, h) => {
                 acc[h.pedido_compra_id] = acc[h.pedido_compra_id] || [];
@@ -184,7 +169,6 @@ export default function PedidosPage() {
                 acc[h.pedido_compra_id].sort((a,b) => new Date(a.data_mudanca) - new Date(b.data_mudanca));
                 return acc;
              }, {});
-
             for (const pedido of localFilteredPedidos) {
                 const h = historicosPorPedido[pedido.id] || [];
                  const dataSolicitacao = pedido.data_solicitacao ? new Date(pedido.data_solicitacao) : null;
@@ -194,23 +178,21 @@ export default function PedidosPage() {
                 const dataRealizado = dataRealizadoObj ? new Date(dataRealizadoObj.data_mudanca) : null;
                 const dataEntregueObj = h.find(item => item.status_novo === 'Entregue');
                 const dataEntregue = dataEntregueObj ? new Date(dataEntregueObj.data_mudanca) : null;
-
                 if (dataSolicitacao && dataCotacao && dataCotacao >= dataSolicitacao) {
-                    const diffTime = dataCotacao.getTime() - dataSolicitacao.getTime(); // Use getTime() for milliseconds
-                    if (!isNaN(diffTime)) { // Check if diffTime is a valid number
-                        totalDiasCotacao += diffTime / (1000 * 60 * 60 * 24);
-                        countCotacao++;
-                    }
+                     const diffTime = dataCotacao.getTime() - dataSolicitacao.getTime();
+                     if (!isNaN(diffTime)) {
+                         totalDiasCotacao += diffTime / (1000 * 60 * 60 * 24);
+                         countCotacao++;
+                     }
                 }
                 if (dataRealizado && dataEntregue && dataEntregue >= dataRealizado) {
-                     const diffTime = dataEntregue.getTime() - dataRealizado.getTime(); // Use getTime()
-                     if (!isNaN(diffTime)) { // Check validity
-                        totalDiasEntrega += diffTime / (1000 * 60 * 60 * 24);
-                        countEntrega++;
-                    }
+                      const diffTime = dataEntregue.getTime() - dataRealizado.getTime();
+                      if (!isNaN(diffTime)) {
+                         totalDiasEntrega += diffTime / (1000 * 60 * 60 * 24);
+                         countEntrega++;
+                     }
                 }
             }
-
             setKpiData({
                 totalPedidos: localFilteredPedidos.length,
                 tempoMedioCotacao: countCotacao > 0 ? `${(totalDiasCotacao / countCotacao).toFixed(1)} dias` : 'N/A',
@@ -218,12 +200,10 @@ export default function PedidosPage() {
                 pedidosComPendencia: comPendencia,
             });
         };
-
         if (pedidos && supabase) {
              calculateKpis();
         }
-
-    }, [filteredPedidosKanban, supabase]); // Depende apenas do filtro e do supabase client
+    }, [filteredPedidosKanban, supabase]);
     // ========================================================================
 
 
@@ -236,7 +216,6 @@ export default function PedidosPage() {
             if (!selectedEmpreendimento || selectedEmpreendimento === 'all') {
                 throw new Error('Por favor, selecione um empreendimento específico antes de criar uma solicitação.');
             }
-
             const novoPedido = {
                 titulo: 'Nova Solicitação (Rascunho)',
                 status: 'Solicitação',
@@ -245,13 +224,11 @@ export default function PedidosPage() {
                 empreendimento_id: selectedEmpreendimento,
                 data_solicitacao: new Date().toISOString(),
             };
-
             const { data, error } = await supabase
                 .from('pedidos_compra')
                 .insert(novoPedido)
                 .select('id')
                 .single();
-
             if (error) {
                 console.error("Erro do Supabase ao criar pedido:", error.message);
                 throw new Error(`Erro do Supabase: ${error.message}`);
@@ -259,11 +236,10 @@ export default function PedidosPage() {
             return data;
         },
         onSuccess: (data) => {
-            toast.success('Nova solicitação criada com sucesso!', {
-                description: 'Você será redirecionado para editá-la.'
-            });
+            toast.success('Nova solicitação criada! Preencha os detalhes agora.');
+            setNewPedidoId(data.id);
+            setIsNewOrderModalOpen(true);
             queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento] });
-            router.push(`/pedidos/${data.id}`);
         },
         onError: (error) => {
             console.error("Falha na mutation ao criar pedido:", error);
@@ -281,10 +257,32 @@ export default function PedidosPage() {
         setIsSidebarOpen(false);
         setSelectedPedido(null);
     };
+    const handleCloseNewOrderModal = () => {
+        setIsNewOrderModalOpen(false);
+        setNewPedidoId(null);
+        queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento] });
+    };
 
     // JSX Principal
     return (
         <div className="space-y-6">
+            {isNewOrderModalOpen && newPedidoId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 overflow-y-auto">
+                    <div className="bg-white w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-lg shadow-2xl relative">
+                        <button 
+                            onClick={handleCloseNewOrderModal}
+                            className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 z-10 bg-white rounded-full p-1 shadow-sm"
+                            title="Fechar e Salvar"
+                        >
+                            <FontAwesomeIcon icon={faTimes} size="lg" />
+                        </button>
+                        <div className="p-2">
+                            <PedidoForm pedidoId={newPedidoId} />
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <PedidoDetalhesSidebar
                 pedido={selectedPedido}
                 isOpen={isSidebarOpen}
@@ -295,6 +293,16 @@ export default function PedidosPage() {
                         queryClient.invalidateQueries({ queryKey: ['pedido', selectedPedido.id] });
                     }
                 }}
+                solicitantes={solicitantes}
+                empreendimentos={empreendimentos}
+                // =================================================================================
+                // NOVA PROPRIEDADE CONECTADA
+                // =================================================================================
+                onEditCompleto={(pedidoToEdit) => {
+                    setNewPedidoId(pedidoToEdit.id); // Reutiliza o estado do modal de criação
+                    setIsNewOrderModalOpen(true);    // Abre o modal
+                    setIsSidebarOpen(false);         // Fecha o sidebar para limpar a tela
+                }}
             />
 
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -304,9 +312,10 @@ export default function PedidosPage() {
                 <button
                     onClick={() => createPedidoMutation.mutate()}
                     disabled={createPedidoMutation.isPending}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 w-full md:w-auto"
+                    className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 w-full md:w-auto flex items-center justify-center gap-2 font-medium"
                 >
-                    {createPedidoMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : '+ Nova Solicitação'}
+                    {createPedidoMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPlus} />}
+                    Novo Pedido
                 </button>
             </div>
 
@@ -319,22 +328,21 @@ export default function PedidosPage() {
 
             <div className="p-4 bg-gray-50 border rounded-lg space-y-4">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                     <input type="text" placeholder="Buscar por título ou item..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded-md lg:col-span-2"/>
-                     <select value={selectedSolicitante} onChange={e => setSelectedSolicitante(e.target.value)} className="p-2 border rounded-md">
-                         <option value="">Todos Solicitantes</option>
-                         {/* Garante que o ID seja string para comparação no filtro */}
-                         {solicitantes.map(s => <option key={s.id} value={s.id.toString()}>{s.nome} {s.sobrenome}</option>)}
-                     </select>
+                      <input type="text" placeholder="Buscar por título ou item..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded-md lg:col-span-2"/>
+                      <select value={selectedSolicitante} onChange={e => setSelectedSolicitante(e.target.value)} className="p-2 border rounded-md">
+                           <option value="">Todos Solicitantes</option>
+                           {solicitantes.map(s => <option key={s.id} value={s.id.toString()}>{s.nome} {s.sobrenome}</option>)}
+                      </select>
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:col-span-4 lg:grid-cols-4 gap-4 items-end">
-                     <div>
-                         <label className="text-xs">De:</label>
-                         <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border rounded-md w-full" />
-                     </div>
-                     <div>
-                         <label className="text-xs">Até:</label>
-                         <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border rounded-md w-full" />
-                     </div>
+                      <div>
+                           <label className="text-xs">De:</label>
+                           <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border rounded-md w-full" />
+                      </div>
+                      <div>
+                           <label className="text-xs">Até:</label>
+                           <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border rounded-md w-full" />
+                      </div>
                  </div>
             </div>
 
@@ -359,7 +367,6 @@ export default function PedidosPage() {
                 <div className="bg-white p-4 rounded-lg shadow">
                     <ComprasKanban
                         pedidos={filteredPedidosKanban}
-                        // setPedidos não é mais necessário aqui, use invalidateQueries
                         onCardClick={handleCardClick}
                     />
                 </div>
