@@ -20,7 +20,8 @@ import { toast } from 'sonner';
 import AtividadeDetalhesSidebar from '@/components/atividades/AtividadeDetalhesSidebar';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-const ACTIVITIES_CACHE_KEY = 'atividadesPageData';
+// REMOVEMOS A LÓGICA DE CACHE MANUAL (ACTIVITIES_CACHE_KEY e getCachedData)
+// O QueryProvider.js (React Query) agora cuida disso automaticamente.
 const ACTIVITIES_UI_STATE_KEY = 'atividadesUiState';
 
 const fetchAllActivities = async (supabase, organizacaoId) => {
@@ -48,16 +49,7 @@ const fetchAuxiliaryData = async (supabase, organizacaoId) => {
     return { funcionarios: funcData || [], allEmpresas: empresasData || [] };
 };
 
-const getCachedData = (key) => {
-    try {
-        const cachedData = localStorage.getItem(key);
-        return cachedData ? JSON.parse(cachedData) : undefined;
-    } catch (error) {
-        console.error(`Erro ao ler o cache (${key}):`, error);
-        localStorage.removeItem(key);
-    }
-    return undefined;
-};
+// FUNÇÃO REMOVIDA: getCachedData(key) - Não é mais necessária.
 
 export default function AtividadesPage() {
     const supabase = createClient();
@@ -86,7 +78,7 @@ export default function AtividadesPage() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [selectedActivityForSidebar, setSelectedActivityForSidebar] = useState(null);
     
-    const isInitialFetchCompleted = useRef(false);
+    // REMOVIDO: isInitialFetchCompleted = useRef(false) - Não é mais necessário.
 
     useEffect(() => {
         if (!authLoading && !canViewPage) {
@@ -97,13 +89,15 @@ export default function AtividadesPage() {
     useEffect(() => {
         setPageTitle('Painel de Atividades');
         try {
+            // Mantemos o localStorage para FILTROS, isso está correto.
             const savedFilters = localStorage.getItem('atividadesFilters');
             if (savedFilters) {
                 const parsedFilters = JSON.parse(savedFilters);
                 if (!Array.isArray(parsedFilters.status)) parsedFilters.status = [];
                 setFilters(parsedFilters);
             }
-            const savedUiState = getCachedData(ACTIVITIES_UI_STATE_KEY);
+            // Mantemos o localStorage para ESTADO DA UI (aba ativa), isso está correto.
+            const savedUiState = JSON.parse(localStorage.getItem(ACTIVITIES_UI_STATE_KEY) || '{}');
             if (savedUiState && savedUiState.activeTab) {
                 setActiveTab(savedUiState.activeTab);
             }
@@ -114,6 +108,7 @@ export default function AtividadesPage() {
 
     useEffect(() => {
         try {
+            // Salvar filtros no localStorage (Correto)
             localStorage.setItem('atividadesFilters', JSON.stringify(filters));
         } catch (error) {
             console.error("Falha ao salvar filtros no localStorage", error);
@@ -122,6 +117,7 @@ export default function AtividadesPage() {
 
     useEffect(() => {
         try {
+            // Salvar estado da UI no localStorage (Correto)
             const uiState = { activeTab };
             localStorage.setItem(ACTIVITIES_UI_STATE_KEY, JSON.stringify(uiState));
         } catch (error) {
@@ -130,11 +126,11 @@ export default function AtividadesPage() {
     }, [activeTab]);
 
 
-    const { data: allActivities = [], isLoading: isLoadingActivities, isSuccess: isActivitiesSuccess } = useQuery({
+    const { data: allActivities = [], isLoading: isLoadingActivities } = useQuery({
         queryKey: ['atividades', organizacaoId],
         queryFn: () => fetchAllActivities(supabase, organizacaoId),
         enabled: !!organizacaoId && canViewPage,
-        placeholderData: () => getCachedData(ACTIVITIES_CACHE_KEY),
+        // REMOVIDO: placeholderData - O React Query cuida do cache melhor agora.
     });
 
     const { data: auxiliaryData } = useQuery({
@@ -145,26 +141,8 @@ export default function AtividadesPage() {
     });
     const { funcionarios = [], allEmpresas = [] } = auxiliaryData || {};
 
-    useEffect(() => {
-        if (allActivities && isActivitiesSuccess) {
-            try {
-                const cacheKey = ACTIVITIES_CACHE_KEY;
-                const cachedData = localStorage.getItem(cacheKey);
-
-                if (isInitialFetchCompleted.current && JSON.stringify(allActivities) !== cachedData) {
-                    toast.success('Página atualizada!', { duration: 2000 });
-                }
-                
-                localStorage.setItem(cacheKey, JSON.stringify(allActivities));
-
-                if (!isInitialFetchCompleted.current) {
-                    isInitialFetchCompleted.current = true;
-                }
-            } catch (error) {
-                console.error("Erro ao salvar ou notificar o cache de Atividades:", error);
-            }
-        }
-    }, [allActivities, isActivitiesSuccess]);
+    // REMOVIDO: O useEffect complexo que salvava no localStorage e mostrava o toast.
+    // O QueryProvider.js faz isso automaticamente para nós!
 
     const filteredActivities = useMemo(() => {
         return allActivities
