@@ -9,9 +9,6 @@ import {
     faSpinner, faUpload, faLink, faFileImport, faCheckCircle, faMagic, faPlus, 
     faExclamationTriangle, faEraser, faCalendarDay, faCalendarWeek, faCalendarAlt, 
     faUndo, faEye, faEyeSlash, faPenToSquare,
-    // =================================================================================
-    // ATUALIZAÇÃO 1: Importar o ícone de "Excluir"
-    // =================================================================================
     faTrash
 } from '@fortawesome/free-solid-svg-icons';
 import LancamentoFormModal from './LancamentoFormModal';
@@ -51,9 +48,6 @@ const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, startDa
     return data;
 };
 
-// =================================================================================
-// ATUALIZAÇÃO 2: Componente de toast customizado para exclusão de série
-// =================================================================================
 const DeletionToast = ({ toastId, onSingleDelete, onFutureDelete }) => (
     <div className="w-full">
         <p className="font-semibold">Este lançamento faz parte de uma série.</p>
@@ -84,8 +78,16 @@ const DeletionToast = ({ toastId, onSingleDelete, onFutureDelete }) => (
 
 export default function ConciliacaoManager({ contas }) {
     const supabase = createClient();
-    const { user } = useAuth();
-    const organizacaoId = user?.organizacao_id;
+    
+    // =================================================================================
+    // ATUALIZAÇÃO: Correção na busca do organizacaoId
+    // =================================================================================
+    // Em vez de pegar o ID de dentro do 'user', pegamos direto do hook 'useAuth'
+    // que é mais confiável e reflete a autenticação principal.
+    const { user, organizacao_id } = useAuth();
+    const organizacaoId = organizacao_id; // Usando o ID direto do contexto
+    // =================================================================================
+    
     const queryClient = useQueryClient();
 
     const [selectedContaId, setSelectedContaId] = useState(() => (typeof window !== 'undefined' ? sessionStorage.getItem('lastSelectedConciliationAccountId') || '' : ''));
@@ -115,7 +117,6 @@ export default function ConciliacaoManager({ contas }) {
         enabled: !!(selectedContaId && organizacaoId && extratoPeriodo.startDate && extratoPeriodo.endDate),
     });
 
-    // Ação de DESFAZER (já existia)
     const undoConciliationMutation = useMutation({
         mutationFn: async (lancamentoId) => {
             const { data, error } = await supabase
@@ -142,10 +143,7 @@ export default function ConciliacaoManager({ contas }) {
             toast.error(`Erro ao desfazer: ${error.message}`);
         }
     });
-
-    // =================================================================================
-    // ATUALIZAÇÃO 3: Adicionar as 'mutations' de exclusão
-    // =================================================================================
+    
     const onActionSuccess = () => {
         queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
     };
@@ -179,11 +177,7 @@ export default function ConciliacaoManager({ contas }) {
         onError: (error) => toast.error(`Erro ao excluir futuros: ${error.message}`),
     });
 
-    // =================================================================================
-    // ATUALIZAÇÃO 4: Adicionar a função 'handleDelete' (lógica de confirmação)
-    // =================================================================================
     const handleDelete = (item) => {
-        // Se não for de um grupo (parcela), usa o toast simples
         if (!item.parcela_grupo) {
             toast("Excluir Lançamento", {
                 description: `Tem certeza que deseja excluir "${item.descricao}"?`,
@@ -200,7 +194,6 @@ export default function ConciliacaoManager({ contas }) {
             return;
         }
 
-        // Se for de um grupo, usa o toast customizado
         toast.custom((t) => (
             <DeletionToast
                 toastId={t}
@@ -215,7 +208,7 @@ export default function ConciliacaoManager({ contas }) {
                     error: (err) => `Erro: ${err.message}`,
                 })}
             />
-        ), { duration: 10000 }); // Tempo extra para o usuário decidir
+        ), { duration: 10000 });
     };
 
 
@@ -387,6 +380,13 @@ export default function ConciliacaoManager({ contas }) {
     };
     
     const handleConfirmMatches = async () => {
+        // Trava de segurança para RLS (Row Level Security)
+        // Agora usa o 'organizacaoId' vindo direto do 'useAuth'
+        if (!user || !user.id || !organizacaoId) {
+            toast.error("Erro de autenticação. Não foi possível identificar seu usuário ou organização. Por favor, recarregue a página.");
+            return;
+        }
+
         if (conciliationState.matches.length === 0) return;
         if (!file) {
             toast.error("O arquivo OFX não foi encontrado. Por favor, reinicie o processo.");
@@ -454,7 +454,7 @@ export default function ConciliacaoManager({ contas }) {
             const historicoRecord = {
                 usuario_id: user.id,
                 conta_financeira_id: selectedContaId,
-                organizacao_id: organizacaoId,
+                organizacao_id: organizacaoId, // <-- Agora usa o ID confiável
                 caminho_arquivo_ofx: uploadData.path,
                 periodo_inicio_extrato: extratoPeriodo.startDate,
                 periodo_fim_extrato: extratoPeriodo.endDate,
@@ -635,11 +635,11 @@ export default function ConciliacaoManager({ contas }) {
         const isReceita = (type === 'sistema' && item.tipo === 'Receita') || (type === 'extrato' && item.valor > 0);
         const valorClass = isReceita ? 'text-green-600' : 'text-red-600';
         const dataExibicao = type === 'sistema' ? (item.data_pagamento || item.data_vencimento) : item.data;
-
-        // =================================================================================
-        // ATUALIZAÇÃO 5: Adicionar 'gap-2' para espaçar os ícones de ação
-        // =================================================================================
-        const actionsCellClass = "col-span-2 text-center h-8 flex items-center justify-center gap-2";
+        
+        // Correção do layout "cagado"
+        const actionsCellClass = `col-span-2 text-center h-8 flex items-center gap-2 ${
+            type === 'sistema' ? 'justify-end' : 'justify-start'
+        }`;
         
         return (
             <div 
@@ -654,6 +654,7 @@ export default function ConciliacaoManager({ contas }) {
                 
                 <div className={actionsCellClass}>
                     
+                    {/* --- LADO DIREITO (EXTRATO) --- */}
                     {type === 'extrato' && item.conciliationStatus === 'pendente' && (
                         <button onClick={(e) => { e.stopPropagation(); handleCreateLancamento(item); }} className="bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold px-2 py-1 rounded-md">
                             <FontAwesomeIcon icon={faPlus} /> Criar
@@ -664,38 +665,35 @@ export default function ConciliacaoManager({ contas }) {
                         <FontAwesomeIcon icon={faCheckCircle} className="text-green-600" title="Conciliado" />
                     )}
 
+                    {/* --- LADO ESQUERDO (SISTEMA) --- */}
+                    
                     {type === 'sistema' && (
-                        <>
-                            {/* Botão Editar */}
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation(); 
-                                    handleOpenEditModal(item);
-                                }}
-                                className="text-blue-600 hover:text-blue-800 text-xs font-bold px-1 py-1 rounded-md"
-                                title="Editar Lançamento"
-                            >
-                                <FontAwesomeIcon icon={faPenToSquare} />
-                            </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation(); 
+                                handleOpenEditModal(item);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 text-xs font-bold px-1 py-1 rounded-md"
+                            title="Editar Lançamento"
+                        >
+                            <FontAwesomeIcon icon={faPenToSquare} />
+                        </button>
+                    )}
 
-                            {/* =================================================================================
-                            // ATUALIZAÇÃO 6: Adicionar o botão de "Excluir"
-                            // ================================================================================= */}
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete(item);
-                                }}
-                                className="text-red-500 hover:text-red-700 text-xs font-bold px-1 py-1 rounded-md"
-                                title="Excluir Lançamento"
-                            >
-                                <FontAwesomeIcon icon={faTrash} />
-                            </button>
-                        </>
+                    {type === 'sistema' && (item.conciliationStatus === 'pendente' || item.conciliationStatus === 'sessionMatch') && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(item);
+                            }}
+                            className="text-red-500 hover:text-red-700 text-xs font-bold px-1 py-1 rounded-md"
+                            title="Excluir Lançamento"
+                        >
+                            <FontAwesomeIcon icon={faTrash} />
+                        </button>
                     )}
 
                     {type === 'sistema' && item.conciliationStatus === 'dbConciliated' && (
-                        /* Botão Desfazer */
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
