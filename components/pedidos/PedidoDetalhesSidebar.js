@@ -1,3 +1,4 @@
+// components/pedidos/PedidoDetalhesSidebar.js
 "use client";
 
 import { useState } from 'react';
@@ -15,7 +16,7 @@ const InfoField = ({ icon, label, value }) => {
                 <FontAwesomeIcon icon={icon} className="w-3 h-3" />
                 {label}
             </dt>
-            <dd className="mt-1 text-sm text-gray-900">{value}</dd>
+            <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{value}</dd>
         </div>
     );
 };
@@ -109,10 +110,7 @@ export default function PedidoDetalhesSidebar({ isOpen, onClose, pedido, onUpdat
             }
         }
 
-        // ***** INÍCIO DA CORREÇÃO *****
-        // O 'porquê': Usa 'empresa_proprietaria_id' que agora é buscado na query principal.
         const empresaIdCorreta = pedido.empreendimentos?.empresa_proprietaria_id || null;
-        // ***** FIM DA CORREÇÃO *****
 
         const initial = {
             descricao: `Pagamento Ref. Pedido de Compra #${pedido.id} - ${pedido.titulo || ''}`.trim(),
@@ -129,7 +127,6 @@ export default function PedidoDetalhesSidebar({ isOpen, onClose, pedido, onUpdat
                 nome_arquivo: notaFiscalAnexo.nome_arquivo,
                 descricao: notaFiscalAnexo.descricao,
             } : null,
-            // Adiciona o ID do pedido ao lançamento para referência futura, se necessário
              pedido_compra_id: pedido.id
         };
 
@@ -170,6 +167,18 @@ export default function PedidoDetalhesSidebar({ isOpen, onClose, pedido, onUpdat
                             </div>
                             <dl className="grid grid-cols-1 gap-y-4">
                                 <InfoField icon={faAlignLeft} label="Justificativa" value={pedido.justificativa} />
+                                {/* // =================================================================================
+                                // INÍCIO DA ALTERAÇÃO
+                                // O PORQUÊ: Adicionamos a exibição do novo campo 'observacoes'.
+                                // Também adicionei 'whitespace-pre-wrap' ao InfoField para 
+                                // respeitar quebras de linha que o usuário digitar.
+                                // =================================================================================
+                                */}
+                                <InfoField icon={faAlignLeft} label="Observações do Solicitante" value={pedido.observacoes} />
+                                {/* // =================================================================================
+                                // FIM DA ALTERAÇÃO
+                                // =================================================================================
+                                */}
                                 <InfoField icon={faBuilding} label="Empreendimento" value={pedido.empreendimentos?.nome} />
                                 <InfoField icon={faUser} label="Solicitante" value={pedido.solicitante?.nome} />
                                 <div>

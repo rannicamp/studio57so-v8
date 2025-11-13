@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTrash, faPlus, faPencilAlt, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom, faHandHoldingDollar } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTrash, faPlus, faPencilAlt, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom, faHandHoldingDollar, faAlignLeft } from '@fortawesome/free-solid-svg-icons';
 import PedidoItemModal from './PedidoItemModal';
 import LancamentoFormModal from './financeiro/LancamentoFormModal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -279,11 +279,6 @@ export default function PedidoForm({ pedidoId }) {
         });
     };
     
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: Implementamos a lógica que faltava nesta função. Agora ela prepara
-    // os dados do pedido e abre o modal de lançamento financeiro, como esperado.
-    // =================================================================================
     const handleOpenLancamentoModal = () => {
         if (!pedido || !pedido.itens || pedido.itens.length === 0) {
             toast.error("Adicione itens ao pedido antes de planejar um pagamento.");
@@ -314,7 +309,7 @@ export default function PedidoForm({ pedidoId }) {
             favorecido_contato_id: allSameFornecedor ? firstFornecedorId : null,
             empreendimento_id: pedido.empreendimento_id,
             empresa_id: pedido.empreendimentos?.empresa_id || null,
-            etapa_id: etapaId, // Corrigido para etapa_id
+            etapa_id: etapaId, 
             anexo_preexistente: notaFiscalAnexo ? {
                 caminho_arquivo: notaFiscalAnexo.caminho_arquivo,
                 nome_arquivo: notaFiscalAnexo.nome_arquivo,
@@ -325,9 +320,6 @@ export default function PedidoForm({ pedidoId }) {
         setLancamentoInitialData(initial);
         setIsLancamentoModalOpen(true);
     };
-    // =================================================================================
-    // FIM DA CORREÇÃO
-    // =================================================================================
     
     const handleSelectionChange = (itemId) => { /* ... (lógica original mantida) ... */ };
     const handleEditClick = (item) => { setEditingItem(item); setIsItemModalOpen(true); };
@@ -353,6 +345,31 @@ export default function PedidoForm({ pedidoId }) {
                         <div className="flex items-center gap-2"> <label className="font-bold">Entrega:</label> <input type="date" value={pedidoHeader.data_entrega_prevista || ''} onChange={(e) => handleHeaderFieldChange('data_entrega_prevista', e.target.value)} onBlur={() => handleHeaderFieldSave('data_entrega_prevista')} className="p-1 border rounded-md"/> </div>
                         <div className="flex items-center gap-2"> <label className="font-bold">Turno:</label> <select value={pedidoHeader.turno_entrega || ''} onChange={(e) => handleHeaderFieldChange('turno_entrega', e.target.value)} onBlur={() => handleHeaderFieldSave('turno_entrega')} className="p-1 border rounded-md"> <option value="">Nenhum</option> <option value="Manhã">Manhã</option> <option value="Tarde">Tarde</option> <option value="Noite">Noite</option> </select> </div>
                     </div>
+                    {/* // =================================================================================
+                    // INÍCIO DA ALTERAÇÃO
+                    // O PORQUÊ: Adicionamos o campo de 'observacoes' que criamos no banco de dados.
+                    // Ele usa os mesmos manipuladores de estado (handleHeaderFieldChange) e
+                    // de salvamento (handleHeaderFieldSave) que os outros campos.
+                    // =================================================================================
+                    */}
+                    <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faAlignLeft} />
+                            Observações:
+                        </label>
+                        <textarea
+                            value={pedidoHeader.observacoes || ''}
+                            onChange={(e) => handleHeaderFieldChange('observacoes', e.target.value)}
+                            onBlur={() => handleHeaderFieldSave('observacoes')}
+                            rows="3"
+                            placeholder="Ex: Material de uso urgente, priorizar cotação com Fornecedor X..."
+                            className="mt-1 w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-200"
+                        />
+                    </div>
+                    {/* // =================================================================================
+                    // FIM DA ALTERAÇÃO
+                    // =================================================================================
+                    */}
                 </div>
                 
                 <div className="border-t pt-6">
