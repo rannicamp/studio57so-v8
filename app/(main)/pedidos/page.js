@@ -4,11 +4,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import ComprasKanban from '../../../components/ComprasKanban';
+import PedidoItensTable from '../../../components/pedidos/PedidoItensTable'; 
 import { useLayout } from '../../../contexts/LayoutContext';
 import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faBoxOpen, faClock, faHourglassHalf, faClipboardList, faPlus, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faBoxOpen, faClock, faHourglassHalf, faClipboardList, faPlus, faTimes, faThLarge, faList } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
 import KpiCard from '@/components/KpiCard';
 import PedidoDetalhesSidebar from '@/components/pedidos/PedidoDetalhesSidebar';
@@ -63,6 +64,8 @@ export default function PedidosPage() {
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
+    const [activeTab, setActiveTab] = useState('kanban');
+
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSolicitante, setSelectedSolicitante] = useState('');
     const [startDate, setStartDate] = useState('');
@@ -82,7 +85,6 @@ export default function PedidosPage() {
         setPageTitle('Painel de Compras');
     }, [setPageTitle]);
 
-    // ======================= useQuery (Carregamento Mágico) =======================
     const { data, isLoading, isError, error, isFetching } = useQuery({
         queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento],
         queryFn: () => fetchPainelData(supabase, organizacaoId, selectedEmpreendimento),
@@ -91,7 +93,6 @@ export default function PedidosPage() {
         refetchOnWindowFocus: true,
     });
 
-    // Efeito para a notificação de atualização (Carregamento Mágico)
     useEffect(() => {
         let isRefetching = false;
         if (queryClient.getQueryState(['painelCompras', organizacaoId, selectedEmpreendimento])?.isFetching && !isLoading) {
@@ -107,13 +108,11 @@ export default function PedidosPage() {
             return () => clearTimeout(timer);
         }
     }, [isFetching, isLoading, data, queryClient, organizacaoId, selectedEmpreendimento]);
-    // ==============================================================================
 
 
     const pedidos = data?.pedidos || [];
     const solicitantes = data?.solicitantes || [];
 
-    // useMemo para filtrar pedidos (para o KANBAN)
     const filteredPedidosKanban = useMemo(() => {
         return pedidos.filter(pedido => {
             if (selectedSolicitante && pedido.solicitante?.id?.toString() !== selectedSolicitante) return false;
@@ -132,7 +131,6 @@ export default function PedidosPage() {
         });
     }, [pedidos, searchTerm, selectedSolicitante, startDate, endDate]);
 
-    // useEffect dos KPIs (SEU CÓDIGO ORIGINAL MANTIDO)
     useEffect(() => {
         const calculateKpis = async () => {
             const localFilteredPedidos = filteredPedidosKanban;
@@ -204,10 +202,8 @@ export default function PedidosPage() {
              calculateKpis();
         }
     }, [filteredPedidosKanban, supabase]);
-    // ========================================================================
 
 
-    // ======================= useMutation (Criar Pedido) =======================
     const createPedidoMutation = useMutation({
         mutationFn: async () => {
             if (!user || !user.id || !organizacaoId) {
@@ -246,7 +242,6 @@ export default function PedidosPage() {
             toast.error(`Falha ao criar solicitação: ${error.message}`);
         }
     });
-    // ===================================================================================
 
 
     const handleCardClick = (pedido) => {
@@ -262,6 +257,21 @@ export default function PedidosPage() {
         setNewPedidoId(null);
         queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento] });
     };
+
+    const TabButton = ({ tabName, label, icon }) => (
+        <button 
+            onClick={() => setActiveTab(tabName)} 
+            className={`
+                whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors
+                ${activeTab === tabName 
+                    ? 'border-blue-500 text-blue-600 bg-blue-50/50' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'}
+            `}
+        >
+            <FontAwesomeIcon icon={icon} />
+            {label}
+        </button>
+    );
 
     // JSX Principal
     return (
@@ -295,13 +305,10 @@ export default function PedidosPage() {
                 }}
                 solicitantes={solicitantes}
                 empreendimentos={empreendimentos}
-                // =================================================================================
-                // NOVA PROPRIEDADE CONECTADA
-                // =================================================================================
                 onEditCompleto={(pedidoToEdit) => {
-                    setNewPedidoId(pedidoToEdit.id); // Reutiliza o estado do modal de criação
-                    setIsNewOrderModalOpen(true);    // Abre o modal
-                    setIsSidebarOpen(false);         // Fecha o sidebar para limpar a tela
+                    setNewPedidoId(pedidoToEdit.id);
+                    setIsNewOrderModalOpen(true);
+                    setIsSidebarOpen(false);
                 }}
             />
 
@@ -346,6 +353,13 @@ export default function PedidosPage() {
                  </div>
             </div>
 
+            <div className="border-b border-gray-200 bg-white shadow-sm rounded-t-lg">
+                <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">
+                    <TabButton tabName="kanban" label="Visão Kanban" icon={faThLarge} />
+                    <TabButton tabName="itens" label="Visão de Itens (Materiais)" icon={faList} />
+                </nav>
+            </div>
+
             {isFetching && !isLoading && (
                  <div className="fixed bottom-4 right-4 z-50 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
                     <FontAwesomeIcon icon={faSpinner} spin />
@@ -364,12 +378,30 @@ export default function PedidosPage() {
                     <span className="block sm:inline"> {error.message}</span>
                 </div>
             ) : (
-                <div className="bg-white p-4 rounded-lg shadow">
-                    <ComprasKanban
-                        pedidos={filteredPedidosKanban}
-                        onCardClick={handleCardClick}
-                    />
+                // =================================================================================
+                // INÍCIO DA CORREÇÃO
+                // O PORQUÊ: Aplicamos a classe condicional aqui.
+                // =================================================================================
+                <div className={
+                    activeTab === 'kanban' 
+                        ? 'rounded-b-lg' // Kanban não tem padding ou fundo
+                        : 'bg-white p-4 rounded-lg shadow rounded-t-none border-t-0' // Tabela tem
+                }>
+                    {activeTab === 'kanban' ? (
+                        <ComprasKanban
+                            pedidos={filteredPedidosKanban}
+                            onCardClick={handleCardClick}
+                        />
+                    ) : (
+                        <PedidoItensTable
+                            pedidos={filteredPedidosKanban}
+                            onCardClick={handleCardClick}
+                        />
+                    )}
                 </div>
+                // =================================================================================
+                // FIM DA CORREÇÃO
+                // =================================================================================
             )}
         </div>
     );
