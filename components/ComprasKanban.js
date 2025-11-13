@@ -1,21 +1,23 @@
 // components/ComprasKanban.js
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
 import PedidoCard from './PedidoCard';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSort, faSpinner } from '@fortawesome/free-solid-svg-icons';
 
-// Definição das colunas do Kanban
+// Definição das colunas do Kanban (Fluxo Fixo)
 const statusColumns = [
     { id: 'Solicitação', title: 'Solicitação' },
     { id: 'Pedido Visto', title: 'Pedido Visto' },
     { id: 'Em Cotação', title: 'Em Cotação' },
     { id: 'Em Negociação', title: 'Em Negociação' },
     { id: 'Revisão do Responsável', title: 'Revisão do Responsável' },
-    { id: 'Realizado', title: 'Realizado (Aguardando Entrega)' },
+    { id: 'Realizado', title: 'Realizado' },
     { id: 'Entregue', title: 'Entregue' },
     { id: 'Cancelado', title: 'Cancelado' },
 ];
@@ -24,66 +26,63 @@ export default function ComprasKanban({ pedidos, onCardClick }) {
     const supabase = createClient();
     const { user } = useAuth();
     const queryClient = useQueryClient();
+    
+    // Estados de Drag & Drop e UI
     const [draggedPedido, setDraggedPedido] = useState(null);
     const [dragOverColumn, setDragOverColumn] = useState(null);
+    
+    // Estados de Ordenação
+    const [sorting, setSorting] = useState({});
+    const [openSortMenu, setOpenSortMenu] = useState(null);
+    const sortMenuRef = useRef(null);
 
-    // Agrupa os pedidos por status
-    const columns = useMemo(() => {
-        const cols = statusColumns.map(c => ({ ...c, pedidos: [] }));
-        pedidos.forEach(pedido => {
-            const columnIndex = cols.findIndex(c => c.id === pedido.status);
-            if (columnIndex !== -1) {
-                cols[columnIndex].pedidos.push(pedido);
-            } else {
-                // Se o status não bater com nenhuma coluna, joga na primeira (fallback) ou cria uma "Outros"
-                // Por segurança, vamos ignorar ou logar, mas aqui assumimos que status são válidos.
+    // Estados para Rolagem Horizontal (Mouse Drag)
+    const scrollContainerRef = useRef(null);
+    const [isDraggingScroll, setIsDraggingScroll] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [scrollLeft, setScrollLeft] = useState(0);
+
+    // Fechar menu de ordenação ao clicar fora
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
+                setOpenSortMenu(null);
             }
-        });
-        return cols;
-    }, [pedidos]);
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [sortMenuRef]);
 
-    // Mutation para atualizar o status (Ao arrastar ou clicar no menu)
+    // Mutation para atualizar o status
     const updateStatusMutation = useMutation({
         mutationFn: async ({ pedidoId, newStatus }) => {
             const { error } = await supabase
                 .from('pedidos_compra')
                 .update({ status: newStatus })
                 .eq('id', pedidoId);
-
             if (error) throw error;
             return { pedidoId, newStatus };
         },
-        onMutate: async ({ pedidoId, newStatus }) => {
-            // Otimização Opcional: Poderíamos atualizar o cache localmente antes do servidor responder (Optimistic Update)
-            // Mas para simplificar e evitar bugs, vamos confiar na invalidação rápida.
-        },
         onSuccess: () => {
-            // O PULO DO GATO: Avisa ao sistema que os dados mudaram.
-            // Isso faz a page.js recarregar os dados automaticamente.
             queryClient.invalidateQueries({ queryKey: ['painelCompras'] });
             toast.success('Status atualizado!');
         },
-        onError: (error) => {
-            toast.error(`Erro ao atualizar status: ${error.message}`);
-        }
+        onError: (error) => toast.error(`Erro ao atualizar status: ${error.message}`)
     });
 
-    // Mutation para Duplicar Pedido
+    // Mutation para Duplicar
     const duplicatePedidoMutation = useMutation({
         mutationFn: async (pedidoOriginal) => {
-            // Prepara o objeto para cópia (removendo ID, datas, etc)
             const { id, created_at, updated_at, data_solicitacao, status, ...rest } = pedidoOriginal;
-            
             const novoPedido = {
                 ...rest,
                 titulo: `${pedidoOriginal.titulo} (Cópia)`,
-                status: 'Solicitação', // Volta para o início
+                status: 'Solicitação',
                 data_solicitacao: new Date().toISOString(),
-                solicitante_id: user.id, // O solicitante passa a ser quem duplicou
+                solicitante_id: user.id,
                 organizacao_id: user.organizacao_id
             };
 
-            // 1. Cria o Pedido
             const { data: pedidoCriado, error: erroPedido } = await supabase
                 .from('pedidos_compra')
                 .insert(novoPedido)
@@ -92,100 +91,197 @@ export default function ComprasKanban({ pedidos, onCardClick }) {
 
             if (erroPedido) throw erroPedido;
 
-            // 2. Copia os Itens (se houver)
             if (pedidoOriginal.itens && pedidoOriginal.itens.length > 0) {
                 const itensParaCopiar = pedidoOriginal.itens.map(item => {
                     const { id, pedido_compra_id, created_at, ...itemRest } = item;
-                    return {
-                        ...itemRest,
-                        pedido_compra_id: pedidoCriado.id,
-                        organizacao_id: user.organizacao_id
-                    };
+                    return { ...itemRest, pedido_compra_id: pedidoCriado.id, organizacao_id: user.organizacao_id };
                 });
-
-                const { error: erroItens } = await supabase
-                    .from('pedidos_compra_itens')
-                    .insert(itensParaCopiar);
-                
-                if (erroItens) console.error("Erro ao copiar itens:", erroItens); // Não trava a UI se falhar item
+                await supabase.from('pedidos_compra_itens').insert(itensParaCopiar);
             }
-
             return pedidoCriado;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['painelCompras'] });
             toast.success('Pedido duplicado com sucesso!');
         },
-        onError: (error) => {
-            toast.error(`Erro ao duplicar: ${error.message}`);
-        }
+        onError: (error) => toast.error(`Erro ao duplicar: ${error.message}`)
     });
 
+    // --- Lógica de Rolagem Horizontal (Igual ao CRM) ---
+    const handleMouseDown = (e) => {
+        if (e.target.closest('.kanban-card') || e.target.closest('button')) return;
+        setIsDraggingScroll(true);
+        const container = scrollContainerRef.current;
+        setStartX(e.pageX - container.offsetLeft);
+        setScrollLeft(container.scrollLeft);
+        container.style.cursor = 'grabbing';
+    };
 
-    // Handlers de Drag and Drop
+    const handleMouseLeaveOrUp = () => {
+        if (!isDraggingScroll) return;
+        setIsDraggingScroll(false);
+        if (scrollContainerRef.current) scrollContainerRef.current.style.cursor = 'grab';
+    };
+
+    const handleMouseMove = (e) => {
+        if (!isDraggingScroll) return;
+        e.preventDefault();
+        const container = scrollContainerRef.current;
+        const x = e.pageX - container.offsetLeft;
+        const walk = (x - startX);
+        container.scrollLeft = scrollLeft - walk;
+    };
+
+    // --- Lógica de Ordenação ---
+    const sortOptions = [
+        { value: '', label: 'Padrão' },
+        { value: 'titulo_asc', label: 'Nome (A-Z)' },
+        { value: 'titulo_desc', label: 'Nome (Z-A)' },
+        { value: 'data_entrega_prevista_asc', label: 'Entrega (Mais Próxima)' },
+        { value: 'data_entrega_prevista_desc', label: 'Entrega (Mais Distante)' },
+        { value: 'data_solicitacao_desc', label: 'Solicitação (Mais Recente)' },
+        { value: 'data_solicitacao_asc', label: 'Solicitação (Mais Antiga)' },
+    ];
+
+    const handleSortChange = (colunaId, sortValue) => {
+        if (!sortValue) {
+            const newSorting = { ...sorting };
+            delete newSorting[colunaId];
+            setSorting(newSorting);
+        } else {
+            const lastUnderscoreIndex = sortValue.lastIndexOf('_');
+            const sortBy = sortValue.substring(0, lastUnderscoreIndex);
+            const order = sortValue.substring(lastUnderscoreIndex + 1);
+            setSorting(prev => ({ ...prev, [colunaId]: { sortBy, order } }));
+        }
+        setOpenSortMenu(null);
+    };
+
+    // Agrupa e Ordena Pedidos
+    const pedidosPorColuna = useMemo(() => {
+        const grouped = {};
+        statusColumns.forEach(coluna => {
+            // Filtra pedidos da coluna
+            const pedidosDaColuna = [...pedidos.filter(p => p.status === coluna.id)];
+            
+            // Aplica ordenação se houver configuração para esta coluna
+            const sortConfig = sorting[coluna.id];
+            if (sortConfig) {
+                pedidosDaColuna.sort((a, b) => {
+                    const { sortBy, order } = sortConfig;
+                    let valA, valB;
+
+                    // Mapeia os campos
+                    if (sortBy === 'titulo') {
+                        valA = a.titulo?.toLowerCase() || '';
+                        valB = b.titulo?.toLowerCase() || '';
+                    } else if (sortBy === 'data_entrega_prevista' || sortBy === 'data_solicitacao') {
+                        valA = a[sortBy] ? new Date(a[sortBy]) : null;
+                        valB = b[sortBy] ? new Date(b[sortBy]) : null;
+                    }
+
+                    // Lógica de comparação
+                    if (valA === valB) return 0;
+                    if (valA === null) return 1; // Nulos no final
+                    if (valB === null) return -1;
+
+                    const direction = order === 'asc' ? 1 : -1;
+                    
+                    if (valA instanceof Date) return (valA - valB) * direction;
+                    if (typeof valA === 'string') return valA.localeCompare(valB) * direction;
+                    
+                    return 0;
+                });
+            } else {
+                // Ordenação padrão (Data de criação mais recente primeiro)
+                pedidosDaColuna.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            }
+            grouped[coluna.id] = pedidosDaColuna;
+        });
+        return grouped;
+    }, [pedidos, sorting]);
+
+
+    // --- Drag & Drop dos Cards ---
     const handleDragStart = (e, pedido) => {
         setDraggedPedido(pedido);
         e.dataTransfer.effectAllowed = 'move';
-        // Hack para esconder a imagem fantasma padrão ou customizá-la se quisesse
-        // e.dataTransfer.setDragImage(new Image(), 0, 0); 
     };
 
     const handleDragOver = (e, columnId) => {
-        e.preventDefault(); // Necessário para permitir o drop
+        e.preventDefault();
         setDragOverColumn(columnId);
     };
 
     const handleDrop = (e, targetColumnId) => {
         e.preventDefault();
         setDragOverColumn(null);
-
         if (!draggedPedido) return;
-        if (draggedPedido.status === targetColumnId) return; // Soltou na mesma coluna
+        if (draggedPedido.status === targetColumnId) return;
 
-        updateStatusMutation.mutate({ 
-            pedidoId: draggedPedido.id, 
-            newStatus: targetColumnId 
-        });
+        updateStatusMutation.mutate({ pedidoId: draggedPedido.id, newStatus: targetColumnId });
         setDraggedPedido(null);
     };
 
-    const handleCardStatusChange = (pedidoId, newStatus) => {
-        updateStatusMutation.mutate({ pedidoId, newStatus });
-    };
-
-    const handleDuplicate = (pedido) => {
-        duplicatePedidoMutation.mutate(pedido);
-    };
-
     return (
-        <div className="flex overflow-x-auto pb-4 gap-4 h-full min-h-[calc(100vh-200px)]">
-            {columns.map(column => (
+        <div 
+            ref={scrollContainerRef}
+            className="flex gap-4 overflow-x-auto p-4 h-full bg-gray-100 cursor-grab min-h-[calc(100vh-200px)]"
+            onMouseDown={handleMouseDown}
+            onMouseLeave={handleMouseLeaveOrUp}
+            onMouseUp={handleMouseLeaveOrUp}
+            onMouseMove={handleMouseMove}
+        >
+            {statusColumns.map(column => (
                 <div 
                     key={column.id}
-                    className={`flex-shrink-0 w-80 flex flex-col rounded-lg transition-colors duration-200 ${dragOverColumn === column.id ? 'bg-blue-50 ring-2 ring-blue-300' : 'bg-gray-100'}`}
+                    className="w-80 flex-shrink-0 bg-white rounded-lg shadow-sm flex flex-col kanban-card"
                     onDragOver={(e) => handleDragOver(e, column.id)}
                     onDrop={(e) => handleDrop(e, column.id)}
                 >
-                    {/* Cabeçalho da Coluna */}
-                    <div className={`p-3 rounded-t-lg font-semibold text-sm flex justify-between items-center
-                        ${column.id === 'Solicitação' ? 'bg-gray-200 text-gray-700' : ''}
-                        ${column.id === 'Pedido Visto' ? 'bg-blue-100 text-blue-700' : ''}
-                        ${column.id === 'Em Cotação' ? 'bg-yellow-100 text-yellow-700' : ''}
-                        ${column.id === 'Em Negociação' ? 'bg-purple-100 text-purple-700' : ''}
-                        ${column.id === 'Realizado' ? 'bg-indigo-100 text-indigo-700' : ''}
-                        ${column.id === 'Entregue' ? 'bg-green-100 text-green-700' : ''}
-                        ${column.id === 'Cancelado' ? 'bg-red-100 text-red-700' : ''}
-                        ${!['Solicitação', 'Pedido Visto', 'Em Cotação', 'Em Negociação', 'Realizado', 'Entregue', 'Cancelado'].includes(column.id) ? 'bg-gray-200' : ''}
-                    `}>
-                        <span>{column.title}</span>
-                        <span className="bg-white bg-opacity-50 px-2 py-0.5 rounded-full text-xs">
-                            {column.pedidos.length}
-                        </span>
+                    {/* Cabeçalho da Coluna (Estilo Limpo) */}
+                    <div className="p-3 text-sm font-semibold text-gray-700 border-b bg-gray-50 rounded-t-lg flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <span>{column.title}</span>
+                            <span className="bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+                                {pedidosPorColuna[column.id]?.length || 0}
+                            </span>
+                        </div>
+                        
+                        {/* Menu de Ordenação */}
+                        <div className="relative">
+                            <button 
+                                onClick={() => setOpenSortMenu(openSortMenu === column.id ? null : column.id)} 
+                                className="text-gray-400 hover:text-blue-600 transition-colors p-1"
+                                title="Ordenar coluna"
+                            >
+                                <FontAwesomeIcon icon={faSort} />
+                            </button>
+                            
+                            {openSortMenu === column.id && (
+                                <div ref={sortMenuRef} className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-20 text-left">
+                                    <p className="p-2 font-semibold text-xs text-gray-500 border-b bg-gray-50">Ordenar por:</p>
+                                    {sortOptions.map(option => (
+                                        <button 
+                                            key={option.value} 
+                                            onClick={() => handleSortChange(column.id, option.value)} 
+                                            className={`block w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${
+                                                (sorting[column.id] && `${sorting[column.id].sortBy}_${sorting[column.id].order}` === option.value) || (!sorting[column.id] && option.value === '') 
+                                                ? 'text-blue-600 font-medium bg-blue-50' 
+                                                : 'text-gray-700'
+                                            }`}
+                                        >
+                                            {option.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Área de Conteúdo (Cards) */}
-                    <div className="p-2 flex-1 overflow-y-auto space-y-3 min-h-[100px]">
-                        {column.pedidos.map(pedido => (
+                    <div className={`p-2 flex-1 overflow-y-auto space-y-3 min-h-[100px] ${dragOverColumn === column.id ? 'bg-blue-50/50' : ''}`}>
+                        {pedidosPorColuna[column.id]?.map(pedido => (
                             <div 
                                 key={pedido.id} 
                                 draggable 
@@ -194,15 +290,17 @@ export default function ComprasKanban({ pedidos, onCardClick }) {
                             >
                                 <PedidoCard 
                                     pedido={pedido} 
-                                    onStatusChange={handleCardStatusChange}
-                                    onDuplicate={() => handleDuplicate(pedido)}
+                                    onStatusChange={(pid, status) => updateStatusMutation.mutate({ pedidoId: pid, newStatus: status })}
+                                    onDuplicate={() => duplicatePedidoMutation.mutate(pedido)}
                                     allStatusColumns={statusColumns.map(c => c.id)}
                                     onCardClick={onCardClick}
                                 />
                             </div>
                         ))}
-                        {column.pedidos.length === 0 && (
-                            <div className="h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center text-gray-400 text-xs">
+                        
+                        {/* Placeholder vazio */}
+                        {pedidosPorColuna[column.id]?.length === 0 && (
+                            <div className="h-20 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-xs m-2">
                                 Arraste aqui
                             </div>
                         )}
