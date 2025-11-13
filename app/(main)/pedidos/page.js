@@ -38,7 +38,17 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
             turno_entrega,
             empreendimentos(nome, empresa_proprietaria_id),
             solicitante:solicitante_id(id, nome),
-            itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(nome, razao_social), etapa:etapa_id(nome_etapa)),
+            
+            /* =================================================================================
+             * BUSCA CORRETA VALIDADA PELO ESQUEMA
+             * =================================================================================
+             */
+            itens:pedidos_compra_itens(*, 
+                fornecedor:fornecedor_id(nome, razao_social), 
+                etapa:etapa_id(nome_etapa), 
+                subetapa:subetapa_id(nome_subetapa)
+            ),
+            
             anexos:pedidos_compra_anexos(*)
         `)
         .eq('organizacao_id', organizacaoId);
@@ -378,14 +388,10 @@ export default function PedidosPage() {
                     <span className="block sm:inline"> {error.message}</span>
                 </div>
             ) : (
-                // =================================================================================
-                // INÍCIO DA CORREÇÃO
-                // O PORQUÊ: Aplicamos a classe condicional aqui.
-                // =================================================================================
                 <div className={
                     activeTab === 'kanban' 
-                        ? 'rounded-b-lg' // Kanban não tem padding ou fundo
-                        : 'bg-white p-4 rounded-lg shadow rounded-t-none border-t-0' // Tabela tem
+                        ? 'rounded-b-lg'
+                        : 'bg-white p-4 rounded-lg shadow rounded-t-none border-t-0'
                 }>
                     {activeTab === 'kanban' ? (
                         <ComprasKanban
@@ -399,9 +405,6 @@ export default function PedidosPage() {
                         />
                     )}
                 </div>
-                // =================================================================================
-                // FIM DA CORREÇÃO
-                // =================================================================================
             )}
         </div>
     );

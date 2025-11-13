@@ -3,12 +3,12 @@
 
 import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSort, faSortUp, faSortDown, faExternalLinkAlt, faExclamationTriangle, faCheckCircle, faClock } from '@fortawesome/free-solid-svg-icons';
+import { faSort, faSortUp, faSortDown, faExternalLinkAlt, faClock } from '@fortawesome/free-solid-svg-icons';
 
 export default function PedidoItensTable({ pedidos, onCardClick }) {
     const [sortConfig, setSortConfig] = useState({ key: 'data_solicitacao', direction: 'descending' });
 
-    // 1. Achatar a estrutura: Transforma Lista de Pedidos -> Lista de Itens com dados do pai
+    // 1. Achatar a estrutura
     const allItems = useMemo(() => {
         if (!pedidos) return [];
         return pedidos.flatMap(pedido => {
@@ -27,15 +27,47 @@ export default function PedidoItensTable({ pedidos, onCardClick }) {
         });
     }, [pedidos]);
 
-    // 2. Lógica de Ordenação
+    // 2. Lógica de Ordenação (com as novas colunas)
     const sortedItems = useMemo(() => {
         let sortableItems = [...allItems];
         if (sortConfig.key) {
             sortableItems.sort((a, b) => {
                 let valA = a[sortConfig.key];
                 let valB = b[sortConfig.key];
+                
+                // Tratamento especial para nomes de objetos aninhados
+                if (sortConfig.key === 'etapa') {
+                    valA = a.etapa?.nome_etapa;
+                    valB = b.etapa?.nome_etapa;
+                }
+                if (sortConfig.key === 'subetapa') {
+                    valA = a.subetapa?.nome_subetapa;
+                    valB = b.subetapa?.nome_subetapa;
+                }
+                if (sortConfig.key === 'fornecedor') {
+                    valA = a.fornecedor?.nome_fantasia || a.fornecedor?.razao_social;
+                    valB = b.fornecedor?.nome_fantasia || b.fornecedor?.razao_social;
+                }
+
                 if (valA && typeof valA === 'string') valA = valA.toLowerCase();
                 if (valB && typeof valB === 'string') valB = valB.toLowerCase();
+                
+                // Tratamento para números
+                if (sortConfig.key === 'custo_total_real' || sortConfig.key === 'quantidade_solicitada') {
+                    valA = parseFloat(valA) || 0;
+                    valB = parseFloat(valB) || 0;
+                }
+
+                // Tratamento para datas
+                if (sortConfig.key === 'data_solicitacao' || sortConfig.key === 'data_entrega_prevista') {
+                    valA = valA ? new Date(valA) : null;
+                    valB = valB ? new Date(valB) : null;
+                }
+
+                if (valA === valB) return 0;
+                if (valA === null) return 1; // Nulos no final
+                if (valB === null) return -1;
+
                 if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
                 if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
                 return 0;
@@ -46,9 +78,7 @@ export default function PedidoItensTable({ pedidos, onCardClick }) {
 
     const requestSort = (key) => {
         let direction = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
-        }
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
         setSortConfig({ key, direction });
     };
 
@@ -60,7 +90,19 @@ export default function PedidoItensTable({ pedidos, onCardClick }) {
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '-';
-        return new Date(dateStr).toLocaleDateString('pt-BR');
+        // Remove o T e Z para datas simples (YYYY-MM-DD) para evitar erro de fuso
+        if (dateStr && dateStr.length === 10) {
+            const parts = dateStr.split('-');
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        // Formata datas completas
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return '-'; // Validação de data inválida
+            return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' }); // Adiciona UTC para datas completas
+        } catch (e) {
+            return '-';
+        }
     };
 
     const formatCurrency = (val) => {
@@ -70,7 +112,10 @@ export default function PedidoItensTable({ pedidos, onCardClick }) {
     const getStatusBadge = (status) => {
         const styles = {
             'Solicitação': 'bg-gray-100 text-gray-700',
+            'Pedido Visto': 'bg-blue-100 text-blue-700',
             'Em Cotação': 'bg-yellow-100 text-yellow-800',
+            'Em Negociação': 'bg-purple-100 text-purple-700',
+            'Revisão do Responsável': 'bg-orange-100 text-orange-700',
             'Entregue': 'bg-green-100 text-green-800',
             'Cancelado': 'bg-red-100 text-red-800',
             'Realizado': 'bg-indigo-100 text-indigo-800',
@@ -89,40 +134,43 @@ export default function PedidoItensTable({ pedidos, onCardClick }) {
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
             <div className="overflow-x-auto">
-                {/* =================================================================================
-                  CORREÇÃO DA LARGURA DA TABELA
-                  O porquê: Adicionamos 'table-fixed' para forçar a tabela a obedecer
-                  as larguras definidas nas colunas (<th>).
-                  =================================================================================
-                */}
                 <table className="min-w-full divide-y divide-gray-200 table-fixed">
                     <thead className="bg-gray-50">
                         <tr>
-                            {/* =================================================================================
-                              CORREÇÃO DA LARGURA DA COLUNA
-                              O porquê: Definimos a largura da coluna de item para 33.3% (w-1/3)
-                              para impedir que ela se expanda indefinidamente.
-                              =================================================================================
-                            */}
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-1/3" onClick={() => requestSort('descricao_item')}>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-1/4" onClick={() => requestSort('descricao_item')}>
                                 Item / Material {getSortIcon('descricao_item')}
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => requestSort('fornecedor')}>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => requestSort('fornecedor')}>
                                 Fornecedor {getSortIcon('fornecedor')}
                             </th>
-                            <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => requestSort('quantidade_solicitada')}>
+                            {/* =================================================================================
+                              NOVAS COLUNAS
+                            ================================================================================= */}
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => requestSort('etapa')}>
+                                Etapa {getSortIcon('etapa')}
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => requestSort('subetapa')}>
+                                Subetapa {getSortIcon('subetapa')}
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-24" onClick={() => requestSort('quantidade_solicitada')}>
                                 Qtd. {getSortIcon('quantidade_solicitada')}
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => requestSort('pedido_status')}>
+                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-28" onClick={() => requestSort('custo_total_real')}>
+                                Valor Item {getSortIcon('custo_total_real')}
+                            </th>
+                            {/* =================================================================================
+                              FIM DAS NOVAS COLUNAS
+                            ================================================================================= */}
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => requestSort('pedido_status')}>
                                 Status Pedido {getSortIcon('pedido_status')}
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => requestSort('data_solicitacao')}>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => requestSort('data_solicitacao')}>
                                 Data Pedido {getSortIcon('data_solicitacao')}
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => requestSort('data_entrega_prevista')}>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => requestSort('data_entrega_prevista')}>
                                 Entrega Prevista {getSortIcon('data_entrega_prevista')}
                             </th>
-                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                                 Ações
                             </th>
                         </tr>
@@ -130,14 +178,7 @@ export default function PedidoItensTable({ pedidos, onCardClick }) {
                     <tbody className="bg-white divide-y divide-gray-200">
                         {sortedItems.map((item) => (
                             <tr key={`${item.id}-${item.pedido_id}`} className="hover:bg-blue-50 transition-colors group">
-                                {/* =================================================================================
-                                  CORREÇÃO DE QUEBRA DE TEXTO
-                                  O porquê: Removemos 'whitespace-nowrap' do <td> e adicionamos
-                                  'whitespace-normal' e 'break-words' no <div> interno para
-                                  forçar a quebra de linha. 'align-top' garante o alinhamento.
-                                  =================================================================================
-                                */}
-                                <td className="px-6 py-4 align-top">
+                                <td className="px-4 py-4 align-top">
                                     <div className="text-sm font-medium text-gray-900 whitespace-normal break-words">
                                         {item.descricao_item}
                                     </div>
@@ -145,32 +186,52 @@ export default function PedidoItensTable({ pedidos, onCardClick }) {
                                         Pedido #{item.pedido_id} • {item.empreendimento_nome}
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 align-top">
-                                    <div className="text-sm text-gray-700">
+                                <td className="px-4 py-4 align-top">
+                                    <div className="text-sm text-gray-700 whitespace-normal break-words">
                                         {item.fornecedor?.nome_fantasia || item.fornecedor?.razao_social || <span className="text-gray-400 italic">-</span>}
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 text-center align-top">
+                                {/* =================================================================================
+                                  NOVAS CÉLULAS
+                                ================================================================================= */}
+                                <td className="px-4 py-4 align-top">
+                                    <div className="text-sm text-gray-600 whitespace-normal break-words">
+                                        {item.etapa?.nome_etapa || <span className="text-gray-400 italic">-</span>}
+                                    </div>
+                                </td>
+                                <td className="px-4 py-4 align-top">
+                                    <div className="text-sm text-gray-600 whitespace-normal break-words">
+                                        {item.subetapa?.nome_subetapa || <span className="text-gray-400 italic">-</span>}
+                                    </div>
+                                </td>
+                                <td className="px-4 py-4 text-center align-top">
                                     <div className="text-sm text-gray-900 font-semibold">{item.quantidade_solicitada} <span className="text-xs font-normal text-gray-500">{item.unidade_medida}</span></div>
                                 </td>
-                                <td className="px-6 py-4 align-top">
+                                <td className="px-4 py-4 text-right align-top">
+                                    <div className="text-sm text-gray-900 font-semibold">{formatCurrency(item.custo_total_real)}</div>
+                                </td>
+                                {/* =================================================================================
+                                  FIM DAS NOVAS CÉLULAS
+                                ================================================================================= */}
+                                <td className="px-4 py-4 align-top">
                                     {getStatusBadge(item.pedido_status)}
                                 </td>
-                                <td className="px-6 py-4 text-sm text-gray-600 align-top">
+                                <td className="px-4 py-4 text-sm text-gray-600 align-top">
                                     {formatDate(item.data_solicitacao)}
                                 </td>
-                                <td className="px-6 py-4 text-sm align-top">
+                                <td className="px-4 py-4 text-sm align-top">
                                     <div className={`flex items-center gap-1 ${!item.data_entrega_prevista ? 'text-gray-400' : 'text-gray-700'}`}>
                                         <FontAwesomeIcon icon={faClock} className="text-xs opacity-50" />
                                         {formatDate(item.data_entrega_prevista)}
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 text-right text-sm font-medium align-top">
+                                <td className="px-4 py-4 text-center text-sm font-medium align-top">
                                     <button 
                                         onClick={() => onCardClick(item.pedido_original)}
-                                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded border border-blue-200 transition-colors flex items-center gap-1 ml-auto"
+                                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200 transition-colors flex items-center gap-1"
+                                        title="Abrir detalhes do Pedido"
                                     >
-                                        <FontAwesomeIcon icon={faExternalLinkAlt} /> Ver Pedido
+                                        <FontAwesomeIcon icon={faExternalLinkAlt} /> Ver
                                     </button>
                                 </td>
                             </tr>
