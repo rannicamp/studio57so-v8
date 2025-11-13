@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTrash, faPlus, faPencilAlt, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom, faHandHoldingDollar, faAlignLeft } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTrash, faPlus, faPencilAlt, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom, faHandHoldingDollar, faAlignLeft, faCheck } from '@fortawesome/free-solid-svg-icons';
 import PedidoItemModal from './PedidoItemModal';
 import LancamentoFormModal from './financeiro/LancamentoFormModal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +26,7 @@ const formatDuration = (milliseconds) => {
 const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
     if (!pedidoId || !organizacaoId) throw new Error("ID do Pedido ou da Organização não encontrado.");
 
+    // 1. Busca dados do Pedido
     const { data: pedidoData, error: pedidoError } = await supabase
         .from('pedidos_compra')
         .select(`
@@ -45,13 +46,32 @@ const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
 
     if (pedidoError) throw new Error(`Ao carregar o pedido: ${pedidoError.message}`);
 
+    // 2. Busca Etapas
     const { data: etapasData, error: etapasError } = await supabase.from('etapa_obra').select('id, nome_etapa').eq('organizacao_id', organizacaoId);
     if (etapasError) throw new Error(`Ao carregar etapas: ${etapasError.message}`);
     
+    // 3. Busca Contas Financeiras
     const { data: contasData, error: contasError } = await supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', organizacaoId);
     if (contasError) throw new Error(`Ao carregar contas: ${contasError.message}`);
 
-    return { pedido: pedidoData, etapas: etapasData || [], contas: contasData || [] };
+    // =================================================================================
+    // NOVO: Busca lista de Fornecedores para o Dropdown de Edição em Massa
+    // =================================================================================
+    const { data: fornecedoresData, error: fornError } = await supabase
+        .from('clientes')
+        .select('id, nome, razao_social, nome_fantasia')
+        .eq('organizacao_id', organizacaoId)
+        .eq('tipo', 'Fornecedor')
+        .order('nome');
+    
+    if (fornError) console.error("Erro ao carregar fornecedores:", fornError);
+
+    return { 
+        pedido: pedidoData, 
+        etapas: etapasData || [], 
+        contas: contasData || [],
+        fornecedores: fornecedoresData || [] 
+    };
 };
 
 
@@ -72,7 +92,11 @@ export default function PedidoForm({ pedidoId }) {
     const [newAnexoOutroDescricao, setNewAnexoOutroDescricao] = useState('');
     const [kpis, setKpis] = useState(null);
     const [sortConfig, setSortConfig] = useState({ key: 'descricao_item', direction: 'ascending' });
+    
+    // Estado para Seleção Múltipla
     const [selectedItems, setSelectedItems] = useState(new Set());
+    // Estado para o Dropdown de Fornecedor em Massa
+    const [selectedFornecedorBulk, setSelectedFornecedorBulk] = useState('');
 
 
     const { data, isLoading, isError, error } = useQuery({
@@ -84,7 +108,7 @@ export default function PedidoForm({ pedidoId }) {
     const pedido = data?.pedido;
     const itens = data?.pedido?.itens || [];
     const anexos = data?.pedido?.anexos || [];
-    const etapas = data?.etapas || [];
+    const fornecedores = data?.fornecedores || []; // Lista completa de fornecedores
 
     useEffect(() => {
         if (pedido) {
@@ -140,6 +164,34 @@ export default function PedidoForm({ pedidoId }) {
             router.refresh();
         },
         onError: (err) => toast.error(`Erro ao salvar: ${err.message}`)
+    });
+
+    // =================================================================================
+    // NOVO: Mutation para Atualização em Massa do Fornecedor
+    // =================================================================================
+    const bulkUpdateFornecedorMutation = useMutation({
+        ...mutationOptions,
+        mutationFn: async ({ itemIds, fornecedorId }) => {
+            if (!itemIds || itemIds.length === 0) return;
+            
+            // Converte para número se vier como string do select
+            const idToSave = fornecedorId ? parseInt(fornecedorId) : null;
+
+            const { error } = await supabase
+                .from('pedidos_compra_itens')
+                .update({ fornecedor_id: idToSave })
+                .in('id', itemIds)
+                .eq('organizacao_id', organizacaoId);
+            
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            mutationOptions.onSuccess();
+            toast.success("Fornecedor atualizado nos itens selecionados!");
+            setSelectedItems(new Set()); // Limpa a seleção após aplicar
+            setSelectedFornecedorBulk('');
+        },
+        onError: (err) => toast.error(`Erro na atualização em massa: ${err.message}`)
     });
 
     const addAnexoMutation = useMutation({
@@ -321,7 +373,25 @@ export default function PedidoForm({ pedidoId }) {
         setIsLancamentoModalOpen(true);
     };
     
-    const handleSelectionChange = (itemId) => { /* ... (lógica original mantida) ... */ };
+    // Lógica de Seleção e Ação em Massa
+    const handleSelectionChange = (itemId) => {
+        const newSelection = new Set(selectedItems);
+        if (newSelection.has(itemId)) newSelection.delete(itemId);
+        else newSelection.add(itemId);
+        setSelectedItems(newSelection);
+    };
+
+    const handleBulkUpdateFornecedor = () => {
+        if (!selectedFornecedorBulk) {
+            toast.error("Selecione um fornecedor para aplicar aos itens selecionados.");
+            return;
+        }
+        bulkUpdateFornecedorMutation.mutate({
+            itemIds: Array.from(selectedItems),
+            fornecedorId: selectedFornecedorBulk
+        });
+    };
+
     const handleEditClick = (item) => { setEditingItem(item); setIsItemModalOpen(true); };
 
     if (isLoading) return <div className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>;
@@ -345,17 +415,10 @@ export default function PedidoForm({ pedidoId }) {
                         <div className="flex items-center gap-2"> <label className="font-bold">Entrega:</label> <input type="date" value={pedidoHeader.data_entrega_prevista || ''} onChange={(e) => handleHeaderFieldChange('data_entrega_prevista', e.target.value)} onBlur={() => handleHeaderFieldSave('data_entrega_prevista')} className="p-1 border rounded-md"/> </div>
                         <div className="flex items-center gap-2"> <label className="font-bold">Turno:</label> <select value={pedidoHeader.turno_entrega || ''} onChange={(e) => handleHeaderFieldChange('turno_entrega', e.target.value)} onBlur={() => handleHeaderFieldSave('turno_entrega')} className="p-1 border rounded-md"> <option value="">Nenhum</option> <option value="Manhã">Manhã</option> <option value="Tarde">Tarde</option> <option value="Noite">Noite</option> </select> </div>
                     </div>
-                    {/* // =================================================================================
-                    // INÍCIO DA ALTERAÇÃO
-                    // O PORQUÊ: Adicionamos o campo de 'observacoes' que criamos no banco de dados.
-                    // Ele usa os mesmos manipuladores de estado (handleHeaderFieldChange) e
-                    // de salvamento (handleHeaderFieldSave) que os outros campos.
-                    // =================================================================================
-                    */}
                     <div className="mt-4">
                         <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                             <FontAwesomeIcon icon={faAlignLeft} />
-                            Observações:
+                            Observações do Solicitante (para o time de Compras)
                         </label>
                         <textarea
                             value={pedidoHeader.observacoes || ''}
@@ -366,10 +429,6 @@ export default function PedidoForm({ pedidoId }) {
                             className="mt-1 w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-200"
                         />
                     </div>
-                    {/* // =================================================================================
-                    // FIM DA ALTERAÇÃO
-                    // =================================================================================
-                    */}
                 </div>
                 
                 <div className="border-t pt-6">
@@ -401,11 +460,55 @@ export default function PedidoForm({ pedidoId }) {
                             </button>
                         </div>
                     </div>
+
+                    {/* =================================================================================
+                    // BARRA DE AÇÕES EM MASSA (APARECE QUANDO ITENS SÃO SELECIONADOS)
+                    // ================================================================================= */}
+                    {selectedItems.size > 0 && (
+                        <div className="bg-blue-50 p-3 rounded-md border border-blue-200 flex flex-wrap items-center gap-4 mb-4 shadow-sm animate-fade-in">
+                            <span className="text-sm font-semibold text-blue-800 flex items-center gap-2">
+                                <span className="bg-blue-200 text-blue-800 text-xs px-2 py-0.5 rounded-full">{selectedItems.size}</span>
+                                item(s) selecionado(s)
+                            </span>
+                            
+                            <div className="flex items-center gap-2 ml-auto">
+                                <label className="text-sm text-gray-700 mr-1">Definir Fornecedor:</label>
+                                <select
+                                    value={selectedFornecedorBulk}
+                                    onChange={(e) => setSelectedFornecedorBulk(e.target.value)}
+                                    className="p-1.5 border rounded text-sm min-w-[200px] focus:ring-2 focus:ring-blue-300 outline-none"
+                                >
+                                    <option value="">Selecione para todos...</option>
+                                    {fornecedores.map(f => (
+                                        <option key={f.id} value={f.id}>
+                                            {f.nome_fantasia || f.razao_social || f.nome}
+                                        </option>
+                                    ))}
+                                </select>
+                                <button
+                                    onClick={handleBulkUpdateFornecedor}
+                                    disabled={bulkUpdateFornecedorMutation.isPending || !selectedFornecedorBulk}
+                                    className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 transition-colors shadow-sm"
+                                >
+                                    {bulkUpdateFornecedorMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheck} />}
+                                    Aplicar
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="overflow-x-auto border rounded-lg">
                         <table className="min-w-full">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="p-2 w-10"><input type="checkbox" onChange={(e) => e.target.checked ? setSelectedItems(new Set(itens.map(i => i.id))) : setSelectedItems(new Set())} /></th>
+                                    <th className="p-2 w-10 text-center">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={itens.length > 0 && selectedItems.size === itens.length}
+                                            onChange={(e) => e.target.checked ? setSelectedItems(new Set(itens.map(i => i.id))) : setSelectedItems(new Set())} 
+                                            className="cursor-pointer rounded text-blue-600 focus:ring-blue-500"
+                                        />
+                                    </th>
                                     <th className="p-2 text-left text-xs font-medium uppercase cursor-pointer" onClick={() => requestSort('descricao_item')}>Descrição {getSortIcon('descricao_item')}</th>
                                     <th className="p-2 text-left text-xs font-medium uppercase cursor-pointer" onClick={() => requestSort('tipo_operacao')}>Tipo {getSortIcon('tipo_operacao')}</th>
                                     <th className="p-2 text-left text-xs font-medium uppercase cursor-pointer" onClick={() => requestSort('fornecedor')}>Fornecedor {getSortIcon('fornecedor')}</th>
@@ -416,19 +519,28 @@ export default function PedidoForm({ pedidoId }) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {sortedItens.length === 0 ? (<tr><td colSpan="8" className="text-center py-6 text-gray-500">Nenhum item adicionado.</td></tr>) : (sortedItens.map(item => (<tr key={item.id} className={selectedItems.has(item.id) ? 'bg-blue-50' : ''}>
-                                    <td className="p-2 w-10"><input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => handleSelectionChange(item.id)} /></td>
-                                    <td className="p-2 font-medium">{item.descricao_item}</td>
+                                {sortedItens.length === 0 ? (<tr><td colSpan="8" className="text-center py-6 text-gray-500">Nenhum item adicionado.</td></tr>) : (sortedItens.map(item => (<tr key={item.id} className={selectedItems.has(item.id) ? 'bg-blue-50 transition-colors' : 'hover:bg-gray-50 transition-colors'}>
+                                    <td className="p-2 w-10 text-center">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={selectedItems.has(item.id)} 
+                                            onChange={() => handleSelectionChange(item.id)} 
+                                            className="cursor-pointer rounded text-blue-600 focus:ring-blue-500"
+                                        />
+                                    </td>
+                                    <td className="p-2 font-medium text-sm">{item.descricao_item}</td>
                                     <td className="p-2 text-sm text-gray-600">
                                         {item.tipo_operacao}
                                         {item.tipo_operacao === 'Aluguel' && item.dias_aluguel && (
                                             <span className="block text-xs text-gray-500">({item.dias_aluguel} dias)</span>
                                         )}
                                     </td>
-                                    <td className="p-2 text-sm text-gray-600">{item.fornecedor?.razao_social || item.fornecedor?.nome || 'Não definido'}</td>
-                                    <td className="p-2 text-center">{item.quantidade_solicitada} {item.unidade_medida}</td>
-                                    <td className="p-2 text-right">{formatCurrency(item.preco_unitario_real)}</td>
-                                    <td className="p-2 text-right font-semibold">{formatCurrency(item.custo_total_real)}</td>
+                                    <td className="p-2 text-sm text-gray-600">
+                                        {item.fornecedor?.nome_fantasia || item.fornecedor?.razao_social || item.fornecedor?.nome || <span className="text-gray-400 italic">Não definido</span>}
+                                    </td>
+                                    <td className="p-2 text-center text-sm">{item.quantidade_solicitada} {item.unidade_medida}</td>
+                                    <td className="p-2 text-right text-sm">{formatCurrency(item.preco_unitario_real)}</td>
+                                    <td className="p-2 text-right font-semibold text-sm">{formatCurrency(item.custo_total_real)}</td>
                                     <td className="p-2 text-center"> <div className="flex justify-center items-center gap-3"> <button onClick={() => handleEditClick(item)} className="text-blue-600 hover:text-blue-800" title="Editar Item"><FontAwesomeIcon icon={faPencilAlt} /></button> <button onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700" title="Remover Item"><FontAwesomeIcon icon={faTrash} /></button> </div> </td>
                                 </tr>)))}
                             </tbody>
