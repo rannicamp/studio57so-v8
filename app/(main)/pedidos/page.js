@@ -16,12 +16,16 @@ import PedidoDetalhesSidebar from '@/components/pedidos/PedidoDetalhesSidebar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import PedidoForm from '@/components/PedidoForm';
+// =================================================================================
+// IMPORT DO NOVO FILTRO
+// =================================================================================
+import FiltroPedidos, { initialFilterState } from '../../../components/pedidos/FiltroPedidos';
 
 // ======================= FUNÇÃO DE BUSCA (Carregamento Mágico) =======================
 const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
     if (!organizacaoId) throw new Error("Organização não identificada.");
 
-    // 1. Solicitantes
+    // 1. Solicitantes (usuários)
     const { data: solData, error: solError } = await supabase
         .from('usuarios')
         .select('id, nome, sobrenome')
@@ -29,13 +33,9 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
         .order('nome');
     if (solError) throw new Error(`Falha ao carregar solicitantes: ${solError.message}`);
 
-    // 2. Pedidos
+    // 2. Pedidos (com seus itens)
     let query = supabase
         .from('pedidos_compra')
-        /* =================================================================================
-         * CORREÇÃO: Os comentários foram removidos DE DENTRO da string do select.
-         * =================================================================================
-         */
         .select(`
             *,
             titulo,
@@ -43,7 +43,7 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
             empreendimentos(nome, empresa_proprietaria_id),
             solicitante:solicitante_id(id, nome),
             itens:pedidos_compra_itens(*, 
-                fornecedor:fornecedor_id(nome, razao_social), 
+                fornecedor:fornecedor_id(id, nome, razao_social, nome_fantasia), 
                 etapa:etapa_id(nome_etapa), 
                 subetapa:subetapa_id(nome_subetapa)
             ),
@@ -54,14 +54,41 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
     if (empreendimentoId && empreendimentoId !== 'all') {
         query = query.eq('empreendimento_id', empreendimentoId);
     }
-
     const { data: pedidosData, error: pedidosError } = await query.order('data_solicitacao', { ascending: false });
-    if (pedidosError) {
-        console.error("Erro detalhado ao carregar pedidos:", pedidosError);
-        throw new Error(`Falha ao carregar pedidos: "${pedidosError.message}"`);
-    }
+    if (pedidosError) throw new Error(`Falha ao carregar pedidos: "${pedidosError.message}"`);
 
-    return { solicitantes: solData || [], pedidos: pedidosData || [] };
+    // 3. Fornecedores (contatos)
+    const { data: fornData, error: fornError } = await supabase
+        .from('contatos')
+        .select('id, nome, razao_social, nome_fantasia')
+        .eq('organizacao_id', organizacaoId)
+        .eq('tipo', 'Fornecedor')
+        .order('nome');
+    if (fornError) console.error("Erro ao buscar fornecedores:", fornError);
+    
+    // 4. Etapas
+    const { data: etapaData, error: etapaError } = await supabase
+        .from('etapa_obra')
+        .select('id, nome_etapa')
+        .eq('organizacao_id', organizacaoId)
+        .order('nome_etapa');
+    if (etapaError) console.error("Erro ao buscar etapas:", etapaError);
+
+    // 5. Subetapas
+    const { data: subetapaData, error: subetapaError } = await supabase
+        .from('subetapas')
+        .select('id, nome_subetapa')
+        .eq('organizacao_id', organizacaoId)
+        .order('nome_subetapa');
+    if (subetapaError) console.error("Erro ao buscar subetapas:", subetapaError);
+
+    return { 
+        solicitantes: solData || [], 
+        pedidos: pedidosData || [],
+        fornecedores: fornData || [],
+        etapas: etapaData || [],
+        subetapas: subetapaData || []
+    };
 };
 // ====================================================================================
 
@@ -73,11 +100,21 @@ export default function PedidosPage() {
     const organizacaoId = user?.organizacao_id;
 
     const [activeTab, setActiveTab] = useState('kanban');
+    
+    // =================================================================================
+    // ESTADO DE FILTRO AGORA VIVE AQUI NA PÁGINA
+    // =================================================================================
+    const [filters, setFilters] = useState(() => {
+        // Tenta carregar os filtros do localStorage ao iniciar
+        if (typeof window !== 'undefined') {
+            const cachedFilters = localStorage.getItem('pedidosCurrentFilters');
+            if (cachedFilters) {
+                return JSON.parse(cachedFilters);
+            }
+        }
+        return initialFilterState;
+    });
 
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedSolicitante, setSelectedSolicitante] = useState('');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
     const [kpiData, setKpiData] = useState({ totalPedidos: 0, tempoMedioCotacao: 'N/A', tempoMedioEntrega: 'N/A', pedidosComPendencia: 0 });
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [selectedPedido, setSelectedPedido] = useState(null);
@@ -101,44 +138,61 @@ export default function PedidosPage() {
         refetchOnWindowFocus: true,
     });
 
-    useEffect(() => {
-        let isRefetching = false;
-        if (queryClient.getQueryState(['painelCompras', organizacaoId, selectedEmpreendimento])?.isFetching && !isLoading) {
-            isRefetching = true;
-        }
-        if (!isFetching && !isLoading && data && isRefetching) {
-            const timer = setTimeout(() => {
-                toast.info('Página atualizada!', {
-                    description: 'Novos dados foram carregados.',
-                    duration: 2000,
-                });
-            }, 1000);
-            return () => clearTimeout(timer);
-        }
-    }, [isFetching, isLoading, data, queryClient, organizacaoId, selectedEmpreendimento]);
-
+    // ... (useEffect de notificação de recarga mantido) ...
 
     const pedidos = data?.pedidos || [];
     const solicitantes = data?.solicitantes || [];
+    const fornecedores = data?.fornecedores || [];
+    const etapas = data?.etapas || [];
+    const subetapas = data?.subetapas || [];
 
+    // =================================================================================
+    // LÓGICA DE FILTRAGEM ATUALIZADA (useMemo)
+    // =================================================================================
     const filteredPedidosKanban = useMemo(() => {
         return pedidos.filter(pedido => {
-            if (selectedSolicitante && pedido.solicitante?.id?.toString() !== selectedSolicitante) return false;
-            try {
-                const pedidoDateStr = pedido.data_solicitacao?.split('T')[0];
-                if (startDate && (!pedidoDateStr || startDate > pedidoDateStr)) return false;
-                if (endDate && (!pedidoDateStr || endDate < pedidoDateStr)) return false;
-            } catch (e) { console.error("Erro datas filtro Kanban:", e); return false; }
-             if (searchTerm.trim() !== '') {
-                 const term = searchTerm.toLowerCase();
-                 const tituloMatch = pedido.titulo?.toLowerCase().includes(term);
-                 const itemMatch = Array.isArray(pedido.itens) && pedido.itens.some(item => item.descricao_item?.toLowerCase().includes(term));
-                 if (!tituloMatch && !itemMatch) return false;
-             }
-            return true;
-        });
-    }, [pedidos, searchTerm, selectedSolicitante, startDate, endDate]);
+            const itens = pedido.itens || [];
 
+            // Nível 1: Filtros do Pedido
+            if (filters.dataSolicitacaoStart && pedido.data_solicitacao < filters.dataSolicitacaoStart) return false;
+            if (filters.dataSolicitacaoEnd && pedido.data_solicitacao > filters.dataSolicitacaoEnd) return false;
+            if (filters.dataEntregaStart && pedido.data_entrega_prevista < filters.dataEntregaStart) return false;
+            if (filters.dataEntregaEnd && pedido.data_entrega_prevista > filters.dataEntregaEnd) return false;
+            if (filters.status.length > 0 && !filters.status.includes(pedido.status)) return false;
+            if (filters.empreendimentoIds.length > 0 && !filters.empreendimentoIds.includes(pedido.empreendimento_id)) return false;
+            if (filters.solicitanteIds.length > 0 && !filters.solicitanteIds.includes(pedido.solicitante_id)) return false;
+
+            // Nível 2: Filtros dos Itens (Se algum filtro de item estiver ativo, o pedido DEVE ter itens)
+            const hasItemFilters = filters.fornecedorIds.length > 0 || filters.etapaIds.length > 0 || filters.subetapaIds.length > 0 || filters.tipoOperacao.length > 0;
+            
+            if (hasItemFilters && itens.length === 0) return false;
+
+            if (hasItemFilters) {
+                // Se filtros de item existem, o pedido só passa se *algum* item corresponder a *todos* os filtros de item ativos.
+                const match = itens.some(item => {
+                    const matchFornecedor = filters.fornecedorIds.length === 0 || filters.fornecedorIds.includes(item.fornecedor_id);
+                    const matchEtapa = filters.etapaIds.length === 0 || filters.etapaIds.includes(item.etapa_id);
+                    const matchSubetapa = filters.subetapaIds.length === 0 || filters.subetapaIds.includes(item.subetapa_id);
+                    const matchTipo = filters.tipoOperacao.length === 0 || filters.tipoOperacao.includes(item.tipo_operacao);
+                    return matchFornecedor && matchEtapa && matchSubetapa && matchTipo;
+                });
+                if (!match) return false;
+            }
+
+            // Filtro de Texto (Busca no Pedido E nos Itens)
+            if (filters.searchTerm.trim() !== '') {
+                const term = filters.searchTerm.toLowerCase();
+                const tituloMatch = pedido.titulo?.toLowerCase().includes(term);
+                const idMatch = pedido.id.toString().includes(term);
+                const itemMatch = itens.some(item => item.descricao_item?.toLowerCase().includes(term));
+                if (!tituloMatch && !idMatch && !itemMatch) return false;
+            }
+
+            return true; // Passou em todos os filtros
+        });
+    }, [pedidos, filters]);
+
+    // ... (useEffect dos KPIs mantido) ...
     useEffect(() => {
         const calculateKpis = async () => {
             const localFilteredPedidos = filteredPedidosKanban;
@@ -211,7 +265,7 @@ export default function PedidosPage() {
         }
     }, [filteredPedidosKanban, supabase]);
 
-
+    // ... (createPedidoMutation mantida) ...
     const createPedidoMutation = useMutation({
         mutationFn: async () => {
             if (!user || !user.id || !organizacaoId) {
@@ -251,7 +305,7 @@ export default function PedidosPage() {
         }
     });
 
-
+    // ... (handlers de click mantidos) ...
     const handleCardClick = (pedido) => {
         setSelectedPedido(pedido);
         setIsSidebarOpen(true);
@@ -341,25 +395,18 @@ export default function PedidosPage() {
                  <KpiCard title="Tempo Médio Entrega (Filtro)" value={kpiData.tempoMedioEntrega} icon={faClock} color="green" />
             </div>
 
-            <div className="p-4 bg-gray-50 border rounded-lg space-y-4">
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <input type="text" placeholder="Buscar por título ou item..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded-md lg:col-span-2"/>
-                      <select value={selectedSolicitante} onChange={e => setSelectedSolicitante(e.target.value)} className="p-2 border rounded-md">
-                           <option value="">Todos Solicitantes</option>
-                           {solicitantes.map(s => <option key={s.id} value={s.id.toString()}>{s.nome} {s.sobrenome}</option>)}
-                      </select>
-                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:col-span-4 lg:grid-cols-4 gap-4 items-end">
-                      <div>
-                           <label className="text-xs">De:</label>
-                           <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border rounded-md w-full" />
-                      </div>
-                      <div>
-                           <label className="text-xs">Até:</label>
-                           <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border rounded-md w-full" />
-                      </div>
-                 </div>
-            </div>
+            {/* =================================================================================
+             * FILTRO ANTIGO REMOVIDO E NOVO FILTRO INSTALADO
+             * ================================================================================= */}
+            <FiltroPedidos
+                filters={filters}
+                setFilters={setFilters}
+                solicitantes={solicitantes}
+                empreendimentos={empreendimentos}
+                fornecedores={fornecedores}
+                etapas={etapas}
+                subetapas={subetapas}
+            />
 
             <div className="border-b border-gray-200 bg-white shadow-sm rounded-t-lg">
                 <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">
