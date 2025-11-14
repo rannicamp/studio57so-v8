@@ -117,9 +117,6 @@ export default function PedidoDetalhesSidebar({
 
     if (!isOpen || !pedido || !editableData) return null;
 
-    // =================================================================================
-    // VARIÁVEL DE CONTROLE DO BOTÃO
-    // =================================================================================
     const jaLancado = pedido.lancamentos && pedido.lancamentos.length > 0;
 
     const formatDate = (dateStr) => {
@@ -163,10 +160,13 @@ export default function PedidoDetalhesSidebar({
         const firstFornecedorId = pedido.itens[0].fornecedor_id;
         const allSameFornecedor = pedido.itens.every(item => item.fornecedor_id === firstFornecedorId);
         const notaFiscalAnexo = pedido.anexos?.find(a => a.descricao && a.descricao.toLowerCase().includes('nota fiscal'));
+        
         let etapaObraId = null;
         if (pedido.itens.length > 0) {
             const firstEtapaId = pedido.itens[0].etapa_id;
-            if (firstEtapaId && pedido.itens.every(item => item.etapa_id === firstEtapaId)) etapaObraId = firstEtapaId;
+            if (firstEtapaId && pedido.itens.every(item => item.etapa_id === firstEtapaId)) {
+                etapaObraId = firstEtapaId;
+            }
         }
         const empresaIdCorreta = pedido.empreendimentos?.empresa_proprietaria_id || null;
 
@@ -179,7 +179,10 @@ export default function PedidoDetalhesSidebar({
             favorecido_contato_id: allSameFornecedor ? firstFornecedorId : null,
             empreendimento_id: pedido.empreendimento_id,
             empresa_id: empresaIdCorreta,
-            etapa_obra_id: etapaObraId,
+            // =================================================================================
+            // CORREÇÃO: Renomeando 'etapa_obra_id' para 'etapa_id'
+            // =================================================================================
+            etapa_id: etapaObraId,
             anexo_preexistente: notaFiscalAnexo ? { caminho_arquivo: notaFiscalAnexo.caminho_arquivo, nome_arquivo: notaFiscalAnexo.nome_arquivo, descricao: notaFiscalAnexo.descricao } : null,
              pedido_compra_id: pedido.id
         };
@@ -297,9 +300,6 @@ export default function PedidoDetalhesSidebar({
                              </div>
                         </section>
 
-                         {/* =================================================================================
-                         * BOTÃO DE AÇÃO FINANCEIRA ATUALIZADO
-                         * ================================================================================= */}
                          {['Entregue', 'Realizado'].includes(pedido.status) && totalPedidoReal > 0 && (
                             <section className="border-t pt-4">
                                 <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">

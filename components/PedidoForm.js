@@ -10,7 +10,7 @@ import {
     faSpinner, faTrash, faPlus, faPencilAlt, faPaperclip, faUpload, faDownload, 
     faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom, 
     faHandHoldingDollar, faAlignLeft, faCheck, 
-    faCheckCircle // <-- ÍCONE DE CHECK ADICIONADO
+    faCheckCircle
 } from '@fortawesome/free-solid-svg-icons';
 import PedidoItemModal from './PedidoItemModal';
 import LancamentoFormModal from './financeiro/LancamentoFormModal';
@@ -31,7 +31,6 @@ const formatDuration = (milliseconds) => {
 const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
     if (!pedidoId || !organizacaoId) throw new Error("ID do Pedido ou da Organização não encontrado.");
 
-    // 1. Busca dados do Pedido
     const { data: pedidoData, error: pedidoError } = await supabase
         .from('pedidos_compra')
         .select(`
@@ -44,7 +43,7 @@ const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
             ), 
             historico:pedidos_compra_status_historico(*), 
             anexos:pedidos_compra_anexos(*),
-            lancamentos(id) 
+            lancamentos:lancamentos(id) 
         `)
         .eq('id', pedidoId)
         .eq('organizacao_id', organizacaoId)
@@ -52,15 +51,12 @@ const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
 
     if (pedidoError) throw new Error(`Ao carregar o pedido: ${pedidoError.message}`);
 
-    // 2. Busca Etapas
     const { data: etapasData, error: etapasError } = await supabase.from('etapa_obra').select('id, nome_etapa').eq('organizacao_id', organizacaoId);
     if (etapasError) throw new Error(`Ao carregar etapas: ${etapasError.message}`);
     
-    // 3. Busca Contas Financeiras
     const { data: contasData, error: contasError } = await supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', organizacaoId);
     if (contasError) throw new Error(`Ao carregar contas: ${contasError.message}`);
 
-    // 4. Busca Fornecedores
     const { data: fornecedoresData, error: fornError } = await supabase
         .from('clientes')
         .select('id, nome, razao_social, nome_fantasia')
@@ -152,7 +148,6 @@ export default function PedidoForm({ pedidoId }) {
     const mutationOptions = {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['pedido', pedidoId, organizacaoId] });
-            // Invalida também o painel principal, pois o PedidoForm agora é um modal
             queryClient.invalidateQueries({ queryKey: ['painelCompras'] });
         },
     };
@@ -315,6 +310,10 @@ export default function PedidoForm({ pedidoId }) {
                 nome_arquivo: notaFiscalAnexo.nome_arquivo,
                 descricao: notaFiscalAnexo.descricao,
             } : null,
+            // =================================================================================
+            // CORREÇÃO: ADICIONANDO O ID DO PEDIDO AO LANÇAMENTO
+            // =================================================================================
+            pedido_compra_id: pedido.id
         };
         setLancamentoInitialData(initial);
         setIsLancamentoModalOpen(true);
@@ -345,9 +344,6 @@ export default function PedidoForm({ pedidoId }) {
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     const getSortIcon = (key) => { if (sortConfig.key !== key) return <FontAwesomeIcon icon={faSort} className="text-gray-400" />; return sortConfig.direction === 'ascending' ? <FontAwesomeIcon icon={faSortUp} /> : <FontAwesomeIcon icon={faSortDown} />; };
 
-    // =================================================================================
-    // VARIÁVEL DE CONTROLE DO BOTÃO
-    // =================================================================================
     const jaLancado = pedido.lancamentos && pedido.lancamentos.length > 0;
 
     return (
@@ -389,9 +385,6 @@ export default function PedidoForm({ pedidoId }) {
                                 : "Clique no botão para agendar este pedido como uma despesa futura."
                             }
                         </p>
-                        {/* =================================================================================
-                         * BOTÃO ATUALIZADO (Cor, Texto, Ícone, Disabled)
-                         * ================================================================================= */}
                         <button 
                             onClick={handleOpenLancamentoModal} 
                             disabled={jaLancado} 

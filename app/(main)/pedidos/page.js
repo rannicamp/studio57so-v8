@@ -12,7 +12,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, faBoxOpen, faClock, faHourglassHalf, faClipboardList, 
     faPlus, faTimes, faThLarge, faList, faDollarSign, faTrash,
-    faFileInvoiceDollar // <-- ÍCONE PARA O NOVO KPI
+    faFileInvoiceDollar
 } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
 import KpiCard from '@/components/KpiCard';
@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 import PedidoForm from '@/components/PedidoForm';
 import FiltroPedidos, { initialFilterState } from '../../../components/pedidos/FiltroPedidos';
 
-// ======================= FUNÇÃO DE BUSCA (Carregamento Mágico) =======================
+// ... (fetchPainelData mantido 100% igual) ...
 const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
     if (!organizacaoId) throw new Error("Organização não identificada.");
 
@@ -49,7 +49,7 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
                 subetapa:subetapa_id(nome_subetapa)
             ),
             anexos:pedidos_compra_anexos(*),
-            lancamentos(id) 
+            lancamentos:lancamentos(id) 
         `)
         .eq('organizacao_id', organizacaoId);
 
@@ -92,7 +92,6 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
         subetapas: subetapaData || []
     };
 };
-// ====================================================================================
 
 
 export default function PedidosPage() {
@@ -111,13 +110,10 @@ export default function PedidosPage() {
         return initialFilterState;
     });
 
-    // =================================================================================
-    // KPI DE VALOR TOTAL ADICIONADO AO ESTADO INICIAL
-    // =================================================================================
     const [kpiData, setKpiData] = useState({ 
         totalPedidos: 0, 
         totalValorPedidos: 0,
-        totalNaoPlanejados: 0, // <-- NOVO KPI
+        totalNaoPlanejados: 0, 
         tempoMedioCotacao: 'N/A', 
         tempoMedioEntrega: 'N/A', 
         pedidosComPendencia: 0 
@@ -192,15 +188,18 @@ export default function PedidosPage() {
         });
     }, [pedidos, filters]);
 
-    // =================================================================================
-    // LÓGICA DO KPI DE VALOR TOTAL ADICIONADA AQUI
-    // =================================================================================
     useEffect(() => {
         const calculateKpis = async () => {
             const localFilteredPedidos = filteredPedidosKanban;
             
+            // =================================================================================
+            // ADICIONADA A DATA DE CORTE
+            // =================================================================================
+            // Define a data de corte para o final do dia 12/11/2025
+            const cutoffDate = new Date('2025-11-12T23:59:59');
+
             let totalValorPedidos = 0;
-            let totalNaoPlanejados = 0; // <-- NOVO KPI
+            let totalNaoPlanejados = 0; 
 
             for (const pedido of localFilteredPedidos) {
                 if (pedido.itens && Array.isArray(pedido.itens)) {
@@ -208,8 +207,16 @@ export default function PedidosPage() {
                         totalValorPedidos += parseFloat(item.custo_total_real) || 0;
                     }
                 }
-                // Se não tem lançamentos OU a lista está vazia, E o pedido não está cancelado
-                if ((!pedido.lancamentos || pedido.lancamentos.length === 0) && pedido.status !== 'Cancelado') {
+
+                // =================================================================================
+                // LÓGICA DO KPI ATUALIZADA COM A DATA DE CORTE
+                // =================================================================================
+                const dataSolicitacao = new Date(pedido.data_solicitacao);
+                if (
+                    (!pedido.lancamentos || pedido.lancamentos.length === 0) && // Não foi lançado
+                    pedido.status !== 'Cancelado' &&                           // Não está cancelado
+                    dataSolicitacao > cutoffDate                               // E é um pedido NOVO
+                ) {
                     totalNaoPlanejados++;
                 }
             }
@@ -261,7 +268,7 @@ export default function PedidosPage() {
             setKpiData({
                 totalPedidos: localFilteredPedidos.length,
                 totalValorPedidos: totalValorPedidos,
-                totalNaoPlanejados: totalNaoPlanejados, // <-- NOVO VALOR AQUI
+                totalNaoPlanejados: totalNaoPlanejados, 
                 tempoMedioCotacao: countCotacao > 0 ? `${(totalDiasCotacao / countCotacao).toFixed(1)} dias` : 'N/A',
                 tempoMedioEntrega: countEntrega > 0 ? `${(totalDiasEntrega / countEntrega).toFixed(1)} dias` : 'N/A',
                 pedidosComPendencia: comPendencia,
@@ -379,9 +386,6 @@ export default function PedidosPage() {
                 </button>
             </div>
 
-            {/* =================================================================================
-             * GRID DE KPIS ATUALIZADO PARA 6 COLUNAS
-             * ================================================================================= */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                  <KpiCard title="Pedidos (Filtro)" value={kpiData.totalPedidos} icon={faBoxOpen} color="blue" />
                  <KpiCard 
@@ -390,9 +394,6 @@ export default function PedidosPage() {
                     icon={faDollarSign} 
                     color="green" 
                  />
-                 {/* =================================================================================
-                  * NOVO KPI CARD ADICIONADO AQUI
-                  * ================================================================================= */}
                  <KpiCard 
                     title="Pendentes Financeiro" 
                     value={kpiData.totalNaoPlanejados} 
