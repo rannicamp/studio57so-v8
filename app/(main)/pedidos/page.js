@@ -32,23 +32,21 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
     // 2. Pedidos
     let query = supabase
         .from('pedidos_compra')
+        /* =================================================================================
+         * CORREÇÃO: Os comentários foram removidos DE DENTRO da string do select.
+         * =================================================================================
+         */
         .select(`
             *,
             titulo,
             turno_entrega,
             empreendimentos(nome, empresa_proprietaria_id),
             solicitante:solicitante_id(id, nome),
-            
-            /* =================================================================================
-             * BUSCA CORRETA VALIDADA PELO ESQUEMA
-             * =================================================================================
-             */
             itens:pedidos_compra_itens(*, 
                 fornecedor:fornecedor_id(nome, razao_social), 
                 etapa:etapa_id(nome_etapa), 
                 subetapa:subetapa_id(nome_subetapa)
             ),
-            
             anexos:pedidos_compra_anexos(*)
         `)
         .eq('organizacao_id', organizacaoId);
