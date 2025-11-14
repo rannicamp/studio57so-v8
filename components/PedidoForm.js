@@ -6,7 +6,12 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTrash, faPlus, faPencilAlt, faPaperclip, faUpload, faDownload, faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom, faHandHoldingDollar, faAlignLeft, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faSpinner, faTrash, faPlus, faPencilAlt, faPaperclip, faUpload, faDownload, 
+    faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom, 
+    faHandHoldingDollar, faAlignLeft, faCheck, 
+    faCheckCircle // <-- ÍCONE DE CHECK ADICIONADO
+} from '@fortawesome/free-solid-svg-icons';
 import PedidoItemModal from './PedidoItemModal';
 import LancamentoFormModal from './financeiro/LancamentoFormModal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,7 +43,8 @@ const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
                 etapa:etapa_id(nome_etapa)
             ), 
             historico:pedidos_compra_status_historico(*), 
-            anexos:pedidos_compra_anexos(*)
+            anexos:pedidos_compra_anexos(*),
+            lancamentos(id) 
         `)
         .eq('id', pedidoId)
         .eq('organizacao_id', organizacaoId)
@@ -54,9 +60,7 @@ const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
     const { data: contasData, error: contasError } = await supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', organizacaoId);
     if (contasError) throw new Error(`Ao carregar contas: ${contasError.message}`);
 
-    // =================================================================================
-    // NOVO: Busca lista de Fornecedores para o Dropdown de Edição em Massa
-    // =================================================================================
+    // 4. Busca Fornecedores
     const { data: fornecedoresData, error: fornError } = await supabase
         .from('clientes')
         .select('id, nome, razao_social, nome_fantasia')
@@ -92,10 +96,7 @@ export default function PedidoForm({ pedidoId }) {
     const [newAnexoOutroDescricao, setNewAnexoOutroDescricao] = useState('');
     const [kpis, setKpis] = useState(null);
     const [sortConfig, setSortConfig] = useState({ key: 'descricao_item', direction: 'ascending' });
-    
-    // Estado para Seleção Múltipla
     const [selectedItems, setSelectedItems] = useState(new Set());
-    // Estado para o Dropdown de Fornecedor em Massa
     const [selectedFornecedorBulk, setSelectedFornecedorBulk] = useState('');
 
 
@@ -108,7 +109,7 @@ export default function PedidoForm({ pedidoId }) {
     const pedido = data?.pedido;
     const itens = data?.pedido?.itens || [];
     const anexos = data?.pedido?.anexos || [];
-    const fornecedores = data?.fornecedores || []; // Lista completa de fornecedores
+    const fornecedores = data?.fornecedores || [];
 
     useEffect(() => {
         if (pedido) {
@@ -151,6 +152,8 @@ export default function PedidoForm({ pedidoId }) {
     const mutationOptions = {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['pedido', pedidoId, organizacaoId] });
+            // Invalida também o painel principal, pois o PedidoForm agora é um modal
+            queryClient.invalidateQueries({ queryKey: ['painelCompras'] });
         },
     };
 
@@ -161,34 +164,26 @@ export default function PedidoForm({ pedidoId }) {
             mutationOptions.onSuccess();
             const fieldName = Object.keys(variables)[0].replace('_', ' ');
             toast.success(`${fieldName} salvo com sucesso!`);
-            router.refresh();
         },
         onError: (err) => toast.error(`Erro ao salvar: ${err.message}`)
     });
 
-    // =================================================================================
-    // NOVO: Mutation para Atualização em Massa do Fornecedor
-    // =================================================================================
     const bulkUpdateFornecedorMutation = useMutation({
         ...mutationOptions,
         mutationFn: async ({ itemIds, fornecedorId }) => {
             if (!itemIds || itemIds.length === 0) return;
-            
-            // Converte para número se vier como string do select
             const idToSave = fornecedorId ? parseInt(fornecedorId) : null;
-
             const { error } = await supabase
                 .from('pedidos_compra_itens')
                 .update({ fornecedor_id: idToSave })
                 .in('id', itemIds)
                 .eq('organizacao_id', organizacaoId);
-            
             if (error) throw error;
         },
         onSuccess: () => {
             mutationOptions.onSuccess();
             toast.success("Fornecedor atualizado nos itens selecionados!");
-            setSelectedItems(new Set()); // Limpa a seleção após aplicar
+            setSelectedItems(new Set());
             setSelectedFornecedorBulk('');
         },
         onError: (err) => toast.error(`Erro na atualização em massa: ${err.message}`)
@@ -199,10 +194,8 @@ export default function PedidoForm({ pedidoId }) {
         mutationFn: async (file) => {
             const anexoDescricaoFinal = newAnexoType === 'Outro' ? newAnexoOutroDescricao : newAnexoType;
             const fileName = `${organizacaoId}/pedidos-anexos/pedido_${pedido.id}/${anexoDescricaoFinal.replace(/ /g, '_')}_${Date.now()}.${file.name.split('.').pop()}`;
-            
             const { error: uploadError } = await supabase.storage.from('pedidos-anexos').upload(fileName, file);
             if (uploadError) throw uploadError;
-
             const { error: dbError } = await supabase.from('pedidos_compra_anexos').insert({ pedido_compra_id: pedido.id, caminho_arquivo: fileName, nome_arquivo: file.name, descricao: anexoDescricaoFinal, usuario_id: user.id, organizacao_id: organizacaoId });
             if (dbError) throw dbError;
         },
@@ -231,7 +224,6 @@ export default function PedidoForm({ pedidoId }) {
         mutationFn: async (itemData) => {
             const isEditing = !!itemData.id;
             const custoTotal = (parseFloat(itemData.quantidade_solicitada) || 0) * (parseFloat(itemData.preco_unitario_real) || 0);
-
             const dataToSave = {
                 material_id: itemData.material_id || null,
                 descricao_item: itemData.descricao_item,
@@ -247,38 +239,22 @@ export default function PedidoForm({ pedidoId }) {
                 pedido_compra_id: pedidoId,
                 organizacao_id: organizacaoId,
             };
-
             if (isEditing) {
-                const { data, error } = await supabase
-                    .from('pedidos_compra_itens')
-                    .update(dataToSave)
-                    .eq('id', itemData.id)
-                    .eq('organizacao_id', organizacaoId)
-                    .select();
-
+                const { data, error } = await supabase.from('pedidos_compra_itens').update(dataToSave).eq('id', itemData.id).eq('organizacao_id', organizacaoId).select();
                 if (error) { throw error; }
-                if (!data || data.length === 0) {
-                    throw new Error("O item não foi encontrado para atualização. A alteração não foi salva.");
-                }
+                if (!data || data.length === 0) { throw new Error("O item não foi encontrado para atualização."); }
                 return { data: data[0], isEditing };
-
             } else {
-                const { data, error } = await supabase
-                    .from('pedidos_compra_itens')
-                    .insert(dataToSave)
-                    .select();
-
+                const { data, error } = await supabase.from('pedidos_compra_itens').insert(dataToSave).select();
                 if (error) throw error;
-                if (!data || data.length === 0) {
-                    throw new Error("Falha ao criar o novo item, não foi possível confirmar a criação.");
-                }
+                if (!data || data.length === 0) { throw new Error("Falha ao criar o novo item."); }
                 return { data: data[0], isEditing };
             }
         },
         onSuccess: (result) => {
             mutationOptions.onSuccess();
             const { isEditing } = result;
-            toast.success(`Item ${isEditing ? 'atualizado' : 'adicionado'} com sucesso!`);
+            toast.success(`Item ${isEditing ? 'atualizado' : 'adicionado'}!`);
             setIsItemModalOpen(false);
             setEditingItem(null);
         },
@@ -298,52 +274,25 @@ export default function PedidoForm({ pedidoId }) {
         onSuccess: () => { mutationOptions.onSuccess(); toast.success("Lista esvaziada!"); },
         onError: (err) => toast.error(`Erro ao esvaziar a lista: ${err.message}`),
     });
-
+    
     const handleHeaderFieldChange = (field, value) => { setPedidoHeader(p => ({ ...p, [field]: value })); };
     const handleHeaderFieldSave = async (field) => { updateHeaderMutation.mutate({ [field]: pedidoHeader[field] }); };
-    
     const handleAddAnexo = async () => { if (!newAnexoFile) { toast.error('Por favor, selecione um arquivo.'); return; } addAnexoMutation.mutate(newAnexoFile); };
-    
-    const handleRemoveAnexo = (anexo) => {
-        toast.warning(`Tem certeza que deseja remover o anexo "${anexo.nome_arquivo}"?`, {
-            action: { label: "Remover", onClick: () => removeAnexoMutation.mutate(anexo) },
-            cancel: { label: "Cancelar" }
-        });
-    };
-
+    const handleRemoveAnexo = (anexo) => { toast.warning(`Tem certeza que deseja remover o anexo "${anexo.nome_arquivo}"?`, { action: { label: "Remover", onClick: () => removeAnexoMutation.mutate(anexo) }, cancel: { label: "Cancelar" } }); };
     const handleDownloadAnexo = async (caminho) => { /* ... (lógica original mantida) ... */ };
-
-    const handleSaveItem = (itemData) => {
-        saveItemMutation.mutate(itemData);
-    };
-    
-    const handleRemoveItem = (itemId) => {
-        toast.warning("Tem certeza que deseja remover este item?", {
-            action: { label: "Remover", onClick: () => removeItemMutation.mutate(itemId) },
-            cancel: { label: "Cancelar" }
-        });
-    };
-
-    const handleEmptyItemList = () => {
-        toast.warning('ATENÇÃO: Deseja REMOVER TODOS OS ITENS? Esta ação é irreversível!', {
-            action: { label: "Esvaziar Lista", onClick: () => emptyItemListMutation.mutate() },
-            cancel: { label: "Cancelar" }
-        });
-    };
+    const handleSaveItem = (itemData) => { saveItemMutation.mutate(itemData); };
+    const handleRemoveItem = (itemId) => { toast.warning("Tem certeza que deseja remover este item?", { action: { label: "Remover", onClick: () => removeItemMutation.mutate(itemId) }, cancel: { label: "Cancelar" } }); };
+    const handleEmptyItemList = () => { toast.warning('ATENÇÃO: Deseja REMOVER TODOS OS ITENS? Esta ação é irreversível!', { action: { label: "Esvaziar Lista", onClick: () => emptyItemListMutation.mutate() }, cancel: { label: "Cancelar" } }); };
     
     const handleOpenLancamentoModal = () => {
         if (!pedido || !pedido.itens || pedido.itens.length === 0) {
             toast.error("Adicione itens ao pedido antes de planejar um pagamento.");
             return;
         }
-
         const totalPedidoValor = pedido.itens.reduce((acc, item) => acc + (parseFloat(item.custo_total_real) || 0), 0);
-        
         const firstFornecedorId = pedido.itens[0].fornecedor_id;
         const allSameFornecedor = pedido.itens.every(item => item.fornecedor_id === firstFornecedorId);
-        
         const notaFiscalAnexo = pedido.anexos.find(a => a.descricao && a.descricao.toLowerCase().includes('nota fiscal'));
-        
         let etapaId = null;
         if (pedido.itens.length > 0) {
             const firstEtapaId = pedido.itens[0].etapa_id;
@@ -351,7 +300,6 @@ export default function PedidoForm({ pedidoId }) {
                 etapaId = firstEtapaId;
             }
         }
-
         const initial = {
             descricao: `Pagamento Ref. Pedido de Compra #${pedido.id} - ${pedido.titulo || ''}`.trim(),
             valor: totalPedidoValor.toFixed(2),
@@ -368,19 +316,16 @@ export default function PedidoForm({ pedidoId }) {
                 descricao: notaFiscalAnexo.descricao,
             } : null,
         };
-        
         setLancamentoInitialData(initial);
         setIsLancamentoModalOpen(true);
     };
     
-    // Lógica de Seleção e Ação em Massa
     const handleSelectionChange = (itemId) => {
         const newSelection = new Set(selectedItems);
         if (newSelection.has(itemId)) newSelection.delete(itemId);
         else newSelection.add(itemId);
         setSelectedItems(newSelection);
     };
-
     const handleBulkUpdateFornecedor = () => {
         if (!selectedFornecedorBulk) {
             toast.error("Selecione um fornecedor para aplicar aos itens selecionados.");
@@ -391,7 +336,6 @@ export default function PedidoForm({ pedidoId }) {
             fornecedorId: selectedFornecedorBulk
         });
     };
-
     const handleEditClick = (item) => { setEditingItem(item); setIsItemModalOpen(true); };
 
     if (isLoading) return <div className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>;
@@ -400,6 +344,11 @@ export default function PedidoForm({ pedidoId }) {
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     const getSortIcon = (key) => { if (sortConfig.key !== key) return <FontAwesomeIcon icon={faSort} className="text-gray-400" />; return sortConfig.direction === 'ascending' ? <FontAwesomeIcon icon={faSortUp} /> : <FontAwesomeIcon icon={faSortDown} />; };
+
+    // =================================================================================
+    // VARIÁVEL DE CONTROLE DO BOTÃO
+    // =================================================================================
+    const jaLancado = pedido.lancamentos && pedido.lancamentos.length > 0;
 
     return (
         <>
@@ -434,10 +383,28 @@ export default function PedidoForm({ pedidoId }) {
                 <div className="border-t pt-6">
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><FontAwesomeIcon icon={faDollarSign} /> Planejar Pagamento</h3>
                     <div className="bg-gray-50 p-4 rounded-lg border flex items-center justify-between">
-                        <p className="text-sm text-gray-700">Clique no botão para agendar este pedido como uma despesa futura no módulo financeiro.</p>
-                        <button onClick={handleOpenLancamentoModal} disabled={false} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400 flex items-center justify-center gap-2">
-                            <FontAwesomeIcon icon={faHandHoldingDollar} />
-                            Planejar Pagamento
+                        <p className="text-sm text-gray-700">
+                            {jaLancado
+                                ? "Este pedido já possui um planejamento financeiro registrado."
+                                : "Clique no botão para agendar este pedido como uma despesa futura."
+                            }
+                        </p>
+                        {/* =================================================================================
+                         * BOTÃO ATUALIZADO (Cor, Texto, Ícone, Disabled)
+                         * ================================================================================= */}
+                        <button 
+                            onClick={handleOpenLancamentoModal} 
+                            disabled={jaLancado} 
+                            className={`
+                                text-white px-4 py-2 rounded-md shadow-sm flex items-center justify-center gap-2
+                                ${jaLancado 
+                                    ? 'bg-gray-400 cursor-not-allowed' 
+                                    : 'bg-green-600 hover:bg-green-700'
+                                }
+                            `}
+                        >
+                            <FontAwesomeIcon icon={jaLancado ? faCheckCircle : faHandHoldingDollar} />
+                            {jaLancado ? 'Pagamento Planejado' : 'Planejar Pagamento'}
                         </button>
                     </div>
                 </div>
@@ -461,9 +428,6 @@ export default function PedidoForm({ pedidoId }) {
                         </div>
                     </div>
 
-                    {/* =================================================================================
-                    // BARRA DE AÇÕES EM MASSA (APARECE QUANDO ITENS SÃO SELECIONADOS)
-                    // ================================================================================= */}
                     {selectedItems.size > 0 && (
                         <div className="bg-blue-50 p-3 rounded-md border border-blue-200 flex flex-wrap items-center gap-4 mb-4 shadow-sm animate-fade-in">
                             <span className="text-sm font-semibold text-blue-800 flex items-center gap-2">

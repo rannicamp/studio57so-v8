@@ -8,7 +8,10 @@ import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSort, faSpinner } from '@fortawesome/free-solid-svg-icons';
+// =================================================================================
+// ÍCONE DE LIXEIRA ADICIONADO
+// =================================================================================
+import { faSort, faSpinner, faTrash } from '@fortawesome/free-solid-svg-icons';
 
 // Definição das colunas do Kanban (Fluxo Fixo)
 const statusColumns = [
@@ -22,27 +25,30 @@ const statusColumns = [
     { id: 'Cancelado', title: 'Cancelado' },
 ];
 
-export default function ComprasKanban({ pedidos, onCardClick }) {
+export default function ComprasKanban({ 
+    pedidos, 
+    onCardClick,
+    onDeleteAllCanceled, // <-- NOVA PROP
+    canDelete,           // <-- NOVA PROP
+    isDeleting           // <-- NOVA PROP
+}) {
     const supabase = createClient();
     const { user } = useAuth();
     const queryClient = useQueryClient();
     
-    // Estados de Drag & Drop e UI
     const [draggedPedido, setDraggedPedido] = useState(null);
     const [dragOverColumn, setDragOverColumn] = useState(null);
-    
-    // Estados de Ordenação
     const [sorting, setSorting] = useState({});
     const [openSortMenu, setOpenSortMenu] = useState(null);
     const sortMenuRef = useRef(null);
-
-    // Estados para Rolagem Horizontal (Mouse Drag)
     const scrollContainerRef = useRef(null);
     const [isDraggingScroll, setIsDraggingScroll] = useState(false);
     const [startX, setStartX] = useState(0);
     const [scrollLeft, setScrollLeft] = useState(0);
+    
+    // Estado para controlar o spinner da lixeira
+    const [deletingColumnId, setDeletingColumnId] = useState(null);
 
-    // Fechar menu de ordenação ao clicar fora
     useEffect(() => {
         function handleClickOutside(event) {
             if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
@@ -53,7 +59,14 @@ export default function ComprasKanban({ pedidos, onCardClick }) {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [sortMenuRef]);
 
-    // Mutation para atualizar o status
+    // Sincroniza o estado de "deletando" com a prop isDeleting
+    useEffect(() => {
+        if (!isDeleting) {
+            setDeletingColumnId(null);
+        }
+    }, [isDeleting]);
+
+    // Mutation para atualizar o status (Drag-n-drop)
     const updateStatusMutation = useMutation({
         mutationFn: async ({ pedidoId, newStatus }) => {
             const { error } = await supabase
@@ -88,7 +101,6 @@ export default function ComprasKanban({ pedidos, onCardClick }) {
                 .insert(novoPedido)
                 .select()
                 .single();
-
             if (erroPedido) throw erroPedido;
 
             if (pedidoOriginal.itens && pedidoOriginal.itens.length > 0) {
@@ -107,7 +119,7 @@ export default function ComprasKanban({ pedidos, onCardClick }) {
         onError: (error) => toast.error(`Erro ao duplicar: ${error.message}`)
     });
 
-    // --- Lógica de Rolagem Horizontal (Igual ao CRM) ---
+    // --- Lógica de Rolagem Horizontal ---
     const handleMouseDown = (e) => {
         if (e.target.closest('.kanban-card') || e.target.closest('button')) return;
         setIsDraggingScroll(true);
@@ -116,13 +128,11 @@ export default function ComprasKanban({ pedidos, onCardClick }) {
         setScrollLeft(container.scrollLeft);
         container.style.cursor = 'grabbing';
     };
-
     const handleMouseLeaveOrUp = () => {
         if (!isDraggingScroll) return;
         setIsDraggingScroll(false);
         if (scrollContainerRef.current) scrollContainerRef.current.style.cursor = 'grab';
     };
-
     const handleMouseMove = (e) => {
         if (!isDraggingScroll) return;
         e.preventDefault();
@@ -161,39 +171,21 @@ export default function ComprasKanban({ pedidos, onCardClick }) {
     const pedidosPorColuna = useMemo(() => {
         const grouped = {};
         statusColumns.forEach(coluna => {
-            // Filtra pedidos da coluna
             const pedidosDaColuna = [...pedidos.filter(p => p.status === coluna.id)];
-            
-            // Aplica ordenação se houver configuração para esta coluna
             const sortConfig = sorting[coluna.id];
             if (sortConfig) {
                 pedidosDaColuna.sort((a, b) => {
                     const { sortBy, order } = sortConfig;
                     let valA, valB;
-
-                    // Mapeia os campos
-                    if (sortBy === 'titulo') {
-                        valA = a.titulo?.toLowerCase() || '';
-                        valB = b.titulo?.toLowerCase() || '';
-                    } else if (sortBy === 'data_entrega_prevista' || sortBy === 'data_solicitacao') {
-                        valA = a[sortBy] ? new Date(a[sortBy]) : null;
-                        valB = b[sortBy] ? new Date(b[sortBy]) : null;
-                    }
-
-                    // Lógica de comparação
-                    if (valA === valB) return 0;
-                    if (valA === null) return 1; // Nulos no final
-                    if (valB === null) return -1;
-
+                    if (sortBy === 'titulo') { valA = a.titulo?.toLowerCase() || ''; valB = b.titulo?.toLowerCase() || ''; }
+                    else if (sortBy === 'data_entrega_prevista' || sortBy === 'data_solicitacao') { valA = a[sortBy] ? new Date(a[sortBy]) : null; valB = b[sortBy] ? new Date(b[sortBy]) : null; }
+                    if (valA === valB) return 0; if (valA === null) return 1; if (valB === null) return -1;
                     const direction = order === 'asc' ? 1 : -1;
-                    
                     if (valA instanceof Date) return (valA - valB) * direction;
                     if (typeof valA === 'string') return valA.localeCompare(valB) * direction;
-                    
                     return 0;
                 });
             } else {
-                // Ordenação padrão (Data de criação mais recente primeiro)
                 pedidosDaColuna.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             }
             grouped[coluna.id] = pedidosDaColuna;
@@ -207,20 +199,39 @@ export default function ComprasKanban({ pedidos, onCardClick }) {
         setDraggedPedido(pedido);
         e.dataTransfer.effectAllowed = 'move';
     };
-
     const handleDragOver = (e, columnId) => {
         e.preventDefault();
         setDragOverColumn(columnId);
     };
-
     const handleDrop = (e, targetColumnId) => {
         e.preventDefault();
         setDragOverColumn(null);
         if (!draggedPedido) return;
         if (draggedPedido.status === targetColumnId) return;
-
         updateStatusMutation.mutate({ pedidoId: draggedPedido.id, newStatus: targetColumnId });
         setDraggedPedido(null);
+    };
+
+    // =================================================================================
+    // NOVA FUNÇÃO: Deletar todos os cards da coluna "Cancelado"
+    // =================================================================================
+    const handleDeleteAll = (columnId) => {
+        const pedidosParaDeletar = pedidosPorColuna[columnId];
+        if (!pedidosParaDeletar || pedidosParaDeletar.length === 0) return;
+
+        toast("Excluir Todos os Pedidos", {
+            description: `Tem certeza que deseja excluir permanentemente os ${pedidosParaDeletar.length} pedidos desta coluna? Esta ação não pode ser desfeita.`,
+            action: {
+                label: "Excluir Tudo",
+                onClick: () => {
+                    setDeletingColumnId(columnId);
+                    const idsParaDeletar = pedidosParaDeletar.map(p => p.id);
+                    onDeleteAllCanceled(idsParaDeletar);
+                },
+            },
+            cancel: { label: "Cancelar" },
+            classNames: { actionButton: 'bg-red-600' },
+        });
     };
 
     return (
@@ -239,7 +250,6 @@ export default function ComprasKanban({ pedidos, onCardClick }) {
                     onDragOver={(e) => handleDragOver(e, column.id)}
                     onDrop={(e) => handleDrop(e, column.id)}
                 >
-                    {/* Cabeçalho da Coluna (Estilo Limpo) */}
                     <div className="p-3 text-sm font-semibold text-gray-700 border-b bg-gray-50 rounded-t-lg flex justify-between items-center">
                         <div className="flex items-center gap-2">
                             <span>{column.title}</span>
@@ -248,38 +258,56 @@ export default function ComprasKanban({ pedidos, onCardClick }) {
                             </span>
                         </div>
                         
-                        {/* Menu de Ordenação */}
-                        <div className="relative">
-                            <button 
-                                onClick={() => setOpenSortMenu(openSortMenu === column.id ? null : column.id)} 
-                                className="text-gray-400 hover:text-blue-600 transition-colors p-1"
-                                title="Ordenar coluna"
-                            >
-                                <FontAwesomeIcon icon={faSort} />
-                            </button>
-                            
-                            {openSortMenu === column.id && (
-                                <div ref={sortMenuRef} className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-20 text-left">
-                                    <p className="p-2 font-semibold text-xs text-gray-500 border-b bg-gray-50">Ordenar por:</p>
-                                    {sortOptions.map(option => (
-                                        <button 
-                                            key={option.value} 
-                                            onClick={() => handleSortChange(column.id, option.value)} 
-                                            className={`block w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${
-                                                (sorting[column.id] && `${sorting[column.id].sortBy}_${sorting[column.id].order}` === option.value) || (!sorting[column.id] && option.value === '') 
-                                                ? 'text-blue-600 font-medium bg-blue-50' 
-                                                : 'text-gray-700'
-                                            }`}
-                                        >
-                                            {option.label}
-                                        </button>
-                                    ))}
-                                </div>
+                        <div className="flex items-center gap-3">
+                            {/* =================================================================================
+                              BOTÃO DE LIXEIRA (Condicional)
+                            ================================================================================= */}
+                            {canDelete && column.id === 'Cancelado' && (pedidosPorColuna[column.id]?.length || 0) > 0 && (
+                                <button 
+                                    onClick={() => handleDeleteAll(column.id)}
+                                    disabled={deletingColumnId === column.id}
+                                    className="text-red-400 hover:text-red-600 transition-colors"
+                                    title={`Excluir todos os ${pedidosPorColuna[column.id].length} pedidos`}
+                                >
+                                    <FontAwesomeIcon 
+                                        icon={deletingColumnId === column.id ? faSpinner : faTrash} 
+                                        spin={deletingColumnId === column.id} 
+                                    />
+                                </button>
                             )}
+
+                            {/* Menu de Ordenação */}
+                            <div className="relative">
+                                <button 
+                                    onClick={() => setOpenSortMenu(openSortMenu === column.id ? null : column.id)} 
+                                    className="text-gray-400 hover:text-blue-600 transition-colors p-1"
+                                    title="Ordenar coluna"
+                                >
+                                    <FontAwesomeIcon icon={faSort} />
+                                </button>
+                                
+                                {openSortMenu === column.id && (
+                                    <div ref={sortMenuRef} className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-20 text-left">
+                                        <p className="p-2 font-semibold text-xs text-gray-500 border-b bg-gray-50">Ordenar por:</p>
+                                        {sortOptions.map(option => (
+                                            <button 
+                                                key={option.value} 
+                                                onClick={() => handleSortChange(column.id, option.value)} 
+                                                className={`block w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${
+                                                    (sorting[column.id] && `${sorting[column.id].sortBy}_${sorting[column.id].order}` === option.value) || (!sorting[column.id] && option.value === '') 
+                                                    ? 'text-blue-600 font-medium bg-blue-50' 
+                                                    : 'text-gray-700'
+                                                }`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    {/* Área de Conteúdo (Cards) */}
                     <div className={`p-2 flex-1 overflow-y-auto space-y-3 min-h-[100px] ${dragOverColumn === column.id ? 'bg-blue-50/50' : ''}`}>
                         {pedidosPorColuna[column.id]?.map(pedido => (
                             <div 
@@ -298,7 +326,6 @@ export default function ComprasKanban({ pedidos, onCardClick }) {
                             </div>
                         ))}
                         
-                        {/* Placeholder vazio */}
                         {pedidosPorColuna[column.id]?.length === 0 && (
                             <div className="h-20 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-xs m-2">
                                 Arraste aqui

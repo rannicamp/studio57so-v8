@@ -1,8 +1,12 @@
-//
+// components/PedidoCard.js
 'use client';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faCalendarAlt, faTag, faEllipsisV, faDollarSign, faExclamationTriangle, faTruck, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faUser, faCalendarAlt, faTag, faEllipsisV, faDollarSign, 
+    faExclamationTriangle, faTruck, faCopy, 
+    faFileInvoiceDollar // <-- ÍCONE DE ALERTA FINANCEIRO
+} from '@fortawesome/free-solid-svg-icons';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 
@@ -12,6 +16,15 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
     const totalPedido = useMemo(() => {
         return pedido.itens?.reduce((acc, item) => acc + (item.custo_total_real || 0), 0) || 0;
     }, [pedido.itens]);
+
+    // =================================================================================
+    // VARIÁVEL DE CONTROLE (DO PASSO 1)
+    // =================================================================================
+    const jaLancado = pedido.lancamentos && pedido.lancamentos.length > 0;
+    const totalItens = pedido.itens?.length || 0;
+
+    // Alerta só aparece se o pedido está em status de "pagamento" E ainda não foi lançado
+    const mostrarAlertaFinanceiro = !jaLancado && ['Entregue', 'Realizado'].includes(pedido.status);
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
@@ -30,11 +43,10 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
     
     const handleDuplicateClick = (e) => {
         e.stopPropagation();
-        // Por que: Substituímos o window.confirm por um toast de confirmação mais moderno e amigável.
         toast.warning(`Deseja criar uma cópia do pedido "${pedido.titulo || `#${pedido.id}`}"?`, {
             action: {
                 label: "Duplicar",
-                onClick: () => onDuplicate(pedido.id) // A função do pai mostrará o toast de sucesso/erro.
+                onClick: () => onDuplicate(pedido.id) 
             },
             cancel: {
                 label: "Cancelar"
@@ -46,11 +58,8 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
         e.dataTransfer.setData('pedidoId', pedido.id);
     };
 
-    const totalItens = pedido.itens?.length || 0;
-    // Para data_solicitacao (timestamp), o uso de new Date() é seguro e correto.
     const dataSolicitacaoFormatada = new Date(pedido.data_solicitacao).toLocaleDateString('pt-BR');
 
-    // Por que: Simplificamos e tornamos mais segura a formatação da data_entrega_prevista (date), tratando-a como texto.
     const formatDataEntrega = (dateStr) => {
       if (!dateStr || !/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
           return 'N/A';
@@ -92,8 +101,22 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
                 <p className="text-xs text-gray-600 mb-1 flex items-center gap-2"> <FontAwesomeIcon icon={faUser} className="w-3" /> <span>{pedido.solicitante?.nome || 'N/A'}</span> </p>
                 <p className="text-xs text-gray-600 mb-1 flex items-center gap-2" title="Data da Solicitação"> <FontAwesomeIcon icon={faCalendarAlt} className="w-3" /> <span>{dataSolicitacaoFormatada}</span> </p>
                 <p className="text-xs text-gray-600 mb-2 flex items-center gap-2" title="Data e Turno da Entrega"> <FontAwesomeIcon icon={faTruck} className="w-3" /> <span>{dataEntregaFormatada} ({pedido.turno_entrega || 'Não definido'})</span> </p>
+                
                 <div className="flex justify-between items-center mt-3">
                     <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center gap-2 w-fit"> <FontAwesomeIcon icon={faTag} className="w-3" /> {totalItens} {totalItens === 1 ? 'item' : 'itens'} </span>
+                    
+                    {/* =================================================================================
+                     * ALERTA DE PAGAMENTO PENDENTE
+                     * ================================================================================= */}
+                    {mostrarAlertaFinanceiro && (
+                        <span 
+                            className="text-xs font-semibold text-yellow-600 flex items-center gap-1 p-1 bg-yellow-50 rounded border border-yellow-200"
+                            title="Pagamento pendente de planejamento"
+                        >
+                            <FontAwesomeIcon icon={faFileInvoiceDollar} /> Pendente Fin.
+                        </span>
+                    )}
+
                     <span className="text-sm font-bold text-green-700 flex items-center gap-1"> <FontAwesomeIcon icon={faDollarSign} className="w-3" /> {formatCurrency(totalPedido)} </span>
                 </div>
             </div>

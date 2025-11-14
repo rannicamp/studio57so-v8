@@ -3,7 +3,12 @@
 
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faPenToSquare, faCalendarAlt, faUser, faBuilding, faClipboardList, faAlignLeft, faPaperclip, faSpinner, faDollarSign, faTruck, faHandHoldingDollar, faFloppyDisk, faBan, faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faTimes, faPenToSquare, faCalendarAlt, faUser, faBuilding, faClipboardList, 
+    faAlignLeft, faPaperclip, faSpinner, faDollarSign, faHandHoldingDollar, 
+    faFloppyDisk, faBan, faExternalLinkAlt, 
+    faCheckCircle // <-- ÍCONE DE CHECK ADICIONADO
+} from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import LancamentoFormModal from '../financeiro/LancamentoFormModal';
@@ -68,17 +73,14 @@ export default function PedidoDetalhesSidebar({
     onUpdate, 
     solicitantes = [], 
     empreendimentos = [],
-    onEditCompleto // <--- NOVA PROP PARA ABRIR O MODAL
+    onEditCompleto
 }) {
     const router = useRouter();
     const supabase = createClient();
     const queryClient = useQueryClient();
 
-    // Estados para o Modal Financeiro
     const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false);
     const [lancamentoInitialData, setLancamentoInitialData] = useState(null);
-
-    // Estados para Edição Rápida
     const [isEditing, setIsEditing] = useState(false);
     const [editableData, setEditableData] = useState(null);
 
@@ -115,6 +117,11 @@ export default function PedidoDetalhesSidebar({
 
     if (!isOpen || !pedido || !editableData) return null;
 
+    // =================================================================================
+    // VARIÁVEL DE CONTROLE DO BOTÃO
+    // =================================================================================
+    const jaLancado = pedido.lancamentos && pedido.lancamentos.length > 0;
+
     const formatDate = (dateStr) => {
         if (!dateStr) return 'N/A';
         try {
@@ -140,14 +147,10 @@ export default function PedidoDetalhesSidebar({
         return acc + valorEstimado;
     }, 0) || 0;
 
-    // =================================================================================
-    // ALTERAÇÃO: Em vez de navegar, chama a função do pai para abrir o Modal
-    // =================================================================================
     const handleEditCompletoClick = () => {
         if (onEditCompleto) {
             onEditCompleto(pedido);
         } else {
-            // Fallback caso a prop não seja passada (apenas segurança)
             router.push(`/pedidos/${pedido.id}`);
         }
     };
@@ -259,7 +262,6 @@ export default function PedidoDetalhesSidebar({
                                         <button onClick={handleQuickEditToggle} className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-200" title="Editar campos principais">
                                             <FontAwesomeIcon icon={faPenToSquare} /> Editar Rápido
                                         </button>
-                                        {/* BOTÃO ALTERADO PARA CHAMAR O MODAL */}
                                         <button onClick={handleEditCompletoClick} className="text-xs font-semibold text-gray-700 hover:text-gray-900 flex items-center gap-1 bg-gray-100 px-2 py-1 rounded border border-gray-300" title="Abrir formulário completo com itens e anexos">
                                             <FontAwesomeIcon icon={faExternalLinkAlt} /> Abrir Completo
                                         </button>
@@ -295,16 +297,34 @@ export default function PedidoDetalhesSidebar({
                              </div>
                         </section>
 
+                         {/* =================================================================================
+                         * BOTÃO DE AÇÃO FINANCEIRA ATUALIZADO
+                         * ================================================================================= */}
                          {['Entregue', 'Realizado'].includes(pedido.status) && totalPedidoReal > 0 && (
                             <section className="border-t pt-4">
                                 <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                     <FontAwesomeIcon icon={faHandHoldingDollar} />
                                     Ações Financeiras
                                 </h4>
-                                <button onClick={handleOpenLancamentoModal} className="w-full bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 flex items-center justify-center gap-2">
-                                    <FontAwesomeIcon icon={faHandHoldingDollar} />
-                                    Planejar Pagamento
+                                <button
+                                    onClick={handleOpenLancamentoModal}
+                                    disabled={jaLancado}
+                                    className={`
+                                        w-full text-white px-4 py-2 rounded-md shadow-sm flex items-center justify-center gap-2
+                                        ${jaLancado 
+                                            ? 'bg-gray-400 cursor-not-allowed' 
+                                            : 'bg-green-600 hover:bg-green-700'
+                                        }
+                                    `}
+                                >
+                                    <FontAwesomeIcon icon={jaLancado ? faCheckCircle : faHandHoldingDollar} />
+                                    {jaLancado ? 'Pagamento Planejado' : 'Planejar Pagamento'}
                                 </button>
+                                {jaLancado && (
+                                    <p className="text-xs text-center text-gray-500 mt-2">
+                                        Este pedido já foi lançado no financeiro.
+                                    </p>
+                                )}
                             </section>
                          )}
 
