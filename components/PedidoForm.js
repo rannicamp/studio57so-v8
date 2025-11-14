@@ -10,7 +10,7 @@ import {
     faSpinner, faTrash, faPlus, faPencilAlt, faPaperclip, faUpload, faDownload, 
     faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom, 
     faHandHoldingDollar, faAlignLeft, faCheck, 
-    faCheckCircle
+    faCheckCircle // <-- ÍCONE DE CHECK ADICIONADO
 } from '@fortawesome/free-solid-svg-icons';
 import PedidoItemModal from './PedidoItemModal';
 import LancamentoFormModal from './financeiro/LancamentoFormModal';
@@ -31,6 +31,7 @@ const formatDuration = (milliseconds) => {
 const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
     if (!pedidoId || !organizacaoId) throw new Error("ID do Pedido ou da Organização não encontrado.");
 
+    // 1. Busca dados do Pedido (com lancamentos)
     const { data: pedidoData, error: pedidoError } = await supabase
         .from('pedidos_compra')
         .select(`
@@ -51,12 +52,15 @@ const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
 
     if (pedidoError) throw new Error(`Ao carregar o pedido: ${pedidoError.message}`);
 
+    // 2. Busca Etapas
     const { data: etapasData, error: etapasError } = await supabase.from('etapa_obra').select('id, nome_etapa').eq('organizacao_id', organizacaoId);
     if (etapasError) throw new Error(`Ao carregar etapas: ${etapasError.message}`);
     
+    // 3. Busca Contas Financeiras
     const { data: contasData, error: contasError } = await supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', organizacaoId);
     if (contasError) throw new Error(`Ao carregar contas: ${contasError.message}`);
 
+    // 4. Busca Fornecedores
     const { data: fornecedoresData, error: fornError } = await supabase
         .from('clientes')
         .select('id, nome, razao_social, nome_fantasia')
@@ -310,9 +314,6 @@ export default function PedidoForm({ pedidoId }) {
                 nome_arquivo: notaFiscalAnexo.nome_arquivo,
                 descricao: notaFiscalAnexo.descricao,
             } : null,
-            // =================================================================================
-            // CORREÇÃO: ADICIONANDO O ID DO PEDIDO AO LANÇAMENTO
-            // =================================================================================
             pedido_compra_id: pedido.id
         };
         setLancamentoInitialData(initial);
@@ -344,7 +345,24 @@ export default function PedidoForm({ pedidoId }) {
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     const getSortIcon = (key) => { if (sortConfig.key !== key) return <FontAwesomeIcon icon={faSort} className="text-gray-400" />; return sortConfig.direction === 'ascending' ? <FontAwesomeIcon icon={faSortUp} /> : <FontAwesomeIcon icon={faSortDown} />; };
 
-    const jaLancado = pedido.lancamentos && pedido.lancamentos.length > 0;
+    // =================================================================================
+    // LÓGICA DE ANISTIA (DATA DE CORTE)
+    // =================================================================================
+    const cutoffDate = new Date('2025-11-12T23:59:59');
+    const dataSolicitacao = new Date(pedido.data_solicitacao);
+    const isAntigo = dataSolicitacao <= cutoffDate;
+    const isLancadoDeFato = pedido.lancamentos && pedido.lancamentos.length > 0;
+    
+    // O pedido é considerado "OK" se já foi lançado OU se é antigo (anistiado)
+    const jaLancado = isLancadoDeFato || isAntigo;
+    
+    // Mensagem de ajuda
+    let helpText = "Clique no botão para agendar este pedido como uma despesa futura.";
+    if (isLancadoDeFato) {
+        helpText = "Este pedido já possui um planejamento financeiro registrado.";
+    } else if (isAntigo) {
+        helpText = "Este pedido é anterior a 12/11/2025 e foi ignorado da pendência financeira.";
+    }
 
     return (
         <>
@@ -380,11 +398,11 @@ export default function PedidoForm({ pedidoId }) {
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><FontAwesomeIcon icon={faDollarSign} /> Planejar Pagamento</h3>
                     <div className="bg-gray-50 p-4 rounded-lg border flex items-center justify-between">
                         <p className="text-sm text-gray-700">
-                            {jaLancado
-                                ? "Este pedido já possui um planejamento financeiro registrado."
-                                : "Clique no botão para agendar este pedido como uma despesa futura."
-                            }
+                            {helpText}
                         </p>
+                        {/* =================================================================================
+                         * BOTÃO ATUALIZADO (Cor, Texto, Ícone, Disabled)
+                         * ================================================================================= */}
                         <button 
                             onClick={handleOpenLancamentoModal} 
                             disabled={jaLancado} 

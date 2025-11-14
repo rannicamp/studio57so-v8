@@ -4,7 +4,7 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faUser, faCalendarAlt, faTag, faEllipsisV, faDollarSign, 
-    faExclamationTriangle, faTruck, faCopy, 
+    faExclamationTriangle, faTruck, faCopy,
     faFileInvoiceDollar // <-- ÍCONE DE ALERTA FINANCEIRO
 } from '@fortawesome/free-solid-svg-icons';
 import { useState, useMemo } from 'react';
@@ -18,13 +18,22 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
     }, [pedido.itens]);
 
     // =================================================================================
-    // VARIÁVEL DE CONTROLE (DO PASSO 1)
+    // LÓGICA DE ANISTIA (DATA DE CORTE) ADICIONADA
     // =================================================================================
     const jaLancado = pedido.lancamentos && pedido.lancamentos.length > 0;
     const totalItens = pedido.itens?.length || 0;
+    
+    // Define a data de corte para o final do dia 12/11/2025
+    const cutoffDate = new Date('2025-11-12T23:59:59');
+    const dataSolicitacao = new Date(pedido.data_solicitacao);
+    const isAntigo = dataSolicitacao <= cutoffDate;
 
-    // Alerta só aparece se o pedido está em status de "pagamento" E ainda não foi lançado
-    const mostrarAlertaFinanceiro = !jaLancado && ['Entregue', 'Realizado'].includes(pedido.status);
+    // Alerta só aparece se:
+    // 1. Não foi lançado E
+    // 2. Está em status de pagamento E
+    // 3. NÃO é um pedido antigo (anistiado)
+    const mostrarAlertaFinanceiro = !jaLancado && ['Entregue', 'Realizado'].includes(pedido.status) && !isAntigo;
+
 
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
@@ -46,7 +55,8 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
         toast.warning(`Deseja criar uma cópia do pedido "${pedido.titulo || `#${pedido.id}`}"?`, {
             action: {
                 label: "Duplicar",
-                onClick: () => onDuplicate(pedido.id) 
+                // CORREÇÃO: Passa o objeto 'pedido' inteiro, como a função no Kanban espera
+                onClick: () => onDuplicate(pedido) 
             },
             cancel: {
                 label: "Cancelar"
@@ -106,7 +116,7 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
                     <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center gap-2 w-fit"> <FontAwesomeIcon icon={faTag} className="w-3" /> {totalItens} {totalItens === 1 ? 'item' : 'itens'} </span>
                     
                     {/* =================================================================================
-                     * ALERTA DE PAGAMENTO PENDENTE
+                     * ALERTA DE PAGAMENTO PENDENTE (AGORA COM ANISTIA)
                      * ================================================================================= */}
                     {mostrarAlertaFinanceiro && (
                         <span 
