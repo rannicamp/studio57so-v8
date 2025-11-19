@@ -1,4 +1,4 @@
-//components\TabelaVenda.js
+// components/TabelaVenda.js
 
 "use client";
 
@@ -39,10 +39,19 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
 
     const numColunasEntrada = useMemo(() => Math.max(0, parseInt(config?.num_parcelas_entrada) || 0), [config]);
 
-    const statusClasses = {
-        'Disponível': 'row-disponivel', 'Reservado': 'row-reservado', 'Vendido': 'row-vendido'
+    // --- ATUALIZAÇÃO: Função robusta para definir a classe CSS ---
+    // Isso resolve o problema se o status vier como "reservado", "Reservado " ou "RESERVADO"
+    const getStatusClass = (status) => {
+        if (!status) return 'row-disponivel';
+        
+        const s = status.toString().trim().toLowerCase();
+        
+        if (s === 'vendido') return 'row-vendido';
+        if (s === 'reservado') return 'row-reservado'; // Identifica RESERVADO de qualquer jeito
+        
+        return 'row-disponivel';
     };
-    
+
     return (
         <div className="printable-content-area bg-white rounded-lg shadow p-6 mt-8">
             <style jsx global>{`
@@ -53,17 +62,19 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
                 .sales-table th { font-weight: 600; color: #343a40; }
                 .sales-table .group-header { background-color: #e9ecef; }
                 .number { text-align: right; }
-                .row-reservado { background-color: #fff3cd !important; color: #856404; }
-                .row-vendido { background-color: #f8d7da !important; color: #721c24; }
+                
+                /* CORES DEFINIDAS AQUI */
+                .row-disponivel { background-color: #ffffff; }
+                .row-reservado { background-color: #fff3cd !important; color: #856404; } /* Amarelo */
+                .row-vendido { background-color: #f8d7da !important; color: #721c24; }   /* Vermelho */
 
-                /* --- CSS DE IMPRESSÃO - ABORDAGEM SIMPLIFICADA E ROBUSTA --- */
+                /* --- CSS DE IMPRESSÃO --- */
                 @media print {
                     @page {
                         size: landscape;
                         margin: 10mm;
                     }
 
-                    /* Configurações básicas de impressão */
                     body {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
@@ -72,7 +83,6 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
                         visibility: hidden;
                     }
 
-                    /* Define a área visível */
                     .printable-content-area, .printable-content-area * {
                         visibility: visible;
                     }
@@ -80,12 +90,11 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
                         display: none;
                     }
 
-                    /* Layout do container principal */
                     .printable-content-area {
                         position: absolute;
                         top: 10mm;
                         left: 10mm;
-                        width: calc(100% - 20mm); /* Ocupa a largura entre as margens */
+                        width: calc(100% - 20mm);
                         height: auto;
                         padding: 0 !important;
                         margin: 0 !important;
@@ -94,18 +103,17 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
                         font-size: 8pt;
                     }
 
-                    /* Layout da tabela */
                     .sales-table {
                         width: 100%;
                         border-collapse: collapse;
-                        table-layout: auto; /* Deixa o navegador calcular a melhor largura */
+                        table-layout: auto;
                     }
                     .sales-table th, .sales-table td {
                         border: 1px solid #333 !important;
                         padding: 4px;
                         text-align: center;
                         vertical-align: middle;
-                        white-space: normal; /* Permite quebra de linha nos cabeçalhos */
+                        white-space: normal;
                         word-break: break-word;
                         line-height: 1.2;
                     }
@@ -114,13 +122,12 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
                         font-weight: bold;
                     }
                     .sales-table td.number {
-                        white-space: nowrap; /* Impede que números quebrem linha */
+                        white-space: nowrap;
                     }
                     .sales-table tbody tr {
                         page-break-inside: avoid !important;
                     }
 
-                    /* Cabeçalho e Rodapé */
                     .print-header {
                         display: flex;
                         justify-content: space-between;
@@ -166,7 +173,6 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
                 </button>
             </div>
 
-            {/* A estrutura do conteúdo imprimível permanece a mesma */ }
             <div>
                 <div className="print-header">
                     <img src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG" alt="Logo Studio 57" />
@@ -199,7 +205,8 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
                         </thead>
                         <tbody>
                             {TabelaCalculada.map(item => (
-                                <tr key={item.id} className={`${statusClasses[item.status] || 'row-disponivel'}`}>
+                                // --- ATUALIZAÇÃO: Uso da função segura getStatusClass ---
+                                <tr key={item.id} className={getStatusClass(item.status)}>
                                     <td>{item.unidade}</td>
                                     <td>{item.tipo}</td>
                                     <td className="number">{Number(item.area_m2).toFixed(2)}</td>

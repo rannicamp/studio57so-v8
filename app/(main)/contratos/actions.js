@@ -1,70 +1,116 @@
 // app/(main)/contratos/actions.js
-
 'use server';
 
-import { createClient } from '../../../utils/supabase/server';
-import { redirect } from 'next/navigation'; // Mantemos para o redirect final
+import { createClient } from '@/utils/supabase/server';
+import { revalidatePath } from 'next/cache';
 
-// --- ATUALIZAÇÃO: A função agora aceita empreendimentoId E tipoDocumento ---
-export async function createNewContrato(empreendimentoId, tipoDocumento) { 
+// --- FUNÇÃO 1: CRIAR CONTRATO (Mantida) ---
+export async function createNewContrato(empreendimentoId, tipoDocumento) {
     const supabase = createClient();
 
-    // Validação de entrada
-    if (!empreendimentoId) {
-        return { error: "O Empreendimento é obrigatório." };
-    }
-    if (!tipoDocumento) {
-        return { error: "O Tipo de Documento é obrigatório." };
-    }
+    if (!empreendimentoId) return { error: "O Empreendimento é obrigatório." };
+    if (!tipoDocumento) return { error: "O Tipo de Documento é obrigatório." };
 
-    // Busca usuário e organização (como antes)
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        return { error: "Usuário não autenticado." };
-    }
+    if (!user) return { error: "Usuário não autenticado." };
 
-    const { data: userProfile, error: profileError } = await supabase
-        .from('usuarios')
-        .select('organizacao_id')
-        .eq('id', user.id)
-        .single();
+    const { data: userProfile } = await supabase.from('usuarios').select('organizacao_id').eq('id', user.id).single();
+    if (!userProfile) return { error: "Perfil não encontrado." };
 
-    if (profileError || !userProfile) {
-        console.error("Erro ao buscar perfil do usuário:", profileError);
-        return { error: "Não foi possível encontrar o perfil do usuário." };
-    }
-
-    const organizacaoId = userProfile.organizacao_id;
-
-    // --- ATUALIZAÇÃO: Insere o contrato JÁ COM o empreendimento_id E tipo_documento ---
-    const { data: newContrato, error: insertError } = await supabase
+    const { data: newContrato, error } = await supabase
         .from('contratos')
         .insert({
-            empreendimento_id: empreendimentoId,   // <-- USA O PARÂMETRO!
-            tipo_documento: tipoDocumento,       // <-- USA O NOVO PARÂMETRO!
-            organizacao_id: organizacaoId,
+            empreendimento_id: empreendimentoId,
+            tipo_documento: tipoDocumento,
+            organizacao_id: userProfile.organizacao_id,
             status_contrato: 'Rascunho',
-            valor_final_venda: 0, 
+            valor_final_venda: 0,
             data_venda: new Date().toISOString().split('T')[0],
-            criado_por_usuario_id: user.id // <-- Adiciona quem criou
+            criado_por_usuario_id: user.id
         })
         .select('id')
         .single();
 
-    if (insertError) {
-        console.error("Erro ao criar novo contrato:", insertError);
-        // Retorna o erro em vez de redirecionar em caso de falha
-        return { error: "Falha ao criar o documento no banco de dados." }; 
+    if (error) {
+        console.error("Erro ao criar:", error);
+        return { error: "Falha ao criar documento." };
     }
 
-    // --- ATUALIZAÇÃO: Retorna o ID para o cliente redirecionar ---
-    if (newContrato) {
-        // Não redireciona mais aqui, retorna o ID para a página
-        return { success: true, newContractId: newContrato.id }; 
-    }
-
-    // Fallback caso algo muito estranho aconteça
-    return { error: "Ocorreu um erro inesperado ao criar o documento." }; 
+    return { success: true, newContractId: newContrato.id };
 }
 
-// Manter outras actions se houver...
+// --- FUNÇÃO 2: ATUALIZAR STATUS (ATUALIZADA E CORRIGIDA) ---
+export async function updateContratoStatus(contratoId, newStatus) {
+    const supabase = createClient();
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "Não autorizado." };
+
+    // 1. Busca dados do contrato para saber o tipo e organização
+    const { data: contrato, error: fetchError } = await supabase
+        .from('contratos')
+        .select('id, tipo_documento, organizacao_id')
+        .eq('id', contratoId)
+        .single();
+
+    if (fetchError || !contrato) return { error: "Contrato não encontrado." };
+
+    // 2. Atualiza o status do CONTRATO
+    const { error: updateError } = await supabase
+        .from('contratos')
+        .update({ status_contrato: newStatus })
+        .eq('id', contratoId);
+
+    if (updateError) return { error: "Erro ao atualizar status." };
+
+    // 3. LÓGICA DE PRODUTOS (CORREÇÃO: Busca na tabela de vínculos correta)
+    
+    // Primeiro, buscamos quais produtos estão ligados a esse contrato
+    const { data: produtosVinculados } = await supabase
+        .from('contrato_produtos')
+        .select('produto_id')
+        .eq('contrato_id', contratoId)
+        .eq('organizacao_id', contrato.organizacao_id);
+
+    // Cria uma lista limpa apenas com os IDs
+    const listaDeProdutos = produtosVinculados?.map(p => p.produto_id) || [];
+
+    // Se houver produtos vinculados, aplicamos a regra
+    if (listaDeProdutos.length > 0) {
+        
+        // CENÁRIO A: Contrato Assinado
+        if (newStatus === 'Assinado') {
+            let novoStatusProduto = 'Vendido'; // Padrão para contratos de venda
+
+            // Normaliza o texto para garantir a verificação
+            const tipoDoc = (contrato.tipo_documento || '').trim().toLowerCase();
+            
+            // --- A MÁGICA AQUI ---
+            // Se for Termo de Interesse (ou Reserva), muda para RESERVADO
+            if (tipoDoc.includes('termo') || tipoDoc.includes('interesse') || tipoDoc.includes('reserva')) {
+                novoStatusProduto = 'Reservado';
+            }
+
+            // Atualiza TODOS os produtos vinculados de uma vez
+            await supabase
+                .from('produtos_empreendimento')
+                .update({ status: novoStatusProduto })
+                .in('id', listaDeProdutos)
+                .eq('organizacao_id', contrato.organizacao_id);
+        }
+
+        // CENÁRIO B: Contrato Cancelado ou Distratado
+        if (newStatus === 'Cancelado' || newStatus === 'Distratado') {
+            // Libera os produtos de volta para Disponível
+            await supabase
+                .from('produtos_empreendimento')
+                .update({ status: 'Disponível' })
+                .in('id', listaDeProdutos)
+                .eq('organizacao_id', contrato.organizacao_id);
+        }
+    }
+
+    revalidatePath('/contratos');
+    revalidatePath('/empreendimentos'); 
+    return { success: true };
+}

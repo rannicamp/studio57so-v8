@@ -3,53 +3,53 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '../../utils/supabase/client';
-// 1. REMOVIDO useAuth - O componente não deve saber o contexto
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEye, faTrash, faCopy, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { faEye, faTrash, faCopy, faSort, faSortUp, faSortDown, faCheck, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { useMutation } from '@tanstack/react-query';
+// Importamos a nova Server Action
+import { updateContratoStatus } from '../../app/(main)/contratos/actions'; 
+import { createClient } from '../../utils/supabase/client';
 
-// 2. ADICIONADO `basePath` e `organizacaoId` nas props
+// Função auxiliar de formatação
+const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+};
+
 export default function ContratoList({ 
     contratos, 
     sortConfig, 
     requestSort, 
     onUpdate, 
-    basePath = "/contratos", // 3. Valor padrão para não quebrar o admin
+    basePath = "/contratos", 
     organizacaoId 
 }) {
     const router = useRouter();
     const supabase = createClient();
-    const queryClient = useQueryClient();
-
-    // 4. REMOVIDO useAuth e a busca pelo organizacaoId
-    // const { user } = useAuth();
-    // const organizacaoId = user?.organizacao_id;
-
     const [editingStatusId, setEditingStatusId] = useState(null);
 
+    // Mutation atualizada para usar a Server Action
     const updateStatusMutation = useMutation({
         mutationFn: async ({ id, newStatus }) => {
-            // 5. Garante que o organizacaoId foi passado
-            if (!organizacaoId) throw new Error("ID da Organização não fornecido.");
-            
-            const { error } = await supabase
-                .from('contratos')
-                .update({ status_contrato: newStatus })
-                .eq('id', id)
-                .eq('organizacao_id', organizacaoId); // 6. Usa o ID da prop
-            if (error) throw new Error(error.message);
+            // Chama a função do servidor que criamos no actions.js
+            const result = await updateContratoStatus(id, newStatus);
+            if (result.error) throw new Error(result.error);
+            return result;
         },
-        onSuccess: () => {
-            toast.success("Status do contrato atualizado!");
+        onSuccess: (_, variables) => {
+            toast.success(`Status atualizado para "${variables.newStatus}"`);
+            if (variables.newStatus === 'Assinado') {
+                toast.info("Verificando automações de produto...", { duration: 2000 });
+            }
+            setEditingStatusId(null);
             if (onUpdate) onUpdate();
+            router.refresh(); // Força atualização da página para refletir mudanças no produto
         },
         onError: (error) => {
-            toast.error(`Falha ao atualizar status: ${error.message}`);
-        },
-        onSettled: () => {
-            setEditingStatusId(null);
+            toast.error(`Erro: ${error.message}`);
         }
     });
 
@@ -57,129 +57,125 @@ export default function ContratoList({
         updateStatusMutation.mutate({ id, newStatus });
     };
 
-    const formatDate = (dateString) => {
-        if (!dateString) return 'N/A';
-        const [year, month, day] = dateString.split('-');
-        return `${day}/${month}/${year}`;
-    };
-
-    const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
-
-    const handleDuplicate = (e, contrato) => {
+    const handleDelete = async (e, contrato) => {
         e.stopPropagation();
-        if (!organizacaoId) {
-            toast.error("Erro: ID da Organização não encontrado.");
-            return;
+        if (confirm('Tem certeza que deseja excluir este contrato?')) {
+            const { error } = await supabase.from('contratos').delete().eq('id', contrato.id);
+            if (error) toast.error("Erro ao excluir");
+            else {
+                toast.success("Contrato excluído");
+                if(onUpdate) onUpdate();
+                router.refresh();
+            }
         }
-        toast.promise(supabase.rpc('duplicar_contrato_e_detalhes', { p_contrato_id: contrato.id, p_organizacao_id: organizacaoId }), {
-            loading: 'Duplicando contrato...',
-            success: () => { if(onUpdate) onUpdate(); return "Contrato duplicado!"; },
-            error: (err) => `Erro: ${err.message}`
-        });
     };
 
-    const handleDelete = (e, contrato) => {
+    const handleDuplicate = async (e, contrato) => {
         e.stopPropagation();
-        if (!organizacaoId) {
-            toast.error("Erro: ID da Organização não encontrado.");
-            return;
+        // Lógica simplificada de duplicação (rascunho)
+        const { id, created_at, ...dados } = contrato;
+        const novoContrato = {
+            ...dados,
+            status_contrato: 'Rascunho',
+            numero_contrato: null, // Limpa número para gerar novo
+            data_venda: new Date().toISOString().split('T')[0]
+        };
+        
+        const { error } = await supabase.from('contratos').insert(novoContrato);
+        if (error) toast.error("Erro ao duplicar");
+        else {
+            toast.success("Contrato duplicado como Rascunho");
+            if(onUpdate) onUpdate();
+            router.refresh();
         }
-        toast.promise(supabase.rpc('excluir_contrato_e_liberar_unidade', { p_contrato_id: contrato.id, p_organizacao_id: organizacaoId }), {
-            loading: 'Excluindo contrato...',
-            success: () => { if(onUpdate) onUpdate(); return "Contrato excluído!"; },
-            error: (err) => `Erro: ${err.message}`
-        });
     };
 
-    const SortableHeader = ({ label, sortKey }) => (
-        <th className="px-6 py-3 text-left text-xs font-medium uppercase">
-            <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2">
-                {label}
-                <FontAwesomeIcon icon={sortConfig.key === sortKey ? (sortConfig.direction === 'ascending' ? faSortUp : faSortDown) : faSort} className="text-gray-400" />
-            </button>
-        </th>
-    );
-    
-    const statusOptions = ['Rascunho', 'Em assinatura', 'Assinado', 'Distratado', 'Finalizado'];
-    const getStatusClass = (status) => {
-        switch (status) {
-            case 'Assinado': return 'bg-green-100 text-green-800';
-            case 'Distratado': return 'bg-red-100 text-red-800';
-            case 'Finalizado': return 'bg-blue-100 text-blue-800';
-            case 'Em assinatura': return 'bg-yellow-100 text-yellow-800';
-            default: return 'bg-gray-100 text-gray-800'; // Rascunho
-        }
+    const statusColors = {
+        'Rascunho': 'bg-gray-100 text-gray-800',
+        'Em negociação': 'bg-blue-100 text-blue-800',
+        'Em assinatura': 'bg-yellow-100 text-yellow-800',
+        'Assinado': 'bg-green-100 text-green-800',
+        'Cancelado': 'bg-red-100 text-red-800',
+    };
+
+    const SortIcon = ({ column }) => {
+        if (sortConfig?.key !== column) return <FontAwesomeIcon icon={faSort} className="text-gray-300 ml-1" />;
+        return <FontAwesomeIcon icon={sortConfig.direction === 'ascending' ? faSortUp : faSortDown} className="text-blue-500 ml-1" />;
     };
 
     return (
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <SortableHeader label="Nº Contrato" sortKey="numero_contrato" />
-                            <SortableHeader label="Cliente" sortKey="contato_id" />
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Produto</th>
-                            <SortableHeader label="Empreendimento" sortKey="empreendimento_id" />
-                            <SortableHeader label="Data da Venda" sortKey="data_venda" />
-                            <SortableHeader label="Status" sortKey="status_contrato" />
-                            <th className="px-6 py-3 text-right text-xs font-medium uppercase">
-                                <button onClick={() => requestSort('valor_final_venda')} className="flex items-center gap-2 ml-auto">
-                                    Valor
-                                    <FontAwesomeIcon icon={sortConfig.key === 'valor_final_venda' ? (sortConfig.direction === 'ascending' ? faSortUp : faSortDown) : faSort} className="text-gray-400" />
-                                </button>
-                            </th>
-                            <th className="px-6 py-3 text-center text-xs font-medium uppercase">Ações</th>
+                            <th onClick={() => requestSort('numero_contrato')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">Nº <SortIcon column="numero_contrato"/></th>
+                            <th onClick={() => requestSort('tipo_documento')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">Tipo <SortIcon column="tipo_documento"/></th>
+                            <th onClick={() => requestSort('contato_nome')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">Cliente <SortIcon column="contato_nome"/></th>
+                            <th onClick={() => requestSort('empreendimento_nome')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">Empreendimento <SortIcon column="empreendimento_nome"/></th>
+                            <th onClick={() => requestSort('status_contrato')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">Status <SortIcon column="status_contrato"/></th>
+                            <th onClick={() => requestSort('data_venda')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">Data <SortIcon column="data_venda"/></th>
+                            <th onClick={() => requestSort('valor_final_venda')} className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">Valor <SortIcon column="valor_final_venda"/></th>
+                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {contratos.length > 0 ? contratos.map((contrato) => (
-                            // 7. A MÁGICA ACONTECE AQUI! Usa o `basePath`
-                            <tr key={contrato.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`${basePath}/${contrato.id}`)}>
-                                <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-700">{contrato.numero_contrato || `(Rascunho #${contrato.id})`}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{contrato.contato?.nome || contrato.contato?.razao_social || 'N/A'}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    {contrato.contrato_produtos && contrato.contrato_produtos.length > 0
-                                        ? contrato.contrato_produtos
-                                            .map(cp => cp.produtos_empreendimento?.unidade || '?')
-                                            .join(', ')
-                                        : 'N/A'
-                                    }
+                        {contratos && contratos.length > 0 ? contratos.map((contrato) => (
+                            <tr key={contrato.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => router.push(`${basePath}/${contrato.id}`)}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{contrato.numero_contrato || '-'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{contrato.tipo_documento || 'Contrato'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                    <div className="font-medium">{contrato.contato?.nome || contrato.contato?.razao_social || 'Sem Cliente'}</div>
+                                    <div className="text-xs text-gray-500">{contrato.contato?.cpf || contrato.contato?.cnpj}</div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">{contrato.empreendimento?.nome || 'N/A'}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">{formatDate(contrato.data_venda)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                    {contrato.empreendimento?.nome}
+                                    {contrato.produto?.unidade && <span className="ml-1 text-xs bg-gray-100 px-1 rounded">Unid. {contrato.produto.unidade}</span>}
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                     {editingStatusId === contrato.id ? (
-                                        <select
+                                        <select 
+                                            autoFocus
+                                            className="text-sm border rounded p-1 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                             defaultValue={contrato.status_contrato}
                                             onChange={(e) => handleStatusChange(contrato.id, e.target.value)}
                                             onBlur={() => setEditingStatusId(null)}
-                                            className="p-1 border rounded-md bg-white shadow-sm focus:ring-2 focus:ring-blue-500"
-                                            autoFocus
                                         >
-                                            {statusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                            {Object.keys(statusColors).map(status => (
+                                                <option key={status} value={status}>{status}</option>
+                                            ))}
                                         </select>
                                     ) : (
-                                        <span
+                                        <span 
                                             onClick={() => setEditingStatusId(contrato.id)}
-                                            className={`px-2 py-1 font-semibold leading-tight rounded-full text-xs cursor-pointer ${getStatusClass(contrato.status_contrato)}`}
+                                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-80 ${statusColors[contrato.status_contrato] || 'bg-gray-100 text-gray-800'}`}
                                         >
                                             {contrato.status_contrato}
                                         </span>
                                     )}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right font-semibold">{formatCurrency(contrato.valor_final_venda)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-center">
-                                    <div className="flex items-center justify-center gap-4">
-                                        {/* 8. E AQUI TAMBÉM! Usa o `basePath` */}
-                                        <button onClick={(e) => { e.stopPropagation(); router.push(`${basePath}/${contrato.id}`); }} className="text-blue-600 hover:text-blue-800" title="Visualizar/Editar Contrato"><FontAwesomeIcon icon={faEye} /></button>
-                                        <button onClick={(e) => handleDuplicate(e, contrato)} className="text-gray-500 hover:text-gray-700" title="Duplicar Contrato"><FontAwesomeIcon icon={faCopy} /></button>
-                                        <button onClick={(e) => handleDelete(e, contrato)} className="text-red-600 hover:text-red-800" title="Excluir Contrato"><FontAwesomeIcon icon={faTrash} /></button>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{formatDate(contrato.data_venda)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">{formatCurrency(contrato.valor_final_venda)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex items-center justify-center gap-3">
+                                        <button onClick={() => router.push(`${basePath}/${contrato.id}`)} className="text-blue-600 hover:text-blue-900" title="Ver Detalhes">
+                                            <FontAwesomeIcon icon={faEye} />
+                                        </button>
+                                        <button onClick={(e) => handleDuplicate(e, contrato)} className="text-gray-400 hover:text-gray-600" title="Duplicar">
+                                            <FontAwesomeIcon icon={faCopy} />
+                                        </button>
+                                        <button onClick={(e) => handleDelete(e, contrato)} className="text-red-400 hover:text-red-600" title="Excluir">
+                                            <FontAwesomeIcon icon={faTrash} />
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
                         )) : (
-                            <tr><td colSpan="8" className="text-center py-10 text-gray-500">Nenhum contrato encontrado.</td></tr>
+                            <tr>
+                                <td colSpan="8" className="px-6 py-10 text-center text-gray-500">
+                                    Nenhum contrato encontrado.
+                                </td>
+                            </tr>
                         )}
                     </tbody>
                 </table>
