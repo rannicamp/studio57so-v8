@@ -16,7 +16,8 @@ import { useDebounce } from 'use-debounce';
 import FunilKanban from '@/components/crm/FunilKanban';
 import CrmNotesModal from '@/components/crm/CrmNotesModal';
 import CrmDetalhesSidebar from '@/components/crm/CrmDetalhesSidebar';
-import AtividadeModal from '@/components/AtividadeModal';
+// CORREÇÃO AQUI: Caminho atualizado para a pasta 'atividades'
+import AtividadeModal from '@/components/atividades/AtividadeModal';
 import KpiCard from '@/components/KpiCard';
 import FiltroCrm from '@/components/crm/FiltroCrm';
 
@@ -312,11 +313,6 @@ export default function CrmPage() {
     const dissociateProductMutation = useMutation({ mutationFn: async (id) => { await supabase.from('contatos_no_funil_produtos').delete().eq('id', id).throwOnError(); return "Produto removido!"; }, ...mutationOptions });
     const associateCorretorMutation = useMutation({ mutationFn: async ({ contactId, corretorId }) => { await supabase.from('contatos_no_funil').update({ corretor_id: corretorId }).eq('id', contactId).throwOnError(); return "Corretor associado!"; }, ...mutationOptions });
     
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO
-    // O PORQUÊ: Adicionamos as lógicas para editar e deletar colunas. Antes, essas
-    // funções não estavam implementadas, causando o problema que você relatou.
-    // =================================================================================
     const editColumnMutation = useMutation({
         mutationFn: async ({ columnId, newName }) => {
             const { error } = await supabase.from('colunas_funil').update({ nome: newName }).eq('id', columnId).eq('organizacao_id', organizacaoId);
@@ -339,9 +335,6 @@ export default function CrmPage() {
         },
         ...mutationOptions
     });
-    // =================================================================================
-    // FIM DA CORREÇÃO
-    // =================================================================================
 
     const [debounceSearchTimeout, setDebounceSearchTimeout] = useState(null);
     const handleSearch = (term) => { clearTimeout(debounceSearchTimeout); if (!term.trim() || term.length < 2) { setSearchResults([]); return; } setDebounceSearchTimeout(setTimeout(async () => { const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term, p_organizacao_id: organizacaoId }); setSearchResults(data || []); }, 300)); };
@@ -394,11 +387,6 @@ export default function CrmPage() {
                         onStatusChange={handleStatusChange}
                         onCreateColumn={(name) => createColumnMutation.mutate(name)}
                         onAddContact={openAddContactModal}
-                        // =================================================================================
-                        // CONECTANDO AS FUNÇÕES
-                        // O PORQUÊ: Aqui, conectamos as novas funções de editar e deletar
-                        // ao componente do funil, passando as mutations que acabamos de criar.
-                        // =================================================================================
                         onEditColumn={(id, name) => editColumnMutation.mutate({ columnId: id, newName: name })}
                         onDeleteColumn={(id) => deleteColumnMutation.mutate(id)}
                         onReorderColumns={(cols) => reorderColumnsMutation.mutate(cols)}

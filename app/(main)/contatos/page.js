@@ -1,3 +1,4 @@
+// app/(main)/contatos/page.js
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -14,17 +15,9 @@ import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import ContatoDetalhesSidebar from '../../../components/contatos/ContatoDetalhesSidebar';
-import ActivityModal from '../../../components/AtividadeModal';
+// CORREÇÃO AQUI: Caminho atualizado para a pasta 'atividades'
+import ActivityModal from '../../../components/atividades/AtividadeModal';
 
-// =================================================================================
-// CORREÇÃO DEFINITIVA NA BUSCA (O PORQUÊ):
-// A versão anterior melhorou a lógica, mas ainda confiava na RLS (segurança
-// automática) para filtrar telefones e emails. Esta nova versão é mais robusta
-// porque adiciona um filtro EXPLÍCITO `.eq('organizacao_id', organizacaoId)`
-// diretamente na busca das tabelas `telefones` e `emails`. Isso força o banco de
-// dados a retornar apenas os dados que pertencem à organização correta,
-// garantindo que eles apareçam na lista.
-// =================================================================================
 const fetchContatos = async (organizacaoId) => {
     const supabase = createClient();
     if (!organizacaoId) return [];
@@ -52,7 +45,7 @@ const fetchContatos = async (organizacaoId) => {
         .from('telefones')
         .select('contato_id, id, telefone, country_code')
         .in('contato_id', contatoIds)
-        .eq('organizacao_id', organizacaoId); // <-- GARANTIA DE FILTRO!
+        .eq('organizacao_id', organizacaoId); 
 
     if (telefonesError) {
         console.error("Erro ao buscar telefones:", telefonesError);
@@ -64,7 +57,7 @@ const fetchContatos = async (organizacaoId) => {
         .from('emails')
         .select('contato_id, id, email')
         .in('contato_id', contatoIds)
-        .eq('organizacao_id', organizacaoId); // <-- GARANTIA DE FILTRO!
+        .eq('organizacao_id', organizacaoId);
 
     if (emailsError) {
         console.error("Erro ao buscar emails:", emailsError);
@@ -91,8 +84,6 @@ const fetchContatos = async (organizacaoId) => {
     }
 
     const finalData = Array.from(contatosMap.values());
-    console.log("Dados de contatos processados para exibição:", finalData);
-
     return finalData;
 };
 
