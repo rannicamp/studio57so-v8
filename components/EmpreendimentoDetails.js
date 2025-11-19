@@ -2,6 +2,7 @@
 'use client';
 
 // --- Imports ---
+import ThumbnailUploader from './ThumbnailUploader';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';

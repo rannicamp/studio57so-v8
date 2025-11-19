@@ -1,29 +1,28 @@
 // app/(main)/atividades/page.js
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
-import AtividadeModal from '../../../components/AtividadeModal';
-import ActivityList from '../../../components/ActivityList';
-import GanttChart from '../../../components/GanttChart';
-import KanbanBoard from '../../../components/KanbanBoard';
-import ActivityCalendar from '../../../components/ActivityCalendar';
+import AtividadeModal from '../../../components/atividades/AtividadeModal';
+import ActivityList from '../../../components/atividades/ActivityList';
+import GanttChart from '../../../components/atividades/GanttChart';
+import KanbanBoard from '../../../components/atividades/KanbanBoard';
+import ActivityCalendar from '../../../components/atividades/ActivityCalendar';
+import AtividadeFiltros from '../../../components/atividades/AtividadeFiltros'; // NOVO COMPONENTE
 import KpiCard from '../../../components/KpiCard';
+import AtividadeDetalhesSidebar from '@/components/atividades/AtividadeDetalhesSidebar';
 import { useLayout } from '../../../contexts/LayoutContext';
 import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory, faLock, faSpinner } from '@fortawesome/free-solid-svg-icons';
-import MultiSelectDropdown from '../../../components/financeiro/MultiSelectDropdown';
 import { toast } from 'sonner';
-import AtividadeDetalhesSidebar from '@/components/atividades/AtividadeDetalhesSidebar';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 
-// REMOVEMOS A LÓGICA DE CACHE MANUAL (ACTIVITIES_CACHE_KEY e getCachedData)
-// O QueryProvider.js (React Query) agora cuida disso automaticamente.
 const ACTIVITIES_UI_STATE_KEY = 'atividadesUiState';
 
+// Funções de fetch (inalteradas)
 const fetchAllActivities = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
     const { data, error } = await supabase
@@ -43,13 +42,9 @@ const fetchAuxiliaryData = async (supabase, organizacaoId) => {
     const { data: funcData, error: funcError } = await supabase.from('funcionarios').select('id, full_name').eq('organizacao_id', organizacaoId).order('full_name');
     const { data: empresasData, error: empresasError } = await supabase.from('cadastro_empresa').select('id, razao_social').eq('organizacao_id', organizacaoId).order('razao_social');
 
-    if (funcError || empresasError) {
-        console.error("Erro ao carregar dados auxiliares:", { funcError, empresasError });
-    }
+    if (funcError || empresasError) console.error("Erro ao carregar dados auxiliares:", { funcError, empresasError });
     return { funcionarios: funcData || [], allEmpresas: empresasData || [] };
 };
-
-// FUNÇÃO REMOVIDA: getCachedData(key) - Não é mais necessária.
 
 export default function AtividadesPage() {
     const supabase = createClient();
@@ -58,15 +53,10 @@ export default function AtividadesPage() {
     const organizacaoId = user?.organizacao_id;
     const { setPageTitle } = useLayout();
     const { selectedEmpreendimento, empreendimentos } = useEmpreendimento();
+    const queryClient = useQueryClient();
 
     const canViewPage = hasPermission('atividades', 'pode_ver');
     const canCreate = hasPermission('atividades', 'pode_criar');
-    // =================================================================================
-    // CORREÇÃO DO ERRO DE REFERÊNCIA
-    // O PORQUÊ: As variáveis `canEdit` e `canDelete` haviam sido removidas
-    // por engano na refatoração anterior. Elas foram restauradas para que as
-    // permissões de edição e exclusão funcionem corretamente nos componentes filhos.
-    // =================================================================================
     const canEdit = hasPermission('atividades', 'pode_editar');
     const canDelete = hasPermission('atividades', 'pode_excluir');
     
@@ -74,63 +64,65 @@ export default function AtividadesPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingActivity, setEditingActivity] = useState(null);
     const [sortConfig, setSortConfig] = useState({ key: 'data_inicio_prevista', direction: 'ascending' });
-    const [filters, setFilters] = useState({ empresa: '', empreendimento: '', responsavel: '', status: [], selectedDate: '' });
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [selectedActivityForSidebar, setSelectedActivityForSidebar] = useState(null);
-    
-    // REMOVIDO: isInitialFetchCompleted = useRef(false) - Não é mais necessário.
 
+    // ESTADO DOS FILTROS (Atualizado para incluir searchTerm e datas)
+    const [filters, setFilters] = useState({ 
+        searchTerm: '', 
+        empresa: '', 
+        empreendimento: '', 
+        responsavel: '', 
+        status: [], 
+        startDate: '', 
+        endDate: '' 
+    });
+
+    // Verificações de permissão e título
     useEffect(() => {
-        if (!authLoading && !canViewPage) {
-            router.push('/');
-        }
+        if (!authLoading && !canViewPage) router.push('/');
     }, [authLoading, canViewPage, router]);
 
     useEffect(() => {
         setPageTitle('Painel de Atividades');
         try {
-            // Mantemos o localStorage para FILTROS, isso está correto.
             const savedFilters = localStorage.getItem('atividadesFilters');
             if (savedFilters) {
                 const parsedFilters = JSON.parse(savedFilters);
                 if (!Array.isArray(parsedFilters.status)) parsedFilters.status = [];
+                // Migração: se tinha selectedDate antigo, limpa ou converte
+                if (parsedFilters.selectedDate) { delete parsedFilters.selectedDate; }
                 setFilters(parsedFilters);
             }
-            // Mantemos o localStorage para ESTADO DA UI (aba ativa), isso está correto.
             const savedUiState = JSON.parse(localStorage.getItem(ACTIVITIES_UI_STATE_KEY) || '{}');
-            if (savedUiState && savedUiState.activeTab) {
-                setActiveTab(savedUiState.activeTab);
-            }
+            if (savedUiState && savedUiState.activeTab) setActiveTab(savedUiState.activeTab);
         } catch (error) {
-            console.error("Falha ao carregar estado do localStorage", error);
+            console.error("Falha ao carregar estado", error);
         }
     }, [setPageTitle]);
 
     useEffect(() => {
         try {
-            // Salvar filtros no localStorage (Correto)
             localStorage.setItem('atividadesFilters', JSON.stringify(filters));
         } catch (error) {
-            console.error("Falha ao salvar filtros no localStorage", error);
+            console.error("Falha ao salvar filtros", error);
         }
     }, [filters]);
 
     useEffect(() => {
         try {
-            // Salvar estado da UI no localStorage (Correto)
             const uiState = { activeTab };
             localStorage.setItem(ACTIVITIES_UI_STATE_KEY, JSON.stringify(uiState));
         } catch (error) {
-            console.error("Falha ao salvar estado da UI no localStorage", error);
+            console.error("Falha ao salvar UI", error);
         }
     }, [activeTab]);
 
-
+    // Queries
     const { data: allActivities = [], isLoading: isLoadingActivities } = useQuery({
         queryKey: ['atividades', organizacaoId],
         queryFn: () => fetchAllActivities(supabase, organizacaoId),
         enabled: !!organizacaoId && canViewPage,
-        // REMOVIDO: placeholderData - O React Query cuida do cache melhor agora.
     });
 
     const { data: auxiliaryData } = useQuery({
@@ -141,20 +133,93 @@ export default function AtividadesPage() {
     });
     const { funcionarios = [], allEmpresas = [] } = auxiliaryData || {};
 
-    // REMOVIDO: O useEffect complexo que salvava no localStorage e mostrava o toast.
-    // O QueryProvider.js faz isso automaticamente para nós!
+    // Mutations (Delete, Duplicate, Status)
+    const deleteMutation = useMutation({
+        mutationFn: async (activityId) => {
+            const { error } = await supabase.from('activities').delete().eq('id', activityId);
+            if (error) throw new Error(error.message);
+            return activityId;
+        },
+        onSuccess: () => {
+            toast.success('Atividade deletada com sucesso!');
+            queryClient.invalidateQueries(['atividades', organizacaoId]);
+            setIsSidebarOpen(false);
+        },
+        onError: (error) => toast.error(`Erro ao deletar: ${error.message}`)
+    });
 
+    const duplicateMutation = useMutation({
+        mutationFn: async (activityToDuplicate) => {
+            const { id, created_at, updated_at, empreendimentos, anexos, atividade_pai, ...newActivityData } = activityToDuplicate;
+            newActivityData.nome = `${activityToDuplicate.nome} (Cópia)`;
+            newActivityData.status = 'Não Iniciado';
+            newActivityData.data_inicio_real = null;
+            newActivityData.data_fim_real = null;
+            newActivityData.data_fim_original = null;
+            newActivityData.criado_por_usuario_id = user?.id;
+            
+            const { error } = await supabase.from('activities').insert(newActivityData);
+            if (error) throw new Error(error.message);
+        },
+        onSuccess: () => {
+            toast.success("Atividade duplicada com sucesso!");
+            queryClient.invalidateQueries(['atividades', organizacaoId]);
+        },
+        onError: (error) => toast.error(`Erro ao duplicar: ${error.message}`)
+    });
+
+    const statusMutation = useMutation({
+        mutationFn: async ({ activityId, newStatus, activity }) => {
+            const updateData = { status: newStatus };
+            if (newStatus === 'Em Andamento' && !activity.data_inicio_real) {
+                updateData.data_inicio_real = new Date().toISOString().split('T')[0]; 
+            }
+            if (newStatus === 'Concluído') {
+                updateData.data_fim_real = new Date().toISOString().split('T')[0]; 
+            }
+            const { error } = await supabase.from('activities').update(updateData).eq('id', activityId);
+            if (error) throw new Error(error.message);
+        },
+        onSuccess: () => queryClient.invalidateQueries(['atividades', organizacaoId]),
+        onError: (error) => toast.error(`Erro ao atualizar status: ${error.message}`)
+    });
+
+    // LÓGICA DE FILTRAGEM AVANÇADA (O Cérebro)
     const filteredActivities = useMemo(() => {
         return allActivities
             .filter(act => {
+                // 1. Filtro Global de Empreendimento (Do Contexto)
                 if (selectedEmpreendimento !== 'all' && act.empreendimento_id != selectedEmpreendimento) return false;
-                if (selectedEmpreendimento === 'all') {
-                    if (filters.empresa && (!act.empreendimentos || act.empreendimentos.empresa_proprietaria_id != filters.empresa)) return false;
-                    if (filters.empreendimento && act.empreendimento_id != filters.empreendimento) return false;
+
+                // 2. Busca Textual (Nome, ID, Pai)
+                if (filters.searchTerm) {
+                    const term = filters.searchTerm.toLowerCase();
+                    const matchesName = act.nome?.toLowerCase().includes(term);
+                    const matchesId = act.id.toString().includes(term);
+                    const matchesParent = act.atividade_pai?.nome?.toLowerCase().includes(term);
+                    if (!matchesName && !matchesId && !matchesParent) return false;
                 }
+
+                // 3. Filtros de Seleção
+                if (filters.empresa && (!act.empreendimentos || act.empreendimentos.empresa_proprietaria_id != filters.empresa)) return false;
+                if (filters.empreendimento && act.empreendimento_id != filters.empreendimento) return false;
                 if (filters.responsavel && act.funcionario_id != filters.responsavel) return false;
                 if (filters.status.length > 0 && !filters.status.includes(act.status)) return false;
-                if (filters.selectedDate && !(act.data_inicio_prevista && act.data_fim_prevista && filters.selectedDate >= act.data_inicio_prevista && filters.selectedDate <= act.data_fim_prevista)) return false;
+
+                // 4. Filtro de Data (Intervalo)
+                // Verifica se a atividade tem sobreposição com o intervalo selecionado ou está dentro dele
+                if (filters.startDate || filters.endDate) {
+                    if (!act.data_inicio_prevista) return false; // Sem data não entra no filtro de data
+                    
+                    const actStart = act.data_inicio_prevista;
+                    const actEnd = act.data_fim_prevista || act.data_inicio_prevista;
+                    
+                    // Se tiver data inicial no filtro
+                    if (filters.startDate && actEnd < filters.startDate) return false;
+                    // Se tiver data final no filtro
+                    if (filters.endDate && actStart > filters.endDate) return false;
+                }
+
                 return true;
             })
             .sort((a, b) => {
@@ -183,91 +248,33 @@ export default function AtividadesPage() {
         };
     }, [filteredActivities]);
 
-    const queryClient = useQueryClient();
-    const refreshActivities = () => queryClient.invalidateQueries({ queryKey: ['atividades', organizacaoId] });
-    
-    const handleDuplicateActivity = (activityToDuplicate) => {
-        if (!canCreate) { toast.error("Você não tem permissão para criar atividades."); return; }
-        
+    // Handlers
+    const handleDuplicateActivity = (act) => {
+        if (!canCreate) { toast.error("Sem permissão."); return; }
         toast("Confirmar Duplicação", {
-            description: `Deseja criar uma cópia da atividade "${activityToDuplicate.nome}"?`,
-            action: {
-                label: "Duplicar",
-                onClick: () => {
-                    const promise = new Promise(async (resolve, reject) => {
-                        const { id, created_at, updated_at, empreendimentos, anexos, atividade_pai, ...newActivityData } = activityToDuplicate;
-                        
-                        newActivityData.nome = `${activityToDuplicate.nome} (Cópia)`;
-                        newActivityData.status = 'Não Iniciado';
-                        newActivityData.data_inicio_real = null;
-                        newActivityData.data_fim_real = null;
-                        newActivityData.data_fim_original = null;
-                        newActivityData.criado_por_usuario_id = user?.id;
-                        
-                        const { error } = await supabase.from('activities').insert(newActivityData);
-                        
-                        if (error) reject(new Error(error.message));
-                        else resolve("Atividade duplicada com sucesso!");
-                    });
-
-                    toast.promise(promise, {
-                        loading: 'Duplicando atividade...',
-                        success: (msg) => { refreshActivities(); return msg; },
-                        error: (err) => `Erro: ${err.message}`,
-                    });
-                }
-            },
+            description: `Duplicar "${act.nome}"?`,
+            action: { label: "Duplicar", onClick: () => duplicateMutation.mutate(act) },
             cancel: { label: "Cancelar" }
         });
     };
 
-    const handleDeleteClick = async (activityId) => {
+    const handleDeleteClick = (id) => {
          toast("Confirmar Exclusão", {
-            description: 'Tem certeza que deseja deletar esta atividade?',
-            action: {
-                label: "Deletar",
-                onClick: async () => {
-                    const { error } = await supabase.from('activities').delete().eq('id', activityId);
-                    if (error) toast.error(`Erro ao deletar: ${error.message}`);
-                    else {
-                        toast.success('Atividade deletada com sucesso!');
-                        refreshActivities();
-                        setIsSidebarOpen(false);
-                    }
-                }
-            },
+            description: 'Deletar esta atividade?',
+            action: { label: "Deletar", onClick: () => deleteMutation.mutate(id) },
             cancel: { label: "Cancelar" },
             classNames: { actionButton: 'bg-red-600' }
         });
     };
 
-    const handleStatusChange = async (activityId, newStatus) => {
-        const activity = allActivities.find(a => a.id === activityId);
-        if (!activity) return;
-        const updateData = { status: newStatus };
-        if (newStatus === 'Em Andamento' && !activity.data_inicio_real) {
-            updateData.data_inicio_real = new Date().toISOString().split('T')[0];
-        }
-        if (newStatus === 'Concluído') {
-            updateData.data_fim_real = new Date().toISOString().split('T')[0];
-        }
-        const { error } = await supabase.from('activities').update(updateData).eq('id', activityId);
-        if (error) toast.error(`Erro ao atualizar o status: ${error.message}`);
-        else refreshActivities();
+    const handleStatusChange = (id, status) => {
+        const act = allActivities.find(a => a.id === id);
+        if (act) statusMutation.mutate({ activityId: id, newStatus: status, activity: act });
     };
 
-
-    const handleCardClick = (activity) => {
-        setSelectedActivityForSidebar(activity);
-        setIsSidebarOpen(true);
-    };
-
-    const handleEditClick = (activity) => { 
-        setEditingActivity(activity); 
-        setIsModalOpen(true); 
-        setIsSidebarOpen(false);
-    };
-
+    const handleCardClick = (act) => { setSelectedActivityForSidebar(act); setIsSidebarOpen(true); };
+    const handleEditClick = (act) => { setEditingActivity(act); setIsModalOpen(true); setIsSidebarOpen(false); };
+    
     const requestSort = (key) => {
         let direction = 'ascending';
         if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
@@ -283,34 +290,18 @@ export default function AtividadesPage() {
         <button onClick={() => setActiveTab(tabName)} className={`${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm`}>{label}</button>
     );
 
-    const handleFilterChange = (filterName, value) => {
-        setFilters(prevFilters => ({ ...prevFilters, [filterName]: value }));
+    // Handler unificado para os filtros
+    const handleFilterChange = (name, value) => {
+        setFilters(prev => ({ ...prev, [name]: value }));
     };
 
     const clearFilters = () => {
-        setFilters({ empresa: '', empreendimento: '', responsavel: '', status: [], selectedDate: '' });
+        setFilters({ searchTerm: '', empresa: '', empreendimento: '', responsavel: '', status: [], startDate: '', endDate: '' });
         localStorage.removeItem('atividadesFilters');
     };
 
-    const statusOptions = [
-        { id: 'Não Iniciado', text: 'Não Iniciado' }, { id: 'Em Andamento', text: 'Em Andamento' },
-        { id: 'Concluído', text: 'Concluído' }, { id: 'Pausado', text: 'Pausado' },
-        { id: 'Aguardando Material', text: 'Aguardando Material' }, { id: 'Cancelado', text: 'Cancelado' }
-    ];
-
-    if (authLoading || (isLoadingActivities && !allActivities.length)) {
-        return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando...</div>;
-    }
-
-    if (!canViewPage) {
-        return (
-            <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg">
-                <FontAwesomeIcon icon={faLock} size="3x" className="text-red-400 mb-4" />
-                <h2 className="text-2xl font-bold text-red-700">Acesso Negado</h2>
-                <p className="mt-2 text-red-600">Você não tem permissão para aceder a esta página.</p>
-            </div>
-        );
-    }
+    if (authLoading || (isLoadingActivities && !allActivities.length)) return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando...</div>;
+    if (!canViewPage) return <div className="text-center p-10 text-red-600"><FontAwesomeIcon icon={faLock} size="3x" /> Acesso Negado</div>;
 
     return (
         <div className="space-y-6">
@@ -321,51 +312,23 @@ export default function AtividadesPage() {
                 onEditActivity={handleEditClick}
             />
 
-            <div className="bg-white p-4 rounded-lg shadow">
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                    <h2 className="text-xl font-semibold">
-                        {selectedEmpreendimentoObj?.nome || 'Todas as Atividades'}
-                    </h2>
-                    {canCreate && (
-                        <button onClick={() => handleEditClick(null)} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 w-full md:w-auto mt-2 md:mt-0">+ Nova Atividade</button>
-                    )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 border-t pt-4">
-                    {selectedEmpreendimento === 'all' && (
-                        <>
-                            <select value={filters.empresa || ''} onChange={e => handleFilterChange('empresa', e.target.value)} className="p-2 border rounded-md">
-                                <option value="">Filtrar por Empresa...</option>
-                                {allEmpresas.map(e => <option key={e.id} value={e.id}>{e.razao_social}</option>)}
-                            </select>
-                            <select value={filters.empreendimento || ''} onChange={e => handleFilterChange('empreendimento', e.target.value)} className="p-2 border rounded-md">
-                                <option value="">Filtrar por Empreendimento...</option>
-                                {empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
-                            </select>
-                        </>
-                    )}
-                    <select value={filters.responsavel || ''} onChange={e => handleFilterChange('responsavel', e.target.value)} className="p-2 border rounded-md">
-                        <option value="">Filtrar por Responsável...</option>
-                        {funcionarios.map(f => <option key={f.id} value={f.id}>{f.full_name}</option>)}
-                    </select>
-
-                    <MultiSelectDropdown
-                        options={statusOptions}
-                        selectedIds={filters.status} 
-                        onChange={(selected) => handleFilterChange('status', selected)}
-                        placeholder="Filtrar por Status..."
-                    />
-
-                    <input
-                        type="date"
-                        value={filters.selectedDate || ''}
-                        onChange={e => handleFilterChange('selectedDate', e.target.value)}
-                        className="p-2 border rounded-md"
-                    />
-
-                    <button onClick={clearFilters} className="p-2 bg-gray-200 rounded-md hover:bg-gray-300 w-full">Limpar Filtros</button>
-                </div>
+            {/* Título e Botão de Criar */}
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-lg shadow">
+                <h2 className="text-xl font-semibold">
+                    {selectedEmpreendimentoObj?.nome || 'Todas as Atividades'}
+                </h2>
+                {canCreate && (
+                    <button onClick={() => handleEditClick(null)} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 w-full md:w-auto">+ Nova Atividade</button>
+                )}
             </div>
+
+            {/* NOVO COMPONENTE DE FILTROS */}
+            <AtividadeFiltros 
+                filters={filters} 
+                onChange={handleFilterChange} 
+                onClear={clearFilters} 
+                listas={{ funcionarios, allEmpresas, empreendimentos }} 
+            />
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 <KpiCard title="Atrasadas" value={kpiData.atrasadas} icon={faExclamationTriangle} color="red" />
@@ -399,7 +362,7 @@ export default function AtividadesPage() {
                 <AtividadeModal 
                     isOpen={isModalOpen} 
                     onClose={() => { setIsModalOpen(false); setEditingActivity(null); }} 
-                    onActivityAdded={() => refreshActivities()} 
+                    onActivityAdded={() => queryClient.invalidateQueries(['atividades', organizacaoId])} 
                     activityToEdit={editingActivity} 
                     selectedEmpreendimento={selectedEmpreendimentoObj} 
                     funcionarios={funcionarios} 

@@ -1,34 +1,19 @@
-//components\TaskCard.js
+// components/atividades/TaskCard.js
 
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faExclamationTriangle, faSync, faCalendarAlt, faUser, faEllipsisV, faEdit, faTrash, faCopy, faClock, faSitemap } from '@fortawesome/free-solid-svg-icons';
+import { faExclamationTriangle, faCalendarAlt, faUser, faEllipsisV, faEdit, faTrash, faCopy, faClock, faSitemap } from '@fortawesome/free-solid-svg-icons';
 
 export default function TaskCard({ activity, onEditActivity, onDeleteActivity, onDuplicateActivity, allColumns, onStatusChange }) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef(null);
 
-    // =================================================================================
-    // ATUALIZAÇÃO DA REGRA DE DATAS
-    // O PORQUÊ: Ajustamos a lógica para evitar problemas de fuso horário.
-    // 1. `todayStr`: Pegamos a data de hoje já como texto no formato 'YYYY-MM-DD'.
-    // 2. `isOverdue`: Comparamos as datas como texto. '2025-09-12' é textualmente
-    //    menor que '2025-09-13', então a lógica funciona perfeitamente sem
-    //    envolver timezones, prevenindo o erro de um dia.
-    // =================================================================================
     const todayStr = new Date().toLocaleDateString('en-CA'); // Formato YYYY-MM-DD
     const prazoStr = activity.data_fim_prevista;
     const isOverdue = prazoStr && prazoStr < todayStr && activity.status !== 'Concluído';
 
-    // =================================================================================
-    // ATUALIZAÇÃO DA REGRA DE DATAS
-    // O PORQUÊ: Esta função agora segue nossa regra de ouro para datas simples.
-    // Ela trata a data como um texto, apenas dividindo a string 'YYYY-MM-DD'
-    // e remontando como 'DD/MM/YYYY', sem usar `new Date()` e evitando
-    // qualquer conversão de fuso horário.
-    // =================================================================================
     const formatDate = (dateStr) => {
         if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return 'N/A';
         const [year, month, day] = dateStr.split('-');
@@ -78,13 +63,21 @@ export default function TaskCard({ activity, onEditActivity, onDeleteActivity, o
         <div
             draggable="true"
             onDragStart={handleDragStart}
-            className={`bg-white rounded-md shadow p-3 border-l-4 ${isOverdue ? 'border-red-500' : 'border-blue-500'} hover:shadow-lg transition-shadow duration-200 cursor-pointer kanban-card flex flex-col justify-between min-h-[160px]`}
+            className={`bg-white rounded-md shadow p-3 border-l-4 ${isOverdue ? 'border-red-500' : 'border-blue-500'} hover:shadow-lg transition-shadow duration-200 cursor-pointer kanban-card flex flex-col justify-between min-h-[160px] relative`}
             onClick={() => onEditActivity(activity)}
         >
             <div>
+                {/* Tag de Subtarefa - BEM VISÍVEL NO TOPO */}
+                {activity.atividade_pai && (
+                    <div className="mb-2 bg-blue-50 border border-blue-100 text-blue-600 text-[10px] px-2 py-1 rounded flex items-center gap-1.5 w-fit max-w-full">
+                        <FontAwesomeIcon icon={faSitemap} className="flex-shrink-0" />
+                        <span className="truncate font-medium">Sub: {activity.atividade_pai.nome}</span>
+                    </div>
+                )}
+
                 <div className="flex justify-between items-start mb-2">
                     <p className="text-sm font-bold text-gray-800 truncate pr-2" title={activity.nome}>{activity.nome}</p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                         <button onClick={(e) => handleActionClick(e, () => onDuplicateActivity(activity))} title="Duplicar Atividade" className="action-button text-gray-400 hover:text-blue-600">
                             <FontAwesomeIcon icon={faCopy} />
                         </button>
@@ -92,13 +85,6 @@ export default function TaskCard({ activity, onEditActivity, onDeleteActivity, o
                     </div>
                 </div>
                 
-                {activity.atividade_pai && (
-                    <div className="mb-2 text-xs text-gray-500 bg-gray-100 p-1 rounded-md flex items-center gap-2">
-                        <FontAwesomeIcon icon={faSitemap} className="text-gray-400" />
-                        <span>Sub-tarefa de: <span className="font-semibold">{activity.atividade_pai.nome}</span></span>
-                    </div>
-                )}
-
                 {isOverdue && (
                     <div className="bg-red-100 text-red-700 text-xs font-bold p-1 rounded-md mb-2 flex items-center justify-center gap-2">
                         <FontAwesomeIcon icon={faExclamationTriangle} />
@@ -108,15 +94,15 @@ export default function TaskCard({ activity, onEditActivity, onDeleteActivity, o
 
                 <div className="text-xs text-gray-600 mt-1 space-y-1">
                     <p className="flex items-center gap-2" title="Datas Previstas">
-                        <FontAwesomeIcon icon={faCalendarAlt} className="w-3" />
+                        <FontAwesomeIcon icon={faCalendarAlt} className="w-3 text-gray-400" />
                         <span>{formatDate(activity.data_inicio_prevista)} a {formatDate(activity.data_fim_prevista)}</span>
                     </p>
                     <p className="flex items-center gap-2" title="Duração Prevista">
-                        <FontAwesomeIcon icon={faClock} className="w-3" />
+                        <FontAwesomeIcon icon={faClock} className="w-3 text-gray-400" />
                         <span>Duração: {duracaoDias} {duracaoDias === 1 ? 'dia útil' : 'dias úteis'}</span>
                     </p>
                     <p className="flex items-center gap-2" title="Responsável">
-                        <FontAwesomeIcon icon={faUser} className="w-3" />
+                        <FontAwesomeIcon icon={faUser} className="w-3 text-gray-400" />
                         <span>{activity.responsavel_texto || 'Sem responsável'}</span>
                     </p>
                 </div>
@@ -124,7 +110,9 @@ export default function TaskCard({ activity, onEditActivity, onDeleteActivity, o
 
             <div className="relative mt-2 pt-2 border-t action-button">
                 <button onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }} className="text-xs font-semibold text-gray-600 hover:text-gray-900 w-full text-left flex justify-between items-center">
-                    <span>Status: {activity.status}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${activity.status === 'Concluído' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                        {activity.status}
+                    </span>
                     <FontAwesomeIcon icon={faEllipsisV} />
                 </button>
                 {isMenuOpen && (

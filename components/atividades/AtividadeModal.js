@@ -1,17 +1,18 @@
-//components\AtividadeModal.js
+// components/atividades/AtividadeModal.js
 
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { createClient } from '../utils/supabase/client';
-import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
+// ATUALIZADO: Adicionado mais um '../' pois agora estamos em components/atividades
+import { useAuth } from '../../contexts/AuthContext';
+import { createClient } from '../../utils/supabase/client';
+import { useEmpreendimento } from '@/contexts/EmpreendimentoContext'; // O '@' resolve a raiz, entao não muda
 import { toast } from 'sonner';
-import AtividadeAnexos from './atividades/AtividadeAnexos';
+// ATUALIZADO: Como AtividadeAnexos tambem esta na pasta atividades, tiramos o './atividades/'
+import AtividadeAnexos from './AtividadeAnexos';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSitemap, faSpinner, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
 
-// Componente para destacar o texto da busca (mantido)
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) {
         return <span>{text}</span>;
@@ -31,7 +32,6 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     );
 };
 
-// Função de dias úteis (mantida)
 function addBusinessDays(startDate, days) {
     if (!startDate || isNaN(days)) return startDate || '';
     if (days <= 1) return startDate;
@@ -52,9 +52,8 @@ function addBusinessDays(startDate, days) {
 
 export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activityToEdit, selectedEmpreendimento, funcionarios, allEmpresas, initialContatoId }) {
     const supabase = createClient();
-    // O PORQUÊ DA MUDANÇA: Trocamos 'userData' por 'user' para usar o nosso novo objeto de usuário unificado.
     const { user } = useAuth();
-    const organizacaoId = user?.organizacao_id; // <-- Acessamos o ID da organização de forma consistente.
+    const organizacaoId = user?.organizacao_id;
 
     const { empreendimentos: allEmpreendimentos, loading: empreendimentosLoading } = useEmpreendimento();
     const [etapas, setEtapas] = useState([]);
@@ -134,7 +133,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 const { data: etapasData } = await supabase
                     .from('etapa_obra')
                     .select('id, nome_etapa, codigo_etapa')
-                    .eq('organizacao_id', organizacaoId) // <-- BLINDAGEM DE SEGURANÇA
+                    .eq('organizacao_id', organizacaoId) 
                     .order('codigo_etapa', { ascending: true });
                 setEtapas(etapasData || []);
             } else {
@@ -151,7 +150,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                     .from('subetapas')
                     .select('id, nome_subetapa')
                     .eq('etapa_id', formData.etapa_id)
-                    .eq('organizacao_id', organizacaoId) // <-- BLINDAGEM DE SEGURANÇA
+                    .eq('organizacao_id', organizacaoId) 
                     .order('nome_subetapa');
                 
                 if (error) {
@@ -195,7 +194,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         let query = supabase
             .from('activities')
             .select('id, nome')
-            .eq('organizacao_id', organizacaoId) // <-- BLINDAGEM DE SEGURANÇA
+            .eq('organizacao_id', organizacaoId) 
             .ilike('nome', `%${searchTerm}%`)
             .limit(10);
 
@@ -310,11 +309,10 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         });
     };
 
-    const syncWithGoogleCalendar = async (activityData) => { /* ... (código existente sem alteração) ... */ };
+    const syncWithGoogleCalendar = async (activityData) => { /* ... */ };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        // O PORQUÊ DA MUDANÇA: A verificação agora usa 'user' e 'organizacaoId', que são as fontes corretas de verdade.
         if (!user?.id || !organizacaoId) {
             toast.error("Erro: Usuário não autenticado ou organização não encontrada.");
             return;
@@ -338,7 +336,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 empreendimento_id: formData.empreendimento_id || null,
                 contato_id: formData.contato_id,
                 atividade_pai_id: formData.atividade_pai_id || null,
-                organizacao_id: organizacaoId, // <-- Carimbo de segurança!
+                organizacao_id: organizacaoId, 
             };
 
             if (dadosParaSalvar.empreendimento_id) {
@@ -354,7 +352,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 dadosParaSalvar.data_fim_prevista = dataFimPrevistaCalculada;
                 dadosParaSalvar.hora_inicio = null;
                 dadosParaSalvar.duracao_horas = null;
-            } else { // Evento
+            } else { 
                 dadosParaSalvar.data_inicio_prevista = formData.data_inicio_prevista;
                 dadosParaSalvar.data_fim_prevista = formData.data_inicio_prevista;
                 dadosParaSalvar.hora_inicio = formData.hora_inicio || null;
