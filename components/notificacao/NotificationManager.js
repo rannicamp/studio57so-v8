@@ -7,6 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBell, faBellSlash, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
+// Converte a chave VAPID para o formato que o navegador entende
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
@@ -51,7 +52,7 @@ export default function NotificationManager() {
             const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
             
             if (!vapidKey) {
-                console.error("VAPID Key ausente");
+                console.error("VAPID Key ausente no .env");
                 return;
             }
 
@@ -67,7 +68,7 @@ export default function NotificationManager() {
                     user_id: user.id,
                     endpoint: subscription.endpoint, // Campo UNIQUE da sua tabela
                     subscription_data: subscription, // Campo JSONB da sua tabela
-                    organizacao_id: user.organizacao_id // Importante salvar a org
+                    organizacao_id: user.organizacao_id 
                 }, { onConflict: 'endpoint' });
 
             if (error) throw error;
@@ -75,9 +76,10 @@ export default function NotificationManager() {
             setIsSubscribed(true);
             toast.success("Notificações ativadas!");
             
-            // Teste de envio
+            // Teste de envio imediato
             await fetch('/api/notifications/send', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     userId: user.id, 
                     title: 'Studio 57', 

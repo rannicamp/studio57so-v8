@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
 
-// Configure suas chaves VAPID aqui ou no .env (recomendado)
-// Se não tiver no .env, vai dar erro.
 webpush.setVapidDetails(
   process.env.NEXT_PUBLIC_VAPID_MAILTO || 'mailto:suporte@studio57.com.br',
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
@@ -17,58 +15,80 @@ const supabaseAdmin = createClient(
 
 export async function POST(req) {
   try {
-    const { userId, title, message, url, organizacaoId } = await req.json();
-
-    if (!userId || !title || !message) {
-      return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 });
+    const rawBody = await req.json();
+    
+    const title = rawBody.title || 'Nova Notificação';
+    const message = rawBody.message || rawBody.body; 
+    const url = rawBody.url || rawBody.link || '/crm';
+    const orgId = rawBody.organizacaoId || rawBody.organizacao_id;
+    
+    if (!message) {
+        return NextResponse.json({ error: 'Mensagem vazia.' }, { status: 400 });
     }
 
-    // 1. Buscar inscrições na tabela EXISTENTE 'notification_subscriptions'
-    const { data: subscriptions, error } = await supabaseAdmin
-      .from('notification_subscriptions') 
-      .select('subscription_data, endpoint')
-      .eq('user_id', userId);
+    let targetUserIds = [];
 
-    if (error) console.error("Erro ao buscar subscriptions:", error);
-
-    // 2. Salvar no histórico (tabela nova 'notificacoes')
-    await supabaseAdmin.from('notificacoes').insert({
-      user_id: userId,
-      titulo: title,
-      mensagem: message,
-      link: url,
-      lida: false,
-      organizacao_id: organizacaoId || null
-    });
-
-    if (!subscriptions || subscriptions.length === 0) {
-      return NextResponse.json({ message: 'Notificação salva, mas usuário sem dispositivos push.' });
-    }
-
-    // 3. Enviar Push
-    const payload = JSON.stringify({ title, body: message, url });
-
-    const sendPromises = subscriptions.map(async (sub) => {
-      try {
-        // A coluna no seu banco é 'subscription_data' (jsonb)
-        await webpush.sendNotification(sub.subscription_data, payload);
-      } catch (err) {
-        if (err.statusCode === 410 || err.statusCode === 404) {
-          // Remove inscrição inválida baseada no endpoint (que é único na sua tabela)
-          await supabaseAdmin
-            .from('notification_subscriptions')
-            .delete()
-            .eq('endpoint', sub.endpoint);
+    // 1. Se veio userId direto
+    if (rawBody.userId) {
+        targetUserIds.push(rawBody.userId);
+    } 
+    // 2. Se veio organizacaoId (Broadcast para a equipe)
+    else if (orgId) {
+        const { data: users } = await supabaseAdmin
+            .from('usuarios')
+            .select('id')
+            .eq('organizacao_id', orgId)
+            .eq('is_active', true);
+        
+        if (users && users.length > 0) {
+            targetUserIds = users.map(u => u.id);
         }
-      }
-    });
+    }
 
-    await Promise.all(sendPromises);
+    if (targetUserIds.length === 0) {
+         return NextResponse.json({ message: 'Nenhum destinatário encontrado.' }, { status: 200 });
+    }
 
-    return NextResponse.json({ success: true });
+    const results = await Promise.all(targetUserIds.map(async (uid) => {
+        // A. Salva no histórico visual
+        await supabaseAdmin.from('notificacoes').insert({
+            user_id: uid,
+            titulo: title,
+            mensagem: message,
+            link: url,
+            lida: false,
+            organizacao_id: orgId
+        });
+
+        // B. Busca dispositivos push
+        const { data: subscriptions } = await supabaseAdmin
+            .from('notification_subscriptions')
+            .select('subscription_data, endpoint')
+            .eq('user_id', uid);
+
+        if (!subscriptions || subscriptions.length === 0) return { uid, status: 'no_device' };
+
+        // C. Dispara push
+        const payload = JSON.stringify({ title, body: message, url });
+        
+        const pushPromises = subscriptions.map(async (sub) => {
+            try {
+                await webpush.sendNotification(sub.subscription_data, payload);
+            } catch (err) {
+                if (err.statusCode === 410 || err.statusCode === 404) {
+                    await supabaseAdmin.from('notification_subscriptions').delete().eq('endpoint', sub.endpoint);
+                }
+            }
+        });
+        
+        await Promise.all(pushPromises);
+        return { uid, status: 'sent' };
+    }));
+
+    return NextResponse.json({ success: true, details: results });
 
   } catch (error) {
-    console.error('Erro Notification API:', error);
+    console.error('[Notification API] Erro:', error);
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }
