@@ -209,16 +209,11 @@ export default function FunilKanban({
         setOpenSortMenu(null);
     };
    
-    // =================================================================================
-    // CORREÇÃO APLICADA AQUI
-    // O PORQUÊ: As opções de ordenação por "Mensagem" foram removidas para
-    // evitar erros, já que não estamos mais buscando esses dados.
-    // =================================================================================
+    // Opções de ordenação atualizadas para refletir o novo padrão
     const sortOptions = [
-        { value: '', label: 'Padrão (Número do Card)' }, 
+        { value: '', label: 'Padrão (Mais Recentes)' }, 
         { value: 'nome_asc', label: 'Nome (A-Z)' }, 
         { value: 'nome_desc', label: 'Nome (Z-A)' }, 
-        { value: 'created_at_desc', label: 'Entrada (Mais Recente)' }, 
         { value: 'created_at_asc', label: 'Entrada (Mais Antigo)' },
     ];
 
@@ -228,7 +223,9 @@ export default function FunilKanban({
             statusColumns.forEach(coluna => {
                 const contatosDaColuna = [...contatos.filter(c => c.coluna_id === coluna.id)];
                 const sortConfig = sorting[coluna.id];
+                
                 if (sortConfig) {
+                    // Ordenação Manual escolhida pelo usuário
                     contatosDaColuna.sort((a, b) => {
                         const { sortBy, order } = sortConfig;
                         let valA, valB;
@@ -246,7 +243,13 @@ export default function FunilKanban({
                         return 0;
                     });
                 } else {
-                    contatosDaColuna.sort((a, b) => (a.numero_card || 0) - (b.numero_card || 0));
+                    // === ORDENAÇÃO PADRÃO AGORA É POR DATA DE CRIAÇÃO (DESCRESENTE) ===
+                    // Os mais novos (data maior) ficam no topo (índice menor)
+                    contatosDaColuna.sort((a, b) => {
+                        const dateA = new Date(a.created_at);
+                        const dateB = new Date(b.created_at);
+                        return dateB - dateA; // B - A = Decrescente (Mais novo primeiro)
+                    });
                 }
                 grouped[coluna.id] = contatosDaColuna;
             });

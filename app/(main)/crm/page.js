@@ -16,7 +16,6 @@ import { useDebounce } from 'use-debounce';
 import FunilKanban from '@/components/crm/FunilKanban';
 import CrmNotesModal from '@/components/crm/CrmNotesModal';
 import CrmDetalhesSidebar from '@/components/crm/CrmDetalhesSidebar';
-// CORREÇÃO AQUI: Caminho atualizado para a pasta 'atividades'
 import AtividadeModal from '@/components/atividades/AtividadeModal';
 import KpiCard from '@/components/KpiCard';
 import FiltroCrm from '@/components/crm/FiltroCrm';
@@ -236,10 +235,11 @@ export default function CrmPage() {
     const [contactForNewActivity, setContactForNewActivity] = useState(null);
     const [activityToEdit, setActivityToEdit] = useState(null);
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
+    const [hasNotifiedUpdate, setHasNotifiedUpdate] = useState(false);
 
     useEffect(() => { setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
 
-    const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ 
+    const { data: funilData, isLoading: loadingFunil, error: funilError, isRefetching } = useQuery({ 
         queryKey: ['funilData', organizacaoId, debouncedFilters], 
         queryFn: () => fetchFunilData(supabase, organizacaoId, debouncedFilters), 
         enabled: !!organizacaoId,
@@ -259,6 +259,24 @@ export default function CrmPage() {
             }
         }
     }, [funilData, loadingFunil, debouncedFilters]);
+
+    // === LÓGICA DA NOTIFICAÇÃO DE ATUALIZAÇÃO ===
+    useEffect(() => {
+        // Se já temos dados na tela (funilData existe)
+        // E a busca em segundo plano terminou (isRefetching mudou para false)
+        // E ainda não notificamos nesta sessão
+        if (funilData && !isRefetching && !loadingFunil && !hasNotifiedUpdate) {
+            // Só queremos notificar se de fato usamos dados em cache inicialmente.
+            // Uma forma simples é checar se o componente acabou de montar e fez o fetch.
+            // Para simplificar para o usuário, mostraremos sempre que o background check terminar.
+            toast.success("Página atualizada com novos dados!", {
+                duration: 3000,
+                icon: <FontAwesomeIcon icon={faRobot} className="text-green-500" />
+            });
+            setHasNotifiedUpdate(true); // Evita spam de notificação
+        }
+    }, [isRefetching, funilData, loadingFunil, hasNotifiedUpdate]);
+
 
     const { data: filterOptions, isLoading: loadingFilters } = useQuery({ queryKey: ['crmFilterOptions', organizacaoId], queryFn: () => fetchFilterData(supabase, organizacaoId), enabled: !!organizacaoId });
     const { data: availableProducts = [] } = useQuery({ queryKey: ['availableProducts', organizacaoId], queryFn: () => fetchAvailableProducts(supabase, organizacaoId), enabled: !!organizacaoId });
@@ -297,6 +315,23 @@ export default function CrmPage() {
             if (oldColumnId === newColumnId) return "O card já está nesta etapa.";
             const { error: updateError } = await supabase.from('contatos_no_funil').update({ coluna_id: newColumnId }).eq('id', contatoNoFunilId);
             if (updateError) throw updateError;
+            
+            // Envia solicitação PUT para a API para lidar com automações
+            try {
+               await fetch('/api/crm', {
+                   method: 'PUT',
+                   headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify({
+                       contatoNoFunilId,
+                       novaColunaId: newColumnId,
+                       organizacaoId
+                   })
+               });
+            } catch(e) {
+                console.error("Erro ao chamar API de automação", e);
+                // Não bloqueia o fluxo visual se a automação falhar, mas loga o erro
+            }
+
             const { error: historyError } = await supabase.from('historico_movimentacao_funil').insert({ contato_no_funil_id: contatoNoFunilId, coluna_anterior_id: oldColumnId, coluna_nova_id: newColumnId, usuario_id: user.id, organizacao_id: organizacaoId });
             if (historyError) { console.error("Erro ao registrar histórico de movimentação:", historyError); toast.warning("O card foi movido, mas houve um erro ao salvar o histórico."); }
             return "Card movido com sucesso!";
