@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faUniversity, faCreditCard, faMoneyBillWave, faChartLine, faPenToSquare, faTrash, faExclamationTriangle, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faPlus, faUniversity, faCreditCard, faMoneyBillWave, faChartLine, 
+    faPenToSquare, faTrash, faExclamationTriangle, faSpinner, 
+    faWallet, faSackDollar, faHandHoldingDollar 
+} from '@fortawesome/free-solid-svg-icons';
 import ContaFormModal from './ContaFormModal';
+import KpiCard from '../KpiCard'; // Reutilizando seu componente de KPI
 import { toast } from 'sonner';
 
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -21,17 +26,10 @@ const getAccountIcon = (type) => {
     }
 };
 
-// =================================================================================
-// LÓGICA CORRIGIDA: USANDO A CALCULADORA DO BANCO (RPC)
-// O PORQUÊ: Usamos a mesma função do Extrato (calcular_saldo_anterior).
-// Definimos a data de corte como "Amanhã". Assim, o banco soma o saldo inicial
-// + todas as receitas - todas as despesas até o final do dia de hoje.
-// =================================================================================
 const fetchSaldosReais = async (contas, organizacaoId) => {
     if (!contas || contas.length === 0 || !organizacaoId) return {};
     const supabase = createClient();
 
-    // Define data de corte como amanhã para pegar tudo até o fim de hoje
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dataCorte = tomorrow.toISOString().split('T')[0];
@@ -52,7 +50,6 @@ const fetchSaldosReais = async (contas, organizacaoId) => {
 
     const results = await Promise.all(promises);
     
-    // Transforma array em objeto { id_conta: saldo }
     return results.reduce((acc, item) => {
         acc[item.id] = item.saldo;
         return acc;
@@ -67,13 +64,55 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingConta, setEditingConta] = useState(null);
 
-    // Busca os saldos usando a RPC confiável
     const { data: saldos = {}, isLoading: isLoadingSaldos } = useQuery({
         queryKey: ['saldosContasReais', initialContas.map(c => c.id), organizacaoId],
         queryFn: () => fetchSaldosReais(initialContas, organizacaoId),
         enabled: initialContas.length > 0 && !!organizacaoId,
-        refetchOnWindowFocus: true // Garante que atualiza se você voltar para a aba
+        refetchOnWindowFocus: true
     });
+
+    // =================================================================================
+    // CÁLCULO DOS KPIs (INTELIGÊNCIA FINANCEIRA)
+    // =================================================================================
+    const kpis = useMemo(() => {
+        let saldoLiquido = 0;
+        let limiteChequeTotal = 0;
+        let limiteChequeUsado = 0;
+        let totalFaturasCartao = 0;
+
+        initialContas.forEach(conta => {
+            const saldo = saldos[conta.id] || 0;
+            const limite = conta.limite_cheque_especial || 0;
+            
+            if (conta.tipo === 'Cartão de Crédito') {
+                // Cartão de crédito: saldo negativo é a fatura a pagar
+                totalFaturasCartao += Math.abs(saldo);
+            } else {
+                // Contas Correntes, Dinheiro, Investimento
+                saldoLiquido += saldo;
+                
+                if (conta.tipo === 'Conta Corrente') {
+                    limiteChequeTotal += limite;
+                    // Se o saldo está negativo, está usando o cheque especial
+                    if (saldo < 0) {
+                        limiteChequeUsado += Math.min(Math.abs(saldo), limite);
+                    }
+                }
+            }
+        });
+
+        const limiteChequeRestante = Math.max(0, limiteChequeTotal - limiteChequeUsado);
+        const poderCompra = saldoLiquido + limiteChequeRestante; // Quanto posso gastar considerando o limite
+
+        return {
+            saldoLiquido,
+            limiteChequeTotal,
+            limiteChequeUsado,
+            percentualUsoCheque: limiteChequeTotal > 0 ? (limiteChequeUsado / limiteChequeTotal) * 100 : 0,
+            totalFaturasCartao,
+            poderCompra
+        };
+    }, [initialContas, saldos]);
 
     const saveMutation = useMutation({
         mutationFn: async (formData) => {
@@ -108,7 +147,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
         },
         onSuccess: (message) => {
             toast.success(`${message} com sucesso!`);
-            onUpdate(); // Atualiza a lista geral
+            onUpdate();
             setIsModalOpen(false);
         },
         onError: (error) => toast.error(`Erro ao salvar: ${error.message}`),
@@ -144,7 +183,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
     };
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow space-y-4 animate-fade-in">
+        <div className="space-y-6 animate-fade-in">
             <ContaFormModal 
                 isOpen={isModalOpen} 
                 onClose={() => setIsModalOpen(false)} 
@@ -155,82 +194,134 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
                 contas={initialContas.filter(c => c.tipo === 'Conta Corrente')}
             />
 
-            <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold text-gray-800">Minhas Contas</h2>
-                {hasPermission('financeiro', 'pode_criar') && (
-                    <button onClick={handleOpenAddModal} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-                        <FontAwesomeIcon icon={faPlus} /> Nova Conta
-                    </button>
-                )}
-            </div>
-
-            {initialContas.length === 0 ? ( <p className="text-center text-gray-500 py-10">Nenhuma conta cadastrada.</p> ) 
-            : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {initialContas.map(conta => {
-                        const saldoReal = saldos[conta.id] ?? 0;
-                        const limite = conta.limite_cheque_especial || 0;
-                        const saldoDisponivel = saldoReal + limite;
-                        const isCartao = conta.tipo === 'Cartão de Crédito';
-                        
-                        // Para exibição principal
-                        const valorDisplay = isCartao ? Math.abs(saldoReal) : (limite > 0 ? saldoDisponivel : saldoReal);
-                        const isNegative = saldoReal < 0;
-
-                        return (
-                            <div key={conta.id} className="border p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow relative group flex flex-col justify-between bg-white">
-                                <div>
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="flex items-center gap-4">
-                                            <div className="bg-blue-50 p-3 rounded-full">
-                                                <FontAwesomeIcon icon={getAccountIcon(conta.tipo)} className="text-xl text-blue-600" />
-                                            </div>
-                                            <div>
-                                                <h3 className="font-bold text-lg text-gray-800">{conta.nome}</h3>
-                                                <p className="text-xs text-gray-500">{conta.instituicao}</p>
-                                            </div>
-                                        </div>
-                                        {hasPermission('financeiro', 'pode_editar') && (
-                                            <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 rounded shadow-sm">
-                                                <button onClick={() => handleOpenEditModal(conta)} className="text-gray-500 hover:text-blue-600 p-1"><FontAwesomeIcon icon={faPenToSquare} /></button>
-                                                <button onClick={() => handleDeleteConta(conta)} className="text-gray-500 hover:text-red-600 p-1"><FontAwesomeIcon icon={faTrash} /></button>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="space-y-2 text-xs text-gray-600 border-t border-gray-100 pt-3">
-                                        {conta.empresa && <p><strong className="text-gray-700">Empresa:</strong> {conta.empresa.nome_fantasia || conta.empresa.razao_social}</p>}
-                                        {(conta.tipo === 'Conta Corrente' || !conta.tipo) && (
-                                            <>
-                                                <p><strong>Ag:</strong> {conta.agencia || '-'} / <strong>CC:</strong> {conta.numero_conta || '-'}</p>
-                                                {limite > 0 && 
-                                                    <p className='text-orange-600 flex items-center gap-2 mt-1'>
-                                                        <FontAwesomeIcon icon={faExclamationTriangle} />
-                                                        <span>Limite: {formatCurrency(limite)}</span>
-                                                    </p>
-                                                }
-                                            </>
-                                        )}
-                                        {isCartao && (
-                                            <p><strong>Vence dia:</strong> {conta.dia_pagamento_fatura || 'N/A'}</p>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="text-right mt-4 pt-3 border-t border-gray-100">
-                                    <p className="text-sm text-gray-500 mb-1">{getSaldoLabel(conta)}</p>
-                                    <p className={`text-2xl font-bold ${isNegative && !isCartao ? 'text-red-600' : 'text-gray-800'}`}>
-                                        {isLoadingSaldos ? <FontAwesomeIcon icon={faSpinner} spin className="text-lg"/> : formatCurrency(valorDisplay)}
-                                    </p>
-                                    {limite > 0 && !isCartao && (
-                                        <p className="text-xs text-gray-400 mt-1">
-                                            Saldo Real: <span className={saldoReal < 0 ? 'text-red-500' : 'text-gray-600'}>{isLoadingSaldos ? '...' : formatCurrency(saldoReal)}</span>
-                                        </p>
-                                    )}
-                                </div>
+            {/* --- SEÇÃO DE KPIs --- */}
+            {initialContas.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <KpiCard 
+                        title="Saldo Líquido (Caixa)" 
+                        value={isLoadingSaldos ? '...' : formatCurrency(kpis.saldoLiquido)} 
+                        icon={faWallet} 
+                        color={kpis.saldoLiquido >= 0 ? "blue" : "red"} 
+                        subtext="Dinheiro real disponível"
+                    />
+                    <KpiCard 
+                        title="Poder de Compra" 
+                        value={isLoadingSaldos ? '...' : formatCurrency(kpis.poderCompra)} 
+                        icon={faHandHoldingDollar} 
+                        color="green" 
+                        subtext="Caixa + Limites"
+                    />
+                    <KpiCard 
+                        title="Faturas Cartão" 
+                        value={isLoadingSaldos ? '...' : formatCurrency(kpis.totalFaturasCartao)} 
+                        icon={faCreditCard} 
+                        color="orange" 
+                        subtext="Total a pagar"
+                    />
+                    <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-red-500 flex flex-col justify-between">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Uso Cheque Especial</p>
+                                <h3 className="text-lg font-bold text-gray-800 mt-1">
+                                    {isLoadingSaldos ? '...' : formatCurrency(kpis.limiteChequeUsado)}
+                                </h3>
                             </div>
-                        );
-                    })}
+                            <div className="bg-red-100 p-2 rounded-full text-red-600">
+                                <FontAwesomeIcon icon={faExclamationTriangle} />
+                            </div>
+                        </div>
+                        <div className="mt-3">
+                            <div className="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                                <div 
+                                    className="bg-red-600 h-2.5 rounded-full transition-all duration-500" 
+                                    style={{ width: `${Math.min(kpis.percentualUsoCheque, 100)}%` }}
+                                ></div>
+                            </div>
+                            <p className="text-xs text-gray-500 text-right">
+                                {kpis.percentualUsoCheque.toFixed(1)}% de {formatCurrency(kpis.limiteChequeTotal)}
+                            </p>
+                        </div>
+                    </div>
                 </div>
             )}
+
+            <div className="bg-white p-6 rounded-lg shadow space-y-4">
+                <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-bold text-gray-800">Minhas Contas</h2>
+                    {hasPermission('financeiro', 'pode_criar') && (
+                        <button onClick={handleOpenAddModal} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                            <FontAwesomeIcon icon={faPlus} /> Nova Conta
+                        </button>
+                    )}
+                </div>
+
+                {initialContas.length === 0 ? ( <p className="text-center text-gray-500 py-10">Nenhuma conta cadastrada.</p> ) 
+                : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {initialContas.map(conta => {
+                            const saldoReal = saldos[conta.id] ?? 0;
+                            const limite = conta.limite_cheque_especial || 0;
+                            const saldoDisponivel = saldoReal + limite;
+                            const isCartao = conta.tipo === 'Cartão de Crédito';
+                            
+                            const valorDisplay = isCartao ? Math.abs(saldoReal) : (limite > 0 ? saldoDisponivel : saldoReal);
+                            const isNegative = saldoReal < 0;
+
+                            return (
+                                <div key={conta.id} className="border p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow relative group flex flex-col justify-between bg-white">
+                                    <div>
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div className="flex items-center gap-4">
+                                                <div className="bg-blue-50 p-3 rounded-full">
+                                                    <FontAwesomeIcon icon={getAccountIcon(conta.tipo)} className="text-xl text-blue-600" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-bold text-lg text-gray-800">{conta.nome}</h3>
+                                                    <p className="text-xs text-gray-500">{conta.instituicao}</p>
+                                                </div>
+                                            </div>
+                                            {hasPermission('financeiro', 'pode_editar') && (
+                                                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 rounded shadow-sm">
+                                                    <button onClick={() => handleOpenEditModal(conta)} className="text-gray-500 hover:text-blue-600 p-1"><FontAwesomeIcon icon={faPenToSquare} /></button>
+                                                    <button onClick={() => handleDeleteConta(conta)} className="text-gray-500 hover:text-red-600 p-1"><FontAwesomeIcon icon={faTrash} /></button>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="space-y-2 text-xs text-gray-600 border-t border-gray-100 pt-3">
+                                            {conta.empresa && <p><strong className="text-gray-700">Empresa:</strong> {conta.empresa.nome_fantasia || conta.empresa.razao_social}</p>}
+                                            {(conta.tipo === 'Conta Corrente' || !conta.tipo) && (
+                                                <>
+                                                    <p><strong>Ag:</strong> {conta.agencia || '-'} / <strong>CC:</strong> {conta.numero_conta || '-'}</p>
+                                                    {limite > 0 && 
+                                                        <p className='text-orange-600 flex items-center gap-2 mt-1'>
+                                                            <FontAwesomeIcon icon={faExclamationTriangle} />
+                                                            <span>Limite: {formatCurrency(limite)}</span>
+                                                        </p>
+                                                    }
+                                                </>
+                                            )}
+                                            {isCartao && (
+                                                <p><strong>Vence dia:</strong> {conta.dia_pagamento_fatura || 'N/A'}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="text-right mt-4 pt-3 border-t border-gray-100">
+                                        <p className="text-sm text-gray-500 mb-1">{getSaldoLabel(conta)}</p>
+                                        <p className={`text-2xl font-bold ${isNegative && !isCartao ? 'text-red-600' : 'text-gray-800'}`}>
+                                            {isLoadingSaldos ? <FontAwesomeIcon icon={faSpinner} spin className="text-lg"/> : formatCurrency(valorDisplay)}
+                                        </p>
+                                        {limite > 0 && !isCartao && (
+                                            <p className="text-xs text-gray-400 mt-1">
+                                                Saldo Real: <span className={saldoReal < 0 ? 'text-red-500' : 'text-gray-600'}>{isLoadingSaldos ? '...' : formatCurrency(saldoReal)}</span>
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
