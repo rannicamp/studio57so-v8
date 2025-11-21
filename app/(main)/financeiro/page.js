@@ -1,4 +1,3 @@
-//app\(main)\financeiro\page.js
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -9,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../contexts/AuthContext';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faCogs, faShieldAlt, faSpinner, faLock, faBalanceScale, faSitemap, faHandshake, faLandmark, faBuilding, faFileInvoice } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faCogs, faShieldAlt, faSpinner, faLock, faBalanceScale, faSitemap, faHandshake, faLandmark, faBuilding, faFileInvoice, faSyncAlt } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
 
@@ -23,7 +22,7 @@ import LancamentoDetalhesSidebar from '../../../components/financeiro/Lancamento
 const supabase = createClient();
 
 // =================================================================================
-// INÍCIO DA OTIMIZAÇÃO DE PERFORMANCE (CACHE)
+// CONFIGURAÇÃO DE CACHE
 // =================================================================================
 const LANCAMENTOS_CACHE_KEY = 'financeiroLancamentosData';
 const FINANCEIRO_UI_STATE_KEY = 'financeiroUiState';
@@ -38,9 +37,6 @@ const getCachedData = (key) => {
     }
     return undefined;
 };
-// =================================================================================
-// FIM DA OTIMIZAÇÃO
-// =================================================================================
 
 async function fetchInitialData(organizacao_id) {
     if (!organizacao_id) return { empresas: [], contas: [], categorias: [], empreendimentos: [], allContacts: [], funcionarios: [] };
@@ -96,7 +92,6 @@ async function fetchLancamentos({ queryKey }) {
     return { data: data || [], count: count || 0 };
 }
 
-
 async function fetchLancamentosKpi({ queryKey }) {
     const [_key, { filters, organizacao_id }] = queryKey;
     if (!organizacao_id) return [];
@@ -108,20 +103,6 @@ async function fetchLancamentosKpi({ queryKey }) {
         })
         .select('valor, tipo');
 
-    if (error) throw new Error(error.message);
-    return data || [];
-}
-
-async function fetchTodosLancamentosParaSaldos({ queryKey }) {
-    const [_key, { organizacao_id }] = queryKey;
-    if (!organizacao_id) return [];
-    
-    let query = supabase.from('lancamentos')
-        .select('valor, tipo, status, conciliado, conta_id')
-        .eq('organizacao_id', organizacao_id)
-        .or('status.eq.Pago,conciliado.eq.true');
-
-    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return data || [];
 }
@@ -154,7 +135,6 @@ export default function FinanceiroPage() {
     
     const isInitialFetchCompleted = useRef(false);
 
-    // Efeito para carregar o estado da UI do localStorage
     useEffect(() => {
         if (!authLoading && canViewPage) {
             setPageTitle('GESTÃO FINANCEIRA');
@@ -171,7 +151,6 @@ export default function FinanceiroPage() {
         }
     }, [authLoading, canViewPage, setPageTitle, router]);
 
-    // Debounce e salva o estado da UI no localStorage
     const uiStateToSave = { activeTab, filters, currentPage, itemsPerPage, sortConfig };
     const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
     useEffect(() => {
@@ -187,7 +166,7 @@ export default function FinanceiroPage() {
         queryKey: ['initialFinanceData', organizacao_id],
         queryFn: () => fetchInitialData(organizacao_id),
         enabled: canViewPage && !!organizacao_id,
-        staleTime: 300000, // Cache de 5 minutos
+        staleTime: 300000,
     });
     const { empresas = [], contas = [], categorias = [], empreendimentos = [], allContacts = [], funcionarios = [] } = initialData || {};
 
@@ -199,17 +178,16 @@ export default function FinanceiroPage() {
     });
     const { data: lancamentos = [], count: totalCount = 0 } = lancamentosData || {};
     
-    // Efeito para salvar cache de dados e notificar
     useEffect(() => {
         if (lancamentosData && isSuccess) {
             const hasActiveFilters = Object.values(filters).some(val => Array.isArray(val) ? val.length > 0 : !!val);
-            if (hasActiveFilters) return; // Não salva cache de buscas filtradas
+            if (hasActiveFilters) return; 
 
             const cacheKey = LANCAMENTOS_CACHE_KEY;
             const cachedData = localStorage.getItem(cacheKey);
 
             if (isInitialFetchCompleted.current && JSON.stringify(lancamentosData) !== cachedData) {
-                toast.success('Página atualizada!', { duration: 2000 });
+                toast.success('Página atualizada!', { duration: 2000, icon: <FontAwesomeIcon icon={faSyncAlt} /> });
             }
             
             localStorage.setItem(cacheKey, JSON.stringify(lancamentosData));
@@ -227,12 +205,6 @@ export default function FinanceiroPage() {
         enabled: canViewPage && activeTab === 'lancamentos' && !!organizacao_id,
     });
 
-    const { data: todosLancamentosParaSaldos = [] } = useQuery({
-        queryKey: ['saldosData', { organizacao_id }],
-        queryFn: fetchTodosLancamentosParaSaldos,
-        enabled: canViewPage && !!organizacao_id && (activeTab === 'contas' || activeTab === 'extrato'),
-    });
-
     const deleteLancamentoMutation = useMutation({
         mutationFn: async ({ id, organizacaoId }) => {
             const { error } = await supabase.from('lancamentos').delete().eq('id', id).eq('organizacao_id', organizacaoId);
@@ -241,7 +213,8 @@ export default function FinanceiroPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
             queryClient.invalidateQueries({ queryKey: ['lancamentosKpi'] });
-            queryClient.invalidateQueries({ queryKey: ['saldosData'] });
+            // Também invalidamos saldos para garantir consistência
+            queryClient.invalidateQueries({ queryKey: ['saldosContasReais'] });
         },
     });
 
@@ -264,7 +237,7 @@ export default function FinanceiroPage() {
     const handleSuccessForm = () => {
         queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
         queryClient.invalidateQueries({ queryKey: ['lancamentosKpi'] });
-        queryClient.invalidateQueries({ queryKey: ['saldosData'] });
+        queryClient.invalidateQueries({ queryKey: ['saldosContasReais'] });
         queryClient.invalidateQueries({ queryKey: ['initialFinanceData'] });
     };
 
@@ -348,7 +321,7 @@ export default function FinanceiroPage() {
                         onRowClick={handleViewLancamentoDetails}
                     />
                 )}
-                {activeTab === 'contas' && <ContasManager initialContas={contas} allLancamentos={todosLancamentosParaSaldos} onUpdate={handleSuccessForm} empresas={empresas} />}
+                {activeTab === 'contas' && <ContasManager initialContas={contas} onUpdate={handleSuccessForm} empresas={empresas} />}
                 {activeTab === 'ativos' && <AtivosManager />}
             </div>
         </div>
