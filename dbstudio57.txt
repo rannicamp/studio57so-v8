@@ -1086,6 +1086,19 @@ CREATE TABLE public.movimentacoes_estoque (
   CONSTRAINT movimentacoes_estoque_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id),
   CONSTRAINT movimentacoes_estoque_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
 );
+CREATE TABLE public.notificacoes (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  user_id uuid NOT NULL,
+  titulo text NOT NULL,
+  mensagem text NOT NULL,
+  link text,
+  lida boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  organizacao_id bigint,
+  CONSTRAINT notificacoes_pkey PRIMARY KEY (id),
+  CONSTRAINT notificacoes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT notificacoes_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+);
 CREATE TABLE public.notification_subscriptions (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -1186,6 +1199,7 @@ CREATE TABLE public.pedidos_compra (
   turno_entrega text,
   organizacao_id bigint NOT NULL,
   data_entrega_real date,
+  observacoes text,
   CONSTRAINT pedidos_compra_pkey PRIMARY KEY (id),
   CONSTRAINT pedidos_compra_empreendimento_id_fkey FOREIGN KEY (empreendimento_id) REFERENCES public.empreendimentos(id),
   CONSTRAINT pedidos_compra_solicitante_id_fkey FOREIGN KEY (solicitante_id) REFERENCES public.usuarios(id),
@@ -1296,7 +1310,7 @@ CREATE TABLE public.produtos_empreendimento (
   valor_base numeric,
   fator_reajuste_percentual numeric,
   valor_venda_calculado numeric,
-  status text DEFAULT 'Disponível'::text,
+  status text DEFAULT 'Disponível'::text CHECK (status = ANY (ARRAY['Disponível'::text, 'Vendido'::text, 'Reservado'::text])),
   created_at timestamp with time zone DEFAULT now(),
   organizacao_id bigint NOT NULL,
   matricula text,
