@@ -1,11 +1,9 @@
-//components\financeiro\ExtratoManager.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// O PORQUÊ: Adicionamos os ícones de lápis e lixeira para a nova coluna de ações.
 import { faSpinner, faFilter, faCalendarDay, faCalendarWeek, faCalendarAlt, faPenToSquare, faTrashAlt } from '@fortawesome/free-solid-svg-icons';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import { toast } from 'sonner';
@@ -23,7 +21,7 @@ const formatDate = (dateStr) => {
 
 export default function ExtratoManager({ contas, onEdit }) {
     const supabase = createClient();
-    const { user, hasPermission } = useAuth(); // Adicionado 'hasPermission' para o botão de excluir
+    const { user, hasPermission } = useAuth();
     const organizacaoId = user?.organizacao_id;
     
     const [filters, setFilters] = useState(() => {
@@ -42,6 +40,13 @@ export default function ExtratoManager({ contas, onEdit }) {
         if (typeof window === 'undefined') return 0;
         const savedState = sessionStorage.getItem('lastExtratoState');
         return savedState ? JSON.parse(savedState).saldoAnterior : 0;
+    });
+
+    // Novo estado para controlar execução automática
+    const [autoExecutar, setAutoExecutar] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        const savedState = sessionStorage.getItem('lastExtratoState');
+        return savedState ? JSON.parse(savedState).autoExecutar : false;
     });
 
     const [loading, setLoading] = useState(false);
@@ -145,7 +150,8 @@ export default function ExtratoManager({ contas, onEdit }) {
             const stateToSave = {
                 filters,
                 extratoItens: itensProcessados,
-                saldoAnterior: saldoInicialTotal
+                saldoAnterior: saldoInicialTotal,
+                autoExecutar: false // Desliga a auto-execução após rodar
             };
             sessionStorage.setItem('lastExtratoState', JSON.stringify(stateToSave));
 
@@ -158,14 +164,23 @@ export default function ExtratoManager({ contas, onEdit }) {
 
     }, [filters.contaIds, filters.startDate, filters.endDate, supabase, organizacaoId]);
 
-    // O PORQUÊ: Nova função para lidar com a exclusão de um lançamento.
+    // =================================================================================
+    // EFEITO DE AUTO-EXECUÇÃO
+    // =================================================================================
+    useEffect(() => {
+        if (autoExecutar) {
+            fetchExtrato();
+            setAutoExecutar(false); // Previne loop infinito
+        }
+    }, [autoExecutar, fetchExtrato]);
+
     const handleDeleteLancamento = (lancamento) => {
         const promise = async () => {
             const { error } = await supabase
                 .from('lancamentos')
                 .delete()
                 .eq('id', lancamento.id)
-                .eq('organizacao_id', organizacaoId); // <-- Segurança!
+                .eq('organizacao_id', organizacaoId);
             if (error) throw error;
         };
 
@@ -175,7 +190,7 @@ export default function ExtratoManager({ contas, onEdit }) {
                 onClick: () => toast.promise(promise(), {
                     loading: 'Excluindo lançamento...',
                     success: () => {
-                        fetchExtrato(); // <-- Atualiza a lista após excluir
+                        fetchExtrato();
                         return 'Lançamento excluído com sucesso!';
                     },
                     error: (err) => `Erro ao excluir: ${err.message}`,
@@ -245,7 +260,6 @@ export default function ExtratoManager({ contas, onEdit }) {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         <tr className="bg-gray-50 font-semibold">
-                            {/* O PORQUÊ: Corrigido o colSpan e adicionada célula vazia para alinhar a coluna de ações */}
                             <td className="px-4 py-2" colSpan="5">SALDO ANTERIOR EM {formatDate(filters.startDate)}</td>
                             <td className="px-4 py-2 text-right">{formatCurrency(saldoAnterior)}</td>
                             <td className="px-4 py-2"></td>
@@ -263,11 +277,9 @@ export default function ExtratoManager({ contas, onEdit }) {
                                     <td className={`px-4 py-2 text-right font-semibold ${item.saldo < 0 ? 'text-red-600' : 'text-gray-800'}`}>{formatCurrency(item.saldo)}</td>
                                     <td className="px-4 py-2 text-center">
                                         <div className="flex justify-center items-center gap-4">
-                                            {/* O PORQUÊ: Botão de editar */}
                                             <button onClick={() => onEdit(item)} className="text-blue-600 hover:text-blue-800" title="Editar Lançamento">
                                                 <FontAwesomeIcon icon={faPenToSquare} />
                                             </button>
-                                            {/* O PORQUÊ: Novo botão de excluir com verificação de permissão */}
                                             {hasPermission('financeiro', 'pode_excluir') && (
                                                 <button onClick={() => handleDeleteLancamento(item)} className="text-red-500 hover:text-red-700" title="Excluir Lançamento">
                                                     <FontAwesomeIcon icon={faTrashAlt} />

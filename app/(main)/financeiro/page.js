@@ -92,7 +92,6 @@ async function fetchLancamentos({ queryKey }) {
     return { data: data || [], count: count || 0 };
 }
 
-// CORREÇÃO: Adicionamos 'transferencia_id' e a categoria na seleção
 async function fetchLancamentosKpi({ queryKey }) {
     const [_key, { filters, organizacao_id }] = queryKey;
     if (!organizacao_id) return [];
@@ -102,7 +101,7 @@ async function fetchLancamentosKpi({ queryKey }) {
             p_organizacao_id: organizacao_id,
             p_filtros: filters
         })
-        .select('valor, tipo, transferencia_id, categoria:categorias_financeiras(nome)'); // <-- AQUI MUDOU
+        .select('valor, tipo, transferencia_id, categoria:categorias_financeiras(nome)');
 
     if (error) throw new Error(error.message);
     return data || [];
@@ -214,7 +213,6 @@ export default function FinanceiroPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
             queryClient.invalidateQueries({ queryKey: ['lancamentosKpi'] });
-            // Também invalidamos saldos para garantir consistência
             queryClient.invalidateQueries({ queryKey: ['saldosContasReais'] });
         },
     });
@@ -252,6 +250,30 @@ export default function FinanceiroPage() {
     const handleCloseDetailsSidebar = () => {
         setIsDetailsSidebarOpen(false);
         setTimeout(() => setSelectedLancamento(null), 300);
+    };
+
+    // =================================================================================
+    // ATUALIZADO: Inclui flag 'autoExecutar: true'
+    // =================================================================================
+    const handleIrParaExtrato = (contaId) => {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - 30); 
+
+        const filterState = {
+            filters: {
+                contaIds: [contaId],
+                startDate: startDate.toISOString().split('T')[0],
+                endDate: endDate.toISOString().split('T')[0]
+            },
+            extratoItens: [], 
+            saldoAnterior: 0,
+            autoExecutar: true // <--- O segredo está aqui!
+        };
+
+        sessionStorage.setItem('lastExtratoState', JSON.stringify(filterState));
+        setActiveTab('extrato');
+        toast.info("Visualizando extrato dos últimos 30 dias.");
     };
 
     const TabButton = ({ tabName, label, icon }) => ( 
@@ -322,7 +344,14 @@ export default function FinanceiroPage() {
                         onRowClick={handleViewLancamentoDetails}
                     />
                 )}
-                {activeTab === 'contas' && <ContasManager initialContas={contas} onUpdate={handleSuccessForm} empresas={empresas} />}
+                {activeTab === 'contas' && 
+                    <ContasManager 
+                        initialContas={contas} 
+                        onUpdate={handleSuccessForm} 
+                        empresas={empresas} 
+                        onVerExtrato={handleIrParaExtrato} 
+                    />
+                }
                 {activeTab === 'ativos' && <AtivosManager />}
             </div>
         </div>

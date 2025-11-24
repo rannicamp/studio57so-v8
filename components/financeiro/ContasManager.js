@@ -8,9 +8,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faPlus, faUniversity, faCreditCard, faMoneyBillWave, faChartLine, 
     faPenToSquare, faTrash, faExclamationTriangle, faSpinner, 
-    faWallet, faHandHoldingDollar, faLayerGroup
+    faWallet, faHandHoldingDollar, faLayerGroup, faMoneyBillTransfer, faFileInvoice
 } from '@fortawesome/free-solid-svg-icons';
 import ContaFormModal from './ContaFormModal';
+import PagamentoFaturaModal from './PagamentoFaturaModal';
 import KpiCard from '../KpiCard';
 import { toast } from 'sonner';
 
@@ -30,7 +31,6 @@ const fetchSaldosReais = async (contas, organizacaoId) => {
     if (!contas || contas.length === 0 || !organizacaoId) return {};
     const supabase = createClient();
 
-    // Pega o saldo acumulado até o final do dia de hoje (usando data de corte = amanhã)
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dataCorte = tomorrow.toISOString().split('T')[0];
@@ -57,13 +57,17 @@ const fetchSaldosReais = async (contas, organizacaoId) => {
     }, {});
 };
 
-export default function ContasManager({ initialContas, onUpdate, empresas }) {
+// Adicionado prop: onVerExtrato
+export default function ContasManager({ initialContas, onUpdate, empresas, onVerExtrato }) {
     const supabase = createClient();
     const { user, hasPermission } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingConta, setEditingConta] = useState(null);
+    
+    const [isPagamentoModalOpen, setIsPagamentoModalOpen] = useState(false);
+    const [contaParaPagar, setContaParaPagar] = useState(null);
 
     const { data: saldos = {}, isLoading: isLoadingSaldos } = useQuery({
         queryKey: ['saldosContasReais', initialContas.map(c => c.id), organizacaoId],
@@ -72,7 +76,6 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
         refetchOnWindowFocus: true
     });
 
-    // KPI Logic
     const kpis = useMemo(() => {
         let saldoLiquido = 0;
         let limiteChequeTotal = 0;
@@ -109,7 +112,6 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
         };
     }, [initialContas, saldos]);
 
-    // Lógica de Agrupamento
     const groupedContas = useMemo(() => {
         const groups = {
             'Conta Corrente': [],
@@ -118,13 +120,11 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
             'Cartão de Crédito': []
         };
 
-        // Preenche os grupos
         initialContas.forEach(conta => {
             const tipo = conta.tipo || 'Conta Corrente';
             if (groups[tipo]) {
                 groups[tipo].push(conta);
             } else {
-                // Caso exista algum tipo novo no futuro, joga em Conta Corrente ou cria novo
                 if (!groups['Outros']) groups['Outros'] = [];
                 groups['Outros'].push(conta);
             }
@@ -195,10 +195,20 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
     const handleOpenEditModal = (conta) => { setEditingConta(conta); setIsModalOpen(true); };
     const handleOpenAddModal = () => { setEditingConta(null); setIsModalOpen(true); };
     
+    const handleOpenPagamentoModal = (conta) => {
+        const contaComSaldo = { ...conta, saldoAtual: saldos[conta.id] || 0 };
+        setContaParaPagar(contaComSaldo);
+        setIsPagamentoModalOpen(true);
+    };
+
+    const handlePagamentoSuccess = () => {
+        onUpdate(); 
+        toast.success("Saldo atualizado!");
+    };
+
     const getSaldoLabel = (conta) => {
-        if (conta.tipo === 'Conta Corrente' && conta.limite_cheque_especial > 0) return 'Saldo Disponível (c/ Limite)';
         if (conta.tipo === 'Cartão de Crédito') return 'Fatura Atual';
-        return 'Saldo Atual';
+        return 'Saldo Real';
     };
 
     return (
@@ -213,7 +223,14 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
                 contas={initialContas.filter(c => c.tipo === 'Conta Corrente')}
             />
 
-            {/* --- SEÇÃO DE KPIs --- */}
+            <PagamentoFaturaModal
+                isOpen={isPagamentoModalOpen}
+                onClose={() => setIsPagamentoModalOpen(false)}
+                onSuccess={handlePagamentoSuccess}
+                contaCartao={contaParaPagar}
+                contasDisponiveis={initialContas.filter(c => c.tipo !== 'Cartão de Crédito')}
+            />
+
             {initialContas.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <KpiCard 
@@ -264,7 +281,6 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
                 </div>
             )}
 
-            {/* --- CABEÇALHO E BOTÃO --- */}
             <div className="bg-white p-6 rounded-lg shadow">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -282,7 +298,6 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
                     <p className="text-center text-gray-500 py-10">Nenhuma conta cadastrada.</p> 
                 ) : (
                     <div className="space-y-8">
-                        {/* RENDERIZAÇÃO DOS GRUPOS */}
                         {Object.entries(groupedContas).map(([tipo, contasDoTipo]) => {
                             if (!contasDoTipo || contasDoTipo.length === 0) return null;
 
@@ -301,8 +316,15 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
                                             const saldoDisponivel = saldoReal + limite;
                                             const isCartao = conta.tipo === 'Cartão de Crédito';
                                             
-                                            const valorDisplay = isCartao ? Math.abs(saldoReal) : (limite > 0 ? saldoDisponivel : saldoReal);
+                                            const valorDisplay = isCartao ? Math.abs(saldoReal) : saldoReal;
                                             const isNegative = saldoReal < 0;
+
+                                            let colorClass = 'text-gray-800';
+                                            if (saldoReal < 0) {
+                                                colorClass = 'text-red-600';
+                                            } else if (isCartao && saldoReal > 0) {
+                                                colorClass = 'text-green-600';
+                                            }
 
                                             return (
                                                 <div key={conta.id} className="border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition-all hover:border-blue-300 relative group flex flex-col justify-between bg-white">
@@ -342,16 +364,37 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
                                                             )}
                                                         </div>
                                                     </div>
+                                                    
                                                     <div className="text-right mt-4 pt-3 border-t border-gray-100">
                                                         <p className="text-xs uppercase font-bold text-gray-400 mb-1">{getSaldoLabel(conta)}</p>
-                                                        <p className={`text-2xl font-bold ${isNegative && !isCartao ? 'text-red-600' : 'text-gray-800'}`}>
+                                                        <p className={`text-2xl font-bold ${colorClass}`}>
                                                             {isLoadingSaldos ? <FontAwesomeIcon icon={faSpinner} spin className="text-lg text-gray-300"/> : formatCurrency(valorDisplay)}
                                                         </p>
-                                                        {limite > 0 && !isCartao && (
-                                                            <p className="text-xs text-gray-400 mt-1">
-                                                                Saldo Real: <span className={saldoReal < 0 ? 'text-red-500 font-semibold' : 'text-gray-600'}>{isLoadingSaldos ? '...' : formatCurrency(saldoReal)}</span>
+                                                        
+                                                        {!isCartao && limite > 0 && (
+                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                Disponível (c/ Limite): <span className="font-semibold text-green-600">{isLoadingSaldos ? '...' : formatCurrency(saldoDisponivel)}</span>
                                                             </p>
                                                         )}
+
+                                                        <div className="flex gap-2 mt-2">
+                                                            <button 
+                                                                onClick={() => onVerExtrato(conta.id)}
+                                                                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-2 rounded flex items-center justify-center gap-2 transition-colors border border-gray-300"
+                                                                title="Ver Extrato dos últimos 30 dias"
+                                                            >
+                                                                <FontAwesomeIcon icon={faFileInvoice} /> Extrato
+                                                            </button>
+
+                                                            {isCartao && saldoReal < 0 && (
+                                                                <button 
+                                                                    onClick={() => handleOpenPagamentoModal(conta)}
+                                                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 rounded flex items-center justify-center gap-2 transition-colors"
+                                                                >
+                                                                    <FontAwesomeIcon icon={faMoneyBillTransfer} /> Pagar
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             );
