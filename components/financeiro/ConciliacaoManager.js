@@ -8,8 +8,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, faUpload, faLink, faFileImport, faCheckCircle, faMagic, faPlus, 
     faExclamationTriangle, faEraser, faCalendarDay, faCalendarWeek, faCalendarAlt, 
-    faUndo, faEye, faEyeSlash, faPenToSquare,
-    faTrash
+    faUndo, faEye, faEyeSlash, faPenToSquare, faTrash, faCalculator, faTimes
 } from '@fortawesome/free-solid-svg-icons';
 import LancamentoFormModal from './LancamentoFormModal';
 import { useDebouncedCallback } from 'use-debounce';
@@ -90,13 +89,15 @@ export default function ConciliacaoManager({ contas }) {
     const [conciliationState, setConciliationState] = useState({ extrato: [], sistema: [], matches: [], dateFilter: { startDate: '', endDate: '' } });
     
     const [extratoPeriodo, setExtratoPeriodo] = useState({ startDate: null, endDate: null });
-    const [selectedItems, setSelectedItems] = useState({ extrato: null, sistema: null });
+    
+    // NOVOS ESTADOS PARA SELEÇÃO MÚLTIPLA
+    const [selectedExtratoId, setSelectedExtratoId] = useState(null);
+    const [selectedSistemaIds, setSelectedSistemaIds] = useState(new Set());
     
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [lancamentoParaCriar, setLancamentoParaCriar] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [lancamentoParaEditar, setLancamentoParaEditar] = useState(null);
-
 
     const [lines, setLines] = useState([]);
     const itemRefs = useRef(new Map());
@@ -242,6 +243,12 @@ export default function ConciliacaoManager({ contas }) {
 
     const calculateLines = useDebouncedCallback(() => {
         if (!containerRef.current) return;
+        // Desliga as linhas automáticas durante a seleção manual para limpar a visão
+        if (selectedSistemaIds.size > 0) {
+            setLines([]);
+            return;
+        }
+
         const newLines = [];
         const containerRect = containerRef.current.getBoundingClientRect();
 
@@ -265,7 +272,7 @@ export default function ConciliacaoManager({ contas }) {
         calculateLines();
         window.addEventListener('resize', calculateLines);
         return () => window.removeEventListener('resize', calculateLines);
-    }, [conciliationState, calculateLines]);
+    }, [conciliationState, calculateLines, selectedSistemaIds]);
     
     useEffect(() => {
         if (selectedContaId) sessionStorage.setItem('lastSelectedConciliationAccountId', selectedContaId);
@@ -313,24 +320,17 @@ export default function ConciliacaoManager({ contas }) {
         }
     };
     
-    // =================================================================================
-    // PARSER OFX ATUALIZADO E ROBUSTO
-    // O PORQUÊ: A Caixa envia muitos lançamentos com FITID "000000".
-    // A lógica antiga sobrescrevia esses itens. A nova lógica detecta IDs duplicados
-    // ou zerados e cria um ID sintético (DATA_VALOR_INDEX) para garantir unicidade.
-    // =================================================================================
     const parseOfxFile = (fileContent) => {
         try {
             const transacoesManuais = [];
             const transacoesRegex = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/g;
             let match;
-            const idMap = new Set(); // Rastreia IDs já usados para evitar duplicatas reais do arquivo
+            const idMap = new Set(); 
 
             let index = 0;
             while ((match = transacoesRegex.exec(fileContent)) !== null) {
                 const transacaoBlock = match[1];
                 
-                // Função auxiliar para extrair valor de tags
                 const getValue = (tag) => { 
                     const regex = new RegExp(`<${tag}>([^<]*)`); 
                     const result = regex.exec(transacaoBlock); 
@@ -347,10 +347,7 @@ export default function ConciliacaoManager({ contas }) {
                 
                 let fitId = getValue('FITID');
                 
-                // CORREÇÃO CRÍTICA PARA CAIXA:
-                // Se o ID for inválido, zerado ou JÁ EXISTIR no set, criamos um novo.
                 if (!fitId || fitId === '000000' || fitId === '0' || idMap.has(fitId)) {
-                    // Cria ID único: PREFIXO_DATA_VALOR_INDICE
                     fitId = `GEN_${dataStr}_${valorRaw.replace('.', '')}_${index}`;
                 }
                 
@@ -398,27 +395,47 @@ export default function ConciliacaoManager({ contas }) {
         setExtratoPeriodo({ startDate: dataInicio, endDate: dataFim });
     };
     
+    // --- LÓGICA N:1 ---
     const proceedWithMatch = () => {
-        if (!selectedItems.extrato || !selectedItems.sistema) return;
+        if (!selectedExtratoId || selectedSistemaIds.size === 0) return;
+        
         const newPairId = (conciliationState.matches[conciliationState.matches.length - 1]?.pairId || -1) + 1;
-        setConciliationState(prev => ({ ...prev, matches: [...prev.matches, { extratoId: selectedItems.extrato, sistemaId: selectedItems.sistema, pairId: newPairId }] }));
-        setSelectedItems({ extrato: null, sistema: null });
+        
+        // Cria MÚLTIPLOS pares, um para cada item do sistema selecionado
+        const newMatches = Array.from(selectedSistemaIds).map(sisId => ({
+            extratoId: selectedExtratoId,
+            sistemaId: sisId,
+            pairId: newPairId
+        }));
+
+        setConciliationState(prev => ({ 
+            ...prev, 
+            matches: [...prev.matches, ...newMatches] 
+        }));
+        
+        // Limpa a seleção
+        setSelectedExtratoId(null);
+        setSelectedSistemaIds(new Set());
     };
 
-    const handleManualMatch = () => {
-        const extratoItem = conciliationState.extrato.find(e => e.id === selectedItems.extrato);
-        const sistemaItem = conciliationState.sistema.find(s => s.id === selectedItems.sistema);
-        if (!extratoItem || !sistemaItem) return;
-        if (Math.abs(extratoItem.valor).toFixed(2) !== Math.abs(sistemaItem.valor).toFixed(2)) {
-            toast.warning(`Os valores são divergentes (${formatCurrency(sistemaItem.valor)} vs ${formatCurrency(extratoItem.valor)}). Ao confirmar, o valor do extrato prevalecerá.`, {
-                action: { label: 'Continuar', onClick: () => proceedWithMatch() },
-                cancel: { label: 'Cancelar' },
-            });
-        } else {
-            proceedWithMatch();
-        }
-    };
-    
+    // Calculadora de Conciliação (Hook de Memória)
+    const calculadora = useMemo(() => {
+        if (!selectedExtratoId) return null;
+        const extratoItem = conciliationState.extrato.find(e => e.id === selectedExtratoId);
+        if (!extratoItem) return null;
+
+        const totalSistema = Array.from(selectedSistemaIds).reduce((acc, id) => {
+            const item = conciliationState.sistema.find(s => s.id === id);
+            return acc + (item ? Math.abs(item.valor) : 0);
+        }, 0);
+
+        const target = Math.abs(extratoItem.valor);
+        const diff = target - totalSistema;
+        const isMatch = Math.abs(diff) < 0.01; // Tolerância de 1 centavo
+
+        return { target, totalSistema, diff, isMatch, count: selectedSistemaIds.size };
+    }, [selectedExtratoId, selectedSistemaIds, conciliationState]);
+
     const handleConfirmMatches = async () => {
         if (!user || !user.id || !organizacaoId) {
             toast.error("Erro de autenticação. Não foi possível identificar seu usuário ou organização. Por favor, recarregue a página.");
@@ -461,14 +478,16 @@ export default function ConciliacaoManager({ contas }) {
                         status: 'Pago', 
                         data_pagamento: extratoItem.data,
                         id_transacao_externa: match.extratoId,
-                        valor: Math.abs(extratoItem.valor)
+                        valor: conciliationState.sistema.find(s => s.id === match.sistemaId)?.valor // Mantém o valor original do sistema
                     }
                 };
             });
 
-            const totalConciliado = updates.reduce((sum, item) => {
-                const extratoItem = conciliationState.extrato.find(e => e.id === conciliationState.matches.find(m => m.sistemaId === item.id).extratoId);
-                return sum + Math.abs(extratoItem.valor);
+            // Calcula o total conciliado (somando apenas lançamentos únicos do extrato para não duplicar valor)
+            const uniqueExtratoIds = new Set(conciliationState.matches.map(m => m.extratoId));
+            const totalConciliado = Array.from(uniqueExtratoIds).reduce((sum, id) => {
+                const item = conciliationState.extrato.find(e => e.id === id);
+                return sum + (item ? Math.abs(item.valor) : 0);
             }, 0);
 
             const lancamentosConciliadosJSON = conciliationState.matches.map(match => {
@@ -535,8 +554,8 @@ export default function ConciliacaoManager({ contas }) {
             sistema: [...prev.sistema, { ...createdLancamento, conciliado: true }]
         }));
         
-        const updatedExtrato = conciliationState.extrato.filter(item => item.id !== extratoId);
-        setConciliationState(prev => ({...prev, extrato: updatedExtrato}));
+        // Marca como conciliado no estado visual (não remove do extrato, apenas marca)
+        // Lógica antiga removia, mas agora mantemos para consistência
         
         queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
     };
@@ -558,7 +577,8 @@ export default function ConciliacaoManager({ contas }) {
         if (selectedContaId) sessionStorage.removeItem(`conciliationProgress_${selectedContaId}`);
         setFile(null);
         setConciliationState({ extrato: [], sistema: [], matches: [], dateFilter: { startDate: '', endDate: '' } });
-        setSelectedItems({ extrato: null, sistema: null });
+        setSelectedExtratoId(null);
+        setSelectedSistemaIds(new Set());
         setExtratoPeriodo({ startDate: null, endDate: null });
         const fileInput = document.getElementById('file-input');
         if (fileInput) fileInput.value = '';
@@ -627,31 +647,38 @@ export default function ConciliacaoManager({ contas }) {
         };
     }, [conciliationState, showConciliados]); 
 
+    // --- LÓGICA DE SELEÇÃO ATUALIZADA ---
     const handleItemClick = (item, listName) => {
         if (item.conciliationStatus === 'pendente') {
-            setSelectedItems(prev => {
-                if (prev[listName] === item.id) {
-                    return { ...prev, [listName]: null };
-                }
-                return { ...prev, [listName]: item.id };
-            });
+            if (listName === 'extrato') {
+                // Lado Extrato: Seleção Única (Alvo)
+                setSelectedExtratoId(prev => (prev === item.id ? null : item.id));
+            } else {
+                // Lado Sistema: Seleção Múltipla (Acumulativa)
+                setSelectedSistemaIds(prev => {
+                    const newSet = new Set(prev);
+                    if (newSet.has(item.id)) newSet.delete(item.id);
+                    else newSet.add(item.id);
+                    return newSet;
+                });
+            }
         } 
         else if (item.conciliationStatus === 'sessionMatch') {
             const matchToRemove = conciliationState.matches.find(m => m[`${listName}Id`] === item.id);
             if (!matchToRemove) return;
 
+            // Remove TODOS os matches que pertencem ao mesmo par (grupo)
             setConciliationState(prev => ({
                 ...prev,
                 matches: prev.matches.filter(m => m.pairId !== matchToRemove.pairId)
             }));
             
-            setSelectedItems({ extrato: null, sistema: null });
-            toast.info('Conciliação desmarcada.');
+            toast.info('Grupo de conciliação desfeito.');
         }
     };
 
     const renderItem = (item, type, listName) => {
-        const isSelected = selectedItems[listName] === item.id;
+        const isSelected = type === 'extrato' ? selectedExtratoId === item.id : selectedSistemaIds.has(item.id);
         const match = item.conciliationStatus === 'sessionMatch' ? conciliationState.matches.find(m => m[`${listName}Id`] === item.id) : null;
         let rowClass = 'bg-white';
         let interactionClass = 'cursor-pointer hover:bg-gray-100';
@@ -691,7 +718,6 @@ export default function ConciliacaoManager({ contas }) {
                 
                 <div className={actionsCellClass}>
                     
-                    {/* --- LADO DIREITO (EXTRATO) --- */}
                     {type === 'extrato' && item.conciliationStatus === 'pendente' && (
                         <button onClick={(e) => { e.stopPropagation(); handleCreateLancamento(item); }} className="bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold px-2 py-1 rounded-md">
                             <FontAwesomeIcon icon={faPlus} /> Criar
@@ -702,8 +728,6 @@ export default function ConciliacaoManager({ contas }) {
                         <FontAwesomeIcon icon={faCheckCircle} className="text-green-600" title="Conciliado" />
                     )}
 
-                    {/* --- LADO ESQUERDO (SISTEMA) --- */}
-                    
                     {type === 'sistema' && (
                         <button
                             onClick={(e) => {
@@ -754,7 +778,7 @@ export default function ConciliacaoManager({ contas }) {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-24">
             <LancamentoFormModal 
                 isOpen={isModalOpen} 
                 onClose={() => setIsModalOpen(false)} 
@@ -810,7 +834,10 @@ export default function ConciliacaoManager({ contas }) {
                 </svg>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <h3 className="font-semibold mb-2">Lançamentos no Sistema</h3>
+                        <h3 className="font-semibold mb-2 flex items-center justify-between">
+                            Lançamentos no Sistema
+                            {selectedSistemaIds.size > 0 && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">{selectedSistemaIds.size} selecionado(s)</span>}
+                        </h3>
                         <div className="border rounded-lg max-h-[60vh] overflow-y-auto space-y-1 p-1">
                             {isLoadingLancamentos && extratoPeriodo.startDate && <div className="text-center p-4"><FontAwesomeIcon icon={faSpinner} spin /> Buscando...</div>}
                             {!isLoadingLancamentos && processedLists.sortedSistema.map(item => renderItem(item, 'sistema', 'sistema'))}
@@ -826,10 +853,57 @@ export default function ConciliacaoManager({ contas }) {
                     </div>
                 </div>
             </div>
-            {(conciliationState.matches.length > 0 || (selectedItems.extrato && selectedItems.sistema)) && (
-                <div className="sticky bottom-0 bg-white p-4 border-t-2 shadow-lg flex justify-center items-center gap-4 z-20">
-                    {selectedItems.extrato && selectedItems.sistema && (<button onClick={handleManualMatch} className="bg-yellow-500 text-white font-bold px-4 py-2 rounded-md hover:bg-yellow-600 flex items-center gap-2 animate-pulse"><FontAwesomeIcon icon={faLink}/> Conciliar Itens Selecionados</button>)}
-                    {conciliationState.matches.length > 0 && (<button onClick={handleConfirmMatches} disabled={isProcessing} className="bg-green-700 text-white font-bold px-8 py-3 rounded-lg text-lg hover:bg-green-800 disabled:bg-gray-400 flex items-center gap-3"><FontAwesomeIcon icon={faCheckCircle}/> Confirmar {conciliationState.matches.length} Conciliações</button>)}
+
+            {/* --- BARRA DE AÇÕES E CALCULADORA --- */}
+            {(conciliationState.matches.length > 0 || (calculadora)) && (
+                <div className="fixed bottom-0 left-0 md:left-64 right-0 bg-white p-4 border-t-2 shadow-[0_-4px_10px_rgba(0,0,0,0.1)] z-50 animate-slide-up">
+                    <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+                        
+                        {/* Calculadora de Conferência */}
+                        {calculadora ? (
+                            <div className={`flex items-center gap-4 px-4 py-2 rounded-lg border-2 ${calculadora.isMatch ? 'border-green-500 bg-green-50' : 'border-red-300 bg-red-50'}`}>
+                                <div className="flex flex-col items-end border-r pr-4 border-gray-300">
+                                    <span className="text-xs text-gray-500 uppercase font-bold">Extrato (Alvo)</span>
+                                    <span className="font-mono font-bold text-lg">{formatCurrency(calculadora.target)}</span>
+                                </div>
+                                <div className="flex flex-col items-end border-r pr-4 border-gray-300">
+                                    <span className="text-xs text-gray-500 uppercase font-bold">Selecionados ({calculadora.count})</span>
+                                    <span className="font-mono font-bold text-lg">{formatCurrency(calculadora.totalSistema)}</span>
+                                </div>
+                                <div className="flex flex-col items-end">
+                                    <span className="text-xs text-gray-500 uppercase font-bold">Diferença</span>
+                                    <span className={`font-mono font-bold text-lg ${calculadora.diff === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {formatCurrency(calculadora.diff)}
+                                    </span>
+                                </div>
+                                
+                                {calculadora.isMatch ? (
+                                    <button onClick={proceedWithMatch} className="ml-4 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 font-bold flex items-center gap-2 animate-pulse">
+                                        <FontAwesomeIcon icon={faLink} /> Conciliar Grupo
+                                    </button>
+                                ) : (
+                                    <div className="ml-4 text-red-500 text-xs max-w-[150px] text-center leading-tight">
+                                        A soma deve bater para conciliar.
+                                    </div>
+                                )}
+                                <button onClick={() => { setSelectedExtratoId(null); setSelectedSistemaIds(new Set()); }} className="ml-2 text-gray-400 hover:text-gray-600">
+                                    <FontAwesomeIcon icon={faTimes} />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="text-gray-500 text-sm italic flex items-center gap-2">
+                                <FontAwesomeIcon icon={faCalculator} />
+                                Selecione 1 item do extrato e N itens do sistema para agrupar.
+                            </div>
+                        )}
+
+                        {/* Botão Confirmar Geral */}
+                        {conciliationState.matches.length > 0 && (
+                            <button onClick={handleConfirmMatches} disabled={isProcessing} className="bg-blue-800 text-white font-bold px-8 py-3 rounded-lg text-lg hover:bg-blue-900 disabled:bg-gray-400 flex items-center gap-3 shadow-lg transform transition hover:-translate-y-1">
+                                <FontAwesomeIcon icon={faCheckCircle} /> Confirmar {conciliationState.matches.length} Pares/Grupos
+                            </button>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
