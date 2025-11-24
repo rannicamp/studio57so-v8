@@ -78,15 +78,8 @@ const DeletionToast = ({ toastId, onSingleDelete, onFutureDelete }) => (
 
 export default function ConciliacaoManager({ contas }) {
     const supabase = createClient();
-    
-    // =================================================================================
-    // ATUALIZAÇÃO: Correção na busca do organizacaoId
-    // =================================================================================
-    // Em vez de pegar o ID de dentro do 'user', pegamos direto do hook 'useAuth'
-    // que é mais confiável e reflete a autenticação principal.
     const { user, organizacao_id } = useAuth();
-    const organizacaoId = organizacao_id; // Usando o ID direto do contexto
-    // =================================================================================
+    const organizacaoId = organizacao_id;
     
     const queryClient = useQueryClient();
 
@@ -320,22 +313,63 @@ export default function ConciliacaoManager({ contas }) {
         }
     };
     
+    // =================================================================================
+    // PARSER OFX ATUALIZADO E ROBUSTO
+    // O PORQUÊ: A Caixa envia muitos lançamentos com FITID "000000".
+    // A lógica antiga sobrescrevia esses itens. A nova lógica detecta IDs duplicados
+    // ou zerados e cria um ID sintético (DATA_VALOR_INDEX) para garantir unicidade.
+    // =================================================================================
     const parseOfxFile = (fileContent) => {
         try {
             const transacoesManuais = [];
             const transacoesRegex = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/g;
             let match;
+            const idMap = new Set(); // Rastreia IDs já usados para evitar duplicatas reais do arquivo
+
+            let index = 0;
             while ((match = transacoesRegex.exec(fileContent)) !== null) {
                 const transacaoBlock = match[1];
-                const getValue = (tag) => { const regex = new RegExp(`<${tag}>([^<]*)`); const result = regex.exec(transacaoBlock); return result ? result[1].trim() : null; };
-                const valor = parseFloat(getValue('TRNAMT'));
+                
+                // Função auxiliar para extrair valor de tags
+                const getValue = (tag) => { 
+                    const regex = new RegExp(`<${tag}>([^<]*)`); 
+                    const result = regex.exec(transacaoBlock); 
+                    return result ? result[1].trim() : null; 
+                };
+
+                const valorRaw = getValue('TRNAMT');
+                const valor = parseFloat(valorRaw);
                 const dataStr = getValue('DTPOSTED')?.substring(0, 8);
+                
                 if (!dataStr || isNaN(valor)) continue;
+                
                 const formattedDate = `${dataStr.substring(0, 4)}-${dataStr.substring(4, 6)}-${dataStr.substring(6, 8)}`;
-                transacoesManuais.push({ id: getValue('FITID'), data: formattedDate, valor: valor, descricao: getValue('MEMO') || getValue('NAME') || 'Sem descrição' });
+                
+                let fitId = getValue('FITID');
+                
+                // CORREÇÃO CRÍTICA PARA CAIXA:
+                // Se o ID for inválido, zerado ou JÁ EXISTIR no set, criamos um novo.
+                if (!fitId || fitId === '000000' || fitId === '0' || idMap.has(fitId)) {
+                    // Cria ID único: PREFIXO_DATA_VALOR_INDICE
+                    fitId = `GEN_${dataStr}_${valorRaw.replace('.', '')}_${index}`;
+                }
+                
+                idMap.add(fitId);
+                
+                transacoesManuais.push({ 
+                    id: fitId, 
+                    data: formattedDate, 
+                    valor: valor, 
+                    descricao: getValue('MEMO') || getValue('NAME') || 'Sem descrição' 
+                });
+                
+                index++;
             }
             return transacoesManuais;
-        } catch (error) { console.error("Erro no parse manual:", error); return null; }
+        } catch (error) { 
+            console.error("Erro no parse manual:", error); 
+            return null; 
+        }
     };
     
     const handleProcessFile = async () => {
@@ -346,9 +380,15 @@ export default function ConciliacaoManager({ contas }) {
 
         const fileContent = await file.text();
         const transacoesDoExtrato = parseOfxFile(fileContent);
-        if (!transacoesDoExtrato || transacoesDoExtrato.length === 0) { toast.error('Nenhuma transação válida encontrada no arquivo.', { id: toastId }); setIsProcessing(false); return; }
+        
+        if (!transacoesDoExtrato || transacoesDoExtrato.length === 0) { 
+            toast.error('Nenhuma transação válida encontrada no arquivo.', { id: toastId }); 
+            setIsProcessing(false); 
+            return; 
+        }
+        
         toast.dismiss(toastId);
-        toast.info("Arquivo lido. Buscando lançamentos correspondentes no sistema...");
+        toast.info(`Arquivo lido com ${transacoesDoExtrato.length} transações. Buscando correspondências...`);
         
         const datasDoExtrato = transacoesDoExtrato.map(t => new Date(t.data));
         const dataInicio = new Date(Math.min.apply(null, datasDoExtrato)).toISOString().split('T')[0];
@@ -380,8 +420,6 @@ export default function ConciliacaoManager({ contas }) {
     };
     
     const handleConfirmMatches = async () => {
-        // Trava de segurança para RLS (Row Level Security)
-        // Agora usa o 'organizacaoId' vindo direto do 'useAuth'
         if (!user || !user.id || !organizacaoId) {
             toast.error("Erro de autenticação. Não foi possível identificar seu usuário ou organização. Por favor, recarregue a página.");
             return;
@@ -454,7 +492,7 @@ export default function ConciliacaoManager({ contas }) {
             const historicoRecord = {
                 usuario_id: user.id,
                 conta_financeira_id: selectedContaId,
-                organizacao_id: organizacaoId, // <-- Agora usa o ID confiável
+                organizacao_id: organizacaoId,
                 caminho_arquivo_ofx: uploadData.path,
                 periodo_inicio_extrato: extratoPeriodo.startDate,
                 periodo_fim_extrato: extratoPeriodo.endDate,
@@ -636,7 +674,6 @@ export default function ConciliacaoManager({ contas }) {
         const valorClass = isReceita ? 'text-green-600' : 'text-red-600';
         const dataExibicao = type === 'sistema' ? (item.data_pagamento || item.data_vencimento) : item.data;
         
-        // Correção do layout "cagado"
         const actionsCellClass = `col-span-2 text-center h-8 flex items-center gap-2 ${
             type === 'sistema' ? 'justify-end' : 'justify-start'
         }`;
