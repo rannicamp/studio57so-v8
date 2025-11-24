@@ -133,18 +133,27 @@ export default function FinanceiroPage() {
         month: '', year: '', favorecidoId: null 
     });
     
+    // Refs para controle de estado e cache
     const isInitialFetchCompleted = useRef(false);
+    const hasRestoredUiState = useRef(false); // NOVA TRAVA DE SEGURANÇA
 
+    // Efeito para carregar o estado da UI do localStorage (CORRIGIDO)
     useEffect(() => {
         if (!authLoading && canViewPage) {
             setPageTitle('GESTÃO FINANCEIRA');
-            const savedUiState = getCachedData(FINANCEIRO_UI_STATE_KEY);
-            if (savedUiState) {
-                setActiveTab(savedUiState.activeTab || 'lancamentos');
-                setFilters(savedUiState.filters || {});
-                setCurrentPage(savedUiState.currentPage || 1);
-                setItemsPerPage(savedUiState.itemsPerPage || 150);
-                setSortConfig(savedUiState.sortConfig || { key: 'data_vencimento', direction: 'descending' });
+            
+            // Só restaura se ainda NÃO tiver restaurado nesta sessão.
+            // Isso impede que o estado seja sobrescrito quando você foca na janela novamente.
+            if (!hasRestoredUiState.current) {
+                const savedUiState = getCachedData(FINANCEIRO_UI_STATE_KEY);
+                if (savedUiState) {
+                    setActiveTab(savedUiState.activeTab || 'lancamentos');
+                    setFilters(savedUiState.filters || {});
+                    setCurrentPage(savedUiState.currentPage || 1);
+                    setItemsPerPage(savedUiState.itemsPerPage || 150);
+                    setSortConfig(savedUiState.sortConfig || { key: 'data_vencimento', direction: 'descending' });
+                }
+                hasRestoredUiState.current = true; // Marca como restaurado
             }
         } else if (!authLoading && !canViewPage) {
             router.push('/'); 
@@ -153,6 +162,8 @@ export default function FinanceiroPage() {
 
     const uiStateToSave = { activeTab, filters, currentPage, itemsPerPage, sortConfig };
     const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
+    
+    // Salva o estado sempre que ele muda (com delay de 1s)
     useEffect(() => {
         try {
             localStorage.setItem(FINANCEIRO_UI_STATE_KEY, JSON.stringify(debouncedUiState));
@@ -252,9 +263,6 @@ export default function FinanceiroPage() {
         setTimeout(() => setSelectedLancamento(null), 300);
     };
 
-    // =================================================================================
-    // ATUALIZADO: Inclui flag 'autoExecutar: true'
-    // =================================================================================
     const handleIrParaExtrato = (contaId) => {
         const endDate = new Date();
         const startDate = new Date();
@@ -268,7 +276,7 @@ export default function FinanceiroPage() {
             },
             extratoItens: [], 
             saldoAnterior: 0,
-            autoExecutar: true // <--- O segredo está aqui!
+            autoExecutar: true
         };
 
         sessionStorage.setItem('lastExtratoState', JSON.stringify(filterState));
