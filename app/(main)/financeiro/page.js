@@ -133,17 +133,12 @@ export default function FinanceiroPage() {
         month: '', year: '', favorecidoId: null 
     });
     
-    // Refs para controle de estado e cache
     const isInitialFetchCompleted = useRef(false);
-    const hasRestoredUiState = useRef(false); // NOVA TRAVA DE SEGURANÇA
+    const hasRestoredUiState = useRef(false);
 
-    // Efeito para carregar o estado da UI do localStorage (CORRIGIDO)
     useEffect(() => {
         if (!authLoading && canViewPage) {
             setPageTitle('GESTÃO FINANCEIRA');
-            
-            // Só restaura se ainda NÃO tiver restaurado nesta sessão.
-            // Isso impede que o estado seja sobrescrito quando você foca na janela novamente.
             if (!hasRestoredUiState.current) {
                 const savedUiState = getCachedData(FINANCEIRO_UI_STATE_KEY);
                 if (savedUiState) {
@@ -153,7 +148,7 @@ export default function FinanceiroPage() {
                     setItemsPerPage(savedUiState.itemsPerPage || 150);
                     setSortConfig(savedUiState.sortConfig || { key: 'data_vencimento', direction: 'descending' });
                 }
-                hasRestoredUiState.current = true; // Marca como restaurado
+                hasRestoredUiState.current = true;
             }
         } else if (!authLoading && !canViewPage) {
             router.push('/'); 
@@ -163,7 +158,6 @@ export default function FinanceiroPage() {
     const uiStateToSave = { activeTab, filters, currentPage, itemsPerPage, sortConfig };
     const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
     
-    // Salva o estado sempre que ele muda (com delay de 1s)
     useEffect(() => {
         try {
             localStorage.setItem(FINANCEIRO_UI_STATE_KEY, JSON.stringify(debouncedUiState));
@@ -263,10 +257,49 @@ export default function FinanceiroPage() {
         setTimeout(() => setSelectedLancamento(null), 300);
     };
 
+    // =================================================================================
+    // INTELIGÊNCIA DE DATAS (CORREÇÃO DE CARTÃO DE CRÉDITO)
+    // =================================================================================
     const handleIrParaExtrato = (contaId) => {
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - 30); 
+        // Encontra a conta para saber se é cartão e qual o dia de fechamento
+        const contaSelecionada = contas.find(c => c.id === contaId);
+        
+        let startDate, endDate;
+        const today = new Date();
+        
+        if (contaSelecionada?.tipo === 'Cartão de Crédito' && contaSelecionada?.dia_fechamento_fatura) {
+            // LÓGICA DE CARTÃO DE CRÉDITO (Ciclo de Fatura)
+            const diaFechamento = contaSelecionada.dia_fechamento_fatura;
+            const dataFechamentoEsteMes = new Date(today.getFullYear(), today.getMonth(), diaFechamento);
+            
+            // Zera as horas para comparação justa
+            const todayZero = new Date(today.setHours(0,0,0,0));
+            const fechamentoZero = new Date(dataFechamentoEsteMes.setHours(0,0,0,0));
+
+            if (todayZero < fechamentoZero) {
+                // Ainda não fechou: Estamos na fatura ATUAL
+                // Início: Dia do fechamento do mês passado
+                startDate = new Date(today.getFullYear(), today.getMonth() - 1, diaFechamento);
+                // Fim: Ontem (ou hoje)
+                endDate = new Date(dataFechamentoEsteMes);
+                endDate.setDate(endDate.getDate() - 1);
+            } else {
+                // Já fechou: Estamos na PRÓXIMA fatura
+                // Início: Dia do fechamento deste mês
+                startDate = new Date(dataFechamentoEsteMes);
+                // Fim: Dia anterior ao fechamento do mês que vem
+                endDate = new Date(today.getFullYear(), today.getMonth() + 1, diaFechamento);
+                endDate.setDate(endDate.getDate() - 1);
+            }
+            
+            toast.info("Visualizando fatura aberta do cartão.");
+        } else {
+            // LÓGICA PADRÃO (Últimos 30 dias)
+            endDate = new Date();
+            startDate = new Date();
+            startDate.setDate(endDate.getDate() - 30); 
+            toast.info("Visualizando extrato dos últimos 30 dias.");
+        }
 
         const filterState = {
             filters: {
@@ -281,7 +314,6 @@ export default function FinanceiroPage() {
 
         sessionStorage.setItem('lastExtratoState', JSON.stringify(filterState));
         setActiveTab('extrato');
-        toast.info("Visualizando extrato dos últimos 30 dias.");
     };
 
     const TabButton = ({ tabName, label, icon }) => ( 
