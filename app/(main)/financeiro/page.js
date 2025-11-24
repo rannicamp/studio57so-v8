@@ -92,6 +92,7 @@ async function fetchLancamentos({ queryKey }) {
     return { data: data || [], count: count || 0 };
 }
 
+// CORREÇÃO: Adicionamos 'transferencia_id' e a categoria na seleção
 async function fetchLancamentosKpi({ queryKey }) {
     const [_key, { filters, organizacao_id }] = queryKey;
     if (!organizacao_id) return [];
@@ -101,7 +102,7 @@ async function fetchLancamentosKpi({ queryKey }) {
             p_organizacao_id: organizacao_id,
             p_filtros: filters
         })
-        .select('valor, tipo');
+        .select('valor, tipo, transferencia_id, categoria:categorias_financeiras(nome)'); // <-- AQUI MUDOU
 
     if (error) throw new Error(error.message);
     return data || [];

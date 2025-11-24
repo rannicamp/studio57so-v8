@@ -8,10 +8,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faPlus, faUniversity, faCreditCard, faMoneyBillWave, faChartLine, 
     faPenToSquare, faTrash, faExclamationTriangle, faSpinner, 
-    faWallet, faSackDollar, faHandHoldingDollar 
+    faWallet, faHandHoldingDollar, faLayerGroup
 } from '@fortawesome/free-solid-svg-icons';
 import ContaFormModal from './ContaFormModal';
-import KpiCard from '../KpiCard'; // Reutilizando seu componente de KPI
+import KpiCard from '../KpiCard';
 import { toast } from 'sonner';
 
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -30,6 +30,7 @@ const fetchSaldosReais = async (contas, organizacaoId) => {
     if (!contas || contas.length === 0 || !organizacaoId) return {};
     const supabase = createClient();
 
+    // Pega o saldo acumulado até o final do dia de hoje (usando data de corte = amanhã)
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dataCorte = tomorrow.toISOString().split('T')[0];
@@ -71,9 +72,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
         refetchOnWindowFocus: true
     });
 
-    // =================================================================================
-    // CÁLCULO DOS KPIs (INTELIGÊNCIA FINANCEIRA)
-    // =================================================================================
+    // KPI Logic
     const kpis = useMemo(() => {
         let saldoLiquido = 0;
         let limiteChequeTotal = 0;
@@ -85,15 +84,11 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
             const limite = conta.limite_cheque_especial || 0;
             
             if (conta.tipo === 'Cartão de Crédito') {
-                // Cartão de crédito: saldo negativo é a fatura a pagar
                 totalFaturasCartao += Math.abs(saldo);
             } else {
-                // Contas Correntes, Dinheiro, Investimento
                 saldoLiquido += saldo;
-                
                 if (conta.tipo === 'Conta Corrente') {
                     limiteChequeTotal += limite;
-                    // Se o saldo está negativo, está usando o cheque especial
                     if (saldo < 0) {
                         limiteChequeUsado += Math.min(Math.abs(saldo), limite);
                     }
@@ -102,7 +97,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
         });
 
         const limiteChequeRestante = Math.max(0, limiteChequeTotal - limiteChequeUsado);
-        const poderCompra = saldoLiquido + limiteChequeRestante; // Quanto posso gastar considerando o limite
+        const poderCompra = saldoLiquido + limiteChequeRestante;
 
         return {
             saldoLiquido,
@@ -113,6 +108,30 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
             poderCompra
         };
     }, [initialContas, saldos]);
+
+    // Lógica de Agrupamento
+    const groupedContas = useMemo(() => {
+        const groups = {
+            'Conta Corrente': [],
+            'Dinheiro': [],
+            'Conta Investimento': [],
+            'Cartão de Crédito': []
+        };
+
+        // Preenche os grupos
+        initialContas.forEach(conta => {
+            const tipo = conta.tipo || 'Conta Corrente';
+            if (groups[tipo]) {
+                groups[tipo].push(conta);
+            } else {
+                // Caso exista algum tipo novo no futuro, joga em Conta Corrente ou cria novo
+                if (!groups['Outros']) groups['Outros'] = [];
+                groups['Outros'].push(conta);
+            }
+        });
+
+        return groups;
+    }, [initialContas]);
 
     const saveMutation = useMutation({
         mutationFn: async (formData) => {
@@ -196,7 +215,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
 
             {/* --- SEÇÃO DE KPIs --- */}
             {initialContas.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <KpiCard 
                         title="Saldo Líquido (Caixa)" 
                         value={isLoadingSaldos ? '...' : formatCurrency(kpis.saldoLiquido)} 
@@ -245,76 +264,98 @@ export default function ContasManager({ initialContas, onUpdate, empresas }) {
                 </div>
             )}
 
-            <div className="bg-white p-6 rounded-lg shadow space-y-4">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-gray-800">Minhas Contas</h2>
+            {/* --- CABEÇALHO E BOTÃO --- */}
+            <div className="bg-white p-6 rounded-lg shadow">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <FontAwesomeIcon icon={faLayerGroup} className="text-blue-600" />
+                        Minhas Contas
+                    </h2>
                     {hasPermission('financeiro', 'pode_criar') && (
-                        <button onClick={handleOpenAddModal} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                        <button onClick={handleOpenAddModal} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
                             <FontAwesomeIcon icon={faPlus} /> Nova Conta
                         </button>
                     )}
                 </div>
 
-                {initialContas.length === 0 ? ( <p className="text-center text-gray-500 py-10">Nenhuma conta cadastrada.</p> ) 
-                : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {initialContas.map(conta => {
-                            const saldoReal = saldos[conta.id] ?? 0;
-                            const limite = conta.limite_cheque_especial || 0;
-                            const saldoDisponivel = saldoReal + limite;
-                            const isCartao = conta.tipo === 'Cartão de Crédito';
-                            
-                            const valorDisplay = isCartao ? Math.abs(saldoReal) : (limite > 0 ? saldoDisponivel : saldoReal);
-                            const isNegative = saldoReal < 0;
+                {initialContas.length === 0 ? ( 
+                    <p className="text-center text-gray-500 py-10">Nenhuma conta cadastrada.</p> 
+                ) : (
+                    <div className="space-y-8">
+                        {/* RENDERIZAÇÃO DOS GRUPOS */}
+                        {Object.entries(groupedContas).map(([tipo, contasDoTipo]) => {
+                            if (!contasDoTipo || contasDoTipo.length === 0) return null;
 
                             return (
-                                <div key={conta.id} className="border p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow relative group flex flex-col justify-between bg-white">
-                                    <div>
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div className="flex items-center gap-4">
-                                                <div className="bg-blue-50 p-3 rounded-full">
-                                                    <FontAwesomeIcon icon={getAccountIcon(conta.tipo)} className="text-xl text-blue-600" />
-                                                </div>
-                                                <div>
-                                                    <h3 className="font-bold text-lg text-gray-800">{conta.nome}</h3>
-                                                    <p className="text-xs text-gray-500">{conta.instituicao}</p>
-                                                </div>
-                                            </div>
-                                            {hasPermission('financeiro', 'pode_editar') && (
-                                                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 rounded shadow-sm">
-                                                    <button onClick={() => handleOpenEditModal(conta)} className="text-gray-500 hover:text-blue-600 p-1"><FontAwesomeIcon icon={faPenToSquare} /></button>
-                                                    <button onClick={() => handleDeleteConta(conta)} className="text-gray-500 hover:text-red-600 p-1"><FontAwesomeIcon icon={faTrash} /></button>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="space-y-2 text-xs text-gray-600 border-t border-gray-100 pt-3">
-                                            {conta.empresa && <p><strong className="text-gray-700">Empresa:</strong> {conta.empresa.nome_fantasia || conta.empresa.razao_social}</p>}
-                                            {(conta.tipo === 'Conta Corrente' || !conta.tipo) && (
-                                                <>
-                                                    <p><strong>Ag:</strong> {conta.agencia || '-'} / <strong>CC:</strong> {conta.numero_conta || '-'}</p>
-                                                    {limite > 0 && 
-                                                        <p className='text-orange-600 flex items-center gap-2 mt-1'>
-                                                            <FontAwesomeIcon icon={faExclamationTriangle} />
-                                                            <span>Limite: {formatCurrency(limite)}</span>
+                                <div key={tipo} className="animate-fade-in-up">
+                                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 border-b border-gray-200 pb-2 flex items-center gap-2">
+                                        <FontAwesomeIcon icon={getAccountIcon(tipo)} className="text-gray-400 text-lg" />
+                                        {tipo} 
+                                        <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{contasDoTipo.length}</span>
+                                    </h3>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {contasDoTipo.map(conta => {
+                                            const saldoReal = saldos[conta.id] ?? 0;
+                                            const limite = conta.limite_cheque_especial || 0;
+                                            const saldoDisponivel = saldoReal + limite;
+                                            const isCartao = conta.tipo === 'Cartão de Crédito';
+                                            
+                                            const valorDisplay = isCartao ? Math.abs(saldoReal) : (limite > 0 ? saldoDisponivel : saldoReal);
+                                            const isNegative = saldoReal < 0;
+
+                                            return (
+                                                <div key={conta.id} className="border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition-all hover:border-blue-300 relative group flex flex-col justify-between bg-white">
+                                                    <div>
+                                                        <div className="flex items-start justify-between mb-3">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className={`p-3 rounded-full ${isCartao ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>
+                                                                    <FontAwesomeIcon icon={getAccountIcon(conta.tipo)} className="text-xl" />
+                                                                </div>
+                                                                <div>
+                                                                    <h3 className="font-bold text-lg text-gray-800 leading-tight">{conta.nome}</h3>
+                                                                    <p className="text-xs text-gray-500 font-medium">{conta.instituicao}</p>
+                                                                </div>
+                                                            </div>
+                                                            {hasPermission('financeiro', 'pode_editar') && (
+                                                                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 rounded shadow-sm border border-gray-100">
+                                                                    <button onClick={() => handleOpenEditModal(conta)} className="text-gray-400 hover:text-blue-600 p-1.5" title="Editar"><FontAwesomeIcon icon={faPenToSquare} /></button>
+                                                                    <button onClick={() => handleDeleteConta(conta)} className="text-gray-400 hover:text-red-600 p-1.5" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="space-y-2 text-xs text-gray-600 border-t border-gray-100 pt-3">
+                                                            {conta.empresa && <p className="truncate" title={conta.empresa.nome_fantasia}><strong className="text-gray-700">Empresa:</strong> {conta.empresa.nome_fantasia || conta.empresa.razao_social}</p>}
+                                                            {(conta.tipo === 'Conta Corrente' || !conta.tipo) && (
+                                                                <>
+                                                                    <p><strong>Ag:</strong> {conta.agencia || '-'} / <strong>CC:</strong> {conta.numero_conta || '-'}</p>
+                                                                    {limite > 0 && 
+                                                                        <p className='text-orange-600 flex items-center gap-1 mt-1 bg-orange-50 p-1 rounded w-fit'>
+                                                                            <FontAwesomeIcon icon={faExclamationTriangle} />
+                                                                            <span>Limite: {formatCurrency(limite)}</span>
+                                                                        </p>
+                                                                    }
+                                                                </>
+                                                            )}
+                                                            {isCartao && (
+                                                                <p><strong>Vence dia:</strong> {conta.dia_pagamento_fatura || 'N/A'}</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right mt-4 pt-3 border-t border-gray-100">
+                                                        <p className="text-xs uppercase font-bold text-gray-400 mb-1">{getSaldoLabel(conta)}</p>
+                                                        <p className={`text-2xl font-bold ${isNegative && !isCartao ? 'text-red-600' : 'text-gray-800'}`}>
+                                                            {isLoadingSaldos ? <FontAwesomeIcon icon={faSpinner} spin className="text-lg text-gray-300"/> : formatCurrency(valorDisplay)}
                                                         </p>
-                                                    }
-                                                </>
-                                            )}
-                                            {isCartao && (
-                                                <p><strong>Vence dia:</strong> {conta.dia_pagamento_fatura || 'N/A'}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="text-right mt-4 pt-3 border-t border-gray-100">
-                                        <p className="text-sm text-gray-500 mb-1">{getSaldoLabel(conta)}</p>
-                                        <p className={`text-2xl font-bold ${isNegative && !isCartao ? 'text-red-600' : 'text-gray-800'}`}>
-                                            {isLoadingSaldos ? <FontAwesomeIcon icon={faSpinner} spin className="text-lg"/> : formatCurrency(valorDisplay)}
-                                        </p>
-                                        {limite > 0 && !isCartao && (
-                                            <p className="text-xs text-gray-400 mt-1">
-                                                Saldo Real: <span className={saldoReal < 0 ? 'text-red-500' : 'text-gray-600'}>{isLoadingSaldos ? '...' : formatCurrency(saldoReal)}</span>
-                                            </p>
-                                        )}
+                                                        {limite > 0 && !isCartao && (
+                                                            <p className="text-xs text-gray-400 mt-1">
+                                                                Saldo Real: <span className={saldoReal < 0 ? 'text-red-500 font-semibold' : 'text-gray-600'}>{isLoadingSaldos ? '...' : formatCurrency(saldoReal)}</span>
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             );

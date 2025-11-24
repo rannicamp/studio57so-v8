@@ -1,4 +1,3 @@
-// components/financeiro/LancamentosManager.js
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -135,14 +134,6 @@ export default function LancamentosManager({
         onError: (error) => toast.error(`Erro ao excluir futuros: ${error.message}`),
     });
     
-    // =================================================================================
-    // INÍCIO DA CORREÇÃO DA EXCLUSÃO INTELIGENTE
-    // O PORQUÊ: A biblioteca `sonner` não aceita múltiplos botões de ação da forma
-    // como eu tinha feito. A maneira correta é usar um componente customizado dentro
-    // da notificação. Este novo código cria um componente `DeletionToast` que contém
-    // os botões, e a função `handleDelete` agora chama o `toast` com este componente,
-    // garantindo que as opções sejam exibidas corretamente.
-    // =================================================================================
     const DeletionToast = ({ toastId, onSingleDelete, onFutureDelete }) => (
         <div className="w-full">
             <p className="font-semibold">Este lançamento faz parte de uma série.</p>
@@ -201,12 +192,8 @@ export default function LancamentosManager({
                     error: (err) => `Erro: ${err.message}`,
                 })}
             />
-        ), { duration: 10000 }); // Aumenta a duração para o usuário decidir
+        ), { duration: 10000 }); 
     };
-    // =================================================================================
-    // FIM DA CORREÇÃO
-    // =================================================================================
-
 
     const bulkDeleteMutation = useMutation({
         mutationFn: async (ids) => {
@@ -300,9 +287,20 @@ export default function LancamentosManager({
         setIsReciboModalOpen(true);
     };
 
+    // =================================================================================
+    // CORREÇÃO DO CÁLCULO KPI: Filtrando Transferências e Estornos
+    // =================================================================================
     const kpiData = useMemo(() => {
         let totalReceitas = 0, totalDespesas = 0;
         (allLancamentosKpi || []).forEach(l => {
+            // Verificação de segurança para evitar erros
+            const nomeCategoria = l.categoria?.nome || '';
+            const isTransferencia = !!l.transferencia_id || nomeCategoria.includes('Transferência');
+            const isEstorno = nomeCategoria.includes('Estorno');
+
+            // Pula se for transferência ou estorno
+            if (isTransferencia || isEstorno) return;
+
             const valor = l.valor || 0;
             if (l.tipo === 'Receita') totalReceitas += valor;
             else if (l.tipo === 'Despesa') totalDespesas += valor;
@@ -311,7 +309,6 @@ export default function LancamentosManager({
         return { totalReceitas, totalDespesas, resultado };
     }, [allLancamentosKpi]);
 
-    const handleAnalyzeClick = async () => { /* ... */ };
     const handleItemsPerPageChange = () => { let value = Number(itemsPerPageInput); if (isNaN(value) || value < 1) value = 1; if (value > 999) value = 999; setItemsPerPageInput(value); setItemsPerPage(value); setCurrentPage(1); };
     useEffect(() => { setSelectedIds(new Set()); }, [lancamentos]);
     
@@ -445,6 +442,7 @@ export default function LancamentosManager({
                                              <td className={`px-4 py-2 whitespace-nowrap ${dateClass}`} title={dateLabel}>{formatDate(displayDate)}</td>
                                              <td className="px-4 py-2 font-medium flex items-center gap-2">
                                                 {item.parcela_grupo && <FontAwesomeIcon icon={faLink} className="text-gray-400" title="Este lançamento faz parte de uma série" />}
+                                                {item.transferencia_id && <FontAwesomeIcon icon={faExchangeAlt} className="text-gray-400" title="Transferência" />}
                                                 <span>{formattedDescription}</span>
                                              </td>
                                              <td className="px-4 py-2 text-gray-600">{item.conta?.nome || 'N/A'}</td>
