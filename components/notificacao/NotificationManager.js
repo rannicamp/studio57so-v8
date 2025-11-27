@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBell, faBellSlash, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+import { faBell, faBellSlash, faCheckCircle, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
-// Converte a chave VAPID para o formato que o navegador entende
+// Função auxiliar para converter a chave
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
@@ -22,6 +22,7 @@ function urlBase64ToUint8Array(base64String) {
 export default function NotificationManager() {
     const { user } = useAuth();
     const [isSubscribed, setIsSubscribed] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const [permission, setPermission] = useState('default');
     const supabase = createClient();
 
@@ -34,25 +35,38 @@ export default function NotificationManager() {
 
     const checkSubscription = async () => {
         if ('serviceWorker' in navigator && 'PushManager' in window) {
-            const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.getSubscription();
-            if (subscription) setIsSubscribed(true);
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.getSubscription();
+                if (subscription) {
+                    setIsSubscribed(true);
+                }
+            } catch (e) {
+                console.error("Erro ao checar subscrição:", e);
+            }
         }
     };
 
     const subscribeUser = async () => {
         if (!user) return toast.error("Você precisa estar logado.");
+        setIsLoading(true);
 
         try {
+            // 1. Pede permissão ao navegador
             const perm = await Notification.requestPermission();
             setPermission(perm);
-            if (perm !== 'granted') return toast.error("Permissão negada.");
+            if (perm !== 'granted') {
+                setIsLoading(false);
+                return toast.error("Permissão de notificação negada.");
+            }
 
+            // 2. Registra no Service Worker
             const registration = await navigator.serviceWorker.ready;
             const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
             
             if (!vapidKey) {
-                console.error("VAPID Key ausente no .env");
+                alert("ERRO: Chave VAPID não encontrada no sistema (.env)!");
+                setIsLoading(false);
                 return;
             }
 
@@ -61,43 +75,56 @@ export default function NotificationManager() {
                 applicationServerKey: urlBase64ToUint8Array(vapidKey)
             });
 
-            // Salva na tabela EXISTENTE 'notification_subscriptions'
+            console.log("Subscrição gerada:", subscription);
+
+            // 3. Salva no Supabase (AQUI QUE ESTAVA O PROBLEMA)
             const { error } = await supabase
                 .from('notification_subscriptions')
                 .upsert({
                     user_id: user.id,
-                    endpoint: subscription.endpoint, // Campo UNIQUE da sua tabela
-                    subscription_data: subscription, // Campo JSONB da sua tabela
+                    endpoint: subscription.endpoint, 
+                    subscription_data: subscription, 
                     organizacao_id: user.organizacao_id 
                 }, { onConflict: 'endpoint' });
 
-            if (error) throw error;
+            if (error) {
+                console.error("Erro Supabase:", error);
+                // Mostra o erro técnico na tela para facilitar o debug no celular
+                alert(`Erro ao salvar no banco: ${error.message || error.details}`);
+                throw error;
+            }
 
             setIsSubscribed(true);
-            toast.success("Notificações ativadas!");
+            toast.success("Notificações ativadas com sucesso!");
             
-            // Teste de envio imediato
+            // 4. Teste de envio imediato
             await fetch('/api/notifications/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     userId: user.id, 
                     title: 'Studio 57', 
-                    message: 'Dispositivo conectado com sucesso!',
+                    message: 'Dispositivo conectado! Você receberá avisos aqui.',
                     organizacaoId: user.organizacao_id
                 })
             });
 
         } catch (error) {
-            console.error("Erro subscription:", error);
-            toast.error("Erro ao ativar notificações.");
+            console.error("Erro fatal:", error);
+            toast.error("Não foi possível ativar as notificações.");
+        } finally {
+            setIsLoading(false);
         }
     };
 
     if (!user) return null;
 
+    if (isLoading) {
+        return <span className="text-gray-500 text-xs"><FontAwesomeIcon icon={faSpinner} spin /> Processando...</span>;
+    }
+
     if (permission === 'denied') {
-        return <span className="text-red-500 text-xs"><FontAwesomeIcon icon={faBellSlash} /> Bloqueado</span>;
+        return <span className="text-red-500 text-xs"><FontAwesomeIcon icon={faBellSlash} /> Bloqueado no Navegador</span>;
     }
 
     if (isSubscribed) {
