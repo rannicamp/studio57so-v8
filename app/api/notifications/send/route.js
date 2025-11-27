@@ -1,94 +1,72 @@
+import { createClient } from '@/utils/supabase/server';
+import webPush from 'web-push';
 import { NextResponse } from 'next/server';
-import webpush from 'web-push';
-import { createClient } from '@supabase/supabase-js';
 
-webpush.setVapidDetails(
-  process.env.NEXT_PUBLIC_VAPID_MAILTO || 'mailto:suporte@studio57.com.br',
+if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+  console.error("❌ CHAVES VAPID NÃO ENCONTRADAS NO SERVIDOR");
+}
+
+webPush.setVapidDetails(
+  'mailto:suporte@studio57.arq.br',
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 );
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const rawBody = await req.json();
-    
-    const title = rawBody.title || 'Nova Notificação';
-    const message = rawBody.message || rawBody.body; 
-    const url = rawBody.url || rawBody.link || '/crm';
-    const orgId = rawBody.organizacaoId || rawBody.organizacao_id;
-    
-    if (!message) {
-        return NextResponse.json({ error: 'Mensagem vazia.' }, { status: 400 });
+    const supabase = createClient();
+    const { title, message, url, userId, organizacaoId } = await request.json();
+
+    console.log(`🔔 API: Enviando Push para UserID: ${userId}`);
+
+    // 1. Busca dispositivos inscritos
+    let query = supabase.from('notification_subscriptions').select('*');
+    if (userId) query = query.eq('user_id', userId);
+    else if (organizacaoId) query = query.eq('organizacao_id', organizacaoId);
+
+    const { data: subscriptions, error } = await query;
+
+    if (error) throw error;
+    if (!subscriptions?.length) {
+      return NextResponse.json({ message: 'Nenhum dispositivo inscrito encontrado.' });
     }
 
-    let targetUserIds = [];
-
-    // 1. Se veio userId direto
-    if (rawBody.userId) {
-        targetUserIds.push(rawBody.userId);
-    } 
-    // 2. Se veio organizacaoId (Broadcast para a equipe)
-    else if (orgId) {
-        const { data: users } = await supabaseAdmin
-            .from('usuarios')
-            .select('id')
-            .eq('organizacao_id', orgId)
-            .eq('is_active', true);
-        
-        if (users && users.length > 0) {
-            targetUserIds = users.map(u => u.id);
-        }
-    }
-
-    if (targetUserIds.length === 0) {
-         return NextResponse.json({ message: 'Nenhum destinatário encontrado.' }, { status: 200 });
-    }
-
-    const results = await Promise.all(targetUserIds.map(async (uid) => {
-        // A. Salva no histórico visual
-        await supabaseAdmin.from('notificacoes').insert({
-            user_id: uid,
+    // 2. Salva no histórico (Sininho)
+    if (userId) {
+        await supabase.from('notificacoes').insert({
+            user_id: userId,
             titulo: title,
             mensagem: message,
             link: url,
-            lida: false,
-            organizacao_id: orgId
+            organizacao_id: organizacaoId,
+            lida: false
         });
+    }
 
-        // B. Busca dispositivos push
-        const { data: subscriptions } = await supabaseAdmin
-            .from('notification_subscriptions')
-            .select('subscription_data, endpoint')
-            .eq('user_id', uid);
+    // 3. Dispara o Push real
+    const payload = JSON.stringify({
+      title: title || 'Studio 57',
+      message: message,
+      url: url || '/',
+      icon: '/icons/icon-192x192.png'
+    });
 
-        if (!subscriptions || subscriptions.length === 0) return { uid, status: 'no_device' };
+    const promises = subscriptions.map(sub => 
+      webPush.sendNotification(sub.subscription_data, payload)
+        .catch(async err => {
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            console.log(`🗑️ Removendo inscrição morta: ${sub.id}`);
+            await supabase.from('notification_subscriptions').delete().eq('id', sub.id);
+          }
+        })
+    );
 
-        // C. Dispara push
-        const payload = JSON.stringify({ title, body: message, url });
-        
-        const pushPromises = subscriptions.map(async (sub) => {
-            try {
-                await webpush.sendNotification(sub.subscription_data, payload);
-            } catch (err) {
-                if (err.statusCode === 410 || err.statusCode === 404) {
-                    await supabaseAdmin.from('notification_subscriptions').delete().eq('endpoint', sub.endpoint);
-                }
-            }
-        });
-        
-        await Promise.all(pushPromises);
-        return { uid, status: 'sent' };
-    }));
+    await Promise.all(promises);
 
-    return NextResponse.json({ success: true, details: results });
+    return NextResponse.json({ success: true, count: subscriptions.length });
 
   } catch (error) {
-    console.error('[Notification API] Erro:', error);
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
+    console.error('Erro API Notification:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
