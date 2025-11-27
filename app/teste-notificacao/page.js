@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import NotificationManager from '@/components/notificacao/NotificationManager';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPaperPlane, faTrash, faCheckCircle, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
 export default function PaginaTesteNotificacao() {
@@ -22,7 +22,7 @@ export default function PaginaTesteNotificacao() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: user.id, // Manda só para você
+          userId: user.id,
           organizacaoId: user.organizacao_id,
           title: "🔔 Teste Manual",
           message: `Testando vibração às ${new Date().toLocaleTimeString()}!`,
@@ -55,11 +55,11 @@ export default function PaginaTesteNotificacao() {
         <h2 className="font-semibold text-lg border-b pb-2">1. Status do Dispositivo</h2>
         <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
           <span>Sua inscrição atual:</span>
-          {/* Aqui chamamos o componente que já faz a lógica de inscrição */}
           <NotificationManager />
         </div>
         <p className="text-sm text-gray-500">
-          * Se não estiver "Ativo", clique no botão acima primeiro.
+          {/* AQUI ESTAVA O ERRO: Trocamos as aspas duplas por aspas simples ou código HTML */}
+          * Se não estiver &quot;Ativo&quot;, clique no botão acima primeiro.
         </p>
       </div>
 
