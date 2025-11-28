@@ -1,36 +1,31 @@
-//app\(main)\perfil\page.js
-import ProfileForm from '../../../components/ProfileForm'; // Usaremos um novo componente de formulário
-import { createClient } from '../../../utils/supabase/server';
-import { redirect } from 'next/navigation';
+// app/(main)/perfil/page.js
+'use client';
 
-export default async function PerfilPage() {
-  const supabase = createClient();
+import { useEffect } from 'react';
+import { useLayout } from '@/contexts/LayoutContext';
+import { useAuth } from '@/contexts/AuthContext';
+import ProfileForm from '@/components/ProfileForm';
+import ConfiguracaoNotificacoes from '@/components/notificacao/ConfiguracaoNotificacoes';
 
-  const { data: { user } } = await supabase.auth.getUser();
+export default function PerfilPage() {
+    const { setPageTitle } = useLayout();
+    const { user } = useAuth();
 
-  if (!user) {
-    redirect('/login');
-  }
+    useEffect(() => {
+        setPageTitle('Meu Perfil');
+    }, [setPageTitle]);
 
-  // Busca os dados atuais do usuário para preencher o formulário
-  const { data: userData, error } = await supabase
-    .from('usuarios')
-    .select('*')
-    .eq('id', user.id)
-    .single();
+    return (
+        <div className="max-w-4xl mx-auto space-y-8 pb-10">
+            {/* Seção 1: Dados Pessoais (Existente) */}
+            <section>
+                <ProfileForm />
+            </section>
 
-  if (error) {
-    console.error("Erro ao buscar dados do usuário para o perfil:", error);
-  }
-
-  return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Meu Perfil</h1>
-      <p className="text-gray-600">Atualize suas informações pessoais e sua foto de perfil.</p>
-      
-      <div className="bg-white rounded-lg shadow p-6 mt-8">
-        <ProfileForm userData={userData} />
-      </div>
-    </div>
-  );
+            {/* Seção 2: Notificações (Nova) */}
+            <section>
+                <ConfiguracaoNotificacoes userId={user?.id} />
+            </section>
+        </div>
+    );
 }
