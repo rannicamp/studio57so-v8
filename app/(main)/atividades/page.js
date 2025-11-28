@@ -10,7 +10,7 @@ import ActivityList from '../../../components/atividades/ActivityList';
 import GanttChart from '../../../components/atividades/GanttChart';
 import KanbanBoard from '../../../components/atividades/KanbanBoard';
 import ActivityCalendar from '../../../components/atividades/ActivityCalendar';
-import AtividadeFiltros from '../../../components/atividades/AtividadeFiltros'; // NOVO COMPONENTE
+import AtividadeFiltros from '../../../components/atividades/AtividadeFiltros';
 import KpiCard from '../../../components/KpiCard';
 import AtividadeDetalhesSidebar from '@/components/atividades/AtividadeDetalhesSidebar';
 import { useLayout } from '../../../contexts/LayoutContext';
@@ -19,10 +19,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory, faLock, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+// 1. IMPORTAÇÃO DO CARTEIRO
+import { enviarNotificacao } from '@/utils/notificacoes';
 
 const ACTIVITIES_UI_STATE_KEY = 'atividadesUiState';
 
-// Funções de fetch (inalteradas)
 const fetchAllActivities = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
     const { data, error } = await supabase
@@ -67,7 +68,6 @@ export default function AtividadesPage() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [selectedActivityForSidebar, setSelectedActivityForSidebar] = useState(null);
 
-    // ESTADO DOS FILTROS (Atualizado para incluir searchTerm e datas)
     const [filters, setFilters] = useState({ 
         searchTerm: '', 
         empresa: '', 
@@ -78,7 +78,6 @@ export default function AtividadesPage() {
         endDate: '' 
     });
 
-    // Verificações de permissão e título
     useEffect(() => {
         if (!authLoading && !canViewPage) router.push('/');
     }, [authLoading, canViewPage, router]);
@@ -90,7 +89,6 @@ export default function AtividadesPage() {
             if (savedFilters) {
                 const parsedFilters = JSON.parse(savedFilters);
                 if (!Array.isArray(parsedFilters.status)) parsedFilters.status = [];
-                // Migração: se tinha selectedDate antigo, limpa ou converte
                 if (parsedFilters.selectedDate) { delete parsedFilters.selectedDate; }
                 setFilters(parsedFilters);
             }
@@ -118,7 +116,6 @@ export default function AtividadesPage() {
         }
     }, [activeTab]);
 
-    // Queries
     const { data: allActivities = [], isLoading: isLoadingActivities } = useQuery({
         queryKey: ['atividades', organizacaoId],
         queryFn: () => fetchAllActivities(supabase, organizacaoId),
@@ -133,14 +130,26 @@ export default function AtividadesPage() {
     });
     const { funcionarios = [], allEmpresas = [] } = auxiliaryData || {};
 
-    // Mutations (Delete, Duplicate, Status)
+    // --- MUTAÇÃO DE EXCLUIR ---
     const deleteMutation = useMutation({
         mutationFn: async (activityId) => {
+            // Busca o nome antes de deletar para a notificação
+            const { data: act } = await supabase.from('activities').select('nome').eq('id', activityId).single();
             const { error } = await supabase.from('activities').delete().eq('id', activityId);
             if (error) throw new Error(error.message);
-            return activityId;
+            return { activityId, nome: act?.nome };
         },
-        onSuccess: () => {
+        onSuccess: async (data) => {
+            // 2. NOTIFICAÇÃO DE EXCLUSÃO 🔔
+            await enviarNotificacao({
+                userId: user.id,
+                titulo: "🗑️ Atividade Excluída",
+                mensagem: `A atividade "${data.nome || 'Desconhecida'}" foi removida.`,
+                link: '/atividades',
+                organizacaoId: organizacaoId,
+                canal: 'operacional'
+            });
+
             toast.success('Atividade deletada com sucesso!');
             queryClient.invalidateQueries(['atividades', organizacaoId]);
             setIsSidebarOpen(false);
@@ -168,6 +177,7 @@ export default function AtividadesPage() {
         onError: (error) => toast.error(`Erro ao duplicar: ${error.message}`)
     });
 
+    // --- MUTAÇÃO DE STATUS (KANBAN) ---
     const statusMutation = useMutation({
         mutationFn: async ({ activityId, newStatus, activity }) => {
             const updateData = { status: newStatus };
@@ -179,19 +189,28 @@ export default function AtividadesPage() {
             }
             const { error } = await supabase.from('activities').update(updateData).eq('id', activityId);
             if (error) throw new Error(error.message);
+            return { activity, newStatus };
         },
-        onSuccess: () => queryClient.invalidateQueries(['atividades', organizacaoId]),
+        onSuccess: async (data) => {
+            // 3. NOTIFICAÇÃO DE MUDANÇA DE STATUS 🔔
+            await enviarNotificacao({
+                userId: user.id, // Poderia ser o dono da atividade (activity.criado_por_usuario_id)
+                titulo: "🔄 Status Atualizado",
+                mensagem: `"${data.activity.nome}" mudou para: ${data.newStatus}`,
+                link: '/atividades',
+                organizacaoId: organizacaoId,
+                canal: 'operacional'
+            });
+
+            queryClient.invalidateQueries(['atividades', organizacaoId]);
+        },
         onError: (error) => toast.error(`Erro ao atualizar status: ${error.message}`)
     });
 
-    // LÓGICA DE FILTRAGEM AVANÇADA (O Cérebro)
     const filteredActivities = useMemo(() => {
         return allActivities
             .filter(act => {
-                // 1. Filtro Global de Empreendimento (Do Contexto)
                 if (selectedEmpreendimento !== 'all' && act.empreendimento_id != selectedEmpreendimento) return false;
-
-                // 2. Busca Textual (Nome, ID, Pai)
                 if (filters.searchTerm) {
                     const term = filters.searchTerm.toLowerCase();
                     const matchesName = act.nome?.toLowerCase().includes(term);
@@ -199,27 +218,17 @@ export default function AtividadesPage() {
                     const matchesParent = act.atividade_pai?.nome?.toLowerCase().includes(term);
                     if (!matchesName && !matchesId && !matchesParent) return false;
                 }
-
-                // 3. Filtros de Seleção
                 if (filters.empresa && (!act.empreendimentos || act.empreendimentos.empresa_proprietaria_id != filters.empresa)) return false;
                 if (filters.empreendimento && act.empreendimento_id != filters.empreendimento) return false;
                 if (filters.responsavel && act.funcionario_id != filters.responsavel) return false;
                 if (filters.status.length > 0 && !filters.status.includes(act.status)) return false;
-
-                // 4. Filtro de Data (Intervalo)
-                // Verifica se a atividade tem sobreposição com o intervalo selecionado ou está dentro dele
                 if (filters.startDate || filters.endDate) {
-                    if (!act.data_inicio_prevista) return false; // Sem data não entra no filtro de data
-                    
+                    if (!act.data_inicio_prevista) return false;
                     const actStart = act.data_inicio_prevista;
                     const actEnd = act.data_fim_prevista || act.data_inicio_prevista;
-                    
-                    // Se tiver data inicial no filtro
                     if (filters.startDate && actEnd < filters.startDate) return false;
-                    // Se tiver data final no filtro
                     if (filters.endDate && actStart > filters.endDate) return false;
                 }
-
                 return true;
             })
             .sort((a, b) => {
@@ -248,7 +257,6 @@ export default function AtividadesPage() {
         };
     }, [filteredActivities]);
 
-    // Handlers
     const handleDuplicateActivity = (act) => {
         if (!canCreate) { toast.error("Sem permissão."); return; }
         toast("Confirmar Duplicação", {
@@ -290,7 +298,6 @@ export default function AtividadesPage() {
         <button onClick={() => setActiveTab(tabName)} className={`${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm`}>{label}</button>
     );
 
-    // Handler unificado para os filtros
     const handleFilterChange = (name, value) => {
         setFilters(prev => ({ ...prev, [name]: value }));
     };
@@ -312,7 +319,6 @@ export default function AtividadesPage() {
                 onEditActivity={handleEditClick}
             />
 
-            {/* Título e Botão de Criar */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-lg shadow">
                 <h2 className="text-xl font-semibold">
                     {selectedEmpreendimentoObj?.nome || 'Todas as Atividades'}
@@ -322,7 +328,6 @@ export default function AtividadesPage() {
                 )}
             </div>
 
-            {/* NOVO COMPONENTE DE FILTROS */}
             <AtividadeFiltros 
                 filters={filters} 
                 onChange={handleFilterChange} 

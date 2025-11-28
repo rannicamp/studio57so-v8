@@ -3,15 +3,16 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-// ATUALIZADO: Adicionado mais um '../' pois agora estamos em components/atividades
 import { useAuth } from '../../contexts/AuthContext';
 import { createClient } from '../../utils/supabase/client';
-import { useEmpreendimento } from '@/contexts/EmpreendimentoContext'; // O '@' resolve a raiz, entao não muda
+import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
 import { toast } from 'sonner';
-// ATUALIZADO: Como AtividadeAnexos tambem esta na pasta atividades, tiramos o './atividades/'
 import AtividadeAnexos from './AtividadeAnexos';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSitemap, faSpinner, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faSitemap, faSpinner, faTimes, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
+// 1. IMPORTAÇÃO DO CARTEIRO
+import { enviarNotificacao } from '@/utils/notificacoes';
+import { useMutation, useQueryClient } from '@tanstack/react-query'; // Garantindo importação do useMutation
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) {
@@ -52,6 +53,7 @@ function addBusinessDays(startDate, days) {
 
 export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activityToEdit, selectedEmpreendimento, funcionarios, allEmpresas, initialContatoId }) {
     const supabase = createClient();
+    const queryClient = useQueryClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
@@ -311,6 +313,36 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
 
     const syncWithGoogleCalendar = async (activityData) => { /* ... */ };
 
+    // --- MUTAÇÃO DE EXCLUIR (Que faltava no código original) ---
+    const deleteMutation = useMutation({
+        mutationFn: async () => {
+            const { error } = await supabase.from('activities').delete().eq('id', activityToEdit.id);
+            if (error) throw error;
+        },
+        onSuccess: async () => {
+            // 2. NOTIFICAÇÃO DE EXCLUSÃO 🔔
+            await enviarNotificacao({
+                userId: user.id,
+                titulo: "🗑️ Atividade Excluída",
+                mensagem: `A atividade "${activityToEdit.nome}" foi removida.`,
+                link: '/atividades',
+                organizacaoId: organizacaoId,
+                canal: 'operacional'
+            });
+
+            toast.success("Atividade excluída!");
+            if (onActivityAdded) onActivityAdded();
+            onClose();
+        },
+        onError: (err) => toast.error("Erro ao excluir: " + err.message)
+    });
+
+    const handleDelete = () => {
+        if (confirm("Tem certeza que deseja excluir esta atividade?")) {
+            deleteMutation.mutate();
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!user?.id || !organizacaoId) {
@@ -386,13 +418,26 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 if (!isEditing && type === 'atividade' && dadosParaSalvar.data_inicio_prevista && dadosParaSalvar.data_fim_prevista) {
                     await syncWithGoogleCalendar(dadosParaSalvar);
                 }
-                resolve();
+                // Resolvemos a promessa passando os dados para usar no 'success'
+                resolve({ action: isEditing ? 'update' : 'create', data: dadosParaSalvar });
             }
         });
 
         toast.promise(promise, {
             loading: 'Salvando atividade...',
-            success: () => {
+            success: async (result) => {
+                // 3. NOTIFICAÇÃO DE CRIAÇÃO 🔔
+                if (result.action === 'create') {
+                    await enviarNotificacao({
+                        userId: user.id, // Envia para quem criou (feedback) ou gestor
+                        titulo: "🏗️ Nova Atividade Criada",
+                        mensagem: `Atividade "${result.data.nome}" foi adicionada em ${result.data.status}.`,
+                        link: '/atividades',
+                        organizacaoId: organizacaoId,
+                        canal: 'operacional'
+                    });
+                }
+
                 onActivityAdded();
                 onClose();
                 return `Atividade ${isEditing ? 'atualizada' : 'criada'} com sucesso!`;
@@ -611,9 +656,18 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                         </fieldset>
                     )}
                     
-                    <div className="flex justify-end gap-4 pt-4 border-t">
-                        <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
-                        <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Salvar</button>
+                    <div className="flex justify-between gap-4 pt-4 border-t">
+                        {isEditing ? (
+                            <button type="button" onClick={handleDelete} disabled={deleteMutation.isPending} className="bg-red-100 text-red-700 px-4 py-2 rounded-md hover:bg-red-200 flex items-center gap-2">
+                                {deleteMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faTrash} />}
+                                Excluir
+                            </button>
+                        ) : <div></div>}
+                        
+                        <div className="flex gap-2">
+                            <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
+                            <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Salvar</button>
+                        </div>
                     </div>
                 </form>
             </div>
