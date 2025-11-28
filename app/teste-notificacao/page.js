@@ -1,116 +1,149 @@
+// app/teste-notificacao/page.js
 "use client";
 
 import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import NotificationManager from '@/components/notificacao/NotificationManager';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPaperPlane, faBullhorn, faMobileAlt } from '@fortawesome/free-solid-svg-icons';
+import { notificarGrupo } from '@/utils/notificacoes'; // Importamos a função mágica
 import { toast } from 'sonner';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPaperPlane, faMoneyBillWave, faHardHat, faBell, faExclamationTriangle, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 
-export default function PaginaTesteNotificacao() {
-  const { user } = useAuth();
+export default function TesteNotificacaoPage() {
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState('');
+  const [permissao, setPermissao] = useState('financeiro'); // Quem vai receber?
+  const [tipo, setTipo] = useState('sistema'); // Qual o ícone?
+  const [titulo, setTitulo] = useState('Teste do Sistema');
+  const [mensagem, setMensagem] = useState('Essa é uma notificação de teste enviada pelo painel administrativo.');
 
-  // Função genérica para enviar
-  const dispararNotificacao = async (tipo) => {
-    if (!user) return toast.error("Faça login primeiro!");
+  const handleEnviar = async (e) => {
+    e.preventDefault();
     setLoading(true);
-    setStatus('Enviando solicitação...');
 
     try {
-      // Configura o payload dependendo do botão clicado
-      const payload = {
-        title: tipo === 'todos' ? "📢 Aviso Geral" : "🔔 Teste Pessoal",
-        message: tipo === 'todos' 
-          ? `Teste para toda a equipe às ${new Date().toLocaleTimeString()}!` 
-          : `Teste exclusivo para você às ${new Date().toLocaleTimeString()}!`,
-        url: "/teste-notificacao",
-        // SEGREDO AQUI:
-        // Se for 'todos', mandamos APENAS organizacaoId (e userId null)
-        // Se for 'pessoal', mandamos userId
-        userId: tipo === 'todos' ? null : user.id,
-        organizacaoId: user.organizacao_id
-      };
-
-      const response = await fetch('/api/notifications/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      // Chama a função do servidor que busca os usuários e dispara
+      const resultado = await notificarGrupo({
+        permissao: permissao, // Ex: 'financeiro' -> busca quem tem permissão de ver financeiro
+        titulo: titulo,
+        mensagem: mensagem,
+        link: '/painel', // Link para onde o usuário vai ao clicar
+        tipo: tipo // Define a cor e o ícone
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setStatus(`✅ Sucesso! Enviado para ${data.count} dispositivo(s).`);
-        toast.success(tipo === 'todos' ? "Enviado para todos!" : "Enviado para seus dispositivos!");
+      if (resultado.sucesso) {
+        toast.success(`Sucesso! Enviado para ${resultado.count} usuários.`);
       } else {
-        setStatus(`❌ Erro: ${data.message || 'Falha no envio'}`);
-        toast.error("Erro ao enviar.");
+        toast.error(`Erro: ${resultado.erro}`);
       }
     } catch (error) {
       console.error(error);
-      setStatus('❌ Erro de conexão.');
+      toast.error("Erro inesperado ao enviar.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="p-8 max-w-2xl mx-auto space-y-8">
-      <h1 className="text-2xl font-bold text-gray-800">🧪 Laboratório de Notificações</h1>
-      
-      {/* Bloco 1: Status */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
-        <h2 className="font-semibold text-lg border-b pb-2">1. Status Deste Dispositivo</h2>
-        <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
-          <span>Sua inscrição atual:</span>
-          <NotificationManager />
-        </div>
-        <div className="text-xs text-gray-500 mt-2">
-          <strong>Seu ID de Usuário:</strong> {user?.id || 'Não logado'} <br/>
-          <strong>Sua Organização:</strong> {user?.organizacao_id || 'N/A'}
-        </div>
-      </div>
-
-      {/* Bloco 2: Testes */}
-      <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 space-y-6">
-        <h2 className="font-semibold text-lg text-blue-900 border-b border-blue-200 pb-2">2. Disparar Testes</h2>
+    <div className="min-h-screen bg-gray-50 p-8 flex items-center justify-center">
+      <div className="bg-white max-w-lg w-full rounded-2xl shadow-xl border border-gray-100 p-8">
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Botão A: Teste Pessoal */}
-          <button
-            onClick={() => dispararNotificacao('pessoal')}
-            disabled={loading}
-            className="py-4 px-4 bg-white border-2 border-blue-600 text-blue-700 hover:bg-blue-50 rounded-lg font-bold shadow-sm transition-all active:scale-95 flex flex-col items-center gap-2"
-          >
-            <FontAwesomeIcon icon={faMobileAlt} size="lg" />
-            <span>Testar SÓ COMIGO</span>
-            <span className="text-xs font-normal opacity-70">(Apenas dispositivos logados nesta conta)</span>
-          </button>
-
-          {/* Botão B: Teste Geral (O QUE VAI FUNCIONAR PRO CELULAR) */}
-          <button
-            onClick={() => dispararNotificacao('todos')}
-            disabled={loading}
-            className="py-4 px-4 bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-bold shadow-lg transition-all active:scale-95 flex flex-col items-center gap-2"
-          >
-            <FontAwesomeIcon icon={faBullhorn} size="lg" />
-            <span>Testar TODA EQUIPE</span>
-            <span className="text-xs font-normal opacity-80">(Inclui seu celular com outra conta)</span>
-          </button>
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-gray-800">🧪 Laboratório de Notificações</h1>
+          <p className="text-gray-500 text-sm mt-2">Teste o disparo em massa por permissão.</p>
         </div>
 
-        {status && (
-          <div className={`p-4 rounded-lg text-center font-mono text-sm font-bold border ${status.includes('Sucesso') ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
-            {status}
+        <form onSubmit={handleEnviar} className="space-y-6">
+          
+          {/* 1. Seleção do Grupo Alvo */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Quem deve receber?</label>
+            <select 
+              value={permissao} 
+              onChange={(e) => setPermissao(e.target.value)}
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="financeiro">👥 Time Financeiro (Ver Financeiro)</option>
+              <option value="obras">👷 Time de Obras (Ver Obras)</option>
+              <option value="config_menu">⚙️ Administradores (Config Menu)</option>
+              <option value="atividades">📅 Gestão de Atividades</option>
+            </select>
+            <p className="text-xs text-gray-400 mt-1">O sistema buscará automaticamente todos os usuários com essa permissão.</p>
           </div>
-        )}
-      </div>
 
-      <div className="text-xs text-gray-400 text-center">
-        Dica: Para o celular vibrar, bloqueie a tela logo após clicar no botão.
+          {/* 2. Seleção do Estilo Visual */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Estilo da Notificação</label>
+            <div className="grid grid-cols-3 gap-2">
+              <TipoButton atual={tipo} set={setTipo} valor="financeiro" icon={faMoneyBillWave} label="Financeiro" color="bg-green-100 text-green-700" />
+              <TipoButton atual={tipo} set={setTipo} valor="obras" icon={faHardHat} label="Obras" color="bg-orange-100 text-orange-700" />
+              <TipoButton atual={tipo} set={setTipo} valor="alerta" icon={faExclamationTriangle} label="Alerta" color="bg-yellow-100 text-yellow-700" />
+              <TipoButton atual={tipo} set={setTipo} valor="sucesso" icon={faCheckCircle} label="Sucesso" color="bg-teal-100 text-teal-700" />
+              <TipoButton atual={tipo} set={setTipo} valor="sistema" icon={faBell} label="Padrão" color="bg-blue-100 text-blue-700" />
+            </div>
+          </div>
+
+          {/* 3. Conteúdo */}
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase">Título</label>
+              <input 
+                type="text" 
+                value={titulo}
+                onChange={(e) => setTitulo(e.target.value)}
+                className="w-full p-2 border-b-2 border-gray-200 focus:border-blue-500 outline-none transition-colors"
+                placeholder="Ex: Pagamento Aprovado"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase">Mensagem</label>
+              <textarea 
+                value={mensagem}
+                onChange={(e) => setMensagem(e.target.value)}
+                className="w-full p-2 border-b-2 border-gray-200 focus:border-blue-500 outline-none transition-colors h-24 resize-none"
+                placeholder="Digite a mensagem que aparecerá no card..."
+                required
+              />
+            </div>
+          </div>
+
+          {/* Botão de Ação */}
+          <button
+            type="submit"
+            disabled={loading}
+            className={`
+              w-full py-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02]
+              ${loading ? 'bg-gray-400 cursor-wait' : 'bg-blue-600 hover:bg-blue-700'}
+            `}
+          >
+            {loading ? (
+              <span>Enviando... 🚀</span>
+            ) : (
+              <>
+                <FontAwesomeIcon icon={faPaperPlane} />
+                Disparar Notificação
+              </>
+            )}
+          </button>
+
+        </form>
       </div>
     </div>
+  );
+}
+
+// Pequeno componente auxiliar para os botões de tipo
+function TipoButton({ atual, set, valor, icon, label, color }) {
+  const isSelected = atual === valor;
+  return (
+    <button
+      type="button"
+      onClick={() => set(valor)}
+      className={`
+        flex flex-col items-center justify-center p-2 rounded-lg border transition-all text-xs font-medium
+        ${isSelected ? `${color} border-current ring-2 ring-offset-1 ring-blue-100` : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}
+      `}
+    >
+      <FontAwesomeIcon icon={icon} className="mb-1 text-base" />
+      {label}
+    </button>
   );
 }

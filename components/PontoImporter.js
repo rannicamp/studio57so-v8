@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faUpload, faFileCsv, faCheckCircle, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faUpload, faCheckCircle, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 
 const StatusIndicator = ({ status, message }) => {
     if (status === 'success') {
@@ -51,94 +51,87 @@ export default function PontoImporter({ employees, onImport }) {
     setSummary({ ready: 0, errors: 0 });
     toast.info('Lendo e processando o arquivo...');
 
-    const content = await selectedFile.text();
-    const lines = content.split(/\r\n|\n/).filter(line => line.trim() !== '' && line.includes('\t'));
+    try {
+        const content = await selectedFile.text();
+        const lines = content.split(/\r\n|\n/).filter(line => line.trim() !== '' && line.includes('\t'));
 
-    const recordsFromFile = [];
-    
-    // Começamos do 1 para pular o cabeçalho
-    lines.slice(1).forEach((line, index) => {
-      const parts = line.split('\t');
-      if (parts.length < 4) return;
-      
-      const numeroPonto = parseInt(parts[0], 10);
-      const dateTimeString = parts[3].trim();
-      const [datePart, timePart] = dateTimeString.split(/\s+/);
-
-      if (datePart && timePart && datePart.includes('/')) {
-          const [day, month, year] = datePart.split('/');
-          
-          // =================================================================================
-          // CORREÇÃO AQUI 1/3: Criando a data como TEXTO
-          // O PORQUÊ: Em vez de criar um objeto `new Date()` que faz a conversão de fuso,
-          // nós montamos uma string de texto no formato que o banco de dados entende.
-          // Isso garante que "13:00" continue sendo "13:00".
-          // =================================================================================
-          const data_hora_texto = `${year}-${month}-${day} ${timePart}`;
-          
-          const employeeInfo = employeeMap.get(numeroPonto);
-          recordsFromFile.push({
-              numero_ponto: numeroPonto,
-              employee_name: employeeInfo?.name,
-              funcionario_id: employeeInfo?.id,
-              data_hora_texto: data_hora_texto, // Salvamos nosso texto
-              original_line: index + 2,
-              status: employeeInfo ? 'success' : 'error',
-              error_message: employeeInfo ? null : `Funcionário com Nº de Ponto "${numeroPonto}" não encontrado.`
-          });
-      }
-    });
-
-    const groupedByEmployeeAndDay = recordsFromFile.reduce((acc, record) => {
-        if(record.status !== 'success') return acc;
-        const dayKey = record.data_hora_texto.split(' ')[0];
-        const key = `${record.funcionario_id}-${dayKey}`;
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(record);
-        return acc;
-    }, {});
-
-    const finalRecords = [];
-    const tipos = ['Entrada', 'Inicio_Intervalo', 'Fim_Intervalo', 'Saida'];
-    for (const key in groupedByEmployeeAndDay) {
-        // =================================================================================
-        // CORREÇÃO AQUI 2/3: Ordenando por TEXTO
-        // O PORQUÊ: Como agora temos texto, usamos `localeCompare` para ordenar
-        // corretamente as batidas do dia.
-        // =================================================================================
-        const dayRecords = groupedByEmployeeAndDay[key].sort((a, b) => a.data_hora_texto.localeCompare(b.data_hora_texto));
+        const recordsFromFile = [];
         
-        // Atribui os tipos (Entrada, Saída, etc) para até 4 registros
-        const recordsToProcess = dayRecords.slice(0, 4);
+        // Começamos do 1 para pular o cabeçalho
+        lines.slice(1).forEach((line, index) => {
+        const parts = line.split('\t');
+        if (parts.length < 4) return;
+        
+        const numeroPonto = parseInt(parts[0], 10);
+        const dateTimeString = parts[3].trim();
+        const [datePart, timePart] = dateTimeString.split(/\s+/);
 
-        recordsToProcess.forEach((record, index) => {
-            finalRecords.push({ ...record, tipo_registro: tipos[index] });
+        if (datePart && timePart && datePart.includes('/')) {
+            const [day, month, year] = datePart.split('/');
+            
+            // Formatamos a data como string YYYY-MM-DD HH:MM:SS
+            const data_hora_texto = `${year}-${month}-${day} ${timePart}`;
+            
+            const employeeInfo = employeeMap.get(numeroPonto);
+            recordsFromFile.push({
+                numero_ponto: numeroPonto,
+                employee_name: employeeInfo?.name,
+                funcionario_id: employeeInfo?.id,
+                data_hora_texto: data_hora_texto,
+                original_line: index + 2,
+                status: employeeInfo ? 'success' : 'error',
+                error_message: employeeInfo ? null : `Funcionário com Nº de Ponto "${numeroPonto}" não encontrado.`
+            });
+        }
         });
+
+        const groupedByEmployeeAndDay = recordsFromFile.reduce((acc, record) => {
+            if(record.status !== 'success') return acc;
+            const dayKey = record.data_hora_texto.split(' ')[0];
+            const key = `${record.funcionario_id}-${dayKey}`;
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(record);
+            return acc;
+        }, {});
+
+        const finalRecords = [];
+        const tipos = ['Entrada', 'Inicio_Intervalo', 'Fim_Intervalo', 'Saida'];
+        for (const key in groupedByEmployeeAndDay) {
+            // Ordena por texto para garantir a ordem cronológica correta
+            const dayRecords = groupedByEmployeeAndDay[key].sort((a, b) => a.data_hora_texto.localeCompare(b.data_hora_texto));
+            
+            // Atribui os tipos (Entrada, Saída, etc) para até 4 registros
+            const recordsToProcess = dayRecords.slice(0, 4);
+
+            recordsToProcess.forEach((record, index) => {
+                finalRecords.push({ ...record, tipo_registro: tipos[index] });
+            });
+        }
+
+        const allDisplayRecords = [
+            ...finalRecords,
+            ...recordsFromFile.filter(r => r.status === 'error')
+        ].sort((a,b) => a.original_line - b.original_line);
+
+        setProcessedRecords(allDisplayRecords);
+        const readyCount = allDisplayRecords.filter(r => r.status === 'success').length;
+        const errorCount = allDisplayRecords.length - readyCount;
+        setSummary({ ready: readyCount, errors: errorCount });
+
+        toast.success(`Arquivo processado: ${readyCount} registros prontos, ${errorCount} com erros.`);
+    } catch (error) {
+        console.error("Erro ao processar arquivo:", error);
+        toast.error("Erro ao ler o arquivo. Verifique o formato.");
+    } finally {
+        setIsProcessing(false);
     }
-
-    const allDisplayRecords = [
-        ...finalRecords,
-        ...recordsFromFile.filter(r => r.status === 'error')
-    ].sort((a,b) => a.original_line - b.original_line);
-
-    setProcessedRecords(allDisplayRecords);
-    const readyCount = allDisplayRecords.filter(r => r.status === 'success').length;
-    const errorCount = allDisplayRecords.length - readyCount;
-    setSummary({ ready: readyCount, errors: errorCount });
-
-    toast.success(`Arquivo processado: ${readyCount} registros prontos, ${errorCount} com erros.`);
-    setIsProcessing(false);
   };
 
   const importMutation = useMutation({
     mutationFn: async (records) => {
         if (!organizacaoId) throw new Error("Organização não identificada.");
 
-        // =================================================================================
-        // CORREÇÃO AQUI 3/3: Enviando o TEXTO para o banco
-        // O PORQUÊ: Mapeamos os registros e passamos o campo `data_hora_texto`
-        // diretamente para a coluna `data_hora`. Sem `toISOString()`, sem conversão.
-        // =================================================================================
+        // Prepara todos os dados
         const recordsForDb = records.map(rec => ({
             funcionario_id: rec.funcionario_id,
             data_hora: rec.data_hora_texto,
@@ -146,13 +139,31 @@ export default function PontoImporter({ employees, onImport }) {
             observacao: 'Importado via arquivo TXT',
             organizacao_id: organizacaoId, 
         }));
-        
-        const { error } = await supabase.rpc('importar_registros_ponto_se_vazio', {
-            novos_registros: recordsForDb
-        });
 
-        if (error) throw error;
-        return records.length;
+        // =================================================================================
+        // CORREÇÃO DO TIMEOUT: PROCESSAMENTO EM LOTES (CHUNKING)
+        // Dividimos os registros em pacotes de 50 para não sobrecarregar o banco
+        // =================================================================================
+        const batchSize = 50;
+        let processedCount = 0;
+
+        for (let i = 0; i < recordsForDb.length; i += batchSize) {
+            const batch = recordsForDb.slice(i, i + batchSize);
+            
+            // Envia o lote atual
+            const { error } = await supabase.rpc('importar_registros_ponto_se_vazio', {
+                novos_registros: batch
+            });
+
+            if (error) {
+                console.error(`Erro no lote iniciando em ${i}:`, error);
+                throw error; // Para tudo se der erro num lote
+            }
+            
+            processedCount += batch.length;
+        }
+
+        return processedCount;
     },
     onSuccess: (count) => {
         queryClient.invalidateQueries({ queryKey: ['registros_ponto'] });
@@ -171,8 +182,8 @@ export default function PontoImporter({ employees, onImport }) {
     }
 
     toast.promise(importMutation.mutateAsync(recordsToInsert), {
-        loading: `Importando ${recordsToInsert.length} registros...`,
-        success: (count) => `${count} registros foram importados com sucesso! Campos já preenchidos foram ignorados.`,
+        loading: `Importando ${recordsToInsert.length} registros em lotes... Por favor, aguarde.`,
+        success: (count) => `${count} registros processados com sucesso!`,
         error: (err) => `Erro ao importar: ${err.message}`,
     });
   };
@@ -182,7 +193,7 @@ export default function PontoImporter({ employees, onImport }) {
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Importar Ponto (.txt)</h2>
         <p className="text-sm text-gray-600 mb-4">
-          Selecione o arquivo de ponto gerado pelo relógio. O sistema irá adicionar as batidas de ponto apenas nos campos que estiverem vazios. <strong>Registros manuais ou já existentes não serão sobrescritos.</strong>
+          Selecione o arquivo de ponto gerado pelo relógio. O sistema irá importar os dados em pequenos lotes para garantir a estabilidade. <strong>Registros manuais ou já existentes não serão sobrescritos.</strong>
         </p>
         <input
           type="file"

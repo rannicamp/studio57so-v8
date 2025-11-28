@@ -9,9 +9,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faFileImport, faTimes, faCheckCircle, faExclamationCircle, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
+import { toast } from 'sonner';
 
-// O Toast customizado pode ser mantido, sem alterações.
-const Toast = ({ message, type, onclose }) => {
+// O Toast customizado pode ser mantido, ou substituído pelo Sonner global
+const ToastComponent = ({ message, type, onclose }) => {
     useEffect(() => { const timer = setTimeout(onclose, 4000); return () => clearTimeout(timer); }, [onclose]);
     const styles = { success: { bg: 'bg-green-500', icon: faCheckCircle }, error: { bg: 'bg-red-500', icon: faExclamationCircle }, info: { bg: 'bg-blue-500', icon: faInfoCircle } };
     const currentStyle = styles[type] || styles.info;
@@ -33,54 +34,44 @@ const ImporterModal = ({ isOpen, onClose, children }) => {
     );
 };
 
-// =================================================================================
-// INÍCIO DA ATUALIZAÇÃO 1
-// O PORQUÊ: Adicionamos o campo 'status' na consulta. Agora, além do nome e id,
-// também saberemos se o funcionário está ativo ou demitido.
-// =================================================================================
 const fetchAllEmployees = async (organizacao_id) => {
     if (!organizacao_id) return [];
     const supabase = createClient();
     const { data, error } = await supabase
         .from('funcionarios')
-        .select('id, full_name, numero_ponto, status') // <-- 'status' ADICIONADO AQUI
+        .select('id, full_name, numero_ponto, status')
         .eq('organizacao_id', organizacao_id) 
         .order('full_name');
         
     if (error) throw new Error('Não foi possível carregar a lista de funcionários.');
     return data || [];
 };
-// =================================================================================
-// FIM DA ATUALIZAÇÃO 1
-// =================================================================================
 
 export default function GerenciamentoPonto() {
     const { hasPermission, organizacao_id } = useAuth();
     const canCreate = hasPermission('ponto', 'pode_criar');
     const canEdit = hasPermission('ponto', 'pode_editar');
     
+    // =================================================================================
+    // CARREGAMENTO MÁGICO (CACHE)
+    // staleTime: 5 minutos. Significa que por 5 min, se você voltar aqui,
+    // ele usa os dados da memória instantaneamente.
+    // =================================================================================
     const { data: employees = [], isLoading, error, refetch: refetchEmployees } = useQuery({ 
         queryKey: ['employeesPonto', organizacao_id], 
         queryFn: () => fetchAllEmployees(organizacao_id),
         enabled: !!organizacao_id,
+        staleTime: 1000 * 60 * 5, 
     });
 
     const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
     const [selectedMonth, setSelectedMonth] = useState('');
     const [isImporterOpen, setIsImporterOpen] = useState(false);
-    const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
-    const showToast = (message, type = 'info') => setToast({ show: true, message, type });
-
-    // =================================================================================
-    // INÍCIO DA ATUALIZAÇÃO 2
-    // O PORQUÊ: Com o 'status' disponível, agora filtramos a lista principal de 'employees'
-    // em duas listas separadas: uma para ativos e outra para demitidos.
-    // =================================================================================
+    const [internalToast, setInternalToast] = useState({ show: false, message: '', type: 'info' });
+    
+    // Filtro para separar ativos de demitidos
     const activeEmployees = employees.filter(emp => emp.status !== 'Demitido');
     const dismissedEmployees = employees.filter(emp => emp.status === 'Demitido');
-    // =================================================================================
-    // FIM DA ATUALIZAÇÃO 2
-    // =================================================================================
 
     useEffect(() => {
         const today = new Date();
@@ -104,10 +95,15 @@ export default function GerenciamentoPonto() {
 
     const handleSuccessfulImport = () => {
         setIsImporterOpen(false);
+        // Após importar, atualizamos os dados para refletir na tela se necessário
         refetchEmployees();
+        
+        // Pequeno truque para forçar reload do componente filho FolhaPonto se estiver aberto
         const currentId = selectedEmployeeId;
-        setSelectedEmployeeId('');
-        setTimeout(() => setSelectedEmployeeId(currentId), 100);
+        if(currentId) {
+            setSelectedEmployeeId('');
+            setTimeout(() => setSelectedEmployeeId(currentId), 100);
+        }
     };
     
     if (isLoading) return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>;
@@ -115,10 +111,12 @@ export default function GerenciamentoPonto() {
 
     return (
         <div className="space-y-6">
-            {toast.show && <Toast message={toast.message} type={toast.type} onclose={() => setToast({ ...toast, show: false })} />}
+            {internalToast.show && <ToastComponent message={internalToast.message} type={internalToast.type} onclose={() => setInternalToast({ ...internalToast, show: false })} />}
+            
             <ImporterModal isOpen={isImporterOpen} onClose={() => setIsImporterOpen(false)}>
-                <PontoImporter employees={employees} onImport={handleSuccessfulImport} showToast={showToast} />
+                <PontoImporter employees={employees} onImport={handleSuccessfulImport} />
             </ImporterModal>
+
             <div className="flex justify-between items-center no-print">
                 <p className="text-gray-600">Visualize e edite a folha de ponto dos funcionários.</p>
                 {canCreate && (
@@ -127,16 +125,11 @@ export default function GerenciamentoPonto() {
                     </button>
                 )}
             </div>
+            
             <div className="bg-white p-6 rounded-lg shadow-md no-print">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                     <div>
                         <label htmlFor="employee-select" className="block text-sm font-medium text-gray-700">Funcionário</label>
-                        {/* ================================================================================= */}
-                        {/* INÍCIO DA ATUALIZAÇÃO 3 */}
-                        {/* O PORQUÊ: Atualizamos o select para usar as novas listas. Primeiro, ele renderiza */}
-                        {/* os 'activeEmployees'. Depois, se houver algum demitido, ele cria um grupo separado */}
-                        {/* para os 'dismissedEmployees'. */}
-                        {/* ================================================================================= */}
                         <select 
                             id="employee-select" 
                             value={selectedEmployeeId} 
@@ -157,9 +150,6 @@ export default function GerenciamentoPonto() {
                                 </optgroup>
                             )}
                         </select>
-                        {/* ================================================================================= */}
-                        {/* FIM DA ATUALIZAÇÃO 3 */}
-                        {/* ================================================================================= */}
                     </div>
                     <div>
                         <label htmlFor="month-select" className="block text-sm font-medium text-gray-700">Mês/Ano</label>
@@ -167,6 +157,7 @@ export default function GerenciamentoPonto() {
                     </div>
                 </div>
             </div>
+            
             {selectedEmployeeId && selectedMonth ? (
                 <FolhaPonto key={`${selectedEmployeeId}-${selectedMonth}`} employeeId={selectedEmployeeId} month={selectedMonth} canEdit={canEdit || canCreate} />
             ) : (
