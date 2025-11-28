@@ -1,7 +1,5 @@
 // app/(main)/painel/page.js
-// CÓDIGO CORRIGIDO - MeuRhWidget ATIVADO
-// Widgets Financeiro, Comercial e KPIs Personalizados Ocultos
-
+// CÓDIGO CORRIGIDO E ATUALIZADO - Com Notificações no Painel
 "use client";
 
 import React, { Suspense } from 'react';
@@ -9,21 +7,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
-// Importação dinâmica dos Widgets restantes
+// --- IMPORTAÇÃO DOS WIDGETS ---
 const WelcomeCard = React.lazy(() => import('@/components/painel/widgets/WelcomeCard'));
 const QuickActionsWidget = React.lazy(() => import('@/components/painel/widgets/QuickActionsWidget'));
 const MinhasAtividadesWidget = React.lazy(() => import('@/components/painel/widgets/MinhasAtividadesWidget'));
-// =========================================================================
-// WIDGETS ATIVADO
 const MeuRhWidget = React.lazy(() => import('@/components/painel/widgets/MeuRhWidget'));
-// =========================================================================
-// WIDGETS REMOVIDOS TEMPORARIAMENTE
-// const FinanceiroWidget = React.lazy(() => import('@/components/painel/widgets/FinanceiroWidget'));
-// const ComercialWidget = React.lazy(() => import('@/components/painel/widgets/ComercialWidget'));
-// =========================================================================
-
-// Importação do widget de KPI personalizado que já existe
-import CustomKpiSection from '@/components/painel/CustomKpiSection';
+// O NOVO WIDGET AQUI
+const NotificacoesWidget = React.lazy(() => import('@/components/painel/widgets/NotificacoesWidget'));
 
 const WidgetSkeleton = () => (
   <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100 h-48 flex justify-center items-center">
@@ -32,7 +22,7 @@ const WidgetSkeleton = () => (
 );
 
 export default function Painel() {
-  const { user, hasPermission, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   if (authLoading) {
     return (
@@ -43,15 +33,17 @@ export default function Painel() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-4 md:p-6 space-y-6">
 
+      {/* Cartão de Boas Vindas */}
       <Suspense fallback={<WidgetSkeleton />}>
         {user && <WelcomeCard user={user} />}
       </Suspense>
 
+      {/* GRID PRINCIPAL DO PAINEL */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* Coluna 1: Itens de alta prioridade */}
+        {/* --- COLUNA ESQUERDA (PRINCIPAL) --- */}
         <div className="lg:col-span-2 space-y-6">
           <Suspense fallback={<WidgetSkeleton />}>
             {/* Renderiza "Minhas Atividades" apenas se o usuário for um funcionário */}
@@ -61,13 +53,21 @@ export default function Painel() {
           </Suspense>
         </div>
 
-        {/* Coluna 2: Itens secundários */}
-        <div className="lg:col-span-1 space-y-6">
+        {/* --- COLUNA DIREITA (LATERAL) --- */}
+        <div className="lg:col-span-1 space-y-6 flex flex-col">
+          
+          {/* 1. Ações Rápidas */}
           <Suspense fallback={<WidgetSkeleton />}>
             <QuickActionsWidget />
           </Suspense>
 
-          {/* Widget RH - ATIVADO */}
+          {/* 2. NOVO: Widget de Notificações */}
+          {/* Mostra as notificações mais recentes diretamente no painel */}
+          <Suspense fallback={<WidgetSkeleton />}>
+             {user?.id && <NotificacoesWidget userId={user.id} />}
+          </Suspense>
+
+          {/* 3. Widget RH */}
           <Suspense fallback={<WidgetSkeleton />}>
             {user?.funcionario_id && (
               <MeuRhWidget funcionario_id={user.funcionario_id} />
@@ -75,34 +75,6 @@ export default function Painel() {
           </Suspense>
         </div>
       </div>
-
-      {/* Seção de KPIs Personalizados (Comentada) */}
-      {/*
-      <Suspense fallback={null}>
-        <CustomKpiSection />
-      </Suspense>
-      */}
-
-      {/* Seção de Widgets por Permissão (Comentada) */}
-      {/* =========================================================================
-      // INÍCIO DA REMOÇÃO TEMPORÁRIA
-      // O PORQUÊ: Comentamos a renderização dos widgets Financeiro e Comercial.
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Suspense fallback={<WidgetSkeleton />}>
-          {hasPermission('financeiro', 'pode_ver') && (
-            // <FinanceiroWidget />
-          )}
-        </Suspense>
-
-        <Suspense fallback={<WidgetSkeleton />}>
-          {hasPermission('crm', 'pode_ver') && (
-            // <ComercialWidget />
-          )}
-        </Suspense>
-      </div>
-      // FIM DA REMOÇÃO TEMPORÁRIA
-      // ========================================================================= */}
-
     </div>
   );
 }
