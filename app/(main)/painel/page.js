@@ -1,5 +1,5 @@
 // app/(main)/painel/page.js
-// CÓDIGO CORRIGIDO E ATUALIZADO - Com Notificações no Painel
+// CÓDIGO ATUALIZADO - Notificações no Topo da Lateral
 "use client";
 
 import React, { Suspense } from 'react';
@@ -12,7 +12,6 @@ const WelcomeCard = React.lazy(() => import('@/components/painel/widgets/Welcome
 const QuickActionsWidget = React.lazy(() => import('@/components/painel/widgets/QuickActionsWidget'));
 const MinhasAtividadesWidget = React.lazy(() => import('@/components/painel/widgets/MinhasAtividadesWidget'));
 const MeuRhWidget = React.lazy(() => import('@/components/painel/widgets/MeuRhWidget'));
-// O NOVO WIDGET AQUI
 const NotificacoesWidget = React.lazy(() => import('@/components/painel/widgets/NotificacoesWidget'));
 
 const WidgetSkeleton = () => (
@@ -43,7 +42,7 @@ export default function Painel() {
       {/* GRID PRINCIPAL DO PAINEL */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* --- COLUNA ESQUERDA (PRINCIPAL) --- */}
+        {/* --- COLUNA ESQUERDA (PRINCIPAL / 2 COLUNAS) --- */}
         <div className="lg:col-span-2 space-y-6">
           <Suspense fallback={<WidgetSkeleton />}>
             {/* Renderiza "Minhas Atividades" apenas se o usuário for um funcionário */}
@@ -53,21 +52,20 @@ export default function Painel() {
           </Suspense>
         </div>
 
-        {/* --- COLUNA DIREITA (LATERAL) --- */}
+        {/* --- COLUNA DIREITA (LATERAL / 1 COLUNA) --- */}
         <div className="lg:col-span-1 space-y-6 flex flex-col">
           
-          {/* 1. Ações Rápidas */}
+          {/* 1. TOPO: Widget de Notificações (Avisos Importantes primeiro) */}
+          <Suspense fallback={<WidgetSkeleton />}>
+             {user?.id && <NotificacoesWidget userId={user.id} />}
+          </Suspense>
+          
+          {/* 2. MEIO: Ações Rápidas */}
           <Suspense fallback={<WidgetSkeleton />}>
             <QuickActionsWidget />
           </Suspense>
 
-          {/* 2. NOVO: Widget de Notificações */}
-          {/* Mostra as notificações mais recentes diretamente no painel */}
-          <Suspense fallback={<WidgetSkeleton />}>
-             {user?.id && <NotificacoesWidget userId={user.id} />}
-          </Suspense>
-
-          {/* 3. Widget RH */}
+          {/* 3. BASE: Widget RH */}
           <Suspense fallback={<WidgetSkeleton />}>
             {user?.funcionario_id && (
               <MeuRhWidget funcionario_id={user.funcionario_id} />
