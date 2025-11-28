@@ -1,4 +1,3 @@
-// components/crm/FunilKanban.js
 "use client";
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
@@ -7,8 +6,12 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faSort, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
+// 1. IMPORTAÇÃO
+import { enviarNotificacao } from '@/utils/notificacoes';
+import { useAuth } from '@/contexts/AuthContext'; // Para pegar o ID de quem moveu
 
 const AddColumn = ({ onCreate }) => {
+    // ... (Mantido igual, sem alterações no AddColumn)
     const [isCreating, setIsCreating] = useState(false);
     const [newColumnName, setNewColumnName] = useState("");
 
@@ -75,6 +78,7 @@ export default function FunilKanban({
     onDeleteAllCardsInColumn,
     onDeleteCard
 }) {
+    const { user } = useAuth(); // Hook para pegar usuário logado
     const [editingColumnId, setEditingColumnId] = useState(null);
     const [editedColumnName, setEditedColumnName] = useState("");
     const [draggedItem, setDraggedItem] = useState(null);
@@ -89,6 +93,7 @@ export default function FunilKanban({
 
     const protectedColumns = ['excluir', 'vendido', 'perdido'];
 
+    // ... (Hooks de scroll e clique mantidos iguais) ...
     useEffect(() => {
         function handleClickOutside(event) {
             if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
@@ -102,9 +107,7 @@ export default function FunilKanban({
     }, [sortMenuRef]);
 
     const handleMouseDown = (e) => {
-        if (e.target.closest('.kanban-card') || e.target.closest('button')) {
-            return;
-        }
+        if (e.target.closest('.kanban-card') || e.target.closest('button')) return;
         setIsDragging(true);
         const container = scrollContainerRef.current;
         setStartX(e.pageX - container.offsetLeft);
@@ -115,9 +118,7 @@ export default function FunilKanban({
     const handleMouseLeaveOrUp = () => {
         if (!isDragging) return;
         setIsDragging(false);
-        if (scrollContainerRef.current) {
-            scrollContainerRef.current.style.cursor = 'grab';
-        }
+        if (scrollContainerRef.current) scrollContainerRef.current.style.cursor = 'grab';
     };
 
     const handleMouseMove = (e) => {
@@ -141,10 +142,12 @@ export default function FunilKanban({
 
     const handleDragOver = (e) => { e.preventDefault(); };
 
-    const handleDrop = (e, targetColumn) => {
+    const handleDrop = async (e, targetColumn) => {
         e.preventDefault();
         e.stopPropagation();
         if (!draggedItem) return;
+        
+        // Lógica de Colunas
         if (draggedItem.type === 'column' && draggedItem.item.id !== targetColumn.id) {
             const draggedIndex = statusColumns.findIndex(col => col.id === draggedItem.item.id);
             const targetIndex = statusColumns.findIndex(col => col.id === targetColumn.id);
@@ -155,12 +158,30 @@ export default function FunilKanban({
             const reorderedWithNewOrder = newColumns.map((col, index) => ({ ...col, ordem: index }));
             onReorderColumns(reorderedWithNewOrder);
         }
+        
+        // Lógica de Cards (Leads)
         if (draggedItem.type === 'card' && draggedItem.item.coluna_id !== targetColumn.id) {
-            onStatusChange(draggedItem.item.id, targetColumn.id);
+            // Executa a mudança visual e no banco
+            await onStatusChange(draggedItem.item.id, targetColumn.id);
+            
+            // 2. DISPARA NOTIFICAÇÃO 🔔
+            const nomeContato = draggedItem.item.contatos?.nome || draggedItem.item.contatos?.razao_social || 'Contato';
+            const nomeOrigem = statusColumns.find(c => c.id === draggedItem.item.coluna_id)?.nome || '?';
+            
+            // Só notifica se mudou de coluna e não é apenas reordenação
+            await enviarNotificacao({
+                userId: user.id, // Opcional: Se quiser avisar O DONO DO LEAD em vez de quem arrastou, precisaria buscar o corretor_id
+                titulo: "🚀 Movimentação no Funil",
+                mensagem: `${nomeContato} mudou de "${nomeOrigem}" para "${targetColumn.nome}".`,
+                link: '/crm',
+                organizacaoId: user.organizacao_id,
+                canal: 'comercial'
+            });
         }
         setDraggedItem(null);
     };
 
+    // ... (Resto das funções auxiliares mantidas iguais: handleEditClick, handleDeleteClick, etc.) ...
     const handleEditClick = (coluna) => { setEditingColumnId(coluna.id); setEditedColumnName(coluna.nome); };
     const handleSaveEdit = async (columnId) => { if (!editedColumnName.trim()) return; await onEditColumn(columnId, editedColumnName); setEditingColumnId(null); setEditedColumnName(""); };
     const handleCancelEdit = () => { setEditingColumnId(null); setEditedColumnName(""); };
@@ -168,10 +189,7 @@ export default function FunilKanban({
     const handleDeleteClick = (columnId, columnName) => {
         toast("Confirmar Exclusão da Etapa", {
             description: `Tem certeza que deseja deletar a etapa "${columnName}"? Todos os contatos nela serão movidos para a primeira etapa.`,
-            action: {
-                label: "Excluir Etapa",
-                onClick: () => onDeleteColumn(columnId),
-            },
+            action: { label: "Excluir Etapa", onClick: () => onDeleteColumn(columnId) },
             cancel: { label: "Cancelar" },
             classNames: { actionButton: 'bg-red-600' },
         });
@@ -180,14 +198,7 @@ export default function FunilKanban({
     const handleDeleteAll = (columnId, count) => {
         toast("Excluir Todos os Cards", {
             description: `Tem certeza que deseja excluir permanentemente os ${count} cards desta coluna? Esta ação não pode ser desfeita.`,
-            action: {
-                label: "Excluir Tudo",
-                onClick: async () => {
-                    setDeletingColumnId(columnId);
-                    await onDeleteAllCardsInColumn(columnId);
-                    setDeletingColumnId(null);
-                },
-            },
+            action: { label: "Excluir Tudo", onClick: async () => { setDeletingColumnId(columnId); await onDeleteAllCardsInColumn(columnId); setDeletingColumnId(null); } },
             cancel: { label: "Cancelar" },
             classNames: { actionButton: 'bg-red-600' },
         });
@@ -209,7 +220,6 @@ export default function FunilKanban({
         setOpenSortMenu(null);
     };
    
-    // Opções de ordenação atualizadas para refletir o novo padrão
     const sortOptions = [
         { value: '', label: 'Padrão (Mais Recentes)' }, 
         { value: 'nome_asc', label: 'Nome (A-Z)' }, 
@@ -223,9 +233,7 @@ export default function FunilKanban({
             statusColumns.forEach(coluna => {
                 const contatosDaColuna = [...contatos.filter(c => c.coluna_id === coluna.id)];
                 const sortConfig = sorting[coluna.id];
-                
                 if (sortConfig) {
-                    // Ordenação Manual escolhida pelo usuário
                     contatosDaColuna.sort((a, b) => {
                         const { sortBy, order } = sortConfig;
                         let valA, valB;
@@ -243,12 +251,10 @@ export default function FunilKanban({
                         return 0;
                     });
                 } else {
-                    // === ORDENAÇÃO PADRÃO AGORA É POR DATA DE CRIAÇÃO (DESCRESENTE) ===
-                    // Os mais novos (data maior) ficam no topo (índice menor)
                     contatosDaColuna.sort((a, b) => {
                         const dateA = new Date(a.created_at);
                         const dateB = new Date(b.created_at);
-                        return dateB - dateA; // B - A = Decrescente (Mais novo primeiro)
+                        return dateB - dateA;
                     });
                 }
                 grouped[coluna.id] = contatosDaColuna;

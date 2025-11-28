@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -8,8 +8,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faReceipt, faCalendarAlt, faRetweet, faExchangeAlt, faArrowUp, faArrowDown, faTimes, faPlus, faPaperclip, faUpload, faFileLines, faEye, faTrashAlt, faRobot } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 import { toast } from 'sonner';
+// 1. ADICIONADO: Importação do Carteiro
+import { enviarNotificacao } from '@/utils/notificacoes';
 
-// Componentes internos (sem alterações)
+// Componentes internos (Mantidos idênticos)
 const TipoToggleButton = ({ label, icon, isActive, onClick, colorClass = 'bg-blue-500 hover:bg-blue-600' }) => {
     const baseClasses = "flex-1 p-2 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-colors";
     const activeClasses = `shadow text-white ${colorClass}`;
@@ -21,6 +23,7 @@ const TipoToggleButton = ({ label, icon, isActive, onClick, colorClass = 'bg-blu
         </button>
     );
 };
+
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim()) return <span>{text}</span>;
     const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -49,7 +52,7 @@ const CategoryOption = ({ category, level = 0 }) => (
 export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initialData, empresas = [] }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
-    const { user, organizacao_id } = useAuth();
+    const { user, organizacao_id: organizacaoId } = useAuth(); // Ajustei para usar organizacaoId na notificação
     const isEditing = Boolean(initialData?.id);
     
     const getInitialState = () => ({
@@ -79,30 +82,30 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
 
 
     const fetchDropdownData = async () => {
-        if (!organizacao_id) return null;
+        if (!organizacaoId) return null;
 
-        const { data: contasData, error: contasError } = await supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', organizacao_id).order('nome');
+        const { data: contasData, error: contasError } = await supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', organizacaoId).order('nome');
         if (contasError) throw new Error(contasError.message);
 
-        const { data: categoriasData, error: categoriasError } = await supabase.from('categorias_financeiras').select('id, nome, tipo, parent_id').eq('organizacao_id', organizacao_id).order('nome');
+        const { data: categoriasData, error: categoriasError } = await supabase.from('categorias_financeiras').select('id, nome, tipo, parent_id').eq('organizacao_id', organizacaoId).order('nome');
         if (categoriasError) throw new Error(categoriasError.message);
 
-        const { data: empreendimentosData, error: empreendimentosError } = await supabase.from('empreendimentos').select('id, nome, empresa_id:empresa_proprietaria_id').eq('organizacao_id', organizacao_id).order('nome');
+        const { data: empreendimentosData, error: empreendimentosError } = await supabase.from('empreendimentos').select('id, nome, empresa_id:empresa_proprietaria_id').eq('organizacao_id', organizacaoId).order('nome');
         if (empreendimentosError) throw new Error(empreendimentosError.message);
 
-        const { data: etapasData, error: etapasError } = await supabase.from('etapa_obra').select('id, nome_etapa').eq('organizacao_id', organizacao_id).order('nome_etapa');
+        const { data: etapasData, error: etapasError } = await supabase.from('etapa_obra').select('id, nome_etapa').eq('organizacao_id', organizacaoId).order('nome_etapa');
         if (etapasError) throw new Error(etapasError.message);
 
-        const { data: tiposDocData, error: tiposDocError } = await supabase.from('documento_tipos').select('*').eq('organizacao_id', organizacao_id).order('sigla');
+        const { data: tiposDocData, error: tiposDocError } = await supabase.from('documento_tipos').select('*').eq('organizacao_id', organizacaoId).order('sigla');
         if (tiposDocError) throw new Error(tiposDocError.message);
 
         return { contas: contasData, categorias: categoriasData, empreendimentos: empreendimentosData, etapas: etapasData, tiposDocumento: tiposDocData };
     };
 
     const { data: dropdownData, isLoading: isLoadingDropdowns, error: dropdownError } = useQuery({
-        queryKey: ['lancamentoDropdowns', organizacao_id],
+        queryKey: ['lancamentoDropdowns', organizacaoId],
         queryFn: fetchDropdownData,
-        enabled: isOpen && !!organizacao_id,
+        enabled: isOpen && !!organizacaoId,
         staleTime: 5 * 60 * 1000,
     });
     
@@ -116,10 +119,8 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
 
     const mutation = useMutation({
         mutationFn: async (formData) => {
-            if (!user || !organizacao_id) throw new Error("Usuário não autenticado ou organização não encontrada.");
+            if (!user || !organizacaoId) throw new Error("Usuário não autenticado ou organização não encontrada.");
             
-            // <<< ALTERAÇÃO: A conversão agora é mais direta e segura.
-            // parseFloat vai converter "120.23" para o número 120.23, que é o que o banco de dados espera.
             const valorNumerico = parseFloat(String(formData.valor || '0').replace(',', '.')) || 0;
 
             let favorecidoFinalId = formData.favorecido_contato_id;
@@ -127,7 +128,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 const { data: novoContato, error: contatoError } = await supabase.from('contatos').insert({ 
                     nome: formData.novo_favorecido.nome, 
                     tipo_contato: 'Fornecedor',
-                    organizacao_id: organizacao_id
+                    organizacao_id: organizacaoId
                 }).select().single();
                 if (contatoError) throw contatoError;
                 favorecidoFinalId = novoContato.id;
@@ -142,7 +143,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 observacao: formData.observacoes,
                 favorecido_contato_id: favorecidoFinalId,
                 criado_por_usuario_id: user.id,
-                organizacao_id: organizacao_id,
+                organizacao_id: organizacaoId,
                 conta_id: formData.conta_id,
                 tipo: formData.tipo,
             };
@@ -264,7 +265,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     if (!anexo.file) return;
                     const file = anexo.file;
                     const fileName = `${crypto.randomUUID()}-${sanitizeFileName(file.name)}`;
-                    const filePath = `public/${organizacao_id}/lancamentos/${lancamentoPrincipalId}/${fileName}`;
+                    const filePath = `public/${organizacaoId}/lancamentos/${lancamentoPrincipalId}/${fileName}`;
                     
                     const { error: uploadError } = await supabase.storage.from('documentos-financeiro').upload(filePath, file);
                     if (uploadError) throw new Error(`Falha no upload do anexo ${file.name}: ${uploadError.message}`);
@@ -275,7 +276,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                         nome_arquivo: file.name,
                         descricao: anexo.descricao,
                         tipo_documento_id: anexo.tipo_documento_id,
-                        organizacao_id: organizacao_id
+                        organizacao_id: organizacaoId
                     });
                     if (insertAnexoError) throw new Error(`Falha ao salvar anexo ${file.name} no banco: ${insertAnexoError.message}`);
                 });
@@ -283,7 +284,23 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             }
             return lancamentosSalvos;
         },
-        onSuccess: () => {
+        // 2. ADICIONADO: Lógica de Notificação no Sucesso
+        onSuccess: async (data) => {
+            if (!isEditing && data && data.length > 0) {
+                const lancamentoPrincipal = data[0]; // Pega o primeiro (em caso de parcelamento)
+                const valorFormatado = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lancamentoPrincipal.valor);
+                const tipoTexto = lancamentoPrincipal.tipo === 'Receita' ? 'Receita prevista' : 'Nova despesa lançada';
+                
+                await enviarNotificacao({
+                    userId: user.id, // Feedback para o criador, ou lógica para Gestores
+                    titulo: `💰 ${tipoTexto}`,
+                    mensagem: `${lancamentoPrincipal.descricao} - ${valorFormatado} (Vence: ${new Date(lancamentoPrincipal.data_vencimento).toLocaleDateString('pt-BR')})`,
+                    link: '/financeiro',
+                    organizacaoId: organizacaoId,
+                    canal: 'financeiro'
+                });
+            }
+
             queryClient.invalidateQueries({queryKey: ['lancamentos']});
             if (onSuccess) onSuccess();
             toast.success('Operação realizada com sucesso!');
@@ -301,7 +318,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 const dataToLoad = { 
                     ...initialData, 
                     observacoes: initialData.observacao || '',
-                    // <<< ALTERAÇÃO: Garantimos que o valor seja sempre uma string com ponto para a máscara.
                     valor: initialData.valor ? String(initialData.valor).replace(',', '.') : '', 
                     data_transacao: initialData.data_transacao ? new Date(initialData.data_transacao).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                     data_vencimento: initialData.data_vencimento ? new Date(initialData.data_vencimento).toISOString().split('T')[0] : null,
@@ -331,9 +347,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         mutation.mutate(formData);
     };
 
-    // <<< ALTERAÇÃO: Função super simplificada!
-    // Ela agora só pega o valor já traduzido pela máscara e o envia para o handleChange.
-    // O `unmaskedValue` que recebemos do `onAccept` já estará no formato "120.23".
     const handleValorChange = (unmaskedValue) => {
         handleChange({ target: { name: 'valor', value: unmaskedValue } });
     };
@@ -373,12 +386,12 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         const value = e.target.value; 
         setSearchAttempted(true); 
         setFavorecidoSearchTerm(value); 
-        if (value.length < 2 || !organizacao_id) { 
+        if (value.length < 2 || !organizacaoId) { 
             setFavorecidoSearchResults([]); 
             return; 
         } 
         setIsSearchingFavorecido(true); 
-        const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: value, p_organizacao_id: organizacao_id }); 
+        const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: value, p_organizacao_id: organizacaoId }); 
         setFavorecidoSearchResults(data || []); 
         setIsSearchingFavorecido(false); 
     };

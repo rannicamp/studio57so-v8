@@ -1,40 +1,103 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import webPush from 'web-push';
 
-// --- CONFIGURAÇÃO DO CARTEIRO (NOTIFICAÇÃO) ---
-async function notifyOrg(organizacao_id, title, message) {
-    // 1. Define a URL base (Prioriza a variável que criamos, depois tenta outras)
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXTAUTH_URL || 'https://studio57.arq.br';
-    const apiUrl = `${baseUrl}/api/notifications/send`;
+// --- 1. CONFIGURAÇÃO DO WEB PUSH (Para vibrar o celular) ---
+const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+const privateKey = process.env.VAPID_PRIVATE_KEY;
 
-    try {
-        // Dispara o alerta para a API (sem travar o WhatsApp esperando resposta)
-        fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                organizacaoId: organizacao_id, // Garante que o ID da empresa vá certo
-                title: title,
-                message: message,
-                url: '/crm' // Clicou, vai pro CRM
-            }),
-        }).catch(err => console.error('[Webhook Notification] Erro no envio:', err));
-
-    } catch (error) {
-        console.error('[Webhook Notification] Erro geral:', error);
-    }
+if (publicKey && privateKey) {
+    webPush.setVapidDetails(
+        'mailto:suporte@studio57.arq.br',
+        publicKey,
+        privateKey
+    );
 }
 
-// --- INICIALIZAÇÃO DO SUPABASE (ADMIN) ---
+// --- 2. INICIALIZAÇÃO DO SUPABASE (ADMIN) ---
 const getSupabaseAdmin = () => createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// --- FUNÇÕES DE ENVIO (MANTIDAS ORIGINAIS) ---
+// --- 3. FUNÇÃO DE NOTIFICAÇÃO INTELIGENTE (INTERNA) ---
+async function dispatchNotification(supabaseAdmin, organizacaoId, title, message, url) {
+    try {
+        // A. Busca usuários da organização
+        const { data: users } = await supabaseAdmin
+            .from('usuarios')
+            .select('id, preferencias_notificacao')
+            .eq('organizacao_id', organizacaoId);
+
+        if (!users || users.length === 0) return;
+
+        const notificationsToInsert = [];
+        const pushPromises = [];
+
+        // B. Filtra quem deve receber (Canal 'comercial')
+        for (const user of users) {
+            const prefs = user.preferencias_notificacao;
+            // Se o usuário DESLIGOU o canal comercial, ignora ele
+            if (prefs && prefs.comercial === false) continue;
+
+            // Prepara para o Sininho
+            notificationsToInsert.push({
+                user_id: user.id,
+                titulo: title,
+                mensagem: message,
+                link: url,
+                lida: false,
+                organizacao_id: organizacaoId,
+                created_at: new Date().toISOString()
+            });
+
+            // Prepara o Push (Celular)
+            if (publicKey && privateKey) {
+                const p = supabaseAdmin
+                    .from('notification_subscriptions')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .then(({ data: subs }) => {
+                        if (!subs || subs.length === 0) return;
+                        
+                        const payload = JSON.stringify({
+                            title: title,
+                            body: message,
+                            message: message, // Fallback
+                            url: url,
+                            icon: '/icons/icon-192x192.png',
+                            tag: 'whatsapp-msg' // Agrupa notificações para não spammar
+                        });
+
+                        return Promise.all(subs.map(sub => 
+                            webPush.sendNotification(sub.subscription_data, payload)
+                                .catch(err => {
+                                    // Remove inscrições mortas
+                                    if (err.statusCode === 410 || err.statusCode === 404) {
+                                        supabaseAdmin.from('notification_subscriptions').delete().eq('id', sub.id).then();
+                                    }
+                                })
+                        ));
+                    });
+                pushPromises.push(p);
+            }
+        }
+
+        // C. Executa tudo
+        if (notificationsToInsert.length > 0) {
+            await supabaseAdmin.from('notificacoes').insert(notificationsToInsert);
+        }
+        await Promise.allSettled(pushPromises);
+        console.log(`[WhatsApp] Notificação enviada para ${notificationsToInsert.length} usuários.`);
+
+    } catch (error) {
+        console.error('[WhatsApp Notification Error]', error);
+    }
+}
+
+// --- FUNÇÕES DE ENVIO (MANTIDAS) ---
 async function sendTemplateMessage(supabase, config, to, contato, templateName, language) {
     if (!templateName) return;
-    
     const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
     const components = [{ type: 'body', parameters: [{ type: 'text', text: contato.nome || 'Cliente' }] }];
     
@@ -66,7 +129,6 @@ async function sendTemplateMessage(supabase, config, to, contato, templateName, 
     }
 }
 
-// --- FUNÇÕES AUXILIARES ---
 function getTextContent(message) {
     if (!message || !message.type) return null;
     if (message.type === 'text') return message.text?.body;
@@ -77,10 +139,9 @@ function getTextContent(message) {
 function normalizeAndGeneratePhoneNumbers(rawPhone) {
     const digits = rawPhone.replace(/\D/g, '');
     const sets = new Set([digits]);
-    // Lógica simples para lidar com o 9º dígito do Brasil
     if (digits.startsWith('55') && digits.length >= 12) {
-        if (digits.length === 13) sets.add(digits.slice(0, 4) + digits.slice(5)); // Remove 9
-        if (digits.length === 12) sets.add(digits.slice(0, 4) + '9' + digits.slice(4)); // Adiciona 9
+        if (digits.length === 13) sets.add(digits.slice(0, 4) + digits.slice(5)); 
+        if (digits.length === 12) sets.add(digits.slice(0, 4) + '9' + digits.slice(4)); 
     }
     return Array.from(sets);
 }
@@ -128,9 +189,11 @@ export async function POST(request) {
 
             let contatoId = contactPhone?.contato_id;
             let contatoNome = `Lead (${from})`;
+            let isNewLead = false; // Flag para saber se é novo
 
             if (!contatoId) {
                 // Cria novo contato
+                isNewLead = true;
                 const { data: newContact } = await supabaseAdmin.from('contatos').insert({
                     nome: contatoNome, tipo_contato: 'Lead', organizacao_id: config.organizacao_id,
                     is_awaiting_name_response: false
@@ -142,13 +205,13 @@ export async function POST(request) {
                     contato_id: contatoId, telefone: from, tipo: 'celular', organizacao_id: config.organizacao_id
                 });
 
-                // Adiciona ao Funil e Verifica Automação (Resumido)
+                // Adiciona ao Funil e Verifica Automação
                 const { data: funil } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', config.organizacao_id).limit(1).single();
                 if (funil) {
                     const { data: col } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem').limit(1).single();
                     if (col) {
                         await supabaseAdmin.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: col.id, organizacao_id: config.organizacao_id });
-                        // Verifica automação de boas-vindas
+                        // Verifica automação de boas-vindas...
                         const { data: autos } = await supabaseAdmin.from('automacoes').select('*')
                             .match({ organizacao_id: config.organizacao_id, ativo: true, gatilho_tipo: 'CRIAR_CARD' })
                             .contains('gatilho_config', { coluna_id: col.id });
@@ -186,10 +249,26 @@ export async function POST(request) {
             // 5. Atualiza Conversa
             await supabaseAdmin.from('whatsapp_conversations').upsert({ phone_number: from, updated_at: new Date().toISOString() }, { onConflict: 'phone_number' });
 
-            // 6. --- O GRANDE MOMENTO: NOTIFICAÇÃO PUSH ---
+            // 6. --- O GRANDE MOMENTO: NOTIFICAÇÃO ---
             if (content) {
-                // Aqui chamamos o nosso carteiro atualizado
-                await notifyOrg(config.organizacao_id, `Nova mensagem de ${contatoNome}`, content);
+                let notifTitle = '';
+                let notifBody = '';
+
+                if (isNewLead) {
+                    notifTitle = '🎉 Novo Lead no WhatsApp!';
+                    notifBody = `Um novo contato (${from}) mandou mensagem: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`;
+                } else {
+                    notifTitle = `💬 Mensagem de ${contatoNome}`;
+                    notifBody = content.substring(0, 100) + (content.length > 100 ? '...' : '');
+                }
+
+                await dispatchNotification(
+                    supabaseAdmin,
+                    config.organizacao_id,
+                    notifTitle,
+                    notifBody,
+                    '/crm' // Link para o CRM/Chat
+                );
             }
         }
 

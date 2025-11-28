@@ -1,6 +1,8 @@
 //app/api/meta/webhook/route.js
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+// 1. IMPORTAÇÃO DO CARTEIRO (Adicionado)
+import { enviarNotificacao } from '@/utils/notificacoes';
 
 // Função para obter o cliente Supabase Admin
 const getSupabaseAdmin = () => {
@@ -180,11 +182,26 @@ export async function POST(request) {
         
         console.log('LOG: SUCESSO! Contato adicionado ao funil!');
         
-        fetch(`${request.nextUrl.origin}/api/notifications/send`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: '🎉 Novo Lead Recebido!', message: `Lead (${allLeadData.full_name}) da Meta.`, url: '/crm', organizacao_id: organizacaoId })
-        }).catch(err => console.error("Falha ao disparar notificação:", err));
+        // 2. AQUI ESTÁ A LÓGICA DE NOTIFICAÇÃO 🔔
+        // Disparar para todos os Admins/Proprietários
+        const { data: admins } = await supabase
+            .from('usuarios')
+            .select('id')
+            .eq('organizacao_id', organizacaoId);
+
+        if (admins) {
+            const promises = admins.map(admin => 
+                enviarNotificacao({
+                    userId: admin.id,
+                    titulo: '🎉 Novo Lead do Instagram!',
+                    mensagem: `Lead (${allLeadData.full_name}) acabou de chegar pelo anúncio "${adName || 'Desconhecido'}".`,
+                    link: `/crm`,
+                    organizacaoId: organizacaoId,
+                    canal: 'comercial'
+                })
+            );
+            await Promise.allSettled(promises);
+        }
 
         return new NextResponse(JSON.stringify({ status: 'success' }), { status: 200 });
 
