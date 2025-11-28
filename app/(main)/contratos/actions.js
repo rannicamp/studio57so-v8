@@ -3,8 +3,9 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { enviarNotificacao } from '@/utils/notificacoes'; // <--- IMPORTAMOS O CARTEIRO AQUI
 
-// --- FUNÇÃO 1: CRIAR CONTRATO (Mantida) ---
+// --- FUNÇÃO 1: CRIAR CONTRATO ---
 export async function createNewContrato(empreendimentoId, tipoDocumento) {
     const supabase = createClient();
 
@@ -36,10 +37,21 @@ export async function createNewContrato(empreendimentoId, tipoDocumento) {
         return { error: "Falha ao criar documento." };
     }
 
+    // --- NOTIFICAÇÃO DE CRIAÇÃO ---
+    // Avisa o usuário que criou (confirmação visual no celular/PC)
+    await enviarNotificacao({
+        userId: user.id,
+        titulo: `Novo Documento Iniciado 📄`,
+        mensagem: `Um novo ${tipoDocumento} foi criado como Rascunho.`,
+        link: `/contratos/${newContrato.id}`,
+        organizacaoId: userProfile.organizacao_id,
+        canal: 'contratos'
+    });
+
     return { success: true, newContractId: newContrato.id };
 }
 
-// --- FUNÇÃO 2: ATUALIZAR STATUS (ATUALIZADA E CORRIGIDA) ---
+// --- FUNÇÃO 2: ATUALIZAR STATUS ---
 export async function updateContratoStatus(contratoId, newStatus) {
     const supabase = createClient();
     
@@ -49,7 +61,7 @@ export async function updateContratoStatus(contratoId, newStatus) {
     // 1. Busca dados do contrato para saber o tipo e organização
     const { data: contrato, error: fetchError } = await supabase
         .from('contratos')
-        .select('id, tipo_documento, organizacao_id')
+        .select('id, tipo_documento, organizacao_id, numero_contrato')
         .eq('id', contratoId)
         .single();
 
@@ -63,7 +75,7 @@ export async function updateContratoStatus(contratoId, newStatus) {
 
     if (updateError) return { error: "Erro ao atualizar status." };
 
-    // 3. LÓGICA DE PRODUTOS (CORREÇÃO: Busca na tabela de vínculos correta)
+    // 3. LÓGICA DE PRODUTOS
     
     // Primeiro, buscamos quais produtos estão ligados a esse contrato
     const { data: produtosVinculados } = await supabase
@@ -85,7 +97,6 @@ export async function updateContratoStatus(contratoId, newStatus) {
             // Normaliza o texto para garantir a verificação
             const tipoDoc = (contrato.tipo_documento || '').trim().toLowerCase();
             
-            // --- A MÁGICA AQUI ---
             // Se for Termo de Interesse (ou Reserva), muda para RESERVADO
             if (tipoDoc.includes('termo') || tipoDoc.includes('interesse') || tipoDoc.includes('reserva')) {
                 novoStatusProduto = 'Reservado';
@@ -109,6 +120,16 @@ export async function updateContratoStatus(contratoId, newStatus) {
                 .eq('organizacao_id', contrato.organizacao_id);
         }
     }
+
+    // --- NOTIFICAÇÃO DE MUDANÇA DE STATUS ---
+    await enviarNotificacao({
+        userId: user.id,
+        titulo: `Status Atualizado 🔄`,
+        mensagem: `O contrato #${contrato.numero_contrato || contratoId} mudou para: ${newStatus}`,
+        link: `/contratos/${contratoId}`,
+        organizacaoId: contrato.organizacao_id,
+        canal: 'contratos'
+    });
 
     revalidatePath('/contratos');
     revalidatePath('/empreendimentos'); 
