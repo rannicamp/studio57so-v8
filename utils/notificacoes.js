@@ -1,9 +1,10 @@
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
+import { buscarIdsPorPermissao } from '@/utils/permissions.js';
 import webPush from 'web-push';
 
-// Configura as chaves de segurança para falar com o Google/Android
+// Configuração VAPID (Push Notifications)
 const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const privateKey = process.env.VAPID_PRIVATE_KEY;
 
@@ -14,20 +15,66 @@ if (publicKey && privateKey) {
     privateKey
   );
 } else {
-  console.warn("⚠️ AVISO: Chaves VAPID não encontradas. O Push para celular não funcionará.");
+  console.warn("⚠️ AVISO: Chaves VAPID ausentes. Push mobile desativado.");
 }
 
 /**
- * 📨 CARTEIRO MASTER DO STUDIO 57
- * 1. Verifica preferências do usuário.
- * 2. Salva no banco (Sininho).
- * 3. Dispara vibração no celular (Push).
+ * 📢 NOTIFICAR GRUPO (Disparo em Massa Inteligente)
+ * Envia notificação para todos os usuários que têm uma certa permissão.
+ * Ex: notificarGrupo({ permissao: 'financeiro', titulo: 'Nova Fatura', ... })
+ */
+export async function notificarGrupo({
+  permissao,      // Ex: 'financeiro', 'obras' (Chave da permissão)
+  titulo,
+  mensagem,
+  link = null,
+  tipo = 'sistema', // 'financeiro', 'obras', 'alerta', 'sucesso'
+  organizacaoId = null
+}) {
+  try {
+    console.log(`📢 Iniciando disparo em massa para permissão: [${permissao}]`);
+
+    // 1. Descobre quem são os destinatários
+    const userIds = await buscarIdsPorPermissao(permissao, organizacaoId);
+
+    if (!userIds.length) {
+      console.log("⚠️ Ninguém encontrado para receber esta notificação.");
+      return { sucesso: true, count: 0 };
+    }
+
+    console.log(`🎯 Alvos encontrados: ${userIds.length} usuários.`);
+
+    // 2. Dispara para cada um (em paralelo para ser rápido)
+    const promises = userIds.map(id => 
+      enviarNotificacao({
+        userId: id,
+        titulo,
+        mensagem,
+        link,
+        tipo, // Passamos o novo campo 'tipo'
+        organizacaoId
+      })
+    );
+
+    await Promise.allSettled(promises);
+
+    return { sucesso: true, count: userIds.length };
+
+  } catch (error) {
+    console.error("🚨 Erro no disparo em grupo:", error);
+    return { sucesso: false, erro: error.message };
+  }
+}
+
+/**
+ * 📨 CARTEIRO INDIVIDUAL (Envio Um-a-Um)
  */
 export async function enviarNotificacao({ 
   userId, 
   titulo, 
   mensagem, 
   link = null, 
+  tipo = 'sistema',
   organizacaoId = null,
   canal = 'sistema' 
 }) {
@@ -41,9 +88,7 @@ export async function enviarNotificacao({
       .eq('id', userId)
       .single();
 
-    // Se o usuário desligou esse canal, paramos aqui
     if (usuario?.preferencias_notificacao && usuario.preferencias_notificacao[canal] === false) {
-      console.log(`🔕 Notificação bloqueada pelo usuário (Canal: ${canal})`);
       return { sucesso: false, motivo: 'bloqueado_pelo_usuario' };
     }
 
@@ -54,64 +99,48 @@ export async function enviarNotificacao({
       mensagem,
       link,
       lida: false,
+      tipo: tipo, // Salvando o tipo visual
       created_at: new Date().toISOString()
     };
     if (organizacaoId) dadosNotificacao.organizacao_id = organizacaoId;
 
     const { error } = await supabase.from('notificacoes').insert(dadosNotificacao);
     
-    if (error) {
-      console.error("❌ Erro ao salvar notificação interna:", error.message);
-      // Mesmo com erro no banco, tentamos o push se possível
-    } else {
-        console.log("✅ Notificação interna salva com sucesso.");
-    }
+    if (error) console.error("❌ Erro DB Notificação:", error.message);
 
-    // --- ETAPA 3: DISPARAR PARA O ANDROID (PUSH) ---
+    // --- ETAPA 3: DISPARAR PUSH (ANDROID/PC) ---
     if (publicKey && privateKey) {
-      // Busca todos os celulares/PCs registrados desse usuário
       const { data: subscriptions } = await supabase
         .from('notification_subscriptions')
         .select('*')
         .eq('user_id', userId);
 
-      if (subscriptions && subscriptions.length > 0) {
-        console.log(`📲 Disparando Push para ${subscriptions.length} dispositivo(s)...`);
-
+      if (subscriptions?.length > 0) {
         const payload = JSON.stringify({
           title: titulo,
-          body: mensagem, // O Android mostra isso no banner
-          message: mensagem, 
+          body: mensagem,
           url: link || '/',
           icon: '/icons/icon-192x192.png',
-          tag: 'studio57-aviso' // Agrupa notificações para não encher a tela
+          tag: 'studio57-aviso',
+          data: { tipo } // Passa metadata para o Service Worker se precisar
         });
 
-        // Envia para todos em paralelo
         const envios = subscriptions.map(sub => 
           webPush.sendNotification(sub.subscription_data, payload)
             .catch(async (err) => {
-              // Se der erro 410 (Gone) ou 404, o registro é velho. Vamos limpar.
               if (err.statusCode === 410 || err.statusCode === 404) {
-                console.log(`🗑️ Limpando inscrição inválida: ${sub.id}`);
                 await supabase.from('notification_subscriptions').delete().eq('id', sub.id);
-              } else {
-                console.error(`❌ Erro no envio Push (ID ${sub.id}):`, err.statusCode);
               }
             })
         );
-
-        // Não travamos o código esperando o envio (Fire and Forget)
         Promise.allSettled(envios);
-      } else {
-        console.log("ℹ️ Usuário não tem dispositivos registrados para Push.");
       }
     }
 
     return { sucesso: true };
 
   } catch (error) {
-    console.error("🚨 Erro fatal no Carteiro:", error);
+    console.error("🚨 Erro fatal no Carteiro Individual:", error);
     return { sucesso: false, erro: error.message };
   }
 }
