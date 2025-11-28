@@ -8,8 +8,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faReceipt, faCalendarAlt, faRetweet, faExchangeAlt, faArrowUp, faArrowDown, faTimes, faPlus, faPaperclip, faUpload, faFileLines, faEye, faTrashAlt, faRobot } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 import { toast } from 'sonner';
-// 1. ADICIONADO: Importação do Carteiro
-import { enviarNotificacao } from '@/utils/notificacoes';
+// 1. ATUALIZADO: Importamos o Carteiro "em Massa"
+import { notificarGrupo } from '@/utils/notificacoes';
 
 // Componentes internos (Mantidos idênticos)
 const TipoToggleButton = ({ label, icon, isActive, onClick, colorClass = 'bg-blue-500 hover:bg-blue-600' }) => {
@@ -52,7 +52,7 @@ const CategoryOption = ({ category, level = 0 }) => (
 export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initialData, empresas = [] }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
-    const { user, organizacao_id: organizacaoId } = useAuth(); // Ajustei para usar organizacaoId na notificação
+    const { user, organizacao_id: organizacaoId } = useAuth();
     const isEditing = Boolean(initialData?.id);
     
     const getInitialState = () => ({
@@ -284,20 +284,32 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             }
             return lancamentosSalvos;
         },
-        // 2. ADICIONADO: Lógica de Notificação no Sucesso
+        
+        // 2. CORRIGIDO: Agora usamos 'notificarGrupo' para avisar toda a equipe
         onSuccess: async (data) => {
             if (!isEditing && data && data.length > 0) {
-                const lancamentoPrincipal = data[0]; // Pega o primeiro (em caso de parcelamento)
+                const lancamentoPrincipal = data[0];
                 const valorFormatado = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lancamentoPrincipal.valor);
-                const tipoTexto = lancamentoPrincipal.tipo === 'Receita' ? 'Receita prevista' : 'Nova despesa lançada';
                 
-                await enviarNotificacao({
-                    userId: user.id, // Feedback para o criador, ou lógica para Gestores
-                    titulo: `💰 ${tipoTexto}`,
-                    mensagem: `${lancamentoPrincipal.descricao} - ${valorFormatado} (Vence: ${new Date(lancamentoPrincipal.data_vencimento).toLocaleDateString('pt-BR')})`,
+                let tituloNotif, msgNotif;
+
+                if (lancamentoPrincipal.tipo === 'Receita') {
+                    tituloNotif = '💰 Nova Receita Prevista';
+                    msgNotif = `${lancamentoPrincipal.descricao} - ${valorFormatado}`;
+                } else {
+                    tituloNotif = '💸 Nova Despesa Lançada';
+                    msgNotif = `${lancamentoPrincipal.descricao} - ${valorFormatado} (Vence: ${new Date(lancamentoPrincipal.data_vencimento).toLocaleDateString('pt-BR')})`;
+                }
+                
+                // DISPARO EM MASSA (Fan-out)
+                // Avisa todos que têm a permissão 'financeiro'
+                await notificarGrupo({
+                    permissao: 'financeiro', 
+                    titulo: tituloNotif,
+                    mensagem: msgNotif,
                     link: '/financeiro',
-                    organizacaoId: organizacaoId,
-                    canal: 'financeiro'
+                    tipo: 'financeiro', // Define o ícone de dinheiro verde
+                    organizacaoId: organizacaoId
                 });
             }
 
