@@ -1,5 +1,6 @@
 // Local do Arquivo: app/layout.js
 
+import UpdatePrompt from '@/components/shared/UpdatePrompt';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'sonner';

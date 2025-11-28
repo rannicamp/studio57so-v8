@@ -21,6 +21,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import PedidoForm from '@/components/PedidoForm';
 import FiltroPedidos, { initialFilterState } from '../../../components/pedidos/FiltroPedidos';
+// 1. IMPORTAÇÃO DO CARTEIRO (Adicione isto)
+import { enviarNotificacao } from '@/utils/notificacoes';
 
 // ... (fetchPainelData mantido 100% igual) ...
 const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
@@ -191,11 +193,6 @@ export default function PedidosPage() {
     useEffect(() => {
         const calculateKpis = async () => {
             const localFilteredPedidos = filteredPedidosKanban;
-            
-            // =================================================================================
-            // ADICIONADA A DATA DE CORTE
-            // =================================================================================
-            // Define a data de corte para o final do dia 12/11/2025
             const cutoffDate = new Date('2025-11-12T23:59:59');
 
             let totalValorPedidos = 0;
@@ -208,9 +205,6 @@ export default function PedidosPage() {
                     }
                 }
 
-                // =================================================================================
-                // LÓGICA DO KPI ATUALIZADA COM A DATA DE CORTE
-                // =================================================================================
                 const dataSolicitacao = new Date(pedido.data_solicitacao);
                 if (
                     (!pedido.lancamentos || pedido.lancamentos.length === 0) && // Não foi lançado
@@ -293,8 +287,18 @@ export default function PedidosPage() {
             if (error) { throw new Error(`Erro do Supabase: ${error.message}`); }
             return data;
         },
-        onSuccess: (data) => {
+        onSuccess: async (data) => {
             toast.success('Nova solicitação criada! Preencha os detalhes agora.');
+            
+            // 2. DISPARAR O CARTEIRO (Adicione isto)
+            await enviarNotificacao({
+                userId: user.id,
+                titulo: "📝 Novo Pedido Criado",
+                mensagem: `O pedido #${data.id} foi iniciado por você. Não esqueça de adicionar os itens!`,
+                link: `/pedidos`, // Link para a própria tela
+                organizacaoId: organizacaoId
+            });
+
             setNewPedidoId(data.id);
             setIsNewOrderModalOpen(true);
             queryClient.invalidateQueries({ queryKey: ['painelCompras', organizacaoId, selectedEmpreendimento] });
