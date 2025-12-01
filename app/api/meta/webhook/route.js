@@ -1,13 +1,11 @@
 //app/api/meta/webhook/route.js
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-// 1. IMPORTAÇÃO DO CARTEIRO (Adicionado)
-import { enviarNotificacao } from '@/utils/notificacoes';
 
-// Função para obter o cliente Supabase Admin
+// Função para obter o cliente Supabase Admin (O "Chefe" que tem permissão total)
 const getSupabaseAdmin = () => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SECRET_KEY;
+    const supabaseKey = process.env.SUPABASE_SECRET_KEY; // Service Role Key
     if (!supabaseUrl || !supabaseKey) {
         console.error("LOG: ERRO CRÍTICO - Variáveis de ambiente do Supabase não encontradas!");
         return null;
@@ -15,7 +13,9 @@ const getSupabaseAdmin = () => {
     return createClient(supabaseUrl, supabaseKey);
 };
 
-// Função autossuficiente para buscar nomes de objetos na Meta
+// --- FUNÇÕES AUXILIARES (DETETIVES) ---
+
+// Busca o nome do objeto na Meta (Campanha, Anúncio, etc.)
 async function getMetaObjectName(objectId) {
     const accessToken = process.env.META_PAGE_ACCESS_TOKEN;
     if (!objectId || !accessToken) return null;
@@ -32,7 +32,7 @@ async function getMetaObjectName(objectId) {
     }
 }
 
-// Função autossuficiente para encontrar a organização
+// Descobre qual é a organização dona da página do Facebook
 async function getOrganizationIdByPageId(supabase, pageId) {
     const accessToken = process.env.META_PAGE_ACCESS_TOKEN;
     if (!accessToken) throw new Error("[DETETIVE] Token de Acesso à Página não configurado.");
@@ -51,7 +51,7 @@ async function getOrganizationIdByPageId(supabase, pageId) {
     return empresa.organizacao_id;
 }
 
-// Função para garantir que o funil e a primeira coluna existam
+// Garante que o Funil e a Coluna de entrada existam
 async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
     let { data: funil } = await supabase.from('funis').select('id').eq('nome', 'Funil de Vendas').eq('organizacao_id', organizacaoId).single();
     if (!funil) {
@@ -67,6 +67,31 @@ async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
     }
     return primeiraColuna.id;
 }
+
+// 🎯 NOVA FUNÇÃO: Busca o "Exército do Comercial"
+// Encontra todos os usuários que são 'Comercial' ou 'Proprietário' para avisar
+async function getEquipeComercial(supabase, organizacaoId) {
+    // 1. Acha os IDs das funções que nos interessam
+    const { data: funcoes } = await supabase
+        .from('funcoes')
+        .select('id')
+        .in('nome_funcao', ['Proprietário', 'Proprietario', 'Comercial']) // Pega donos e vendedores
+        .eq('organizacao_id', organizacaoId);
+        
+    if (!funcoes?.length) return [];
+    const funcoesIds = funcoes.map(f => f.id);
+    
+    // 2. Acha os usuários que têm essas funções
+    const { data: users } = await supabase
+        .from('usuarios')
+        .select('id')
+        .in('funcao_id', funcoesIds)
+        .eq('organizacao_id', organizacaoId);
+        
+    return users || [];
+}
+
+// --- FIM DAS FUNÇÕES AUXILIARES ---
 
 export async function GET(request) {
     const META_VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
@@ -93,7 +118,6 @@ export async function POST(request) {
 
         if (change?.field !== 'leadgen') return new NextResponse(JSON.stringify({ status: 'not_a_leadgen_event' }), { status: 200 });
         
-        // <<< MUDANÇA AQUI: Capturamos o adgroup_id que o Meta nos envia
         const { leadgen_id: leadId, page_id: pageId, campaign_id: campaignId, ad_id: adId, adgroup_id: adsetId } = change.value;
 
         if (!leadId || !pageId) {
@@ -106,40 +130,26 @@ export async function POST(request) {
         const organizacaoId = await getOrganizationIdByPageId(supabase, pageId);
         
         let campaignName = null;
-        let adsetName = null; // <<< MUDANÇA AQUI: Variável para o nome do conjunto
+        let adsetName = null;
         let adName = null;
 
-        // O webhook agora assume a responsabilidade de enriquecer os dados.
-        // Ele busca os nomes e garante que as tabelas de referência estejam atualizadas.
+        // Enriquecimento de dados (Campanha, Conjunto, Anúncio)
         if (campaignId) {
             campaignName = await getMetaObjectName(campaignId);
             await supabase.from('meta_campaigns').upsert({ id: campaignId, name: campaignName, organizacao_id: organizacaoId }).throwOnError();
         }
 
-        // <<< MUDANÇA AQUI: Bloco inteiro para buscar e salvar o Conjunto de Anúncios
         if (adsetId) {
             adsetName = await getMetaObjectName(adsetId);
-            if (campaignId) { // Um conjunto de anúncios sempre precisa de uma campanha
-                await supabase.from('meta_adsets').upsert({ 
-                    id: adsetId, 
-                    name: adsetName, 
-                    campaign_id: campaignId, 
-                    organizacao_id: organizacaoId 
-                }).throwOnError();
+            if (campaignId) {
+                await supabase.from('meta_adsets').upsert({ id: adsetId, name: adsetName, campaign_id: campaignId, organizacao_id: organizacaoId }).throwOnError();
             }
         }
         
         if (adId) {
             adName = await getMetaObjectName(adId);
-            // <<< MUDANÇA AQUI: Adicionamos o 'adset_id' ao salvar o anúncio para garantir a conexão correta
             if (campaignId && adsetId) { 
-                await supabase.from('meta_ads').upsert({ 
-                    id: adId, 
-                    name: adName, 
-                    campaign_id: campaignId, 
-                    adset_id: adsetId, 
-                    organizacao_id: organizacaoId 
-                }).throwOnError();
+                await supabase.from('meta_ads').upsert({ id: adId, name: adName, campaign_id: campaignId, adset_id: adsetId, organizacao_id: organizacaoId }).throwOnError();
             }
         }
 
@@ -150,6 +160,7 @@ export async function POST(request) {
         const allLeadData = {};
         leadDetails.field_data.forEach(field => { allLeadData[field.name] = field.values[0]; });
         
+        // Criação do Contato
         const { data: newContact, error: contactError } = await supabase.from('contatos').insert({
             nome: allLeadData.full_name || `Lead Meta (${new Date().toLocaleDateString()})`,
             origem: 'Meta Lead Ad',
@@ -159,14 +170,14 @@ export async function POST(request) {
             meta_lead_id: leadId,
             meta_ad_id: adId,
             meta_campaign_id: campaignId,
-            meta_adgroup_id: adsetId, // <<< MUDANÇA AQUI: Usando a variável correta
+            meta_adgroup_id: adsetId,
             meta_page_id: pageId,
             meta_form_id: change.value.form_id,
             meta_created_time: new Date(change.value.created_time * 1000).toISOString(),
             meta_form_data: allLeadData,
             meta_ad_name: adName,
             meta_campaign_name: campaignName,
-            meta_adset_name: adsetName // <<< MUDANÇA AQUI: Salvando o nome do conjunto no contato!
+            meta_adset_name: adsetName
         }).select('id').single();
 
         if (contactError) throw new Error(`Erro ao criar contato: ${contactError.message}`);
@@ -182,26 +193,37 @@ export async function POST(request) {
         
         console.log('LOG: SUCESSO! Contato adicionado ao funil!');
         
-        // 2. AQUI ESTÁ A LÓGICA DE NOTIFICAÇÃO 🔔
-        // Disparar para todos os Admins/Proprietários
-        const { data: admins } = await supabase
-            .from('usuarios')
-            .select('id')
-            .eq('organizacao_id', organizacaoId);
+        // --- 🔔 AVISANDO A EQUIPE COMERCIAL (Sininho) ---
+        try {
+            // 1. Descobre quem é da equipe
+            const equipeComercial = await getEquipeComercial(supabase, organizacaoId);
+            
+            if (equipeComercial.length > 0) {
+                console.log(`🔔 Notificando ${equipeComercial.length} membros do Comercial/Proprietários.`);
 
-        if (admins) {
-            const promises = admins.map(admin => 
-                enviarNotificacao({
-                    userId: admin.id,
-                    titulo: '🎉 Novo Lead do Instagram!',
-                    mensagem: `Lead (${allLeadData.full_name}) acabou de chegar pelo anúncio "${adName || 'Desconhecido'}".`,
+                // 2. Prepara as notificações
+                const notificacoes = equipeComercial.map(usuario => ({
+                    user_id: usuario.id,
+                    titulo: '🚀 Novo Lead Chegou!',
+                    mensagem: `Oportunidade: ${allLeadData.full_name} veio pelo anúncio "${adName || 'Desconhecido'}". Corre lá!`,
                     link: `/crm`,
-                    organizacaoId: organizacaoId,
-                    canal: 'comercial'
-                })
-            );
-            await Promise.allSettled(promises);
+                    tipo: 'sucesso', // Ícone verdinho de sucesso/dinheiro
+                    organizacao_id: organizacaoId,
+                    lida: false,
+                    created_at: new Date().toISOString()
+                }));
+
+                // 3. Insere no banco (Admin tem poder pra isso)
+                const { error: notifError } = await supabase.from('notificacoes').insert(notificacoes);
+                if (notifError) console.error('Erro ao inserir notificações:', notifError);
+            } else {
+                console.log('ℹ️ Ninguém da equipe Comercial/Proprietário encontrado para notificar.');
+            }
+        } catch (notifErr) {
+            console.error('Erro no bloco de notificação:', notifErr);
+            // Não paramos o processo se a notificação falhar, o lead já está salvo.
         }
+        // --- FIM DA NOTIFICAÇÃO ---
 
         return new NextResponse(JSON.stringify({ status: 'success' }), { status: 200 });
 

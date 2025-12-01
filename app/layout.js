@@ -1,27 +1,22 @@
-// Local do Arquivo: app/layout.js
+﻿// Local do Arquivo: app/layout.js
 
-import UpdatePrompt from '@/components/shared/UpdatePrompt';
-import { Inter } from 'next/font/google';
-import './globals.css';
-import { Toaster } from 'sonner';
-import Script from 'next/script';
-import { Providers } from './providers';
-import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { Toaster } from "sonner";
+import Script from "next/script";
+import { Providers } from "./providers";
+import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
+import QueryProvider from "./QueryProvider";
 
-// --- MUDANÇA AQUI ---
-// 1. Importamos o seu QueryProvider que criamos
-import QueryProvider from './QueryProvider';
-// --- FIM DA MUDANÇA ---
-
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: 'Studio 57',
-  description: 'Sistema de Gestão Integrada',
-  manifest: '/manifest.json',
+  title: "Studio 57",
+  description: "Sistema de Gestão Integrada",
+  manifest: "/manifest.json",
   icons: {
-    icon: '/favicon.ico',
-    apple: '/icons/icon-192x192.png',
+    icon: "/favicon.ico",
+    apple: "/icons/icon-192x192.png",
   },
 };
 
@@ -32,8 +27,7 @@ export default function RootLayout({ children }) {
         <meta name="theme-color" content="#0288d1" />
       </head>
       <body className={inter.className}>
-        <ServiceWorkerRegistrar />
-
+        
         <div id="fb-root"></div>
         <Script
           async
@@ -46,10 +40,10 @@ export default function RootLayout({ children }) {
           {`
             window.fbAsyncInit = function() {
               FB.init({
-                appId      : '1518358099511142',
+                appId      : "1518358099511142",
                 cookie     : true,
                 xfml       : true,
-                version    : 'v20.0'
+                version    : "v20.0"
               });
               FB.AppEvents.logPageView();   
             };
@@ -57,18 +51,15 @@ export default function RootLayout({ children }) {
         </Script>
         <Script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" strategy="beforeInteractive" />
 
-        {/* ##### INÍCIO DA CORREÇÃO ##### */}
-        {/* Agora, envolvemos os 'children' com o QueryProvider
-            DENTRO do componente <Providers> que já existia. */}
+        {/* --- CORREÇÃO AQUI --- */}
+        {/* O ServiceWorkerRegistrar precisa estar DENTRO do Providers para acessar o useAuth */}
         <Providers>
-          {/* --- MUDANÇA AQUI --- */}
-          {/* 2. Ligamos o "Carregamento Mágico" em toda a aplicação */}
           <QueryProvider>
+            <ServiceWorkerRegistrar />
             {children}
           </QueryProvider>
-          {/* --- FIM DA MUDANÇA --- */}
         </Providers>
-        {/* ##### FIM DA CORREÇÃO ##### */}
+        {/* --- FIM DA CORREÇÃO --- */}
 
         <Toaster richColors position="top-right" />
       </body>
