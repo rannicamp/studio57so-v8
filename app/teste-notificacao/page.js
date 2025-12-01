@@ -12,9 +12,11 @@ import {
     faUsers, 
     faCheckCircle, 
     faExclamationTriangle,
-    faMoneyBillWave,
+    faMoneyBillWave, 
     faHardHat,
-    faSearch
+    faSearch,
+    faMobileAlt,
+    faVial
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function TesteNotificacaoPage() {
@@ -54,6 +56,7 @@ export default function TesteNotificacaoPage() {
             setDestinatarios(data.users || []);
         } catch (error) {
             console.error("Erro ao buscar usuários:", error);
+            toast.error("Erro ao buscar lista de usuários.");
         } finally {
             setBuscandoDestinatarios(false);
         }
@@ -108,7 +111,7 @@ export default function TesteNotificacaoPage() {
     };
 
     return (
-        <div className="p-8 max-w-4xl mx-auto">
+        <div className="p-4 md:p-8 max-w-5xl mx-auto">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
                 {/* Coluna da Esquerda: Formulário */}
@@ -120,7 +123,7 @@ export default function TesteNotificacaoPage() {
                                 Laboratório de Notificações
                             </h1>
                             <p className="text-blue-100 mt-2 text-sm">
-                                Configure e dispare alertas do sistema.
+                                Configure e dispare alertas do sistema para testes.
                             </p>
                         </div>
 
@@ -201,6 +204,7 @@ export default function TesteNotificacaoPage() {
                                         value={titulo}
                                         onChange={(e) => setTitulo(e.target.value)}
                                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                        placeholder="Ex: Novo Contrato"
                                     />
                                 </div>
                                 
@@ -210,6 +214,7 @@ export default function TesteNotificacaoPage() {
                                         value={mensagem}
                                         onChange={(e) => setMensagem(e.target.value)}
                                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none"
+                                        placeholder="Descreva o aviso aqui..."
                                     />
                                 </div>
 
@@ -220,6 +225,7 @@ export default function TesteNotificacaoPage() {
                                         value={link}
                                         onChange={(e) => setLink(e.target.value)}
                                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm"
+                                        placeholder="/painel/financeiro"
                                     />
                                 </div>
                             </div>
@@ -239,47 +245,105 @@ export default function TesteNotificacaoPage() {
 
                         </form>
                     </div>
+
+                    {/* --- DIAGNÓSTICO MOBILE --- */}
+                    <div className="p-6 bg-gray-50 rounded-xl border border-gray-200 shadow-sm">
+                        <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faMobileAlt} className="text-gray-500" />
+                            Diagnóstico Mobile (Teste Local)
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Use este botão para verificar se o seu celular consegue vibrar e exibir notificações. 
+                            Este teste é <strong>local</strong> (não passa pelo servidor), servindo para isolar problemas de configuração do aparelho.
+                        </p>
+                        
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                if (!("serviceWorker" in navigator)) {
+                                    alert("❌ Seu navegador não suporta Service Worker.");
+                                    return;
+                                }
+                                
+                                // Solicita permissão se ainda não tiver
+                                if (Notification.permission === 'default') {
+                                    await Notification.requestPermission();
+                                }
+
+                                if (Notification.permission !== 'granted') {
+                                    alert("❌ Permissão de notificação negada! Verifique as configurações do navegador.");
+                                    return;
+                                }
+
+                                try {
+                                    const reg = await navigator.serviceWorker.ready;
+                                    await reg.showNotification("Teste de Vibração", {
+                                        body: "Se você sentiu vibrar, o celular está pronto! 📳",
+                                        icon: "/icons/icon-192x192.png",
+                                        vibrate: [200, 100, 200, 100, 200] // Padrão de vibração
+                                    });
+                                    toast.success("Comando enviado para o celular!");
+                                } catch (e) {
+                                    alert("Erro ao tentar notificar: " + e.message);
+                                }
+                            }}
+                            className="w-full bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                        >
+                            <FontAwesomeIcon icon={faVial} />
+                            Testar Vibração Agora
+                        </button>
+                        <p className="text-[10px] text-gray-400 mt-2 italic text-center">
+                            * Se não vibrar: verifique se o site está adicionado à tela de início (iOS) ou se o modo 'Não Perturbe' está desligado.
+                        </p>
+                    </div>
                 </div>
 
                 {/* Coluna da Direita: Lista de Quem Vai Receber */}
                 <div className="md:col-span-1">
-                    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 h-full">
-                        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 sticky top-6">
+                        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-2">
                             <FontAwesomeIcon icon={faSearch} className="text-gray-400" />
                             Quem vai receber?
                         </h3>
                         
                         {modo === 'mim' ? (
-                            <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 text-sm text-blue-700">
-                                <span className="font-bold">Você mesmo!</span> <br/>
-                                (Apenas para teste)
+                            <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 text-sm text-blue-700 flex flex-col items-center text-center gap-2">
+                                <div className="w-10 h-10 bg-blue-200 rounded-full flex items-center justify-center text-blue-700 font-bold">
+                                    EU
+                                </div>
+                                <div>
+                                    <span className="font-bold block">Você mesmo!</span>
+                                    <span className="text-xs opacity-80">(Apenas para teste)</span>
+                                </div>
                             </div>
                         ) : buscandoDestinatarios ? (
-                            <div className="text-center py-10 text-gray-400 animate-pulse">
-                                Buscando usuários...
+                            <div className="text-center py-10 text-gray-400 animate-pulse flex flex-col items-center gap-2">
+                                <FontAwesomeIcon icon={faSearch} spin />
+                                <span className="text-sm">Buscando usuários...</span>
                             </div>
                         ) : destinatarios.length > 0 ? (
                             <div className="space-y-3">
-                                <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                                     {destinatarios.length} Destinatário(s) encontrado(s)
                                 </div>
-                                <ul className="space-y-2">
+                                <div className="max-h-[500px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
                                     {destinatarios.map((u) => (
-                                        <li key={u.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
-                                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                                        <div key={u.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors bg-gray-50/50">
+                                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex-shrink-0 flex items-center justify-center font-bold text-xs border border-blue-200">
                                                 {u.nome ? u.nome.charAt(0).toUpperCase() : '?'}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-semibold text-gray-800 truncate">
                                                     {u.nome || 'Usuário sem nome'}
                                                 </p>
-                                                <p className="text-xs text-gray-500 truncate">
+                                                <p className="text-xs text-gray-500 truncate flex items-center gap-1">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
                                                     {u.funcoes?.nome_funcao || 'Sem Cargo'}
                                                 </p>
                                             </div>
-                                        </li>
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             </div>
                         ) : (
                             <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200">
