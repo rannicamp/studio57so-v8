@@ -1,69 +1,77 @@
-﻿self.addEventListener("push", function (event) {
-  // 1. Prepara os dados padrão (caso tudo falhe)
+﻿// public/custom-sw.js
+
+// 1. Instalação: Força o novo Service Worker a assumir o controle imediatamente
+self.addEventListener('install', (event) => {
+  console.log('👷 Service Worker: Instalando...');
+  self.skipWaiting(); // Pula a espera e ativa na hora!
+});
+
+// 2. Ativação: Limpa caches antigos e reclama controle das abas abertas
+self.addEventListener('activate', (event) => {
+  console.log('👷 Service Worker: Ativo e pronto!');
+  event.waitUntil(clients.claim()); // Toma controle de todas as abas abertas
+});
+
+// 3. Recebimento do Push (O Carteiro chegou)
+self.addEventListener("push", function (event) {
+  console.log('🔔 Push recebido no SW!');
+
+  // Dados padrão caso venha vazio
   let data = { 
     title: "Studio 57", 
-    body: "Nova notificação recebida!", 
-    url: "/" 
+    body: "Você tem uma nova mensagem.", 
+    url: "/painel",
+    icon: "/icons/icon-192x192.png"
   };
 
-  // 2. Tenta extrair os dados reais enviados pelo servidor
   if (event.data) {
     try {
-      // Tenta converter o texto para JSON (Objeto)
       const payload = event.data.json();
-      
-      // Se conseguir, atualiza os dados
-      data.title = payload.title || data.title;
-      data.body = payload.body || data.body;
-      data.url = payload.url || payload.link || data.url; // Aceita 'url' ou 'link'
-      
+      data = { ...data, ...payload };
+      // Normaliza URL (aceita 'link' ou 'url')
+      data.url = payload.url || payload.link || data.url;
     } catch (e) {
-      // Se der erro no JSON, usa o texto puro como mensagem
-      console.log("Erro ao ler JSON da notificação:", e);
       data.body = event.data.text();
     }
   }
 
-  // 3. Configurações Visuais do Android
+  // Configurações Específicas para Android
   const options = {
     body: data.body,
-    icon: "/icons/icon-192x192.png", // Ícone grande
-    badge: "/icons/icon-192x192.png", // Ícone pequeno na barra de status
-    vibrate: [100, 50, 100], // Padrão de vibração
-    data: {
-      url: data.url
-    },
+    icon: data.icon, // Ícone grande (ao lado do texto)
+    badge: "/icons/icon-192x192.png", // Ícone pequeno na barra de status (deve ser branco/transparente idealmente)
+    vibrate: [100, 50, 100, 50, 100], // Padrão de vibração mais chamativo
+    data: { url: data.url }, // Guarda a URL para usar no clique
+    tag: "studio57-notification", // Agrupa notificações para não encher a barra
+    renotify: true, // Vibra novamente mesmo se a notificação já estiver lá
+    requireInteraction: true, // (Opcional) A notificação fica na tela até o usuário interagir
     actions: [
-      { action: "open", title: "Ver Agora" }
-    ],
-    tag: "studio57-notification", // Evita flood de notificações iguais
-    renotify: true // Vibra novamente mesmo se tiver o mesmo tag
+      { action: "open", title: "Ver Agora 🚀" }
+    ]
   };
 
-  // 4. O comando SHOWNOTIFICATION é OBRIGATÓRIO.
-  // Usamos event.waitUntil para garantir que o navegador espere isso terminar.
   event.waitUntil(
     self.registration.showNotification(data.title, options)
   );
 });
 
-// Ação ao Clicar na Notificação
+// 4. Clique na Notificação
 self.addEventListener("notificationclick", function (event) {
-  event.notification.close(); // Fecha a notificação da barra
+  event.notification.close(); // Fecha o aviso
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (clientList) {
-      const urlToOpen = event.notification.data.url || "/";
+      const urlToOpen = event.notification.data.url || "/painel";
 
-      // Tenta focar numa aba já aberta
+      // Tenta focar numa aba que já existe
       for (let i = 0; i < clientList.length; i++) {
         const client = clientList[i];
-        if (client.url === urlToOpen && "focus" in client) {
+        if (client.url.includes(urlToOpen) && "focus" in client) {
           return client.focus();
         }
       }
       
-      // Se não tiver aba aberta, abre uma nova
+      // Se não tiver, abre uma nova
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
