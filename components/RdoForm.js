@@ -2,15 +2,15 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTruck, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+import { faTruck, faCheckCircle, faPrint, faFilePdf, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import imageCompression from 'browser-image-compression';
 import { toast } from 'sonner';
-// 1. IMPORTAÇÃO DA NOTIFICAÇÃO 🔔
 import { notificarGrupo } from '@/utils/notificacoes';
+import RdoPrintView from './RdoPrintView';
 
 const STATUS_CONFIG = {
   'em andamento': { order: 1, colorClass: 'border-l-4 border-blue-500' },
@@ -25,10 +25,14 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const supabase = createClient();
   const { hasPermission, user } = useAuth();
   const organizacaoId = user?.organizacao_id;
+  const printRef = useRef();
 
   const [message, setMessage] = useState('');
   const [loadingForm, setLoadingForm] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  
+  // NOVO ESTADO: Controla o loading da impressão
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const [rdoFormData, setRdoFormData] = useState({});
   const [activityStatuses, setActivityStatuses] = useState([]);
@@ -48,6 +52,57 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   const weatherOptions = ["Ensolarado", "Nublado", "Chuvoso", "Parcialmente Nublado", "Ventania", "Tempestade"];
   const occurrenceTypes = ["Informativa", "Alerta", "Grave", "Acidente de Trabalho", "Condição Insegura"];
 
+  // =======================================================================
+  // FUNÇÃO DE IMPRESSÃO INTELIGENTE (Smart Print) 🧠🖨️
+  // =======================================================================
+  const handlePrint = async () => {
+    if (isGeneratingPdf) return;
+    
+    setIsGeneratingPdf(true);
+    const toastId = toast.loading("Preparando fotos e gerando PDF... Aguarde.");
+
+    try {
+        // 1. Pequeno delay para garantir que o React montou o componente oculto
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        if (printRef.current) {
+            // 2. Busca todas as imagens dentro da área de impressão
+            const images = printRef.current.querySelectorAll('img');
+            const totalImages = images.length;
+
+            if (totalImages > 0) {
+                // 3. Cria uma verificação para cada imagem
+                const imagePromises = Array.from(images).map(img => {
+                    // Se já estiver completa (em cache), resolve na hora
+                    if (img.complete) return Promise.resolve();
+                    
+                    // Se não, espera o evento de load (ou error para não travar)
+                    return new Promise(resolve => {
+                        img.onload = resolve;
+                        img.onerror = resolve; 
+                    });
+                });
+
+                // 4. Pausa a execução até todas as imagens baixarem
+                await Promise.all(imagePromises);
+            }
+        }
+
+        // 5. Delay final de segurança para renderização visual
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        toast.dismiss(toastId);
+        window.print();
+
+    } catch (error) {
+        console.error("Erro ao gerar PDF:", error);
+        toast.error("Erro ao preparar o documento.", { id: toastId });
+    } finally {
+        setIsGeneratingPdf(false);
+    }
+  };
+  // =======================================================================
+
   const setupFormWithData = useCallback(async (rdoData) => {
     if (!rdoData || !organizacaoId) {
       setLoadingForm(false);
@@ -63,7 +118,8 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         rdo_numero: rdoData.rdo_numero,
         condicoes_climaticas: rdoData.condicoes_climaticas,
         condicoes_trabalho: rdoData.condicoes_trabalho,
-        empreendimento_id: rdoData.empreendimento_id
+        empreendimento_id: rdoData.empreendimento_id,
+        responsavel_nome: rdoData.usuarios ? `${rdoData.usuarios.nome} ${rdoData.usuarios.sobrenome}` : (rdoData.responsavel_rdo || 'Não identificado')
       });
 
       if (rdoData.usuarios) {
@@ -78,7 +134,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
       const dataRelatorio = new Date(rdoData.data_relatorio + 'T00:00:00Z');
       const dataRelatorioStr = rdoData.data_relatorio;
 
-      // 2. CORREÇÃO NA BUSCA: Adicionamos 'titulo' para usar na notificação
       const { data: pedidosData } = await supabase
         .from('pedidos_compra')
         .select('id, titulo, justificativa, status, itens:pedidos_compra_itens(descricao_item)')
@@ -263,18 +318,15 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
     toast.promise(promise(), {
         loading: "Processando entrega do pedido...",
         success: async (id) => {
-            // Atualiza visualmente
             setPedidosPrevistos(prev => prev.map(p =>
                 p.id === id ? { ...p, status: 'Entregue' } : p
             ));
 
-            // Busca título para notificação
             const pedidoInfo = pedidosPrevistos.find(p => p.id === id);
             const tituloPedido = pedidoInfo?.titulo || '';
 
-            // 3. DISPARO DA NOTIFICAÇÃO 🚚📢
             await notificarGrupo({
-                permissao: 'pedidos', // Avisa equipe de Compras
+                permissao: 'pedidos',
                 titulo: '✅ Entrega Recebida no RDO',
                 mensagem: `O Pedido #${id} ${tituloPedido ? `(${tituloPedido})` : ''} foi recebido e conferido pelo Diário de Obra.`,
                 link: `/pedidos/${id}`,
@@ -515,15 +567,38 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   }
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow">
-      <h2 className="text-2xl font-bold text-gray-900 mb-4">Detalhes do RDO</h2>
+    <div className="bg-white p-6 rounded-lg shadow print:shadow-none print:p-0">
+      {/* CABEÇALHO COM BOTÃO DE IMPRESSÃO */}
+      <div className="flex justify-between items-center mb-6 print:hidden">
+        <h2 className="text-2xl font-bold text-gray-900">Detalhes do RDO</h2>
+        <button
+          onClick={handlePrint}
+          disabled={isGeneratingPdf}
+          className={`bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center gap-2 shadow-sm transition-colors ${isGeneratingPdf ? 'opacity-75 cursor-wait' : ''}`}
+        >
+          {isGeneratingPdf ? (
+            <>
+              <FontAwesomeIcon icon={faSpinner} spin />
+              Gerando PDF...
+            </>
+          ) : (
+            <>
+              <FontAwesomeIcon icon={faFilePdf} />
+              Imprimir / Salvar PDF
+            </>
+          )}
+        </button>
+      </div>
+
       {isRdoLocked && (
-        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 print:hidden" role="alert">
           <p className="font-bold">RDO Fechado!</p>
           <p>Este RDO é de uma data passada e não pode ser editado. Apenas visualização é permitida.</p>
         </div>
       )}
-      <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+
+      {/* FORMULÁRIO (Visível apenas na tela) */}
+      <form onSubmit={(e) => e.preventDefault()} className="space-y-6 print:hidden">
         <div className="border-b border-gray-200 pb-4">
           <h3 className="text-xl font-semibold text-gray-800 mb-3">Informações Gerais</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -707,6 +782,17 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         
         {message && <p className="text-center mt-4 text-sm font-medium">{message}</p>}
       </form>
+
+      {/* COMPONENTE DE IMPRESSÃO (Smart Loading das Imagens) */}
+      <RdoPrintView 
+        ref={printRef}
+        rdoData={rdoFormData}
+        atividades={sortedActivityStatuses}
+        maoDeObra={employeePresences}
+        ocorrencias={allOccurrences}
+        fotos={allPhotosMetadata}
+        pedidos={pedidosPrevistos}
+      />
     </div>
   );
 }

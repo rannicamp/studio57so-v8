@@ -9,7 +9,6 @@ import { LayoutProvider } from '../../contexts/LayoutContext';
 import { EmpreendimentoProvider, useEmpreendimento } from '../../contexts/EmpreendimentoContext';
 import { useAuth } from '../../contexts/AuthContext';
 import PoliticasModal from '../../components/PoliticasModal';
-// CORREÇÃO AQUI: Atualizando o caminho para a nova pasta 'atividades'
 import AtividadeModal from '../../components/atividades/AtividadeModal';
 import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
@@ -88,26 +87,47 @@ function MainLayout({ children }) {
     const finalMainContentMargin = mainContentMargins[sidebarPosition] || mainContentMargins.left;
     const finalHeaderMargin = headerMargins[sidebarPosition] || headerMargins.left;
 
+    // Layout Específico da Caixa de Entrada
     const layoutCaixaDeEntrada = (
         <div className={`${finalContainerClass} h-screen w-full bg-gray-100 overflow-hidden`}>
-            <Sidebar isCollapsed={isCollapsed} toggleSidebar={toggleSidebar} isAdmin={isProprietario}/>
+            {/* CORREÇÃO: Esconde Sidebar na impressão */}
+            <div className="print:hidden">
+                <Sidebar isCollapsed={isCollapsed} toggleSidebar={toggleSidebar} isAdmin={isProprietario}/>
+            </div>
+            
             <div className="flex flex-1 flex-col overflow-hidden">
-                <div className="flex-shrink-0">
+                {/* CORREÇÃO: Esconde Header na impressão */}
+                <div className="flex-shrink-0 print:hidden">
                     <Header />
                 </div>
-                <main className="flex-grow min-h-0"> 
+                {/* CORREÇÃO: Reseta overflow na impressão */}
+                <main className="flex-grow min-h-0 print:overflow-visible print:h-auto"> 
                     {children}
                 </main>
             </div>
         </div>
     );
 
+    // Layout Padrão (Usado no RDO)
     const layoutPadrao = (
         <div className={finalContainerClass}>
-            <Sidebar isCollapsed={isCollapsed} toggleSidebar={toggleSidebar} isAdmin={isProprietario}/>
+            {/* CORREÇÃO: Esconde Sidebar na impressão */}
+            <div className="print:hidden">
+                <Sidebar isCollapsed={isCollapsed} toggleSidebar={toggleSidebar} isAdmin={isProprietario}/>
+            </div>
+
             <div className="flex-1">
-                <Header headerPositionClass={finalHeaderMargin} />
-                <main className={`transition-all duration-300 ${isCotacoesBarVisible ? 'mt-[89px]' : 'mt-[65px]'} ${finalMainContentMargin}`}>
+                {/* CORREÇÃO: Esconde Header na impressão */}
+                <div className="print:hidden">
+                    <Header headerPositionClass={finalHeaderMargin} />
+                </div>
+
+                {/* CORREÇÃO FINAL: 
+                    print:!m-0 -> Remove a margem lateral (do menu)
+                    print:!mt-0 -> Remove a margem superior (do header)
+                    print:w-full -> Força largura total
+                */}
+                <main className={`transition-all duration-300 ${isCotacoesBarVisible ? 'mt-[89px]' : 'mt-[65px]'} ${finalMainContentMargin} print:!m-0 print:!p-0 print:w-full`}>
                     {children}
                 </main>
             </div>

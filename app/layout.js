@@ -1,22 +1,22 @@
-﻿// Local do Arquivo: app/layout.js
+﻿// app/layout.js
 
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { Toaster } from "sonner";
-import Script from "next/script";
-import { Providers } from "./providers";
-import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
-import QueryProvider from "./QueryProvider";
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { Toaster } from 'sonner';
+import Script from 'next/script';
+import { Providers } from './providers';
+import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
+import QueryProvider from './QueryProvider';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-  title: "Studio 57",
-  description: "Sistema de Gestão Integrada",
-  manifest: "/manifest.json",
+  title: 'Studio 57',
+  description: 'Sistema de Gestão Integrada',
+  manifest: '/manifest.json',
   icons: {
-    icon: "/favicon.ico",
-    apple: "/icons/icon-192x192.png",
+    icon: '/favicon.ico',
+    apple: '/icons/icon-192x192.png',
   },
 };
 
@@ -27,7 +27,8 @@ export default function RootLayout({ children }) {
         <meta name="theme-color" content="#0288d1" />
       </head>
       <body className={inter.className}>
-        
+        <ServiceWorkerRegistrar />
+
         <div id="fb-root"></div>
         <Script
           async
@@ -40,10 +41,10 @@ export default function RootLayout({ children }) {
           {`
             window.fbAsyncInit = function() {
               FB.init({
-                appId      : "1518358099511142",
+                appId      : '1518358099511142',
                 cookie     : true,
                 xfml       : true,
-                version    : "v20.0"
+                version    : 'v20.0'
               });
               FB.AppEvents.logPageView();   
             };
@@ -51,17 +52,22 @@ export default function RootLayout({ children }) {
         </Script>
         <Script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" strategy="beforeInteractive" />
 
-        {/* --- CORREÇÃO AQUI --- */}
-        {/* O ServiceWorkerRegistrar precisa estar DENTRO do Providers para acessar o useAuth */}
         <Providers>
           <QueryProvider>
-            <ServiceWorkerRegistrar />
             {children}
           </QueryProvider>
         </Providers>
-        {/* --- FIM DA CORREÇÃO --- */}
 
-        <Toaster richColors position="top-right" />
+        {/* CORREÇÃO AQUI: Adicionado toastOptions com print:hidden 
+            Isso garante que NENHUM aviso (Sonner) saia na impressão do PDF.
+        */}
+        <Toaster 
+          richColors 
+          position="top-right" 
+          toastOptions={{
+            className: 'print:hidden'
+          }}
+        />
       </body>
     </html>
   );

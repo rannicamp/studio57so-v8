@@ -26,11 +26,17 @@ export default async function RdoEditPage({ params }) {
 
   return (
     <div className="space-y-6">
-      <Link href="/rdo/gerenciador" className="text-blue-500 hover:underline mb-4 inline-block">
+      {/* CORREÇÃO: Adicionado 'print:hidden' 
+          Assim, este botão desaparece quando você clicar em Imprimir 
+      */}
+      <Link 
+        href="/rdo/gerenciador" 
+        className="text-blue-500 hover:underline mb-4 inline-block print:hidden"
+      >
           &larr; Voltar para o Gerenciador de RDOs
       </Link>
       
-      {/* O formulário agora é renderizado com todos os dados do RDO selecionado */}
+      {/* O formulário do RDO */}
       <RdoForm initialRdoData={rdo} />
     </div>
   );
