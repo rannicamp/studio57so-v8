@@ -10,12 +10,14 @@ import {
     faSpinner, faTrash, faPlus, faPencilAlt, faPaperclip, faUpload, faDownload, 
     faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom, 
     faHandHoldingDollar, faAlignLeft, faCheck, 
-    faCheckCircle // <-- ÍCONE DE CHECK ADICIONADO
+    faCheckCircle 
 } from '@fortawesome/free-solid-svg-icons';
 import PedidoItemModal from './PedidoItemModal';
 import LancamentoFormModal from './financeiro/LancamentoFormModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+// 1. IMPORTAÇÃO DA NOTIFICAÇÃO 🔔
+import { notificarGrupo } from '@/utils/notificacoes';
 
 
 const formatDuration = (milliseconds) => {
@@ -31,7 +33,6 @@ const formatDuration = (milliseconds) => {
 const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
     if (!pedidoId || !organizacaoId) throw new Error("ID do Pedido ou da Organização não encontrado.");
 
-    // 1. Busca dados do Pedido (com lancamentos)
     const { data: pedidoData, error: pedidoError } = await supabase
         .from('pedidos_compra')
         .select(`
@@ -52,15 +53,12 @@ const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
 
     if (pedidoError) throw new Error(`Ao carregar o pedido: ${pedidoError.message}`);
 
-    // 2. Busca Etapas
     const { data: etapasData, error: etapasError } = await supabase.from('etapa_obra').select('id, nome_etapa').eq('organizacao_id', organizacaoId);
     if (etapasError) throw new Error(`Ao carregar etapas: ${etapasError.message}`);
     
-    // 3. Busca Contas Financeiras
     const { data: contasData, error: contasError } = await supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', organizacaoId);
     if (contasError) throw new Error(`Ao carregar contas: ${contasError.message}`);
 
-    // 4. Busca Fornecedores
     const { data: fornecedoresData, error: fornError } = await supabase
         .from('clientes')
         .select('id, nome, razao_social, nome_fantasia')
@@ -242,20 +240,33 @@ export default function PedidoForm({ pedidoId }) {
                 const { data, error } = await supabase.from('pedidos_compra_itens').update(dataToSave).eq('id', itemData.id).eq('organizacao_id', organizacaoId).select();
                 if (error) { throw error; }
                 if (!data || data.length === 0) { throw new Error("O item não foi encontrado para atualização."); }
-                return { data: data[0], isEditing };
+                return { data: data[0], isEditing, itemDesc: itemData.descricao_item };
             } else {
                 const { data, error } = await supabase.from('pedidos_compra_itens').insert(dataToSave).select();
                 if (error) throw error;
                 if (!data || data.length === 0) { throw new Error("Falha ao criar o novo item."); }
-                return { data: data[0], isEditing };
+                return { data: data[0], isEditing, itemDesc: itemData.descricao_item };
             }
         },
-        onSuccess: (result) => {
+        onSuccess: async (result) => {
             mutationOptions.onSuccess();
-            const { isEditing } = result;
+            const { isEditing, itemDesc } = result;
             toast.success(`Item ${isEditing ? 'atualizado' : 'adicionado'}!`);
             setIsItemModalOpen(false);
             setEditingItem(null);
+
+            // 2. DISPARO DA NOTIFICAÇÃO 📢
+            // Se for um novo item, avisamos a equipe de compras
+            if (!isEditing) {
+                await notificarGrupo({
+                    permissao: 'pedidos', // Quem vê pedidos (equipe de compras) recebe
+                    titulo: '📦 Nova Solicitação de Material',
+                    mensagem: `${user?.nome || 'Alguém'} adicionou "${itemDesc}" ao Pedido #${pedidoId}.`,
+                    link: `/pedidos/${pedidoId}`,
+                    tipo: 'alerta', // Ícone de alerta (ou poderia ser obras/financeiro)
+                    organizacaoId
+                });
+            }
         },
         onError: (err) => toast.error(`Falha ao salvar o item: ${err.message}`),
     });
@@ -345,18 +356,13 @@ export default function PedidoForm({ pedidoId }) {
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     const getSortIcon = (key) => { if (sortConfig.key !== key) return <FontAwesomeIcon icon={faSort} className="text-gray-400" />; return sortConfig.direction === 'ascending' ? <FontAwesomeIcon icon={faSortUp} /> : <FontAwesomeIcon icon={faSortDown} />; };
 
-    // =================================================================================
-    // LÓGICA DE ANISTIA (DATA DE CORTE)
-    // =================================================================================
     const cutoffDate = new Date('2025-11-12T23:59:59');
     const dataSolicitacao = new Date(pedido.data_solicitacao);
     const isAntigo = dataSolicitacao <= cutoffDate;
     const isLancadoDeFato = pedido.lancamentos && pedido.lancamentos.length > 0;
     
-    // O pedido é considerado "OK" se já foi lançado OU se é antigo (anistiado)
     const jaLancado = isLancadoDeFato || isAntigo;
     
-    // Mensagem de ajuda
     let helpText = "Clique no botão para agendar este pedido como uma despesa futura.";
     if (isLancadoDeFato) {
         helpText = "Este pedido já possui um planejamento financeiro registrado.";
@@ -400,9 +406,6 @@ export default function PedidoForm({ pedidoId }) {
                         <p className="text-sm text-gray-700">
                             {helpText}
                         </p>
-                        {/* =================================================================================
-                         * BOTÃO ATUALIZADO (Cor, Texto, Ícone, Disabled)
-                         * ================================================================================= */}
                         <button 
                             onClick={handleOpenLancamentoModal} 
                             disabled={jaLancado} 
