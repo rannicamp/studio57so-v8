@@ -189,11 +189,10 @@ export default function FinanceiroPage() {
             if (hasActiveFilters) return; 
 
             const cacheKey = LANCAMENTOS_CACHE_KEY;
-            const cachedData = localStorage.getItem(cacheKey);
-
-            if (isInitialFetchCompleted.current && JSON.stringify(lancamentosData) !== cachedData) {
-                toast.success('Página atualizada!', { duration: 2000, icon: <FontAwesomeIcon icon={faSyncAlt} /> });
-            }
+            
+            // ATUALIZAÇÃO SILENCIOSA DO CACHE 🤫
+            // Removemos a verificação que disparava o toast.
+            // O sistema apenas salva os novos dados para a próxima vez.
             
             localStorage.setItem(cacheKey, JSON.stringify(lancamentosData));
 

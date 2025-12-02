@@ -1,4 +1,3 @@
-// components/contratos/FichaContrato.js
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react'; 
@@ -106,14 +105,13 @@ export default function FichaContrato({
         staleTime: 1000 * 60 * 5, 
     });
 
-    // (useEffect de Notificação inalterado)
+    // (useEffect de Notificação SILENCIADO 🤫)
     useEffect(() => {
         if (hasMounted.current) {
             if (!isRefetching && !isLoadingContrato && !isErrorContrato) {
-                toast("Página atualizada!", {
-                    description: "Os dados foram sincronizados em segundo plano.",
-                    icon: <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
-                });
+                // AQUI ESTAVA O TOAST "Página atualizada!".
+                // Removido para garantir silêncio.
+                console.log("Dados do contrato atualizados em segundo plano.");
             }
         } else {
             hasMounted.current = true;

@@ -19,7 +19,7 @@ import { useEmpreendimento } from '../../contexts/EmpreendimentoContext';
 import { useDebounce } from 'use-debounce';
 import { useAuth } from '../../contexts/AuthContext';
 
-// Funções de cache e busca (sem alterações)
+// Funções de cache e busca
 const getAlmoxarifadoCacheKey = (empreendimentoId) => `almoxarifadoEstoqueData_${empreendimentoId}`;
 
 const fetchEstoqueData = async (supabase, empreendimentoId, organizacaoId) => {
@@ -80,7 +80,7 @@ export default function AlmoxarifadoManager() {
     const [isAdicionarMaterialModalOpen, setIsAdicionarMaterialModalOpen] = useState(false);
     const [selectedEstoqueItem, setSelectedEstoqueItem] = useState(null);
 
-    // Mutação para alterar classificação (sem alterações)
+    // Mutação para alterar classificação
     const [updatingMaterialId, setUpdatingMaterialId] = useState(null);
     const updateClassificacaoMutation = useMutation({
         mutationFn: async ({ materialId, novaClassificacao }) => {
@@ -105,7 +105,7 @@ export default function AlmoxarifadoManager() {
         updateClassificacaoMutation.mutate({ materialId: material.id, novaClassificacao, materialNome: material.nome });
     };
 
-    // useQuery para buscar dados (sem alterações)
+    // useQuery para buscar dados
     const { data: estoqueCompleto, isLoading, isError, error, isSuccess } = useQuery({
         queryKey: ['estoque', empreendimentoId, organizacaoId],
         queryFn: () => fetchEstoqueData(supabase, empreendimentoId, organizacaoId),
@@ -113,23 +113,21 @@ export default function AlmoxarifadoManager() {
         placeholderData: () => getCachedEstoqueData(empreendimentoId),
     });
 
-    // useEffect para salvar cache e notificar (sem alterações)
+    // useEffect para salvar cache (SILENCIOSO AGORA 🤫)
     useEffect(() => {
         if (estoqueCompleto && isSuccess) {
             try {
                 const cacheKey = getAlmoxarifadoCacheKey(empreendimentoId);
-                const cachedData = localStorage.getItem(cacheKey);
-                // Notifica apenas se a busca foi concluída E os dados são diferentes do cache
-                if (isInitialFetchCompleted.current && JSON.stringify(estoqueCompleto) !== cachedData) {
-                    toast.success('Página atualizada!', { duration: 2000 });
-                }
+                
+                // Atualiza o cache silenciosamente
                 localStorage.setItem(cacheKey, JSON.stringify(estoqueCompleto));
+                
                 // Marca que a busca inicial (ou uma busca bem-sucedida) foi completada
                 if (!isInitialFetchCompleted.current) {
                     isInitialFetchCompleted.current = true;
                 }
             } catch (error) {
-                console.error("Erro ao salvar ou notificar o cache do Almoxarifado:", error);
+                console.error("Erro ao salvar o cache do Almoxarifado:", error);
             }
         }
     }, [estoqueCompleto, isSuccess, empreendimentoId]);
@@ -158,7 +156,7 @@ export default function AlmoxarifadoManager() {
         return items;
     }, [estoqueCompleto, filtroClassificacao, debouncedBusca, mostrarZerados]);
 
-    // Lógica para equipamentos em uso (sem alterações)
+    // Lógica para equipamentos em uso
     const equipamentosEmUso = useMemo(() => {
         if (!estoqueCompleto) return [];
         return estoqueCompleto.filter(item =>
@@ -166,7 +164,6 @@ export default function AlmoxarifadoManager() {
         );
     }, [estoqueCompleto]);
 
-    // Funções handleSuccess e handleOpenModals (sem alterações)
     const handleSuccess = () => {
         toast.success("Operação realizada com sucesso!");
         queryClient.invalidateQueries({ queryKey: ['estoque', empreendimentoId, organizacaoId] });
@@ -178,8 +175,7 @@ export default function AlmoxarifadoManager() {
     const handleOpenBaixaQuebraModal = (item) => toast.info("Funcionalidade 'Baixa por Quebra' será implementada.");
 
 
-    // ======================= COMPONENTES RESTAURADOS =======================
-    // O PORQUÊ: As definições completas destes componentes estavam faltando.
+    // ======================= COMPONENTES AUXILIARES =======================
     const TabButton = ({ tabName, label, icon, count }) => (
         <button
             onClick={() => setActiveTab(tabName)}
