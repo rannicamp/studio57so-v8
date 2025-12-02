@@ -9,6 +9,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTruck, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import imageCompression from 'browser-image-compression';
 import { toast } from 'sonner';
+// 1. IMPORTAÇÃO DA NOTIFICAÇÃO 🔔
+import { notificarGrupo } from '@/utils/notificacoes';
 
 const STATUS_CONFIG = {
   'em andamento': { order: 1, colorClass: 'border-l-4 border-blue-500' },
@@ -76,19 +78,15 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
       const dataRelatorio = new Date(rdoData.data_relatorio + 'T00:00:00Z');
       const dataRelatorioStr = rdoData.data_relatorio;
 
+      // 2. CORREÇÃO NA BUSCA: Adicionamos 'titulo' para usar na notificação
       const { data: pedidosData } = await supabase
         .from('pedidos_compra')
-        .select('id, justificativa, status, itens:pedidos_compra_itens(descricao_item)')
+        .select('id, titulo, justificativa, status, itens:pedidos_compra_itens(descricao_item)')
         .eq('empreendimento_id', empreendimentoId)
         .eq('data_entrega_prevista', rdoData.data_relatorio)
         .eq('organizacao_id', organizacaoId);
       setPedidosPrevistos(pedidosData || []);
       
-      // =================================================================================
-      // INÍCIO DA CORREÇÃO DE FILTRO DAS ATIVIDADES (COM REGRA DE CONCLUSÃO)
-      // O PORQUÊ: Adicionamos `data_fim_real` para filtrar as atividades concluídas
-      // e refinamos a lógica do `filter` para atender à nova regra.
-      // =================================================================================
       const { data: activitiesData } = await supabase
         .from('activities')
         .select('id, nome, status, tipo_atividade, data_inicio_prevista, data_fim_real')
@@ -96,7 +94,6 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
         .eq('organizacao_id', organizacaoId);
       
       const filteredActivities = (activitiesData || []).filter(act => {
-          // 1. Ignora tipos de atividade que não devem aparecer no RDO
           if (act.tipo_atividade === 'Entrega de Pedido' || act.nome.startsWith('Entrega Pedido')) {
               return false;
           }
@@ -104,28 +101,20 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
           const dataInicioPrevistaStr = act.data_inicio_prevista;
           const dataFimRealStr = act.data_fim_real;
 
-          // REGRA 1: Mantém a atividade se ela estiver "Em Andamento".
           if (act.status === 'Em Andamento') {
               return true;
           }
 
-          // REGRA 2 (NOVA): Mostra a atividade se ela foi concluída EXATAMENTE na data do RDO.
           if (act.status === 'Concluído' && dataFimRealStr === dataRelatorioStr) {
               return true;
           }
           
-          // REGRA 3: Mostra se a atividade NÃO está concluída E a data de início prevista
-          // é anterior ou igual à data do RDO.
           if (act.status !== 'Concluído' && dataInicioPrevistaStr && dataInicioPrevistaStr <= dataRelatorioStr) {
               return true;
           }
 
-          // Se nenhuma regra for atendida, a atividade não aparece.
           return false;
       });
-      // =================================================================================
-      // FIM DA CORREÇÃO DE FILTRO DAS ATIVIDADES
-      // =================================================================================
 
       const { data: employeesData } = await supabase
         .from('funcionarios')
@@ -273,10 +262,26 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
     
     toast.promise(promise(), {
         loading: "Processando entrega do pedido...",
-        success: (id) => {
+        success: async (id) => {
+            // Atualiza visualmente
             setPedidosPrevistos(prev => prev.map(p =>
                 p.id === id ? { ...p, status: 'Entregue' } : p
             ));
+
+            // Busca título para notificação
+            const pedidoInfo = pedidosPrevistos.find(p => p.id === id);
+            const tituloPedido = pedidoInfo?.titulo || '';
+
+            // 3. DISPARO DA NOTIFICAÇÃO 🚚📢
+            await notificarGrupo({
+                permissao: 'pedidos', // Avisa equipe de Compras
+                titulo: '✅ Entrega Recebida no RDO',
+                mensagem: `O Pedido #${id} ${tituloPedido ? `(${tituloPedido})` : ''} foi recebido e conferido pelo Diário de Obra.`,
+                link: `/pedidos/${id}`,
+                tipo: 'sucesso',
+                organizacaoId: organizacaoId
+            });
+
             return `Pedido #${id} recebido e estoque atualizado com sucesso!`;
         },
         error: (err) => err.message,

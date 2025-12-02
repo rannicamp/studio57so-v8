@@ -8,10 +8,9 @@ import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// =================================================================================
-// ÍCONE DE LIXEIRA ADICIONADO
-// =================================================================================
 import { faSort, faSpinner, faTrash } from '@fortawesome/free-solid-svg-icons';
+// 1. IMPORTAÇÃO DA NOTIFICAÇÃO 🔔
+import { notificarGrupo } from '@/utils/notificacoes';
 
 // Definição das colunas do Kanban (Fluxo Fixo)
 const statusColumns = [
@@ -28,9 +27,9 @@ const statusColumns = [
 export default function ComprasKanban({ 
     pedidos, 
     onCardClick,
-    onDeleteAllCanceled, // <-- NOVA PROP
-    canDelete,           // <-- NOVA PROP
-    isDeleting           // <-- NOVA PROP
+    onDeleteAllCanceled, 
+    canDelete,           
+    isDeleting           
 }) {
     const supabase = createClient();
     const { user } = useAuth();
@@ -59,7 +58,6 @@ export default function ComprasKanban({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [sortMenuRef]);
 
-    // Sincroniza o estado de "deletando" com a prop isDeleting
     useEffect(() => {
         if (!isDeleting) {
             setDeletingColumnId(null);
@@ -76,9 +74,25 @@ export default function ComprasKanban({
             if (error) throw error;
             return { pedidoId, newStatus };
         },
-        onSuccess: () => {
+        onSuccess: async (result) => {
             queryClient.invalidateQueries({ queryKey: ['painelCompras'] });
             toast.success('Status atualizado!');
+
+            // 2. LÓGICA DE NOTIFICAÇÃO DE ENTREGA 🚚✅
+            if (result.newStatus === 'Entregue') {
+                // Encontramos o pedido na lista local para pegar o título (mais rápido que buscar no banco)
+                const pedidoInfo = pedidos.find(p => p.id === result.pedidoId);
+                const tituloPedido = pedidoInfo?.titulo || 'Pedido sem título';
+
+                await notificarGrupo({
+                    permissao: 'pedidos', // Avisa quem tem acesso a compras
+                    titulo: '✅ Entrega Confirmada!',
+                    mensagem: `O Pedido #${result.pedidoId} (${tituloPedido}) foi marcado como Entregue na obra.`,
+                    link: `/pedidos/${result.pedidoId}`,
+                    tipo: 'sucesso', // Ícone verde de sucesso
+                    organizacaoId: user.organizacao_id
+                });
+            }
         },
         onError: (error) => toast.error(`Erro ao atualizar status: ${error.message}`)
     });
@@ -212,9 +226,6 @@ export default function ComprasKanban({
         setDraggedPedido(null);
     };
 
-    // =================================================================================
-    // NOVA FUNÇÃO: Deletar todos os cards da coluna "Cancelado"
-    // =================================================================================
     const handleDeleteAll = (columnId) => {
         const pedidosParaDeletar = pedidosPorColuna[columnId];
         if (!pedidosParaDeletar || pedidosParaDeletar.length === 0) return;
@@ -259,9 +270,6 @@ export default function ComprasKanban({
                         </div>
                         
                         <div className="flex items-center gap-3">
-                            {/* =================================================================================
-                              BOTÃO DE LIXEIRA (Condicional)
-                            ================================================================================= */}
                             {canDelete && column.id === 'Cancelado' && (pedidosPorColuna[column.id]?.length || 0) > 0 && (
                                 <button 
                                     onClick={() => handleDeleteAll(column.id)}
@@ -276,7 +284,6 @@ export default function ComprasKanban({
                                 </button>
                             )}
 
-                            {/* Menu de Ordenação */}
                             <div className="relative">
                                 <button 
                                     onClick={() => setOpenSortMenu(openSortMenu === column.id ? null : column.id)} 
