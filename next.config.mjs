@@ -1,23 +1,45 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Desativa a geração de source maps em produção para economizar memória e build mais rápido
+  // Desativa mapas de fonte em produção para build mais rápido
   productionBrowserSourceMaps: false,
   
+  // 1. LISTA DE IMAGENS PERMITIDAS (A Correção)
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co', // Permite imagens do seu Banco de Dados
+      },
+      {
+        protocol: 'https',
+        hostname: '**.googleusercontent.com', // Avatares do Google
+      },
+      {
+        protocol: 'https',
+        hostname: '**.facebook.com', // Facebook
+      },
+      {
+        protocol: 'https',
+        hostname: '**.fbcdn.net', // CDN do Facebook
+      },
+      {
+        protocol: 'https',
+        hostname: '**.cdninstagram.com', // Instagram
+      },
+    ],
+  },
+  
+  // 2. CORREÇÃO DE DEPLOY (Mantida)
   eslint: {
-    // 🚨 ISSO É O IMPORTANTE:
-    // Ignora os erros de "gramática" do código durante o deploy.
-    // Assim, um aviso chato não derruba seu site.
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: true, // Ignora erros de texto/aspas no deploy
   },
   
   typescript: {
-    // Também ignora erros de TypeScript se houver
     ignoreBuildErrors: true,
   },
 
-  // Configuração para PWA (Progressive Web App)
-  // Garante que os headers de segurança permitam o Service Worker
+  // 3. CONFIGURAÇÃO PWA/SERVICE WORKER (Mantida)
   async headers() {
     return [
       {
