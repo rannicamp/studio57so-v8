@@ -4,14 +4,15 @@
 export async function getConversations(supabase, organizacaoId) {
   if (!organizacaoId) return [];
 
-  // Chama a função inteligente que criamos no Supabase (RPC)
-  const { data, error } = await supabase.rpc('get_conversations_with_unread_count', {
+  // ATENÇÃO: Agora chamamos a nova função que agrupa por Contato ID
+  const { data, error } = await supabase.rpc('get_inbox_conversations', {
     p_organizacao_id: organizacaoId
   });
 
   if (error) {
     console.error('Error fetching conversations:', error);
-    throw new Error('Falha ao buscar conversas: ' + error.message);
+    // Fallback silencioso ou erro customizado
+    return []; 
   }
   return data || [];
 }
@@ -20,6 +21,8 @@ export async function getConversations(supabase, organizacaoId) {
 export async function getMessages(supabase, organizacaoId, contactId) {
   if (!organizacaoId || !contactId) return [];
 
+  // A busca de mensagens agora é muito mais segura: Pelo ID do Contato
+  // Isso traz mensagens de TODOS os números que esse contato tiver.
   const { data, error } = await supabase
     .from('whatsapp_messages')
     .select('*, contatos (*)')
