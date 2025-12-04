@@ -1,10 +1,11 @@
+// components/contatos/ContatoList.js
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faColumns, faTrashAlt, faEdit, faSort, faSortUp, faSortDown, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { faColumns, faTrashAlt, faEdit, faSort, faSortUp, faSortDown, faUsers, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { formatPhoneNumber } from '../../utils/formatters';
 import MergeModal from './MergeModal';
 import { toast } from 'sonner';
@@ -60,6 +61,10 @@ export default function ContatoList({ initialContatos, onActionComplete, onRowCl
   const columnSelectorRef = useRef(null);
   const [sortConfig, setSortConfig] = useState({ key: 'display_name', direction: 'ascending' });
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+  
+  // PAGINAÇÃO
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
 
   const requestSort = (key) => {
     let direction = 'ascending';
@@ -70,6 +75,10 @@ export default function ContatoList({ initialContatos, onActionComplete, onRowCl
   };
 
   useEffect(() => { setContatos(initialContatos); }, [initialContatos]);
+  
+  // Resetar página quando filtrar
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, filterType]);
+
   useEffect(() => {
     function handleClickOutside(event) { if (columnSelectorRef.current && !columnSelectorRef.current.contains(event.target)) setIsColumnSelectorOpen(false); }
     document.addEventListener("mousedown", handleClickOutside);
@@ -91,24 +100,13 @@ export default function ContatoList({ initialContatos, onActionComplete, onRowCl
       filtered = filtered.filter(c => c.tipo_contato === filterType);
     }
     
-    // =================================================================================
-    // CORREÇÃO NA LÓGICA DE BUSCA (O PORQUÊ):
-    // A busca anterior não incluía e-mails e não era segura contra dados ausentes
-    // (um contato sem telefone poderia causar um erro).
-    // A NOVA ABORDAGEM: Verificamos se os arrays `emails` e `telefones` existem
-    // antes de tentar pesquisar dentro deles. Adicionamos a busca por e-mail e
-    // melhoramos a legibilidade, garantindo que a busca seja mais completa e robusta.
-    // =================================================================================
     if (searchTerm) {
       const lowercasedFilter = searchTerm.toLowerCase();
       filtered = filtered.filter(c => {
           const textMatch = (c.display_name && c.display_name.toLowerCase().includes(lowercasedFilter)) ||
                             (c.documento && c.documento.includes(lowercasedFilter));
-
           const emailMatch = c.emails?.some(e => e.email && e.email.toLowerCase().includes(lowercasedFilter));
-
           const phoneMatch = c.telefones?.some(t => t.telefone && t.telefone.includes(searchTerm));
-
           return textMatch || emailMatch || phoneMatch;
       });
     }
@@ -126,6 +124,14 @@ export default function ContatoList({ initialContatos, onActionComplete, onRowCl
     return filtered;
   }, [contatos, searchTerm, filterType, sortConfig]);
 
+  // Lógica de Paginação
+  const paginatedContatos = useMemo(() => {
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      return sortedAndFilteredContatos.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedAndFilteredContatos, currentPage]);
+
+  const totalPages = Math.ceil(sortedAndFilteredContatos.length / itemsPerPage);
+
   const handleEditClick = (id) => {
     router.push(`/contatos/editar/${id}`);
   };
@@ -139,7 +145,12 @@ export default function ContatoList({ initialContatos, onActionComplete, onRowCl
     }
   };
 
-  const handleSelectAll = (e) => setSelectedContatos(e.target.checked ? sortedAndFilteredContatos.map(c => c.id) : []);
+  const handleSelectAll = (e) => {
+      // Seleciona APENAS os da página atual ou todos? Geralmente todos do filtro atual é melhor para ações em massa
+      // Mas para evitar confusão, vamos selecionar todos do filtro atual
+      setSelectedContatos(e.target.checked ? sortedAndFilteredContatos.map(c => c.id) : []);
+  };
+  
   const handleSelectOne = (id) => setSelectedContatos(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
   
   const handleDeleteSelected = async () => {
@@ -222,27 +233,58 @@ export default function ContatoList({ initialContatos, onActionComplete, onRowCl
             </div>
         </div>
       </div>
-      <div className="overflow-x-auto">
+
+      <div className="overflow-x-auto border rounded-md">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left"> <input type="checkbox" className="h-4 w-4 rounded" onChange={handleSelectAll} checked={sortedAndFilteredContatos.length > 0 && selectedContatos.length === sortedAndFilteredContatos.length}/> </th>
+              <th className="px-4 py-3 text-left"> 
+                <input type="checkbox" className="h-4 w-4 rounded" onChange={handleSelectAll} checked={sortedAndFilteredContatos.length > 0 && selectedContatos.length === sortedAndFilteredContatos.length} title="Selecionar todos os contatos filtrados"/> 
+              </th>
               {allColumns.map(col => (visibleColumns[col.key] && <SortableHeader key={col.key} col={col} />))}
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Ações</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {sortedAndFilteredContatos.map((contato) => (
+            {paginatedContatos.map((contato) => (
               <tr key={contato.id} onClick={() => onRowClick(contato)} className={`cursor-pointer ${selectedContatos.includes(contato.id) ? 'bg-blue-50' : ''} hover:bg-gray-50`}>
                 <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}> <input type="checkbox" className="h-4 w-4 rounded" checked={selectedContatos.includes(contato.id)} onChange={() => handleSelectOne(contato.id)}/> </td>
                 {allColumns.map(col => (visibleColumns[col.key] && ( <td key={col.key} className="px-6 py-4 whitespace-nowrap text-sm"> {getColumnValue(contato, col.key)} </td> )))}
                 <td className="px-6 py-4 whitespace-nowrap text-sm" onClick={(e) => e.stopPropagation()}> <button onClick={() => handleEditClick(contato.id)} className="text-blue-600 hover:text-blue-800" title="Editar Contato"> <FontAwesomeIcon icon={faEdit} /> </button> </td>
               </tr>
             ))}
-             {sortedAndFilteredContatos.length === 0 && ( <tr> <td colSpan={Object.values(visibleColumns).filter(v => v).length + 2} className="text-center py-10 text-gray-500"> Nenhum contato encontrado. </td> </tr> )}
+             {paginatedContatos.length === 0 && ( <tr> <td colSpan={Object.values(visibleColumns).filter(v => v).length + 2} className="text-center py-10 text-gray-500"> Nenhum contato encontrado. </td> </tr> )}
           </tbody>
         </table>
       </div>
+
+      {/* CONTROLE DE PAGINAÇÃO */}
+      {sortedAndFilteredContatos.length > 0 && (
+          <div className="flex items-center justify-between border-t pt-4">
+              <p className="text-sm text-gray-600">
+                  Mostrando <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> a <span className="font-medium">{Math.min(currentPage * itemsPerPage, sortedAndFilteredContatos.length)}</span> de <span className="font-medium">{sortedAndFilteredContatos.length}</span> resultados
+              </p>
+              <div className="flex gap-2">
+                  <button 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                      <FontAwesomeIcon icon={faChevronLeft} />
+                  </button>
+                  <span className="px-3 py-1 bg-gray-100 rounded text-sm font-medium flex items-center">
+                      Página {currentPage} de {totalPages}
+                  </span>
+                  <button 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                      <FontAwesomeIcon icon={faChevronRight} />
+                  </button>
+              </div>
+          </div>
+      )}
     </div>
   );
 }

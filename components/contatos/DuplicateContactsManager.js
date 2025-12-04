@@ -1,37 +1,39 @@
-//components\contatos\DuplicateContactsManager.js
+// components/contatos/DuplicateContactsManager.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../utils/supabase/client';
-import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
+import { useAuth } from '../../contexts/AuthContext';
 import { formatPhoneNumber } from '../../utils/formatters';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUsers, faIdCard, faBuilding, faPhone, faEnvelope, faSpinner, faLink, faBolt } from '@fortawesome/free-solid-svg-icons';
+import { faUsers, faIdCard, faBuilding, faPhone, faEnvelope, faSpinner, faLink, faBolt, faStore } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+// 1. IMPORTAR O MODAL DE UNIR
+import MergeModal from './MergeModal';
 
 export default function DuplicateContactsManager() {
     const supabase = createClient();
-    const { user } = useAuth(); // 2. Obter o usuário para pegar o ID da organização
+    const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
     const [duplicateGroups, setDuplicateGroups] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [mergingGroupId, setMergingGroupId] = useState(null);
+    
+    // 2. ESTADOS PARA O MODAL
+    const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+    const [contactsToMerge, setContactsToMerge] = useState([]);
+
+    // Estado para "Mesclar Tudo" (automático)
     const [isMergingAll, setIsMergingAll] = useState(false);
 
     const fetchDuplicates = useCallback(() => {
-        if (!organizacaoId) return; // Não busca se não tiver a organização
+        if (!organizacaoId) return;
         setLoading(true);
-        // =================================================================================
-        // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-        // O PORQUÊ: A busca por duplicatas agora envia o `organizacaoId` para a API.
-        // Isso garante que a API irá procurar por duplicatas apenas nos contatos
-        // que pertencem à organização do usuário.
-        // =================================================================================
+
         const promise = fetch('/api/contatos/duplicates', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ organizacaoId }), // <-- Enviando a "chave mestra"
+            body: JSON.stringify({ organizacaoId }),
             cache: 'no-store' 
         })
           .then(res => {
@@ -51,54 +53,40 @@ export default function DuplicateContactsManager() {
             error: (err) => `Falha ao carregar: ${err.message}`,
             finally: () => setLoading(false)
         });
-    }, [organizacaoId]); // Adicionado organizacaoId como dependência
+    }, [organizacaoId]);
 
     useEffect(() => {
         fetchDuplicates();
     }, [fetchDuplicates]);
 
-    const handleMerge = (group) => {
-        // =================================================================================
-        // ATUALIZAÇÃO DE UX (troca de window.confirm por toast)
-        // O PORQUÊ: Uma confirmação mais elegante e integrada à interface.
-        // =================================================================================
-        toast("Confirmar Fusão", {
-            description: `Tem certeza que deseja mesclar ${group.contatos.length} contatos encontrados pelo ${group.type}: "${group.value}"? Esta ação não pode ser desfeita.`,
-            action: {
-                label: "Confirmar Fusão",
-                onClick: () => {
-                    setMergingGroupId(group.value);
-                    const contactIds = group.contatos.map(c => c.id);
-                    
-                    // =================================================================================
-                    // ATUALIZAÇÃO DE SEGURANÇA (organização_id)
-                    // O PORQUÊ: Passamos o `organizacaoId` para a função do banco de dados.
-                    // Isso garante que a operação de fusão ocorra de forma segura,
-                    // apenas dentro da organização correta.
-                    // =================================================================================
-                    const promise = supabase.rpc('auto_merge_contacts_and_relink', {
-                        p_contact_ids: contactIds,
-                        p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
-                    });
+    const getIconForType = (type) => {
+        switch (type) {
+            case 'CPF':
+            case 'CNPJ': return faIdCard;
+            case 'Nome': return faUsers;
+            case 'Razão Social': return faBuilding;
+            case 'Nome Fantasia': return faStore;
+            case 'Telefone': return faPhone;
+            case 'E-mail': return faEnvelope;
+            default: return faUsers;
+        }
+    };
 
-                    toast.promise(promise, {
-                        loading: `Mesclando grupo: ${group.value}...`,
-                        success: (response) => {
-                            fetchDuplicates();
-                            return response.data;
-                        },
-                        error: (err) => `Erro ao mesclar: ${err.message}`,
-                        finally: () => setMergingGroupId(null)
-                    });
-                }
-            },
-            cancel: { label: "Cancelar" }
-        });
+    // 3. AÇÃO DE ABRIR O MODAL (em vez de mesclar direto)
+    const handleOpenMergeModal = (group) => {
+        setContactsToMerge(group.contatos);
+        setIsMergeModalOpen(true);
+    };
+
+    const handleMergeComplete = () => {
+        setIsMergeModalOpen(false);
+        setContactsToMerge([]);
+        fetchDuplicates(); // Recarrega a lista para ver se sumiu
     };
 
     const handleMergeAll = () => {
         toast("Confirmar Fusão de Todos os Grupos", {
-            description: `Tem certeza que deseja mesclar TODOS os ${duplicateGroups.length} grupos de contatos duplicados? Esta ação é irreversível e pode levar alguns segundos.`,
+            description: `Tem certeza que deseja mesclar TODOS os ${duplicateGroups.length} grupos AUTOMATICAMENTE? O sistema escolherá o contato mais antigo como principal. Para ter controle, use a fusão individual.`,
             action: {
                 label: "Confirmar e Mesclar Tudo",
                 onClick: () => {
@@ -107,19 +95,21 @@ export default function DuplicateContactsManager() {
                         for (let i = 0; i < duplicateGroups.length; i++) {
                             const group = duplicateGroups[i];
                             const contactIds = group.contatos.map(c => c.id);
+                            // Aqui mantemos a RPC automática para processamento em lote
+                            // pois abrir 50 modais seria inviável.
                             const { error } = await supabase.rpc('auto_merge_contacts_and_relink', { 
                                 p_contact_ids: contactIds,
-                                p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+                                p_organizacao_id: organizacaoId
                             });
                             if (error) {
                                 throw new Error(`Erro no grupo "${group.value}": ${error.message}. Operação interrompida.`);
                             }
                         }
-                        return `Todos os ${duplicateGroups.length} grupos foram mesclados com sucesso!`;
+                        return `Todos os ${duplicateGroups.length} grupos foram processados!`;
                     })();
 
                     toast.promise(mergeAllPromise, {
-                        loading: 'Iniciando mesclagem de todos os grupos...',
+                        loading: 'Processando fusão automática...',
                         success: (message) => {
                             fetchDuplicates();
                             return message;
@@ -138,81 +128,117 @@ export default function DuplicateContactsManager() {
         return (
             <div className="text-center p-10">
                 <FontAwesomeIcon icon={faSpinner} spin size="3x" className="text-gray-400" />
+                <p className="mt-4 text-gray-500">Analisando sua base de contatos com IA...</p>
             </div>
         );
     }
 
     return (
         <div className="space-y-8">
+            {/* 4. INSERIR O MODAL NO COMPONENTE */}
+            <MergeModal
+                isOpen={isMergeModalOpen}
+                onClose={() => setIsMergeModalOpen(false)}
+                contactsToMerge={contactsToMerge}
+                onMergeComplete={handleMergeComplete}
+            />
+
             {duplicateGroups.length > 0 && !loading && (
-                <div className="p-4 bg-gray-50 rounded-lg flex flex-col sm:flex-row items-center justify-center sm:justify-end border">
-                    <p className="text-sm text-gray-700 font-medium sm:mr-4 mb-2 sm:mb-0">
-                        Encontrados {duplicateGroups.length} grupos de contatos duplicados.
-                    </p>
+                <div className="p-4 bg-yellow-50 rounded-lg flex flex-col sm:flex-row items-center justify-between border border-yellow-200">
+                    <div className="flex items-center gap-3 mb-2 sm:mb-0">
+                        <FontAwesomeIcon icon={faBolt} className="text-yellow-600 text-xl" />
+                        <div>
+                            <p className="text-gray-800 font-bold">
+                                Encontrados {duplicateGroups.length} grupos de duplicatas
+                            </p>
+                            <p className="text-xs text-gray-600">
+                                Sugerimos revisar cada grupo clicando em "Revisar e Unir".
+                            </p>
+                        </div>
+                    </div>
                     <button
                         onClick={handleMergeAll}
                         disabled={isMergingAll}
                         className="bg-purple-600 text-white px-6 py-2 rounded-md shadow-sm hover:bg-purple-700 disabled:bg-gray-400 flex items-center gap-2 w-full sm:w-auto justify-center"
                     >
                         <FontAwesomeIcon icon={isMergingAll ? faSpinner : faBolt} spin={isMergingAll} />
-                        {isMergingAll ? 'Mesclando Tudo...' : 'Juntar Todos os Grupos'}
+                        {isMergingAll ? 'Processando...' : 'Fusão Automática (Cuidado)'}
                     </button>
                 </div>
             )}
 
             {duplicateGroups.length === 0 && !loading ? (
-                <div className="text-center p-10 bg-white rounded-lg shadow">
-                    <h2 className="text-2xl font-bold text-green-600">Nenhum contato duplicado encontrado!</h2>
-                    <p className="mt-2 text-gray-600">Sua base de contatos está limpa.</p>
+                <div className="text-center p-16 bg-white rounded-lg shadow border border-green-100">
+                    <FontAwesomeIcon icon={faUsers} className="text-green-200 text-6xl mb-4" />
+                    <h2 className="text-2xl font-bold text-green-600">Base limpa e organizada!</h2>
+                    <p className="mt-2 text-gray-600">O sistema não encontrou nenhuma duplicata nos seus contatos.</p>
                 </div>
             ) : (
                 duplicateGroups.map((group, index) => (
-                    <div key={index} className="bg-white rounded-lg shadow-md p-6">
-                        <div className="flex justify-between items-start mb-4 pb-4 border-b">
+                    <div key={index} className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 pb-4 border-b gap-4">
                             <div>
-                                <h2 className="text-xl font-bold text-gray-800">
-                                    <FontAwesomeIcon icon={group.type === 'CPF' || group.type === 'CNPJ' ? faIdCard : (group.type === 'Nome' ? faUsers : (group.type === 'Telefone' ? faPhone : faEnvelope))} className="mr-3 text-red-500" />
-                                    Duplicata por {group.type}: <span className="font-mono bg-gray-100 p-1 rounded">{formatPhoneNumber(group.value)}</span>
+                                <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                    <FontAwesomeIcon icon={getIconForType(group.type)} className="text-blue-500" />
+                                    Duplicata por {group.type}: 
+                                    <span className="ml-2 font-mono bg-blue-50 text-blue-800 px-2 py-1 rounded text-base">
+                                        {group.type === 'Telefone' ? formatPhoneNumber(group.value) : group.value}
+                                    </span>
                                 </h2>
-                                <p className="text-sm text-gray-500 mt-1">{group.contatos.length} contatos encontrados com este valor.</p>
+                                <p className="text-sm text-gray-500 mt-1 ml-6">
+                                    {group.contatos.length} registros conflitantes encontrados.
+                                </p>
                             </div>
+                            {/* BOTÃO ATUALIZADO PARA ABRIR MODAL */}
                             <button 
-                                onClick={() => handleMerge(group)}
-                                disabled={isMergingAll || mergingGroupId === group.value}
-                                className="bg-blue-600 text-white px-6 py-2 rounded-md shadow-sm hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2"
+                                onClick={() => handleOpenMergeModal(group)}
+                                disabled={isMergingAll}
+                                className="bg-blue-600 text-white px-6 py-2 rounded-md shadow-sm hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2 whitespace-nowrap"
                             >
-                                {mergingGroupId === group.value ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faLink} />}
-                                {mergingGroupId === group.value ? 'Mesclando...' : 'Juntar Contatos'}
+                                <FontAwesomeIcon icon={faLink} />
+                                Revisar e Unir
                             </button>
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {group.contatos.map(contato => (
-                            <div key={contato.id} className="border p-4 rounded-lg bg-gray-50 space-y-3">
-                            <h3 className="font-bold text-lg">{contato.nome || contato.razao_social}</h3>
-                            <p><FontAwesomeIcon icon={faBuilding} className="mr-2 w-4 text-gray-500" /> {contato.tipo_contato}</p>
-                            
-                            {contato.cpf && <p><span className="font-semibold">CPF:</span> {contato.cpf}</p>}
-                            {contato.cnpj && <p><span className="font-semibold">CNPJ:</span> {contato.cnpj}</p>}
-                            
-                            {contato.telefones && contato.telefones.length > 0 && (
-                                <div className="flex items-start">
-                                    <FontAwesomeIcon icon={faPhone} className="mr-2 w-4 mt-1 text-gray-500" />
-                                    <div>
-                                        {contato.telefones.map((tel, i) => <span key={i} className="block">{formatPhoneNumber(tel.telefone)}</span>)}
-                                    </div>
+                            <div key={contato.id} className="border p-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                                <h3 className="font-bold text-gray-800 mb-2 truncate" title={contato.nome || contato.razao_social}>
+                                    {contato.nome || contato.razao_social || 'Sem Nome'}
+                                </h3>
+                                <div className="space-y-1 text-sm text-gray-600">
+                                    <p className="flex items-center gap-2">
+                                        <span className="w-20 font-semibold text-xs uppercase text-gray-400">Tipo</span>
+                                        {contato.tipo_contato || '-'}
+                                    </p>
+                                    {(contato.cpf || contato.cnpj) && (
+                                        <p className="flex items-center gap-2">
+                                            <span className="w-20 font-semibold text-xs uppercase text-gray-400">Doc</span>
+                                            {contato.cpf || contato.cnpj}
+                                        </p>
+                                    )}
+                                    {contato.telefones && contato.telefones.length > 0 && (
+                                        <div className="flex items-start gap-2">
+                                            <span className="w-20 font-semibold text-xs uppercase text-gray-400 mt-1">Tel</span>
+                                            <div className="flex-1">
+                                                {contato.telefones.slice(0, 2).map((tel, i) => (
+                                                    <span key={i} className="block">{formatPhoneNumber(tel.telefone)}</span>
+                                                ))}
+                                                {contato.telefones.length > 2 && <span className="text-xs text-gray-400">+{contato.telefones.length - 2} outros</span>}
+                                            </div>
+                                        </div>
+                                    )}
+                                     {contato.emails && contato.emails.length > 0 && (
+                                        <div className="flex items-start gap-2">
+                                            <span className="w-20 font-semibold text-xs uppercase text-gray-400 mt-1">E-mail</span>
+                                            <div className="flex-1 overflow-hidden">
+                                                {contato.emails.slice(0, 1).map((em, i) => (
+                                                    <span key={i} className="block truncate" title={em.email}>{em.email}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-
-                            {contato.emails && contato.emails.length > 0 && (
-                                <div className="flex items-start">
-                                    <FontAwesomeIcon icon={faEnvelope} className="mr-2 w-4 mt-1 text-gray-500" />
-                                    <div className="truncate">
-                                        {contato.emails.map((email, i) => <span key={i} className="block">{email.email}</span>)}
-                                    </div>
-                                </div>
-                            )}
-
                             </div>
                         ))}
                         </div>

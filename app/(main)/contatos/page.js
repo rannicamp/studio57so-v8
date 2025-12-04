@@ -10,12 +10,11 @@ import KpiCard from '../../../components/KpiCard';
 import { useLayout } from '../../../contexts/LayoutContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileImport, faCopy, faSpinner, faWandMagicSparkles, faUsers, faGlobeAmericas, faPhoneSlash, faFileExport } from '@fortawesome/free-solid-svg-icons';
+import { faFileImport, faCopy, faSpinner, faWandMagicSparkles, faUsers, faGlobeAmericas, faPhoneSlash, faFileExport, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import ContatoDetalhesSidebar from '../../../components/contatos/ContatoDetalhesSidebar';
-// CORREÇÃO AQUI: Caminho atualizado para a pasta 'atividades'
 import ActivityModal from '../../../components/atividades/AtividadeModal';
 
 const fetchContatos = async (organizacaoId) => {
@@ -23,11 +22,13 @@ const fetchContatos = async (organizacaoId) => {
     if (!organizacaoId) return [];
 
     // Passo 1: Buscar os contatos da organização.
+    // MODIFICAÇÃO: Adicionado .range(0, 9999) para garantir que traga TODOS os contatos e não limite em 1000
     const { data: contatos, error: contatosError } = await supabase
         .from('contatos')
         .select('*')
         .eq('organizacao_id', organizacaoId)
-        .order('nome');
+        .order('nome')
+        .range(0, 9999); 
 
     if (contatosError) {
         console.error("Erro ao buscar contatos:", contatosError);
@@ -40,24 +41,26 @@ const fetchContatos = async (organizacaoId) => {
 
     const contatoIds = contatos.map(c => c.id);
 
-    // Passo 2: Buscar telefones, COM FILTRO EXPLÍCITO de organização.
+    // Como a lista de IDs pode ser gigante, fazemos a busca de telefones em lotes se necessário, 
+    // mas para simplificar e garantir performance inicial, mantemos a lógica mas garantindo range
     const { data: telefones, error: telefonesError } = await supabase
         .from('telefones')
         .select('contato_id, id, telefone, country_code')
         .in('contato_id', contatoIds)
-        .eq('organizacao_id', organizacaoId); 
+        .eq('organizacao_id', organizacaoId)
+        .range(0, 9999);
 
     if (telefonesError) {
         console.error("Erro ao buscar telefones:", telefonesError);
         throw new Error(telefonesError.message);
     }
 
-    // Passo 3: Buscar emails, COM FILTRO EXPLÍCITO de organização.
     const { data: emails, error: emailsError } = await supabase
         .from('emails')
         .select('contato_id, id, email')
         .in('contato_id', contatoIds)
-        .eq('organizacao_id', organizacaoId);
+        .eq('organizacao_id', organizacaoId)
+        .range(0, 9999);
 
     if (emailsError) {
         console.error("Erro ao buscar emails:", emailsError);
@@ -103,14 +106,26 @@ export default function GerenciamentoContatosPage() {
     const [editingActivity, setEditingActivity] = useState(null);
     const [currentContactForActivity, setCurrentContactForActivity] = useState(null);
 
-    const { data: contatos = [], isLoading, error } = useQuery({
+    // --- IMPLEMENTAÇÃO DO CARREGAMENTO MÁGICO ---
+    const { data: contatos = [], isLoading, error, isRefetching } = useQuery({
         queryKey: ['contatos', organizacaoId],
         queryFn: () => fetchContatos(organizacaoId),
         enabled: !!organizacaoId,
+        staleTime: 1000 * 60 * 5, // 5 minutos de cache fresco (Dados aparecem instantaneamente se voltarmos na página)
+        gcTime: 1000 * 60 * 30,   // Mantém no lixo/memória por 30 minutos
+        refetchOnWindowFocus: true, // Atualiza em segundo plano ao focar a janela
         onError: (err) => {
             toast.error(`Erro ao carregar contatos: ${err.message}`);
         }
     });
+
+    // Notificação de atualização em segundo plano
+    useEffect(() => {
+        if (isRefetching && contatos.length > 0) {
+            // Opcional: Mostrar um toast discreto ou indicador de carregamento sutil
+            // toast.info('Atualizando lista de contatos...', { duration: 2000 });
+        }
+    }, [isRefetching, contatos.length]);
     
     useEffect(() => {
         setPageTitle('Gerenciamento de Contatos');
@@ -159,7 +174,8 @@ export default function GerenciamentoContatosPage() {
     const handleActionComplete = () => {
         queryClient.invalidateQueries({ queryKey: ['contatos', organizacaoId] });
         if (selectedContato) {
-            queryClient.getQueryData(['contatos', organizacaoId]).then(newContatos => {
+            // Atualiza o contato selecionado se ele ainda existir na nova lista
+            queryClient.fetchQuery({ queryKey: ['contatos', organizacaoId] }).then(newContatos => {
                 if(newContatos) {
                     const updatedContact = newContatos.find(c => c.id === selectedContato.id);
                     if (updatedContact) {
@@ -207,7 +223,8 @@ export default function GerenciamentoContatosPage() {
         handleActionComplete(); 
     };
 
-    if (isLoading) {
+    // Loading State só aparece na primeira vez ou se não tiver dados em cache
+    if (isLoading && contatos.length === 0) {
         return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-400" /><p className="mt-3 text-gray-600">Carregando contatos...</p></div>
     }
     
@@ -237,12 +254,28 @@ export default function GerenciamentoContatosPage() {
                 <KpiCard title="Contatos sem Telefone" value={kpiData.semTelefone} icon={faPhoneSlash} color="red" />
             </div>
 
-            <div className="flex justify-end items-center gap-4 flex-wrap">
-                <button onClick={() => setIsImporterOpen(true)} disabled={isExporting} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 flex items-center gap-2 disabled:bg-gray-400"> <FontAwesomeIcon icon={faFileImport} /> Importar CSV </button>
-                <button onClick={handleExportToGoogle} disabled={isExporting} className="bg-gray-700 text-white px-4 py-2 rounded-md shadow-sm hover:bg-gray-800 flex items-center gap-2 disabled:bg-gray-400"> <FontAwesomeIcon icon={isExporting ? faSpinner : faFileExport} spin={isExporting} /> Exportar para Google </button>
-                <Link href="/contatos/duplicatas" className="bg-orange-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-orange-600 flex items-center gap-2"> <FontAwesomeIcon icon={faCopy} /> Mesclar </Link>
-                <Link href="/contatos/formatar-telefones" className="bg-purple-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-purple-600 flex items-center gap-2"> <FontAwesomeIcon icon={faWandMagicSparkles} /> Padronizar </Link>
-                <Link href="/contatos/cadastro" className="bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600"> + Novo Contato </Link>
+            <div className="flex justify-between items-center flex-wrap gap-4">
+                 {/* Indicador de atualização sutil */}
+                <div className="flex items-center gap-2 h-8">
+                    {isRefetching && (
+                        <span className="text-xs text-blue-600 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-full animate-pulse">
+                            <FontAwesomeIcon icon={faSpinner} spin /> Atualizando...
+                        </span>
+                    )}
+                    {!isRefetching && contatos.length > 0 && (
+                         <span className="text-xs text-gray-400 flex items-center gap-1 px-2 py-1">
+                            <FontAwesomeIcon icon={faCheckCircle} /> Atualizado
+                        </span>
+                    )}
+                </div>
+
+                <div className="flex justify-end items-center gap-4 flex-wrap">
+                    <button onClick={() => setIsImporterOpen(true)} disabled={isExporting} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 flex items-center gap-2 disabled:bg-gray-400"> <FontAwesomeIcon icon={faFileImport} /> Importar CSV </button>
+                    <button onClick={handleExportToGoogle} disabled={isExporting} className="bg-gray-700 text-white px-4 py-2 rounded-md shadow-sm hover:bg-gray-800 flex items-center gap-2 disabled:bg-gray-400"> <FontAwesomeIcon icon={isExporting ? faSpinner : faFileExport} spin={isExporting} /> Exportar para Google </button>
+                    <Link href="/contatos/duplicatas" className="bg-orange-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-orange-600 flex items-center gap-2"> <FontAwesomeIcon icon={faCopy} /> Mesclar </Link>
+                    <Link href="/contatos/formatar-telefones" className="bg-purple-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-purple-600 flex items-center gap-2"> <FontAwesomeIcon icon={faWandMagicSparkles} /> Padronizar </Link>
+                    <Link href="/contatos/cadastro" className="bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600"> + Novo Contato </Link>
+                </div>
             </div>
 
             <div className="bg-white rounded-lg shadow p-6">
