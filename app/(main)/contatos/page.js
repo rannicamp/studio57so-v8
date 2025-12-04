@@ -10,7 +10,7 @@ import KpiCard from '../../../components/KpiCard';
 import { useLayout } from '../../../contexts/LayoutContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileImport, faCopy, faSpinner, faWandMagicSparkles, faUsers, faGlobeAmericas, faPhoneSlash, faFileExport } from '@fortawesome/free-solid-svg-icons';
+import { faFileImport, faCopy, faSpinner, faWandMagicSparkles, faUsers, faGlobeAmericas, faPhoneSlash, faFileExport, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -157,10 +157,11 @@ export default function GerenciamentoContatosPage() {
 
     const kpiData = useMemo(() => {
         const total = totalContatosReais; 
+        const carregados = allContatos.length;
         const semTelefone = allContatos.filter(c => !c.telefones || c.telefones.length === 0).length;
         const comTelefoneBrasil = allContatos.filter(c => c.telefones?.some(t => t.country_code === '+55')).length;
         const comTelefoneEUA = allContatos.filter(c => c.telefones?.some(t => t.country_code === '+1')).length;
-        return { total, semTelefone, comTelefoneBrasil, comTelefoneEUA };
+        return { total, semTelefone, comTelefoneBrasil, comTelefoneEUA, carregados };
     }, [allContatos, totalContatosReais]);
     
     const handleActionComplete = () => {
@@ -212,7 +213,7 @@ export default function GerenciamentoContatosPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6 h-full flex flex-col">
             <ContatoImporter isOpen={isImporterOpen} onClose={() => setIsImporterOpen(false)} onImportComplete={handleActionComplete} />
             <ContatoDetalhesSidebar open={isDetailsSidebarOpen} onClose={handleCloseDetailsSidebar} contato={selectedContato} onActionComplete={handleActionComplete} onAddActivity={handleAddActivity} onEditActivity={handleEditActivity} />
             
@@ -226,33 +227,78 @@ export default function GerenciamentoContatosPage() {
                 />
             )}
 
-            {/* KPI GRID ATUALIZADO (Sem o card inútil) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* KPI GRID - ESCONDIDO NO CELULAR (hidden md:grid) */}
+            <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <KpiCard title="Total no Banco" value={kpiData.total} icon={faUsers} color="blue" />
                 <KpiCard title="Contatos do Brasil" value={kpiData.comTelefoneBrasil} icon={faGlobeAmericas} color="green" />
                 <KpiCard title="Contatos dos EUA" value={kpiData.comTelefoneEUA} icon={faGlobeAmericas} color="yellow" />
                 <KpiCard title="Sem Telefone" value={kpiData.semTelefone} icon={faPhoneSlash} color="red" />
             </div>
 
-            <div className="flex justify-between items-center flex-wrap gap-4">
-                <div className="flex items-center gap-2 h-8">
+            {/* BARRA DE AÇÕES RESPONSIVA */}
+            <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center flex-shrink-0">
+                
+                {/* Status de carregamento (Visível apenas no PC) */}
+                <div className="hidden md:flex items-center gap-2 h-8">
                     {isRefetching && !isFetchingNextPage && (
                         <span className="text-xs text-blue-600 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-full animate-pulse">
-                            <FontAwesomeIcon icon={faSpinner} spin /> Atualizando lista...
+                            <FontAwesomeIcon icon={faSpinner} spin /> Atualizando...
                         </span>
                     )}
                 </div>
 
-                <div className="flex justify-end items-center gap-4 flex-wrap">
-                    <button onClick={() => setIsImporterOpen(true)} disabled={isExporting} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 flex items-center gap-2 disabled:bg-gray-400"> <FontAwesomeIcon icon={faFileImport} /> Importar CSV </button>
-                    <button onClick={handleExportToGoogle} disabled={isExporting} className="bg-gray-700 text-white px-4 py-2 rounded-md shadow-sm hover:bg-gray-800 flex items-center gap-2 disabled:bg-gray-400"> <FontAwesomeIcon icon={isExporting ? faSpinner : faFileExport} spin={isExporting} /> Exportar para Google </button>
-                    <Link href="/contatos/duplicatas" className="bg-orange-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-orange-600 flex items-center gap-2"> <FontAwesomeIcon icon={faCopy} /> Mesclar </Link>
-                    <Link href="/contatos/formatar-telefones" className="bg-purple-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-purple-600 flex items-center gap-2"> <FontAwesomeIcon icon={faWandMagicSparkles} /> Padronizar </Link>
-                    <Link href="/contatos/cadastro" className="bg-blue-500 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-600"> + Novo Contato </Link>
+                {/* BOTÕES DE AÇÃO: GRID NO CELULAR, FLEX NO PC */}
+                <div className="grid grid-cols-5 gap-2 w-full md:flex md:w-auto md:gap-3">
+                    <button 
+                        onClick={() => setIsImporterOpen(true)} 
+                        disabled={isExporting} 
+                        className="bg-green-600 text-white p-2 md:px-4 rounded-md shadow-sm hover:bg-green-700 flex items-center justify-center gap-2 disabled:bg-gray-400"
+                        title="Importar CSV"
+                    > 
+                        <FontAwesomeIcon icon={faFileImport} /> 
+                        <span className="hidden md:inline">Importar</span> 
+                    </button>
+                    
+                    <button 
+                        onClick={handleExportToGoogle} 
+                        disabled={isExporting} 
+                        className="bg-gray-700 text-white p-2 md:px-4 rounded-md shadow-sm hover:bg-gray-800 flex items-center justify-center gap-2 disabled:bg-gray-400"
+                        title="Exportar para Google"
+                    > 
+                        <FontAwesomeIcon icon={isExporting ? faSpinner : faFileExport} spin={isExporting} /> 
+                        <span className="hidden md:inline">Exportar</span> 
+                    </button>
+                    
+                    <Link 
+                        href="/contatos/duplicatas" 
+                        className="bg-orange-500 text-white p-2 md:px-4 rounded-md shadow-sm hover:bg-orange-600 flex items-center justify-center gap-2"
+                        title="Mesclar Duplicatas"
+                    > 
+                        <FontAwesomeIcon icon={faCopy} /> 
+                        <span className="hidden md:inline">Mesclar</span> 
+                    </Link>
+                    
+                    <Link 
+                        href="/contatos/formatar-telefones" 
+                        className="bg-purple-500 text-white p-2 md:px-4 rounded-md shadow-sm hover:bg-purple-600 flex items-center justify-center gap-2"
+                        title="Padronizar Telefones"
+                    > 
+                        <FontAwesomeIcon icon={faWandMagicSparkles} /> 
+                        <span className="hidden md:inline">Padronizar</span> 
+                    </Link>
+                    
+                    <Link 
+                        href="/contatos/cadastro" 
+                        className="bg-blue-500 text-white p-2 md:px-4 rounded-md shadow-sm hover:bg-blue-600 flex items-center justify-center gap-2"
+                        title="Novo Contato"
+                    > 
+                        <FontAwesomeIcon icon={faPlus} /> 
+                        <span className="hidden md:inline">Novo</span> 
+                    </Link>
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6 h-[calc(100vh-300px)] flex flex-col">
+            <div className="bg-white rounded-lg shadow p-4 md:p-6 flex-grow overflow-hidden flex flex-col">
                 <ContatoList 
                     initialContatos={allContatos} 
                     onActionComplete={handleActionComplete}
