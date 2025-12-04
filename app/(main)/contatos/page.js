@@ -6,18 +6,17 @@ import { createClient } from '../../../utils/supabase/client';
 import Link from 'next/link';
 import ContatoList from '../../../components/contatos/ContatoList';
 import ContatoImporter from '../../../components/contatos/ContatoImporter';
-import KpiCard from '../../../components/KpiCard'; 
 import { useLayout } from '../../../contexts/LayoutContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileImport, faCopy, faSpinner, faWandMagicSparkles, faUsers, faGlobeAmericas, faPhoneSlash, faFileExport, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faFileImport, faCopy, faSpinner, faWandMagicSparkles, faFileExport, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
 import ContatoDetalhesSidebar from '../../../components/contatos/ContatoDetalhesSidebar';
 import ActivityModal from '../../../components/atividades/AtividadeModal';
 
-// Função de busca otimizada
+// Função de busca (Mantida)
 const fetchContatosPage = async ({ pageParam = 0, queryKey }) => {
     const supabase = createClient();
     const [, organizacaoId] = queryKey;
@@ -27,7 +26,6 @@ const fetchContatosPage = async ({ pageParam = 0, queryKey }) => {
     const from = pageParam * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
-    // 1. Busca Contatos Paginados
     const { data: contatos, error: contatosError, count } = await supabase
         .from('contatos')
         .select('*', { count: 'exact' })
@@ -41,7 +39,6 @@ const fetchContatosPage = async ({ pageParam = 0, queryKey }) => {
         return { data: [], nextCursor: null, total: count };
     }
 
-    // 2. Busca Telefones e Emails APENAS para os contatos desta página
     const contatoIds = contatos.map(c => c.id);
 
     const { data: telefones } = await supabase
@@ -56,7 +53,6 @@ const fetchContatosPage = async ({ pageParam = 0, queryKey }) => {
         .in('contato_id', contatoIds)
         .eq('organizacao_id', organizacaoId);
 
-    // 3. Monta o objeto final
     const contatosMap = new Map(contatos.map(c => [c.id, { ...c, telefones: [], emails: [] }]));
 
     if (telefones) {
@@ -72,8 +68,6 @@ const fetchContatosPage = async ({ pageParam = 0, queryKey }) => {
     }
 
     const finalData = Array.from(contatosMap.values());
-    
-    // Verifica se tem mais páginas
     const nextCursor = (from + PAGE_SIZE) < count ? pageParam + 1 : null;
 
     return { data: finalData, nextCursor, total: count };
@@ -94,7 +88,6 @@ export default function GerenciamentoContatosPage() {
     const [editingActivity, setEditingActivity] = useState(null);
     const [currentContactForActivity, setCurrentContactForActivity] = useState(null);
 
-    // --- INFINITE QUERY ---
     const {
         data,
         fetchNextPage,
@@ -116,8 +109,6 @@ export default function GerenciamentoContatosPage() {
     const allContatos = useMemo(() => {
         return data?.pages.flatMap(page => page.data) || [];
     }, [data]);
-
-    const totalContatosReais = data?.pages[0]?.total || 0;
 
     useEffect(() => {
         setPageTitle('Gerenciamento de Contatos');
@@ -154,15 +145,6 @@ export default function GerenciamentoContatosPage() {
             finally: () => setIsExporting(false)
         });
     };
-
-    const kpiData = useMemo(() => {
-        const total = totalContatosReais; 
-        const carregados = allContatos.length;
-        const semTelefone = allContatos.filter(c => !c.telefones || c.telefones.length === 0).length;
-        const comTelefoneBrasil = allContatos.filter(c => c.telefones?.some(t => t.country_code === '+55')).length;
-        const comTelefoneEUA = allContatos.filter(c => c.telefones?.some(t => t.country_code === '+1')).length;
-        return { total, semTelefone, comTelefoneBrasil, comTelefoneEUA, carregados };
-    }, [allContatos, totalContatosReais]);
     
     const handleActionComplete = () => {
         queryClient.invalidateQueries({ queryKey: ['contatos-infinito', organizacaoId] });
@@ -213,7 +195,7 @@ export default function GerenciamentoContatosPage() {
     }
 
     return (
-        <div className="space-y-4 md:space-y-6 h-full flex flex-col">
+        <div className="space-y-4 h-full flex flex-col">
             <ContatoImporter isOpen={isImporterOpen} onClose={() => setIsImporterOpen(false)} onImportComplete={handleActionComplete} />
             <ContatoDetalhesSidebar open={isDetailsSidebarOpen} onClose={handleCloseDetailsSidebar} contato={selectedContato} onActionComplete={handleActionComplete} onAddActivity={handleAddActivity} onEditActivity={handleEditActivity} />
             
@@ -227,19 +209,11 @@ export default function GerenciamentoContatosPage() {
                 />
             )}
 
-            {/* KPI GRID - ESCONDIDO NO CELULAR (hidden md:grid) */}
-            <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <KpiCard title="Total no Banco" value={kpiData.total} icon={faUsers} color="blue" />
-                <KpiCard title="Contatos do Brasil" value={kpiData.comTelefoneBrasil} icon={faGlobeAmericas} color="green" />
-                <KpiCard title="Contatos dos EUA" value={kpiData.comTelefoneEUA} icon={faGlobeAmericas} color="yellow" />
-                <KpiCard title="Sem Telefone" value={kpiData.semTelefone} icon={faPhoneSlash} color="red" />
-            </div>
-
             {/* BARRA DE AÇÕES RESPONSIVA */}
-            <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center flex-shrink-0">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 
-                {/* Status de carregamento (Visível apenas no PC) */}
-                <div className="hidden md:flex items-center gap-2 h-8">
+                {/* Status de carregamento (Alinhado à esquerda no PC) */}
+                <div className="h-6 flex items-center order-2 md:order-1">
                     {isRefetching && !isFetchingNextPage && (
                         <span className="text-xs text-blue-600 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-full animate-pulse">
                             <FontAwesomeIcon icon={faSpinner} spin /> Atualizando...
@@ -247,58 +221,53 @@ export default function GerenciamentoContatosPage() {
                     )}
                 </div>
 
-                {/* BOTÕES DE AÇÃO: GRID NO CELULAR, FLEX NO PC */}
-                <div className="grid grid-cols-5 gap-2 w-full md:flex md:w-auto md:gap-3">
+                {/* BOTÕES: Grid Full no Mobile | Flex Compacto no PC */}
+                <div className="grid grid-cols-5 gap-2 w-full md:flex md:w-auto md:gap-2 order-1 md:order-2">
                     <button 
                         onClick={() => setIsImporterOpen(true)} 
                         disabled={isExporting} 
-                        className="bg-green-600 text-white p-2 md:px-4 rounded-md shadow-sm hover:bg-green-700 flex items-center justify-center gap-2 disabled:bg-gray-400"
+                        className="bg-green-600 text-white p-3 md:p-2 rounded-lg shadow-sm hover:bg-green-700 flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:bg-gray-400 disabled:scale-100 disabled:opacity-50"
                         title="Importar CSV"
                     > 
-                        <FontAwesomeIcon icon={faFileImport} /> 
-                        <span className="hidden md:inline">Importar</span> 
+                        <FontAwesomeIcon icon={faFileImport} className="w-5 h-5" /> 
                     </button>
                     
                     <button 
                         onClick={handleExportToGoogle} 
                         disabled={isExporting} 
-                        className="bg-gray-700 text-white p-2 md:px-4 rounded-md shadow-sm hover:bg-gray-800 flex items-center justify-center gap-2 disabled:bg-gray-400"
+                        className="bg-gray-700 text-white p-3 md:p-2 rounded-lg shadow-sm hover:bg-gray-800 flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:bg-gray-400 disabled:scale-100 disabled:opacity-50"
                         title="Exportar para Google"
                     > 
-                        <FontAwesomeIcon icon={isExporting ? faSpinner : faFileExport} spin={isExporting} /> 
-                        <span className="hidden md:inline">Exportar</span> 
+                        <FontAwesomeIcon icon={isExporting ? faSpinner : faFileExport} spin={isExporting} className="w-5 h-5" /> 
                     </button>
                     
                     <Link 
                         href="/contatos/duplicatas" 
-                        className="bg-orange-500 text-white p-2 md:px-4 rounded-md shadow-sm hover:bg-orange-600 flex items-center justify-center gap-2"
+                        className="bg-orange-500 text-white p-3 md:p-2 rounded-lg shadow-sm hover:bg-orange-600 flex items-center justify-center transition-all hover:scale-105 active:scale-95"
                         title="Mesclar Duplicatas"
                     > 
-                        <FontAwesomeIcon icon={faCopy} /> 
-                        <span className="hidden md:inline">Mesclar</span> 
+                        <FontAwesomeIcon icon={faCopy} className="w-5 h-5" /> 
                     </Link>
                     
                     <Link 
                         href="/contatos/formatar-telefones" 
-                        className="bg-purple-500 text-white p-2 md:px-4 rounded-md shadow-sm hover:bg-purple-600 flex items-center justify-center gap-2"
+                        className="bg-purple-500 text-white p-3 md:p-2 rounded-lg shadow-sm hover:bg-purple-600 flex items-center justify-center transition-all hover:scale-105 active:scale-95"
                         title="Padronizar Telefones"
                     > 
-                        <FontAwesomeIcon icon={faWandMagicSparkles} /> 
-                        <span className="hidden md:inline">Padronizar</span> 
+                        <FontAwesomeIcon icon={faWandMagicSparkles} className="w-5 h-5" /> 
                     </Link>
                     
                     <Link 
                         href="/contatos/cadastro" 
-                        className="bg-blue-500 text-white p-2 md:px-4 rounded-md shadow-sm hover:bg-blue-600 flex items-center justify-center gap-2"
+                        className="bg-blue-600 text-white p-3 md:p-2 rounded-lg shadow-sm hover:bg-blue-700 flex items-center justify-center transition-all hover:scale-105 active:scale-95"
                         title="Novo Contato"
                     > 
-                        <FontAwesomeIcon icon={faPlus} /> 
-                        <span className="hidden md:inline">Novo</span> 
+                        <FontAwesomeIcon icon={faPlus} className="w-5 h-5" /> 
                     </Link>
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-4 md:p-6 flex-grow overflow-hidden flex flex-col">
+            <div className="bg-white rounded-lg shadow p-4 flex-grow overflow-hidden flex flex-col">
                 <ContatoList 
                     initialContatos={allContatos} 
                     onActionComplete={handleActionComplete}
