@@ -1,179 +1,219 @@
-// components/whatsapp/MessagePanel.js
-import { useEffect, useRef, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMessages } from '@/app/(main)/caixa-de-entrada/data-fetching';
-import { useAuth } from '@/contexts/AuthContext';
+'use client'
+
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { getMessages } from '@/app/(main)/caixa-de-entrada/data-fetching'; // Importação corrigida
+import { sendWhatsAppText } from '@/utils/whatsapp';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPaperPlane, faSpinner, faUserCircle, faPaperclip, faFileLines } from '@fortawesome/free-solid-svg-icons';
-import { format } from 'date-fns';
+import { faPaperPlane, faSmile, faPaperclip } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import TemplateMessageModal from './TemplateMessageModal';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
-const getAttachmentType = (fileType) => {
-    if (fileType.startsWith('image/')) return 'image';
-    if (fileType.startsWith('video/')) return 'video';
-    if (fileType.startsWith('audio/')) return 'audio';
-    return 'document';
-};
-
-export default function MessagePanel({ contact, onBack }) {
-    const queryClient = useQueryClient();
+export default function MessagePanel({ contact }) {
+    const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSending, setIsSending] = useState(false);
     const messagesEndRef = useRef(null);
-    const fileInputRef = useRef(null);
-    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-    const [recipientPhone, setRecipientPhone] = useState(null);
-
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    const { data: messages, isLoading } = useQuery({
-        queryKey: ['messages', organizacaoId, contact?.contato_id],
-        queryFn: () => getMessages(supabase, organizacaoId, contact?.contato_id),
-        enabled: !!organizacaoId && !!contact,
-    });
-
+    // 1. Busca mensagens (Agora usando ID e Telefone)
     useEffect(() => {
-        if (messages && messages.length > 0) {
-            const inboundMsg = messages.find(m => m.direction === 'inbound');
-            if (inboundMsg && inboundMsg.sender_id) {
-                setRecipientPhone(inboundMsg.sender_id);
-                return;
+        // Permite carregar se tiver ID OU Telefone
+        if ((!contact?.contato_id && !contact?.phone_number) || !organizacaoId) return;
+
+        const fetchMessages = async () => {
+            setIsLoading(true);
+            try {
+                // Passamos o ID e o Telefone para a busca híbrida
+                const data = await getMessages(
+                    supabase, 
+                    organizacaoId, 
+                    contact.contato_id, 
+                    contact.phone_number
+                );
+                setMessages(data || []);
+            } catch (error) {
+                console.error("Erro ao carregar mensagens:", error);
+                toast.error("Erro ao carregar histórico.");
+            } finally {
+                setIsLoading(false);
             }
-            const outboundMsg = messages.find(m => m.direction === 'outbound');
-            if (outboundMsg && outboundMsg.receiver_id) {
-                setRecipientPhone(outboundMsg.receiver_id);
-            }
-        } else if (contact?.telefone) {
-            setRecipientPhone(contact.telefone);
+        };
+
+        fetchMessages();
+
+        // 2. Realtime: Escuta novas mensagens
+        // Monitoramos tanto pelo ID do contato quanto pelo telefone para garantir
+        const channels = [];
+
+        if (contact.contato_id) {
+            const channelId = supabase
+                .channel(`chat:id:${contact.contato_id}`)
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'whatsapp_messages',
+                    filter: `contato_id=eq.${contact.contato_id}`
+                }, (payload) => {
+                    setMessages((current) => [...current, payload.new]);
+                })
+                .subscribe();
+            channels.push(channelId);
         }
-    }, [messages, contact]);
 
+        if (contact.phone_number) {
+             const channelPhone = supabase
+                .channel(`chat:phone:${contact.phone_number}`)
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'whatsapp_messages',
+                    filter: `sender_id=eq.${contact.phone_number}`
+                }, (payload) => {
+                    // Evita duplicatas se o listener do ID já tiver pego
+                    setMessages((current) => {
+                        if (current.some(m => m.id === payload.new.id)) return current;
+                        return [...current, payload.new];
+                    });
+                })
+                .subscribe();
+            channels.push(channelPhone);
+        }
+
+        return () => {
+            channels.forEach(ch => supabase.removeChannel(ch));
+        };
+    }, [contact?.contato_id, contact?.phone_number, organizacaoId, supabase]);
+
+    // Scroll para o fim
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
-    
-    useEffect(() => {
-        if (!contact) return;
-        const channel = supabase.channel(`whatsapp_messages_org_${organizacaoId}`)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'whatsapp_messages', filter: `organizacao_id=eq.${organizacaoId}` }, (payload) => {
-                if (payload.new.contato_id === contact.contato_id) {
-                    queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact.contato_id] });
-                }
-                queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
-                toast.info("Nova mensagem recebida!");
-            }).subscribe();
-        return () => { supabase.removeChannel(channel); };
-    }, [contact, organizacaoId, supabase, queryClient]);
 
-    const mutationOptions = {
-        onError: (error) => toast.error(`Erro ao enviar: ${error.message}`),
-        onSettled: () => toast.dismiss(),
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!newMessage.trim() || !contact?.phone_number) return;
+
+        setIsSending(true);
+        try {
+            const result = await sendWhatsAppText(contact.phone_number, newMessage);
+            
+            if (result.success) {
+                setNewMessage('');
+            } else {
+                toast.error('Erro ao enviar mensagem.');
+            }
+        } catch (error) {
+            console.error('Erro no envio:', error);
+            toast.error('Falha no envio.');
+        } finally {
+            setIsSending(false);
+        }
     };
 
-    const sendMessageMutation = useMutation({
-        mutationFn: async (messageContent) => {
-            if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
-            const response = await fetch('/api/whatsapp/send', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ to: recipientPhone, type: 'text', text: messageContent }),
-            });
-            if (!response.ok) throw new Error((await response.json()).error || 'Falha ao enviar mensagem');
-            return response.json();
-        },
-        onSuccess: () => setNewMessage(''),
-        ...mutationOptions,
-    });
-
-    const sendTemplateMutation = useMutation({
-        mutationFn: async ({ templateName, language, variables }) => {
-            if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
-            const components = variables.length > 0 ? [{ type: 'body', parameters: variables.map(v => ({ type: 'text', text: v })) }] : [];
-            const response = await fetch('/api/whatsapp/send', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ to: recipientPhone, type: 'template', templateName: templateName, languageCode: language, components: components }),
-            });
-            if (!response.ok) throw new Error((await response.json()).error || 'Falha ao enviar modelo');
-            return response.json();
-        },
-        onSuccess: () => setIsTemplateModalOpen(false),
-        ...mutationOptions,
-    });
-
-    const sendAttachmentMutation = useMutation({
-        mutationFn: async ({ file }) => {
-            if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
-            toast.loading("Enviando anexo...");
-            const fileExt = file.name.split('.').pop();
-            const fileNameForUpload = `${Date.now()}.${fileExt}`;
-            const filePath = `${organizacaoId}/${contact.contato_id}/${fileNameForUpload}`;
-            const { error: uploadError } = await supabase.storage.from('whatsapp-media').upload(filePath, file);
-            if (uploadError) throw new Error(`Falha no upload: ${uploadError.message}`);
-            const { data: { publicUrl } } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
-            if (!publicUrl) throw new Error("Não foi possível obter a URL pública do arquivo.");
-            const attachmentType = getAttachmentType(file.type);
-            const response = await fetch('/api/whatsapp/send', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ to: recipientPhone, type: attachmentType, link: publicUrl, filename: file.name, caption: '' }),
-            });
-            if (!response.ok) throw new Error((await response.json()).error || 'Falha ao enviar anexo');
-            await supabase.from('whatsapp_attachments').insert({ contato_id: contact.contato_id, storage_path: filePath, public_url: publicUrl, file_name: file.name, file_type: file.type, file_size: file.size });
-            return response.json();
-        },
-        onSuccess: () => toast.success("Anexo enviado com sucesso!"),
-        ...mutationOptions,
-    });
-
-    const handleSendMessage = (e) => { e.preventDefault(); if (newMessage.trim()) { sendMessageMutation.mutate(newMessage); } };
-    const handleFileSelect = (e) => { const file = e.target.files[0]; if (file) { sendAttachmentMutation.mutate({ file }); } e.target.value = null; };
-    const handleSendTemplate = (templateName, language, variables) => { sendTemplateMutation.mutate({ templateName, language, variables }); };
-
     if (!contact) {
-        return <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500"><FontAwesomeIcon icon={faUserCircle} size="6x" /><p className="mt-4 text-lg">Selecione uma conversa para começar</p></div>;
-    }
-    
-    if (isLoading) {
-        return <div className="flex items-center justify-center h-full"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-400" /></div>;
-    }
-    
-    return (
-        <>
-            <TemplateMessageModal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} onSendTemplate={handleSendTemplate} contactName={contact?.nome} />
-            <div className="flex flex-col h-full bg-gray-50">
-                {/* O CABEÇALHO FOI REMOVIDO DAQUI */}
-
-                {/* ÁREA DE MENSAGENS ROLÁVEL */}
-                <div className="flex-grow p-4 overflow-y-auto min-h-0">
-                    {messages?.map(msg => (
-                        <div key={msg.id} className={`flex my-2 ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-xs lg:max-w-md p-3 rounded-lg ${msg.direction === 'outbound' ? 'bg-green-200' : 'bg-white shadow'}`}>
-                                <p className="text-sm">{msg.content}</p>
-                                <p className="text-right text-xs text-gray-500 mt-1">{msg.sent_at ? format(new Date(msg.sent_at), 'HH:mm') : ''}</p>
-                            </div>
-                        </div>
-                    ))}
-                    <div ref={messagesEndRef} />
+        return (
+            <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-400">
+                <div className="w-24 h-24 bg-gray-200 rounded-full mb-4 flex items-center justify-center">
+                    <FontAwesomeIcon icon={faSmile} size="3x" />
                 </div>
+                <p>Selecione uma conversa para começar</p>
+            </div>
+        );
+    }
 
-                {/* RODAPÉ FIXO PARA DIGITAR A MENSAGEM */}
-                <div className="p-4 bg-white border-t border-gray-200 flex-shrink-0">
-                    <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-                        <input type="file" ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />
-                        <button type="button" onClick={() => fileInputRef.current.click()} className="p-3 rounded-full hover:bg-gray-200 text-gray-600" disabled={sendAttachmentMutation.isPending}>
-                            {sendAttachmentMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperclip} />}
-                        </button>
-                        <button type="button" onClick={() => setIsTemplateModalOpen(true)} className="p-3 rounded-full hover:bg-gray-200 text-gray-600" disabled={sendTemplateMutation.isPending}>
-                            {sendTemplateMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faFileLines} />}
-                        </button>
-                        <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Digite uma mensagem" className="w-full px-4 py-2 border rounded-full bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={sendMessageMutation.isPending} />
-                        <button type="submit" className="p-3 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-400" disabled={sendMessageMutation.isPending}>
-                            {sendMessageMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperPlane} />}
-                        </button>
-                    </form>
+    return (
+        <div className="flex flex-col h-full bg-[#efeae2]">
+            {/* Header da Conversa */}
+            <div className="bg-white p-3 border-b flex items-center shadow-sm">
+                <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-white font-bold mr-3 overflow-hidden">
+                    {contact.avatar_url ? (
+                        <img src={contact.avatar_url} className="w-full h-full object-cover"/>
+                    ) : (
+                        (contact.nome || contact.phone_number || '?').charAt(0).toUpperCase()
+                    )}
+                </div>
+                <div>
+                    <h2 className="font-semibold text-gray-800">{contact.nome || contact.phone_number}</h2>
+                    <p className="text-xs text-gray-500">
+                        {contact.phone_number}
+                    </p>
                 </div>
             </div>
-        </>
+
+            {/* Área de Mensagens */}
+            <div className="flex-grow overflow-y-auto p-4 space-y-4">
+                {isLoading ? (
+                    <div className="text-center text-gray-500 mt-10">Carregando mensagens...</div>
+                ) : messages.length === 0 ? (
+                    <div className="text-center text-gray-400 text-sm mt-10 p-4 bg-white/50 rounded-lg shadow-sm mx-auto max-w-md">
+                        <p>Nenhuma mensagem encontrada.</p>
+                        <p className="text-xs mt-1">Envie a primeira mensagem para iniciar.</p>
+                    </div>
+                ) : (
+                    messages.map((msg, index) => {
+                        const isMe = msg.direction === 'outbound';
+                        return (
+                            <div key={msg.id || index} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[70%] rounded-lg p-3 shadow-sm relative ${
+                                    isMe ? 'bg-[#d9fdd3] text-gray-800 rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none'
+                                }`}>
+                                    <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                                    <span className="text-[10px] text-gray-500 block text-right mt-1">
+                                        {msg.sent_at ? format(new Date(msg.sent_at), 'HH:mm') : '...'}
+                                        {isMe && (
+                                            <span className="ml-1">
+                                                {msg.status === 'read' ? '✓✓' : msg.status === 'delivered' ? '✓✓' : '✓'}
+                                            </span>
+                                        )}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
+                <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input de Envio */}
+            <div className="p-3 bg-[#f0f2f5] border-t">
+                <form onSubmit={handleSendMessage} className="flex items-end gap-2">
+                    <button type="button" className="p-2 text-gray-500 hover:text-gray-700">
+                        <FontAwesomeIcon icon={faPaperclip} size="lg" />
+                    </button>
+                    <div className="flex-grow bg-white rounded-lg border border-gray-300 focus-within:border-green-500 focus-within:ring-1 focus-within:ring-green-500 transition-all">
+                        <textarea
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSendMessage(e);
+                                }
+                            }}
+                            placeholder="Digite uma mensagem"
+                            className="w-full p-3 max-h-32 bg-transparent border-none focus:ring-0 resize-none text-sm"
+                            rows={1}
+                        />
+                    </div>
+                    <button 
+                        type="submit" 
+                        disabled={isSending || !newMessage.trim()}
+                        className={`p-3 rounded-full text-white transition-colors ${
+                            isSending || !newMessage.trim() 
+                            ? 'bg-gray-400 cursor-not-allowed' 
+                            : 'bg-[#00a884] hover:bg-[#008f6f]'
+                        }`}
+                    >
+                        <FontAwesomeIcon icon={faPaperPlane} />
+                    </button>
+                </form>
+            </div>
+        </div>
     );
 }

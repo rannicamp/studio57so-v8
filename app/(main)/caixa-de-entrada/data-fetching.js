@@ -1,38 +1,49 @@
 // app/(main)/caixa-de-entrada/data-fetching.js
 
-// Função para buscar a lista de conversas
+// Função para buscar a lista de conversas (Mantida, mas garantindo robustez)
 export async function getConversations(supabase, organizacaoId) {
   if (!organizacaoId) return [];
 
-  // ATENÇÃO: Agora chamamos a nova função que agrupa por Contato ID
   const { data, error } = await supabase.rpc('get_inbox_conversations', {
     p_organizacao_id: organizacaoId
   });
 
   if (error) {
     console.error('Error fetching conversations:', error);
-    // Fallback silencioso ou erro customizado
-    return []; 
+    return [];
   }
   return data || [];
 }
 
-// Função para buscar mensagens de uma conversa específica
-export async function getMessages(supabase, organizacaoId, contactId) {
-  if (!organizacaoId || !contactId) return [];
+// Função para buscar mensagens (ATUALIZADA E MAIS INTELIGENTE)
+export async function getMessages(supabase, organizacaoId, contactId, phoneNumber) {
+  if (!organizacaoId) return [];
+  if (!contactId && !phoneNumber) return [];
 
-  // A busca de mensagens agora é muito mais segura: Pelo ID do Contato
-  // Isso traz mensagens de TODOS os números que esse contato tiver.
-  const { data, error } = await supabase
+  let query = supabase
     .from('whatsapp_messages')
     .select('*, contatos (*)')
     .eq('organizacao_id', organizacaoId)
-    .eq('contato_id', contactId)
     .order('sent_at', { ascending: true });
+
+  // A MÁGICA: Busca por ID do Contato OU pelo Número de Telefone
+  // Isso garante que mensagens antigas (sem contato) e novas (com contato) apareçam juntas.
+  if (contactId && phoneNumber) {
+    // Limpa o telefone para evitar erros de formatação na query
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    query = query.or(`contato_id.eq.${contactId},sender_id.eq.${phoneNumber},receiver_id.eq.${phoneNumber},sender_id.eq.${cleanPhone},receiver_id.eq.${cleanPhone}`);
+  } else if (contactId) {
+    query = query.eq('contato_id', contactId);
+  } else if (phoneNumber) {
+    query = query.or(`sender_id.eq.${phoneNumber},receiver_id.eq.${phoneNumber}`);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Error fetching messages:', error);
-    throw new Error('Falha ao buscar mensagens: ' + error.message);
+    // Não lança erro para não quebrar a UI, retorna vazio
+    return [];
   }
   return data || [];
 }

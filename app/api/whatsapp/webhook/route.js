@@ -107,6 +107,7 @@ async function sendTemplateMessage(supabase, config, to, contato, templateName, 
         });
         
         const data = await response.json();
+        // A mensagem de saída (template) será salva e o trigger do banco também vai vincular ela à conversa correta
         if (data.messages?.[0]?.id) {
             await supabase.from('whatsapp_messages').insert({
                 contato_id: contato.id, message_id: data.messages[0].id, 
@@ -138,47 +139,32 @@ function normalizeAndGeneratePhoneNumbers(rawPhone) {
         const ddd = digits.substring(2, 4);
         const rest = digits.substring(4); // Restante após DDD
 
-        // Lógica para números com 9 dígitos (55 + DDD + 9 + 8)
-        if (digits.length === 13) {
-            // Variações limpas
-            const sem55 = digits.substring(2); // 33999998888
-            const sem9 = '55' + ddd + rest.substring(1); // 553399998888
-            const sem55sem9 = ddd + rest.substring(1); // 3399998888
+        if (digits.length === 13) { // 9 dígitos
+            const sem55 = digits.substring(2); 
+            const sem9 = '55' + ddd + rest.substring(1); 
+            const sem55sem9 = ddd + rest.substring(1); 
             
             sets.add(sem55);
             sets.add(sem9);
             sets.add(sem55sem9);
-
-            // Variações FORMATADAS (Para bater com o banco sujo)
-            // Ex: (33) 99999-8888
             sets.add(`(${ddd}) ${rest.substring(0, 5)}-${rest.substring(5)}`);
-            // Ex: (33) 9999-8888 (Sem 9)
             sets.add(`(${ddd}) ${rest.substring(1, 5)}-${rest.substring(5)}`);
         }
         
-        // Lógica para números com 8 dígitos (55 + DDD + 8)
-        if (digits.length === 12) {
-            const sem55 = digits.substring(2); // 3399998888
+        if (digits.length === 12) { // 8 dígitos
+            const sem55 = digits.substring(2); 
             sets.add(sem55);
-            // Com 9
             sets.add('55' + ddd + '9' + rest); 
             sets.add(ddd + '9' + rest);
-
-            // Formatações
-            // Ex: (33) 9999-8888
             sets.add(`(${ddd}) ${rest.substring(0, 4)}-${rest.substring(4)}`);
         }
     } else {
-        // Sem 55
         if (digits.length >= 10) {
             sets.add('55' + digits);
             const ddd = digits.substring(0, 2);
             const body = digits.substring(2);
-            if (body.length === 9) {
-                 sets.add(`(${ddd}) ${body.substring(0, 5)}-${body.substring(5)}`);
-            } else if (body.length === 8) {
-                 sets.add(`(${ddd}) ${body.substring(0, 4)}-${body.substring(4)}`);
-            }
+            if (body.length === 9) sets.add(`(${ddd}) ${body.substring(0, 5)}-${body.substring(5)}`);
+            else if (body.length === 8) sets.add(`(${ddd}) ${body.substring(0, 4)}-${body.substring(4)}`);
         }
     }
     
@@ -216,7 +202,9 @@ export async function POST(request) {
             const content = getTextContent(message);
             const from = message.from; 
             
+            // ---------------------------------------------------------
             // 1. Identifica Contato (Com busca aprimorada)
+            // ---------------------------------------------------------
             const possibleNumbers = normalizeAndGeneratePhoneNumbers(from);
             
             let { data: contactPhone } = await supabaseAdmin
@@ -243,7 +231,7 @@ export async function POST(request) {
                     contato_id: contatoId, telefone: from, tipo: 'celular', organizacao_id: config.organizacao_id
                 });
 
-                // Funil e Automação (Lógica simplificada para brevidade)
+                // Funil e Automação de Boas-vindas
                 const { data: funil } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', config.organizacao_id).limit(1).single();
                 if (funil) {
                     const { data: col } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem').limit(1).single();
@@ -268,22 +256,15 @@ export async function POST(request) {
                 }
             }
 
-            // 2. Salva Mensagem
-            await supabaseAdmin.from('whatsapp_messages').insert({
-                contato_id: contatoId, message_id: message.id, sender_id: from,
-                receiver_id: config.whatsapp_phone_number_id, content: content,
-                sent_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
-                direction: 'inbound', status: 'delivered', raw_payload: message,
-                organizacao_id: config.organizacao_id
-            });
+            // ---------------------------------------------------------
+            // 2. ATUALIZA/CRIA A CONVERSA (ORDEM INVERTIDA)
+            // ---------------------------------------------------------
+            // Ao criar a conversa AGORA, o Trigger do banco 'tr_auto_assign_contact'
+            // vai disparar e preencher o contato_id na tabela whatsapp_conversations.
             
-            // 3. --- LÓGICA DE UNIFICAÇÃO DE CONVERSA ---
-            // Objetivo: Se já existe uma conversa para este CONTATO (com qualquer número), usamos ela.
-            // Isso evita criar uma linha nova na lista só porque o WhatsApp mandou o número com '55'
-            
-            let conversationKey = from; // Padrão: usa o número que chegou
+            let conversationKey = from; 
 
-            // Busca todos os telefones deste contato
+            // Tenta achar se esse contato já tem conversa em OUTRO número para unificar
             const { data: allContactPhones } = await supabaseAdmin
                 .from('telefones')
                 .select('telefone')
@@ -291,8 +272,6 @@ export async function POST(request) {
 
             if (allContactPhones && allContactPhones.length > 0) {
                 const phoneList = allContactPhones.map(p => p.telefone);
-                
-                // Verifica se ALGUM desses telefones já tem uma conversa iniciada
                 const { data: existingConv } = await supabaseAdmin
                     .from('whatsapp_conversations')
                     .select('phone_number')
@@ -301,18 +280,38 @@ export async function POST(request) {
                     .maybeSingle();
 
                 if (existingConv) {
-                    // ACHOU! Vamos reusar o número "antigo" como chave da conversa
-                    // Isso fará a mensagem aparecer na conversa antiga na sua lista
                     conversationKey = existingConv.phone_number;
                 }
             }
 
-            // Atualiza a conversa (usando a chave inteligente)
+            // UPSERT na conversa
             await supabaseAdmin.from('whatsapp_conversations').upsert({ 
                 phone_number: conversationKey, 
+                // Se for novo, o trigger do banco vai preencher o contato_id baseado no telefone
+                // Se já existir, estamos apenas atualizando a data
                 updated_at: new Date().toISOString() 
             }, { onConflict: 'phone_number' });
 
+            // ---------------------------------------------------------
+            // 3. SALVA A MENSAGEM
+            // ---------------------------------------------------------
+            // Quando esta linha for inserida, o trigger 'tr_link_msg_conv' vai disparar.
+            // Ele vai buscar a conversa do passo 2 (via contato_id) e preencher
+            // a coluna conversation_record_id nesta mensagem.
+            await supabaseAdmin.from('whatsapp_messages').insert({
+                contato_id: contatoId, 
+                message_id: message.id, 
+                sender_id: from,
+                receiver_id: config.whatsapp_phone_number_id, 
+                content: content,
+                sent_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
+                direction: 'inbound', 
+                status: 'delivered', 
+                raw_payload: message,
+                organizacao_id: config.organizacao_id
+                // conversation_record_id será preenchido automaticamente pelo TRIGGER
+            });
+            
             // 4. Notificação
             if (content) {
                 let notifTitle = isNewLead ? '🎉 Novo Lead no WhatsApp!' : `💬 Mensagem de ${contatoNome}`;
