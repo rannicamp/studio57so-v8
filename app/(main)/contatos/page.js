@@ -10,86 +10,74 @@ import KpiCard from '../../../components/KpiCard';
 import { useLayout } from '../../../contexts/LayoutContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileImport, faCopy, faSpinner, faWandMagicSparkles, faUsers, faGlobeAmericas, faPhoneSlash, faFileExport, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+import { faFileImport, faCopy, faSpinner, faWandMagicSparkles, faUsers, faGlobeAmericas, faPhoneSlash, faFileExport } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
 import ContatoDetalhesSidebar from '../../../components/contatos/ContatoDetalhesSidebar';
 import ActivityModal from '../../../components/atividades/AtividadeModal';
 
-const fetchContatos = async (organizacaoId) => {
+// Função de busca otimizada
+const fetchContatosPage = async ({ pageParam = 0, queryKey }) => {
     const supabase = createClient();
-    if (!organizacaoId) return [];
+    const [, organizacaoId] = queryKey;
+    if (!organizacaoId) return { data: [], nextCursor: null };
 
-    // Passo 1: Buscar os contatos da organização.
-    // MODIFICAÇÃO: Adicionado .range(0, 9999) para garantir que traga TODOS os contatos e não limite em 1000
-    const { data: contatos, error: contatosError } = await supabase
+    const PAGE_SIZE = 50; 
+    const from = pageParam * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    // 1. Busca Contatos Paginados
+    const { data: contatos, error: contatosError, count } = await supabase
         .from('contatos')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('organizacao_id', organizacaoId)
-        .order('nome')
-        .range(0, 9999); 
+        .order('nome', { ascending: true }) 
+        .range(from, to);
 
-    if (contatosError) {
-        console.error("Erro ao buscar contatos:", contatosError);
-        throw new Error(contatosError.message);
-    }
+    if (contatosError) throw new Error(contatosError.message);
 
     if (!contatos || contatos.length === 0) {
-        return [];
+        return { data: [], nextCursor: null, total: count };
     }
 
+    // 2. Busca Telefones e Emails APENAS para os contatos desta página
     const contatoIds = contatos.map(c => c.id);
 
-    // Como a lista de IDs pode ser gigante, fazemos a busca de telefones em lotes se necessário, 
-    // mas para simplificar e garantir performance inicial, mantemos a lógica mas garantindo range
-    const { data: telefones, error: telefonesError } = await supabase
+    const { data: telefones } = await supabase
         .from('telefones')
         .select('contato_id, id, telefone, country_code')
         .in('contato_id', contatoIds)
-        .eq('organizacao_id', organizacaoId)
-        .range(0, 9999);
+        .eq('organizacao_id', organizacaoId);
 
-    if (telefonesError) {
-        console.error("Erro ao buscar telefones:", telefonesError);
-        throw new Error(telefonesError.message);
-    }
-
-    const { data: emails, error: emailsError } = await supabase
+    const { data: emails } = await supabase
         .from('emails')
         .select('contato_id, id, email')
         .in('contato_id', contatoIds)
-        .eq('organizacao_id', organizacaoId)
-        .range(0, 9999);
+        .eq('organizacao_id', organizacaoId);
 
-    if (emailsError) {
-        console.error("Erro ao buscar emails:", emailsError);
-        throw new Error(emailsError.message);
-    }
-
-    // Passo 4: Combinar os dados.
+    // 3. Monta o objeto final
     const contatosMap = new Map(contatos.map(c => [c.id, { ...c, telefones: [], emails: [] }]));
 
     if (telefones) {
         telefones.forEach(t => {
-            if (contatosMap.has(t.contato_id)) {
-                contatosMap.get(t.contato_id).telefones.push(t);
-            }
+            if (contatosMap.has(t.contato_id)) contatosMap.get(t.contato_id).telefones.push(t);
         });
     }
 
     if (emails) {
         emails.forEach(e => {
-            if (contatosMap.has(e.contato_id)) {
-                contatosMap.get(e.contato_id).emails.push(e);
-            }
+            if (contatosMap.has(e.contato_id)) contatosMap.get(e.contato_id).emails.push(e);
         });
     }
 
     const finalData = Array.from(contatosMap.values());
-    return finalData;
-};
+    
+    // Verifica se tem mais páginas
+    const nextCursor = (from + PAGE_SIZE) < count ? pageParam + 1 : null;
 
+    return { data: finalData, nextCursor, total: count };
+};
 
 export default function GerenciamentoContatosPage() {
     const { setPageTitle } = useLayout();
@@ -106,27 +94,31 @@ export default function GerenciamentoContatosPage() {
     const [editingActivity, setEditingActivity] = useState(null);
     const [currentContactForActivity, setCurrentContactForActivity] = useState(null);
 
-    // --- IMPLEMENTAÇÃO DO CARREGAMENTO MÁGICO ---
-    const { data: contatos = [], isLoading, error, isRefetching } = useQuery({
-        queryKey: ['contatos', organizacaoId],
-        queryFn: () => fetchContatos(organizacaoId),
+    // --- INFINITE QUERY ---
+    const {
+        data,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+        isLoading,
+        error,
+        isRefetching
+    } = useInfiniteQuery({
+        queryKey: ['contatos-infinito', organizacaoId],
+        queryFn: fetchContatosPage,
+        initialPageParam: 0,
+        getNextPageParam: (lastPage) => lastPage.nextCursor,
         enabled: !!organizacaoId,
-        staleTime: 1000 * 60 * 5, // 5 minutos de cache fresco (Dados aparecem instantaneamente se voltarmos na página)
-        gcTime: 1000 * 60 * 30,   // Mantém no lixo/memória por 30 minutos
-        refetchOnWindowFocus: true, // Atualiza em segundo plano ao focar a janela
-        onError: (err) => {
-            toast.error(`Erro ao carregar contatos: ${err.message}`);
-        }
+        staleTime: 1000 * 60 * 5, 
+        refetchOnWindowFocus: false, 
     });
 
-    // Notificação de atualização em segundo plano
-    useEffect(() => {
-        if (isRefetching && contatos.length > 0) {
-            // Opcional: Mostrar um toast discreto ou indicador de carregamento sutil
-            // toast.info('Atualizando lista de contatos...', { duration: 2000 });
-        }
-    }, [isRefetching, contatos.length]);
-    
+    const allContatos = useMemo(() => {
+        return data?.pages.flatMap(page => page.data) || [];
+    }, [data]);
+
+    const totalContatosReais = data?.pages[0]?.total || 0;
+
     useEffect(() => {
         setPageTitle('Gerenciamento de Contatos');
     }, [setPageTitle]);
@@ -164,29 +156,17 @@ export default function GerenciamentoContatosPage() {
     };
 
     const kpiData = useMemo(() => {
-        const total = contatos.length;
-        const semTelefone = contatos.filter(c => !c.telefones || c.telefones.length === 0).length;
-        const comTelefoneBrasil = contatos.filter(c => c.telefones?.some(t => t.country_code === '+55')).length;
-        const comTelefoneEUA = contatos.filter(c => c.telefones?.some(t => t.country_code === '+1')).length;
+        const total = totalContatosReais; 
+        const semTelefone = allContatos.filter(c => !c.telefones || c.telefones.length === 0).length;
+        const comTelefoneBrasil = allContatos.filter(c => c.telefones?.some(t => t.country_code === '+55')).length;
+        const comTelefoneEUA = allContatos.filter(c => c.telefones?.some(t => t.country_code === '+1')).length;
         return { total, semTelefone, comTelefoneBrasil, comTelefoneEUA };
-    }, [contatos]);
+    }, [allContatos, totalContatosReais]);
     
     const handleActionComplete = () => {
-        queryClient.invalidateQueries({ queryKey: ['contatos', organizacaoId] });
+        queryClient.invalidateQueries({ queryKey: ['contatos-infinito', organizacaoId] });
         if (selectedContato) {
-            // Atualiza o contato selecionado se ele ainda existir na nova lista
-            queryClient.fetchQuery({ queryKey: ['contatos', organizacaoId] }).then(newContatos => {
-                if(newContatos) {
-                    const updatedContact = newContatos.find(c => c.id === selectedContato.id);
-                    if (updatedContact) {
-                        setSelectedContato(updatedContact);
-                    } else {
-                        handleCloseDetailsSidebar();
-                    }
-                } else {
-                    handleCloseDetailsSidebar();
-                }
-            });
+            handleCloseDetailsSidebar();
         }
     };
 
@@ -207,7 +187,7 @@ export default function GerenciamentoContatosPage() {
     };
 
     const handleEditActivity = (activity) => {
-        setCurrentContactForActivity(contatos.find(c => c.id === activity.contato_id));
+        setCurrentContactForActivity(allContatos.find(c => c.id === activity.contato_id));
         setEditingActivity(activity);
         setIsActivityModalOpen(true);
     };
@@ -223,8 +203,7 @@ export default function GerenciamentoContatosPage() {
         handleActionComplete(); 
     };
 
-    // Loading State só aparece na primeira vez ou se não tiver dados em cache
-    if (isLoading && contatos.length === 0) {
+    if (isLoading) {
         return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-400" /><p className="mt-3 text-gray-600">Carregando contatos...</p></div>
     }
     
@@ -247,24 +226,19 @@ export default function GerenciamentoContatosPage() {
                 />
             )}
 
+            {/* KPI GRID ATUALIZADO (Sem o card inútil) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <KpiCard title="Total de Contatos" value={kpiData.total} icon={faUsers} color="blue" />
+                <KpiCard title="Total no Banco" value={kpiData.total} icon={faUsers} color="blue" />
                 <KpiCard title="Contatos do Brasil" value={kpiData.comTelefoneBrasil} icon={faGlobeAmericas} color="green" />
                 <KpiCard title="Contatos dos EUA" value={kpiData.comTelefoneEUA} icon={faGlobeAmericas} color="yellow" />
-                <KpiCard title="Contatos sem Telefone" value={kpiData.semTelefone} icon={faPhoneSlash} color="red" />
+                <KpiCard title="Sem Telefone" value={kpiData.semTelefone} icon={faPhoneSlash} color="red" />
             </div>
 
             <div className="flex justify-between items-center flex-wrap gap-4">
-                 {/* Indicador de atualização sutil */}
                 <div className="flex items-center gap-2 h-8">
-                    {isRefetching && (
+                    {isRefetching && !isFetchingNextPage && (
                         <span className="text-xs text-blue-600 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-full animate-pulse">
-                            <FontAwesomeIcon icon={faSpinner} spin /> Atualizando...
-                        </span>
-                    )}
-                    {!isRefetching && contatos.length > 0 && (
-                         <span className="text-xs text-gray-400 flex items-center gap-1 px-2 py-1">
-                            <FontAwesomeIcon icon={faCheckCircle} /> Atualizado
+                            <FontAwesomeIcon icon={faSpinner} spin /> Atualizando lista...
                         </span>
                     )}
                 </div>
@@ -278,11 +252,14 @@ export default function GerenciamentoContatosPage() {
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-6 h-[calc(100vh-300px)] flex flex-col">
                 <ContatoList 
-                    initialContatos={contatos} 
+                    initialContatos={allContatos} 
                     onActionComplete={handleActionComplete}
                     onRowClick={handleViewContatoDetails}
+                    fetchNextPage={fetchNextPage}
+                    hasNextPage={hasNextPage}
+                    isFetchingNextPage={isFetchingNextPage}
                 />
             </div>
         </div>
