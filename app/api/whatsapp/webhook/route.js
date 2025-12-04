@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import webPush from 'web-push';
 
-// --- 1. CONFIGURAÇÃO DO WEB PUSH (Para vibrar o celular) ---
+// --- 1. CONFIGURAÇÃO DO WEB PUSH ---
 const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const privateKey = process.env.VAPID_PRIVATE_KEY;
 
@@ -20,7 +20,7 @@ const getSupabaseAdmin = () => createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// --- 3. FUNÇÃO DE NOTIFICAÇÃO INTELIGENTE (INTERNA) ---
+// --- 3. NOTIFICAÇÃO ---
 async function dispatchNotification(supabaseAdmin, organizacaoId, title, message, url) {
     try {
         const { data: users } = await supabaseAdmin
@@ -107,7 +107,6 @@ async function sendTemplateMessage(supabase, config, to, contato, templateName, 
         });
         
         const data = await response.json();
-        // A mensagem de saída (template) será salva e o trigger do banco também vai vincular ela à conversa correta
         if (data.messages?.[0]?.id) {
             await supabase.from('whatsapp_messages').insert({
                 contato_id: contato.id, message_id: data.messages[0].id, 
@@ -127,48 +126,6 @@ function getTextContent(message) {
     if (message.type === 'text') return message.text?.body;
     if (message.type === 'interactive') return message.interactive?.button_reply?.title || message.interactive?.list_reply?.title;
     return null;
-}
-
-// --- NORMALIZAÇÃO TURBINADA (Inclui Formatação) ---
-function normalizeAndGeneratePhoneNumbers(rawPhone) {
-    const digits = rawPhone.replace(/\D/g, '');
-    const sets = new Set();
-    sets.add(digits);
-
-    if (digits.startsWith('55')) {
-        const ddd = digits.substring(2, 4);
-        const rest = digits.substring(4); // Restante após DDD
-
-        if (digits.length === 13) { // 9 dígitos
-            const sem55 = digits.substring(2); 
-            const sem9 = '55' + ddd + rest.substring(1); 
-            const sem55sem9 = ddd + rest.substring(1); 
-            
-            sets.add(sem55);
-            sets.add(sem9);
-            sets.add(sem55sem9);
-            sets.add(`(${ddd}) ${rest.substring(0, 5)}-${rest.substring(5)}`);
-            sets.add(`(${ddd}) ${rest.substring(1, 5)}-${rest.substring(5)}`);
-        }
-        
-        if (digits.length === 12) { // 8 dígitos
-            const sem55 = digits.substring(2); 
-            sets.add(sem55);
-            sets.add('55' + ddd + '9' + rest); 
-            sets.add(ddd + '9' + rest);
-            sets.add(`(${ddd}) ${rest.substring(0, 4)}-${rest.substring(4)}`);
-        }
-    } else {
-        if (digits.length >= 10) {
-            sets.add('55' + digits);
-            const ddd = digits.substring(0, 2);
-            const body = digits.substring(2);
-            if (body.length === 9) sets.add(`(${ddd}) ${body.substring(0, 5)}-${body.substring(5)}`);
-            else if (body.length === 8) sets.add(`(${ddd}) ${body.substring(0, 4)}-${body.substring(4)}`);
-        }
-    }
-    
-    return Array.from(sets);
 }
 
 // --- ROTA DE VERIFICAÇÃO ---
@@ -203,22 +160,23 @@ export async function POST(request) {
             const from = message.from; 
             
             // ---------------------------------------------------------
-            // 1. Identifica Contato (Com busca aprimorada)
+            // 1. Identifica Contato (USANDO A INTELIGÊNCIA DO BANCO)
             // ---------------------------------------------------------
-            const possibleNumbers = normalizeAndGeneratePhoneNumbers(from);
+            // Em vez de adivinhar no JS, perguntamos ao Banco: "Quem é o dono deste número?"
+            // A função RPC 'find_contact_by_phone' lida com os 55, 9º dígito e formatações.
             
-            let { data: contactPhone } = await supabaseAdmin
-                .from('telefones')
-                .select('contato_id')
-                .in('telefone', possibleNumbers)
-                .limit(1)
-                .maybeSingle();
+            const { data: foundId, error: searchError } = await supabaseAdmin
+                .rpc('find_contact_by_phone', { phone_input: from });
 
-            let contatoId = contactPhone?.contato_id;
+            let contatoId = foundId; // Se achou, usa o ID. Se não, vem null.
             let contatoNome = `Lead (${from})`;
             let isNewLead = false;
 
             if (!contatoId) {
+                // NÃO ACHOU NINGUÉM MESMO APÓS A BUSCA INTELIGENTE
+                // SÓ AQUI CRIAMOS O LEAD
+                console.log(`[Webhook] Contato não encontrado para ${from}. Criando novo Lead.`);
+                
                 isNewLead = true;
                 const { data: newContact } = await supabaseAdmin.from('contatos').insert({
                     nome: contatoNome, tipo_contato: 'Lead', organizacao_id: config.organizacao_id,
@@ -227,11 +185,12 @@ export async function POST(request) {
                 
                 contatoId = newContact.id;
                 
+                // Salva o telefone exatamente como veio
                 await supabaseAdmin.from('telefones').insert({
                     contato_id: contatoId, telefone: from, tipo: 'celular', organizacao_id: config.organizacao_id
                 });
 
-                // Funil e Automação de Boas-vindas
+                // Funil e Automação
                 const { data: funil } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', config.organizacao_id).limit(1).single();
                 if (funil) {
                     const { data: col } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem').limit(1).single();
@@ -246,6 +205,8 @@ export async function POST(request) {
                     }
                 }
             } else {
+                // ACHOU O CONTATO! (Ex: Ana)
+                // Vamos usar o ID existente e não criar nada novo.
                 const { data: existing } = await supabaseAdmin.from('contatos').select('nome, is_awaiting_name_response').eq('id', contatoId).single();
                 if (existing) {
                     contatoNome = existing.nome;
@@ -254,52 +215,23 @@ export async function POST(request) {
                         contatoNome = content;
                     }
                 }
+                console.log(`[Webhook] Contato identificado: ${contatoNome} (ID: ${contatoId})`);
             }
 
             // ---------------------------------------------------------
-            // 2. ATUALIZA/CRIA A CONVERSA (ORDEM INVERTIDA)
+            // 2. ATUALIZA/CRIA A CONVERSA
             // ---------------------------------------------------------
-            // Ao criar a conversa AGORA, o Trigger do banco 'tr_auto_assign_contact'
-            // vai disparar e preencher o contato_id na tabela whatsapp_conversations.
-            
-            let conversationKey = from; 
-
-            // Tenta achar se esse contato já tem conversa em OUTRO número para unificar
-            const { data: allContactPhones } = await supabaseAdmin
-                .from('telefones')
-                .select('telefone')
-                .eq('contato_id', contatoId);
-
-            if (allContactPhones && allContactPhones.length > 0) {
-                const phoneList = allContactPhones.map(p => p.telefone);
-                const { data: existingConv } = await supabaseAdmin
-                    .from('whatsapp_conversations')
-                    .select('phone_number')
-                    .in('phone_number', phoneList)
-                    .limit(1)
-                    .maybeSingle();
-
-                if (existingConv) {
-                    conversationKey = existingConv.phone_number;
-                }
-            }
-
-            // UPSERT na conversa
+            // O Trigger do banco 'tr_auto_assign_contact' vai garantir que o contato_id esteja correto
             await supabaseAdmin.from('whatsapp_conversations').upsert({ 
-                phone_number: conversationKey, 
-                // Se for novo, o trigger do banco vai preencher o contato_id baseado no telefone
-                // Se já existir, estamos apenas atualizando a data
+                phone_number: from, 
                 updated_at: new Date().toISOString() 
             }, { onConflict: 'phone_number' });
 
             // ---------------------------------------------------------
             // 3. SALVA A MENSAGEM
             // ---------------------------------------------------------
-            // Quando esta linha for inserida, o trigger 'tr_link_msg_conv' vai disparar.
-            // Ele vai buscar a conversa do passo 2 (via contato_id) e preencher
-            // a coluna conversation_record_id nesta mensagem.
             await supabaseAdmin.from('whatsapp_messages').insert({
-                contato_id: contatoId, 
+                contato_id: contatoId, // Vincula ao ID correto (Ana)
                 message_id: message.id, 
                 sender_id: from,
                 receiver_id: config.whatsapp_phone_number_id, 
@@ -309,7 +241,6 @@ export async function POST(request) {
                 status: 'delivered', 
                 raw_payload: message,
                 organizacao_id: config.organizacao_id
-                // conversation_record_id será preenchido automaticamente pelo TRIGGER
             });
             
             // 4. Notificação

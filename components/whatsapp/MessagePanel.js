@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { getMessages } from '@/app/(main)/caixa-de-entrada/data-fetching'; // Importação corrigida
+import { getMessages } from '@/app/(main)/caixa-de-entrada/data-fetching'; 
 import { sendWhatsAppText } from '@/utils/whatsapp';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperPlane, faSmile, faPaperclip } from '@fortawesome/free-solid-svg-icons';
@@ -23,13 +23,11 @@ export default function MessagePanel({ contact }) {
 
     // 1. Busca mensagens (Agora usando ID e Telefone)
     useEffect(() => {
-        // Permite carregar se tiver ID OU Telefone
         if ((!contact?.contato_id && !contact?.phone_number) || !organizacaoId) return;
 
         const fetchMessages = async () => {
             setIsLoading(true);
             try {
-                // Passamos o ID e o Telefone para a busca híbrida
                 const data = await getMessages(
                     supabase, 
                     organizacaoId, 
@@ -48,7 +46,6 @@ export default function MessagePanel({ contact }) {
         fetchMessages();
 
         // 2. Realtime: Escuta novas mensagens
-        // Monitoramos tanto pelo ID do contato quanto pelo telefone para garantir
         const channels = [];
 
         if (contact.contato_id) {
@@ -75,7 +72,6 @@ export default function MessagePanel({ contact }) {
                     table: 'whatsapp_messages',
                     filter: `sender_id=eq.${contact.phone_number}`
                 }, (payload) => {
-                    // Evita duplicatas se o listener do ID já tiver pego
                     setMessages((current) => {
                         if (current.some(m => m.id === payload.new.id)) return current;
                         return [...current, payload.new];
@@ -129,22 +125,9 @@ export default function MessagePanel({ contact }) {
 
     return (
         <div className="flex flex-col h-full bg-[#efeae2]">
-            {/* Header da Conversa */}
-            <div className="bg-white p-3 border-b flex items-center shadow-sm">
-                <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-white font-bold mr-3 overflow-hidden">
-                    {contact.avatar_url ? (
-                        <img src={contact.avatar_url} className="w-full h-full object-cover"/>
-                    ) : (
-                        (contact.nome || contact.phone_number || '?').charAt(0).toUpperCase()
-                    )}
-                </div>
-                <div>
-                    <h2 className="font-semibold text-gray-800">{contact.nome || contact.phone_number}</h2>
-                    <p className="text-xs text-gray-500">
-                        {contact.phone_number}
-                    </p>
-                </div>
-            </div>
+            {/* REMOVIDO O HEADER REDUNDANTE DAQUI 
+               (O page.js já exibe o nome e a foto no topo)
+            */}
 
             {/* Área de Mensagens */}
             <div className="flex-grow overflow-y-auto p-4 space-y-4">

@@ -1,4 +1,3 @@
-// app/(main)/layout.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -90,43 +89,37 @@ function MainLayout({ children }) {
     // Layout Específico da Caixa de Entrada
     const layoutCaixaDeEntrada = (
         <div className={`${finalContainerClass} h-screen w-full bg-gray-100 overflow-hidden`}>
-            {/* CORREÇÃO: Esconde Sidebar na impressão */}
             <div className="print:hidden">
                 <Sidebar isCollapsed={isCollapsed} toggleSidebar={toggleSidebar} isAdmin={isProprietario}/>
             </div>
             
             <div className="flex flex-1 flex-col overflow-hidden">
-                {/* CORREÇÃO: Esconde Header na impressão */}
                 <div className="flex-shrink-0 print:hidden">
                     <Header />
                 </div>
-                {/* CORREÇÃO: Reseta overflow na impressão */}
-                <main className="flex-grow min-h-0 print:overflow-visible print:h-auto"> 
+                {/* CORREÇÃO DO LAYOUT:
+                    - mt-... : Empurra o topo para baixo (Header)
+                    - mb-[65px] : Empurra a base para cima (Menu/Rodapé)
+                */}
+                <main className={`flex-grow min-h-0 print:overflow-visible print:h-auto ${isCotacoesBarVisible ? 'mt-[89px]' : 'mt-[65px]'} mb-[65px]`}> 
                     {children}
                 </main>
             </div>
         </div>
     );
 
-    // Layout Padrão (Usado no RDO)
+    // Layout Padrão
     const layoutPadrao = (
         <div className={finalContainerClass}>
-            {/* CORREÇÃO: Esconde Sidebar na impressão */}
             <div className="print:hidden">
                 <Sidebar isCollapsed={isCollapsed} toggleSidebar={toggleSidebar} isAdmin={isProprietario}/>
             </div>
 
             <div className="flex-1">
-                {/* CORREÇÃO: Esconde Header na impressão */}
                 <div className="print:hidden">
                     <Header headerPositionClass={finalHeaderMargin} />
                 </div>
 
-                {/* CORREÇÃO FINAL: 
-                    print:!m-0 -> Remove a margem lateral (do menu)
-                    print:!mt-0 -> Remove a margem superior (do header)
-                    print:w-full -> Força largura total
-                */}
                 <main className={`transition-all duration-300 ${isCotacoesBarVisible ? 'mt-[89px]' : 'mt-[65px]'} ${finalMainContentMargin} print:!m-0 print:!p-0 print:w-full`}>
                     {children}
                 </main>
