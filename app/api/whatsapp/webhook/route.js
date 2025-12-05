@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import webPush from 'web-push';
 
-// --- 1. CONFIGURAÇÃO DO WEB PUSH ---
+// --- 1. CONFIGURAÇÃO ---
 const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const privateKey = process.env.VAPID_PRIVATE_KEY;
 
@@ -14,53 +14,64 @@ if (publicKey && privateKey) {
     );
 }
 
-// --- 2. INICIALIZAÇÃO DO SUPABASE (ADMIN) ---
+// Inicializa Supabase com chave de serviço (ADMIN) para poder gravar arquivos e dados
 const getSupabaseAdmin = () => createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// --- 3. FUNÇÃO AUXILIAR: PROCESSAR MÍDIA (DOWNLOAD DA META -> UPLOAD SUPABASE) ---
-async function processIncomingMedia(supabaseAdmin, message, config) {
+// --- 2. PROCESSAMENTO DE MÍDIA (Organizado e Robusto) ---
+async function processIncomingMedia(supabaseAdmin, message, config, contatoId) {
     try {
         const type = message.type;
-        // Pega o ID da mídia e o nome do arquivo (se houver, senão gera um)
         const mediaId = message[type]?.id;
         const mimeType = message[type]?.mime_type;
         let fileName = message[type]?.filename; // Comum em documentos
 
         if (!mediaId) return null;
 
-        // Se não tiver nome (imagens/áudio), geramos um
+        // Se não tiver nome (imagens/áudio), geramos um com timestamp para evitar conflito
         if (!fileName) {
             const ext = mimeType ? mimeType.split('/')[1].split(';')[0] : 'bin';
-            fileName = `${type}_${mediaId}.${ext}`;
+            fileName = `${type}_${mediaId}_${Date.now()}.${ext}`;
         }
 
         // Limpa o nome do arquivo
         const cleanName = fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-        const filePath = `received/${cleanName}`; // Pasta 'received' para organizar
+
+        // LÓGICA DE ORGANIZAÇÃO: received/{contato_id}/{ano}/{mes}/{arquivo}
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        // Se por acaso contatoId for nulo (raro), joga numa pasta 'unassigned'
+        const folderPath = contatoId ? `received/${contatoId}/${year}/${month}` : `received/unassigned/${year}/${month}`;
+        const filePath = `${folderPath}/${cleanName}`;
+
+        console.log(`[Webhook] Baixando mídia ${mediaId} para: ${filePath}`);
 
         // 1. Obter URL de download da API da Meta
         const urlResponse = await fetch(`https://graph.facebook.com/v20.0/${mediaId}`, {
             headers: { 'Authorization': `Bearer ${config.whatsapp_permanent_token}` }
         });
-        const urlData = await urlResponse.json();
         
-        if (!urlData.url) {
-            console.error('[Webhook] Falha ao obter URL da mídia:', urlData);
-            return null;
-        }
+        if (!urlResponse.ok) throw new Error(`Erro ao obter URL da mídia: ${urlResponse.statusText}`);
+        
+        const urlData = await urlResponse.json();
+        if (!urlData.url) throw new Error('URL da mídia não retornada pela Meta');
 
         // 2. Baixar o arquivo binário
         const fileResponse = await fetch(urlData.url, {
             headers: { 'Authorization': `Bearer ${config.whatsapp_permanent_token}` }
         });
+        
+        if (!fileResponse.ok) throw new Error(`Erro ao baixar binário: ${fileResponse.statusText}`);
+        
         const fileBlob = await fileResponse.arrayBuffer();
+        const fileSize = fileBlob.byteLength;
 
         // 3. Fazer Upload para o Supabase (Bucket whatsapp-media)
         const { error: uploadError } = await supabaseAdmin.storage
-            .from('whatsapp-media') // IMPORTANTE: Bucket com hífen
+            .from('whatsapp-media')
             .upload(filePath, fileBlob, {
                 contentType: mimeType,
                 upsert: true
@@ -76,7 +87,14 @@ async function processIncomingMedia(supabaseAdmin, message, config) {
             .from('whatsapp-media')
             .getPublicUrl(filePath);
 
-        return publicUrlData.publicUrl;
+        // Retorna objeto completo com metadados para salvar no banco depois
+        return {
+            publicUrl: publicUrlData.publicUrl,
+            storagePath: filePath,
+            fileName: cleanName,
+            fileSize: fileSize,
+            mimeType: mimeType
+        };
 
     } catch (error) {
         console.error('[Webhook] Erro processando mídia:', error);
@@ -84,7 +102,7 @@ async function processIncomingMedia(supabaseAdmin, message, config) {
     }
 }
 
-// --- 4. NOTIFICAÇÃO ---
+// --- 3. SISTEMA DE NOTIFICAÇÃO ---
 async function dispatchNotification(supabaseAdmin, organizacaoId, title, message, url) {
     try {
         const { data: users } = await supabaseAdmin
@@ -122,7 +140,6 @@ async function dispatchNotification(supabaseAdmin, organizacaoId, title, message
                         const payload = JSON.stringify({
                             title: title,
                             body: message,
-                            message: message,
                             url: url,
                             icon: '/icons/icon-192x192.png',
                             tag: 'whatsapp-msg'
@@ -151,45 +168,10 @@ async function dispatchNotification(supabaseAdmin, organizacaoId, title, message
     }
 }
 
-// --- FUNÇÕES DE ENVIO ---
-async function sendTemplateMessage(supabase, config, to, contato, templateName, language) {
-    if (!templateName) return;
-    const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
-    const components = [{ type: 'body', parameters: [{ type: 'text', text: contato.nome || 'Cliente' }] }];
-    
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${config.whatsapp_permanent_token}` 
-            },
-            body: JSON.stringify({
-                messaging_product: "whatsapp", to: to, type: "template",
-                template: { name: templateName, language: { code: language }, components }
-            })
-        });
-        
-        const data = await response.json();
-        if (data.messages?.[0]?.id) {
-            await supabase.from('whatsapp_messages').insert({
-                contato_id: contato.id, message_id: data.messages[0].id, 
-                sender_id: config.whatsapp_phone_number_id, receiver_id: to,
-                content: `(Automação) Template: ${templateName}`, direction: 'outbound', 
-                status: 'sent', sent_at: new Date().toISOString(), 
-                organizacao_id: config.organizacao_id
-            });
-        }
-    } catch (error) {
-        console.error(`[Webhook] Erro ao enviar template:`, error);
-    }
-}
-
 function getTextContent(message) {
     if (!message || !message.type) return null;
     if (message.type === 'text') return message.text?.body;
     if (message.type === 'interactive') return message.interactive?.button_reply?.title || message.interactive?.list_reply?.title;
-    // Retorna descrição da mídia se for arquivo
     if (message.type === 'document') return message.document?.caption || message.document?.filename || 'Documento Recebido';
     if (message.type === 'image') return message.image?.caption || 'Imagem Recebida';
     if (message.type === 'audio') return 'Áudio Recebido';
@@ -197,7 +179,7 @@ function getTextContent(message) {
     return null;
 }
 
-// --- ROTA DE VERIFICAÇÃO ---
+// --- ROTA DE VERIFICAÇÃO (GET) ---
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     if (searchParams.get('hub.mode') === 'subscribe' && 
@@ -207,7 +189,7 @@ export async function GET(request) {
     return new NextResponse(null, { status: 403 });
 }
 
-// --- ROTA PRINCIPAL ---
+// --- ROTA PRINCIPAL (POST) ---
 export async function POST(request) {
     const supabaseAdmin = getSupabaseAdmin();
     try {
@@ -225,27 +207,11 @@ export async function POST(request) {
 
         const message = change?.messages?.[0];
         if (message) {
-            let content = getTextContent(message);
             const from = message.from; 
-            let mediaUrl = null;
-
-            // ---------------------------------------------------------
-            // 0. PROCESSAMENTO DE MÍDIA (PDF, IMAGEM, ÁUDIO)
-            // ---------------------------------------------------------
-            if (['image', 'document', 'audio', 'video', 'voice'].includes(message.type)) {
-                console.log(`[Webhook] Recebido arquivo do tipo: ${message.type}`);
-                mediaUrl = await processIncomingMedia(supabaseAdmin, message, config);
-                
-                // Se baixou com sucesso e não tem caption, ajusta o content
-                if (mediaUrl && !content) {
-                    content = message.type === 'document' ? (message.document?.filename || 'Documento') : 
-                              message.type === 'image' ? 'Imagem' : 
-                              message.type === 'audio' || message.type === 'voice' ? 'Áudio' : 'Mídia';
-                }
-            }
             
             // ---------------------------------------------------------
-            // 1. Identifica Contato
+            // 1. IDENTIFICA/CRIA CONTATO (PRIORIDADE ALTA)
+            // Precisamos do ID do contato ANTES de salvar o arquivo para organizar a pasta
             // ---------------------------------------------------------
             const { data: foundId } = await supabaseAdmin.rpc('find_contact_by_phone', { phone_input: from });
 
@@ -265,7 +231,7 @@ export async function POST(request) {
                     contato_id: contatoId, telefone: from, tipo: 'celular', organizacao_id: config.organizacao_id
                 });
 
-                // Funil e Automação (Simplificado)
+                // Funil (Padrão)
                 const { data: funil } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', config.organizacao_id).limit(1).single();
                 if (funil) {
                     const { data: col } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem').limit(1).single();
@@ -277,16 +243,37 @@ export async function POST(request) {
                 const { data: existing } = await supabaseAdmin.from('contatos').select('nome, is_awaiting_name_response').eq('id', contatoId).single();
                 if (existing) {
                     contatoNome = existing.nome;
-                    // Se for texto simples e estiver aguardando nome, atualiza
-                    if (message.type === 'text' && existing.is_awaiting_name_response && content && content.length > 2) {
-                        await supabaseAdmin.from('contatos').update({ nome: content, is_awaiting_name_response: false }).eq('id', contatoId);
-                        contatoNome = content;
+                    // Atualiza nome se estiver aguardando
+                    let textBody = message.type === 'text' ? message.text?.body : null;
+                    if (textBody && existing.is_awaiting_name_response && textBody.length > 2) {
+                        await supabaseAdmin.from('contatos').update({ nome: textBody, is_awaiting_name_response: false }).eq('id', contatoId);
+                        contatoNome = textBody;
                     }
                 }
             }
 
             // ---------------------------------------------------------
-            // 2. ATUALIZA/CRIA A CONVERSA
+            // 2. PROCESSAMENTO DE MÍDIA (AGORA COM ID DO CONTATO)
+            // ---------------------------------------------------------
+            let mediaData = null; // Objeto com url, path, size, etc.
+            let content = getTextContent(message);
+
+            if (['image', 'document', 'audio', 'video', 'voice'].includes(message.type)) {
+                console.log(`[Webhook] Recebido arquivo do tipo: ${message.type}`);
+                
+                // Passamos o contatoId para organizar a pasta corretamente
+                mediaData = await processIncomingMedia(supabaseAdmin, message, config, contatoId);
+                
+                // Ajusta o texto da mensagem caso seja vazia
+                if (mediaData && !content) {
+                    content = message.type === 'document' ? (mediaData.fileName || 'Documento') : 
+                              message.type === 'image' ? 'Imagem' : 
+                              message.type === 'audio' || message.type === 'voice' ? 'Áudio' : 'Mídia';
+                }
+            }
+
+            // ---------------------------------------------------------
+            // 3. ATUALIZA CONVERSA
             // ---------------------------------------------------------
             await supabaseAdmin.from('whatsapp_conversations').upsert({ 
                 phone_number: from, 
@@ -294,7 +281,7 @@ export async function POST(request) {
             }, { onConflict: 'phone_number' });
 
             // ---------------------------------------------------------
-            // 3. SALVA A MENSAGEM (AGORA COM MEDIA_URL)
+            // 4. SALVA A MENSAGEM
             // ---------------------------------------------------------
             const { error: msgError } = await supabaseAdmin.from('whatsapp_messages').insert({
                 contato_id: contatoId,
@@ -306,16 +293,34 @@ export async function POST(request) {
                 direction: 'inbound', 
                 status: 'delivered', 
                 raw_payload: message,
-                media_url: mediaUrl, // <--- AQUI A URL PÚBLICA DO ARQUIVO
+                media_url: mediaData?.publicUrl || null, // Salva a URL principal
                 organizacao_id: config.organizacao_id
             });
 
-            if (msgError) console.error("[Webhook] Erro ao salvar mensagem:", msgError);
+            if (msgError) {
+                console.error("[Webhook] Erro ao salvar mensagem:", msgError);
+            } else if (mediaData) {
+                // ---------------------------------------------------------
+                // 5. SE TIVER MÍDIA, SALVA NOS ANEXOS (TABELA SEPARADA)
+                // Isso cria um registro profissional do arquivo recebido
+                // ---------------------------------------------------------
+                await supabaseAdmin.from('whatsapp_attachments').insert({
+                    contato_id: contatoId,
+                    message_id: message.id, // Vincula pelo ID da Meta
+                    storage_path: mediaData.storagePath,
+                    public_url: mediaData.publicUrl,
+                    file_name: mediaData.fileName,
+                    file_type: mediaData.mimeType,
+                    file_size: mediaData.fileSize,
+                    organizacao_id: config.organizacao_id,
+                    created_at: new Date().toISOString()
+                }).catch(err => console.error('[Webhook] Erro salvando anexo:', err));
+            }
             
-            // 4. Notificação
-            if (content || mediaUrl) {
+            // 6. Notificação
+            if (content || mediaData) {
                 let notifTitle = isNewLead ? '🎉 Novo Lead no WhatsApp!' : `💬 Mensagem de ${contatoNome}`;
-                let notifBody = mediaUrl ? `📎 Enviou um arquivo: ${content}` : (content?.substring(0, 100) || 'Nova mensagem');
+                let notifBody = mediaData ? `📎 Enviou um arquivo: ${content}` : (content?.substring(0, 100) || 'Nova mensagem');
 
                 await dispatchNotification(supabaseAdmin, config.organizacao_id, notifTitle, notifBody, '/caixa-de-entrada');
             }
