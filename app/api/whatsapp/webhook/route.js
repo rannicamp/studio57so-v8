@@ -20,7 +20,71 @@ const getSupabaseAdmin = () => createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// --- 3. NOTIFICAÇÃO ---
+// --- 3. FUNÇÃO AUXILIAR: PROCESSAR MÍDIA (DOWNLOAD DA META -> UPLOAD SUPABASE) ---
+async function processIncomingMedia(supabaseAdmin, message, config) {
+    try {
+        const type = message.type;
+        // Pega o ID da mídia e o nome do arquivo (se houver, senão gera um)
+        const mediaId = message[type]?.id;
+        const mimeType = message[type]?.mime_type;
+        let fileName = message[type]?.filename; // Comum em documentos
+
+        if (!mediaId) return null;
+
+        // Se não tiver nome (imagens/áudio), geramos um
+        if (!fileName) {
+            const ext = mimeType ? mimeType.split('/')[1].split(';')[0] : 'bin';
+            fileName = `${type}_${mediaId}.${ext}`;
+        }
+
+        // Limpa o nome do arquivo
+        const cleanName = fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+        const filePath = `received/${cleanName}`; // Pasta 'received' para organizar
+
+        // 1. Obter URL de download da API da Meta
+        const urlResponse = await fetch(`https://graph.facebook.com/v20.0/${mediaId}`, {
+            headers: { 'Authorization': `Bearer ${config.whatsapp_permanent_token}` }
+        });
+        const urlData = await urlResponse.json();
+        
+        if (!urlData.url) {
+            console.error('[Webhook] Falha ao obter URL da mídia:', urlData);
+            return null;
+        }
+
+        // 2. Baixar o arquivo binário
+        const fileResponse = await fetch(urlData.url, {
+            headers: { 'Authorization': `Bearer ${config.whatsapp_permanent_token}` }
+        });
+        const fileBlob = await fileResponse.arrayBuffer();
+
+        // 3. Fazer Upload para o Supabase (Bucket whatsapp-media)
+        const { error: uploadError } = await supabaseAdmin.storage
+            .from('whatsapp-media') // IMPORTANTE: Bucket com hífen
+            .upload(filePath, fileBlob, {
+                contentType: mimeType,
+                upsert: true
+            });
+
+        if (uploadError) {
+            console.error('[Webhook] Erro upload Supabase:', uploadError);
+            return null;
+        }
+
+        // 4. Gerar URL Pública
+        const { data: publicUrlData } = supabaseAdmin.storage
+            .from('whatsapp-media')
+            .getPublicUrl(filePath);
+
+        return publicUrlData.publicUrl;
+
+    } catch (error) {
+        console.error('[Webhook] Erro processando mídia:', error);
+        return null;
+    }
+}
+
+// --- 4. NOTIFICAÇÃO ---
 async function dispatchNotification(supabaseAdmin, organizacaoId, title, message, url) {
     try {
         const { data: users } = await supabaseAdmin
@@ -125,6 +189,11 @@ function getTextContent(message) {
     if (!message || !message.type) return null;
     if (message.type === 'text') return message.text?.body;
     if (message.type === 'interactive') return message.interactive?.button_reply?.title || message.interactive?.list_reply?.title;
+    // Retorna descrição da mídia se for arquivo
+    if (message.type === 'document') return message.document?.caption || message.document?.filename || 'Documento Recebido';
+    if (message.type === 'image') return message.image?.caption || 'Imagem Recebida';
+    if (message.type === 'audio') return 'Áudio Recebido';
+    if (message.type === 'video') return message.video?.caption || 'Vídeo Recebido';
     return null;
 }
 
@@ -156,82 +225,79 @@ export async function POST(request) {
 
         const message = change?.messages?.[0];
         if (message) {
-            const content = getTextContent(message);
+            let content = getTextContent(message);
             const from = message.from; 
-            
-            // ---------------------------------------------------------
-            // 1. Identifica Contato (USANDO A INTELIGÊNCIA DO BANCO)
-            // ---------------------------------------------------------
-            // Em vez de adivinhar no JS, perguntamos ao Banco: "Quem é o dono deste número?"
-            // A função RPC 'find_contact_by_phone' lida com os 55, 9º dígito e formatações.
-            
-            const { data: foundId, error: searchError } = await supabaseAdmin
-                .rpc('find_contact_by_phone', { phone_input: from });
+            let mediaUrl = null;
 
-            let contatoId = foundId; // Se achou, usa o ID. Se não, vem null.
+            // ---------------------------------------------------------
+            // 0. PROCESSAMENTO DE MÍDIA (PDF, IMAGEM, ÁUDIO)
+            // ---------------------------------------------------------
+            if (['image', 'document', 'audio', 'video', 'voice'].includes(message.type)) {
+                console.log(`[Webhook] Recebido arquivo do tipo: ${message.type}`);
+                mediaUrl = await processIncomingMedia(supabaseAdmin, message, config);
+                
+                // Se baixou com sucesso e não tem caption, ajusta o content
+                if (mediaUrl && !content) {
+                    content = message.type === 'document' ? (message.document?.filename || 'Documento') : 
+                              message.type === 'image' ? 'Imagem' : 
+                              message.type === 'audio' || message.type === 'voice' ? 'Áudio' : 'Mídia';
+                }
+            }
+            
+            // ---------------------------------------------------------
+            // 1. Identifica Contato
+            // ---------------------------------------------------------
+            const { data: foundId } = await supabaseAdmin.rpc('find_contact_by_phone', { phone_input: from });
+
+            let contatoId = foundId;
             let contatoNome = `Lead (${from})`;
             let isNewLead = false;
 
             if (!contatoId) {
-                // NÃO ACHOU NINGUÉM MESMO APÓS A BUSCA INTELIGENTE
-                // SÓ AQUI CRIAMOS O LEAD
                 console.log(`[Webhook] Contato não encontrado para ${from}. Criando novo Lead.`);
-                
                 isNewLead = true;
                 const { data: newContact } = await supabaseAdmin.from('contatos').insert({
                     nome: contatoNome, tipo_contato: 'Lead', organizacao_id: config.organizacao_id,
                     is_awaiting_name_response: false
                 }).select().single();
-                
                 contatoId = newContact.id;
-                
-                // Salva o telefone exatamente como veio
                 await supabaseAdmin.from('telefones').insert({
                     contato_id: contatoId, telefone: from, tipo: 'celular', organizacao_id: config.organizacao_id
                 });
 
-                // Funil e Automação
+                // Funil e Automação (Simplificado)
                 const { data: funil } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', config.organizacao_id).limit(1).single();
                 if (funil) {
                     const { data: col } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem').limit(1).single();
                     if (col) {
                         await supabaseAdmin.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: col.id, organizacao_id: config.organizacao_id });
-                        const { data: autos } = await supabaseAdmin.from('automacoes').select('*').match({ organizacao_id: config.organizacao_id, ativo: true, gatilho_tipo: 'CRIAR_CARD' }).contains('gatilho_config', { coluna_id: col.id });
-                        if (autos?.length) {
-                            for (const auto of autos) {
-                                if (auto.acao_tipo === 'ENVIAR_WHATSAPP') await sendTemplateMessage(supabaseAdmin, config, from, newContact, auto.acao_config.template_nome, auto.acao_config.template_idioma);
-                            }
-                        }
                     }
                 }
             } else {
-                // ACHOU O CONTATO! (Ex: Ana)
-                // Vamos usar o ID existente e não criar nada novo.
                 const { data: existing } = await supabaseAdmin.from('contatos').select('nome, is_awaiting_name_response').eq('id', contatoId).single();
                 if (existing) {
                     contatoNome = existing.nome;
-                    if (existing.is_awaiting_name_response && content && content.length > 2) {
+                    // Se for texto simples e estiver aguardando nome, atualiza
+                    if (message.type === 'text' && existing.is_awaiting_name_response && content && content.length > 2) {
                         await supabaseAdmin.from('contatos').update({ nome: content, is_awaiting_name_response: false }).eq('id', contatoId);
                         contatoNome = content;
                     }
                 }
-                console.log(`[Webhook] Contato identificado: ${contatoNome} (ID: ${contatoId})`);
             }
 
             // ---------------------------------------------------------
             // 2. ATUALIZA/CRIA A CONVERSA
             // ---------------------------------------------------------
-            // O Trigger do banco 'tr_auto_assign_contact' vai garantir que o contato_id esteja correto
             await supabaseAdmin.from('whatsapp_conversations').upsert({ 
                 phone_number: from, 
                 updated_at: new Date().toISOString() 
             }, { onConflict: 'phone_number' });
 
             // ---------------------------------------------------------
-            // 3. SALVA A MENSAGEM
+            // 3. SALVA A MENSAGEM (AGORA COM MEDIA_URL)
             // ---------------------------------------------------------
-            await supabaseAdmin.from('whatsapp_messages').insert({
-                contato_id: contatoId, // Vincula ao ID correto (Ana)
+            const { error: msgError } = await supabaseAdmin.from('whatsapp_messages').insert({
+                contato_id: contatoId,
                 message_id: message.id, 
                 sender_id: from,
                 receiver_id: config.whatsapp_phone_number_id, 
@@ -240,17 +306,18 @@ export async function POST(request) {
                 direction: 'inbound', 
                 status: 'delivered', 
                 raw_payload: message,
+                media_url: mediaUrl, // <--- AQUI A URL PÚBLICA DO ARQUIVO
                 organizacao_id: config.organizacao_id
             });
+
+            if (msgError) console.error("[Webhook] Erro ao salvar mensagem:", msgError);
             
             // 4. Notificação
-            if (content) {
+            if (content || mediaUrl) {
                 let notifTitle = isNewLead ? '🎉 Novo Lead no WhatsApp!' : `💬 Mensagem de ${contatoNome}`;
-                let notifBody = isNewLead 
-                    ? `Novo contato (${from}): "${content.substring(0, 50)}..."` 
-                    : content.substring(0, 100) + (content.length > 100 ? '...' : '');
+                let notifBody = mediaUrl ? `📎 Enviou um arquivo: ${content}` : (content?.substring(0, 100) || 'Nova mensagem');
 
-                await dispatchNotification(supabaseAdmin, config.organizacao_id, notifTitle, notifBody, '/crm');
+                await dispatchNotification(supabaseAdmin, config.organizacao_id, notifTitle, notifBody, '/caixa-de-entrada');
             }
         }
 
