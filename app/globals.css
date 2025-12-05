@@ -45,9 +45,9 @@
     display: none !important;
   }
 
-  /* 3. Remove margens do navegador para a folha ficar cheia */
+  /* 3. Ajuste de margens do navegador para a folha não cortar */
   @page {
-    margin: 0mm;
+    margin: 20mm; /* Alterado de 0mm para 10mm para dar respiro na borda */
     size: auto;
   }
 

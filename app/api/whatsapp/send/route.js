@@ -3,34 +3,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Função para normalizar e gerar variações de números de telefone para busca
-function normalizeAndGeneratePhoneNumbers(rawPhone) {
-    const digitsOnly = rawPhone.replace(/\D/g, '');
-    let numbersToSearch = new Set();
-    numbersToSearch.add(digitsOnly);
-    const brazilDDI = '55';
-    const minBrazilLength = 10;
-    const maxBrazilLength = 11;
-    if (!digitsOnly.startsWith(brazilDDI)) {
-        if (digitsOnly.length === minBrazilLength || digitsOnly.length === maxBrazilLength) {
-            numbersToSearch.add(brazilDDI + digitsOnly);
-        }
-    }
-    if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 13) {
-        const ddiDdd = digitsOnly.substring(0, 4);
-        const remainingDigits = digitsOnly.substring(4);
-        if (remainingDigits.startsWith('9') && remainingDigits.length === 9) {
-            numbersToSearch.add(ddiDdd + remainingDigits.substring(1));
-        }
-    } else if (digitsOnly.startsWith(brazilDDI) && digitsOnly.length === 12) {
-        const ddiDdd = digitsOnly.substring(0, 4);
-        const remainingDigits = digitsOnly.substring(4);
-        numbersToSearch.add(ddiDdd + '9' + remainingDigits);
-    }
-    return Array.from(numbersToSearch);
-}
-
-
 export async function POST(request) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -43,13 +15,13 @@ export async function POST(request) {
 
     try {
         const body = await request.json();
-        // Lemos o "languageCode" que o frontend está enviando
         const { to, type, templateName, languageCode, components, text, link, filename, caption } = body;
 
         if (!to || !type) {
             return NextResponse.json({ error: 'O número de destino (to) e o tipo (type) são obrigatórios.' }, { status: 400 });
         }
 
+        // 1. Busca Credenciais
         const { data: config, error: configError } = await supabaseAdmin
             .from('configuracoes_whatsapp')
             .select('whatsapp_permanent_token, whatsapp_phone_number_id, organizacao_id')
@@ -57,13 +29,13 @@ export async function POST(request) {
             .single();
 
         if (configError || !config) {
-            console.error('Erro ao buscar credenciais do WhatsApp:', configError);
             return NextResponse.json({ error: 'Credenciais do WhatsApp não encontradas.' }, { status: 500 });
         }
 
         const { whatsapp_permanent_token: WHATSAPP_TOKEN, whatsapp_phone_number_id: WHATSAPP_PHONE_NUMBER_ID, organizacao_id } = config;
-        const url = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
         
+        // 2. Prepara Payload do WhatsApp
+        const url = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
         let payload = { messaging_product: 'whatsapp', to: to, type: type };
         let messageContentForDb = '';
         
@@ -88,24 +60,20 @@ export async function POST(request) {
                 payload.audio = { link: link };
                 messageContentForDb = 'Áudio';
                 break;
-            
             case 'template':
-                if (!templateName) {
-                    return NextResponse.json({ error: 'O nome do modelo (templateName) é obrigatório para o tipo template.' }, { status: 400 });
-                }
+                if (!templateName) return NextResponse.json({ error: 'Nome do template obrigatório.' }, { status: 400 });
                 payload.template = { 
                     name: templateName, 
-                    // Usamos o "languageCode" recebido, com 'pt_BR' como um plano B.
                     language: { code: languageCode || 'pt_BR' }, 
                     components: components || [] 
                 };
                 messageContentForDb = `Template: ${templateName}`;
                 break;
-
             default:
-                return NextResponse.json({ error: 'Tipo de mensagem inválido.' }, { status: 400 });
+                return NextResponse.json({ error: 'Tipo inválido.' }, { status: 400 });
         }
 
+        // 3. Envia para a API da Meta
         const apiResponse = await fetch(url, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
@@ -115,52 +83,43 @@ export async function POST(request) {
         const responseData = await apiResponse.json();
 
         if (!apiResponse.ok) {
-            console.error('Erro da API do WhatsApp ao enviar mensagem:', responseData);
-            return NextResponse.json({ error: `Erro da API do WhatsApp: ${responseData.error?.message}` }, { status: apiResponse.status });
+            console.error('Erro da Meta:', responseData);
+            return NextResponse.json({ error: `Erro WhatsApp: ${responseData.error?.message}` }, { status: apiResponse.status });
         }
 
         const newMessageId = responseData.messages?.[0]?.id;
-        if (!newMessageId) {
-            console.warn('Mensagem enviada, mas não foi possível obter o ID da mensagem da resposta da API.', responseData);
-            return NextResponse.json({ message: 'Mensagem enviada, mas não pôde ser salva (ID ausente).', data: responseData }, { status: 200 });
-        }
 
-        let contactId = null;
-        let enterpriseId = null;
-        const possiblePhones = normalizeAndGeneratePhoneNumbers(to);
-        const { data: matchingPhones } = await supabaseAdmin.from('telefones').select('contato_id').in('telefone', possiblePhones).limit(1);
-        
-        if (matchingPhones && matchingPhones.length > 0) {
-            contactId = matchingPhones[0].contato_id;
-            if (contactId) {
-                const { data: contactData } = await supabaseAdmin.from('contatos').select('empresa_id').eq('id', contactId).single();
-                if (contactData) enterpriseId = contactData.empresa_id;
+        // 4. Salva no Banco (USANDO A INTELIGÊNCIA DE CONTATO)
+        if (newMessageId) {
+            // Usa a função RPC do banco para achar o contato correto (igual ao Webhook)
+            const { data: contactId } = await supabaseAdmin.rpc('find_contact_by_phone', { phone_input: to });
+
+            // O Trigger do banco vai cuidar de vincular à conversa correta automaticamente
+            // pois estamos inserindo o 'contato_id' correto.
+            const { error: dbError } = await supabaseAdmin.from('whatsapp_messages').insert({
+                contato_id: contactId, // ID correto do contato (ou null se não existir)
+                message_id: newMessageId,
+                sender_id: WHATSAPP_PHONE_NUMBER_ID,
+                receiver_id: to,
+                content: messageContentForDb,
+                sent_at: new Date().toISOString(),
+                direction: 'outbound',
+                status: 'sent',
+                raw_payload: payload,
+                organizacao_id: organizacao_id
+            });
+
+            if (dbError) {
+                console.error('Erro ao salvar no banco:', dbError);
+                // Não retornamos erro 500 aqui porque a mensagem JÁ foi enviada pro Zap.
+                // Apenas logamos o erro de salvamento.
             }
         }
-        
-        const { error: dbError } = await supabaseAdmin.from('whatsapp_messages').insert({
-            contato_id: contactId,
-            enterprise_id: enterpriseId,
-            message_id: newMessageId,
-            sender_id: WHATSAPP_PHONE_NUMBER_ID,
-            receiver_id: to,
-            content: messageContentForDb,
-            sent_at: new Date().toISOString(),
-            direction: 'outbound',
-            status: 'sent',
-            raw_payload: payload,
-            organizacao_id: organizacao_id
-        });
 
-        if (dbError) {
-            console.error('Erro ao salvar mensagem de saída no banco de dados:', dbError);
-            return NextResponse.json({ message: 'Mensagem ENVIADA, mas falhou ao salvar no banco.', error: dbError.message }, { status: 206 });
-        }
-
-        return NextResponse.json({ message: 'Mensagem enviada e salva com sucesso!', data: responseData }, { status: 200 });
+        return NextResponse.json({ message: 'Enviado com sucesso!', data: responseData }, { status: 200 });
 
     } catch (error) {
-        console.error('Falha crítica na API /api/whatsapp/send:', error);
-        return NextResponse.json({ error: 'Falha crítica ao processar a requisição.', details: error.message }, { status: 500 });
+        console.error('Falha crítica:', error);
+        return NextResponse.json({ error: 'Erro interno.' }, { status: 500 });
     }
 }
