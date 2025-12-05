@@ -70,7 +70,7 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais, empr
                     padding-bottom: 15px;
                 }
                 .print-header img {
-                    height: 50px; /* Um pouco maior que no PDF para ver melhor na tela, mas limitado */
+                    height: 50px; 
                     width: auto;
                     object-fit: contain;
                 }
@@ -79,6 +79,22 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais, empr
                 .row-disponivel { background-color: #ffffff; }
                 .row-reservado { background-color: #fff3cd !important; color: #856404; } /* Amarelo */
                 .row-vendido { background-color: #f8d7da !important; color: #721c24; }   /* Vermelho */
+                
+                /* RODAPÉ E OBSERVAÇÕES */
+                .print-footer {
+                    width: 100%;
+                    margin-top: 10px;
+                    padding-top: 5px;
+                    border-top: 1px solid #333;
+                    text-align: center;
+                    font-size: 0.8rem;
+                    color: #555;
+                }
+                /* Preserva quebras de linha nas observações */
+                .observacoes-texto {
+                    white-space: pre-wrap; 
+                    text-align: center;
+                }
 
                 /* ==========================================================================
                    ESTILOS DE IMPRESSÃO (PDF)
@@ -284,7 +300,11 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais, empr
                         <div><span style={{ backgroundColor: '#fff3cd' }}></span> Reservado</div>
                         <div><span style={{ backgroundColor: '#f8d7da' }}></span> Vendido</div>
                     </div>
-                    <p>*Correção trimestral pelo INCC **1 vaga de estacionamento por unidade. Tabela sujeita a alterações sem aviso prévio.</p>
+                    
+                    {/* AQUI ESTÁ A OBSERVAÇÃO DINÂMICA */}
+                    <p className="observacoes-texto">
+                        {empreendimento?.observacoes || '*Correção mensal pelo INCC até a entrega das chaves, após entrega IGP-M + 1% a.m.\n**Sujeito a alteração sem aviso prévio.'}
+                    </p>
                 </div>
             </div>
         </div>

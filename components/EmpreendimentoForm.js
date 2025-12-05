@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTimes, faImage, faCheckCircle, faSave, faSync } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTimes, faImage, faCheckCircle, faSave, faSync, faFileAlt } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 import FileUploadWithAI from './FileUploadWithAI';
 import ThumbnailUploader from './ThumbnailUploader'; 
@@ -65,7 +65,9 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
       dados_contrato: empreendimento?.dados_contrato || '',
       indice_reajuste: empreendimento?.indice_reajuste || '',
       thumbnail_url: empreendimento?.thumbnail_url || null,
-      logo_url: empreendimento?.logo_url || null, 
+      logo_url: empreendimento?.logo_url || null,
+      // NOVO CAMPO
+      observacoes: empreendimento?.observacoes || '*Correção mensal pelo INCC até a entrega das chaves, após entrega IGP-M + 1% a.m.\n**Sujeito a alteração sem aviso prévio.', 
     };
     setFormData(initialState);
     
@@ -101,7 +103,6 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
       setSaveStatus('saved');
       setLastSavedAt(new Date());
       queryClient.invalidateQueries({ queryKey: ['empreendimentos'] });
-      // Se for criação (primeiro save), redireciona para o modo de edição para habilitar o auto-save contínuo
       if (!isEditing) {
           toast.success('Empreendimento criado! Ativando salvamento automático...');
           router.push(`/empreendimentos/editar/${savedId}`);
@@ -115,7 +116,7 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
 
   // --- LÓGICA DE AUTO-SAVE ---
   const triggerAutoSave = useCallback(async (currentData) => {
-      if (!isEditing) return; // Não salva automático se for novo cadastro (espera o primeiro clique)
+      if (!isEditing) return; 
       
       setSaveStatus('saving');
       try {
@@ -125,20 +126,15 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
       }
   }, [isEditing, saveEmpreendimento]);
 
-  // Efeito que monitora mudanças no formData
   useEffect(() => {
-      // Pula a primeira renderização para não salvar ao carregar
       if (isFirstRender.current) {
           isFirstRender.current = false;
           return;
       }
-
-      // Se não estiver editando, não faz auto-save
       if (!isEditing) return;
 
-      setSaveStatus('idle'); // Mudou algo, status volta a aguardar
+      setSaveStatus('idle'); 
 
-      // Debounce: Espera 2 segundos após parar de digitar
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       
       timeoutRef.current = setTimeout(() => {
@@ -158,11 +154,9 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Para imagens, forçamos o save imediato após o upload
   const handleImageUpdate = (field, url) => {
       const newData = { ...formData, [field]: url };
       setFormData(newData);
-      // Salva imediatamente sem esperar o debounce
       if (isEditing) {
           setSaveStatus('saving');
           saveEmpreendimento(newData);
@@ -175,9 +169,8 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
     try {
         await saveEmpreendimento(formData);
         toast.success('Salvo com sucesso!');
-        router.back(); // Volta para a lista
+        router.back(); 
     } catch (err) {
-        // Erro já tratado no onError da mutation
     }
   };
 
@@ -213,7 +206,6 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
   return (
     <form onSubmit={handleManualSave} className="space-y-8 relative">
       
-      {/* HEADER FLUTUANTE DE STATUS DO AUTO-SAVE */}
       {isEditing && (
           <div className="fixed top-20 right-8 z-50 bg-white shadow-lg rounded-full px-4 py-2 border border-gray-100 flex items-center gap-2 text-sm font-medium transition-all duration-300">
               {saveStatus === 'saving' && <><FontAwesomeIcon icon={faSync} spin className="text-blue-500"/> <span className="text-gray-600">Salvando alterações...</span></>}
@@ -223,7 +215,6 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
           </div>
       )}
 
-      {/* Upload IA apenas se for novo */}
       {!isEditing && (
         <FileUploadWithAI 
           onAnalysisComplete={(data) => { setFormData(prev => ({ ...prev, ...data })); toast.success('Dados preenchidos via IA!'); }}
@@ -232,7 +223,7 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
         />
       )}
 
-      {/* SEÇÃO IMAGENS (AGORA COM AUTO-SAVE IMEDIATO) */}
+      {/* SEÇÃO IMAGENS */}
       <fieldset>
          <legend className="text-xl font-semibold text-gray-800 border-b pb-2 mb-4 flex items-center gap-2">
             <FontAwesomeIcon icon={faImage} className="text-blue-500"/>
@@ -302,6 +293,28 @@ export default function EmpreendimentoForm({ empreendimento, corporateEntities =
             <div><label className="block text-sm font-medium">Início</label><input type="date" name="data_inicio" value={formData.data_inicio || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"/></div>
             <div><label className="block text-sm font-medium">Término Previsto</label><input type="date" name="data_fim_prevista" value={formData.data_fim_prevista || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"/></div>
         </div>
+      </fieldset>
+      
+      {/* OBSERVAÇÕES (NOVO!) */}
+      <fieldset>
+         <legend className="text-xl font-semibold text-gray-800 border-b pb-2 mb-4 flex items-center gap-2">
+            <FontAwesomeIcon icon={faFileAlt} className="text-orange-500"/>
+            Observações da Tabela de Vendas
+         </legend>
+         <div className="grid grid-cols-1 gap-6">
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Texto de Observação (Rodapé da Tabela)</label>
+                <textarea 
+                    name="observacoes"
+                    rows={4}
+                    value={formData.observacoes || ''}
+                    onChange={handleChange}
+                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    placeholder="Ex: *Correção mensal pelo INCC... **1 Vaga de garagem..."
+                />
+                <p className="text-xs text-gray-500 mt-1">Este texto aparecerá no rodapé da tabela de vendas impressa.</p>
+            </div>
+         </div>
       </fieldset>
       
       {/* ENTIDADES (COM BUSCA) */}
