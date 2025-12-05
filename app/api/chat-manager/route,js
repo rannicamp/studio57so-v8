@@ -1,0 +1,125 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+export async function POST(request) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseServiceKey) {
+        return NextResponse.json({ error: 'Configuração de servidor incompleta (Service Key).' }, { status: 500 });
+    }
+
+    // Usa a Service Key para ignorar RLS e ter permissão total
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    try {
+        const body = await request.json();
+        let { action, conversationId, phoneNumber } = body;
+
+        if (!conversationId) {
+            return NextResponse.json({ error: 'ID da conversa é obrigatório.' }, { status: 400 });
+        }
+
+        // Limpa o telefone para garantir match exato
+        if (phoneNumber) phoneNumber = phoneNumber.replace(/\D/g, '');
+
+        // --- AÇÃO: ARQUIVAR / DESARQUIVAR ---
+        if (action === 'archive' || action === 'unarchive') {
+            const isArchived = action === 'archive';
+            const { error } = await supabase
+                .from('whatsapp_conversations')
+                .update({ is_archived: isArchived })
+                .eq('id', conversationId);
+
+            if (error) throw error;
+            return NextResponse.json({ success: true, message: isArchived ? 'Conversa arquivada' : 'Conversa desarquivada' });
+        }
+
+        // --- AÇÃO: EXCLUIR (NUCLEAR) ---
+        if (action === 'delete') {
+            console.log(`[ChatManager] Iniciando exclusão da conversa ${conversationId} / Tel: ${phoneNumber}`);
+
+            // 1. Obter dados vitais da conversa (contato_id)
+            const { data: convData } = await supabase
+                .from('whatsapp_conversations')
+                .select('contato_id')
+                .eq('id', conversationId)
+                .single();
+            
+            const contatoId = convData?.contato_id;
+
+            // 2. ENCONTRAR TODAS AS MENSAGENS VINCULADAS (Estratégia Abrangente)
+            // Buscamos mensagens que batam por ID da conversa, ID do contato OU Telefone.
+            // Isso garante que não sobre nenhuma mensagem órfã bloqueando a exclusão.
+            let queryMessages = supabase
+                .from('whatsapp_messages')
+                .select('id');
+
+            const conditions = [];
+            conditions.push(`conversation_id.eq.${conversationId}`); // Vínculo direto
+            if (contatoId) conditions.push(`contato_id.eq.${contatoId}`); // Vínculo por contato
+            if (phoneNumber) {
+                conditions.push(`sender_id.eq.${phoneNumber}`); // Vínculo por telefone (envio)
+                conditions.push(`receiver_id.eq.${phoneNumber}`); // Vínculo por telefone (recebimento)
+            }
+
+            // Combina todas as condições com OR
+            queryMessages = queryMessages.or(conditions.join(','));
+
+            const { data: messagesToDelete, error: fetchMsgError } = await queryMessages;
+
+            if (fetchMsgError) throw fetchMsgError;
+
+            // Extrai apenas os IDs para usar nas exclusões
+            const messageIds = messagesToDelete?.map(m => m.id) || [];
+            console.log(`[ChatManager] Mensagens identificadas para exclusão: ${messageIds.length}`);
+
+            if (messageIds.length > 0) {
+                // 3. APAGAR ANEXOS (Vinculados às mensagens ou ao contato)
+                // Primeiro tenta apagar pelo message_id (mais preciso)
+                const { error: attachError1 } = await supabase
+                    .from('whatsapp_attachments')
+                    .delete()
+                    .in('message_id', messageIds);
+                
+                if (attachError1) console.warn('[ChatManager] Erro ao limpar anexos por msg:', attachError1);
+
+                // Por garantia, se tiver contatoId, limpa anexos desse contato também
+                if (contatoId) {
+                    await supabase.from('whatsapp_attachments').delete().eq('contato_id', contatoId);
+                }
+
+                // 4. APAGAR AS MENSAGENS IDENTIFICADAS
+                const { error: deleteMsgError } = await supabase
+                    .from('whatsapp_messages')
+                    .delete()
+                    .in('id', messageIds);
+
+                if (deleteMsgError) throw deleteMsgError;
+            }
+
+            // 5. APAGAR A CONVERSA
+            const { error: deleteConvError } = await supabase
+                .from('whatsapp_conversations')
+                .delete()
+                .eq('id', conversationId);
+
+            if (deleteConvError) {
+                // Se der erro aqui, é provável que ainda tenha algo segurando. Vamos tentar forçar.
+                throw new Error(`Erro ao excluir conversa: ${deleteConvError.message} - Detalhes: ${deleteConvError.details}`);
+            }
+
+            return NextResponse.json({ success: true, message: 'Conversa excluída com sucesso.' });
+        }
+
+        return NextResponse.json({ error: 'Ação desconhecida.' }, { status: 400 });
+
+    } catch (error) {
+        console.error('[ChatManager] Erro crítico:', error);
+        // Retorna o erro exato para o frontend para facilitar o debug
+        return NextResponse.json({ 
+            error: error.message || 'Erro interno no servidor', 
+            details: error.details || '' 
+        }, { status: 500 });
+    }
+}
