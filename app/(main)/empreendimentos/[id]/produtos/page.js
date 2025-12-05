@@ -5,8 +5,8 @@ import { useMemo } from 'react';
 import { createClient } from '../../../../../utils/supabase/client';
 import Link from 'next/link';
 import { useParams, notFound } from 'next/navigation';
-import { useAuth } from '../../../../../contexts/AuthContext'; // 1. Importar useAuth
-import { useQuery } from '@tanstack/react-query'; // 2. Importar useQuery
+import { useAuth } from '../../../../../contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 import ProdutoList from '../../../../../components/ProdutoList';
 import CondicoesPagamento from '../../../../../components/CondicoesPagamento';
 import TabelaVenda from '../../../../../components/TabelaVenda';
@@ -16,22 +16,20 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faChartLine, faTags, faTag, faBullseye, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 
 // =================================================================================
-// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
-// O PORQUÊ: A busca foi isolada e agora exige o `organizacaoId` para filtrar TODAS
-// as consultas, garantindo que o usuário só veja dados do empreendimento que
-// pertence à sua organização.
+// FUNÇÃO DE BUSCA DE DADOS (CORRIGIDA PARA BUSCAR A LOGO)
 // =================================================================================
 const fetchComercializacaoData = async (supabase, empreendimentoId, organizacaoId) => {
     if (!empreendimentoId || !organizacaoId) return null;
 
     const [empreendimentoRes, produtosRes, configRes] = await Promise.all([
-        supabase.from('empreendimentos').select('nome').eq('id', empreendimentoId).eq('organizacao_id', organizacaoId).single(),
+        // CORREÇÃO AQUI: Mudamos de .select('nome') para .select('*')
+        // O asterisco (*) significa "traga TUDO", inclusive a logo_url
+        supabase.from('empreendimentos').select('*').eq('id', empreendimentoId).eq('organizacao_id', organizacaoId).single(),
         supabase.from('produtos_empreendimento').select('*').eq('empreendimento_id', empreendimentoId).eq('organizacao_id', organizacaoId).order('unidade'),
         supabase.from('configuracoes_venda').select('*, parcelas_adicionais(*)').eq('empreendimento_id', empreendimentoId).eq('organizacao_id', organizacaoId).maybeSingle()
     ]);
 
     if (empreendimentoRes.error) {
-        // Se o erro for 'PGRST116', significa que não encontrou o empreendimento (ou não pertence à org)
         if (empreendimentoRes.error.code === 'PGRST116') {
             throw new Error('Empreendimento não encontrado ou você não tem permissão para acessá-lo.');
         }
@@ -56,11 +54,6 @@ export default function ProdutosPage() {
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE PADRÃO (useState + useEffect -> useQuery)
-    // O PORQUÊ: `useQuery` gerencia o estado de carregamento, erros e cache de
-    // forma mais eficiente, simplificando o nosso código.
-    // =================================================================================
     const { data, isLoading: loading, isError, error, refetch } = useQuery({
         queryKey: ['comercializacaoData', empreendimentoId, organizacaoId],
         queryFn: () => fetchComercializacaoData(supabase, empreendimentoId, organizacaoId),
@@ -70,7 +63,6 @@ export default function ProdutosPage() {
     
     const { empreendimento, produtos = [], config } = data || {};
 
-    // Se o erro for de "não encontrado", chama a página 404
     if (isError && error.message.includes('Empreendimento não encontrado')) {
         notFound();
     }
@@ -145,10 +137,12 @@ export default function ProdutosPage() {
             </Accordion>
             
             <Accordion title="3. Tabela de Venda (Simulação)" startOpen={false}>
+                {/* Aqui passamos a logo e tudo mais para a tabela */}
                 <TabelaVenda 
                     produtos={produtos}
                     config={config}
                     parcelasAdicionais={config.parcelas_adicionais || []}
+                    empreendimento={empreendimento} 
                 />
             </Accordion>
         </div>

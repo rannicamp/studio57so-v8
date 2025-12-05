@@ -1,189 +1,110 @@
+// components/ThumbnailUploader.js
 "use client";
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/utils/supabase/client';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import Image from 'next/image';
+import { useState } from 'react';
+import { createClient } from '../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUpload, faSpinner, faTrash, faBuilding, faCheck } from '@fortawesome/free-solid-svg-icons';
-import { toast } from 'sonner'; // <-- Usando o 'sonner'
-import imageCompression from 'browser-image-compression';
+import { faCloudUploadAlt, faTrash, faSpinner, faImage } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'sonner';
 
-// O PORQUÊ: Este componente gerencia o upload da imagem de capa.
-export default function ThumbnailUploader({ empreendimentoId, organizacaoId, initialImageUrl }) {
+export default function ThumbnailUploader({ 
+    url, 
+    onUpload, 
+    bucketName = 'empreendimentos', 
+    label = "Imagem de Capa (Thumbnail)",
+    aspectRatio = "aspect-video", // 'aspect-video' (retangular) ou 'aspect-square' (quadrado/logo)
+    objectFit = "object-cover"    // 'object-cover' (preenche) ou 'object-contain' (ajusta sem cortar)
+}) {
     const supabase = createClient();
-    const queryClient = useQueryClient();
-
-    const [previewUrl, setPreviewUrl] = useState(initialImageUrl || null);
-    const [selectedFile, setSelectedFile] = useState(null);
     const [uploading, setUploading] = useState(false);
 
-    useEffect(() => {
-        setPreviewUrl(initialImageUrl || null);
-    }, [initialImageUrl]);
-
-    const handleFileChange = async (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const options = {
-            maxSizeMB: 1, 
-            maxWidthOrHeight: 1024, 
-            useWebWorker: true,
-        };
-
-        const toastId = toast.loading('Comprimindo imagem...'); // <-- Inicia um toast de 'loading'
+    const uploadImage = async (event) => {
         try {
-            setUploading(true); 
-            const compressedFile = await imageCompression(file, options);
-            
-            setSelectedFile(compressedFile);
-            setPreviewUrl(URL.createObjectURL(compressedFile));
-            setUploading(false);
-            toast.dismiss(toastId); // <-- Fecha o toast de 'loading'
+            setUploading(true);
+            const file = event.target.files[0];
+            if (!file) return;
 
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            let { error: uploadError } = await supabase.storage
+                .from(bucketName)
+                .upload(filePath, file);
+
+            if (uploadError) {
+                throw uploadError;
+            }
+
+            // Pega a URL pública
+            const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath);
+            
+            // Passa a URL para o formulário pai
+            onUpload(data.publicUrl);
+            toast.success('Imagem enviada com sucesso!');
         } catch (error) {
-            console.error('Erro ao comprimir imagem:', error);
-            toast.error('Erro ao processar imagem.', { id: toastId }); 
+            console.error('Erro no upload:', error);
+            toast.error('Erro ao fazer upload da imagem.');
+        } finally {
             setUploading(false);
         }
     };
 
-    const uploadMutation = useMutation({
-        mutationFn: async () => {
-            if (!selectedFile) throw new Error("Nenhum arquivo selecionado.");
-            setUploading(true);
-            
-            const fileName = `${empreendimentoId}-${Date.now()}-${selectedFile.name}`;
-            const filePath = `public/${organizacaoId}/${fileName}`;
-
-            // 1. Enviar para o Storage
-            const { error: storageError } = await supabase.storage
-                .from('empreendimento-capas') // <-- Nome do seu Bucket
-                .upload(filePath, selectedFile);
-
-            if (storageError) throw storageError;
-
-            // 2. Pegar a URL pública
-            const { data: urlData } = supabase.storage
-                .from('empreendimento-capas') // <-- Nome do seu Bucket
-                .getPublicUrl(filePath);
-
-            const publicUrl = urlData.publicUrl;
-
-            // 3. Salvar a URL no banco
-            const { error: dbError } = await supabase
-                .from('empreendimentos')
-                .update({ imagem_capa_url: publicUrl }) // <-- Coluna do seu Banco
-                .eq('id', empreendimentoId);
-
-            if (dbError) throw dbError;
-            return publicUrl;
-        },
-        onSuccess: (publicUrl) => {
-            toast.success("Imagem de capa atualizada!");
-            setPreviewUrl(publicUrl); 
-            setSelectedFile(null); 
-            // O PORQUÊ: Invalidamos as duas queries para atualizar
-            // tanto a lista de cards quanto a página de detalhes atual.
-            queryClient.invalidateQueries({ queryKey: ['empreendimentos', organizacaoId] });
-            queryClient.invalidateQueries({ queryKey: ['empreendimento', empreendimentoId] });
-        },
-        onError: (error) => {
-            console.error("Erro no upload:", error);
-            toast.error(`Erro ao salvar imagem: ${error.message}`);
-        },
-        onSettled: () => {
-            setUploading(false);
-        }
-    });
-
-    const removeMutation = useMutation({
-        mutationFn: async () => {
-            setUploading(true);
-            
-            const { error: dbError } = await supabase
-                .from('empreendimentos')
-                .update({ imagem_capa_url: null })
-                .eq('id', empreendimentoId);
-
-            if (dbError) throw dbError;
-        },
-        onSuccess: () => {
-            toast.success("Imagem de capa removida!");
-            setPreviewUrl(null);
-            setSelectedFile(null);
-            queryClient.invalidateQueries({ queryKey: ['empreendimentos', organizacaoId] });
-            queryClient.invalidateQueries({ queryKey: ['empreendimento', empreendimentoId] });
-        },
-        onError: (error) => {
-            console.error("Erro ao remover:", error);
-            toast.error(`Erro ao remover imagem: ${error.message}`);
-        },
-        onSettled: () => {
-            setUploading(false);
-        }
-    });
+    const removeImage = () => {
+        onUpload(null);
+        toast.info('Imagem removida.');
+    };
 
     return (
-        <div className="border rounded-lg p-4 space-y-4 bg-gray-50">
-            <label className="block text-sm font-medium text-gray-700">Imagem de Capa (Thumbnail)</label>
+        <div className="w-full">
+            <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
             
-            <div className="w-full h-48 relative bg-gray-200 rounded-md flex items-center justify-center overflow-hidden">
-                {previewUrl ? (
-                    <Image
-                        src={previewUrl}
-                        alt="Preview da capa"
-                        layout="fill"
-                        objectFit="cover"
-                        key={previewUrl}
-                    />
-                ) : (
-                    <FontAwesomeIcon icon={faBuilding} className="text-gray-400" size="3x" />
-                )}
-            </div>
-
-            <input
-                id="thumbnail-upload"
-                type="file"
-                accept="image/png, image/jpeg, image/webp"
-                onChange={handleFileChange}
-                disabled={uploading}
-                className="hidden"
-            />
-
-            <div className="flex gap-3">
-                <label 
-                    htmlFor="thumbnail-upload"
-                    className={`cursor-pointer w-full flex-1 text-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                    <FontAwesomeIcon icon={faUpload} className="mr-2" />
-                    Escolher Imagem
-                </label>
-
-                {previewUrl && !selectedFile && (
-                    <button
-                        type="button"
-                        onClick={() => removeMutation.mutate()}
-                        disabled={uploading || removeMutation.isPending}
-                        className="flex-1 text-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
-                    >
-                        {uploading && !uploadMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faTrash} className="mr-2" />}
-                        Remover
-                    </button>
-                )}
-            </div>
-
-            {selectedFile && (
-                <button
-                    type="button"
-                    onClick={() => uploadMutation.mutate()}
-                    disabled={uploading || uploadMutation.isPending}
-                    className="w-full px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
-                >
-                    {uploading && uploadMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> : <FontAwesomeIcon icon={faCheck} className="mr-2" />}
-                    Salvar Nova Imagem
-                </button>
+            {url ? (
+                <div className="relative group">
+                    {/* AQUI APLICAMOS O FORMATO DA IMAGEM */}
+                    <div className={`relative w-full ${aspectRatio} bg-gray-100 rounded-lg overflow-hidden border border-gray-200`}>
+                        <img
+                            src={url}
+                            alt={label}
+                            className={`w-full h-full ${objectFit}`} 
+                        />
+                    </div>
+                    
+                    {/* Botão de Remover (Aparece ao passar o mouse) */}
+                    <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                        <button
+                            type="button"
+                            onClick={removeImage}
+                            className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700 transition-colors"
+                            title="Remover imagem"
+                        >
+                            <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:bg-gray-50 transition-colors cursor-pointer relative">
+                    <div className="space-y-1 text-center">
+                        {uploading ? (
+                            <FontAwesomeIcon icon={faSpinner} spin className="mx-auto h-12 w-12 text-blue-500" />
+                        ) : (
+                            <FontAwesomeIcon icon={faImage} className="mx-auto h-12 w-12 text-gray-400" />
+                        )}
+                        <div className="flex text-sm text-gray-600 justify-center">
+                            <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none">
+                                <span>{uploading ? 'Enviando...' : 'Carregar imagem'}</span>
+                                <input 
+                                    type="file" 
+                                    className="sr-only" 
+                                    accept="image/*" 
+                                    onChange={uploadImage} 
+                                    disabled={uploading} 
+                                />
+                            </label>
+                        </div>
+                        <p className="text-xs text-gray-500">PNG, JPG, GIF até 5MB</p>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -4,7 +4,7 @@
 
 import { useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPrint } from '@fortawesome/free-solid-svg-icons';
+import { faPrint, faImage, faExclamationCircle } from '@fortawesome/free-solid-svg-icons';
 
 // Função para formatar números como moeda brasileira (BRL)
 const formatCurrency = (value) => {
@@ -12,7 +12,7 @@ const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
-export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
+export default function TabelaVenda({ produtos, config, parcelasAdicionais, empreendimento }) {
 
     const TabelaCalculada = useMemo(() => {
         if (!produtos || produtos.length === 0 || !config) return [];
@@ -39,23 +39,20 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
 
     const numColunasEntrada = useMemo(() => Math.max(0, parseInt(config?.num_parcelas_entrada) || 0), [config]);
 
-    // --- ATUALIZAÇÃO: Função robusta para definir a classe CSS ---
-    // Isso resolve o problema se o status vier como "reservado", "Reservado " ou "RESERVADO"
     const getStatusClass = (status) => {
         if (!status) return 'row-disponivel';
-        
         const s = status.toString().trim().toLowerCase();
-        
         if (s === 'vendido') return 'row-vendido';
-        if (s === 'reservado') return 'row-reservado'; // Identifica RESERVADO de qualquer jeito
-        
+        if (s === 'reservado') return 'row-reservado';
         return 'row-disponivel';
     };
 
     return (
         <div className="printable-content-area bg-white rounded-lg shadow p-6 mt-8">
             <style jsx global>{`
-                /* Estilos da tela normal */
+                /* ==========================================================================
+                   ESTILOS DA TELA (VISUALIZAÇÃO NORMAL)
+                   ========================================================================== */
                 .sales-table { width: 100%; border-collapse: collapse; }
                 .sales-table th, .sales-table td { border: 1px solid #dee2e6; text-align: center; vertical-align: middle; white-space: nowrap; padding: 10px; }
                 .sales-table thead { background-color: #f8f9fa; }
@@ -63,12 +60,29 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
                 .sales-table .group-header { background-color: #e9ecef; }
                 .number { text-align: right; }
                 
+                /* Controle de tamanho das Logos na TELA */
+                .print-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 20px;
+                    border-bottom: 1px solid #eee;
+                    padding-bottom: 15px;
+                }
+                .print-header img {
+                    height: 50px; /* Um pouco maior que no PDF para ver melhor na tela, mas limitado */
+                    width: auto;
+                    object-fit: contain;
+                }
+                
                 /* CORES DEFINIDAS AQUI */
                 .row-disponivel { background-color: #ffffff; }
                 .row-reservado { background-color: #fff3cd !important; color: #856404; } /* Amarelo */
                 .row-vendido { background-color: #f8d7da !important; color: #721c24; }   /* Vermelho */
 
-                /* --- CSS DE IMPRESSÃO --- */
+                /* ==========================================================================
+                   ESTILOS DE IMPRESSÃO (PDF)
+                   ========================================================================== */
                 @media print {
                     @page {
                         size: landscape;
@@ -132,11 +146,19 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
                         display: flex;
                         justify-content: space-between;
                         align-items: center;
-                        margin-bottom: 10px;
+                        margin-bottom: 15px;
+                        border-bottom: 2px solid #eee;
+                        padding-bottom: 10px;
                     }
+                    
+                    /* AQUI MANTEMOS O TAMANHO PEQUENO PARA O PDF */
                     .print-header img {
-                        max-height: 35px;
+                        height: 35px; /* Tamanho reduzido para impressão */
+                        width: auto;
+                        object-fit: contain;
+                        display: block; 
                     }
+                    
                     .print-footer {
                         width: 100%;
                         margin-top: 10px;
@@ -163,7 +185,20 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
             `}</style>
 
             <div className="flex justify-between items-center mb-6 no-print">
-                <h2 className="text-2xl font-bold text-gray-900">Tabela de Venda</h2>
+                <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-gray-900">Tabela de Venda</h2>
+                    {/* Indicador de Status da Logo (Visível apenas na tela) */}
+                    {empreendimento?.logo_url ? (
+                         <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1 border border-green-200">
+                            <FontAwesomeIcon icon={faImage} /> Logo Detectada
+                         </span>
+                    ) : (
+                         <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full flex items-center gap-1 border border-yellow-200">
+                            <FontAwesomeIcon icon={faExclamationCircle} /> Sem Logo
+                         </span>
+                    )}
+                </div>
+                
                 <button
                     onClick={() => window.print()}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors duration-200"
@@ -174,9 +209,28 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
             </div>
 
             <div>
+                {/* CABEÇALHO DINÂMICO PARA IMPRESSÃO */}
                 <div className="print-header">
-                    <img src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG" alt="Logo Studio 57" />
-                    <img src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa//Logo%20-%20Residencial%20ALFA%20-%206.png" alt="Logo Residencial Alfa" />
+                    {/* Logo Studio 57 (Fixa à esquerda) */}
+                    <img 
+                        src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG" 
+                        alt="Logo Studio 57" 
+                        crossOrigin="anonymous"
+                    />
+                    
+                    {/* Logo do Empreendimento (Dinâmica à direita) */}
+                    {empreendimento?.logo_url ? (
+                        <img 
+                            src={empreendimento.logo_url} 
+                            alt={`Logo ${empreendimento.nome}`} 
+                            crossOrigin="anonymous"
+                        />
+                    ) : (
+                        // Se não tiver logo, mostra o nome
+                        <div className="flex flex-col items-end justify-center h-8">
+                            <span className="text-lg font-bold text-gray-800 uppercase">{empreendimento?.nome}</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="overflow-x-auto">
@@ -205,7 +259,6 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais }) {
                         </thead>
                         <tbody>
                             {TabelaCalculada.map(item => (
-                                // --- ATUALIZAÇÃO: Uso da função segura getStatusClass ---
                                 <tr key={item.id} className={getStatusClass(item.status)}>
                                     <td>{item.unidade}</td>
                                     <td>{item.tipo}</td>
