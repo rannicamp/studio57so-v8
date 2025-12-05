@@ -32,14 +32,12 @@ function urlBase64ToUint8Array(base64String) {
 export default function ConfiguracaoNotificacoes({ userId }) {
   const supabase = createClient();
   
-  // Estados de Interface (UI)
-  // IMPORTANTE: Começamos com loading FALSE para a tela aparecer logo.
-  // A verificação técnica acontece "por baixo dos panos".
+  // Estados de Interface
   const [loadingPrefs, setLoadingPrefs] = useState(true); 
   const [saving, setSaving] = useState(false);
   const [deviceLoading, setDeviceLoading] = useState(false);
   
-  // Estado da Inscrição do Dispositivo
+  // Estado da Inscrição
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [permission, setPermission] = useState('default');
   const [isIOS, setIsIOS] = useState(false);
@@ -54,7 +52,7 @@ export default function ConfiguracaoNotificacoes({ userId }) {
     sistema: true
   });
 
-  // 1. Carrega PREFERÊNCIAS (Banco de Dados) - Rápido
+  // 1. Carrega PREFERÊNCIAS (Rápido)
   useEffect(() => {
     async function loadPrefs() {
       if (!userId) return;
@@ -77,9 +75,8 @@ export default function ConfiguracaoNotificacoes({ userId }) {
     loadPrefs();
   }, [userId]);
 
-  // 2. Verifica SUPORTE DO DISPOSITIVO (Navegador/iPhone) - Em paralelo
+  // 2. Verifica SUPORTE (Em paralelo, sem travar tela)
   useEffect(() => {
-    // Checagem básica de ambiente
     if (typeof window !== 'undefined') {
       const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
       const standalone = window.matchMedia('(display-mode: standalone)').matches;
@@ -87,40 +84,26 @@ export default function ConfiguracaoNotificacoes({ userId }) {
       setIsStandalone(standalone);
       setPermission(Notification?.permission || 'default');
 
-      // Se não tiver suporte básico, nem tenta verificar inscrição para não travar
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        if (ios && !standalone) {
-          // iPhone fora do PWA é normal não ter PushManager
-        } else {
-          setSupportError("Este navegador não suporta notificações push.");
-        }
+        if (!ios) setSupportError("Navegador sem suporte a Push.");
         return;
       }
-
-      // Tenta verificar a inscrição existente
-      checkSubscription();
+      
+      // Tenta checar inscrição existente sem travar
+      navigator.serviceWorker.getRegistration().then(reg => {
+        if (reg) return reg.pushManager.getSubscription();
+      }).then(sub => setIsSubscribed(!!sub)).catch(console.warn);
     }
-  }, [userId]);
+  }, []);
 
-  const checkSubscription = async () => {
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      setIsSubscribed(!!subscription);
-    } catch (e) {
-      console.warn("Erro ao checar inscrição (pode ser normal no primeiro acesso):", e);
-    }
-  };
-
-  // --- AÇÃO: ATIVAR DISPOSITIVO ---
+  // --- AÇÃO: ATIVAR DISPOSITIVO (COM "TIMEOUT" PARA NÃO TRAVAR) ---
   const handleSubscribeDevice = async () => {
     if (!userId) return toast.error("Usuário não identificado.");
-    
     setDeviceLoading(true);
 
     try {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        throw new Error("Seu dispositivo/navegador não suporta notificações web.");
+        throw new Error("Seu dispositivo não suporta notificações.");
       }
 
       // 1. Pedir Permissão
@@ -128,23 +111,41 @@ export default function ConfiguracaoNotificacoes({ userId }) {
       setPermission(perm);
 
       if (perm !== 'granted') {
-        toast.error("Permissão negada. Verifique as configurações do navegador.");
+        toast.error("Permissão negada. Verifique as configurações do iOS.");
         setDeviceLoading(false);
         return;
       }
 
-      // 2. Registrar
-      const registration = await navigator.serviceWorker.ready;
+      // 2. Obter Service Worker (Com timeout anti-travamento)
+      let registration = await navigator.serviceWorker.getRegistration();
+
+      if (!registration) {
+        console.log("Nenhum SW encontrado, registrando manualmente...");
+        // Tenta registrar forçadamente se não encontrar
+        // O PORQUÊ: No iPhone, às vezes ele perde o SW ao fechar o app.
+        try {
+            registration = await navigator.serviceWorker.register('/custom-sw.js');
+        } catch (e) {
+            console.warn("Falha ao registrar custom-sw, tentando sw.js padrão", e);
+            registration = await navigator.serviceWorker.register('/sw.js');
+        }
+      }
+
+      // Se ainda não temos registration ativa, esperamos um pouco, mas não para sempre
+      if (!registration.active) {
+         await new Promise(resolve => setTimeout(resolve, 500)); // Espera meio segundo
+      }
+
+      // 3. Inscrever no PushManager
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-      
-      if (!vapidKey) throw new Error("Chave de notificação não configurada.");
+      if (!vapidKey) throw new Error("Chave VAPID não configurada.");
 
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey)
       });
 
-      // 3. Salvar no Banco
+      // 4. Salvar no Banco
       const subscriptionJSON = subscription.toJSON();
       const { data: userData } = await supabase.from('usuarios').select('organizacao_id').eq('id', userId).single();
 
@@ -158,29 +159,28 @@ export default function ConfiguracaoNotificacoes({ userId }) {
         }, { onConflict: 'endpoint' });
 
       setIsSubscribed(true);
-      toast.success("Tudo pronto! Você receberá avisos neste celular.");
+      toast.success("Ativado com sucesso!");
 
-      // Teste
-      await fetch('/api/notifications/send', {
+      // Envia teste silencioso
+      fetch('/api/notifications/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: userId,
           title: "Configurado! 📱",
-          message: "Notificações ativas no iPhone/Android.",
+          message: "Seu iPhone agora recebe avisos.",
           url: "/perfil"
         })
-      });
+      }).catch(console.error);
 
     } catch (error) {
-      console.error("Erro fatal ativação:", error);
+      console.error("Erro ativação:", error);
       toast.error(`Erro: ${error.message}`);
     } finally {
       setDeviceLoading(false);
     }
   };
 
-  // --- AÇÃO: DESATIVAR ---
   const handleUnsubscribeDevice = async () => {
     setDeviceLoading(true);
     try {
@@ -191,7 +191,7 @@ export default function ConfiguracaoNotificacoes({ userId }) {
         await supabase.from('notification_subscriptions').delete().eq('endpoint', subscription.endpoint);
       }
       setIsSubscribed(false);
-      toast.info("Notificações desligadas neste aparelho.");
+      toast.info("Notificações desligadas.");
     } catch (error) {
       toast.error("Erro ao desativar.");
     } finally {
@@ -213,7 +213,6 @@ export default function ConfiguracaoNotificacoes({ userId }) {
 
   const toggle = (key) => setPrefs(prev => ({ ...prev, [key]: !prev[key] }));
 
-  // Se estiver carregando APENAS as prefs do banco, mostra um skeleton simples ou spinner
   if (loadingPrefs) return (
     <div className="p-10 flex justify-center text-gray-400">
         <FontAwesomeIcon icon={faSpinner} spin size="2x" />
@@ -223,7 +222,7 @@ export default function ConfiguracaoNotificacoes({ userId }) {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       
-      {/* --- SEÇÃO 1: ATIVAÇÃO DO DISPOSITIVO (Onde dava erro no iPhone) --- */}
+      {/* SEÇÃO 1: ATIVAÇÃO DISPOSITIVO */}
       <div className={`p-6 rounded-xl border-2 transition-all ${isSubscribed ? 'border-green-100 bg-green-50/50' : 'border-blue-100 bg-blue-50/30'}`}>
         <div className="flex flex-col gap-4">
           
@@ -243,7 +242,6 @@ export default function ConfiguracaoNotificacoes({ userId }) {
             {isSubscribed && <FontAwesomeIcon icon={faCheckCircle} className="text-green-500 text-2xl" />}
           </div>
 
-          {/* Avisos específicos de erro/iOS */}
           {supportError && (
             <div className="p-3 bg-red-50 text-red-700 text-xs rounded border border-red-100">
               {supportError}
@@ -254,15 +252,12 @@ export default function ConfiguracaoNotificacoes({ userId }) {
             <div className="p-3 bg-yellow-50 text-yellow-800 text-xs rounded border border-yellow-200 flex gap-2">
               <FontAwesomeIcon icon={faExclamationTriangle} className="mt-1" />
               <div>
-                <strong>Atenção iPhone:</strong> Para ativar as notificações, você precisa adicionar este site à Tela de Início.
-                <br />1. Toque em <strong>Compartilhar</strong> (quadradinho com seta).
-                <br />2. Escolha <strong>"Adicionar à Tela de Início"</strong>.
-                <br />3. Abra o novo ícone criado.
+                <strong>Atenção iPhone:</strong> Notificações só funcionam se adicionar à Tela de Início.
+                <br />Toque em <strong>Compartilhar</strong> {'>'} <strong>Adicionar à Tela de Início</strong>.
               </div>
             </div>
           )}
 
-          {/* O Botão Mágico */}
           <div className="pt-2">
             {!isSubscribed ? (
               <button
@@ -271,7 +266,7 @@ export default function ConfiguracaoNotificacoes({ userId }) {
                 className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {deviceLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faBell} />}
-                {deviceLoading ? 'Ativando...' : 'Ativar Notificações Agora'}
+                {deviceLoading ? 'Conectando...' : 'Ativar Notificações Agora'}
               </button>
             ) : (
               <button
@@ -289,7 +284,7 @@ export default function ConfiguracaoNotificacoes({ userId }) {
 
       <hr className="border-gray-100" />
 
-      {/* --- SEÇÃO 2: TIPOS DE NOTIFICAÇÃO (Igual ao anterior) --- */}
+      {/* SEÇÃO 2: PREFERÊNCIAS */}
       <div>
         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
           <FontAwesomeIcon icon={faCog} className="text-gray-400" />
