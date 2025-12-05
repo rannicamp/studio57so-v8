@@ -8,9 +8,10 @@ export async function POST(request) {
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseServiceKey) {
-        return NextResponse.json({ error: "Configuração do servidor incompleta." }, { status: 500 });
+        return NextResponse.json({ error: "Configuração do servidor incompleta (Faltam chaves do Supabase)." }, { status: 500 });
     }
 
+    // Usamos o Service Key para ter permissão total de admin (buscar configs e inserir mensagens)
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     try {
@@ -21,7 +22,7 @@ export async function POST(request) {
             return NextResponse.json({ error: 'O número de destino (to) e o tipo (type) são obrigatórios.' }, { status: 400 });
         }
 
-        // 1. Busca Credenciais
+        // 1. Busca Credenciais na tabela 'configuracoes_whatsapp'
         const { data: config, error: configError } = await supabaseAdmin
             .from('configuracoes_whatsapp')
             .select('whatsapp_permanent_token, whatsapp_phone_number_id, organizacao_id')
@@ -29,14 +30,23 @@ export async function POST(request) {
             .single();
 
         if (configError || !config) {
-            return NextResponse.json({ error: 'Credenciais do WhatsApp não encontradas.' }, { status: 500 });
+            console.error("Erro ao buscar configs do Whats:", configError);
+            return NextResponse.json({ error: 'Credenciais do WhatsApp não encontradas no banco.' }, { status: 500 });
         }
 
         const { whatsapp_permanent_token: WHATSAPP_TOKEN, whatsapp_phone_number_id: WHATSAPP_PHONE_NUMBER_ID, organizacao_id } = config;
         
         // 2. Prepara Payload do WhatsApp
         const url = `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
-        let payload = { messaging_product: 'whatsapp', to: to, type: type };
+        
+        // Estrutura base padrão
+        let payload = { 
+            messaging_product: 'whatsapp', 
+            recipient_type: "individual",
+            to: to, 
+            type: type 
+        };
+        
         let messageContentForDb = '';
         
         switch (type) {
@@ -44,22 +54,45 @@ export async function POST(request) {
                 payload.text = { preview_url: true, body: text };
                 messageContentForDb = text;
                 break;
+                
             case 'document':
-                payload.document = { link: link, filename: filename, caption: caption };
-                messageContentForDb = caption || filename || 'Documento';
+                if (!link) return NextResponse.json({ error: 'Link é obrigatório para documentos.' }, { status: 400 });
+                payload.document = { 
+                    link: link, 
+                    filename: filename || 'Arquivo',
+                    // Caption é opcional para documentos, mas vamos passar se existir
+                    ...(caption && { caption: caption })
+                };
+                messageContentForDb = caption || filename || 'Documento enviado';
                 break;
+                
             case 'image':
-                payload.image = { link: link, caption: caption };
-                messageContentForDb = caption || 'Imagem';
+                if (!link) return NextResponse.json({ error: 'Link é obrigatório para imagens.' }, { status: 400 });
+                payload.image = { 
+                    link: link, 
+                    ...(caption && { caption: caption }) 
+                };
+                messageContentForDb = caption || 'Imagem enviada';
                 break;
+                
             case 'video':
-                payload.video = { link: link, caption: caption };
-                messageContentForDb = caption || 'Vídeo';
+                if (!link) return NextResponse.json({ error: 'Link é obrigatório para vídeos.' }, { status: 400 });
+                payload.video = { 
+                    link: link, 
+                    ...(caption && { caption: caption }) 
+                };
+                messageContentForDb = caption || 'Vídeo enviado';
                 break;
+                
             case 'audio':
-                payload.audio = { link: link };
-                messageContentForDb = 'Áudio';
+                if (!link) return NextResponse.json({ error: 'Link é obrigatório para áudio.' }, { status: 400 });
+                payload.audio = { 
+                    link: link 
+                    // Áudio no Whatsapp não suporta caption
+                };
+                messageContentForDb = 'Áudio enviado';
                 break;
+                
             case 'template':
                 if (!templateName) return NextResponse.json({ error: 'Nome do template obrigatório.' }, { status: 400 });
                 payload.template = { 
@@ -69,14 +102,20 @@ export async function POST(request) {
                 };
                 messageContentForDb = `Template: ${templateName}`;
                 break;
+                
             default:
-                return NextResponse.json({ error: 'Tipo inválido.' }, { status: 400 });
+                return NextResponse.json({ error: 'Tipo de mensagem inválido.' }, { status: 400 });
         }
+
+        console.log("Enviando payload para Meta:", JSON.stringify(payload, null, 2));
 
         // 3. Envia para a API da Meta
         const apiResponse = await fetch(url, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+            headers: { 
+                'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 
+                'Content-Type': 'application/json' 
+            },
             body: JSON.stringify(payload)
         });
 
@@ -84,20 +123,27 @@ export async function POST(request) {
 
         if (!apiResponse.ok) {
             console.error('Erro da Meta:', responseData);
-            return NextResponse.json({ error: `Erro WhatsApp: ${responseData.error?.message}` }, { status: apiResponse.status });
+            return NextResponse.json({ 
+                error: `Erro WhatsApp: ${responseData.error?.message}`,
+                details: responseData 
+            }, { status: apiResponse.status });
         }
 
         const newMessageId = responseData.messages?.[0]?.id;
 
-        // 4. Salva no Banco (USANDO A INTELIGÊNCIA DE CONTATO)
+        // 4. Salva no Banco
         if (newMessageId) {
-            // Usa a função RPC do banco para achar o contato correto (igual ao Webhook)
-            const { data: contactId } = await supabaseAdmin.rpc('find_contact_by_phone', { phone_input: to });
+            // Tenta encontrar o contato para vincular
+            let contactId = null;
+            try {
+                const { data } = await supabaseAdmin.rpc('find_contact_by_phone', { phone_input: to });
+                contactId = data;
+            } catch (e) {
+                console.warn("RPC find_contact_by_phone falhou ou não existe:", e);
+            }
 
-            // O Trigger do banco vai cuidar de vincular à conversa correta automaticamente
-            // pois estamos inserindo o 'contato_id' correto.
             const { error: dbError } = await supabaseAdmin.from('whatsapp_messages').insert({
-                contato_id: contactId, // ID correto do contato (ou null se não existir)
+                contato_id: contactId, 
                 message_id: newMessageId,
                 sender_id: WHATSAPP_PHONE_NUMBER_ID,
                 receiver_id: to,
@@ -105,21 +151,22 @@ export async function POST(request) {
                 sent_at: new Date().toISOString(),
                 direction: 'outbound',
                 status: 'sent',
-                raw_payload: payload,
-                organizacao_id: organizacao_id
+                raw_payload: JSON.stringify(payload),
+                organizacao_id: organizacao_id,
+                // AQUI ESTÁ A CORREÇÃO IMPORTANTE:
+                // Salvamos o link na coluna dedicada para facilitar a exibição no front
+                media_url: link || null 
             });
 
             if (dbError) {
-                console.error('Erro ao salvar no banco:', dbError);
-                // Não retornamos erro 500 aqui porque a mensagem JÁ foi enviada pro Zap.
-                // Apenas logamos o erro de salvamento.
+                console.error('Erro ao salvar no banco (mas mensagem foi enviada):', dbError);
             }
         }
 
         return NextResponse.json({ message: 'Enviado com sucesso!', data: responseData }, { status: 200 });
 
     } catch (error) {
-        console.error('Falha crítica:', error);
-        return NextResponse.json({ error: 'Erro interno.' }, { status: 500 });
+        console.error('Falha crítica no route.js:', error);
+        return NextResponse.json({ error: 'Erro interno no servidor.' }, { status: 500 });
     }
 }
