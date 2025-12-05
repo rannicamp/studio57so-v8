@@ -24,7 +24,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import TemplateMessageModal from './TemplateMessageModal';
 import FilePreviewModal from './FilePreviewModal';
-import ChatMediaViewer from './ChatMediaViewer'; // <--- NOVO IMPORT
+import ChatMediaViewer from './ChatMediaViewer';
 
 // Helper para identificar o tipo de arquivo
 const getAttachmentType = (fileType) => {
@@ -390,7 +390,7 @@ export default function MessagePanel({ contact, onBack }) {
                 onSend={handleConfirmSendFile}
             />
 
-            {/* VISUALIZADOR DE MÍDIA (NOVO) */}
+            {/* VISUALIZADOR DE MÍDIA */}
             <ChatMediaViewer 
                 isOpen={isViewerOpen}
                 onClose={() => setIsViewerOpen(false)}
@@ -460,23 +460,41 @@ export default function MessagePanel({ contact, onBack }) {
                                             >
                                                 <img src={mediaUrl} alt="Mídia" className="w-full h-auto max-h-80 object-cover" loading="lazy" />
                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                                    {/* Hover Effect */}
                                                 </div>
                                             </div>
                                         )}
 
-                                        {/* Vídeo (Interativo) */}
+                                        {/* Vídeo (Interativo - SOLUÇÃO COM BOTÃO E Z-INDEX) */}
                                         {isVideo && mediaUrl && (
-                                            <div 
-                                                className="rounded overflow-hidden mb-1 bg-black relative cursor-pointer group flex items-center justify-center min-h-[150px]"
-                                                onClick={() => handleOpenViewer(mediaUrl, 'video', 'Vídeo')}
-                                            >
-                                                <video src={mediaUrl} className="w-full max-h-80 opacity-80" />
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <div className="w-12 h-12 bg-black/50 rounded-full flex items-center justify-center text-white backdrop-blur-sm group-hover:scale-110 transition-transform">
+                                            <div className="rounded overflow-hidden mb-1 bg-black relative flex items-center justify-center min-h-[150px]">
+                                                {/* 1. BOTÃO DE CLIQUE (ABSOLUTO E NO TOPO) */}
+                                                <button
+                                                    type="button"
+                                                    className="absolute inset-0 z-20 w-full h-full cursor-pointer outline-none focus:outline-none bg-transparent border-none p-0 m-0"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        handleOpenViewer(mediaUrl, 'video', 'Vídeo');
+                                                    }}
+                                                    title="Clique para assistir"
+                                                >
+                                                    <span className="sr-only">Assistir vídeo</span>
+                                                </button>
+                                                
+                                                {/* 2. ÍCONE VISUAL (NO MEIO) */}
+                                                <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                                                    <div className="w-12 h-12 bg-black/50 rounded-full flex items-center justify-center text-white backdrop-blur-sm shadow-lg">
                                                         <FontAwesomeIcon icon={faPlayCircle} size="2x" />
                                                     </div>
                                                 </div>
+
+                                                {/* 3. VÍDEO (EMBAIXO E SEM EVENTOS DE MOUSE) */}
+                                                <video 
+                                                    src={mediaUrl} 
+                                                    className="w-full max-h-80 opacity-80 pointer-events-none object-cover relative z-0" 
+                                                    playsInline
+                                                    preload="metadata"
+                                                />
                                             </div>
                                         )}
 
