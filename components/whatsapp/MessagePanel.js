@@ -12,20 +12,21 @@ import {
     faUserCircle, 
     faPaperclip, 
     faFileLines,
-    faMicrophone,
-    faStop,
-    faVideo,
-    faFileAlt,
-    faCheck,
-    faCheckDouble,
-    faPlayCircle
+    faMicrophone, 
+    faStop, 
+    faVideo, 
+    faFileAlt, 
+    faCheck, 
+    faCheckDouble, 
+    faPlayCircle 
 } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import TemplateMessageModal from './TemplateMessageModal';
 import FilePreviewModal from './FilePreviewModal';
 import ChatMediaViewer from './ChatMediaViewer';
-import * as lamejs from 'lamejs'; // Importação do conversor MP3
+// ALTERAÇÃO 1: Importação ajustada para garantir compatibilidade
+import lamejs from 'lamejs';
 
 // Helper para identificar o tipo de arquivo
 const getAttachmentType = (fileType) => {
@@ -59,7 +60,8 @@ export default function MessagePanel({ contact, onBack }) {
     // Estados para Áudio
     const [isRecording, setIsRecording] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
-    const [isProcessingAudio, setIsProcessingAudio] = useState(false); // Novo estado de carregamento
+    const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+    
     const audioContextRef = useRef(null);
     const processorRef = useRef(null);
     const mediaStreamRef = useRef(null);
@@ -273,7 +275,123 @@ export default function MessagePanel({ contact, onBack }) {
         }
     });
 
-    // --- HANDLERS ---
+    // --- LÓGICA DE ÁUDIO MP3 🎤 ---
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaStreamRef.current = stream;
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            const audioContext = new AudioContext();
+            audioContextRef.current = audioContext;
+
+            const source = audioContext.createMediaStreamSource(stream);
+            
+            // ScriptProcessor para capturar dados brutos
+            const processor = audioContext.createScriptProcessor(4096, 1, 1);
+            processorRef.current = processor;
+
+            audioDataRef.current = [];
+
+            processor.onaudioprocess = (e) => {
+                const channelData = e.inputBuffer.getChannelData(0);
+                audioDataRef.current.push(new Float32Array(channelData));
+            };
+
+            source.connect(processor);
+            processor.connect(audioContext.destination);
+
+            setIsRecording(true);
+            setRecordingTime(0);
+            
+            recordingInterval.current = setInterval(() => {
+                setRecordingTime(prev => prev + 1);
+            }, 1000);
+
+        } catch (err) {
+            console.error("Erro ao iniciar gravação:", err);
+            toast.error("Erro ao acessar microfone: " + err.message);
+        }
+    };
+
+    const stopRecording = async () => {
+        if (!isRecording) return;
+        setIsRecording(false);
+        setIsProcessingAudio(true);
+
+        // Para cronômetro
+        if (recordingInterval.current) clearInterval(recordingInterval.current);
+
+        // Desconecta tudo com segurança
+        if (processorRef.current) {
+            processorRef.current.disconnect();
+            processorRef.current = null;
+        }
+        if (mediaStreamRef.current) {
+            mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            mediaStreamRef.current = null;
+        }
+        if (audioContextRef.current) {
+            if (audioContextRef.current.state !== 'closed') {
+                await audioContextRef.current.close();
+            }
+            audioContextRef.current = null;
+        }
+
+        try {
+            await convertAndSendMp3(audioDataRef.current);
+        } catch (error) {
+            console.error("Erro na conversão MP3:", error);
+            // ALTERAÇÃO 2: Mostra o erro exato na tela
+            toast.error("Erro ao converter áudio: " + (error.message || error));
+        } finally {
+            setIsProcessingAudio(false);
+            audioDataRef.current = [];
+        }
+    };
+
+    const convertAndSendMp3 = async (buffers) => {
+        if (!buffers || buffers.length === 0) return;
+
+        // VERIFICAÇÃO DE SEGURANÇA DO LAMEJS
+        if (!lamejs || !lamejs.Mp3Encoder) {
+            throw new Error("Biblioteca de conversão MP3 (lamejs) não carregou corretamente.");
+        }
+
+        const sampleRate = 44100; 
+        const mp3Encoder = new lamejs.Mp3Encoder(1, sampleRate, 128); 
+        const mp3Data = [];
+
+        let totalLength = 0;
+        for (let i = 0; i < buffers.length; i++) totalLength += buffers[i].length;
+        
+        const samples = new Int16Array(totalLength);
+        let offset = 0;
+
+        for (let i = 0; i < buffers.length; i++) {
+            const buffer = buffers[i];
+            for (let j = 0; j < buffer.length; j++) {
+                // Converte Float32 (-1 a 1) para Int16
+                let s = Math.max(-1, Math.min(1, buffer[j]));
+                samples[offset++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+        }
+
+        const sampleBlockSize = 1152;
+        for (let i = 0; i < samples.length; i += sampleBlockSize) {
+            const sampleChunk = samples.subarray(i, i + sampleBlockSize);
+            const mp3buf = mp3Encoder.encodeBuffer(sampleChunk);
+            if (mp3buf.length > 0) mp3Data.push(mp3buf);
+        }
+
+        const mp3buf = mp3Encoder.flush();
+        if (mp3buf.length > 0) mp3Data.push(mp3buf);
+
+        const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+        const mp3File = new File([blob], `audio_${Date.now()}.mp3`, { type: 'audio/mp3' });
+
+        sendAttachmentMutation.mutate({ file: mp3File, caption: '' });
+    };
 
     const handleSendMessage = (e) => { 
         e.preventDefault(); 
@@ -301,133 +419,14 @@ export default function MessagePanel({ contact, onBack }) {
         sendTemplateMutation.mutate({ templateName, language, variables }); 
     };
 
-    const handleOpenViewer = (url, type, name) => {
-        setViewerMedia({ url, type, name });
-        setIsViewerOpen(true);
-    };
-
-    // --- LÓGICA DE ÁUDIO MP3 🎤 ---
-    const startRecording = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaStreamRef.current = stream;
-            
-            // Configura AudioContext
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            const audioContext = new AudioContext();
-            audioContextRef.current = audioContext;
-
-            const source = audioContext.createMediaStreamSource(stream);
-            
-            // ScriptProcessor para capturar dados brutos
-            const processor = audioContext.createScriptProcessor(4096, 1, 1);
-            processorRef.current = processor;
-
-            audioDataRef.current = []; // Limpa buffer anterior
-
-            processor.onaudioprocess = (e) => {
-                const channelData = e.inputBuffer.getChannelData(0);
-                // Clona os dados porque o buffer é reutilizado
-                audioDataRef.current.push(new Float32Array(channelData));
-            };
-
-            source.connect(processor);
-            processor.connect(audioContext.destination);
-
-            setIsRecording(true);
-            setRecordingTime(0);
-            
-            recordingInterval.current = setInterval(() => {
-                setRecordingTime(prev => prev + 1);
-            }, 1000);
-
-        } catch (err) {
-            console.error("Erro ao iniciar gravação:", err);
-            toast.error("Erro ao acessar microfone.");
-        }
-    };
-
-    const stopRecording = async () => {
-        if (!isRecording) return;
-        setIsRecording(false);
-        setIsProcessingAudio(true); // Mostra loading
-
-        // Para cronômetro
-        if (recordingInterval.current) clearInterval(recordingInterval.current);
-
-        // Desconecta tudo
-        if (processorRef.current) {
-            processorRef.current.disconnect();
-            processorRef.current = null;
-        }
-        if (mediaStreamRef.current) {
-            mediaStreamRef.current.getTracks().forEach(track => track.stop());
-            mediaStreamRef.current = null;
-        }
-        if (audioContextRef.current) {
-            audioContextRef.current.close();
-            audioContextRef.current = null;
-        }
-
-        try {
-            // CONVERSÃO PARA MP3
-            await convertAndSendMp3(audioDataRef.current);
-        } catch (error) {
-            console.error("Erro na conversão MP3:", error);
-            toast.error("Erro ao processar áudio.");
-        } finally {
-            setIsProcessingAudio(false);
-            audioDataRef.current = [];
-        }
-    };
-
-    const convertAndSendMp3 = async (buffers) => {
-        if (!buffers || buffers.length === 0) return;
-
-        // Configurações do MP3
-        const sampleRate = 44100; // Padrão
-        const mp3Encoder = new lamejs.Mp3Encoder(1, sampleRate, 128); // Mono, 44.1khz, 128kbps
-        const mp3Data = [];
-
-        // Achata o array de arrays
-        let totalLength = 0;
-        for (let i = 0; i < buffers.length; i++) totalLength += buffers[i].length;
-        
-        const samples = new Int16Array(totalLength);
-        let offset = 0;
-
-        for (let i = 0; i < buffers.length; i++) {
-            const buffer = buffers[i];
-            for (let j = 0; j < buffer.length; j++) {
-                // Converte Float32 (-1 a 1) para Int16
-                let s = Math.max(-1, Math.min(1, buffer[j]));
-                samples[offset++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-            }
-        }
-
-        // Encodando em blocos
-        const sampleBlockSize = 1152;
-        for (let i = 0; i < samples.length; i += sampleBlockSize) {
-            const sampleChunk = samples.subarray(i, i + sampleBlockSize);
-            const mp3buf = mp3Encoder.encodeBuffer(sampleChunk);
-            if (mp3buf.length > 0) mp3Data.push(mp3buf);
-        }
-
-        // Finaliza encoding
-        const mp3buf = mp3Encoder.flush();
-        if (mp3buf.length > 0) mp3Data.push(mp3buf);
-
-        // Cria Blob e Arquivo
-        const blob = new Blob(mp3Data, { type: 'audio/mp3' });
-        const mp3File = new File([blob], `audio_${Date.now()}.mp3`, { type: 'audio/mp3' });
-
-        // Envia
-        sendAttachmentMutation.mutate({ file: mp3File, caption: '' });
-    };
-
     const handleMicClick = () => {
         if (isRecording) stopRecording();
         else startRecording();
+    };
+    
+    const handleOpenViewer = (url, type, name) => {
+        setViewerMedia({ url, type, name });
+        setIsViewerOpen(true);
     };
 
     const formatTime = (seconds) => {
@@ -435,8 +434,6 @@ export default function MessagePanel({ contact, onBack }) {
         const secs = seconds % 60;
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
-
-    // --- RENDER ---
 
     if (!contact) {
         return (
@@ -525,7 +522,6 @@ export default function MessagePanel({ contact, onBack }) {
                             else StatusIcon = <FontAwesomeIcon icon={faCheck} className="text-gray-500" />;
                         }
 
-                        // Lista de textos que NÃO devem aparecer se for mídia
                         const hiddenTexts = ['Imagem', 'Áudio', 'Documento', 'Vídeo', 'Áudio enviado', 'Imagem enviada', 'Vídeo enviado'];
 
                         return (
