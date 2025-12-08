@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import TemplateMessageModal from './TemplateMessageModal';
 import FilePreviewModal from './FilePreviewModal';
 import ChatMediaViewer from './ChatMediaViewer';
+import * as lamejs from 'lamejs'; // Importação do conversor MP3
 
 // Helper para identificar o tipo de arquivo
 const getAttachmentType = (fileType) => {
@@ -52,13 +53,17 @@ export default function MessagePanel({ contact, onBack }) {
     const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
 
     // Estados para Visualização (Lightbox)
-    const [viewerMedia, setViewerMedia] = useState(null); // { url, type, name }
+    const [viewerMedia, setViewerMedia] = useState(null);
     const [isViewerOpen, setIsViewerOpen] = useState(false);
 
     // Estados para Áudio
     const [isRecording, setIsRecording] = useState(false);
-    const [mediaRecorder, setMediaRecorder] = useState(null);
     const [recordingTime, setRecordingTime] = useState(0);
+    const [isProcessingAudio, setIsProcessingAudio] = useState(false); // Novo estado de carregamento
+    const audioContextRef = useRef(null);
+    const processorRef = useRef(null);
+    const mediaStreamRef = useRef(null);
+    const audioDataRef = useRef([]);
     const recordingInterval = useRef(null);
 
     const messagesEndRef = useRef(null);
@@ -203,6 +208,7 @@ export default function MessagePanel({ contact, onBack }) {
                 const month = String(date.getMonth() + 1).padStart(2, '0');
                 const filePath = `chat/${contact.contato_id}/${year}/${month}/${uniqueName}`;
                 
+                // Upload para Supabase
                 const { error: uploadError } = await supabase.storage
                     .from('whatsapp-media') 
                     .upload(filePath, file, {
@@ -222,6 +228,7 @@ export default function MessagePanel({ contact, onBack }) {
 
                 const attachmentType = getAttachmentType(file.type);
                 
+                // Envia para API WhatsApp
                 const response = await fetch('/api/whatsapp/send', {
                     method: 'POST', 
                     headers: { 'Content-Type': 'application/json' },
@@ -237,6 +244,7 @@ export default function MessagePanel({ contact, onBack }) {
                 const apiResult = await response.json();
                 if (!response.ok) throw new Error(apiResult.error || 'A Meta recusou o arquivo.');
 
+                // Salva registro do anexo
                 await fetch('/api/whatsapp/save-attachment', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -293,60 +301,133 @@ export default function MessagePanel({ contact, onBack }) {
         sendTemplateMutation.mutate({ templateName, language, variables }); 
     };
 
-    // Abre o visualizador (Lightbox)
     const handleOpenViewer = (url, type, name) => {
         setViewerMedia({ url, type, name });
         setIsViewerOpen(true);
     };
 
-    // --- MIC LOGIC ---
-    const handleMicClick = async () => {
-        if (isRecording) {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-            }
-            setIsRecording(false);
-            if (recordingInterval.current) clearInterval(recordingInterval.current);
+    // --- LÓGICA DE ÁUDIO MP3 🎤 ---
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaStreamRef.current = stream;
+            
+            // Configura AudioContext
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            const audioContext = new AudioContext();
+            audioContextRef.current = audioContext;
+
+            const source = audioContext.createMediaStreamSource(stream);
+            
+            // ScriptProcessor para capturar dados brutos
+            const processor = audioContext.createScriptProcessor(4096, 1, 1);
+            processorRef.current = processor;
+
+            audioDataRef.current = []; // Limpa buffer anterior
+
+            processor.onaudioprocess = (e) => {
+                const channelData = e.inputBuffer.getChannelData(0);
+                // Clona os dados porque o buffer é reutilizado
+                audioDataRef.current.push(new Float32Array(channelData));
+            };
+
+            source.connect(processor);
+            processor.connect(audioContext.destination);
+
+            setIsRecording(true);
             setRecordingTime(0);
-        } else {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                let options = {};
-                if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-                    options = { mimeType: 'audio/webm;codecs=opus' };
-                } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-                    options = { mimeType: 'audio/mp4' };
-                }
+            
+            recordingInterval.current = setInterval(() => {
+                setRecordingTime(prev => prev + 1);
+            }, 1000);
 
-                const recorder = new MediaRecorder(stream, options);
-                const chunks = [];
+        } catch (err) {
+            console.error("Erro ao iniciar gravação:", err);
+            toast.error("Erro ao acessar microfone.");
+        }
+    };
 
-                recorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) chunks.push(e.data);
-                };
-                
-                recorder.onstop = async () => {
-                    const mimeType = chunks[0]?.type || 'audio/webm';
-                    const blob = new Blob(chunks, { type: mimeType });
-                    const audioFile = new File([blob], `audio_${Date.now()}.webm`, { type: mimeType });
-                    
-                    sendAttachmentMutation.mutate({ file: audioFile, caption: '' });
-                    stream.getTracks().forEach(track => track.stop());
-                };
+    const stopRecording = async () => {
+        if (!isRecording) return;
+        setIsRecording(false);
+        setIsProcessingAudio(true); // Mostra loading
 
-                recorder.start();
-                setMediaRecorder(recorder);
-                setIsRecording(true);
-                
-                recordingInterval.current = setInterval(() => {
-                    setRecordingTime(prev => prev + 1);
-                }, 1000);
+        // Para cronômetro
+        if (recordingInterval.current) clearInterval(recordingInterval.current);
 
-            } catch (err) {
-                console.error("Erro mic:", err);
-                toast.error("Não foi possível acessar o microfone.");
+        // Desconecta tudo
+        if (processorRef.current) {
+            processorRef.current.disconnect();
+            processorRef.current = null;
+        }
+        if (mediaStreamRef.current) {
+            mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            mediaStreamRef.current = null;
+        }
+        if (audioContextRef.current) {
+            audioContextRef.current.close();
+            audioContextRef.current = null;
+        }
+
+        try {
+            // CONVERSÃO PARA MP3
+            await convertAndSendMp3(audioDataRef.current);
+        } catch (error) {
+            console.error("Erro na conversão MP3:", error);
+            toast.error("Erro ao processar áudio.");
+        } finally {
+            setIsProcessingAudio(false);
+            audioDataRef.current = [];
+        }
+    };
+
+    const convertAndSendMp3 = async (buffers) => {
+        if (!buffers || buffers.length === 0) return;
+
+        // Configurações do MP3
+        const sampleRate = 44100; // Padrão
+        const mp3Encoder = new lamejs.Mp3Encoder(1, sampleRate, 128); // Mono, 44.1khz, 128kbps
+        const mp3Data = [];
+
+        // Achata o array de arrays
+        let totalLength = 0;
+        for (let i = 0; i < buffers.length; i++) totalLength += buffers[i].length;
+        
+        const samples = new Int16Array(totalLength);
+        let offset = 0;
+
+        for (let i = 0; i < buffers.length; i++) {
+            const buffer = buffers[i];
+            for (let j = 0; j < buffer.length; j++) {
+                // Converte Float32 (-1 a 1) para Int16
+                let s = Math.max(-1, Math.min(1, buffer[j]));
+                samples[offset++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
             }
         }
+
+        // Encodando em blocos
+        const sampleBlockSize = 1152;
+        for (let i = 0; i < samples.length; i += sampleBlockSize) {
+            const sampleChunk = samples.subarray(i, i + sampleBlockSize);
+            const mp3buf = mp3Encoder.encodeBuffer(sampleChunk);
+            if (mp3buf.length > 0) mp3Data.push(mp3buf);
+        }
+
+        // Finaliza encoding
+        const mp3buf = mp3Encoder.flush();
+        if (mp3buf.length > 0) mp3Data.push(mp3buf);
+
+        // Cria Blob e Arquivo
+        const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+        const mp3File = new File([blob], `audio_${Date.now()}.mp3`, { type: 'audio/mp3' });
+
+        // Envia
+        sendAttachmentMutation.mutate({ file: mp3File, caption: '' });
+    };
+
+    const handleMicClick = () => {
+        if (isRecording) stopRecording();
+        else startRecording();
     };
 
     const formatTime = (seconds) => {
@@ -375,7 +456,6 @@ export default function MessagePanel({ contact, onBack }) {
     
     return (
         <>
-            {/* Modais */}
             <TemplateMessageModal 
                 isOpen={isTemplateModalOpen} 
                 onClose={() => setIsTemplateModalOpen(false)} 
@@ -390,7 +470,6 @@ export default function MessagePanel({ contact, onBack }) {
                 onSend={handleConfirmSendFile}
             />
 
-            {/* VISUALIZADOR DE MÍDIA */}
             <ChatMediaViewer 
                 isOpen={isViewerOpen}
                 onClose={() => setIsViewerOpen(false)}
@@ -439,7 +518,6 @@ export default function MessagePanel({ contact, onBack }) {
                         const isVideo = payload?.type === 'video' || payload?.video;
                         const isDocument = payload?.type === 'document' || payload?.document;
 
-                        // Status Icon
                         let StatusIcon = null;
                         if (isMe) {
                             if (msg.status === 'read') StatusIcon = <FontAwesomeIcon icon={faCheckDouble} className="text-[#53bdeb]" />;
@@ -447,27 +525,25 @@ export default function MessagePanel({ contact, onBack }) {
                             else StatusIcon = <FontAwesomeIcon icon={faCheck} className="text-gray-500" />;
                         }
 
+                        // Lista de textos que NÃO devem aparecer se for mídia
+                        const hiddenTexts = ['Imagem', 'Áudio', 'Documento', 'Vídeo', 'Áudio enviado', 'Imagem enviada', 'Vídeo enviado'];
+
                         return (
                             <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`}>
                                 <div className={`relative max-w-[85%] sm:max-w-[65%] rounded-lg shadow-sm text-sm ${isMe ? 'bg-[#d9fdd3] rounded-tr-none' : 'bg-white rounded-tl-none'}`}>
                                     
                                     <div className="p-1">
-                                        {/* Imagem (Interativa) */}
                                         {isImage && mediaUrl && (
                                             <div 
                                                 className="rounded overflow-hidden mb-1 cursor-pointer bg-[#cfd4d2] relative group" 
                                                 onClick={() => handleOpenViewer(mediaUrl, 'image', 'Imagem')}
                                             >
                                                 <img src={mediaUrl} alt="Mídia" className="w-full h-auto max-h-80 object-cover" loading="lazy" />
-                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                                </div>
                                             </div>
                                         )}
 
-                                        {/* Vídeo (Interativo - SOLUÇÃO COM BOTÃO E Z-INDEX) */}
                                         {isVideo && mediaUrl && (
                                             <div className="rounded overflow-hidden mb-1 bg-black relative flex items-center justify-center min-h-[150px]">
-                                                {/* 1. BOTÃO DE CLIQUE (ABSOLUTO E NO TOPO) */}
                                                 <button
                                                     type="button"
                                                     className="absolute inset-0 z-20 w-full h-full cursor-pointer outline-none focus:outline-none bg-transparent border-none p-0 m-0"
@@ -476,29 +552,18 @@ export default function MessagePanel({ contact, onBack }) {
                                                         e.stopPropagation();
                                                         handleOpenViewer(mediaUrl, 'video', 'Vídeo');
                                                     }}
-                                                    title="Clique para assistir"
                                                 >
                                                     <span className="sr-only">Assistir vídeo</span>
                                                 </button>
-                                                
-                                                {/* 2. ÍCONE VISUAL (NO MEIO) */}
                                                 <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                                                     <div className="w-12 h-12 bg-black/50 rounded-full flex items-center justify-center text-white backdrop-blur-sm shadow-lg">
                                                         <FontAwesomeIcon icon={faPlayCircle} size="2x" />
                                                     </div>
                                                 </div>
-
-                                                {/* 3. VÍDEO (EMBAIXO E SEM EVENTOS DE MOUSE) */}
-                                                <video 
-                                                    src={mediaUrl} 
-                                                    className="w-full max-h-80 opacity-80 pointer-events-none object-cover relative z-0" 
-                                                    playsInline
-                                                    preload="metadata"
-                                                />
+                                                <video src={mediaUrl} className="w-full max-h-80 opacity-80 pointer-events-none object-cover relative z-0" playsInline preload="metadata" />
                                             </div>
                                         )}
 
-                                        {/* Áudio */}
                                         {isAudio && mediaUrl && (
                                             <div className="flex items-center gap-2 p-2 min-w-[240px]">
                                                 <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
@@ -508,7 +573,6 @@ export default function MessagePanel({ contact, onBack }) {
                                             </div>
                                         )}
 
-                                        {/* Documento */}
                                         {isDocument && (
                                             <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-black/5 rounded-lg hover:bg-black/10 transition-colors cursor-pointer mb-1 no-underline">
                                                 <FontAwesomeIcon icon={faFileAlt} className="text-[#e55050] text-2xl" />
@@ -519,15 +583,13 @@ export default function MessagePanel({ contact, onBack }) {
                                             </a>
                                         )}
 
-                                        {/* Texto / Legenda */}
-                                        {msg.content && (msg.content !== 'Imagem' && msg.content !== 'Áudio' && msg.content !== 'Documento' && msg.content !== 'Vídeo') && (
+                                        {msg.content && !hiddenTexts.includes(msg.content) && (
                                             <p className="px-2 pb-1 pt-1 text-gray-800 whitespace-pre-wrap leading-relaxed">
                                                 {msg.content}
                                             </p>
                                         )}
                                     </div>
 
-                                    {/* Hora e Status */}
                                     <div className="flex justify-end items-center gap-1 px-2 pb-1 mt-[-4px]">
                                         <span className="text-[10px] text-gray-500 min-w-fit">
                                             {msg.sent_at ? format(new Date(msg.sent_at), 'HH:mm') : ''}
@@ -544,10 +606,10 @@ export default function MessagePanel({ contact, onBack }) {
                 {/* ÁREA DE INPUT */}
                 <div className="bg-[#f0f2f5] px-4 py-2 flex items-center gap-2 z-20">
                     <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
-                    <button type="button" onClick={() => fileInputRef.current.click()} className="text-gray-500 hover:text-gray-700 p-2" disabled={sendAttachmentMutation.isPending}>
+                    <button type="button" onClick={() => fileInputRef.current.click()} className="text-gray-500 hover:text-gray-700 p-2" disabled={sendAttachmentMutation.isPending || isProcessingAudio}>
                         <FontAwesomeIcon icon={faPaperclip} size="lg" />
                     </button>
-                    {!isRecording && (
+                    {!isRecording && !isProcessingAudio && (
                         <button type="button" onClick={() => setIsTemplateModalOpen(true)} className="text-gray-500 hover:text-gray-700 p-2">
                             <FontAwesomeIcon icon={faFileLines} size="lg" />
                         </button>
@@ -556,6 +618,10 @@ export default function MessagePanel({ contact, onBack }) {
                         {isRecording ? (
                             <div className="flex-grow flex items-center justify-between text-red-500 font-medium animate-pulse">
                                 <span><FontAwesomeIcon icon={faMicrophone} className="mr-2" /> Gravando... {formatTime(recordingTime)}</span>
+                            </div>
+                        ) : isProcessingAudio ? (
+                            <div className="flex-grow flex items-center gap-2 text-gray-500 font-medium">
+                                <FontAwesomeIcon icon={faSpinner} spin /> Processando áudio...
                             </div>
                         ) : (
                             <textarea 
@@ -575,12 +641,17 @@ export default function MessagePanel({ contact, onBack }) {
                         )}
                     </div>
                     {newMessage.trim() ? (
-                        <button onClick={handleSendMessage} disabled={sendMessageMutation.isPending} className="text-[#00a884] hover:text-[#008f6f] p-2">
+                        <button onClick={handleSendMessage} disabled={sendMessageMutation.isPending || isProcessingAudio} className="text-[#00a884] hover:text-[#008f6f] p-2">
                             {sendMessageMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin size="lg"/> : <FontAwesomeIcon icon={faPaperPlane} size="lg" />}
                         </button>
                     ) : (
-                        <button type="button" onClick={handleMicClick} className={`p-2 ${isRecording ? 'text-red-500 hover:text-red-600 scale-110' : 'text-gray-500 hover:text-gray-700'}`}>
-                            <FontAwesomeIcon icon={isRecording ? faStop : faMicrophone} size="lg" />
+                        <button 
+                            type="button" 
+                            onClick={handleMicClick} 
+                            disabled={isProcessingAudio}
+                            className={`p-2 ${isRecording ? 'text-red-500 hover:text-red-600 scale-110' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            {isProcessingAudio ? <FontAwesomeIcon icon={faSpinner} spin size="lg" /> : <FontAwesomeIcon icon={isRecording ? faStop : faMicrophone} size="lg" />}
                         </button>
                     )}
                 </div>
