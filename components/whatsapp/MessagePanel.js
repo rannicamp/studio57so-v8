@@ -25,8 +25,8 @@ import { toast } from 'sonner';
 import TemplateMessageModal from './TemplateMessageModal';
 import FilePreviewModal from './FilePreviewModal';
 import ChatMediaViewer from './ChatMediaViewer';
-// ALTERAÇÃO 1: Importação ajustada para garantir compatibilidade
-import lamejs from 'lamejs';
+
+// REMOVIDO: import lamejs from 'lamejs'; (Causava o erro MPEGMode)
 
 // Helper para identificar o tipo de arquivo
 const getAttachmentType = (fileType) => {
@@ -76,6 +76,18 @@ export default function MessagePanel({ contact, onBack }) {
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
+
+    // --- CARREGAR LAMEJS DO PUBLIC FOLDER (SOLUÇÃO CORRETA) ---
+    useEffect(() => {
+        // Verifica se já carregou
+        if (typeof window !== 'undefined' && !window.lamejs) {
+            const script = document.createElement('script');
+            script.src = '/lame.min.js'; // Carrega do arquivo local public/lame.min.js
+            script.async = true;
+            script.onload = () => console.log('Conversor MP3 carregado com sucesso.');
+            document.body.appendChild(script);
+        }
+    }, []);
 
     // Busca Mensagens
     const { data: messages, isLoading } = useQuery({
@@ -295,6 +307,7 @@ export default function MessagePanel({ contact, onBack }) {
 
             processor.onaudioprocess = (e) => {
                 const channelData = e.inputBuffer.getChannelData(0);
+                // Clona para evitar perda de dados
                 audioDataRef.current.push(new Float32Array(channelData));
             };
 
@@ -342,7 +355,6 @@ export default function MessagePanel({ contact, onBack }) {
             await convertAndSendMp3(audioDataRef.current);
         } catch (error) {
             console.error("Erro na conversão MP3:", error);
-            // ALTERAÇÃO 2: Mostra o erro exato na tela
             toast.error("Erro ao converter áudio: " + (error.message || error));
         } finally {
             setIsProcessingAudio(false);
@@ -353,11 +365,13 @@ export default function MessagePanel({ contact, onBack }) {
     const convertAndSendMp3 = async (buffers) => {
         if (!buffers || buffers.length === 0) return;
 
-        // VERIFICAÇÃO DE SEGURANÇA DO LAMEJS
-        if (!lamejs || !lamejs.Mp3Encoder) {
-            throw new Error("Biblioteca de conversão MP3 (lamejs) não carregou corretamente.");
+        // VERIFICAÇÃO DE SEGURANÇA
+        // Agora acessamos via window.lamejs (carregado via script tag)
+        if (!window.lamejs || !window.lamejs.Mp3Encoder) {
+            throw new Error("Biblioteca de conversão MP3 (lamejs) ainda não foi carregada. Tente novamente em alguns segundos.");
         }
 
+        const lamejs = window.lamejs;
         const sampleRate = 44100; 
         const mp3Encoder = new lamejs.Mp3Encoder(1, sampleRate, 128); 
         const mp3Data = [];
