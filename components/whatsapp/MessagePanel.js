@@ -180,9 +180,7 @@ export default function MessagePanel({ contact, onBack }) {
     const sendAttachmentMutation = useMutation({
         mutationFn: async ({ file, caption }) => {
             if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
-            
-            // Validação de tamanho (segurança extra para áudio vazio)
-            if (file.size === 0) throw new Error("Arquivo de áudio vazio/corrompido.");
+            if (file.size === 0) throw new Error("Arquivo vazio/corrompido.");
 
             const loadingToastId = toast.loading("Enviando mídia...");
             try {
@@ -227,24 +225,32 @@ export default function MessagePanel({ contact, onBack }) {
         }
     });
 
-    // --- FUNÇÕES DE ÁUDIO (MP3) ---
+    // --- FUNÇÕES DE ÁUDIO (MP3) 🎤 ---
     const startRecording = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // CONFIGURAÇÃO DE ALTA FIDELIDADE
+            // echoCancellation: false -> Som mais natural (menos metálico)
+            // autoGainControl: false -> Evita que o volume suba e desça sozinho
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: false, 
+                    noiseSuppression: true, 
+                    autoGainControl: false
+                } 
+            });
             mediaStreamRef.current = stream;
             
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             const audioContext = new AudioContext();
             audioContextRef.current = audioContext;
 
-            // Log para debug
-            console.log("Iniciando gravação. Sample Rate:", audioContext.sampleRate);
+            console.log("Iniciando gravação HQ. Sample Rate:", audioContext.sampleRate);
 
             const source = audioContext.createMediaStreamSource(stream);
             const processor = audioContext.createScriptProcessor(4096, 1, 1);
             processorRef.current = processor;
             
-            audioDataRef.current = []; // Limpa buffer
+            audioDataRef.current = [];
 
             processor.onaudioprocess = (e) => {
                 const channelData = e.inputBuffer.getChannelData(0);
@@ -269,11 +275,9 @@ export default function MessagePanel({ contact, onBack }) {
         
         if (recordingInterval.current) clearInterval(recordingInterval.current);
         
-        // Limpeza dos recursos de áudio
         if (processorRef.current) { processorRef.current.disconnect(); processorRef.current = null; }
         if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach(t => t.stop()); mediaStreamRef.current = null; }
         
-        // Mantemos o sampleRate antes de fechar o contexto
         const finalSampleRate = audioContextRef.current?.sampleRate || 44100;
 
         if (audioContextRef.current) { await audioContextRef.current.close(); audioContextRef.current = null; }
@@ -289,15 +293,12 @@ export default function MessagePanel({ contact, onBack }) {
     };
 
     const convertAndSendMp3 = async (buffers, sampleRate) => {
-        if (!buffers || !buffers.length) {
-            console.warn("Nenhum dado de áudio capturado.");
-            return;
-        }
+        if (!buffers || !buffers.length) return;
         
         if (!window.lamejs) throw new Error("Aguarde o carregamento do conversor.");
         
-        // CORREÇÃO: Usar o sampleRate real do dispositivo, senão o áudio fica acelerado/lento
-        const mp3Encoder = new window.lamejs.Mp3Encoder(1, sampleRate, 128);
+        // CORREÇÃO DE QUALIDADE: Aumentando bitrate para 192kbps (Melhor qualidade)
+        const mp3Encoder = new window.lamejs.Mp3Encoder(1, sampleRate, 192);
         const mp3Data = [];
         
         let totalLength = 0;
@@ -308,8 +309,8 @@ export default function MessagePanel({ contact, onBack }) {
         
         for (let i = 0; i < buffers.length; i++) {
             for (let j = 0; j < buffers[i].length; j++) {
-                // Converte Float32 para Int16
                 let s = Math.max(-1, Math.min(1, buffers[i][j]));
+                // Conversão PCM padrão (sem normalização extra para evitar distorção)
                 samples[offset++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
             }
         }
@@ -324,7 +325,6 @@ export default function MessagePanel({ contact, onBack }) {
         const mp3buf = mp3Encoder.flush();
         if (mp3buf.length > 0) mp3Data.push(mp3buf);
         
-        // CORREÇÃO: Tipo MIME padrão para áudio (audio/mpeg)
         const blob = new Blob(mp3Data, { type: 'audio/mpeg' });
         const mp3File = new File([blob], `audio_${Date.now()}.mp3`, { type: 'audio/mpeg' });
         
