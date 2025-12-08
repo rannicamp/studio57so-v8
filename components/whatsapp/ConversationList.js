@@ -13,20 +13,24 @@ import {
   faBoxOpen, 
   faInbox,
   faChevronDown,
-  faChevronRight
+  faChevronRight,
+  faPlus, // Adicionado
+  faSpinner // Adicionado
 } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query'; // Para atualizar a lista sem F5
+import { useQueryClient } from '@tanstack/react-query'; 
+import NewConversationModal from './NewConversationModal'; // Importação do Modal
 
 export default function ConversationList({ conversations, isLoading, onSelectContact, selectedContactId }) {
   const [showArchived, setShowArchived] = useState(false);
+  const [isNewChatOpen, setIsNewChatOpen] = useState(false); // Estado do Modal
   const queryClient = useQueryClient();
   const supabase = createClient();
 
   // Função para chamar a API
   const handleAction = async (action, conversation, e) => {
-    e.stopPropagation(); // Impede que abra a conversa ao clicar no menu
+    e.stopPropagation(); 
 
     if (action === 'delete') {
         if (!confirm('Tem certeza? Isso apagará TODO o histórico de mensagens dessa conversa permanentemente.')) return;
@@ -38,7 +42,7 @@ export default function ConversationList({ conversations, isLoading, onSelectCon
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 action,
-                conversationId: conversation.id,
+                conversationId: conversation.conversation_id || conversation.id, // Garante pegar o ID certo
                 phoneNumber: conversation.phone_number
             })
         });
@@ -47,9 +51,6 @@ export default function ConversationList({ conversations, isLoading, onSelectCon
 
         toast.success(action === 'delete' ? 'Conversa excluída!' : action === 'archive' ? 'Conversa arquivada!' : 'Conversa recuperada!');
         
-        // Atualiza a lista automaticamente (revalidando o cache do React Query)
-        // OBS: Isso assume que a chave da sua query principal seja ['conversations', organizacaoId] ou similar.
-        // Se não atualizar na hora, vamos forçar um reload suave.
         queryClient.invalidateQueries({ queryKey: ['conversations'] });
         queryClient.invalidateQueries({ queryKey: ['messages'] });
 
@@ -61,30 +62,22 @@ export default function ConversationList({ conversations, isLoading, onSelectCon
 
   if (isLoading) {
     return (
-      <div className="p-4 text-center text-gray-500">
-        <p>Carregando conversas...</p>
+      <div className="flex justify-center p-8 text-gray-500">
+        <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-[#00a884]" />
       </div>
     );
   }
 
-  if (!conversations || conversations.length === 0) {
-    return (
-      <div className="p-4 text-center text-gray-500">
-        <p>Nenhuma conversa encontrada.</p>
-      </div>
-    );
-  }
-
-  // Separar Ativas de Arquivadas
-  const activeConversations = conversations.filter(c => !c.is_archived);
-  const archivedConversations = conversations.filter(c => c.is_archived);
+  // Separar Ativas de Arquivadas (Proteção contra null)
+  const activeConversations = conversations?.filter(c => !c.is_archived) || [];
+  const archivedConversations = conversations?.filter(c => c.is_archived) || [];
 
   // Componente de Item de Lista (Reutilizável)
   const ConversationItem = ({ conversation, isArchivedList = false }) => (
     <li
       onClick={() => onSelectContact(conversation)}
       className={`relative group p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
-        selectedContactId === conversation.contato_id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+        selectedContactId === conversation.contato_id ? 'bg-[#f0f2f5] border-l-4 border-l-[#00a884]' : ''
       }`}
     >
       <div className="flex items-center">
@@ -98,27 +91,27 @@ export default function ConversationList({ conversations, isLoading, onSelectCon
             )}
           </div>
           {conversation.unread_count > 0 && (
-            <div className="absolute -top-1 -right-1 bg-green-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
+            <div className="absolute -top-1 -right-1 bg-[#00a884] text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
               {conversation.unread_count}
             </div>
           )}
         </div>
 
         {/* Info da Conversa */}
-        <div className="ml-4 flex-grow min-w-0 pr-8"> {/* pr-8 para dar espaço aos 3 pontinhos */}
+        <div className="ml-4 flex-grow min-w-0 pr-8">
           <div className="flex justify-between items-baseline">
             <h3 className="font-semibold text-gray-900 truncate pr-2">
               {conversation.nome || conversation.phone_number}
             </h3>
-            {conversation.last_message_time && (
-              <span className="text-xs text-gray-400 flex-shrink-0">
-                {format(new Date(conversation.last_message_time), 'HH:mm', { locale: ptBR })}
+            {conversation.last_message_at && (
+              <span className={`text-xs flex-shrink-0 ${conversation.unread_count > 0 ? 'text-[#00a884] font-bold' : 'text-gray-400'}`}>
+                {format(new Date(conversation.last_message_at), 'HH:mm', { locale: ptBR })}
               </span>
             )}
           </div>
           <div className="flex justify-between items-center mt-1">
             <p className="text-sm text-gray-500 truncate w-full">
-              {conversation.last_message || 'Inicie uma conversa'}
+              {conversation.last_message_content || 'Inicie uma conversa'}
             </p>
           </div>
         </div>
@@ -128,7 +121,7 @@ export default function ConversationList({ conversations, isLoading, onSelectCon
             <Menu as="div" className="relative inline-block text-left">
                 <Menu.Button 
                     className="flex items-center justify-center w-8 h-8 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200 focus:outline-none opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => e.stopPropagation()} // Importante!
+                    onClick={(e) => e.stopPropagation()} 
                 >
                     <FontAwesomeIcon icon={faEllipsisV} />
                 </Menu.Button>
@@ -143,7 +136,6 @@ export default function ConversationList({ conversations, isLoading, onSelectCon
                 >
                     <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
                         <div className="px-1 py-1">
-                            {/* Botão Arquivar/Desarquivar */}
                             <Menu.Item>
                                 {({ active }) => (
                                     <button
@@ -158,7 +150,6 @@ export default function ConversationList({ conversations, isLoading, onSelectCon
                                 )}
                             </Menu.Item>
                             
-                            {/* Botão Excluir */}
                             <Menu.Item>
                                 {({ active }) => (
                                     <button
@@ -182,47 +173,79 @@ export default function ConversationList({ conversations, isLoading, onSelectCon
   );
 
   return (
-    <div className="flex-grow overflow-y-auto custom-scrollbar flex flex-col">
-      {/* --- LISTA PRINCIPAL (ATIVAS) --- */}
-      <ul className="flex-grow">
-        {activeConversations.map((conversation) => (
-          <ConversationItem key={conversation.id} conversation={conversation} />
-        ))}
-        {activeConversations.length === 0 && archivedConversations.length > 0 && (
-            <div className="p-8 text-center text-gray-400 text-sm">
-                <p>Todas as conversas estão arquivadas.</p>
-            </div>
-        )}
-      </ul>
+    <div className="flex flex-col h-full bg-white relative">
+        {/* MODAL DE NOVA CONVERSA */}
+        <NewConversationModal 
+            isOpen={isNewChatOpen} 
+            onClose={() => setIsNewChatOpen(false)}
+            onConversationCreated={(contact) => {
+                onSelectContact(contact);
+            }}
+        />
 
-      {/* --- SEÇÃO ARQUIVADAS (NO RODAPÉ DA LISTA) --- */}
-      {archivedConversations.length > 0 && (
-          <div className="border-t border-gray-200 mt-2">
-              <button 
-                  onClick={() => setShowArchived(!showArchived)}
-                  className="w-full flex items-center justify-between p-4 text-gray-500 hover:bg-gray-50 transition-colors text-sm font-medium"
-              >
-                  <div className="flex items-center gap-2">
-                      <FontAwesomeIcon icon={faBoxOpen} />
-                      Conversas Arquivadas ({archivedConversations.length})
-                  </div>
-                  <FontAwesomeIcon icon={showArchived ? faChevronDown : faChevronRight} size="xs"/>
-              </button>
-              
-              {/* Lista Expansível */}
-              {showArchived && (
-                  <ul className="bg-gray-50 animate-in slide-in-from-top-2 duration-200">
-                      {archivedConversations.map((conversation) => (
-                          <ConversationItem 
-                            key={conversation.id} 
-                            conversation={conversation} 
-                            isArchivedList={true} 
-                          />
-                      ))}
-                  </ul>
-              )}
-          </div>
-      )}
+        {/* CABEÇALHO DA LISTA (Com botão +) */}
+        <div className="p-3 border-b flex items-center justify-between bg-gray-50 shrink-0">
+            <h2 className="font-bold text-gray-700">Conversas</h2>
+            <button 
+                onClick={() => setIsNewChatOpen(true)}
+                className="w-8 h-8 rounded-full bg-[#00a884] text-white flex items-center justify-center hover:bg-[#008f6f] transition-colors shadow-sm"
+                title="Nova Conversa"
+            >
+                <FontAwesomeIcon icon={faPlus} />
+            </button>
+        </div>
+
+        {/* LISTA ROLÁVEL */}
+        <div className="flex-grow overflow-y-auto custom-scrollbar flex flex-col">
+            {(!conversations || conversations.length === 0) ? (
+                <div className="p-6 text-center text-gray-500">
+                    <p className="mb-4">Nenhuma conversa encontrada.</p>
+                    <button 
+                        onClick={() => setIsNewChatOpen(true)}
+                        className="text-[#00a884] font-medium hover:underline"
+                    >
+                        Iniciar nova conversa
+                    </button>
+                </div>
+            ) : (
+                <>
+                    {/* LISTA ATIVA */}
+                    <ul className="flex-grow">
+                        {activeConversations.map((conversation) => (
+                            <ConversationItem key={conversation.id || conversation.conversation_id} conversation={conversation} />
+                        ))}
+                    </ul>
+
+                    {/* RODAPÉ ARQUIVADAS */}
+                    {archivedConversations.length > 0 && (
+                        <div className="border-t border-gray-200 mt-2">
+                            <button 
+                                onClick={() => setShowArchived(!showArchived)}
+                                className="w-full flex items-center justify-between p-4 text-gray-500 hover:bg-gray-50 transition-colors text-sm font-medium"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <FontAwesomeIcon icon={faBoxOpen} />
+                                    Conversas Arquivadas ({archivedConversations.length})
+                                </div>
+                                <FontAwesomeIcon icon={showArchived ? faChevronDown : faChevronRight} size="xs"/>
+                            </button>
+                            
+                            {showArchived && (
+                                <ul className="bg-gray-50 animate-in slide-in-from-top-2 duration-200">
+                                    {archivedConversations.map((conversation) => (
+                                        <ConversationItem 
+                                            key={conversation.id || conversation.conversation_id} 
+                                            conversation={conversation} 
+                                            isArchivedList={true} 
+                                        />
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
     </div>
   );
 }
