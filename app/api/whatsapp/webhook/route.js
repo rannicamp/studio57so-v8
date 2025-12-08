@@ -14,7 +14,6 @@ if (publicKey && privateKey) {
     );
 }
 
-// Inicializa Supabase com chave de serviço (ADMIN)
 const getSupabaseAdmin = () => createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -36,7 +35,6 @@ async function processIncomingMedia(supabaseAdmin, message, config, contatoId) {
         }
 
         const cleanName = fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-
         const date = new Date();
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -64,10 +62,7 @@ async function processIncomingMedia(supabaseAdmin, message, config, contatoId) {
 
         const { error: uploadError } = await supabaseAdmin.storage
             .from('whatsapp-media')
-            .upload(filePath, fileBlob, {
-                contentType: mimeType,
-                upsert: true
-            });
+            .upload(filePath, fileBlob, { contentType: mimeType, upsert: true });
 
         if (uploadError) {
             console.error('[Webhook] Erro upload Supabase:', uploadError);
@@ -92,7 +87,7 @@ async function processIncomingMedia(supabaseAdmin, message, config, contatoId) {
     }
 }
 
-// --- 3. SISTEMA DE NOTIFICAÇÃO ---
+// --- 3. NOTIFICAÇÃO ---
 async function dispatchNotification(supabaseAdmin, organizacaoId, title, message, url) {
     try {
         const { data: users } = await supabaseAdmin
@@ -126,22 +121,15 @@ async function dispatchNotification(supabaseAdmin, organizacaoId, title, message
                     .eq('user_id', user.id)
                     .then(({ data: subs }) => {
                         if (!subs || subs.length === 0) return;
-                        
                         const payload = JSON.stringify({
-                            title: title,
-                            body: message,
-                            url: url,
-                            icon: '/icons/icon-192x192.png',
-                            tag: 'whatsapp-msg'
+                            title: title, body: message, url: url, icon: '/icons/icon-192x192.png', tag: 'whatsapp-msg'
                         });
-
                         return Promise.all(subs.map(sub => 
-                            webPush.sendNotification(sub.subscription_data, payload)
-                                .catch(err => {
-                                    if (err.statusCode === 410 || err.statusCode === 404) {
-                                        supabaseAdmin.from('notification_subscriptions').delete().eq('id', sub.id).then();
-                                    }
-                                })
+                            webPush.sendNotification(sub.subscription_data, payload).catch(err => {
+                                if (err.statusCode === 410 || err.statusCode === 404) {
+                                    supabaseAdmin.from('notification_subscriptions').delete().eq('id', sub.id).then();
+                                }
+                            })
                         ));
                     });
                 pushPromises.push(p);
@@ -170,7 +158,6 @@ function getTextContent(message) {
     return null;
 }
 
-// --- ROTA DE VERIFICAÇÃO (GET) ---
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     if (searchParams.get('hub.mode') === 'subscribe' && 
@@ -180,7 +167,6 @@ export async function GET(request) {
     return new NextResponse(null, { status: 403 });
 }
 
-// --- ROTA PRINCIPAL (POST) ---
 export async function POST(request) {
     const supabaseAdmin = getSupabaseAdmin();
     try {
@@ -200,26 +186,17 @@ export async function POST(request) {
         if (message) {
             const from = message.from; 
 
-            // =================================================================
-            // 🛑 1. GUARDA-COSTA DE DUPLICIDADE (IMPORTANTE)
-            // =================================================================
-            // Antes de qualquer coisa, verifica se essa mensagem já existe.
+            // 1. DEDUP
             const { data: existingMsg } = await supabaseAdmin
                 .from('whatsapp_messages')
                 .select('id')
                 .eq('message_id', message.id)
                 .single();
 
-            if (existingMsg) {
-                console.log(`[Webhook] Mensagem ${message.id} duplicada. Ignorando.`);
-                return NextResponse.json({ status: 'ok' });
-            }
+            if (existingMsg) return NextResponse.json({ status: 'ok' });
             
-            // =================================================================
-            // 2. IDENTIFICA/CRIA CONTATO
-            // =================================================================
+            // 2. CONTATO
             const { data: foundId } = await supabaseAdmin.rpc('find_contact_by_phone', { phone_input: from });
-
             let contatoId = foundId;
             let contatoNome = `Lead (${from})`;
             let isNewLead = false;
@@ -227,21 +204,17 @@ export async function POST(request) {
             if (!contatoId) {
                 isNewLead = true;
                 const { data: newContact } = await supabaseAdmin.from('contatos').insert({
-                    nome: contatoNome, tipo_contato: 'Lead', organizacao_id: config.organizacao_id,
-                    is_awaiting_name_response: false
+                    nome: contatoNome, tipo_contato: 'Lead', organizacao_id: config.organizacao_id, is_awaiting_name_response: false
                 }).select().single();
                 contatoId = newContact.id;
                 await supabaseAdmin.from('telefones').insert({
                     contato_id: contatoId, telefone: from, tipo: 'celular', organizacao_id: config.organizacao_id
                 });
-                
-                // Adiciona ao funil
+                // Funil padrão
                 const { data: funil } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', config.organizacao_id).limit(1).single();
                 if (funil) {
                     const { data: col } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem').limit(1).single();
-                    if (col) {
-                        await supabaseAdmin.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: col.id, organizacao_id: config.organizacao_id });
-                    }
+                    if (col) await supabaseAdmin.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: col.id, organizacao_id: config.organizacao_id });
                 }
             } else {
                 const { data: existing } = await supabaseAdmin.from('contatos').select('nome, is_awaiting_name_response').eq('id', contatoId).single();
@@ -255,28 +228,29 @@ export async function POST(request) {
                 }
             }
             
-            // Atualiza conversa
-            await supabaseAdmin.from('whatsapp_conversations').upsert({ 
-                phone_number: from, 
-                updated_at: new Date().toISOString() 
-            }, { onConflict: 'phone_number' });
+            // 3. CONVERSA (Garante que existe e atualiza org)
+            const { data: conversationData } = await supabaseAdmin.from('whatsapp_conversations')
+                .upsert({ 
+                    phone_number: from, 
+                    updated_at: new Date().toISOString(),
+                    contato_id: contatoId,
+                    organizacao_id: config.organizacao_id // Importante!
+                }, { onConflict: 'phone_number' })
+                .select()
+                .single();
 
+            const conversationRecordId = conversationData?.id;
 
-            // =================================================================
-            // 3. PROCESSAMENTO BLINDADO DE MÍDIA
-            // =================================================================
+            // 4. MENSAGEM E MÍDIA
             const isMedia = ['image', 'document', 'audio', 'video', 'voice'].includes(message.type);
             let content = getTextContent(message);
             let mediaData = null;
-            let dbMessageId = null;
+            let finalMessageId = null;
 
             if (isMedia) {
-                // ESTRATÉGIA ANTI-LOOP: Inserir a mensagem IMEDIATAMENTE como "Baixando..."
-                // Isso garante que se o WhatsApp tentar de novo em 3s, ele vai cair no bloqueio do passo 1.
-                
                 const tempContent = content || (message.type === 'document' ? '📄 Documento (Processando...)' : '📎 Mídia (Baixando...)');
-
-                const { data: insertedMediaMsg, error: insertError } = await supabaseAdmin.from('whatsapp_messages').insert({
+                
+                const { data: insertedMediaMsg } = await supabaseAdmin.from('whatsapp_messages').insert({
                     contato_id: contatoId,
                     message_id: message.id, 
                     sender_id: from,
@@ -284,59 +258,37 @@ export async function POST(request) {
                     content: tempContent,
                     sent_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
                     direction: 'inbound', 
-                    status: 'delivered', // Usamos delivered para aparecer no chat
+                    status: 'delivered', 
                     raw_payload: message,
-                    media_url: null, // Ainda nulo
-                    organizacao_id: config.organizacao_id
+                    media_url: null, 
+                    organizacao_id: config.organizacao_id,
+                    conversation_record_id: conversationRecordId // Vinculo
                 }).select().single();
-
-                if (insertError) {
-                    console.log('[Webhook] Erro ao inserir provisório (possível corrida):', insertError.message);
-                    return NextResponse.json({ status: 'ok' }); // Assume que já foi tratado
-                }
                 
-                dbMessageId = insertedMediaMsg.id;
+                finalMessageId = insertedMediaMsg?.id;
 
-                // AGORA fazemos o download pesado (pode demorar 10s+)
+                // Download Async
                 mediaData = await processIncomingMedia(supabaseAdmin, message, config, contatoId);
 
-                // Quando terminar, atualizamos a mensagem original
-                if (mediaData) {
-                    // Ajusta texto final
+                if (mediaData && finalMessageId) {
                     if (!content) {
                         content = message.type === 'document' ? (mediaData.fileName || 'Documento') : 
                                   message.type === 'image' ? 'Imagem' : 
-                                  message.type === 'audio' || message.type === 'voice' ? 'Áudio' : 'Arquivo de Mídia';
+                                  message.type === 'audio' || message.type === 'voice' ? 'Áudio' : 'Mídia';
                     }
-
                     await supabaseAdmin.from('whatsapp_messages').update({
                         media_url: mediaData.publicUrl,
                         content: content
-                    }).eq('id', dbMessageId);
+                    }).eq('id', finalMessageId);
 
-                    // Salva anexo
                     await supabaseAdmin.from('whatsapp_attachments').insert({
-                        contato_id: contatoId,
-                        message_id: message.id,
-                        storage_path: mediaData.storagePath,
-                        public_url: mediaData.publicUrl,
-                        file_name: mediaData.fileName,
-                        file_type: mediaData.mimeType,
-                        file_size: mediaData.fileSize,
-                        organizacao_id: config.organizacao_id,
-                        created_at: new Date().toISOString()
+                        contato_id: contatoId, message_id: message.id, storage_path: mediaData.storagePath,
+                        public_url: mediaData.publicUrl, file_name: mediaData.fileName, file_type: mediaData.mimeType,
+                        file_size: mediaData.fileSize, organizacao_id: config.organizacao_id, created_at: new Date().toISOString()
                     });
-
-                } else {
-                    // Se falhou o download, avisa na mensagem
-                    await supabaseAdmin.from('whatsapp_messages').update({
-                        content: '⚠️ Erro ao baixar arquivo de mídia.'
-                    }).eq('id', dbMessageId);
                 }
-
             } else {
-                // MENSAGEM DE TEXTO (Rápida, fluxo normal)
-                const { error: msgError } = await supabaseAdmin.from('whatsapp_messages').insert({
+                const { data: insertedMsg } = await supabaseAdmin.from('whatsapp_messages').insert({
                     contato_id: contatoId,
                     message_id: message.id, 
                     sender_id: from,
@@ -347,15 +299,23 @@ export async function POST(request) {
                     status: 'delivered', 
                     raw_payload: message,
                     media_url: null,
-                    organizacao_id: config.organizacao_id
-                });
-                if (msgError) console.error("[Webhook] Erro msg texto:", msgError);
+                    organizacao_id: config.organizacao_id,
+                    conversation_record_id: conversationRecordId // Vinculo
+                }).select().single();
+                finalMessageId = insertedMsg?.id;
             }
 
-            // 6. Notificação (Agora usa o conteúdo final)
+            // 5. ATUALIZAR CONVERSA COM ÚLTIMA MENSAGEM (O PULO DO GATO 🐈)
+            if (conversationRecordId && finalMessageId) {
+                await supabaseAdmin.from('whatsapp_conversations')
+                    .update({ last_message_id: finalMessageId })
+                    .eq('id', conversationRecordId);
+            }
+
+            // 6. Notificação
             if (content || mediaData) {
-                let notifTitle = isNewLead ? '🎉 Novo Lead no WhatsApp!' : `💬 Mensagem de ${contatoNome}`;
-                let notifBody = mediaData ? `📎 Enviou arquivo: ${content}` : (content?.substring(0, 100) || 'Nova mensagem');
+                let notifTitle = isNewLead ? '🎉 Novo Lead!' : `💬 Mensagem de ${contatoNome}`;
+                let notifBody = mediaData ? `📎 Arquivo: ${content}` : (content?.substring(0, 100) || 'Nova mensagem');
                 await dispatchNotification(supabaseAdmin, config.organizacao_id, notifTitle, notifBody, '/caixa-de-entrada');
             }
         }

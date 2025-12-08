@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import TemplateMessageModal from './TemplateMessageModal';
 import FilePreviewModal from './FilePreviewModal';
 import ChatMediaViewer from './ChatMediaViewer';
+import { usePersistentState } from '@/hooks/usePersistentState'; // NOVO IMPORT
 
 const getAttachmentType = (fileType) => {
     if (fileType.startsWith('image/')) return 'image';
@@ -30,9 +31,11 @@ const sanitizeFileName = (fileName) => {
 
 export default function MessagePanel({ contact, onBack }) {
     const queryClient = useQueryClient();
-    const [newMessage, setNewMessage] = useState('');
     
-    // Estados
+    // NOVO: Rascunho Persistente por Contato
+    const [newMessage, setNewMessage] = usePersistentState(`whatsapp_draft_${contact?.contato_id}`, '');
+    
+    // Estados Voláteis (não precisam salvar)
     const [selectedFile, setSelectedFile] = useState(null);
     const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
     const [viewerMedia, setViewerMedia] = useState(null);
@@ -125,7 +128,7 @@ export default function MessagePanel({ contact, onBack }) {
             return data;
         },
         onSuccess: () => {
-            setNewMessage('');
+            setNewMessage(''); // Limpa o rascunho salvo
             queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
         },
         ...mutationOptions,
@@ -140,7 +143,7 @@ export default function MessagePanel({ contact, onBack }) {
                 body: JSON.stringify({ 
                     to: recipientPhone, type: 'template', templateName, languageCode: language, components,
                     contact_id: contact.contato_id,
-                    custom_content: fullText // ATUALIZADO: Envia o texto completo
+                    custom_content: fullText 
                 }),
             });
             const data = await response.json();
@@ -291,7 +294,6 @@ export default function MessagePanel({ contact, onBack }) {
             <TemplateMessageModal 
                 isOpen={isTemplateModalOpen} 
                 onClose={() => setIsTemplateModalOpen(false)} 
-                // ATUALIZADO: Agora passa 'fullText'
                 onSendTemplate={(t, l, v, txt) => sendTemplateMutation.mutate({ templateName: t, language: l, variables: v, fullText: txt })} 
                 contactName={contact?.nome} 
             />
