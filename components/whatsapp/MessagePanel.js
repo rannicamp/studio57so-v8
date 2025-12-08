@@ -138,7 +138,7 @@ export default function MessagePanel({ contact, onBack }) {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     to: recipientPhone, type: 'text', text: messageContent,
-                    contact_id: contact.contato_id // VINCULO GARANTIDO
+                    contact_id: contact.contato_id
                 }),
             });
             const data = await response.json();
@@ -161,7 +161,7 @@ export default function MessagePanel({ contact, onBack }) {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     to: recipientPhone, type: 'template', templateName, languageCode: language, components,
-                    contact_id: contact.contato_id // VINCULO GARANTIDO
+                    contact_id: contact.contato_id
                 }),
             });
             const data = await response.json();
@@ -180,6 +180,10 @@ export default function MessagePanel({ contact, onBack }) {
     const sendAttachmentMutation = useMutation({
         mutationFn: async ({ file, caption }) => {
             if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
+            
+            // Validação de tamanho (segurança extra para áudio vazio)
+            if (file.size === 0) throw new Error("Arquivo de áudio vazio/corrompido.");
+
             const loadingToastId = toast.loading("Enviando mídia...");
             try {
                 const cleanName = sanitizeFileName(file.name);
@@ -197,7 +201,7 @@ export default function MessagePanel({ contact, onBack }) {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         to: recipientPhone, type: getAttachmentType(file.type), link: urlData.publicUrl, filename: cleanName, caption: caption || '',
-                        contact_id: contact.contato_id // VINCULO GARANTIDO
+                        contact_id: contact.contato_id
                     }),
                 });
                 const apiResult = await response.json();
@@ -228,60 +232,102 @@ export default function MessagePanel({ contact, onBack }) {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaStreamRef.current = stream;
+            
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             const audioContext = new AudioContext();
             audioContextRef.current = audioContext;
+
+            // Log para debug
+            console.log("Iniciando gravação. Sample Rate:", audioContext.sampleRate);
+
             const source = audioContext.createMediaStreamSource(stream);
             const processor = audioContext.createScriptProcessor(4096, 1, 1);
             processorRef.current = processor;
-            audioDataRef.current = [];
+            
+            audioDataRef.current = []; // Limpa buffer
+
             processor.onaudioprocess = (e) => {
-                audioDataRef.current.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+                const channelData = e.inputBuffer.getChannelData(0);
+                audioDataRef.current.push(new Float32Array(channelData));
             };
+
             source.connect(processor);
             processor.connect(audioContext.destination);
+            
             setIsRecording(true);
             setRecordingTime(0);
             recordingInterval.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
-        } catch (err) { toast.error("Erro mic: " + err.message); }
+        } catch (err) { 
+            toast.error("Erro mic: " + err.message); 
+        }
     };
 
     const stopRecording = async () => {
         if (!isRecording) return;
         setIsRecording(false);
         setIsProcessingAudio(true);
+        
         if (recordingInterval.current) clearInterval(recordingInterval.current);
+        
+        // Limpeza dos recursos de áudio
         if (processorRef.current) { processorRef.current.disconnect(); processorRef.current = null; }
         if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach(t => t.stop()); mediaStreamRef.current = null; }
+        
+        // Mantemos o sampleRate antes de fechar o contexto
+        const finalSampleRate = audioContextRef.current?.sampleRate || 44100;
+
         if (audioContextRef.current) { await audioContextRef.current.close(); audioContextRef.current = null; }
-        try { await convertAndSendMp3(audioDataRef.current); } 
-        catch (error) { toast.error("Erro conversão: " + error.message); } 
-        finally { setIsProcessingAudio(false); audioDataRef.current = []; }
+        
+        try { 
+            await convertAndSendMp3(audioDataRef.current, finalSampleRate); 
+        } catch (error) { 
+            toast.error("Erro conversão: " + error.message); 
+        } finally { 
+            setIsProcessingAudio(false); 
+            audioDataRef.current = []; 
+        }
     };
 
-    const convertAndSendMp3 = async (buffers) => {
-        if (!buffers || !buffers.length) return;
+    const convertAndSendMp3 = async (buffers, sampleRate) => {
+        if (!buffers || !buffers.length) {
+            console.warn("Nenhum dado de áudio capturado.");
+            return;
+        }
+        
         if (!window.lamejs) throw new Error("Aguarde o carregamento do conversor.");
-        const mp3Encoder = new window.lamejs.Mp3Encoder(1, 44100, 128);
+        
+        // CORREÇÃO: Usar o sampleRate real do dispositivo, senão o áudio fica acelerado/lento
+        const mp3Encoder = new window.lamejs.Mp3Encoder(1, sampleRate, 128);
         const mp3Data = [];
+        
         let totalLength = 0;
         for (let i = 0; i < buffers.length; i++) totalLength += buffers[i].length;
+        
         const samples = new Int16Array(totalLength);
         let offset = 0;
+        
         for (let i = 0; i < buffers.length; i++) {
             for (let j = 0; j < buffers[i].length; j++) {
+                // Converte Float32 para Int16
                 let s = Math.max(-1, Math.min(1, buffers[i][j]));
                 samples[offset++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
             }
         }
+        
         const sampleBlockSize = 1152;
         for (let i = 0; i < samples.length; i += sampleBlockSize) {
-            const mp3buf = mp3Encoder.encodeBuffer(samples.subarray(i, i + sampleBlockSize));
+            const sampleChunk = samples.subarray(i, i + sampleBlockSize);
+            const mp3buf = mp3Encoder.encodeBuffer(sampleChunk);
             if (mp3buf.length > 0) mp3Data.push(mp3buf);
         }
+        
         const mp3buf = mp3Encoder.flush();
         if (mp3buf.length > 0) mp3Data.push(mp3buf);
-        const mp3File = new File([new Blob(mp3Data, { type: 'audio/mp3' })], `audio_${Date.now()}.mp3`, { type: 'audio/mp3' });
+        
+        // CORREÇÃO: Tipo MIME padrão para áudio (audio/mpeg)
+        const blob = new Blob(mp3Data, { type: 'audio/mpeg' });
+        const mp3File = new File([blob], `audio_${Date.now()}.mp3`, { type: 'audio/mpeg' });
+        
         sendAttachmentMutation.mutate({ file: mp3File, caption: '' });
     };
 
