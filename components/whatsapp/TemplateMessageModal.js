@@ -8,7 +8,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTimes, faPaperPlane, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
-// Hook para buscar os templates da nossa nova API
 const useWhatsAppTemplates = () => {
     return useQuery({
         queryKey: ['whatsappTemplates'],
@@ -20,13 +19,13 @@ const useWhatsAppTemplates = () => {
             }
             return response.json();
         },
-        staleTime: 1000 * 60 * 5, // Cache de 5 minutos
+        staleTime: 1000 * 60 * 5, 
         refetchOnWindowFocus: false,
     });
 };
 
 export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, contactName }) {
-    const { data: templates, isLoading, error } = useWhatsAppTemplates();
+    const { data: templatesData, isLoading, error } = useWhatsAppTemplates();
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [variables, setVariables] = useState([]);
     const [isSending, setIsSending] = useState(false);
@@ -39,13 +38,18 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
     }, [isOpen]);
 
     const handleTemplateChange = (templateName) => {
+        // Garante que lemos a lista corretamente (seja array direto ou objeto .data)
+        const templates = Array.isArray(templatesData) ? templatesData : (templatesData?.data || []);
         const template = templates.find(t => t.name === templateName);
+        
         if (template) {
             setSelectedTemplate(template);
             const bodyComponent = template.components.find(c => c.type === 'BODY');
+            // Conta quantas variáveis {{1}} existem
             const variableCount = (bodyComponent?.text?.match(/\{\{\d\}\}/g) || []).length;
             
             const initialVars = Array(variableCount).fill('');
+            // Se tiver nome do contato e o template tiver variável, preenche a primeira
             if (contactName && variableCount > 0) {
                 initialVars[0] = contactName;
             }
@@ -69,18 +73,34 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
         }
         setIsSending(true);
         try {
-            // Agora enviamos o nome, o IDIOMA e as variáveis.
-            await onSendTemplate(selectedTemplate.name, selectedTemplate.language, variables);
+            // --- AQUI ESTÁ A MÁGICA QUE FALTAVA ---
+            // Montamos o texto final substituindo {{1}} pelo valor digitado
+            let fullText = selectedTemplate.components.find(c => c.type === 'BODY')?.text || '';
+            variables.forEach((val, i) => {
+                fullText = fullText.replace(new RegExp(`\\{\\{${i + 1}\\}\\}`, 'g'), val);
+            });
+            // --------------------------------------
+
+            console.log("Enviando template com texto:", fullText); // Debug para você ver no F12
+
+            // Passamos o fullText como 4º argumento
+            await onSendTemplate(selectedTemplate.name, selectedTemplate.language, variables, fullText);
+            
             toast.success('Mensagem de modelo enviada!');
             onClose();
         } catch (err) {
-            // O erro já é tratado na mutação, então não precisa de toast aqui.
+            console.error("Erro no envio:", err);
+            // Erro já tratado no componente pai
         } finally {
             setIsSending(false);
         }
     };
 
     if (!isOpen) return null;
+
+    const templates = Array.isArray(templatesData) ? templatesData : (templatesData?.data || []);
+    // Filtra apenas templates APROVADOS
+    const approvedTemplates = templates.filter(t => t.status === 'APPROVED');
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
@@ -108,7 +128,7 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                     </div>
                 )}
 
-                {templates && !isLoading && !error && (
+                {!isLoading && !error && (
                     <div className="space-y-4">
                         <div>
                             <label htmlFor="template-select" className="block text-sm font-medium text-gray-700 mb-1">
@@ -121,9 +141,9 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                                 defaultValue=""
                             >
                                 <option value="" disabled>Selecione um modelo...</option>
-                                {templates.map(template => (
+                                {approvedTemplates.map(template => (
                                     <option key={template.id} value={template.name}>
-                                        {template.name} ({template.language})
+                                        {template.name.replace(/_/g, ' ')} ({template.language})
                                     </option>
                                 ))}
                             </select>
@@ -132,7 +152,7 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                         {selectedTemplate && (
                              <div className="p-4 border rounded-md bg-gray-50 space-y-3">
                                 <p className="text-sm font-semibold text-gray-600">Pré-visualização:</p>
-                                <p className="text-sm text-gray-800 italic">
+                                <p className="text-sm text-gray-800 italic whitespace-pre-line">
                                    {selectedTemplate.components.find(c => c.type === 'BODY')?.text}
                                 </p>
                              </div>
@@ -148,7 +168,7 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                                     id={`variable-${index}`}
                                     value={value}
                                     onChange={(e) => handleVariableChange(index, e.target.value)}
-                                    className="w-full p-2 border rounded-md"
+                                    className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
                                     placeholder={`Preencha a variável ${index + 1}`}
                                 />
                             </div>
