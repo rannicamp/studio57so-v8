@@ -10,7 +10,7 @@ import MessagePanel from '@/components/whatsapp/MessagePanel';
 import ContactProfile from '@/components/whatsapp/ContactProfile';
 import { Toaster } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faSearch } from '@fortawesome/free-solid-svg-icons';
 
 export default function CaixaDeEntrada() {
     const [selectedContact, setSelectedContact] = useState(null);
@@ -73,69 +73,50 @@ export default function CaixaDeEntrada() {
     };
     
     return (
-        // =================================================================================
-        // ATUALIZAÇÃO FINAL: Limpeza Total
-        // O layout.js agora controla as margens (topo e base).
-        // Aqui usamos apenas 'h-full w-full' para ocupar o espaço reservado.
-        // =================================================================================
-        <div className="flex flex-col h-full w-full bg-gray-100 overflow-hidden">
+        <div className="flex h-full w-full bg-gray-100 overflow-hidden">
             <Toaster position="top-right" richColors />
 
-            <div className="flex flex-shrink-0 border-b bg-white h-24">
-                <div className={`${selectedContact ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 lg:w-1/4 p-4 border-r flex-col justify-center`}>
-                    <h1 className="text-xl font-bold">Caixa de Entrada</h1>
-                    <div className="relative mt-1">
+            {/* COLUNA 1: LISTA DE CONVERSAS (Sidebar Esquerda) */}
+            <div className={`${selectedContact ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 lg:w-1/4 flex-col border-r bg-white`}>
+                {/* Cabeçalho da Lista (Busca) */}
+                <div className="h-16 border-b flex flex-col justify-center px-4 bg-[#f0f2f5] shrink-0">
+                    <div className="relative">
                         <input
                             type="text"
                             placeholder="Pesquisar..."
-                            className="w-full pl-10 pr-4 py-2 border rounded-full bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            className="w-full pl-10 pr-4 py-1.5 border rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#00a884] text-sm"
                         />
-                        <FontAwesomeIcon icon={faSearch} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                     </div>
                 </div>
+                
+                {/* Lista */}
+                <ConversationList
+                    conversations={conversations}
+                    isLoading={isLoadingConversations}
+                    onSelectContact={handleSelectContact}
+                    selectedContactId={selectedContact?.contato_id}
+                />
+            </div>
 
-                <div className={`${selectedContact ? 'flex' : 'hidden md:flex'} flex-grow p-4 items-center border-r`}>
-                    {selectedContact && (
-                        <>
-                            <button onClick={handleBackToList} className="md:hidden mr-3 text-gray-600 hover:text-gray-800">
-                                <FontAwesomeIcon icon={faArrowLeft} size="lg" />
-                            </button>
-                            <div className="w-10 h-10 bg-gray-300 rounded-full mr-3 flex items-center justify-center font-bold text-white shrink-0">
-                                {selectedContact.avatar_url ? (
-                                    <img src={selectedContact.avatar_url} className="w-full h-full object-cover" alt="" />
-                                ) : (
-                                    (selectedContact.nome || '?').charAt(0).toUpperCase()
-                                )}
-                            </div>
-                            <h2 className="font-semibold truncate">{selectedContact.nome}</h2>
-                        </>
-                    )}
-                </div>
-
-                <div className="hidden lg:flex p-4 items-center flex-shrink-0 w-1/4">
-                    {selectedContact && (
-                        <h2 className="text-lg font-bold">Perfil do Contato</h2>
-                    )}
-                </div>
+            {/* COLUNA 2: PAINEL DE MENSAGENS (Centro) */}
+            <div className={`${selectedContact ? 'flex' : 'hidden md:flex'} flex-grow flex-col bg-[#efeae2]`}>
+                {/* O MessagePanel agora ocupa TUDO e já tem o cabeçalho próprio */}
+                <MessagePanel 
+                    contact={selectedContact}
+                    onBack={handleBackToList}
+                />
             </div>
             
-            <div className="flex flex-grow min-h-0">
-                <div className={`${selectedContact ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 lg:w-1/4 bg-white border-r flex-col`}>
-                    <ConversationList
-                        conversations={conversations}
-                        isLoading={isLoadingConversations}
-                        onSelectContact={handleSelectContact}
-                        selectedContactId={selectedContact?.contato_id}
-                    />
-                </div>
-
-                <div className={`${selectedContact ? 'flex' : 'hidden md:flex'} flex-grow flex-col`}>
-                    <MessagePanel 
-                        contact={selectedContact}
-                    />
+            {/* COLUNA 3: PERFIL (Direita - Apenas Desktop) */}
+            <div className="hidden lg:flex w-1/4 flex-col border-l bg-white">
+                {/* Cabeçalho do Perfil */}
+                <div className="h-16 border-b flex items-center px-4 bg-[#f0f2f5] shrink-0">
+                    <h2 className="text-base font-semibold text-gray-700">Dados do Contato</h2>
                 </div>
                 
-                <div className="hidden lg:flex w-1/4 bg-white border-l flex-col">
+                {/* Conteúdo do Perfil */}
+                <div className="flex-grow overflow-y-auto">
                     {selectedContact && (
                        <ContactProfile contact={selectedContact} />
                     )}

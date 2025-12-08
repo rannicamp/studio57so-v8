@@ -1,0 +1,116 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+export async function POST(request) {
+    console.log("--- [ChatManager] INICIO DA CHAMADA ---");
+    
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseServiceKey) {
+        console.error("--- [ChatManager] ERRO: Chave de Serviço não encontrada! ---");
+        return NextResponse.json({ error: 'Configuração de servidor incompleta.' }, { status: 500 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    try {
+        const body = await request.json();
+        console.log("--- [ChatManager] Dados Recebidos:", body);
+
+        let { action, conversationId, phoneNumber } = body;
+
+        if (!conversationId) {
+            console.error("--- [ChatManager] ERRO: ID da conversa faltando.");
+            return NextResponse.json({ error: 'ID da conversa é obrigatório.' }, { status: 400 });
+        }
+
+        if (phoneNumber) phoneNumber = phoneNumber.replace(/\D/g, '');
+
+        // --- AÇÃO: EXCLUIR ---
+        if (action === 'delete') {
+            console.log(`--- [ChatManager] Tentando excluir conversa ID: ${conversationId}`);
+
+            // 1. Mapear Mensagens
+            // Aqui usamos a coluna correta 'conversation_record_id' que vimos no seu esquema
+            let queryMessages = supabase
+                .from('whatsapp_messages')
+                .select('id, message_id')
+                .eq('conversation_record_id', conversationId);
+
+            const { data: messagesToDelete, error: fetchMsgError } = await queryMessages;
+
+            if (fetchMsgError) {
+                console.error("--- [ChatManager] ERRO ao buscar mensagens:", fetchMsgError);
+                throw new Error(`Erro ao buscar mensagens: ${fetchMsgError.message}`);
+            }
+
+            console.log(`--- [ChatManager] Encontradas ${messagesToDelete?.length || 0} mensagens para limpar.`);
+
+            // IDs para exclusão
+            const internalIds = messagesToDelete?.map(m => m.id) || [];
+            const metaIds = messagesToDelete?.map(m => m.message_id).filter(Boolean) || [];
+
+            // 2. Apagar Anexos
+            if (metaIds.length > 0) {
+                const { error: attachError } = await supabase
+                    .from('whatsapp_attachments')
+                    .delete()
+                    .in('message_id', metaIds);
+                
+                if (attachError) console.error("--- [ChatManager] ERRO ao apagar anexos:", attachError);
+            }
+
+            // 3. Apagar Mensagens
+            if (internalIds.length > 0) {
+                const { error: msgError } = await supabase
+                    .from('whatsapp_messages')
+                    .delete()
+                    .in('id', internalIds);
+
+                if (msgError) {
+                    console.error("--- [ChatManager] ERRO ao apagar mensagens:", msgError);
+                    throw msgError;
+                }
+            }
+
+            // 4. Apagar Conversa
+            const { error: convError } = await supabase
+                .from('whatsapp_conversations')
+                .delete()
+                .eq('id', conversationId);
+
+            if (convError) {
+                console.error("--- [ChatManager] ERRO ao apagar conversa:", convError);
+                throw convError;
+            }
+
+            console.log("--- [ChatManager] SUCESSO: Conversa excluída. ---");
+            return NextResponse.json({ success: true });
+        }
+
+        // --- AÇÃO: ARQUIVAR ---
+        if (action === 'archive' || action === 'unarchive') {
+            const isArchived = action === 'archive';
+            const { error } = await supabase
+                .from('whatsapp_conversations')
+                .update({ is_archived: isArchived })
+                .eq('id', conversationId);
+
+            if (error) {
+                console.error("--- [ChatManager] ERRO ao arquivar:", error);
+                throw error;
+            }
+            return NextResponse.json({ success: true });
+        }
+
+        return NextResponse.json({ error: 'Ação inválida' }, { status: 400 });
+
+    } catch (error) {
+        console.error("--- [ChatManager] EXCEÇÃO FATAL:", error);
+        return NextResponse.json({ 
+            error: error.message || 'Erro interno', 
+            details: JSON.stringify(error) 
+        }, { status: 500 });
+    }
+}

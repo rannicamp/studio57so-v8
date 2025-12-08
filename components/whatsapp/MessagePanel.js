@@ -18,7 +18,10 @@ import {
     faFileAlt, 
     faCheck, 
     faCheckDouble, 
-    faPlayCircle 
+    faPlayCircle,
+    faArrowLeft, // Adicionado a setinha
+    faEllipsisVertical,
+    faSearch
 } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -225,26 +228,17 @@ export default function MessagePanel({ contact, onBack }) {
         }
     });
 
-    // --- FUNÇÕES DE ÁUDIO (MP3) 🎤 ---
+    // --- FUNÇÕES DE ÁUDIO (MP3 HQ) 🎤 ---
     const startRecording = async () => {
         try {
-            // CONFIGURAÇÃO DE ALTA FIDELIDADE
-            // echoCancellation: false -> Som mais natural (menos metálico)
-            // autoGainControl: false -> Evita que o volume suba e desça sozinho
             const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: {
-                    echoCancellation: false, 
-                    noiseSuppression: true, 
-                    autoGainControl: false
-                } 
+                audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: false } 
             });
             mediaStreamRef.current = stream;
             
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             const audioContext = new AudioContext();
             audioContextRef.current = audioContext;
-
-            console.log("Iniciando gravação HQ. Sample Rate:", audioContext.sampleRate);
 
             const source = audioContext.createMediaStreamSource(stream);
             const processor = audioContext.createScriptProcessor(4096, 1, 1);
@@ -282,52 +276,36 @@ export default function MessagePanel({ contact, onBack }) {
 
         if (audioContextRef.current) { await audioContextRef.current.close(); audioContextRef.current = null; }
         
-        try { 
-            await convertAndSendMp3(audioDataRef.current, finalSampleRate); 
-        } catch (error) { 
-            toast.error("Erro conversão: " + error.message); 
-        } finally { 
-            setIsProcessingAudio(false); 
-            audioDataRef.current = []; 
-        }
+        try { await convertAndSendMp3(audioDataRef.current, finalSampleRate); } 
+        catch (error) { toast.error("Erro conversão: " + error.message); } 
+        finally { setIsProcessingAudio(false); audioDataRef.current = []; }
     };
 
     const convertAndSendMp3 = async (buffers, sampleRate) => {
         if (!buffers || !buffers.length) return;
-        
         if (!window.lamejs) throw new Error("Aguarde o carregamento do conversor.");
         
-        // CORREÇÃO DE QUALIDADE: Aumentando bitrate para 192kbps (Melhor qualidade)
-        const mp3Encoder = new window.lamejs.Mp3Encoder(1, sampleRate, 192);
+        const mp3Encoder = new window.lamejs.Mp3Encoder(1, sampleRate, 192); // 192kbps HQ
         const mp3Data = [];
-        
         let totalLength = 0;
         for (let i = 0; i < buffers.length; i++) totalLength += buffers[i].length;
-        
         const samples = new Int16Array(totalLength);
         let offset = 0;
-        
         for (let i = 0; i < buffers.length; i++) {
             for (let j = 0; j < buffers[i].length; j++) {
                 let s = Math.max(-1, Math.min(1, buffers[i][j]));
-                // Conversão PCM padrão (sem normalização extra para evitar distorção)
                 samples[offset++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
             }
         }
-        
         const sampleBlockSize = 1152;
         for (let i = 0; i < samples.length; i += sampleBlockSize) {
-            const sampleChunk = samples.subarray(i, i + sampleBlockSize);
-            const mp3buf = mp3Encoder.encodeBuffer(sampleChunk);
+            const mp3buf = mp3Encoder.encodeBuffer(samples.subarray(i, i + sampleBlockSize));
             if (mp3buf.length > 0) mp3Data.push(mp3buf);
         }
-        
         const mp3buf = mp3Encoder.flush();
         if (mp3buf.length > 0) mp3Data.push(mp3buf);
         
-        const blob = new Blob(mp3Data, { type: 'audio/mpeg' });
-        const mp3File = new File([blob], `audio_${Date.now()}.mp3`, { type: 'audio/mpeg' });
-        
+        const mp3File = new File([new Blob(mp3Data, { type: 'audio/mpeg' })], `audio_${Date.now()}.mp3`, { type: 'audio/mpeg' });
         sendAttachmentMutation.mutate({ file: mp3File, caption: '' });
     };
 
@@ -335,7 +313,7 @@ export default function MessagePanel({ contact, onBack }) {
     const handleFileSelect = (e) => { const f = e.target.files[0]; if (f) { setSelectedFile(f); setIsFilePreviewOpen(true); } e.target.value = null; };
     const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-    if (!contact) return <div className="flex flex-col items-center justify-center h-full bg-[#f0f2f5] text-gray-500"><FontAwesomeIcon icon={faUserCircle} size="4x" /></div>;
+    if (!contact) return <div className="flex flex-col items-center justify-center h-full bg-[#efeae2] border-l border-gray-300"><div className="text-center"><FontAwesomeIcon icon={faUserCircle} className="text-gray-300 text-6xl mb-4" /><h2 className="text-xl text-gray-500 font-light">Selecione uma conversa</h2></div></div>;
     if (isLoading) return <div className="flex items-center justify-center h-full bg-[#efeae2]"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-[#00a884]" /></div>;
 
     return (
@@ -345,14 +323,42 @@ export default function MessagePanel({ contact, onBack }) {
             <ChatMediaViewer isOpen={isViewerOpen} onClose={() => setIsViewerOpen(false)} mediaUrl={viewerMedia?.url} mediaType={viewerMedia?.type} fileName={viewerMedia?.name} />
 
             <div className="flex flex-col h-full bg-[#efeae2] relative">
-                <div className="bg-[#f0f2f5] px-4 py-3 border-b border-gray-300 flex items-center justify-between shadow-sm z-10">
-                    <div className="flex items-center gap-4">
-                        {onBack && <button onClick={onBack} className="md:hidden text-gray-600"><i className="fas fa-arrow-left"></i> Voltar</button>}
-                        <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center overflow-hidden"><FontAwesomeIcon icon={faUserCircle} className="text-white text-2xl"/></div>
-                        <div><h3 className="font-medium text-gray-800">{contact.nome}</h3><p className="text-xs text-gray-500">{recipientPhone || "Sem número"}</p></div>
+                
+                {/* --- CABEÇALHO REFINADO (PASSO 1) --- */}
+                <div className="bg-[#f0f2f5] px-4 py-2 border-b border-gray-300 flex items-center justify-between shadow-sm z-10 sticky top-0 h-16">
+                    <div className="flex items-center gap-3 w-full">
+                        {/* Botão Voltar (Setinha) - Só mobile */}
+                        {onBack && (
+                            <button 
+                                onClick={onBack} 
+                                className="md:hidden text-[#54656f] p-2 -ml-2 rounded-full hover:bg-black/5 transition-colors"
+                            >
+                                <FontAwesomeIcon icon={faArrowLeft} className="text-xl" />
+                            </button>
+                        )}
+                        
+                        {/* Avatar */}
+                        <div className="w-10 h-10 bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden cursor-pointer">
+                             <FontAwesomeIcon icon={faUserCircle} className="text-white text-3xl"/>
+                        </div>
+                        
+                        {/* Info do Contato (Nome Único) */}
+                        <div className="flex flex-col justify-center flex-grow overflow-hidden">
+                            <h3 className="font-medium text-[#111b21] leading-tight truncate text-base">{contact.nome}</h3>
+                            <p className="text-[13px] text-[#667781] truncate">
+                                {recipientPhone || "Toque para dados do contato"}
+                            </p>
+                        </div>
+
+                        {/* Ícones de Ação (Decorativo por enquanto) */}
+                        <div className="flex items-center gap-4 text-[#54656f]">
+                            <button className="hidden sm:block p-2 rounded-full hover:bg-black/5"><FontAwesomeIcon icon={faSearch} /></button>
+                            <button className="p-2 rounded-full hover:bg-black/5"><FontAwesomeIcon icon={faEllipsisVertical} /></button>
+                        </div>
                     </div>
                 </div>
 
+                {/* --- ÁREA DE MENSAGENS --- */}
                 <div className="flex-grow p-4 overflow-y-auto space-y-2 custom-scrollbar" style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', backgroundRepeat: 'repeat' }}>
                     {messages?.map(msg => {
                         const isMe = msg.direction === 'outbound';
@@ -380,6 +386,7 @@ export default function MessagePanel({ contact, onBack }) {
                     <div ref={messagesEndRef} />
                 </div>
 
+                {/* --- ÁREA DE INPUT --- */}
                 <div className="bg-[#f0f2f5] px-4 py-2 flex items-center gap-2 z-20">
                     <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
                     <button onClick={() => fileInputRef.current.click()} className="text-gray-500 hover:text-gray-700 p-2" disabled={sendAttachmentMutation.isPending || isProcessingAudio}><FontAwesomeIcon icon={faPaperclip} size="lg" /></button>
