@@ -3,13 +3,11 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query'; // ADICIONADO: A chave para funcionar igual ao outro
+import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch, faTimes, faUser, faPaperPlane, faSpinner, faArrowLeft, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
-// 1. O Hook Vencedor (Copiado do seu arquivo funcional)
-// Isso garante que ele use o mesmo cache e lógica do MessagePanel
 const useWhatsAppTemplates = () => {
     return useQuery({
         queryKey: ['whatsappTemplates'],
@@ -21,29 +19,27 @@ const useWhatsAppTemplates = () => {
             }
             return response.json();
         },
-        staleTime: 1000 * 60 * 5, // Cache de 5 minutos
+        staleTime: 1000 * 60 * 5,
         refetchOnWindowFocus: false,
     });
 };
 
 export default function NewConversationModal({ isOpen, onClose, onConversationCreated }) {
-    const [step, setStep] = useState(1); // 1: Contato, 2: Template
+    const [step, setStep] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [contacts, setContacts] = useState([]);
     const [loadingContacts, setLoadingContacts] = useState(false);
     
-    // Estados do Template
     const { data: templatesData, isLoading: loadingTemplates, error: templatesError } = useWhatsAppTemplates(); 
     const [selectedContact, setSelectedContact] = useState(null);
     const [selectedTemplate, setSelectedTemplate] = useState(null);
-    const [variables, setVariables] = useState([]); // Array igual ao do MessagePanel
+    const [variables, setVariables] = useState([]);
     const [isSending, setIsSending] = useState(false);
 
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    // Busca Contatos
     useEffect(() => {
         if (!isOpen || !organizacaoId) return;
 
@@ -84,20 +80,15 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
         return () => clearTimeout(delayDebounce);
     }, [isOpen, searchTerm, organizacaoId, supabase]);
 
-    // Lógica de Seleção de Template (Copiada do MessagePanel)
     const handleTemplateChange = (templateName) => {
-        // A API pode retornar o array direto ou dentro de .data. Vamos testar ambos.
         const actualTemplates = Array.isArray(templatesData) ? templatesData : (templatesData?.data || []);
-        
         const template = actualTemplates.find(t => t.name === templateName);
         
         if (template) {
             setSelectedTemplate(template);
             const bodyComponent = template.components.find(c => c.type === 'BODY');
-            // Regex correto para contar variáveis {{1}}, {{2}}...
             const variableCount = (bodyComponent?.text?.match(/\{\{\d\}\}/g) || []).length;
             
-            // Pré-preenche o nome do contato na primeira variável se existir
             const initialVars = Array(variableCount).fill('');
             if (selectedContact?.nome && variableCount > 0) {
                 initialVars[0] = selectedContact.nome;
@@ -123,7 +114,6 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
     const handleSend = async () => {
         if (!selectedContact || !selectedTemplate) return;
         
-        // Validação simples
         if (variables.some(v => v.trim() === '')) {
             toast.warning('Preencha todas as variáveis do modelo.');
             return;
@@ -132,7 +122,6 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
         setIsSending(true);
 
         try {
-            // Prepara componentes do template
             const components = [];
             if (variables.length > 0) {
                 components.push({
@@ -140,6 +129,14 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
                     parameters: variables.map(v => ({ type: 'text', text: v }))
                 });
             }
+
+            // --- MONTAR TEXTO COMPLETO PARA O BANCO ---
+            let fullText = selectedTemplate.components.find(c => c.type === 'BODY')?.text || '';
+            variables.forEach((val, i) => {
+                // Substitui {{1}}, {{2}} pelo valor real
+                fullText = fullText.replace(new RegExp(`\\{\\{${i + 1}\\}\\}`, 'g'), val);
+            });
+            // ------------------------------------------
 
             const res = await fetch('/api/whatsapp/send', {
                 method: 'POST',
@@ -150,7 +147,8 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
                     templateName: selectedTemplate.name,
                     languageCode: selectedTemplate.language,
                     components: components,
-                    contact_id: selectedContact.id
+                    contact_id: selectedContact.id,
+                    custom_content: fullText // Envia o texto montado
                 })
             });
 
@@ -165,7 +163,6 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
                     nome: selectedContact.nome,
                     avatar_url: null,
                     unread_count: 0,
-                    // Dados extras para garantir que abra certo
                     conversation_id: result.data?.messages?.[0]?.id || 'temp', 
                     phone_number: selectedContact.telefone_principal
                 });
@@ -191,7 +188,6 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
 
     if (!isOpen) return null;
 
-    // Extrai a lista de templates com segurança
     const rawTemplates = Array.isArray(templatesData) ? templatesData : (templatesData?.data || []);
     const availableTemplates = rawTemplates.filter(t => t.status === 'APPROVED');
 
@@ -199,7 +195,6 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
                 
-                {/* Header */}
                 <div className="flex justify-between items-center p-4 border-b">
                     <div className="flex items-center gap-2">
                         {step === 2 && (
@@ -216,10 +211,8 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
                     </button>
                 </div>
 
-                {/* Conteúdo */}
                 <div className="flex-grow overflow-y-auto p-4 custom-scrollbar">
                     
-                    {/* PASSO 1: SELECIONAR CONTATO */}
                     {step === 1 && (
                         <>
                             <div className="relative mb-4">
@@ -262,7 +255,6 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
                         </>
                     )}
 
-                    {/* PASSO 2: SELECIONAR TEMPLATE */}
                     {step === 2 && selectedContact && (
                         <div className="space-y-4">
                             <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-center gap-3">
@@ -310,7 +302,6 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
                                         </p>
                                     </div>
 
-                                    {/* Campos de Variáveis */}
                                     {variables.length > 0 && (
                                         <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 space-y-2">
                                             <p className="text-xs font-bold text-yellow-700 uppercase">Preencha as Variáveis</p>
@@ -336,7 +327,6 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
                     )}
                 </div>
 
-                {/* Footer */}
                 {step === 2 && (
                     <div className="p-4 border-t bg-gray-50 rounded-b-xl flex justify-end gap-2">
                         <button onClick={onCloseModal} className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg text-sm transition-colors">

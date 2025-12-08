@@ -1,65 +1,94 @@
-// app/(main)/caixa-de-entrada/data-fetching.js
+import { createClient } from '@/utils/supabase/client';
 
-// Função para buscar a lista de conversas (Mantida, mas garantindo robustez)
-export async function getConversations(supabase, organizacaoId) {
-  if (!organizacaoId) return [];
+export const getConversations = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return [];
 
-  const { data, error } = await supabase.rpc('get_inbox_conversations', {
-    p_organizacao_id: organizacaoId
-  });
-
-  if (error) {
-    console.error('Error fetching conversations:', error);
-    return [];
-  }
-  return data || [];
-}
-
-// Função para buscar mensagens (ATUALIZADA E MAIS INTELIGENTE)
-export async function getMessages(supabase, organizacaoId, contactId, phoneNumber) {
-  if (!organizacaoId) return [];
-  if (!contactId && !phoneNumber) return [];
-
-  let query = supabase
-    .from('whatsapp_messages')
-    .select('*, contatos (*)')
-    .eq('organizacao_id', organizacaoId)
-    .order('sent_at', { ascending: true });
-
-  // A MÁGICA: Busca por ID do Contato OU pelo Número de Telefone
-  // Isso garante que mensagens antigas (sem contato) e novas (com contato) apareçam juntas.
-  if (contactId && phoneNumber) {
-    // Limpa o telefone para evitar erros de formatação na query
-    const cleanPhone = phoneNumber.replace(/\D/g, '');
-    query = query.or(`contato_id.eq.${contactId},sender_id.eq.${phoneNumber},receiver_id.eq.${phoneNumber},sender_id.eq.${cleanPhone},receiver_id.eq.${cleanPhone}`);
-  } else if (contactId) {
-    query = query.eq('contato_id', contactId);
-  } else if (phoneNumber) {
-    query = query.or(`sender_id.eq.${phoneNumber},receiver_id.eq.${phoneNumber}`);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Error fetching messages:', error);
-    // Não lança erro para não quebrar a UI, retorna vazio
-    return [];
-  }
-  return data || [];
-}
-
-// Função para marcar mensagens como lidas
-export async function markMessagesAsRead(supabase, organizacaoId, contactId) {
-    if (!organizacaoId || !contactId) return;
-
-    const { error } = await supabase
-        .from('whatsapp_messages')
-        .update({ is_read: true })
+    const { data, error } = await supabase
+        .from('whatsapp_conversations')
+        .select(`
+            *,
+            contatos (
+                id,
+                nome,
+                foto_url,
+                telefone_principal: telefones (telefone)
+            ),
+            last_message: whatsapp_messages!last_message_id (
+                content,
+                created_at,
+                status
+            )
+        `)
         .eq('organizacao_id', organizacaoId)
-        .eq('contato_id', contactId)
-        .eq('is_read', false);
+        .order('updated_at', { ascending: false });
 
     if (error) {
-        console.error('Error marking messages as read:', error);
+        console.error('Erro ao buscar conversas:', error);
+        return [];
     }
-}
+
+    return data.map(conv => ({
+        conversation_id: conv.id,
+        contato_id: conv.contatos?.id,
+        phone_number: conv.phone_number,
+        nome: conv.contatos?.nome || conv.phone_number,
+        avatar_url: conv.contatos?.foto_url,
+        unread_count: conv.unread_count || 0,
+        last_message_content: conv.last_message?.content,
+        last_message_at: conv.last_message?.created_at || conv.updated_at,
+        is_archived: conv.is_archived || false
+    }));
+};
+
+// --- NOVA FUNÇÃO: BUSCAR LISTAS DE TRANSMISSÃO ---
+export const getBroadcastLists = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return [];
+
+    // Busca as listas e conta quantos membros cada uma tem
+    const { data, error } = await supabase
+        .from('whatsapp_broadcast_lists')
+        .select(`
+            *,
+            membros:whatsapp_list_members(count)
+        `)
+        .eq('organizacao_id', organizacaoId)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Erro ao buscar listas:', error);
+        return [];
+    }
+
+    return data.map(lista => ({
+        ...lista,
+        membros_count: lista.membros?.[0]?.count || 0
+    }));
+};
+
+export const getMessages = async (supabase, organizacaoId, contatoId) => {
+    if (!organizacaoId || !contatoId) return [];
+
+    const { data, error } = await supabase
+        .from('whatsapp_messages')
+        .select('*')
+        .eq('organizacao_id', organizacaoId)
+        .eq('contato_id', contatoId)
+        .order('sent_at', { ascending: true });
+
+    if (error) {
+        console.error('Erro ao buscar mensagens:', error);
+        return [];
+    }
+
+    return data;
+};
+
+export const markMessagesAsRead = async (supabase, organizacaoId, contatoId) => {
+    if (!organizacaoId || !contatoId) return;
+
+    await supabase
+        .from('whatsapp_conversations')
+        .update({ unread_count: 0 })
+        .eq('organizacao_id', organizacaoId)
+        .eq('contato_id', contatoId);
+};

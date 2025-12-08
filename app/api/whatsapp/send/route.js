@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Inicializa Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -13,10 +12,9 @@ export async function POST(request) {
 
     try {
         const body = await request.json();
-        // AGORA RECEBEMOS contact_id PARA GARANTIR O VÍNCULO CORRETO
-        const { to, type, text, link, caption, filename, templateName, languageCode, components, contact_id } = body;
+        // ADICIONADO: custom_content para salvar o texto real do template
+        const { to, type, text, link, caption, filename, templateName, languageCode, components, contact_id, custom_content } = body;
 
-        // Busca o token no banco
         const { data: config, error: configError } = await supabaseAdmin
             .from('configuracoes_whatsapp')
             .select('*')
@@ -29,7 +27,6 @@ export async function POST(request) {
         const token = config.whatsapp_permanent_token;
         const phoneId = config.whatsapp_phone_number_id;
 
-        // Prepara o pacote para a Meta
         const payload = {
             messaging_product: 'whatsapp',
             recipient_type: 'individual',
@@ -49,7 +46,8 @@ export async function POST(request) {
                 language: { code: languageCode || 'pt_BR' },
                 components: components || []
             };
-            messageContentForDb = `Template: ${templateName}`;
+            // AQUI ESTÁ A MÁGICA: Se vier o texto pronto, usa ele. Se não, usa o nome.
+            messageContentForDb = custom_content || `Template: ${templateName}`;
         } 
         else if (type === 'image') {
             payload.image = { link: link, caption: caption || '' };
@@ -70,7 +68,6 @@ export async function POST(request) {
 
         console.log(`[WhatsApp Send] Enviando ${type} para ${to}...`);
 
-        // Envia para a API da Meta
         const response = await fetch(`https://graph.facebook.com/v20.0/${phoneId}/messages`, {
             method: 'POST',
             headers: {
@@ -90,11 +87,9 @@ export async function POST(request) {
             }, { status: response.status });
         }
 
-        // Sucesso! Agora salvamos no banco
         const newMessageId = responseData.messages?.[0]?.id;
 
         if (newMessageId) {
-            // LÓGICA BLINDADA: Se veio o ID do contato, usa ele. Se não, tenta adivinhar.
             let finalContactId = contact_id;
 
             if (!finalContactId) {
@@ -107,11 +102,11 @@ export async function POST(request) {
             }
 
             const { error: dbError } = await supabaseAdmin.from('whatsapp_messages').insert({
-                contato_id: finalContactId, // Usa o ID garantido
+                contato_id: finalContactId,
                 message_id: newMessageId,
                 sender_id: phoneId,
                 receiver_id: to,
-                content: messageContentForDb,
+                content: messageContentForDb, // Agora salva o texto bonito
                 sent_at: new Date().toISOString(),
                 direction: 'outbound',
                 status: 'sent',
@@ -120,9 +115,7 @@ export async function POST(request) {
                 media_url: link || null
             });
 
-            if (dbError) {
-                console.error('[WhatsApp Send] Erro ao salvar mensagem no banco:', dbError);
-            }
+            if (dbError) console.error('[WhatsApp Send] Erro DB:', dbError);
         }
 
         return NextResponse.json(responseData, { status: 200 });

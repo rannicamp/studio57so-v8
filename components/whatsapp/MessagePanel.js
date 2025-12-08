@@ -7,21 +7,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-    faPaperPlane, 
-    faSpinner, 
-    faUserCircle, 
-    faPaperclip, 
-    faFileLines,
-    faMicrophone, 
-    faStop, 
-    faVideo, 
-    faFileAlt, 
-    faCheck, 
-    faCheckDouble, 
-    faPlayCircle,
-    faArrowLeft, // Adicionado a setinha
-    faEllipsisVertical,
-    faSearch
+    faPaperPlane, faSpinner, faUserCircle, faPaperclip, faFileLines,
+    faMicrophone, faStop, faVideo, faFileAlt, faCheck, faCheckDouble, 
+    faPlayCircle, faArrowLeft, faEllipsisVertical, faSearch, faExclamationCircle
 } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -29,7 +17,6 @@ import TemplateMessageModal from './TemplateMessageModal';
 import FilePreviewModal from './FilePreviewModal';
 import ChatMediaViewer from './ChatMediaViewer';
 
-// Helper para identificar o tipo de arquivo
 const getAttachmentType = (fileType) => {
     if (fileType.startsWith('image/')) return 'image';
     if (fileType.startsWith('video/')) return 'video';
@@ -37,13 +24,8 @@ const getAttachmentType = (fileType) => {
     return 'document';
 };
 
-// Helper para limpar nome de arquivo
 const sanitizeFileName = (fileName) => {
-    return fileName
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/\s+/g, '_')
-        .replace(/[^a-zA-Z0-9._-]/g, '');
+    return fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
 };
 
 export default function MessagePanel({ contact, onBack }) {
@@ -73,7 +55,6 @@ export default function MessagePanel({ contact, onBack }) {
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    // Carrega lamejs
     useEffect(() => {
         if (typeof window !== 'undefined' && !window.lamejs) {
             const script = document.createElement('script');
@@ -83,7 +64,6 @@ export default function MessagePanel({ contact, onBack }) {
         }
     }, []);
 
-    // Busca Mensagens
     const { data: messages, isLoading } = useQuery({
         queryKey: ['messages', organizacaoId, contact?.contato_id],
         queryFn: () => getMessages(supabase, organizacaoId, contact?.contato_id),
@@ -91,7 +71,6 @@ export default function MessagePanel({ contact, onBack }) {
         refetchInterval: 5000,
     });
 
-    // Define telefone destino
     useEffect(() => {
         if (messages && messages.length > 0) {
             const inboundMsg = messages.find(m => m.direction === 'inbound');
@@ -108,12 +87,10 @@ export default function MessagePanel({ contact, onBack }) {
         }
     }, [messages, contact]);
 
-    // Scroll
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
     
-    // Realtime
     useEffect(() => {
         if (!contact || !organizacaoId) return;
         const channel = supabase.channel(`whatsapp_messages_org_${organizacaoId}`)
@@ -133,7 +110,6 @@ export default function MessagePanel({ contact, onBack }) {
         onError: (error) => toast.error(`Erro: ${error.message}`),
     };
 
-    // 1. Envio de Texto
     const sendMessageMutation = useMutation({
         mutationFn: async (messageContent) => {
             if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
@@ -155,16 +131,16 @@ export default function MessagePanel({ contact, onBack }) {
         ...mutationOptions,
     });
 
-    // 2. Envio de Template
     const sendTemplateMutation = useMutation({
-        mutationFn: async ({ templateName, language, variables }) => {
+        mutationFn: async ({ templateName, language, variables, fullText }) => {
             if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
             const components = variables.length > 0 ? [{ type: 'body', parameters: variables.map(v => ({ type: 'text', text: v })) }] : [];
             const response = await fetch('/api/whatsapp/send', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     to: recipientPhone, type: 'template', templateName, languageCode: language, components,
-                    contact_id: contact.contato_id
+                    contact_id: contact.contato_id,
+                    custom_content: fullText // ATUALIZADO: Envia o texto completo
                 }),
             });
             const data = await response.json();
@@ -179,7 +155,6 @@ export default function MessagePanel({ contact, onBack }) {
         ...mutationOptions,
     });
 
-    // 3. Envio de Anexo
     const sendAttachmentMutation = useMutation({
         mutationFn: async ({ file, caption }) => {
             if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
@@ -228,7 +203,6 @@ export default function MessagePanel({ contact, onBack }) {
         }
     });
 
-    // --- FUNÇÕES DE ÁUDIO (MP3 HQ) 🎤 ---
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -247,8 +221,7 @@ export default function MessagePanel({ contact, onBack }) {
             audioDataRef.current = [];
 
             processor.onaudioprocess = (e) => {
-                const channelData = e.inputBuffer.getChannelData(0);
-                audioDataRef.current.push(new Float32Array(channelData));
+                audioDataRef.current.push(new Float32Array(e.inputBuffer.getChannelData(0)));
             };
 
             source.connect(processor);
@@ -266,14 +239,11 @@ export default function MessagePanel({ contact, onBack }) {
         if (!isRecording) return;
         setIsRecording(false);
         setIsProcessingAudio(true);
-        
         if (recordingInterval.current) clearInterval(recordingInterval.current);
-        
         if (processorRef.current) { processorRef.current.disconnect(); processorRef.current = null; }
         if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach(t => t.stop()); mediaStreamRef.current = null; }
         
         const finalSampleRate = audioContextRef.current?.sampleRate || 44100;
-
         if (audioContextRef.current) { await audioContextRef.current.close(); audioContextRef.current = null; }
         
         try { await convertAndSendMp3(audioDataRef.current, finalSampleRate); } 
@@ -285,7 +255,7 @@ export default function MessagePanel({ contact, onBack }) {
         if (!buffers || !buffers.length) return;
         if (!window.lamejs) throw new Error("Aguarde o carregamento do conversor.");
         
-        const mp3Encoder = new window.lamejs.Mp3Encoder(1, sampleRate, 192); // 192kbps HQ
+        const mp3Encoder = new window.lamejs.Mp3Encoder(1, sampleRate, 192);
         const mp3Data = [];
         let totalLength = 0;
         for (let i = 0; i < buffers.length; i++) totalLength += buffers[i].length;
@@ -318,39 +288,31 @@ export default function MessagePanel({ contact, onBack }) {
 
     return (
         <>
-            <TemplateMessageModal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} onSendTemplate={(t, l, v) => sendTemplateMutation.mutate({ templateName: t, language: l, variables: v })} contactName={contact?.nome} />
+            <TemplateMessageModal 
+                isOpen={isTemplateModalOpen} 
+                onClose={() => setIsTemplateModalOpen(false)} 
+                // ATUALIZADO: Agora passa 'fullText'
+                onSendTemplate={(t, l, v, txt) => sendTemplateMutation.mutate({ templateName: t, language: l, variables: v, fullText: txt })} 
+                contactName={contact?.nome} 
+            />
             <FilePreviewModal isOpen={isFilePreviewOpen} onClose={() => setIsFilePreviewOpen(false)} file={selectedFile} onSend={(f, c) => sendAttachmentMutation.mutate({ file: f, caption: c })} />
             <ChatMediaViewer isOpen={isViewerOpen} onClose={() => setIsViewerOpen(false)} mediaUrl={viewerMedia?.url} mediaType={viewerMedia?.type} fileName={viewerMedia?.name} />
 
             <div className="flex flex-col h-full bg-[#efeae2] relative">
-                
-                {/* --- CABEÇALHO REFINADO (PASSO 1) --- */}
                 <div className="bg-[#f0f2f5] px-4 py-2 border-b border-gray-300 flex items-center justify-between shadow-sm z-10 sticky top-0 h-16">
                     <div className="flex items-center gap-3 w-full">
-                        {/* Botão Voltar (Setinha) - Só mobile */}
                         {onBack && (
-                            <button 
-                                onClick={onBack} 
-                                className="md:hidden text-[#54656f] p-2 -ml-2 rounded-full hover:bg-black/5 transition-colors"
-                            >
+                            <button onClick={onBack} className="md:hidden text-[#54656f] p-2 -ml-2 rounded-full hover:bg-black/5 transition-colors">
                                 <FontAwesomeIcon icon={faArrowLeft} className="text-xl" />
                             </button>
                         )}
-                        
-                        {/* Avatar */}
                         <div className="w-10 h-10 bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden cursor-pointer">
                              <FontAwesomeIcon icon={faUserCircle} className="text-white text-3xl"/>
                         </div>
-                        
-                        {/* Info do Contato (Nome Único) */}
                         <div className="flex flex-col justify-center flex-grow overflow-hidden">
                             <h3 className="font-medium text-[#111b21] leading-tight truncate text-base">{contact.nome}</h3>
-                            <p className="text-[13px] text-[#667781] truncate">
-                                {recipientPhone || "Toque para dados do contato"}
-                            </p>
+                            <p className="text-[13px] text-[#667781] truncate">{recipientPhone || "Toque para dados do contato"}</p>
                         </div>
-
-                        {/* Ícones de Ação (Decorativo por enquanto) */}
                         <div className="flex items-center gap-4 text-[#54656f]">
                             <button className="hidden sm:block p-2 rounded-full hover:bg-black/5"><FontAwesomeIcon icon={faSearch} /></button>
                             <button className="p-2 rounded-full hover:bg-black/5"><FontAwesomeIcon icon={faEllipsisVertical} /></button>
@@ -358,11 +320,11 @@ export default function MessagePanel({ contact, onBack }) {
                     </div>
                 </div>
 
-                {/* --- ÁREA DE MENSAGENS --- */}
                 <div className="flex-grow p-4 overflow-y-auto space-y-2 custom-scrollbar" style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', backgroundRepeat: 'repeat' }}>
                     {messages?.map(msg => {
                         const isMe = msg.direction === 'outbound';
                         let payload = {}; try { payload = typeof msg.raw_payload === 'string' ? JSON.parse(msg.raw_payload) : msg.raw_payload; } catch (e) {}
+                        
                         const mediaUrl = msg.media_url || payload?.image?.link || payload?.video?.link || payload?.audio?.link || payload?.document?.link;
                         const isImage = payload?.type === 'image' || payload?.image; const isAudio = payload?.type === 'audio' || payload?.audio;
                         const isVideo = payload?.type === 'video' || payload?.video; const isDocument = payload?.type === 'document' || payload?.document;
@@ -374,7 +336,7 @@ export default function MessagePanel({ contact, onBack }) {
                                     <div className="p-1">
                                         {isImage && mediaUrl && <div className="rounded overflow-hidden mb-1 cursor-pointer bg-[#cfd4d2]" onClick={() => { setViewerMedia({ url: mediaUrl, type: 'image' }); setIsViewerOpen(true); }}><img src={mediaUrl} className="w-full h-auto max-h-80 object-cover" loading="lazy" /></div>}
                                         {isVideo && mediaUrl && <div className="rounded overflow-hidden mb-1 bg-black relative flex items-center justify-center min-h-[150px]"><button className="absolute inset-0 z-20 w-full h-full cursor-pointer opacity-0" onClick={() => { setViewerMedia({ url: mediaUrl, type: 'video' }); setIsViewerOpen(true); }}></button><div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none"><div className="w-12 h-12 bg-black/50 rounded-full flex items-center justify-center text-white backdrop-blur-sm shadow-lg"><FontAwesomeIcon icon={faPlayCircle} size="2x" /></div></div><video src={mediaUrl} className="w-full max-h-80 opacity-80 pointer-events-none object-cover" /></div>}
-                                        {isAudio && mediaUrl && <div className="flex items-center gap-2 p-2 min-w-[240px]"><div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500"><FontAwesomeIcon icon={faMicrophone} /></div><audio controls src={mediaUrl} className="h-8 w-full max-w-[200px]" /></div>}
+                                        {isAudio && (mediaUrl ? (<div className="flex items-center gap-2 p-2 min-w-[240px]"><div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500"><FontAwesomeIcon icon={faMicrophone} /></div><audio controls src={mediaUrl} className="h-8 w-full max-w-[200px]" /></div>) : (<div className="flex items-center gap-2 p-2 text-red-500 bg-red-50 rounded"><FontAwesomeIcon icon={faExclamationCircle} /><span className="text-xs">Erro: Áudio sem link</span></div>))}
                                         {isDocument && <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-black/5 rounded-lg hover:bg-black/10 transition-colors no-underline"><FontAwesomeIcon icon={faFileAlt} className="text-[#e55050] text-2xl" /><div className="overflow-hidden"><p className="font-medium text-gray-700 truncate">{payload?.document?.filename || "Documento"}</p></div></a>}
                                         {msg.content && !hiddenTexts.includes(msg.content) && <p className="px-2 pb-1 pt-1 text-gray-800 whitespace-pre-wrap leading-relaxed">{msg.content}</p>}
                                     </div>
@@ -386,7 +348,6 @@ export default function MessagePanel({ contact, onBack }) {
                     <div ref={messagesEndRef} />
                 </div>
 
-                {/* --- ÁREA DE INPUT --- */}
                 <div className="bg-[#f0f2f5] px-4 py-2 flex items-center gap-2 z-20">
                     <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
                     <button onClick={() => fileInputRef.current.click()} className="text-gray-500 hover:text-gray-700 p-2" disabled={sendAttachmentMutation.isPending || isProcessingAudio}><FontAwesomeIcon icon={faPaperclip} size="lg" /></button>
