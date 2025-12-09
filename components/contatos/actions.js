@@ -2,10 +2,9 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { getOrganizationId } from '@/utils/getOrganizationId';
-// 1. IMPORTAÇÃO DO CARTEIRO
 import { enviarNotificacao } from '@/utils/notificacoes';
 
-// Função para buscar dados do CNPJ (mantida igual)
+// Função para buscar dados do CNPJ
 export async function buscarDadosCnpj(cnpj) {
     const cleanCnpj = cnpj.replace(/\D/g, '');
     if (cleanCnpj.length !== 14) return { error: 'CNPJ inválido.' };
@@ -46,70 +45,91 @@ export async function buscarDadosCnpj(cnpj) {
     }
 }
 
-// Ação para Salvar/Atualizar Contato COM NOTIFICAÇÃO
+// Ação Blindada para Salvar Contato
 export async function saveContactAction({ formData, isEditing }) {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-        return { error: 'Usuário não autenticado. Por favor, faça login novamente.' };
+    
+    // Tratamento de erro melhorado para autenticação
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+        return { error: 'Sessão expirada. Recarregue a página e faça login.' };
     }
     
     const organizacao_id = await getOrganizationId();
     if (!organizacao_id) {
-        return { error: 'Não foi possível identificar a sua organização.' };
+        return { error: 'Erro crítico: Organização não identificada.' };
     }
 
-    const { id, telefones, emails, ...dataToSave } = formData;
+    // 1. LIMPEZA PROFUNDA DE DADOS (Sanitização) 🧼
+    // Separamos os arrays auxiliares do resto dos dados
+    const { id, telefones, emails, ...rawData } = formData;
+    
+    // Criamos um novo objeto limpo
+    const dataToSave = { ...rawData };
     dataToSave.organizacao_id = organizacao_id;
 
+    // Removemos campos de controle que não existem no banco
+    delete dataToSave.origem; 
+    delete dataToSave.criado_por_usuario_id;
+    delete dataToSave.criado_por;
+    
+    // Regra para criação x edição
     if (!isEditing) {
         dataToSave.criado_por_usuario_id = user.id;
-        dataToSave.origem = dataToSave.origem || 'Manual'; 
-    } else {
-        delete dataToSave.origem; 
-        delete dataToSave.criado_por_usuario_id;
-        delete dataToSave.criado_por;
+        // Se origem veio no form, usamos, senão 'Manual'
+        if (formData.origem) dataToSave.origem = formData.origem;
+        else dataToSave.origem = 'Manual';
     }
-    
-    delete dataToSave.criado_por; 
-    
-    if (dataToSave.birth_date === '') dataToSave.birth_date = null;
-    if (dataToSave.data_fundacao === '') dataToSave.data_fundacao = null;
 
-    const cleanedPhones = telefones.filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0);
-    const cleanedEmails = emails.filter(mail => mail.email && mail.email.trim() !== '');
+    // [CRÍTICO] Converte strings vazias "" em null para campos de Data e IDs (FKs)
+    // O Postgres odeia receber "" onde deveria ser um ID ou Data
+    const fieldsToNullify = ['birth_date', 'data_fundacao', 'empresa_id', 'conjuge_id'];
+    fieldsToNullify.forEach(field => {
+        if (!dataToSave[field] || dataToSave[field] === '') {
+            dataToSave[field] = null;
+        }
+    });
+
+    // Limpa arrays de contatos
+    const cleanedPhones = (telefones || []).filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0);
+    const cleanedEmails = (emails || []).filter(mail => mail.email && mail.email.trim() !== '');
 
     let contatoId = isEditing ? id : null;
 
     try {
+        // OPERAÇÃO DE BANCO DE DADOS
         if (isEditing) {
             const { error } = await supabase.from('contatos').update(dataToSave).eq('id', contatoId);
-            if (error) throw error;
+            if (error) throw new Error(`Erro ao atualizar: ${error.message}`);
         } else {
             const { data, error } = await supabase.from('contatos').insert(dataToSave).select('id, nome, razao_social').single();
-            if (error) throw error;
+            if (error) throw new Error(`Erro ao criar: ${error.message}`);
             contatoId = data.id;
 
-            // 2. NOTIFICAÇÃO DE NOVO LEAD MANUAL 🔔
-            const nomeContato = data.nome || data.razao_social || 'Novo Contato';
-            await enviarNotificacao({
-                userId: user.id, // Envia para quem criou (feedback)
-                titulo: "👤 Novo Contato Cadastrado",
-                mensagem: `${nomeContato} foi adicionado à sua base.`,
-                link: `/contatos/editar/${contatoId}`,
-                organizacaoId: organizacao_id,
-                canal: 'comercial'
-            });
+            // Notificação (dentro de try/catch silencioso para não travar o save se falhar o push)
+            try {
+                const nomeContato = data.nome || data.razao_social || 'Novo Contato';
+                await enviarNotificacao({
+                    userId: user.id,
+                    titulo: "👤 Novo Contato Cadastrado",
+                    mensagem: `${nomeContato} foi adicionado à sua base.`,
+                    link: `/contatos/editar/${contatoId}`,
+                    organizacaoId: organizacao_id,
+                    canal: 'comercial'
+                });
+            } catch (notifError) {
+                console.error("Falha ao enviar notificação (não crítico):", notifError);
+            }
         }
 
-        if (!contatoId) throw new Error("Falha ao obter o ID do contato.");
+        if (!contatoId) throw new Error("ID do contato perdido após operação.");
 
-        await Promise.all([
-            supabase.from('telefones').delete().eq('contato_id', contatoId),
-            supabase.from('emails').delete().eq('contato_id', contatoId)
-        ]);
+        // ATUALIZAÇÃO DE TELEFONES E EMAILS
+        // Primeiro removemos os antigos
+        await supabase.from('telefones').delete().eq('contato_id', contatoId);
+        await supabase.from('emails').delete().eq('contato_id', contatoId);
 
+        // Inserimos os novos (USANDO OS ARRAYS LIMPOS!)
         if (cleanedPhones.length > 0) {
             const phonesToInsert = cleanedPhones.map(tel => ({
                 contato_id: contatoId,
@@ -118,23 +138,27 @@ export async function saveContactAction({ formData, isEditing }) {
                 tipo: 'Celular',
                 organizacao_id
             }));
-            await supabase.from('telefones').insert(phonesToInsert).throwOnError();
+            const { error: phoneError } = await supabase.from('telefones').insert(phonesToInsert);
+            if (phoneError) console.error("Erro ao salvar telefones:", phoneError);
         }
 
         if (cleanedEmails.length > 0) {
-            const emailsToInsert = emails.map(mail => ({
+            // [CORREÇÃO] Usamos 'cleanedEmails' aqui, não 'emails'
+            const emailsToInsert = cleanedEmails.map(mail => ({
                 contato_id: contatoId,
                 email: mail.email.trim(),
                 tipo: 'Pessoal',
                 organizacao_id
             }));
-            await supabase.from('emails').insert(emailsToInsert).throwOnError();
+            const { error: emailError } = await supabase.from('emails').insert(emailsToInsert);
+            if (emailError) console.error("Erro ao salvar emails:", emailError);
         }
 
         return { success: true, contactId: contatoId };
 
     } catch (error) {
-        console.error("Erro ao salvar contato:", error);
+        console.error("Erro CRÍTICO na Server Action:", error);
+        // Retorna a mensagem limpa para o usuário ver no Toast
         return { error: error.message };
     }
 }
