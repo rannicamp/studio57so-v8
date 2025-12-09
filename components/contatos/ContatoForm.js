@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 // IMPORTA A NOVA AÇÃO DO SERVIDOR
 import { saveContactAction, buscarDadosCnpj as buscarCnpjAction } from './actions';
 
-// -- COMPONENTES AUXILIARES (do seu código original, sem alterações) --
+// -- COMPONENTES AUXILIARES (Mantidos iguais) --
 const SearchableField = ({ label, selectedName, onClear, children }) => (
     <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -85,13 +85,17 @@ const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }
 };
 
 
-// FORMULÁRIO PRINCIPAL (MODIFICADO para usar a server action)
-export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
+// FORMULÁRIO PRINCIPAL
+// **ATENÇÃO:** Agora recebemos `organizacaoId` explicitamente
+export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, organizacaoId }) {
     const supabase = createClient();
     const router = useRouter();
     const queryClient = useQueryClient();
     const isEditing = Boolean(contactToEdit);
     const { user } = useAuth();
+    
+    // Fallback de segurança: se não vier por prop, tenta pegar do Auth
+    const currentOrgId = organizacaoId || user?.organizacao_id;
 
     const getInitialState = () => ({
         nome: '', razao_social: '', nome_fantasia: '', cnpj: '', cpf: '', rg: '',
@@ -106,6 +110,8 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
         inscricao_estadual: '',
         inscricao_municipal: '',
         responsavel_legal: '',
+        // Importante: Garantir que o organizacao_id esteja no state se possível
+        organizacao_id: currentOrgId 
     });
 
     const [formData, setFormData] = useState(getInitialState());
@@ -115,49 +121,66 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
     const [selectedConjugeName, setSelectedConjugeName] = useState('');
 
     useEffect(() => {
-        const fetchInitialData = async () => {
+        const initializeData = async () => {
             if (isEditing && contactToEdit) {
-                const { data: phonesData } = await supabase.from('telefones').select('*').eq('contato_id', contactToEdit.id);
-                const { data: emailsData } = await supabase.from('emails').select('*').eq('contato_id', contactToEdit.id);
+                // OTIMIZAÇÃO: Usamos os dados que já vieram da `page.js`.
+                // Não fazemos fetch de telefones/emails novamente se eles já existirem no objeto.
+                const phonesData = contactToEdit.telefones || [{ telefone: '', country_code: '+55' }];
+                const emailsData = contactToEdit.emails || [{ email: '' }];
                 
-                if (contactToEdit.conjuge_id) {
-                    const { data: conjugeData } = await supabase.from('contatos').select('nome, razao_social').eq('id', contactToEdit.conjuge_id).single();
+                // Busca nome do cônjuge se necessário (isso precisa ser buscado pois é relacionamento)
+                if (contactToEdit.conjuge_id && !selectedConjugeName) {
+                    const { data: conjugeData } = await supabase
+                        .from('contatos')
+                        .select('nome, razao_social')
+                        .eq('id', contactToEdit.conjuge_id)
+                        .single();
                     if(conjugeData) setSelectedConjugeName(conjugeData.nome || conjugeData.razao_social);
                 }
 
                 setFormData({
                     ...getInitialState(),
-                    ...contactToEdit,
-                    telefones: phonesData?.length > 0 ? phonesData : [{ telefone: '', country_code: '+55' }],
-                    emails: emailsData?.length > 0 ? emailsData : [{ email: '' }],
+                    ...contactToEdit, // Preenche com os dados do contato
+                    organizacao_id: currentOrgId, // Garante que o ID da organização está atualizado
+                    telefones: phonesData.length > 0 ? phonesData : [{ telefone: '', country_code: '+55' }],
+                    emails: emailsData.length > 0 ? emailsData : [{ email: '' }],
                 });
             } else {
-                setFormData(getInitialState());
+                setFormData(prev => ({ ...getInitialState(), organizacao_id: currentOrgId }));
                 setSelectedConjugeName('');
             }
         };
-        fetchInitialData();
-    }, [isEditing, contactToEdit, supabase]);
+        initializeData();
+    }, [isEditing, contactToEdit, supabase, currentOrgId]); // Dependência de currentOrgId adicionada
 
+    // Lista de empresas para vincular
     const { data: companies } = useQuery({
-        queryKey: ['companiesList'],
+        queryKey: ['companiesList', currentOrgId],
         queryFn: async () => {
-            const { data, error } = await supabase.from('cadastro_empresa').select('id, razao_social').order('razao_social');
+            if (!currentOrgId) return [];
+            const { data, error } = await supabase
+                .from('cadastro_empresa')
+                .select('id, razao_social')
+                .eq('organizacao_id', currentOrgId) // Filtro de segurança adicionado
+                .order('razao_social');
             if (error) throw new Error(error.message);
             return data || [];
-        }
+        },
+        enabled: !!currentOrgId
     });
     
-    // **MODIFICAÇÃO: useMutation agora chama a server action**
     const saveMutation = useMutation({
-        mutationFn: saveContactAction, // <--- AQUI ESTÁ A MUDANÇA
+        mutationFn: saveContactAction,
         onSuccess: (result) => {
             if (result.error) {
                 toast.error(`Erro ao salvar: ${result.error}`);
                 return;
             }
             toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
+            
+            // Invalida o cache para recarregar a lista
             queryClient.invalidateQueries({ queryKey: ['contatos'] });
+            
             if (isEditing) {
                 queryClient.invalidateQueries({ queryKey: ['contactDetails', result.contactId] });
             }
@@ -166,15 +189,27 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
             else router.push('/contatos');
         },
         onError: (error) => {
+            console.error("Erro na mutation:", error);
             toast.error(`Erro inesperado: ${error.message}`);
         }
     });
 
-    // **MODIFICAÇÃO: handleSubmit simplificado**
     const handleSubmit = async (e) => {
         e.preventDefault();
-        // A lógica de pegar organizacao_id e user.id agora é feita no servidor
-        saveMutation.mutate({ formData, isEditing });
+        
+        if (!currentOrgId) {
+            toast.error("Erro de identificação da organização. Tente recarregar a página.");
+            return;
+        }
+
+        // PREPARAÇÃO CRÍTICA DOS DADOS ANTES DE ENVIAR
+        const payload = {
+            ...formData,
+            organizacao_id: currentOrgId // Força o ID da organização no payload
+        };
+
+        // Envia para a Server Action com o ID da organização garantido
+        saveMutation.mutate({ formData: payload, isEditing });
     };
 
     const handleChange = (e) => {
@@ -184,16 +219,16 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess }) {
     
     const handleSearchConjuge = useCallback(async (term) => {
         setConjugeSearchTerm(term);
-        if (term.length < 2 || !user?.organizacao_id) {
+        if (term.length < 2 || !currentOrgId) {
             setConjugeSearchResults([]);
             return;
         }
         const { data } = await supabase.rpc('buscar_contatos_geral', { 
             p_search_term: term, 
-            p_organizacao_id: user.organizacao_id 
+            p_organizacao_id: currentOrgId 
         });
         setConjugeSearchResults(data || []);
-    }, [supabase, user?.organizacao_id]);
+    }, [supabase, currentOrgId]);
 
     const handleSelectConjuge = (conjuge) => {
         setFormData(prev => ({ ...prev, conjuge_id: conjuge.id }));
