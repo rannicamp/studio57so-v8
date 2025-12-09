@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import TemplateMessageModal from './TemplateMessageModal';
 import FilePreviewModal from './FilePreviewModal';
 import ChatMediaViewer from './ChatMediaViewer';
-import { usePersistentState } from '@/hooks/usePersistentState'; // NOVO IMPORT
+import { usePersistentState } from '@/hooks/usePersistentState'; // Hook de persistência
 
 const getAttachmentType = (fileType) => {
     if (fileType.startsWith('image/')) return 'image';
@@ -32,10 +32,10 @@ const sanitizeFileName = (fileName) => {
 export default function MessagePanel({ contact, onBack }) {
     const queryClient = useQueryClient();
     
-    // NOVO: Rascunho Persistente por Contato
+    // Rascunho Persistente
     const [newMessage, setNewMessage] = usePersistentState(`whatsapp_draft_${contact?.contato_id}`, '');
     
-    // Estados Voláteis (não precisam salvar)
+    // Estados Voláteis
     const [selectedFile, setSelectedFile] = useState(null);
     const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
     const [viewerMedia, setViewerMedia] = useState(null);
@@ -58,6 +58,7 @@ export default function MessagePanel({ contact, onBack }) {
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
+    // Carrega lamejs (MP3)
     useEffect(() => {
         if (typeof window !== 'undefined' && !window.lamejs) {
             const script = document.createElement('script');
@@ -74,6 +75,7 @@ export default function MessagePanel({ contact, onBack }) {
         refetchInterval: 5000,
     });
 
+    // Define telefone de destino
     useEffect(() => {
         if (messages && messages.length > 0) {
             const inboundMsg = messages.find(m => m.direction === 'inbound');
@@ -90,10 +92,12 @@ export default function MessagePanel({ contact, onBack }) {
         }
     }, [messages, contact]);
 
+    // Scroll Automático
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
     
+    // Realtime Updates
     useEffect(() => {
         if (!contact || !organizacaoId) return;
         const channel = supabase.channel(`whatsapp_messages_org_${organizacaoId}`)
@@ -128,22 +132,33 @@ export default function MessagePanel({ contact, onBack }) {
             return data;
         },
         onSuccess: () => {
-            setNewMessage(''); // Limpa o rascunho salvo
+            setNewMessage(''); // Limpa rascunho
             queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
         },
         ...mutationOptions,
     });
 
+    // MUTAÇÃO DE TEMPLATE ATUALIZADA (Suporta Imagem e Texto Completo)
     const sendTemplateMutation = useMutation({
-        mutationFn: async ({ templateName, language, variables, fullText }) => {
+        mutationFn: async ({ templateName, language, variables, fullText, components }) => {
             if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
-            const components = variables.length > 0 ? [{ type: 'body', parameters: variables.map(v => ({ type: 'text', text: v })) }] : [];
+            
+            // Se o modal mandou componentes prontos (com imagem), usa eles.
+            // Se não, monta o padrão (só variáveis de texto).
+            const payloadComponents = components || (
+                variables.length > 0 ? [{ type: 'body', parameters: variables.map(v => ({ type: 'text', text: v })) }] : []
+            );
+
             const response = await fetch('/api/whatsapp/send', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    to: recipientPhone, type: 'template', templateName, languageCode: language, components,
+                    to: recipientPhone, 
+                    type: 'template', 
+                    templateName, 
+                    languageCode: language, 
+                    components: payloadComponents, // IMPORTANTE: Usa o novo payload
                     contact_id: contact.contato_id,
-                    custom_content: fullText 
+                    custom_content: fullText // Texto para o histórico
                 }),
             });
             const data = await response.json();
@@ -294,13 +309,15 @@ export default function MessagePanel({ contact, onBack }) {
             <TemplateMessageModal 
                 isOpen={isTemplateModalOpen} 
                 onClose={() => setIsTemplateModalOpen(false)} 
-                onSendTemplate={(t, l, v, txt) => sendTemplateMutation.mutate({ templateName: t, language: l, variables: v, fullText: txt })} 
+                // ATUALIZADO: Recebe texto completo (txt) e componentes (comp)
+                onSendTemplate={(t, l, v, txt, comp) => sendTemplateMutation.mutate({ templateName: t, language: l, variables: v, fullText: txt, components: comp })} 
                 contactName={contact?.nome} 
             />
             <FilePreviewModal isOpen={isFilePreviewOpen} onClose={() => setIsFilePreviewOpen(false)} file={selectedFile} onSend={(f, c) => sendAttachmentMutation.mutate({ file: f, caption: c })} />
             <ChatMediaViewer isOpen={isViewerOpen} onClose={() => setIsViewerOpen(false)} mediaUrl={viewerMedia?.url} mediaType={viewerMedia?.type} fileName={viewerMedia?.name} />
 
             <div className="flex flex-col h-full bg-[#efeae2] relative">
+                
                 <div className="bg-[#f0f2f5] px-4 py-2 border-b border-gray-300 flex items-center justify-between shadow-sm z-10 sticky top-0 h-16">
                     <div className="flex items-center gap-3 w-full">
                         {onBack && (
