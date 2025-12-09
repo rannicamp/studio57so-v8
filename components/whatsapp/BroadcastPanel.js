@@ -41,10 +41,13 @@ export default function BroadcastPanel({ list, onBack }) {
         }
     }, [list, supabase]);
 
-    const handleSendBroadcast = async (templateName, language, variables, fullText) => {
+    // Função atualizada para lidar com o envio (incluindo agendamento e componentes extras)
+    const handleSendBroadcast = async (templateName, language, variables, fullText, components, scheduledAt) => {
         setSending(true);
         setStats(null);
-        toast.info("Iniciando disparo... Isso pode levar alguns segundos.");
+        
+        if (scheduledAt) toast.info("Agendando disparo...");
+        else toast.info("Iniciando disparo... Isso pode levar alguns segundos.");
 
         try {
             const response = await fetch('/api/whatsapp/broadcast/send', {
@@ -55,7 +58,9 @@ export default function BroadcastPanel({ list, onBack }) {
                     template_name: templateName,
                     language,
                     variables,
-                    full_text_base: fullText
+                    full_text_base: fullText,
+                    components, // Mídia (imagem/vídeo/documento)
+                    scheduled_at: scheduledAt // Data de agendamento (ou null)
                 })
             });
 
@@ -63,8 +68,12 @@ export default function BroadcastPanel({ list, onBack }) {
 
             if (!response.ok) throw new Error(result.error || "Erro no disparo");
 
-            setStats(result.stats);
-            toast.success(`Disparo concluído! Enviado para ${result.stats.success} contatos.`);
+            if (result.scheduled) {
+                toast.success(`Agendado para ${new Date(result.date).toLocaleString()}!`);
+            } else {
+                setStats(result.stats);
+                toast.success(`Disparo concluído! Enviado para ${result.stats.success} contatos.`);
+            }
             setIsTemplateModalOpen(false);
 
         } catch (error) {
@@ -85,7 +94,8 @@ export default function BroadcastPanel({ list, onBack }) {
                 isOpen={isTemplateModalOpen}
                 onClose={() => setIsTemplateModalOpen(false)}
                 onSendTemplate={handleSendBroadcast}
-                contactName="{{1}}" // Placeholder visual
+                contactName="{{1}}" // Placeholder visual para indicar que o nome será substituído
+                showScheduling={true} // Habilita a opção de agendamento neste modal
             />
 
             {/* Cabeçalho */}

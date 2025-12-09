@@ -16,7 +16,8 @@ export async function POST(request) {
 
     try {
         const body = await request.json();
-        const { list_id, template_name, language, variables, full_text_base } = body;
+        // Recebe os novos campos: components (mídia) e scheduled_at (data)
+        const { list_id, template_name, language, variables, full_text_base, components, scheduled_at } = body;
 
         // 1. Validar e Buscar Configuração
         const { data: config } = await supabaseAdmin
@@ -26,7 +27,40 @@ export async function POST(request) {
 
         if (!config) return NextResponse.json({ error: 'Configuração do WhatsApp não encontrada.' }, { status: 500 });
 
-        // 2. Buscar Membros da Lista (com dados do contato e telefone)
+        // =====================================================================
+        // 🚦 DECISÃO: AGENDAR OU ENVIAR AGORA?
+        // =====================================================================
+        if (scheduled_at) {
+            console.log(`[Broadcast] Agendando disparo para: ${scheduled_at}`);
+            
+            const { error: scheduleError } = await supabaseAdmin
+                .from('whatsapp_scheduled_broadcasts')
+                .insert({
+                    lista_id: list_id,
+                    template_name,
+                    language,
+                    variables, // Salva as variáveis preenchidas no modal
+                    full_text_base,
+                    components, // Salva a imagem/video se tiver
+                    scheduled_at,
+                    status: 'pending',
+                    organizacao_id: config.organizacao_id
+                });
+
+            if (scheduleError) throw scheduleError;
+
+            return NextResponse.json({ 
+                message: 'Disparo agendado com sucesso!', 
+                scheduled: true,
+                date: scheduled_at 
+            });
+        }
+
+        // =====================================================================
+        // 🚀 MODO ENVIO IMEDIATO (Lógica Original + Melhorias)
+        // =====================================================================
+
+        // 2. Buscar Membros da Lista
         const { data: members, error: membersError } = await supabaseAdmin
             .from('whatsapp_list_members')
             .select(`
@@ -57,9 +91,6 @@ export async function POST(request) {
         // 3. Loop de Disparo (Processamento em Série para Segurança)
         let successCount = 0;
         let failCount = 0;
-
-        // Iniciamos o processamento sem travar a resposta (Fire and Forget parcial, mas vamos esperar um pouco para dar feedback inicial)
-        // Nota: Em produção pesada, isso iria para uma fila (Redis/Bull). Aqui faremos um loop controlado.
         
         const results = [];
 
@@ -69,18 +100,30 @@ export async function POST(request) {
                 const firstName = target.nome.split(' ')[0] || target.nome;
                 
                 // Substitui a variável {{1}} pelo Primeiro Nome
-                // Clona as variáveis para não alterar o original
+                // Clona as variáveis para não alterar o original que veio do request
                 const personalizedVariables = [...(variables || [])];
                 if (personalizedVariables.length > 0) {
                     // Assume que a primeira variável é sempre o nome na saudação
                     personalizedVariables[0] = firstName; 
                 }
 
-                // Monta componentes do Template
-                const components = [{
-                    type: 'body',
-                    parameters: personalizedVariables.map(v => ({ type: 'text', text: v }))
-                }];
+                // --- MONTAGEM DOS COMPONENTES (TEXTO + MÍDIA) ---
+                const messageComponents = [];
+
+                // 1. Adiciona Header (Imagem/Vídeo) se veio do frontend
+                // O frontend manda 'components' contendo apenas o header se houver
+                if (components && Array.isArray(components)) {
+                     const headerComp = components.find(c => c.type === 'header');
+                     if (headerComp) messageComponents.push(headerComp);
+                }
+
+                // 2. Adiciona Body com as variáveis personalizadas (Nome do Cliente)
+                if (personalizedVariables.length > 0) {
+                    messageComponents.push({
+                        type: 'body',
+                        parameters: personalizedVariables.map(v => ({ type: 'text', text: v }))
+                    });
+                }
 
                 // Monta o Texto Completo para o Histórico (com o nome da pessoa)
                 let personalizedText = full_text_base || '';
@@ -97,7 +140,7 @@ export async function POST(request) {
                     template: {
                         name: template_name,
                         language: { code: language || 'pt_BR' },
-                        components: components
+                        components: messageComponents
                     }
                 };
 
