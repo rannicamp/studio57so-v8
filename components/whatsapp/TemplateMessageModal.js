@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, faTimes, faPaperPlane, faExclamationTriangle, 
-    faImage, faVideo, faFileAlt, faClock, faCalendarAlt 
+    faImage, faVideo, faFileAlt, faClock, faCalendarAlt, faSave
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { createClient } from '@/utils/supabase/client';
@@ -30,7 +30,7 @@ const sanitizeFileName = (fileName) => {
     return fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
 };
 
-export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, contactName, showScheduling = false }) {
+export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, contactName, showScheduling = false, initialData = null }) {
     const { data: templatesData, isLoading, error } = useWhatsAppTemplates();
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [variables, setVariables] = useState([]);
@@ -39,31 +39,65 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
     // Mídia
     const [headerType, setHeaderType] = useState(null);
     const [headerFile, setHeaderFile] = useState(null);
+    const [existingHeaderUrl, setExistingHeaderUrl] = useState(null); // Para edição
     const fileInputRef = useRef(null);
 
     // Agendamento
     const [isScheduled, setIsScheduled] = useState(false);
     const [scheduledDate, setScheduledDate] = useState('');
-    const [minDate, setMinDate] = useState(''); // Estado para a data mínima correta
+    const [minDate, setMinDate] = useState('');
     
     const supabase = createClient();
 
+    // Reset ou Preencher Dados ao Abrir
     useEffect(() => {
         if (isOpen) {
-            setSelectedTemplate(null);
-            setVariables([]);
-            setHeaderType(null);
-            setHeaderFile(null);
-            setIsScheduled(false);
-            setScheduledDate('');
-            
-            // CORREÇÃO FUSO HORÁRIO (MIN DATE): 
-            // Calcula o deslocamento do fuso para o 'min' funcionar no horário local do usuário
-            const tzOffset = new Date().getTimezoneOffset() * 60000; // offset em milissegundos
+            // Configura Data Mínima (Agora)
+            const tzOffset = new Date().getTimezoneOffset() * 60000;
             const localISOTime = new Date(Date.now() - tzOffset).toISOString().slice(0, 16);
             setMinDate(localISOTime);
+
+            if (initialData && templatesData) {
+                // MODO EDIÇÃO: Preencher campos
+                const templates = Array.isArray(templatesData) ? templatesData : (templatesData?.data || []);
+                const foundTemplate = templates.find(t => t.name === initialData.template_name);
+                
+                if (foundTemplate) {
+                    setSelectedTemplate(foundTemplate);
+                    setVariables(initialData.variables || []);
+                    
+                    // Configurar Agendamento
+                    if (initialData.scheduled_at) {
+                        setIsScheduled(true);
+                        // Ajuste fuso para exibir no input local
+                        const dateObj = new Date(initialData.scheduled_at);
+                        const localDate = new Date(dateObj.getTime() - tzOffset).toISOString().slice(0, 16);
+                        setScheduledDate(localDate);
+                    }
+
+                    // Configurar Mídia Existente
+                    const headerComp = foundTemplate.components.find(c => c.type === 'HEADER');
+                    if (headerComp && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerComp.format)) {
+                        setHeaderType(headerComp.format);
+                        // Tenta recuperar URL do initialData.components
+                        const savedHeader = initialData.components?.find(c => c.type === 'header');
+                        if (savedHeader?.parameters?.[0]?.[headerComp.format.toLowerCase()]?.link) {
+                            setExistingHeaderUrl(savedHeader.parameters[0][headerComp.format.toLowerCase()].link);
+                        }
+                    }
+                }
+            } else {
+                // MODO CRIAÇÃO: Limpar tudo
+                setSelectedTemplate(null);
+                setVariables([]);
+                setHeaderType(null);
+                setHeaderFile(null);
+                setExistingHeaderUrl(null);
+                setIsScheduled(false);
+                setScheduledDate('');
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, initialData, templatesData]);
 
     const handleTemplateChange = (templateName) => {
         const templates = Array.isArray(templatesData) ? templatesData : (templatesData?.data || []);
@@ -71,11 +105,14 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
         
         if (template) {
             setSelectedTemplate(template);
+            setExistingHeaderUrl(null); // Reseta se mudar template
             
             const bodyComponent = template.components.find(c => c.type === 'BODY');
             const variableCount = (bodyComponent?.text?.match(/\{\{\d\}\}/g) || []).length;
             const initialVars = Array(variableCount).fill('');
-            if (contactName && variableCount > 0) initialVars[0] = contactName;
+            if (contactName && variableCount > 0 && !initialData) {
+                initialVars[0] = contactName;
+            }
             setVariables(initialVars);
 
             const headerComponent = template.components.find(c => c.type === 'HEADER');
@@ -104,19 +141,26 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
         if (file) {
             if (file.size > 15 * 1024 * 1024) return toast.error("Arquivo muito grande (Max 15MB)");
             setHeaderFile(file);
+            setExistingHeaderUrl(null); // Substitui a url antiga pelo novo arquivo
         }
     };
 
     const handleSend = async () => {
         if (!selectedTemplate) return;
         if (variables.some(v => v.trim() === '')) return toast.warning('Preencha as variáveis.');
-        if (headerType && !headerFile) return toast.warning(`Adicione um arquivo de ${headerType}.`);
-        if (isScheduled && !scheduledDate) return toast.warning("Selecione a data e hora do agendamento.");
+        
+        // Validação de Mídia: Precisa de arquivo NOVO ou URL ANTIGA
+        if (headerType && !headerFile && !existingHeaderUrl) {
+            return toast.warning(`Adicione um arquivo de ${headerType}.`);
+        }
+
+        if (isScheduled && !scheduledDate) return toast.warning("Selecione a data e hora.");
 
         setIsSending(true);
         try {
-            let headerUrl = null;
+            let headerUrl = existingHeaderUrl; // Começa com a antiga (se houver)
 
+            // Se tem arquivo NOVO, faz upload
             if (headerType && headerFile) {
                 const cleanName = sanitizeFileName(headerFile.name);
                 const uniqueName = `template_${Date.now()}_${cleanName}`;
@@ -150,12 +194,10 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                 });
             }
 
-            // CORREÇÃO FUSO HORÁRIO (ENVIO):
-            // Transforma a data local escolhida pelo usuário em ISO (UTC) antes de enviar
+            // Converter data para UTC se for agendamento
             let finalDate = null;
             if (isScheduled && scheduledDate) {
-                const dateObj = new Date(scheduledDate); 
-                finalDate = dateObj.toISOString(); // Converte para o padrão universal (UTC)
+                finalDate = new Date(scheduledDate).toISOString();
             }
 
             await onSendTemplate(
@@ -164,10 +206,10 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                 variables, 
                 fullText, 
                 components, 
-                finalDate 
+                finalDate,
+                initialData?.id // Passa o ID se for edição
             );
             
-            // O toast será exibido pelo pai (BroadcastPanel) que recebe a resposta do servidor
             onClose();
         } catch (err) {
             toast.error("Erro: " + err.message);
@@ -185,7 +227,7 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center mb-4 border-b pb-3">
                     <h2 className="text-xl font-bold text-gray-800">
-                        {isScheduled ? 'Agendar Mensagem' : 'Enviar Template'}
+                        {initialData ? 'Editar Agendamento' : (isScheduled ? 'Agendar Mensagem' : 'Enviar Template')}
                     </h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><FontAwesomeIcon icon={faTimes} /></button>
                 </div>
@@ -197,7 +239,7 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                             
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
-                                <select className="w-full p-2 border rounded-md" onChange={(e) => handleTemplateChange(e.target.value)} defaultValue="">
+                                <select className="w-full p-2 border rounded-md" onChange={(e) => handleTemplateChange(e.target.value)} value={selectedTemplate?.name || ''}>
                                     <option value="" disabled>Selecione...</option>
                                     {approvedTemplates.map(t => (
                                         <option key={t.id} value={t.name}>{t.name.replace(/_/g, ' ')}</option>
@@ -210,6 +252,13 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                                     {headerType && (
                                         <div className="bg-blue-50 p-3 rounded border border-blue-100">
                                             <label className="block text-sm font-bold text-blue-800 mb-2">Anexar {headerType}</label>
+                                            
+                                            {existingHeaderUrl && (
+                                                <div className="mb-2 text-xs text-green-700 flex items-center gap-2">
+                                                    <FontAwesomeIcon icon={faCheck} /> Arquivo já anexado. (Envie outro para trocar)
+                                                </div>
+                                            )}
+                                            
                                             <input type="file" onChange={handleFileChange} accept={headerType === 'IMAGE' ? "image/*" : headerType === 'VIDEO' ? "video/*" : ".pdf"} className="block w-full text-sm text-gray-500" />
                                         </div>
                                     )}
@@ -218,37 +267,17 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                                         <input key={i} type="text" value={v} onChange={(e) => {const n=[...variables];n[i]=e.target.value;setVariables(n)}} className="w-full p-2 border rounded" placeholder={`Variável {{${i+1}}}`} />
                                     ))}
 
-                                    {/* AGENDAMENTO */}
                                     {showScheduling && (
                                         <div className="border-t pt-4 mt-4">
                                             <div className="flex items-center gap-2 mb-3">
-                                                <input 
-                                                    type="checkbox" 
-                                                    id="schedule-check" 
-                                                    checked={isScheduled} 
-                                                    onChange={(e) => setIsScheduled(e.target.checked)}
-                                                    className="w-4 h-4 text-[#00a884] rounded cursor-pointer"
-                                                />
-                                                <label htmlFor="schedule-check" className="text-sm font-medium text-gray-700 cursor-pointer select-none flex items-center gap-2">
-                                                    <FontAwesomeIcon icon={faClock} className="text-gray-500" /> 
-                                                    Agendar envio para depois
-                                                </label>
+                                                <input type="checkbox" id="schedule-check" checked={isScheduled} onChange={(e) => setIsScheduled(e.target.checked)} className="w-4 h-4 text-[#00a884] rounded cursor-pointer" />
+                                                <label htmlFor="schedule-check" className="text-sm font-medium text-gray-700 cursor-pointer flex items-center gap-2"><FontAwesomeIcon icon={faClock} className="text-gray-500" /> Agendar envio</label>
                                             </div>
 
                                             {isScheduled && (
-                                                <div className="bg-yellow-50 p-3 rounded border border-yellow-200 animate-in slide-in-from-top-2">
-                                                    <label className="block text-xs font-bold text-yellow-800 mb-1">Data e Hora do Disparo</label>
-                                                    <input 
-                                                        type="datetime-local" 
-                                                        className="w-full p-2 border rounded bg-white text-sm focus:ring-yellow-500 focus:border-yellow-500"
-                                                        value={scheduledDate}
-                                                        onChange={(e) => setScheduledDate(e.target.value)}
-                                                        min={minDate} // Usa o mínimo corrigido
-                                                    />
-                                                    <p className="text-[10px] text-yellow-700 mt-1">
-                                                        <FontAwesomeIcon icon={faCalendarAlt} className="mr-1" />
-                                                        O sistema enviará automaticamente neste horário.
-                                                    </p>
+                                                <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
+                                                    <label className="block text-xs font-bold text-yellow-800 mb-1">Data e Hora</label>
+                                                    <input type="datetime-local" className="w-full p-2 border rounded bg-white text-sm" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} min={minDate} />
                                                 </div>
                                             )}
                                         </div>
@@ -262,13 +291,8 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                 <div className="mt-4 flex justify-end gap-2 pt-3 border-t">
                     <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded text-sm">Cancelar</button>
                     <button onClick={handleSend} disabled={isSending || !selectedTemplate} className="px-4 py-2 bg-[#00a884] text-white rounded text-sm flex items-center gap-2">
-                        {isSending ? (
-                            <FontAwesomeIcon icon={faSpinner} spin />
-                        ) : isScheduled ? (
-                            <><FontAwesomeIcon icon={faCalendarAlt} /> Agendar</>
-                        ) : (
-                            <><FontAwesomeIcon icon={faPaperPlane} /> Enviar</>
-                        )}
+                        {isSending ? <FontAwesomeIcon icon={faSpinner} spin /> : (initialData ? <FontAwesomeIcon icon={faSave} /> : isScheduled ? <FontAwesomeIcon icon={faCalendarAlt} /> : <FontAwesomeIcon icon={faPaperPlane} />)}
+                        {initialData ? 'Salvar Alterações' : (isScheduled ? 'Agendar' : 'Enviar')}
                     </button>
                 </div>
             </div>
