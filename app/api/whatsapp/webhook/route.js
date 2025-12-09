@@ -146,10 +146,24 @@ async function dispatchNotification(supabaseAdmin, organizacaoId, title, message
     }
 }
 
+// --- 4. EXTRAÇÃO DE TEXTO (CORRIGIDA PARA BOTÕES) ---
 function getTextContent(message) {
     if (!message || !message.type) return null;
     if (message.type === 'text') return message.text?.body;
-    if (message.type === 'interactive') return message.interactive?.button_reply?.title || message.interactive?.list_reply?.title;
+    
+    // TRATAMENTO ESPECÍFICO PARA BOTÕES (INTERACTIVE)
+    if (message.type === 'interactive') {
+        const interactive = message.interactive;
+        if (interactive.type === 'button_reply') {
+            return interactive.button_reply.title; // Retorna o texto do botão (ex: "Sim")
+        }
+        if (interactive.type === 'list_reply') {
+            return interactive.list_reply.title;
+        }
+        return 'Interação recebida';
+    }
+
+    if (message.type === 'button') return message.button?.text; // Legado
     if (message.type === 'document') return message.document?.caption || message.document?.filename || 'Documento Recebido';
     if (message.type === 'image') return message.image?.caption || 'Imagem Recebida';
     if (message.type === 'audio') return 'Áudio Recebido';
@@ -184,6 +198,7 @@ export async function POST(request) {
 
         const message = change?.messages?.[0];
         if (message) {
+            console.log('[Webhook] Mensagem recebida:', JSON.stringify(message)); // LOG DE DEBUG
             const from = message.from; 
 
             // 1. DEDUP
@@ -210,7 +225,7 @@ export async function POST(request) {
                 await supabaseAdmin.from('telefones').insert({
                     contato_id: contatoId, telefone: from, tipo: 'celular', organizacao_id: config.organizacao_id
                 });
-                // Funil padrão
+                
                 const { data: funil } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', config.organizacao_id).limit(1).single();
                 if (funil) {
                     const { data: col } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem').limit(1).single();
@@ -220,7 +235,7 @@ export async function POST(request) {
                 const { data: existing } = await supabaseAdmin.from('contatos').select('nome, is_awaiting_name_response').eq('id', contatoId).single();
                 if (existing) {
                     contatoNome = existing.nome;
-                    let textBody = message.type === 'text' ? message.text?.body : null;
+                    let textBody = getTextContent(message); // Usa a função corrigida
                     if (textBody && existing.is_awaiting_name_response && textBody.length > 2) {
                         await supabaseAdmin.from('contatos').update({ nome: textBody, is_awaiting_name_response: false }).eq('id', contatoId);
                         contatoNome = textBody;
@@ -228,13 +243,13 @@ export async function POST(request) {
                 }
             }
             
-            // 3. CONVERSA (Garante que existe e atualiza org)
+            // 3. CONVERSA
             const { data: conversationData } = await supabaseAdmin.from('whatsapp_conversations')
                 .upsert({ 
                     phone_number: from, 
                     updated_at: new Date().toISOString(),
                     contato_id: contatoId,
-                    organizacao_id: config.organizacao_id // Importante!
+                    organizacao_id: config.organizacao_id
                 }, { onConflict: 'phone_number' })
                 .select()
                 .single();
@@ -242,8 +257,8 @@ export async function POST(request) {
             const conversationRecordId = conversationData?.id;
 
             // 4. MENSAGEM E MÍDIA
-            const isMedia = ['image', 'document', 'audio', 'video', 'voice'].includes(message.type);
-            let content = getTextContent(message);
+            const isMedia = ['image', 'document', 'audio', 'video', 'voice', 'sticker'].includes(message.type);
+            let content = getTextContent(message); // Extrai texto, inclusive de botões
             let mediaData = null;
             let finalMessageId = null;
 
@@ -262,12 +277,11 @@ export async function POST(request) {
                     raw_payload: message,
                     media_url: null, 
                     organizacao_id: config.organizacao_id,
-                    conversation_record_id: conversationRecordId // Vinculo
+                    conversation_record_id: conversationRecordId
                 }).select().single();
                 
                 finalMessageId = insertedMediaMsg?.id;
 
-                // Download Async
                 mediaData = await processIncomingMedia(supabaseAdmin, message, config, contatoId);
 
                 if (mediaData && finalMessageId) {
@@ -288,24 +302,25 @@ export async function POST(request) {
                     });
                 }
             } else {
+                // Caso seja texto ou BOTÃO
                 const { data: insertedMsg } = await supabaseAdmin.from('whatsapp_messages').insert({
                     contato_id: contatoId,
                     message_id: message.id, 
                     sender_id: from,
                     receiver_id: config.whatsapp_phone_number_id, 
-                    content: content,
+                    content: content || '[Interação desconhecida]', // Garante que não vá vazio
                     sent_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
                     direction: 'inbound', 
                     status: 'delivered', 
                     raw_payload: message,
                     media_url: null,
                     organizacao_id: config.organizacao_id,
-                    conversation_record_id: conversationRecordId // Vinculo
+                    conversation_record_id: conversationRecordId
                 }).select().single();
                 finalMessageId = insertedMsg?.id;
             }
 
-            // 5. ATUALIZAR CONVERSA COM ÚLTIMA MENSAGEM (O PULO DO GATO 🐈)
+            // 5. ATUALIZAR CONVERSA
             if (conversationRecordId && finalMessageId) {
                 await supabaseAdmin.from('whatsapp_conversations')
                     .update({ last_message_id: finalMessageId })
