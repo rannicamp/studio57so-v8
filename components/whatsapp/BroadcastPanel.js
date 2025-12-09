@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faBullhorn, faUsers, faPaperPlane, faSpinner, faArrowLeft, 
     faClock, faCheckCircle, faTimesCircle, faCalendarAlt, 
-    faEdit, faTrash
+    faEdit, faTrash, faPlay // Novo ícone
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -25,12 +25,14 @@ export default function BroadcastPanel({ list, onBack }) {
     const [sending, setSending] = useState(false);
     const [stats, setStats] = useState(null);
 
+    // Estado para processamento manual da fila
+    const [isProcessingQueue, setIsProcessingQueue] = useState(false);
+
     const supabase = createClient();
 
-    // --- 1. FUNÇÃO DE BUSCA (Definida ANTES de ser usada) ---
+    // --- 1. FUNÇÃO DE BUSCA ---
     const fetchData = useCallback(async () => {
         if (!list?.id) return;
-        
         setLoading(true);
         
         // Busca Membros
@@ -57,16 +59,14 @@ export default function BroadcastPanel({ list, onBack }) {
             .order('scheduled_at', { ascending: false });
             
         if (broadcastsData) setBroadcasts(broadcastsData);
-        
         setLoading(false);
     }, [list, supabase]);
 
-    // --- 2. EFEITOS (Agora podem chamar fetchData sem erro) ---
+    // --- 2. EFEITOS ---
     useEffect(() => {
         fetchData();
     }, [fetchData]);
 
-    // Realtime Updates
     useEffect(() => {
         if (!list?.id) return;
         const channel = supabase.channel(`broadcasts-${list.id}`)
@@ -78,17 +78,13 @@ export default function BroadcastPanel({ list, onBack }) {
     }, [list, supabase, fetchData]);
 
     // --- 3. AÇÕES ---
-    
     const handleSendBroadcast = async (templateName, language, variables, fullText, components, scheduledAt, editingId) => {
         setSending(true);
         setStats(null);
-        
         try {
             const url = editingId ? '/api/whatsapp/scheduled-broadcasts' : '/api/whatsapp/broadcast/send';
             const method = editingId ? 'PUT' : 'POST';
             
-            // Se for edição (PUT), a API espera 'id' no corpo
-            // Se for novo (POST), a API espera 'list_id' e ignora 'id'
             const payload = {
                 id: editingId, 
                 list_id: list.id,
@@ -110,18 +106,16 @@ export default function BroadcastPanel({ list, onBack }) {
             if (!response.ok) throw new Error(result.error || "Erro");
 
             if (editingId) {
-                toast.success("Agendamento atualizado com sucesso!");
+                toast.success("Agendamento atualizado!");
             } else if (result.scheduled) {
                 toast.success(`Agendado para ${new Date(result.date).toLocaleString()}!`);
             } else {
                 setStats(result.stats);
                 toast.success("Disparo concluído!");
             }
-            
             setIsTemplateModalOpen(false);
             setEditingBroadcast(null);
             fetchData();
-
         } catch (error) {
             toast.error("Erro: " + error.message);
         } finally {
@@ -130,8 +124,7 @@ export default function BroadcastPanel({ list, onBack }) {
     };
 
     const handleDeleteBroadcast = async (id) => {
-        if (!confirm("Tem certeza que deseja cancelar este agendamento?")) return;
-        
+        if (!confirm("Deseja cancelar este agendamento?")) return;
         try {
             const response = await fetch(`/api/whatsapp/scheduled-broadcasts?id=${id}`, { method: 'DELETE' });
             if (!response.ok) throw new Error("Erro ao excluir");
@@ -139,6 +132,29 @@ export default function BroadcastPanel({ list, onBack }) {
             fetchData();
         } catch (error) {
             toast.error("Erro: " + error.message);
+        }
+    };
+
+    // --- NOVO: PROCESSAR FILA MANUALMENTE ---
+    const handleProcessQueue = async () => {
+        setIsProcessingQueue(true);
+        toast.info("Processando fila de envios...");
+        try {
+            // Chama a rota do CRON manualmente
+            const response = await fetch('/api/cron/process-broadcasts');
+            const result = await response.json();
+            
+            if (result.processed && result.processed.length > 0) {
+                toast.success(`${result.processed.length} listas processadas com sucesso!`);
+                fetchData(); // Atualiza a tela
+            } else {
+                toast.info("Nenhuma mensagem pendente para agora.");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Erro ao processar fila.");
+        } finally {
+            setIsProcessingQueue(false);
         }
     };
 
@@ -162,9 +178,13 @@ export default function BroadcastPanel({ list, onBack }) {
             icon: faClock, 
             color: isFuture ? 'text-yellow-600' : 'text-orange-500', 
             label: isFuture ? 'Agendado' : 'Na Fila', 
-            bg: 'bg-yellow-50 border-yellow-100' 
+            bg: 'bg-yellow-50 border-yellow-100',
+            isQueue: !isFuture // Flag para saber se está na fila
         };
     };
+
+    // Verifica se tem algo parado na fila para mostrar o botão de alerta
+    const hasPendingQueue = broadcasts.some(b => b.status === 'pending' && new Date(b.scheduled_at) <= new Date());
 
     if (!list) return null;
 
@@ -205,7 +225,21 @@ export default function BroadcastPanel({ list, onBack }) {
                 </div>
 
                 <div>
-                    <h4 className="text-sm font-bold text-gray-500 uppercase mb-3 flex items-center gap-2"><FontAwesomeIcon icon={faCalendarAlt} /> Programadas / Histórico</h4>
+                    <div className="flex justify-between items-center mb-3">
+                        <h4 className="text-sm font-bold text-gray-500 uppercase flex items-center gap-2"><FontAwesomeIcon icon={faCalendarAlt} /> Programadas / Histórico</h4>
+                        
+                        {/* BOTÃO DE PROCESSAR FILA (Só aparece se tiver algo atrasado) */}
+                        {hasPendingQueue && (
+                            <button 
+                                onClick={handleProcessQueue} 
+                                disabled={isProcessingQueue}
+                                className="text-xs bg-orange-100 text-orange-700 px-3 py-1 rounded-full hover:bg-orange-200 font-bold flex items-center gap-2 transition-colors animate-pulse"
+                            >
+                                {isProcessingQueue ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPlay} />}
+                                Processar Fila Agora
+                            </button>
+                        )}
+                    </div>
                     
                     {broadcasts.length === 0 ? <p className="text-sm text-gray-400 italic ml-1">Nenhum histórico recente.</p> : (
                         <div className="space-y-2">
@@ -223,7 +257,6 @@ export default function BroadcastPanel({ list, onBack }) {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <div className={`text-xs font-bold px-2 py-1 rounded bg-white ${statusInfo.color} shadow-sm`}>{statusInfo.label}</div>
-                                            
                                             {isPending && (
                                                 <>
                                                     <button onClick={() => handleEditBroadcast(broadcast)} className="w-7 h-7 rounded-full bg-white text-blue-500 hover:bg-blue-100 flex items-center justify-center shadow-sm" title="Editar"><FontAwesomeIcon icon={faEdit} /></button>
