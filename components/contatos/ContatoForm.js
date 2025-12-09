@@ -167,10 +167,13 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     const saveMutation = useMutation({
         mutationFn: saveContactAction,
         onSuccess: (result) => {
+            // Verifica se a Server Action retornou um objeto de erro
             if (result.error) {
+                console.error("Erro retornado pelo servidor:", result.error);
                 toast.error(`Erro ao salvar: ${result.error}`);
                 return;
             }
+            
             toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
             
             queryClient.invalidateQueries({ queryKey: ['contatos'] });
@@ -183,9 +186,9 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             else router.push('/contatos');
         },
         onError: (error) => {
-            console.error("Erro na mutation:", error);
-            // Mensagem de erro mais amigável
-            toast.error("Erro de comunicação com o servidor. Verifique os dados e tente novamente.");
+            console.error("Erro crítico na comunicação:", error);
+            // Mensagem de erro mais detalhada caso a Promise da mutation quebre
+            toast.error("Falha na comunicação. O servidor pode estar indisponível ou ocorreu um erro interno.");
         }
     });
 
@@ -219,7 +222,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             }
         });
 
-        console.log("Enviando payload limpo:", payload); // Para debug no console do navegador
+        // console.log("Enviando payload limpo:", payload); 
 
         saveMutation.mutate({ formData: payload, isEditing });
     };
