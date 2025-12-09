@@ -34,11 +34,12 @@ export async function middleware(req) {
     '/api/whatsapp/webhook',
   ]
 
-  // Caminhos que podem ter sub-rotas
+  // Caminhos que podem ter sub-rotas (Prefixos)
   const publicPrefixPaths = [
     '/cadastrocliente', 
     '/simulador-financiamento', 
-    '/api/auth', 
+    '/api/auth',
+    '/api/cron', // <--- ADICIONADO: Libera o Robô de Agendamento! 🤖✅
   ]
 
   // Verifica se é rota pública
@@ -52,7 +53,7 @@ export async function middleware(req) {
 
   // 1. BLOQUEIO: Se não tem sessão e não é pública -> Login
   if (!session && !isPublicPath) {
-    console.log(`Middleware: Acesso negado a ${url.pathname}. Redirecionando para /login.`)
+    // console.log(`Middleware: Acesso negado a ${url.pathname}. Redirecionando para /login.`)
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
@@ -67,15 +68,10 @@ export async function middleware(req) {
     const funcao_id = profile?.funcao_id
 
     // 3. REDIRECIONAMENTO INTELIGENTE (HOME E LOGIN)
-    // Se o usuário já está logado e tenta acessar Login ou a Home, joga pro painel
     if (url.pathname === '/login' || url.pathname === '/') {
-      
-      // Se for Corretor (20), vai para o portal-painel
       if (funcao_id === 20) {
         return NextResponse.redirect(new URL('/portal-painel', req.url))
       }
-      
-      // Outros usuários vão para o /painel
       return NextResponse.redirect(new URL('/painel', req.url))
     }
 
@@ -83,7 +79,6 @@ export async function middleware(req) {
     const isCorretorPath = url.pathname.startsWith('/portal-') || url.pathname.startsWith('/clientes') || url.pathname.startsWith('/tabela-de-vendas')
     
     if (isCorretorPath && funcao_id !== 20) {
-      console.warn(`Middleware: Acesso negado a ${url.pathname} para usuário (Função ID: ${funcao_id}). Redirecionando para /painel.`)
       return NextResponse.redirect(new URL('/painel', req.url))
     }
 
@@ -91,7 +86,6 @@ export async function middleware(req) {
     const isMainPanelPath = !isCorretorPath && !isPublicPath && url.pathname !== '/login'
     
     if (isMainPanelPath && funcao_id === 20) {
-      console.warn(`Middleware: Corretor (ID 20) tentou acessar ${url.pathname}. Redirecionando para /portal-painel.`)
       return NextResponse.redirect(new URL('/portal-painel', req.url))
     }
   }
@@ -101,6 +95,7 @@ export async function middleware(req) {
 
 export const config = {
   matcher: [
+    // O matcher ignora arquivos estáticos para performance
     '/((?!_next/static|_next/image|favicon.ico|images/|icons/|sounds/|sw.js|manifest.json|workbox-).*)',
   ],
 }
