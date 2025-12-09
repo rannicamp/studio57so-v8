@@ -4,20 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-    faSpinner, 
-    faTimes, 
-    faPaperPlane, 
-    faExclamationTriangle, 
-    faImage, 
-    faVideo, 
-    faFileAlt, 
-    faClock, 
-    faCalendarAlt 
+    faSpinner, faTimes, faPaperPlane, faExclamationTriangle, 
+    faImage, faVideo, faFileAlt, faClock, faCalendarAlt 
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { createClient } from '@/utils/supabase/client';
 
-// Hook para buscar templates com cache
 const useWhatsAppTemplates = () => {
     return useQuery({
         queryKey: ['whatsappTemplates'],
@@ -29,12 +21,11 @@ const useWhatsAppTemplates = () => {
             }
             return response.json();
         },
-        staleTime: 1000 * 60 * 5, // 5 minutos
+        staleTime: 1000 * 60 * 5, 
         refetchOnWindowFocus: false,
     });
 };
 
-// Helper para limpar nome de arquivo
 const sanitizeFileName = (fileName) => {
     return fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
 };
@@ -45,18 +36,18 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
     const [variables, setVariables] = useState([]);
     const [isSending, setIsSending] = useState(false);
     
-    // Estados para Mídia no Header
-    const [headerType, setHeaderType] = useState(null); // 'IMAGE', 'VIDEO', 'DOCUMENT'
+    // Mídia
+    const [headerType, setHeaderType] = useState(null);
     const [headerFile, setHeaderFile] = useState(null);
     const fileInputRef = useRef(null);
 
-    // Estados para Agendamento
+    // Agendamento
     const [isScheduled, setIsScheduled] = useState(false);
     const [scheduledDate, setScheduledDate] = useState('');
+    const [minDate, setMinDate] = useState(''); // Estado para a data mínima correta
     
     const supabase = createClient();
 
-    // Resetar estados ao abrir
     useEffect(() => {
         if (isOpen) {
             setSelectedTemplate(null);
@@ -65,6 +56,12 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
             setHeaderFile(null);
             setIsScheduled(false);
             setScheduledDate('');
+            
+            // CORREÇÃO FUSO HORÁRIO (MIN DATE): 
+            // Calcula o deslocamento do fuso para o 'min' funcionar no horário local do usuário
+            const tzOffset = new Date().getTimezoneOffset() * 60000; // offset em milissegundos
+            const localISOTime = new Date(Date.now() - tzOffset).toISOString().slice(0, 16);
+            setMinDate(localISOTime);
         }
     }, [isOpen]);
 
@@ -75,18 +72,12 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
         if (template) {
             setSelectedTemplate(template);
             
-            // 1. Detectar Variáveis do Corpo
             const bodyComponent = template.components.find(c => c.type === 'BODY');
             const variableCount = (bodyComponent?.text?.match(/\{\{\d\}\}/g) || []).length;
-            
             const initialVars = Array(variableCount).fill('');
-            // Preenche a primeira variável com o nome do contato, se houver
-            if (contactName && variableCount > 0) {
-                initialVars[0] = contactName;
-            }
+            if (contactName && variableCount > 0) initialVars[0] = contactName;
             setVariables(initialVars);
 
-            // 2. Detectar Mídia no Header
             const headerComponent = template.components.find(c => c.type === 'HEADER');
             if (headerComponent && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerComponent.format)) {
                 setHeaderType(headerComponent.format);
@@ -94,7 +85,6 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                 setHeaderType(null);
             }
             setHeaderFile(null);
-
         } else {
             setSelectedTemplate(null);
             setVariables([]);
@@ -112,38 +102,21 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            // Validações básicas de tamanho
-            if (file.size > 15 * 1024 * 1024) {
-                toast.error("Arquivo muito grande (Max 15MB)");
-                return;
-            }
+            if (file.size > 15 * 1024 * 1024) return toast.error("Arquivo muito grande (Max 15MB)");
             setHeaderFile(file);
         }
     };
 
     const handleSend = async () => {
-        // Validações Iniciais
         if (!selectedTemplate) return;
-        if (variables.some(v => v.trim() === '')) {
-            toast.warning('Preencha todas as variáveis do modelo.');
-            return;
-        }
-        
-        if (headerType && !headerFile) {
-            toast.warning(`Este modelo exige o envio de um arquivo de ${headerType}.`);
-            return;
-        }
-
-        if (isScheduled && !scheduledDate) {
-            toast.warning("Selecione a data e hora do agendamento.");
-            return;
-        }
+        if (variables.some(v => v.trim() === '')) return toast.warning('Preencha as variáveis.');
+        if (headerType && !headerFile) return toast.warning(`Adicione um arquivo de ${headerType}.`);
+        if (isScheduled && !scheduledDate) return toast.warning("Selecione a data e hora do agendamento.");
 
         setIsSending(true);
         try {
             let headerUrl = null;
 
-            // 1. Upload da Mídia (se houver)
             if (headerType && headerFile) {
                 const cleanName = sanitizeFileName(headerFile.name);
                 const uniqueName = `template_${Date.now()}_${cleanName}`;
@@ -153,36 +126,23 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                     .from('whatsapp-media')
                     .upload(filePath, headerFile);
 
-                if (uploadError) throw new Error("Erro ao subir arquivo do template.");
-
-                const { data: urlData } = supabase.storage
-                    .from('whatsapp-media')
-                    .getPublicUrl(filePath);
-                
+                if (uploadError) throw new Error("Erro upload template.");
+                const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
                 headerUrl = urlData.publicUrl;
             }
 
-            // 2. Montar Texto Completo (para histórico)
             let fullText = selectedTemplate.components.find(c => c.type === 'BODY')?.text || '';
             variables.forEach((val, i) => {
                 fullText = fullText.replace(new RegExp(`\\{\\{${i + 1}\\}\\}`, 'g'), val);
             });
 
-            // 3. Montar Componentes do Payload para API do WhatsApp
             const components = [];
-
-            // Adiciona Header se existir
             if (headerUrl) {
                 components.push({
                     type: 'header',
-                    parameters: [{
-                        type: headerType.toLowerCase(), // image, video, document
-                        [headerType.toLowerCase()]: { link: headerUrl }
-                    }]
+                    parameters: [{ type: headerType.toLowerCase(), [headerType.toLowerCase()]: { link: headerUrl } }]
                 });
             }
-
-            // Adiciona Body com Variáveis
             if (variables.length > 0) {
                 components.push({
                     type: 'body',
@@ -190,135 +150,75 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                 });
             }
 
-            // 4. Enviar para o Pai (MessagePanel ou BroadcastPanel)
+            // CORREÇÃO FUSO HORÁRIO (ENVIO):
+            // Transforma a data local escolhida pelo usuário em ISO (UTC) antes de enviar
+            let finalDate = null;
+            if (isScheduled && scheduledDate) {
+                const dateObj = new Date(scheduledDate); 
+                finalDate = dateObj.toISOString(); // Converte para o padrão universal (UTC)
+            }
+
             await onSendTemplate(
                 selectedTemplate.name, 
                 selectedTemplate.language, 
                 variables, 
-                fullText,
-                components, // Componentes montados (mídia + texto)
-                isScheduled ? scheduledDate : null // Data de agendamento (opcional)
+                fullText, 
+                components, 
+                finalDate 
             );
             
-            // O toast de sucesso geralmente é feito pelo pai, mas podemos reforçar aqui se for agendamento
-            if (isScheduled) toast.success("Agendamento solicitado!");
-            
+            // O toast será exibido pelo pai (BroadcastPanel) que recebe a resposta do servidor
             onClose();
-
         } catch (err) {
-            console.error("Erro envio template:", err);
-            toast.error("Erro ao enviar: " + err.message);
+            toast.error("Erro: " + err.message);
         } finally {
             setIsSending(false);
         }
     };
 
     if (!isOpen) return null;
-
     const templates = Array.isArray(templatesData) ? templatesData : (templatesData?.data || []);
     const approvedTemplates = templates.filter(t => t.status === 'APPROVED');
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 animate-fade-in flex flex-col max-h-[90vh]">
-                
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center mb-4 border-b pb-3">
                     <h2 className="text-xl font-bold text-gray-800">
                         {isScheduled ? 'Agendar Mensagem' : 'Enviar Template'}
                     </h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800">
-                        <FontAwesomeIcon icon={faTimes} />
-                    </button>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><FontAwesomeIcon icon={faTimes} /></button>
                 </div>
                 
-                <div className="flex-grow overflow-y-auto custom-scrollbar pr-2">
-                    {isLoading && (
-                        <div className="text-center p-8">
-                            <FontAwesomeIcon icon={faSpinner} spin className="text-2xl text-blue-500" />
-                            <p className="mt-2">Carregando modelos...</p>
-                        </div>
-                    )}
-
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-md">
-                            <h3 className="font-bold flex items-center gap-2">
-                                <FontAwesomeIcon icon={faExclamationTriangle} /> Erro
-                            </h3>
-                            <p className="text-sm mt-1">{error.message}</p>
-                        </div>
-                    )}
-
-                    {!isLoading && !error && (
-                        <div className="space-y-5">
-                            {/* Seleção de Template */}
+                <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-5">
+                    {!templatesData && !error ? <div className="text-center p-8"><FontAwesomeIcon icon={faSpinner} spin className="text-2xl text-[#00a884]" /></div> : (
+                        <>
+                            {error && <div className="text-red-500 bg-red-50 p-3 rounded text-sm">{error.message}</div>}
+                            
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Modelo de Mensagem</label>
-                                <select
-                                    className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
-                                    onChange={(e) => handleTemplateChange(e.target.value)}
-                                    defaultValue=""
-                                >
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
+                                <select className="w-full p-2 border rounded-md" onChange={(e) => handleTemplateChange(e.target.value)} defaultValue="">
                                     <option value="" disabled>Selecione...</option>
-                                    {approvedTemplates.map(template => (
-                                        <option key={template.id} value={template.name}>
-                                            {template.name.replace(/_/g, ' ')}
-                                        </option>
+                                    {approvedTemplates.map(t => (
+                                        <option key={t.id} value={t.name}>{t.name.replace(/_/g, ' ')}</option>
                                     ))}
                                 </select>
                             </div>
 
                             {selectedTemplate && (
                                 <>
-                                    {/* Mídia do Header */}
                                     {headerType && (
-                                        <div className="bg-blue-50 p-4 rounded-md border border-blue-100">
-                                            <label className="block text-sm font-bold text-blue-800 mb-2 flex items-center gap-2">
-                                                {headerType === 'IMAGE' && <FontAwesomeIcon icon={faImage} />}
-                                                {headerType === 'VIDEO' && <FontAwesomeIcon icon={faVideo} />}
-                                                {headerType === 'DOCUMENT' && <FontAwesomeIcon icon={faFileAlt} />}
-                                                Enviar Arquivo ({headerType})
-                                            </label>
-                                            <input 
-                                                type="file" 
-                                                ref={fileInputRef}
-                                                accept={headerType === 'IMAGE' ? "image/*" : headerType === 'VIDEO' ? "video/*" : ".pdf,.doc,.docx"}
-                                                onChange={handleFileChange}
-                                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"
-                                            />
-                                            {headerFile && <p className="text-xs text-green-600 mt-2 font-medium">Arquivo selecionado: {headerFile.name}</p>}
+                                        <div className="bg-blue-50 p-3 rounded border border-blue-100">
+                                            <label className="block text-sm font-bold text-blue-800 mb-2">Anexar {headerType}</label>
+                                            <input type="file" onChange={handleFileChange} accept={headerType === 'IMAGE' ? "image/*" : headerType === 'VIDEO' ? "video/*" : ".pdf"} className="block w-full text-sm text-gray-500" />
                                         </div>
                                     )}
+                                    <div className="p-3 border rounded bg-gray-50 text-sm italic whitespace-pre-line">{selectedTemplate.components.find(c => c.type === 'BODY')?.text}</div>
+                                    {variables.map((v, i) => (
+                                        <input key={i} type="text" value={v} onChange={(e) => {const n=[...variables];n[i]=e.target.value;setVariables(n)}} className="w-full p-2 border rounded" placeholder={`Variável {{${i+1}}}`} />
+                                    ))}
 
-                                    {/* Preview do Texto */}
-                                    <div className="p-4 border rounded-md bg-gray-50">
-                                        <p className="text-xs font-bold text-gray-500 uppercase mb-1">Texto da Mensagem</p>
-                                        <p className="text-sm text-gray-800 italic whitespace-pre-line">
-                                            {selectedTemplate.components.find(c => c.type === 'BODY')?.text}
-                                        </p>
-                                    </div>
-
-                                    {/* Campos de Variáveis */}
-                                    {variables.length > 0 && (
-                                        <div className="space-y-3">
-                                            <p className="text-sm font-medium text-gray-700">Preencha os campos:</p>
-                                            {variables.map((value, index) => (
-                                                <div key={index}>
-                                                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                                                        {`Variável {{${index + 1}}}`}
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={value}
-                                                        onChange={(e) => handleVariableChange(index, e.target.value)}
-                                                        className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
-                                                        placeholder={`Conteúdo para {{${index + 1}}}`}
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* --- ÁREA DE AGENDAMENTO (NOVO) --- */}
+                                    {/* AGENDAMENTO */}
                                     {showScheduling && (
                                         <div className="border-t pt-4 mt-4">
                                             <div className="flex items-center gap-2 mb-3">
@@ -327,7 +227,7 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                                                     id="schedule-check" 
                                                     checked={isScheduled} 
                                                     onChange={(e) => setIsScheduled(e.target.checked)}
-                                                    className="w-4 h-4 text-[#00a884] rounded focus:ring-[#00a884] cursor-pointer"
+                                                    className="w-4 h-4 text-[#00a884] rounded cursor-pointer"
                                                 />
                                                 <label htmlFor="schedule-check" className="text-sm font-medium text-gray-700 cursor-pointer select-none flex items-center gap-2">
                                                     <FontAwesomeIcon icon={faClock} className="text-gray-500" /> 
@@ -343,7 +243,7 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                                                         className="w-full p-2 border rounded bg-white text-sm focus:ring-yellow-500 focus:border-yellow-500"
                                                         value={scheduledDate}
                                                         onChange={(e) => setScheduledDate(e.target.value)}
-                                                        min={new Date().toISOString().slice(0, 16)}
+                                                        min={minDate} // Usa o mínimo corrigido
                                                     />
                                                     <p className="text-[10px] text-yellow-700 mt-1">
                                                         <FontAwesomeIcon icon={faCalendarAlt} className="mr-1" />
@@ -355,19 +255,13 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                                     )}
                                 </>
                             )}
-                        </div>
+                        </>
                     )}
                 </div>
 
-                <div className="mt-6 flex justify-end gap-3 pt-3 border-t">
-                    <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
-                        Cancelar
-                    </button>
-                    <button
-                        onClick={handleSend}
-                        disabled={!selectedTemplate || isLoading || isSending || (headerType && !headerFile)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2"
-                    >
+                <div className="mt-4 flex justify-end gap-2 pt-3 border-t">
+                    <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded text-sm">Cancelar</button>
+                    <button onClick={handleSend} disabled={isSending || !selectedTemplate} className="px-4 py-2 bg-[#00a884] text-white rounded text-sm flex items-center gap-2">
                         {isSending ? (
                             <FontAwesomeIcon icon={faSpinner} spin />
                         ) : isScheduled ? (
