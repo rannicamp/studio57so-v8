@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 // IMPORTA A NOVA AÇÃO DO SERVIDOR
 import { saveContactAction, buscarDadosCnpj as buscarCnpjAction } from './actions';
 
-// -- COMPONENTES AUXILIARES (Mantidos iguais) --
+// -- COMPONENTES AUXILIARES --
 const SearchableField = ({ label, selectedName, onClear, children }) => (
     <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -86,7 +86,6 @@ const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }
 
 
 // FORMULÁRIO PRINCIPAL
-// **ATENÇÃO:** Agora recebemos `organizacaoId` explicitamente
 export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, organizacaoId }) {
     const supabase = createClient();
     const router = useRouter();
@@ -94,7 +93,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     const isEditing = Boolean(contactToEdit);
     const { user } = useAuth();
     
-    // Fallback de segurança: se não vier por prop, tenta pegar do Auth
+    // Fallback de segurança
     const currentOrgId = organizacaoId || user?.organizacao_id;
 
     const getInitialState = () => ({
@@ -110,7 +109,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         inscricao_estadual: '',
         inscricao_municipal: '',
         responsavel_legal: '',
-        // Importante: Garantir que o organizacao_id esteja no state se possível
         organizacao_id: currentOrgId 
     });
 
@@ -123,12 +121,9 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     useEffect(() => {
         const initializeData = async () => {
             if (isEditing && contactToEdit) {
-                // OTIMIZAÇÃO: Usamos os dados que já vieram da `page.js`.
-                // Não fazemos fetch de telefones/emails novamente se eles já existirem no objeto.
                 const phonesData = contactToEdit.telefones || [{ telefone: '', country_code: '+55' }];
                 const emailsData = contactToEdit.emails || [{ email: '' }];
                 
-                // Busca nome do cônjuge se necessário (isso precisa ser buscado pois é relacionamento)
                 if (contactToEdit.conjuge_id && !selectedConjugeName) {
                     const { data: conjugeData } = await supabase
                         .from('contatos')
@@ -140,8 +135,8 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
 
                 setFormData({
                     ...getInitialState(),
-                    ...contactToEdit, // Preenche com os dados do contato
-                    organizacao_id: currentOrgId, // Garante que o ID da organização está atualizado
+                    ...contactToEdit, 
+                    organizacao_id: currentOrgId, 
                     telefones: phonesData.length > 0 ? phonesData : [{ telefone: '', country_code: '+55' }],
                     emails: emailsData.length > 0 ? emailsData : [{ email: '' }],
                 });
@@ -151,9 +146,9 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             }
         };
         initializeData();
-    }, [isEditing, contactToEdit, supabase, currentOrgId]); // Dependência de currentOrgId adicionada
+    }, [isEditing, contactToEdit, supabase, currentOrgId]); 
 
-    // Lista de empresas para vincular
+    // Lista de empresas
     const { data: companies } = useQuery({
         queryKey: ['companiesList', currentOrgId],
         queryFn: async () => {
@@ -161,7 +156,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             const { data, error } = await supabase
                 .from('cadastro_empresa')
                 .select('id, razao_social')
-                .eq('organizacao_id', currentOrgId) // Filtro de segurança adicionado
+                .eq('organizacao_id', currentOrgId) 
                 .order('razao_social');
             if (error) throw new Error(error.message);
             return data || [];
@@ -178,7 +173,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             }
             toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
             
-            // Invalida o cache para recarregar a lista
             queryClient.invalidateQueries({ queryKey: ['contatos'] });
             
             if (isEditing) {
@@ -190,7 +184,8 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         },
         onError: (error) => {
             console.error("Erro na mutation:", error);
-            toast.error(`Erro inesperado: ${error.message}`);
+            // Mensagem de erro mais amigável
+            toast.error("Erro de comunicação com o servidor. Verifique os dados e tente novamente.");
         }
     });
 
@@ -198,17 +193,34 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         e.preventDefault();
         
         if (!currentOrgId) {
-            toast.error("Erro de identificação da organização. Tente recarregar a página.");
+            toast.error("Erro: Organização não identificada. Recarregue a página.");
             return;
         }
 
-        // PREPARAÇÃO CRÍTICA DOS DADOS ANTES DE ENVIAR
-        const payload = {
-            ...formData,
-            organizacao_id: currentOrgId // Força o ID da organização no payload
-        };
+        // === LIMPEZA DE DADOS (CRÍTICO PARA O NETLIFY) ===
+        // Criamos uma cópia para não alterar o formulário visualmente
+        const payload = { ...formData };
+        
+        // Garante o ID da organização
+        payload.organizacao_id = currentOrgId;
 
-        // Envia para a Server Action com o ID da organização garantido
+        // Datas: Supabase odeia string vazia "". Se estiver vazio, manda null.
+        if (!payload.birth_date) payload.birth_date = null;
+        if (!payload.data_fundacao) payload.data_fundacao = null;
+        
+        // IDs: Se for "", manda null
+        if (!payload.empresa_id) payload.empresa_id = null;
+        if (!payload.conjuge_id) payload.conjuge_id = null;
+
+        // Remove undefined (Next.js não serializa undefined)
+        Object.keys(payload).forEach(key => {
+            if (payload[key] === undefined) {
+                payload[key] = null;
+            }
+        });
+
+        console.log("Enviando payload limpo:", payload); // Para debug no console do navegador
+
         saveMutation.mutate({ formData: payload, isEditing });
     };
 
