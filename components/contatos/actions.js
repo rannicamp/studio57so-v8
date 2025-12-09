@@ -46,10 +46,10 @@ export async function buscarDadosCnpj(cnpj) {
 
 // Ação Blindada para Salvar Contato
 export async function saveContactAction({ formData, isEditing }) {
-    // 1. Verificação de Ambiente (Para diagnosticar o erro do Netlify)
+    // 1. Verificação de Ambiente
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
         console.error("ERRO CRÍTICO: Variáveis de ambiente do Supabase não definidas no servidor.");
-        return { error: 'Erro de Configuração: O servidor não conseguiu conectar ao banco de dados (Variáveis ausentes).' };
+        return { error: 'Erro de Configuração: O servidor não conseguiu conectar ao banco de dados.' };
     }
 
     const supabase = createClient();
@@ -66,10 +66,7 @@ export async function saveContactAction({ formData, isEditing }) {
         // 3. Busca do ID da Organização (Fallbacks de segurança)
         let organizacao_id = formData.organizacao_id;
 
-        // Se não veio do form, tenta buscar no perfil do usuário
         if (!organizacao_id) {
-             // Tenta buscar na tabela 'usuarios' (ajuste o nome da tabela se for 'profiles')
-             // Nota: Usamos maybeSingle para não estourar erro se não achar
              const { data: userData } = await supabase
                 .from('usuarios') 
                 .select('organizacao_id')
@@ -82,7 +79,7 @@ export async function saveContactAction({ formData, isEditing }) {
         }
 
         if (!organizacao_id) {
-            return { error: 'Erro crítico: Não foi possível identificar sua organização. Tente fazer login novamente.' };
+            return { error: 'Erro crítico: Não foi possível identificar sua organização.' };
         }
 
         // 4. LIMPEZA DE DADOS (Sanitização)
@@ -91,14 +88,37 @@ export async function saveContactAction({ formData, isEditing }) {
         const dataToSave = { ...rawData };
         dataToSave.organizacao_id = organizacao_id;
 
-        // Remove campos virtuais
+        // Remove campos virtuais e redundantes
         delete dataToSave.origem; 
-        delete dataToSave.criado_por_usuario_id;
-        delete dataToSave.criado_por;
+        delete dataToSave.criado_por; 
         
+        // 5. LÓGICA DO "CRIADO POR" (A Correção Principal) 🛠️
         if (!isEditing) {
+            // CRIAÇÃO: O dono é sempre quem está criando agora
             dataToSave.criado_por_usuario_id = user.id;
             dataToSave.origem = formData.origem || 'Manual';
+        } else {
+            // EDIÇÃO: Verificar se já existe dono
+            // Precisamos consultar o banco para saber se o campo está NULL
+            const { data: currentContact, error: fetchError } = await supabase
+                .from('contatos')
+                .select('criado_por_usuario_id')
+                .eq('id', id)
+                .single();
+                
+            if (!fetchError && currentContact) {
+                if (!currentContact.criado_por_usuario_id) {
+                    // SE ESTIVER VAZIO (Contato Antigo): Preenche com quem está editando agora
+                    console.log("Atualizando contato antigo sem dono. Novo dono:", user.id);
+                    dataToSave.criado_por_usuario_id = user.id;
+                } else {
+                    // SE JÁ TIVER DONO: Não mexe, remove do payload para garantir
+                    delete dataToSave.criado_por_usuario_id;
+                }
+            } else {
+                // Se der erro ao buscar, por segurança, remove o campo para não quebrar o update
+                delete dataToSave.criado_por_usuario_id;
+            }
         }
 
         // Converte strings vazias em null (Postgres não aceita "" em campos Date/FK)
@@ -115,7 +135,7 @@ export async function saveContactAction({ formData, isEditing }) {
 
         let contatoId = isEditing ? id : null;
 
-        // 5. OPERAÇÃO DE BANCO DE DADOS
+        // 6. OPERAÇÃO DE BANCO DE DADOS
         if (isEditing) {
             const { error } = await supabase.from('contatos').update(dataToSave).eq('id', contatoId);
             if (error) throw new Error(`Erro ao atualizar contato: ${error.message}`);
@@ -124,7 +144,7 @@ export async function saveContactAction({ formData, isEditing }) {
             if (error) throw new Error(`Erro ao criar contato: ${error.message}`);
             contatoId = data.id;
 
-            // Notificação (Não bloqueante)
+            // Notificação
             try {
                 const nomeContato = data.nome || data.razao_social || 'Novo Contato';
                 await enviarNotificacao({
@@ -140,12 +160,10 @@ export async function saveContactAction({ formData, isEditing }) {
 
         if (!contatoId) throw new Error("ID do contato perdido após operação.");
 
-        // 6. ATUALIZAÇÃO DE TELEFONES E EMAILS (Transacional-ish)
-        // Deleta os antigos
+        // 7. ATUALIZAÇÃO DE TELEFONES E EMAILS
         await supabase.from('telefones').delete().eq('contato_id', contatoId);
         await supabase.from('emails').delete().eq('contato_id', contatoId);
 
-        // Insere os novos
         if (cleanedPhones.length > 0) {
             const phonesToInsert = cleanedPhones.map(tel => ({
                 contato_id: contatoId,
@@ -172,10 +190,7 @@ export async function saveContactAction({ formData, isEditing }) {
         return { success: true, contactId: contatoId };
 
     } catch (error) {
-        // Log real no servidor (aparece no Log do Netlify)
         console.error("ERRO FATAL EM SAVECONTACTACTION:", error);
-        
-        // Retorna mensagem segura para o cliente
         return { error: error.message || 'Erro interno no servidor.' };
     }
 }
