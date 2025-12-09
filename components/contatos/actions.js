@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { enviarNotificacao } from '@/utils/notificacoes';
 
-// Função para buscar dados do CNPJ
+// Função auxiliar para buscar dados do CNPJ (mantida igual)
 export async function buscarDadosCnpj(cnpj) {
     const cleanCnpj = cnpj.replace(/\D/g, '');
     if (cleanCnpj.length !== 14) return { error: 'CNPJ inválido.' };
@@ -12,7 +12,7 @@ export async function buscarDadosCnpj(cnpj) {
         const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.message || 'CNPJ não encontrado ou serviço indisponível.');
+            throw new Error(errorData.message || 'CNPJ não encontrado.');
         }
         const data = await response.json();
         
@@ -46,66 +46,62 @@ export async function buscarDadosCnpj(cnpj) {
 
 // Ação Blindada para Salvar Contato
 export async function saveContactAction({ formData, isEditing }) {
+    // 1. Verificação de Ambiente (Para diagnosticar o erro do Netlify)
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        console.error("ERRO CRÍTICO: Variáveis de ambiente do Supabase não definidas no servidor.");
+        return { error: 'Erro de Configuração: O servidor não conseguiu conectar ao banco de dados (Variáveis ausentes).' };
+    }
+
     const supabase = createClient();
     
     try {
-        // 1. Verificação de Autenticação Robusta
+        // 2. Verificação de Autenticação
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         
         if (authError || !user) {
             console.error("Erro de Auth na Action:", authError);
-            return { error: 'Sessão expirada ou inválida. Recarregue a página e faça login novamente.' };
+            return { error: 'Sessão expirada. Recarregue a página e faça login novamente.' };
         }
 
-        // 2. Busca do ID da Organização diretamente no Banco (Mais seguro para Netlify)
-        // Ao invés de usar helper externo, buscamos direto na tabela de usuarios/profile
-        // Supondo que a tabela 'usuarios' ou 'profiles' tenha o campo organizacao_id vinculado ao id do auth
-        // Se sua tabela de perfil for 'profiles' ou outra, ajuste aqui. Vou usar uma query segura na tabela de contatos mesmo para validar ou pegar do formData se confiável,
-        // MAS a melhor prática é pegar da tabela de usuários. Vou assumir que formData.organizacao_id veio do cliente, mas vou validar se o usuário pertence a ela.
-        
-        // Estratégia Híbrida Segura: Usar o ID que veio do form, mas garantir que o usuário está logado.
-        // Se quiser ser ultra seguro, faríamos uma query na tabela 'usuarios'. 
-        // Como o erro é de "contexto", vamos usar o organizacao_id que passamos explicitamente no formData,
-        // pois no cliente (ContatoForm) ele já foi resolvido corretamente.
-        
+        // 3. Busca do ID da Organização (Fallbacks de segurança)
         let organizacao_id = formData.organizacao_id;
 
+        // Se não veio do form, tenta buscar no perfil do usuário
         if (!organizacao_id) {
-            // Tentativa de emergência: buscar na tabela usuarios se não veio no form
-             const { data: userData, error: userError } = await supabase
-                .from('usuarios')
+             // Tenta buscar na tabela 'usuarios' (ajuste o nome da tabela se for 'profiles')
+             // Nota: Usamos maybeSingle para não estourar erro se não achar
+             const { data: userData } = await supabase
+                .from('usuarios') 
                 .select('organizacao_id')
                 .eq('id', user.id)
-                .single();
+                .maybeSingle();
             
-            if (!userError && userData) {
+            if (userData?.organizacao_id) {
                 organizacao_id = userData.organizacao_id;
             }
         }
 
         if (!organizacao_id) {
-            return { error: 'Erro crítico: Não foi possível identificar a organização. Tente sair e entrar novamente.' };
+            return { error: 'Erro crítico: Não foi possível identificar sua organização. Tente fazer login novamente.' };
         }
 
-        // 3. LIMPEZA PROFUNDA DE DADOS (Sanitização) 🧼
+        // 4. LIMPEZA DE DADOS (Sanitização)
         const { id, telefones, emails, ...rawData } = formData;
         
         const dataToSave = { ...rawData };
         dataToSave.organizacao_id = organizacao_id;
 
-        // Remove campos de controle
+        // Remove campos virtuais
         delete dataToSave.origem; 
         delete dataToSave.criado_por_usuario_id;
         delete dataToSave.criado_por;
         
-        // Regra para criação x edição
         if (!isEditing) {
             dataToSave.criado_por_usuario_id = user.id;
-            if (formData.origem) dataToSave.origem = formData.origem;
-            else dataToSave.origem = 'Manual';
+            dataToSave.origem = formData.origem || 'Manual';
         }
 
-        // Converte strings vazias em null
+        // Converte strings vazias em null (Postgres não aceita "" em campos Date/FK)
         const fieldsToNullify = ['birth_date', 'data_fundacao', 'empresa_id', 'conjuge_id'];
         fieldsToNullify.forEach(field => {
             if (!dataToSave[field] || dataToSave[field] === '') {
@@ -113,45 +109,43 @@ export async function saveContactAction({ formData, isEditing }) {
             }
         });
 
-        // Limpa arrays
+        // Limpa arrays vazios
         const cleanedPhones = (telefones || []).filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0);
         const cleanedEmails = (emails || []).filter(mail => mail.email && mail.email.trim() !== '');
 
         let contatoId = isEditing ? id : null;
 
-        // OPERAÇÃO DE BANCO DE DADOS
+        // 5. OPERAÇÃO DE BANCO DE DADOS
         if (isEditing) {
             const { error } = await supabase.from('contatos').update(dataToSave).eq('id', contatoId);
-            if (error) throw new Error(`Erro no Banco (Update): ${error.message}`);
+            if (error) throw new Error(`Erro ao atualizar contato: ${error.message}`);
         } else {
             const { data, error } = await supabase.from('contatos').insert(dataToSave).select('id, nome, razao_social').single();
-            if (error) throw new Error(`Erro no Banco (Insert): ${error.message}`);
+            if (error) throw new Error(`Erro ao criar contato: ${error.message}`);
             contatoId = data.id;
 
-            // Notificação (Try/Catch silencioso)
+            // Notificação (Não bloqueante)
             try {
                 const nomeContato = data.nome || data.razao_social || 'Novo Contato';
                 await enviarNotificacao({
                     userId: user.id,
-                    titulo: "👤 Novo Contato Cadastrado",
-                    mensagem: `${nomeContato} foi adicionado à sua base.`,
+                    titulo: "👤 Novo Contato",
+                    mensagem: `${nomeContato} foi adicionado.`,
                     link: `/contatos/editar/${contatoId}`,
                     organizacaoId: organizacao_id,
                     canal: 'comercial'
                 });
-            } catch (notifError) {
-                console.warn("Falha ao enviar notificação (ignorado):", notifError);
-            }
+            } catch (ignored) {}
         }
 
         if (!contatoId) throw new Error("ID do contato perdido após operação.");
 
-        // ATUALIZAÇÃO DE TELEFONES E EMAILS
-        // Primeiro removemos os antigos para garantir sincronia
+        // 6. ATUALIZAÇÃO DE TELEFONES E EMAILS (Transacional-ish)
+        // Deleta os antigos
         await supabase.from('telefones').delete().eq('contato_id', contatoId);
         await supabase.from('emails').delete().eq('contato_id', contatoId);
 
-        // Inserimos os novos
+        // Insere os novos
         if (cleanedPhones.length > 0) {
             const phonesToInsert = cleanedPhones.map(tel => ({
                 contato_id: contatoId,
@@ -178,10 +172,10 @@ export async function saveContactAction({ formData, isEditing }) {
         return { success: true, contactId: contatoId };
 
     } catch (error) {
-        // Log detalhado no servidor (aparece no log do Netlify)
+        // Log real no servidor (aparece no Log do Netlify)
         console.error("ERRO FATAL EM SAVECONTACTACTION:", error);
         
-        // Retorna o erro serializado para o cliente
-        return { error: error.message || 'Erro desconhecido no servidor.' };
+        // Retorna mensagem segura para o cliente
+        return { error: error.message || 'Erro interno no servidor.' };
     }
 }
