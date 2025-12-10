@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-// CORREÇÃO: Adicionei faLayerGroup na lista de imports abaixo
 import { faTimes, faFilter, faCheck, faSpinner, faUsers, faSave, faSearch, faTrash, faLayerGroup, faSyncAlt } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
@@ -13,10 +12,10 @@ export default function CreateBroadcastModal({ isOpen, onClose, onListCreated, i
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     
-    // Filtros
+    // Filtros - ADICIONADO "Corretor" AQUI
     const [funnels, setFunnels] = useState([]);
     const [columns, setColumns] = useState([]);
-    const [types, setTypes] = useState(['Lead', 'Cliente', 'Fornecedor', 'Parceiro']); 
+    const [types, setTypes] = useState(['Lead', 'Cliente', 'Fornecedor', 'Parceiro', 'Corretor']); 
     
     const [filters, setFilters] = useState({
         nameSearch: '',
