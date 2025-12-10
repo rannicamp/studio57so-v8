@@ -6,44 +6,54 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faBullhorn, faUsers, faPaperPlane, faSpinner, faArrowLeft, 
     faClock, faCheckCircle, faTimesCircle, faCalendarAlt, 
-    faEdit, faTrash, faPlay, faSync, faBolt, faLock, faEye, faCheckDouble
+    faEdit, faTrash, faPlay, faSync, faBolt, faLock, faEye, faCheckDouble,
+    faPause, faStop, faTachometerAlt // <--- Novos ícones
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import TemplateMessageModal from './TemplateMessageModal';
 import CreateBroadcastModal from './CreateBroadcastModal';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-// Componente da Barra de Progresso
+// Componente da Barra de Progresso (Mantido o visual, ajustado para dados híbridos)
 const ProgressBar = ({ stats, total }) => {
     if (!total || total === 0) return null;
     
+    // Prioriza dados do Cron (novos campos) se existirem, senão usa stats antigos
+    const sentCount = stats.success_count ?? stats.sent ?? 0;
+    const failedCount = stats.failed_count ?? stats.failed ?? 0;
+    const readCount = stats.read ?? 0; // Esses vêm do RPC ou mensagens
+    const deliveredCount = stats.delivered ?? 0;
+
     // Calcula porcentagens
-    const sentPct = Math.round(((stats.sent || 0) / total) * 100);
-    const deliveredPct = Math.round(((stats.delivered || 0) / total) * 100);
-    const readPct = Math.round(((stats.read || 0) / total) * 100);
-    const failedPct = Math.round(((stats.failed || 0) / total) * 100);
+    const sentPct = Math.round((sentCount / total) * 100);
+    const failedPct = Math.round((failedCount / total) * 100);
+    // Read/Delivered são baseados no total enviado para não estourar a barra visualmente se o realtime atrasar
+    const safeTotalSent = Math.max(sentCount, 1);
+    const readPct = Math.round((readCount / total) * 100); 
+    const deliveredPct = Math.round((deliveredCount / total) * 100);
 
     return (
-        <div className="w-full mt-2">
+        <div className="w-full mt-3">
             <div className="flex justify-between text-[10px] text-gray-500 mb-1 uppercase font-bold tracking-wide">
-                <span>Progresso</span>
+                <span>Envio: {sentPct}%</span>
                 <span>{readPct}% Lido</span>
             </div>
             <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden flex">
-                {/* Lido (Verde Escuro) */}
+                {/* Ordem de empilhamento visual */}
                 <div style={{ width: `${readPct}%` }} className="h-full bg-green-600 transition-all duration-500" title="Lido" />
-                {/* Entregue (Verde Claro) - desconta o lido para não somar 2x visualmente se quiser empilhar, mas aqui faremos sobreposto ou sequencial */}
                 <div style={{ width: `${Math.max(0, deliveredPct - readPct)}%` }} className="h-full bg-green-400 transition-all duration-500" title="Entregue" />
-                {/* Enviado (Cinza/Azul) */}
                 <div style={{ width: `${Math.max(0, sentPct - deliveredPct)}%` }} className="h-full bg-blue-300 transition-all duration-500" title="Enviado" />
-                {/* Falha (Vermelho) */}
                 <div style={{ width: `${failedPct}%` }} className="h-full bg-red-400 transition-all duration-500" title="Falha" />
             </div>
-            <div className="flex gap-3 mt-1 text-[10px] text-gray-600">
-                <span className="flex items-center gap-1"><FontAwesomeIcon icon={faCheckDouble} className="text-green-600" /> {stats.read || 0} Lidos</span>
-                <span className="flex items-center gap-1"><FontAwesomeIcon icon={faCheckDouble} className="text-green-400" /> {stats.delivered || 0} Entregues</span>
-                <span className="flex items-center gap-1"><FontAwesomeIcon icon={faTimesCircle} className="text-red-400" /> {stats.failed || 0} Erros</span>
+            <div className="flex gap-3 mt-1 text-[10px] text-gray-600 justify-between">
+                <div className="flex gap-3">
+                    <span className="flex items-center gap-1" title="Lidos"><FontAwesomeIcon icon={faCheckDouble} className="text-green-600" /> {readCount}</span>
+                    <span className="flex items-center gap-1" title="Entregues"><FontAwesomeIcon icon={faCheckDouble} className="text-green-400" /> {deliveredCount}</span>
+                    <span className="flex items-center gap-1" title="Erros"><FontAwesomeIcon icon={faTimesCircle} className="text-red-400" /> {failedCount}</span>
+                </div>
+                <span className="font-bold text-gray-400">{sentCount + failedCount}/{total} Proc.</span>
             </div>
         </div>
     );
@@ -61,6 +71,26 @@ export default function BroadcastPanel({ list, onBack }) {
     const [isProcessingQueue, setIsProcessingQueue] = useState(false);
 
     const supabase = createClient();
+    const queryClient = useQueryClient();
+
+    // 1. Mutação de Controle (Pausa/Stop) - ADICIONADA
+    const controlMutation = useMutation({
+        mutationFn: async ({ id, action, organizacao_id }) => {
+            const response = await fetch('/api/whatsapp/scheduled-broadcasts', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, action, organizacao_id })
+            });
+            if (!response.ok) throw new Error('Erro ao controlar transmissão');
+            return action;
+        },
+        onSuccess: (action) => {
+            const msg = action === 'pause' ? 'Pausado!' : action === 'resume' ? 'Retomado!' : 'Parado!';
+            toast.success(msg);
+            fetchData(); // Atualiza a lista imediatamente
+        },
+        onError: () => toast.error("Erro ao enviar comando.")
+    });
 
     const fetchData = useCallback(async () => {
         if (!list?.id) return;
@@ -87,11 +117,25 @@ export default function BroadcastPanel({ list, onBack }) {
             .order('scheduled_at', { ascending: false });
             
         if (broadcastsData) {
-            // Buscar stats para cada broadcast
+            // Buscar stats para cada broadcast (Híbrido: RPC + Colunas Novas)
             const broadcastsWithStats = await Promise.all(broadcastsData.map(async (b) => {
-                // Chama a função RPC que criamos
-                const { data: stats } = await supabase.rpc('get_broadcast_stats', { p_broadcast_id: b.id });
-                return { ...b, stats: stats || { total: 0, sent: 0, delivered: 0, read: 0, failed: 0 } };
+                // Tenta RPC para Lidos/Entregues (Antigo)
+                let rpcStats = { read: 0, delivered: 0 };
+                try {
+                    const { data: s } = await supabase.rpc('get_broadcast_stats', { p_broadcast_id: b.id });
+                    if (s) rpcStats = s;
+                } catch (e) { /* Silencia erro se RPC não existir */ }
+
+                // Mescla com colunas do Robô Turbo (b.processed_count, etc)
+                return { 
+                    ...b, 
+                    stats: { 
+                        ...rpcStats,
+                        sent: b.success_count || 0, // Prioriza contador do banco
+                        failed: b.failed_count || 0,
+                        total: b.total_contacts || 0
+                    } 
+                };
             }));
             setBroadcasts(broadcastsWithStats);
         }
@@ -103,7 +147,6 @@ export default function BroadcastPanel({ list, onBack }) {
     // Realtime para atualizar stats
     useEffect(() => {
         if (!list?.id) return;
-        // Escuta mudanças nas mensagens também para atualizar o "Lido/Entregue" em tempo real
         const channelMsg = supabase.channel(`msgs-stats-${list.id}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'whatsapp_messages' }, () => fetchData())
             .subscribe();
@@ -118,19 +161,35 @@ export default function BroadcastPanel({ list, onBack }) {
         };
     }, [list, supabase, fetchData]);
 
-    // ... (Funções handleSyncList, handleSendBroadcast, etc. MANTIDAS IGUAIS ao anterior)
+    // ... (Funções auxiliares mantidas)
     const handleListUpdated = () => { fetchData(); toast.success("Lista atualizada!"); };
     const handleSyncList = async () => { setSyncing(true); try { await fetch('/api/whatsapp/lists/sync', { method: 'POST', body: JSON.stringify({ list_id: list.id }) }); toast.success("Atualizada!"); fetchData(); } catch(e){ toast.error(e.message); } finally { setSyncing(false); } };
     const handleSendBroadcast = async (t, l, v, f, c, s, eid) => { setSending(true); try { const url = eid ? '/api/whatsapp/scheduled-broadcasts' : '/api/whatsapp/broadcast/send'; const method = eid ? 'PUT' : 'POST'; await fetch(url, { method, body: JSON.stringify({ id: eid, list_id: list.id, template_name: t, language: l, variables: v, full_text_base: f, components: c, scheduled_at: s }) }); toast.success("Salvo!"); setIsTemplateModalOpen(false); setEditingBroadcast(null); fetchData(); } catch(e){ toast.error(e.message); } finally { setSending(false); } };
-    const handleDeleteBroadcast = async (id) => { if(!confirm("Cancelar?")) return; await fetch(`/api/whatsapp/scheduled-broadcasts?id=${id}`, { method: 'DELETE' }); fetchData(); };
+    const handleDeleteBroadcast = async (id) => { if(!confirm("Excluir agendamento?")) return; await fetch(`/api/whatsapp/scheduled-broadcasts?id=${id}`, { method: 'DELETE' }); fetchData(); };
     const handleProcessQueue = async () => { setIsProcessingQueue(true); await fetch('/api/cron/process-broadcasts'); fetchData(); setIsProcessingQueue(false); };
     const handleEditBroadcast = (b) => { setEditingBroadcast(b); setIsTemplateModalOpen(true); };
     const handleOpenNew = () => { setEditingBroadcast(null); setIsTemplateModalOpen(true); };
 
+    // Função de Controle
+    const handleControl = (id, action, orgId) => {
+        if (action === 'stop' && !confirm("Tem certeza que deseja cancelar definitivamente?")) return;
+        controlMutation.mutate({ id, action, organizacao_id: orgId });
+    };
+
+    // Calculadora de Velocidade
+    const getSpeed = (broadcast) => {
+        if (!broadcast.started_at) return 0;
+        const minutes = Math.max(1, differenceInMinutes(new Date(), new Date(broadcast.started_at)));
+        return Math.round((broadcast.processed_count || 0) / minutes);
+    };
+
     const getStatusInfo = (b) => {
         if (b.status === 'completed') return { icon: faCheckCircle, color: 'text-green-500', label: 'Concluído', bg: 'bg-white border-green-200' };
         if (b.status === 'failed') return { icon: faTimesCircle, color: 'text-red-500', label: 'Falhou', bg: 'bg-red-50 border-red-100' };
-        if (b.status === 'processing') return { icon: faSpinner, color: 'text-blue-500', label: 'Enviando...', bg: 'bg-blue-50 border-blue-100', spin: true };
+        if (b.status === 'processing') return { icon: faSpinner, color: 'text-blue-500', label: 'Enviando...', bg: 'bg-blue-50 border-blue-200', spin: true };
+        if (b.status === 'paused') return { icon: faPause, color: 'text-orange-500', label: 'Pausado', bg: 'bg-orange-50 border-orange-200' };
+        if (b.status === 'stopped') return { icon: faStop, color: 'text-red-600', label: 'Cancelado', bg: 'bg-gray-100 border-gray-200' };
+        
         const isFuture = new Date(b.scheduled_at) > new Date();
         return { icon: faClock, color: isFuture ? 'text-yellow-600' : 'text-orange-500', label: isFuture ? 'Agendado' : 'Na Fila', bg: 'bg-yellow-50 border-yellow-100' };
     };
@@ -166,11 +225,11 @@ export default function BroadcastPanel({ list, onBack }) {
                     <button onClick={handleOpenNew} disabled={members.length === 0} className="bg-[#00a884] text-white px-6 py-3 rounded-lg hover:bg-[#008f6f] flex items-center justify-center gap-2 mx-auto disabled:opacity-50"><FontAwesomeIcon icon={faPaperPlane} /> Criar Mensagem</button>}
                 </div>
 
-                {/* HISTÓRICO COM GRÁFICOS */}
+                {/* HISTÓRICO COM CONTROLES INJETADOS */}
                 <div>
                     <div className="flex justify-between items-center mb-3">
                         <h4 className="text-sm font-bold text-gray-500 uppercase flex items-center gap-2"><FontAwesomeIcon icon={faCalendarAlt} /> Histórico</h4>
-                        {hasPendingQueue && <button onClick={handleProcessQueue} disabled={isProcessingQueue} className="text-xs bg-orange-100 text-orange-700 px-3 py-1 rounded-full hover:bg-orange-200 font-bold flex items-center gap-2 animate-pulse">{isProcessingQueue ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPlay} />} Forçar Envio</button>}
+                        {hasPendingQueue && <button onClick={handleProcessQueue} disabled={isProcessingQueue} className="text-xs bg-orange-100 text-orange-700 px-3 py-1 rounded-full hover:bg-orange-200 font-bold flex items-center gap-2 animate-pulse">{isProcessingQueue ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPlay} />} Forçar Robô</button>}
                     </div>
                     
                     {broadcasts.length === 0 ? <p className="text-sm text-gray-400 italic ml-1">Nenhum histórico.</p> : (
@@ -178,6 +237,11 @@ export default function BroadcastPanel({ list, onBack }) {
                             {broadcasts.map(broadcast => {
                                 const statusInfo = getStatusInfo(broadcast);
                                 const isPending = broadcast.status === 'pending';
+                                const isProcessing = broadcast.status === 'processing';
+                                const isPaused = broadcast.status === 'paused';
+                                const speed = getSpeed(broadcast);
+                                const totalReal = broadcast.total_contacts || members.length;
+
                                 return (
                                     <div key={broadcast.id} className={`p-4 rounded-lg border shadow-sm ${statusInfo.bg}`}>
                                         <div className="flex items-center justify-between">
@@ -189,18 +253,46 @@ export default function BroadcastPanel({ list, onBack }) {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                {isPending ? (
+                                                {/* Botões de Edição (Apenas se pendente) */}
+                                                {isPending && (
                                                     <>
                                                         <button onClick={() => handleEditBroadcast(broadcast)} className="text-blue-500 hover:bg-blue-50 p-2 rounded"><FontAwesomeIcon icon={faEdit} /></button>
                                                         <button onClick={() => handleDeleteBroadcast(broadcast.id)} className="text-red-500 hover:bg-red-50 p-2 rounded"><FontAwesomeIcon icon={faTrash} /></button>
                                                     </>
-                                                ) : <div className={`text-xs font-bold px-2 py-1 rounded ${statusInfo.color} bg-white border`}>{statusInfo.label}</div>}
+                                                )}
+                                                {/* Label de Status */}
+                                                <div className={`text-xs font-bold px-2 py-1 rounded ${statusInfo.color} bg-white border`}>{statusInfo.label}</div>
                                             </div>
                                         </div>
                                         
+                                        {/* --- PAINEL DE CONTROLE (INJETADO AQUI) --- */}
+                                        {(isProcessing || isPaused) && (
+                                            <div className="mt-3 pt-3 border-t border-gray-200/50 flex justify-between items-center bg-white/50 p-2 rounded">
+                                                <div className="text-xs font-mono text-gray-600 flex items-center gap-2">
+                                                    <FontAwesomeIcon icon={faTachometerAlt} className="text-blue-500"/>
+                                                    {speed > 0 ? `${speed} envios/min` : 'Calculando...'}
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    {isProcessing && (
+                                                        <button onClick={() => handleControl(broadcast.id, 'pause', broadcast.organizacao_id)} className="text-xs bg-yellow-100 text-yellow-700 px-3 py-1 rounded hover:bg-yellow-200 font-semibold flex gap-1 items-center">
+                                                            <FontAwesomeIcon icon={faPause} /> Pausar
+                                                        </button>
+                                                    )}
+                                                    {isPaused && (
+                                                        <button onClick={() => handleControl(broadcast.id, 'resume', broadcast.organizacao_id)} className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200 font-semibold flex gap-1 items-center">
+                                                            <FontAwesomeIcon icon={faPlay} /> Retomar
+                                                        </button>
+                                                    )}
+                                                    <button onClick={() => handleControl(broadcast.id, 'stop', broadcast.organizacao_id)} className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded hover:bg-red-200 font-semibold flex gap-1 items-center">
+                                                        <FontAwesomeIcon icon={faStop} /> Parar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* BARRA DE PROGRESSO */}
                                         {broadcast.stats && broadcast.status !== 'pending' && (
-                                            <ProgressBar stats={broadcast.stats} total={members.length} />
+                                            <ProgressBar stats={broadcast.stats} total={totalReal} />
                                         )}
                                     </div>
                                 );
