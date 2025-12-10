@@ -15,30 +15,34 @@ import { toast } from 'sonner'
 import { useLayout } from '@/contexts/LayoutContext'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
-  faPlus, faSpinner, faTimes, faSearch,
-  faPen, faTrash, faCopy, faUserCircle, faBuilding, faAddressBook,
-  faFileImport, faFileExport, faLayerGroup, 
-  faObjectGroup, faWandMagicSparkles,
-  faSort, faSortUp, faSortDown
+  faPlus, faSpinner, faTimes, faUser, faBuilding,
+  faAddressBook, faSort, faSortUp, faSortDown, faSearch,
+  faPen, faUserCircle, faTrash, faCopy,
+  faFileImport, faFileExport, faClone, faLayerGroup, 
+  faObjectGroup, faCheckSquare, faSquare,
+  faWandMagicSparkles, faFilter // <--- NOVO ÍCONE DE FILTRO
 } from '@fortawesome/free-solid-svg-icons'
 import { useDebounce } from 'use-debounce'
 import Image from 'next/image'
-
-// Componentes
 import ContatoForm from '@/components/contatos/ContatoForm'
 import ContatoImporter from '@/components/contatos/ContatoImporter'
 import MergeModal from '@/components/contatos/MergeModal'
-import DuplicateContactsManager from '@/components/contatos/DuplicateContactsManager' // Já existe
-import PadronizacaoManager from '@/components/contatos/PadronizacaoManager' // Criamos agora
+import DuplicateContactsManager from '@/components/contatos/DuplicateContactsManager'
+import PadronizacaoManager from '@/components/contatos/PadronizacaoManager'
 import { saveContactAction } from '@/components/contatos/actions';
 
-// --- BUSCA ADMIN ---
-async function fetchContatosMain(organizacaoId, searchTerm) {
+// --- BUSCA ADMIN COM FILTRO DE TIPO ---
+async function fetchContatosMain(organizacaoId, searchTerm, typeFilter) {
   if (!organizacaoId) return [];
   const supabase = createClient()
   
   let query = supabase.from('contatos').select(`*, telefones(telefone), emails(email)`)
     .eq('organizacao_id', organizacaoId)
+  
+  // 1. APLICA O FILTRO DE TIPO (SE HOUVER)
+  if (typeFilter && typeFilter !== 'Todos') {
+      query = query.eq('tipo_contato', typeFilter);
+  }
     
   if (searchTerm) { 
       query = query.or(`nome.ilike.%${searchTerm}%,razao_social.ilike.%${searchTerm}%`); 
@@ -64,6 +68,7 @@ async function fetchContatosMain(organizacaoId, searchTerm) {
 }
 
 export default function ContatosMain() {
+  const router = useRouter()
   const queryClient = useQueryClient()
   const { user, isUserLoading, setPageTitle } = useLayout()
   const organizacaoId = user?.organizacao_id
@@ -74,24 +79,29 @@ export default function ContatosMain() {
       if(setPageTitle) setPageTitle('Gestão de Contatos');
   }, [setPageTitle]);
 
-  // --- ESTADOS DOS MODAIS ---
+  // Estados dos Modais
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false)
-  const [isDuplicatesModalOpen, setIsDuplicatesModalOpen] = useState(false) // <--- NOVO
-  const [isStandardizeModalOpen, setIsStandardizeModalOpen] = useState(false) // <--- NOVO
+  const [isDuplicatesModalOpen, setIsDuplicatesModalOpen] = useState(false)
+  const [isStandardizeModalOpen, setIsStandardizeModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   
   const isInitialMount = useRef(true)
   const [searchTerm, setSearchTerm] = useState('')
+  // 2. ESTADO DO FILTRO
+  const [typeFilter, setTypeFilter] = useState('Todos') 
   const [debouncedSearchTerm] = useDebounce(searchTerm, 500)
   const [sortConfig, setSortConfig] = useState({ key: 'nome_display', direction: 'ascending' })
   const [contatoParaEditar, setContatoParaEditar] = useState(null)
+
+  // Estado de Seleção Múltipla
   const [selectedContactIds, setSelectedContactIds] = useState([])
 
+  // 3. ATUALIZA A QUERY PARA INCLUIR O FILTRO
   const { data: contatos, isLoading, isFetching, isError, error, } = useQuery({
-    queryKey: ['contatosMainLista', organizacaoId, debouncedSearchTerm],
-    queryFn: () => fetchContatosMain(organizacaoId, debouncedSearchTerm),
+    queryKey: ['contatosMainLista', organizacaoId, debouncedSearchTerm, typeFilter],
+    queryFn: () => fetchContatosMain(organizacaoId, debouncedSearchTerm, typeFilter),
     enabled: !!organizacaoId,
   })
 
@@ -173,7 +183,7 @@ export default function ContatosMain() {
       },
       onSuccess: () => {
           toast.success('Contato excluído com sucesso!');
-          queryClient.invalidateQueries({ queryKey: ['contatosMainLista', organizacaoId, debouncedSearchTerm] });
+          queryClient.invalidateQueries({ queryKey: ['contatosMainLista'] });
       },
       onError: (err) => toast.error(`Erro ao excluir: ${err.message}`),
   });
@@ -201,7 +211,7 @@ export default function ContatosMain() {
       },
       onSuccess: (novoContatoId) => {
           toast.success('Contato duplicado! Abrindo para edição...');
-          queryClient.invalidateQueries({ queryKey: ['contatosMainLista', organizacaoId, debouncedSearchTerm] });
+          queryClient.invalidateQueries({ queryKey: ['contatosMainLista'] });
           const novoContato = contatos?.find(c => c.id === novoContatoId);
           if(novoContato) handleOpenModal(novoContato);
           else {
@@ -252,8 +262,8 @@ export default function ContatosMain() {
   const handleCloseModal = () => { setIsModalOpen(false); setContatoParaEditar(null); };
   const handleSaveSuccess = useCallback(() => {
     setIsModalOpen(false); setContatoParaEditar(null); 
-    queryClient.invalidateQueries({ queryKey: ['contatosMainLista', organizacaoId, debouncedSearchTerm] });
-  }, [queryClient, organizacaoId, debouncedSearchTerm]);
+    queryClient.invalidateQueries({ queryKey: ['contatosMainLista'] });
+  }, [queryClient]);
 
   const handleDelete = (cliente) => {
       toast.error(`Tem certeza que deseja excluir "${cliente.nome_display}"?`, {
@@ -272,7 +282,7 @@ export default function ContatosMain() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
         <div className="flex items-center gap-3">
             <h2 className="text-3xl font-bold text-gray-800">Contatos</h2>
             {selectedContactIds.length > 0 && (
@@ -282,30 +292,48 @@ export default function ContatosMain() {
             )}
         </div>
         
-        {/* BARRA DE FERRAMENTAS ADMIN */}
-        <div className="flex flex-wrap gap-2">
+        {/* BARRA DE FERRAMENTAS */}
+        <div className="flex flex-wrap gap-2 items-center">
+            {/* 4. DROPDOWN DE FILTRO DE TIPO */}
+            <div className="relative">
+                <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="appearance-none bg-white border border-gray-300 text-gray-700 py-2 px-4 pr-8 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer font-medium hover:bg-gray-50 transition-colors"
+                >
+                    <option value="Todos">Todos os Tipos</option>
+                    <option value="Lead">Leads</option>
+                    <option value="Cliente">Clientes</option>
+                    <option value="Fornecedor">Fornecedores</option>
+                    <option value="Parceiro">Parceiros</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                    <FontAwesomeIcon icon={faFilter} className="w-3 h-3" />
+                </div>
+            </div>
+
             {selectedContactIds.length >= 2 && (
                 <button onClick={handleMergeClick} className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200 animate-fadeIn">
-                    <FontAwesomeIcon icon={faObjectGroup} className="mr-2" /> Unir ({selectedContactIds.length})
+                    <FontAwesomeIcon icon={faObjectGroup} className="mr-2" /> Unir
                 </button>
             )}
 
-            <button onClick={() => setIsImportModalOpen(true)} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200">
-                <FontAwesomeIcon icon={faFileImport} className="mr-2 text-gray-500" /> Importar
+            <button onClick={() => setIsImportModalOpen(true)} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200" title="Importar">
+                <FontAwesomeIcon icon={faFileImport} className="text-gray-500" />
             </button>
-            <button onClick={handleExport} disabled={isExporting} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200">
-                {isExporting ? <FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> : <FontAwesomeIcon icon={faFileExport} className="mr-2 text-gray-500" />} Exportar
+            <button onClick={handleExport} disabled={isExporting} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200" title="Exportar">
+                {isExporting ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faFileExport} className="text-gray-500" />}
             </button>
             
-            <button onClick={() => setIsStandardizeModalOpen(true)} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200">
-                <FontAwesomeIcon icon={faWandMagicSparkles} className="mr-2 text-purple-500" /> Padronizar
+            <button onClick={() => setIsStandardizeModalOpen(true)} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200" title="Padronizar">
+                <FontAwesomeIcon icon={faWandMagicSparkles} className="text-purple-500" />
             </button>
 
-            <button onClick={() => setIsDuplicatesModalOpen(true)} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200">
-                <FontAwesomeIcon icon={faLayerGroup} className="mr-2 text-orange-500" /> Duplicatas
+            <button onClick={() => setIsDuplicatesModalOpen(true)} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200" title="Duplicatas">
+                <FontAwesomeIcon icon={faLayerGroup} className="text-orange-500" />
             </button>
             <button onClick={() => handleOpenModal(null)} disabled={isPageLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow flex items-center transition duration-200 disabled:bg-gray-400">
-                <FontAwesomeIcon icon={faPlus} className="mr-2" /> Novo Contato
+                <FontAwesomeIcon icon={faPlus} className="mr-2" /> Novo
             </button>
         </div>
       </div>
@@ -372,7 +400,7 @@ export default function ContatosMain() {
         <div className="text-center py-10 bg-gray-50 rounded-lg"><FontAwesomeIcon icon={searchTerm ? faSearch : faAddressBook} className="text-5xl text-gray-300 mb-4" /><h3 className="text-lg font-semibold text-gray-700">{searchTerm ? 'Nenhum resultado' : 'Nenhum contato'}</h3><p className="text-gray-500 text-sm mt-1">{searchTerm ? 'Ajuste sua busca.' : 'Cadastre um novo contato.'}</p></div>
       )}
 
-      {/* MODAL DE FORMULÁRIO (NOVO/EDITAR) */}
+      {/* MODAL DE FORMULÁRIO */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
           <div className="bg-white p-0 rounded-lg shadow-2xl w-full max-w-5xl h-[95vh] flex flex-col">
