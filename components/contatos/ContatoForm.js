@@ -1,7 +1,7 @@
 // components/contatos/ContatoForm.js
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react'; // Adicionei useRef
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -14,8 +14,7 @@ import { toast } from 'sonner';
 // Importamos APENAS a busca de CNPJ da server action
 import { buscarDadosCnpj } from './actions';
 
-// --- LISTA BRANCA DE COLUNAS PERMITIDAS (Retirada do seu esquema SQL) ---
-// O sistema só enviará estes campos para o banco. Qualquer "fantasma" será barrado aqui.
+// --- LISTA BRANCA DE COLUNAS PERMITIDAS ---
 const ALLOWED_COLUMNS = [
     'empresa_id', 'nome', 'cargo', 'address_street', 'address_number', 'address_complement',
     'cep', 'city', 'state', 'neighborhood', 'tipo_contato', 'foto_url', 'razao_social',
@@ -135,6 +134,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     const [conjugeSearchResults, setConjugeSearchResults] = useState([]);
     const [selectedConjugeName, setSelectedConjugeName] = useState('');
 
+    // --- CORREÇÃO DO PROBLEMA DE RESET (TYPING) ---
     useEffect(() => {
         const initializeData = async () => {
             if (isEditing && contactToEdit) {
@@ -158,12 +158,21 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                     emails: emailsData.length > 0 ? emailsData : [{ email: '' }],
                 });
             } else {
+                // Se não estiver editando, mantemos o estado inicial ou resetamos apenas se necessário
+                // Evitamos resetar se já houver dados digitados e não mudamos o modo
+                // Mas aqui, para 'Novo', sempre reiniciamos ao abrir
                 setFormData(prev => ({ ...getInitialState(), organizacao_id: currentOrgId }));
                 setSelectedConjugeName('');
             }
         };
+        
         initializeData();
-    }, [isEditing, contactToEdit, supabase, currentOrgId]); 
+        
+        // AQUI ESTÁ A CORREÇÃO PRINCIPAL: 
+        // Removemos 'supabase' e 'contactToEdit' (objeto completo) das dependências.
+        // Usamos contactToEdit?.id para garantir que só reseta se MUDAR o contato sendo editado.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isEditing, contactToEdit?.id, currentOrgId]); 
 
     // Lista de empresas
     const { data: companies } = useQuery({
@@ -181,7 +190,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         enabled: !!currentOrgId
     });
     
-    // --- FUNÇÃO DE SALVAR CLIENT-SIDE (VERSÃO BLINDADA COM LISTA BRANCA) ---
+    // --- FUNÇÃO DE SALVAR ---
     const handleSave = async (e) => {
         e.preventDefault();
         
@@ -194,43 +203,31 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         const toastId = toast.loading("Salvando dados...");
 
         try {
-            // 1. LIMPEZA DE DADOS (Sanitização com Whitelist)
-            // Extraímos os arrays de apoio
             const { id, telefones, emails, ...rawData } = formData;
-            
-            // Criamos o payload APENAS com campos permitidos
             const payload = {};
             
             ALLOWED_COLUMNS.forEach(key => {
-                // Só copia se o campo existir no formulário
                 if (Object.prototype.hasOwnProperty.call(rawData, key)) {
                     const value = rawData[key];
-                    // Converte string vazia para null
                     payload[key] = (value === '' || value === undefined) ? null : value;
                 }
             });
 
-            // Garante o ID da organização
             payload.organizacao_id = currentOrgId;
 
-            // Lógica "Criado Por" (Ajuste fino)
             if (!isEditing) {
                 payload.criado_por_usuario_id = user.id;
                 payload.origem = formData.origem || 'Manual';
             } else {
-                // Se for edição, verificamos se o contato original já tinha dono
-                // Se não tiver, atribuímos. Se tiver, mantemos (não enviamos o campo).
                 if (!contactToEdit?.criado_por_usuario_id) {
                      payload.criado_por_usuario_id = user.id;
                 } else {
-                     // Removemos do payload para não alterar o dono original
                      delete payload.criado_por_usuario_id;
                 }
             }
 
             let contatoId = isEditing ? id : null;
 
-            // 2. OPERAÇÃO NO BANCO (Direto do Navegador)
             let errorDb;
             let dataDb;
 
@@ -248,11 +245,9 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             if (errorDb) throw new Error(`Erro Banco: ${errorDb.message}`);
             if (!contatoId) throw new Error("ID do contato não retornado.");
 
-            // 3. ATUALIZAR TELEFONES E EMAILS
             const cleanedPhones = (telefones || []).filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0);
             const cleanedEmails = (emails || []).filter(mail => mail.email && mail.email.trim() !== '');
 
-            // Remove antigos (Transação simples via cascade seria melhor, mas aqui deletamos manual)
             await supabase.from('telefones').delete().eq('contato_id', contatoId);
             await supabase.from('emails').delete().eq('contato_id', contatoId);
 
@@ -275,12 +270,11 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                 })));
             }
 
-            // 4. SUCESSO
             toast.dismiss(toastId);
             toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
             
             queryClient.invalidateQueries({ queryKey: ['contatos'] });
-            if (isEditing) queryClient.invalidateQueries({ queryKey: ['contactDetails', contatoId] });
+            if (isEditing) queryClient.invalidateQueries({ queryKey: ['contactProfileData', contatoId] }); // Atualiza sidebar
 
             if (onSaveSuccess) onSaveSuccess(contatoId);
             if (onClose) onClose();
@@ -289,7 +283,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         } catch (error) {
             console.error("Erro ao salvar:", error);
             toast.dismiss(toastId);
-            // Mensagem mais limpa
             toast.error(`Erro ao salvar: ${error.message}`);
         } finally {
             setIsSaving(false);

@@ -8,7 +8,7 @@ import {
     faStickyNote, faTasks, faSpinner, faPlus, faPhone, 
     faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, 
     faBullhorn, faUserTie, faCalculator, faExternalLinkAlt,
-    faHistory, faTimes, faBriefcase, faSave // <--- ADICIONADO AQUI
+    faHistory, faTimes, faBriefcase, faSave 
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -113,14 +113,14 @@ const HistoricoTimeline = ({ history }) => {
     );
 };
 
-// --- FUNÇÃO DE BUSCA DE DADOS ---
+// --- FUNÇÃO DE BUSCA DE DADOS (CORRIGIDA) ---
 const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
     if (!contatoId || !organizacaoId) return null;
 
-    // 1. Dados Cadastrais
+    // 1. Dados Cadastrais COMPLETOS (Incluindo Telefones e Emails para o Modal funcionar)
     const { data: contactDetails } = await supabase
         .from('contatos')
-        .select('*')
+        .select('*, telefones(*), emails(*)') // <--- AQUI ESTAVA O PULO DO GATO! Faltava buscar as relações.
         .eq('id', contatoId)
         .single();
 
@@ -178,9 +178,11 @@ export default function ContactProfile({ contact }) {
     });
     
     const { notes = [], activities = [], simulations = [], history = [], corretor, contactDetails, funilEntryId } = profileData || {};
+    
+    // Mescla garantindo que contactDetails tenha prioridade (pois tem telefones/emails completos)
     const displayContact = { ...contact, ...contactDetails };
 
-    // Inicializa dados de edição
+    // Inicializa dados de edição rápida
     useEffect(() => {
         if (displayContact) {
             setEditData({
@@ -209,7 +211,7 @@ export default function ContactProfile({ contact }) {
             
             if (error) throw error;
             
-            // Atualiza tabelas auxiliares
+            // Atualiza tabelas auxiliares (Edição rápida: assume o primeiro telefone/email)
             if (telefone) await supabase.from('telefones').upsert({ contato_id: contact.contato_id, telefone, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'contato_id, telefone' });
             if (email) await supabase.from('emails').upsert({ contato_id: contact.contato_id, email, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'contato_id, email' });
         },
@@ -226,7 +228,7 @@ export default function ContactProfile({ contact }) {
         setIsEditModalOpen(false);
         queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
         queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
-        toast.success("Contato atualizado com sucesso!");
+        // Feedback já é dado pelo ContatoForm, mas garantimos aqui também
     };
 
     const addNoteMutation = useMutation({
@@ -286,7 +288,7 @@ export default function ContactProfile({ contact }) {
 
             <main className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
                 
-                {/* Seção de Dados Cadastrais (Edição Rápida) */}
+                {/* Seção de Dados Cadastrais (Edição Rápida + Botão Modal) */}
                 <section>
                     <div className="flex justify-between items-center mb-3">
                         <h4 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Dados Cadastrais</h4>
@@ -390,7 +392,7 @@ export default function ContactProfile({ contact }) {
                     </div>
                 </section>
 
-                {/* Seção de Simulações */}
+                {/* Seção de Simulações e Atividades mantidas igual */}
                 <section>
                     <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2 text-sm uppercase tracking-wide"><FontAwesomeIcon icon={faCalculator} /> Simulações</h4>
                     <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50 custom-scrollbar">
@@ -412,7 +414,6 @@ export default function ContactProfile({ contact }) {
                     </div>
                 </section>
 
-                {/* Seção de Atividades */}
                 <section>
                     <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2 text-sm uppercase tracking-wide"><FontAwesomeIcon icon={faTasks} /> Atividades</h4>
                       <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50 custom-scrollbar">
@@ -431,7 +432,6 @@ export default function ContactProfile({ contact }) {
                     </div>
                 </section>
                 
-                {/* Seção de Histórico */}
                 <section>
                     <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2 text-sm uppercase tracking-wide"><FontAwesomeIcon icon={faHistory} /> Histórico</h4>
                     <div className="max-h-56 overflow-y-auto border rounded-lg p-4 bg-gray-50 custom-scrollbar">
