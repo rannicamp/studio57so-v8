@@ -14,6 +14,22 @@ import { toast } from 'sonner';
 // Importamos APENAS a busca de CNPJ da server action
 import { buscarDadosCnpj } from './actions';
 
+// --- LISTA BRANCA DE COLUNAS PERMITIDAS (Retirada do seu esquema SQL) ---
+// O sistema só enviará estes campos para o banco. Qualquer "fantasma" será barrado aqui.
+const ALLOWED_COLUMNS = [
+    'empresa_id', 'nome', 'cargo', 'address_street', 'address_number', 'address_complement',
+    'cep', 'city', 'state', 'neighborhood', 'tipo_contato', 'foto_url', 'razao_social',
+    'nome_fantasia', 'cnpj', 'inscricao_estadual', 'inscricao_municipal', 'responsavel_legal',
+    'cpf', 'rg', 'birth_date', 'estado_civil', 'contract_role', 'admission_date',
+    'demission_date', 'status', 'base_salary', 'total_salary', 'daily_value', 'payment_method',
+    'pix_key', 'bank_details', 'observations', 'numero_ponto', 'nacionalidade',
+    'personalidade_juridica', 'data_fundacao', 'tipo_servico_produto', 'pessoa_contato',
+    'objetivo', 'is_awaiting_name_response', 'origem', 'meta_lead_id', 'meta_ad_id',
+    'meta_adgroup_id', 'meta_page_id', 'meta_form_id', 'meta_created_time', 'meta_form_data',
+    'organizacao_id', 'meta_ad_name', 'conjuge_id', 'regime_bens', 'meta_campaign_id',
+    'meta_campaign_name', 'meta_adset_name', 'criado_por_usuario_id', 'creci'
+];
+
 // -- COMPONENTES AUXILIARES --
 const SearchableField = ({ label, selectedName, onClear, children }) => (
     <div>
@@ -165,7 +181,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         enabled: !!currentOrgId
     });
     
-    // --- FUNÇÃO DE SALVAR CLIENT-SIDE (VERSÃO BLINDADA) ---
+    // --- FUNÇÃO DE SALVAR CLIENT-SIDE (VERSÃO BLINDADA COM LISTA BRANCA) ---
     const handleSave = async (e) => {
         e.preventDefault();
         
@@ -178,42 +194,43 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         const toastId = toast.loading("Salvando dados...");
 
         try {
-            // 1. LIMPEZA DE DADOS (Sanitização no Cliente)
-            const { id, telefones, emails, created_at, updated_at, ...rawData } = formData;
+            // 1. LIMPEZA DE DADOS (Sanitização com Whitelist)
+            // Extraímos os arrays de apoio
+            const { id, telefones, emails, ...rawData } = formData;
             
-            const payload = { ...rawData };
-            payload.organizacao_id = currentOrgId;
-
-            // Remove campos virtuais e "fantasmas"
-            // Essa lista deve conter QUALQUER campo que não exista na tabela 'contatos'
-            delete payload.origem; 
-            delete payload.criado_por;
-            delete payload.email;        // Campo fantasma
-            delete payload.telefone;     // Campo fantasma
-            delete payload.etapa_funil;  // <--- NOVO: Remove campo do erro atual
+            // Criamos o payload APENAS com campos permitidos
+            const payload = {};
             
-            // CONVERTE STRING VAZIA EM NULL
-            Object.keys(payload).forEach(key => {
-                if (payload[key] === '' || payload[key] === undefined) {
-                    payload[key] = null;
+            ALLOWED_COLUMNS.forEach(key => {
+                // Só copia se o campo existir no formulário
+                if (Object.prototype.hasOwnProperty.call(rawData, key)) {
+                    const value = rawData[key];
+                    // Converte string vazia para null
+                    payload[key] = (value === '' || value === undefined) ? null : value;
                 }
             });
 
-            // Lógica "Criado Por"
+            // Garante o ID da organização
+            payload.organizacao_id = currentOrgId;
+
+            // Lógica "Criado Por" (Ajuste fino)
             if (!isEditing) {
                 payload.criado_por_usuario_id = user.id;
                 payload.origem = formData.origem || 'Manual';
             } else {
+                // Se for edição, verificamos se o contato original já tinha dono
+                // Se não tiver, atribuímos. Se tiver, mantemos (não enviamos o campo).
                 if (!contactToEdit?.criado_por_usuario_id) {
                      payload.criado_por_usuario_id = user.id;
                 } else {
+                     // Removemos do payload para não alterar o dono original
                      delete payload.criado_por_usuario_id;
                 }
             }
 
             let contatoId = isEditing ? id : null;
 
-            // 2. OPERAÇÃO NO BANCO
+            // 2. OPERAÇÃO NO BANCO (Direto do Navegador)
             let errorDb;
             let dataDb;
 
@@ -228,13 +245,14 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                 contatoId = dataDb?.id;
             }
 
-            if (errorDb) throw new Error(errorDb.message);
+            if (errorDb) throw new Error(`Erro Banco: ${errorDb.message}`);
             if (!contatoId) throw new Error("ID do contato não retornado.");
 
             // 3. ATUALIZAR TELEFONES E EMAILS
             const cleanedPhones = (telefones || []).filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0);
             const cleanedEmails = (emails || []).filter(mail => mail.email && mail.email.trim() !== '');
 
+            // Remove antigos (Transação simples via cascade seria melhor, mas aqui deletamos manual)
             await supabase.from('telefones').delete().eq('contato_id', contatoId);
             await supabase.from('emails').delete().eq('contato_id', contatoId);
 
@@ -271,7 +289,8 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         } catch (error) {
             console.error("Erro ao salvar:", error);
             toast.dismiss(toastId);
-            toast.error(`Erro: ${error.message || "Falha ao salvar."}`);
+            // Mensagem mais limpa
+            toast.error(`Erro ao salvar: ${error.message}`);
         } finally {
             setIsSaving(false);
         }
