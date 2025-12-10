@@ -75,6 +75,38 @@ export default function MessagePanel({ contact, onBack }) {
         refetchInterval: 5000,
     });
 
+    // --- NOVO: Mutação para Marcar como Lida ---
+    const markReadMutation = useMutation({
+        mutationFn: async () => {
+             if (!contact?.contato_id) return;
+             await fetch('/api/whatsapp/mark-read', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contact_id: contact.contato_id, organizacao_id: organizacaoId })
+            });
+        },
+        onSuccess: () => {
+            // Atualiza a lista lateral para sumir a bolinha verde imediatamente
+            queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
+            // Atualiza as mensagens locais (opcional, mas garante consistência)
+            queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+        }
+    });
+
+    // --- NOVO: Efeito para disparar a marcação de leitura ---
+    useEffect(() => {
+        if (contact?.contato_id && messages) {
+            // Verifica se existe alguma mensagem recebida (inbound) que ainda não foi lida
+            const hasUnread = messages.some(m => m.direction === 'inbound' && m.is_read === false);
+            
+            if (hasUnread) {
+                markReadMutation.mutate();
+            }
+        }
+        // Executa sempre que mudar o contato ou a lista de mensagens atualizar
+    }, [contact?.contato_id, messages]);
+
+
     // Define telefone de destino
     useEffect(() => {
         if (messages && messages.length > 0) {

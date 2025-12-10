@@ -151,7 +151,6 @@ function getTextContent(message) {
     if (!message || !message.type) return null;
     if (message.type === 'text') return message.text?.body;
     
-    // TRATAMENTO ESPECÍFICO PARA BOTÕES (INTERACTIVE)
     if (message.type === 'interactive') {
         const interactive = message.interactive;
         if (interactive.type === 'button_reply') {
@@ -196,13 +195,11 @@ export async function POST(request) {
         const change = body.entry?.[0]?.changes?.[0]?.value;
         
         // --- 1. ATUALIZAÇÃO DE STATUS (VISTOS) ---
-        // Se for uma atualização de status (sent, delivered, read)
         if (change?.statuses) {
             const statusUpdate = change.statuses[0];
-            const newStatus = statusUpdate.status; // sent, delivered, read
+            const newStatus = statusUpdate.status; 
             const messageId = statusUpdate.id;
 
-            // Atualiza o status da mensagem no banco
             await supabaseAdmin
                 .from('whatsapp_messages')
                 .update({ status: newStatus })
@@ -290,7 +287,7 @@ export async function POST(request) {
                     sent_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
                     direction: 'inbound', 
                     status: 'delivered', 
-                    is_read: false, // <--- NOVO: Marca como não lida
+                    is_read: false, 
                     raw_payload: message,
                     media_url: null, 
                     organizacao_id: config.organizacao_id,
@@ -319,7 +316,6 @@ export async function POST(request) {
                     });
                 }
             } else {
-                // Mensagem de Texto
                 const { data: insertedMsg } = await supabaseAdmin.from('whatsapp_messages').insert({
                     contato_id: contatoId,
                     message_id: message.id, 
@@ -329,7 +325,7 @@ export async function POST(request) {
                     sent_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
                     direction: 'inbound', 
                     status: 'delivered', 
-                    is_read: false, // <--- NOVO: Marca como não lida
+                    is_read: false, 
                     raw_payload: message,
                     media_url: null,
                     organizacao_id: config.organizacao_id,
@@ -338,10 +334,24 @@ export async function POST(request) {
                 finalMessageId = insertedMsg?.id;
             }
 
-            // E. ATUALIZAR CONVERSA (Última Mensagem)
+            // E. ATUALIZAR CONVERSA (Última Mensagem + CONTADOR DE NÃO LIDAS)
             if (conversationRecordId && finalMessageId) {
+                // Recupera o contador atual para incrementar com segurança
+                // (Em produção idealmente usaria RPC 'increment', mas aqui lemos e escrevemos)
+                const { data: currentConv } = await supabaseAdmin
+                    .from('whatsapp_conversations')
+                    .select('unread_count')
+                    .eq('id', conversationRecordId)
+                    .single();
+                
+                const currentCount = currentConv?.unread_count || 0;
+
                 await supabaseAdmin.from('whatsapp_conversations')
-                    .update({ last_message_id: finalMessageId })
+                    .update({ 
+                        last_message_id: finalMessageId,
+                        unread_count: currentCount + 1, // <--- AQUI ESTÁ A MÁGICA 🟢
+                        updated_at: new Date().toISOString()
+                    })
                     .eq('id', conversationRecordId);
             }
 
