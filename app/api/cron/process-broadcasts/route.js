@@ -17,64 +17,55 @@ export async function GET(request) {
     const now = new Date().toISOString();
 
     try {
-        // ---------------------------------------------------------------------
-        // 1. FAXINA: Destravar Jobs "Presos" (Processing há muito tempo)
-        // ---------------------------------------------------------------------
+        // =====================================================================
+        // 1. FAXINA CORRIGIDA: Usa 'updated_at' em vez de 'created_at'
+        // =====================================================================
+        // Só reseta se a tarefa foi ATUALIZADA (tocada pelo robô) há mais de 5 minutos
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
         
-        // Se ficou 'processing' por mais de 5 min, reseta para 'pending' para tentar de novo
         const { error: resetError } = await supabaseAdmin
             .from('whatsapp_scheduled_broadcasts')
             .update({ status: 'pending' })
             .eq('status', 'processing')
-            .lte('created_at', fiveMinutesAgo); // Usa created_at ou updated_at se tiver
+            .lte('updated_at', fiveMinutesAgo); // <--- AQUI ESTAVA O ERRO (Antes era created_at)
             
         if (resetError) console.error("[CRON] Erro ao destravar jobs:", resetError);
 
-        // ---------------------------------------------------------------------
-        // 2. BUSCAR A TAREFA MAIS ANTIGA (Fila FIFO)
-        // ---------------------------------------------------------------------
+        // =====================================================================
+        // 2. BUSCAR TAREFA
+        // =====================================================================
         const { data: jobs, error: jobsError } = await supabaseAdmin
             .from('whatsapp_scheduled_broadcasts')
             .select('*')
             .eq('status', 'pending')
             .lte('scheduled_at', now) 
-            .order('scheduled_at', { ascending: true }) // <--- IMPORTANTE: Pega a mais antiga primeiro
+            .order('scheduled_at', { ascending: true })
             .limit(1);
 
         if (jobsError) return NextResponse.json({ error: jobsError.message }, { status: 500 });
 
         if (!jobs || jobs.length === 0) {
-            return NextResponse.json({ message: 'Fila limpa. O robô está de folga.' });
+            return NextResponse.json({ message: 'Fila limpa.' });
         }
 
         const job = jobs[0];
-        console.log(`[CRON] Processando Job ID: ${job.id} (Agendado para: ${job.scheduled_at})`);
+        console.log(`[CRON] Processando Job ${job.id}.`);
 
-        // 3. Travar Job
-        await supabaseAdmin.from('whatsapp_scheduled_broadcasts').update({ status: 'processing' }).eq('id', job.id);
+        // 3. Travar Job (Isso vai atualizar o updated_at automaticamente pelo Trigger)
+        await supabaseAdmin
+            .from('whatsapp_scheduled_broadcasts')
+            .update({ status: 'processing' })
+            .eq('id', job.id);
 
         try {
-            // Busca Config
-            const { data: config } = await supabaseAdmin
-                .from('configuracoes_whatsapp')
-                .select('*')
-                .eq('organizacao_id', job.organizacao_id)
-                .single();
-            
-            if (!config) throw new Error("Configuração WhatsApp não encontrada");
-
-            // Busca Membros
-            const { data: members, error: membersError } = await supabaseAdmin
-                .from('whatsapp_list_members')
-                .select('contatos(id, nome, telefones(telefone))')
-                .eq('lista_id', job.lista_id);
+            // Busca Dados
+            const { data: config } = await supabaseAdmin.from('configuracoes_whatsapp').select('*').eq('organizacao_id', job.organizacao_id).single();
+            const { data: members, error: membersError } = await supabaseAdmin.from('whatsapp_list_members').select('contatos(id, nome, telefones(telefone))').eq('lista_id', job.lista_id);
 
             if (membersError) throw membersError;
 
-            // Filtra Válidos
             const validTargets = members?.map(m => {
-                if (!m.contatos || !m.contatos.telefones || m.contatos.telefones.length === 0) return null;
+                if (!m.contatos?.telefones?.[0]?.telefone) return null;
                 return {
                     id: m.contatos.id, 
                     nome: m.contatos.nome || 'Cliente', 
@@ -82,7 +73,7 @@ export async function GET(request) {
                 };
             }).filter(Boolean) || [];
 
-            // --- DISPARAR ---
+            // Disparar
             const stats = await processBroadcast(supabaseAdmin, config, validTargets, {
                 template_name: job.template_name,
                 language: job.language,
@@ -91,7 +82,7 @@ export async function GET(request) {
                 components: job.components
             });
 
-            // 4. Sucesso!
+            // Finalizar
             await supabaseAdmin
                 .from('whatsapp_scheduled_broadcasts')
                 .update({ status: 'completed' })
@@ -101,13 +92,7 @@ export async function GET(request) {
 
         } catch (processError) {
             console.error(`[CRON] Falha Job ${job.id}:`, processError);
-            
-            // Marca como falha para sair da frente da fila
-            await supabaseAdmin
-                .from('whatsapp_scheduled_broadcasts')
-                .update({ status: 'failed' })
-                .eq('id', job.id);
-
+            await supabaseAdmin.from('whatsapp_scheduled_broadcasts').update({ status: 'failed' }).eq('id', job.id);
             return NextResponse.json({ error: processError.message }, { status: 500 });
         }
 
