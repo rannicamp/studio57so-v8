@@ -146,7 +146,7 @@ async function dispatchNotification(supabaseAdmin, organizacaoId, title, message
     }
 }
 
-// --- 4. EXTRAÇÃO DE TEXTO (CORRIGIDA PARA BOTÕES) ---
+// --- 4. EXTRAÇÃO DE TEXTO ---
 function getTextContent(message) {
     if (!message || !message.type) return null;
     if (message.type === 'text') return message.text?.body;
@@ -155,7 +155,7 @@ function getTextContent(message) {
     if (message.type === 'interactive') {
         const interactive = message.interactive;
         if (interactive.type === 'button_reply') {
-            return interactive.button_reply.title; // Retorna o texto do botão (ex: "Sim")
+            return interactive.button_reply.title;
         }
         if (interactive.type === 'list_reply') {
             return interactive.list_reply.title;
@@ -163,7 +163,7 @@ function getTextContent(message) {
         return 'Interação recebida';
     }
 
-    if (message.type === 'button') return message.button?.text; // Legado
+    if (message.type === 'button') return message.button?.text;
     if (message.type === 'document') return message.document?.caption || message.document?.filename || 'Documento Recebido';
     if (message.type === 'image') return message.image?.caption || 'Imagem Recebida';
     if (message.type === 'audio') return 'Áudio Recebido';
@@ -194,14 +194,30 @@ export async function POST(request) {
         if (!config) return NextResponse.json({ error: 'Configuração não encontrada' }, { status: 500 });
 
         const change = body.entry?.[0]?.changes?.[0]?.value;
-        if (change?.statuses) return NextResponse.json({ status: 'ok' });
+        
+        // --- 1. ATUALIZAÇÃO DE STATUS (VISTOS) ---
+        // Se for uma atualização de status (sent, delivered, read)
+        if (change?.statuses) {
+            const statusUpdate = change.statuses[0];
+            const newStatus = statusUpdate.status; // sent, delivered, read
+            const messageId = statusUpdate.id;
 
+            // Atualiza o status da mensagem no banco
+            await supabaseAdmin
+                .from('whatsapp_messages')
+                .update({ status: newStatus })
+                .eq('message_id', messageId);
+
+            return NextResponse.json({ status: 'status-updated' });
+        }
+
+        // --- 2. MENSAGEM RECEBIDA ---
         const message = change?.messages?.[0];
         if (message) {
-            console.log('[Webhook] Mensagem recebida:', JSON.stringify(message)); // LOG DE DEBUG
+            console.log('[Webhook] Mensagem recebida:', JSON.stringify(message)); 
             const from = message.from; 
 
-            // 1. DEDUP
+            // A. DEDUP (Evitar duplicidade)
             const { data: existingMsg } = await supabaseAdmin
                 .from('whatsapp_messages')
                 .select('id')
@@ -210,7 +226,7 @@ export async function POST(request) {
 
             if (existingMsg) return NextResponse.json({ status: 'ok' });
             
-            // 2. CONTATO
+            // B. CONTATO (Busca ou Criação)
             const { data: foundId } = await supabaseAdmin.rpc('find_contact_by_phone', { phone_input: from });
             let contatoId = foundId;
             let contatoNome = `Lead (${from})`;
@@ -235,7 +251,7 @@ export async function POST(request) {
                 const { data: existing } = await supabaseAdmin.from('contatos').select('nome, is_awaiting_name_response').eq('id', contatoId).single();
                 if (existing) {
                     contatoNome = existing.nome;
-                    let textBody = getTextContent(message); // Usa a função corrigida
+                    let textBody = getTextContent(message);
                     if (textBody && existing.is_awaiting_name_response && textBody.length > 2) {
                         await supabaseAdmin.from('contatos').update({ nome: textBody, is_awaiting_name_response: false }).eq('id', contatoId);
                         contatoNome = textBody;
@@ -243,7 +259,7 @@ export async function POST(request) {
                 }
             }
             
-            // 3. CONVERSA
+            // C. CONVERSA (Upsert)
             const { data: conversationData } = await supabaseAdmin.from('whatsapp_conversations')
                 .upsert({ 
                     phone_number: from, 
@@ -256,9 +272,9 @@ export async function POST(request) {
 
             const conversationRecordId = conversationData?.id;
 
-            // 4. MENSAGEM E MÍDIA
+            // D. INSERÇÃO DA MENSAGEM
             const isMedia = ['image', 'document', 'audio', 'video', 'voice', 'sticker'].includes(message.type);
-            let content = getTextContent(message); // Extrai texto, inclusive de botões
+            let content = getTextContent(message);
             let mediaData = null;
             let finalMessageId = null;
 
@@ -274,6 +290,7 @@ export async function POST(request) {
                     sent_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
                     direction: 'inbound', 
                     status: 'delivered', 
+                    is_read: false, // <--- NOVO: Marca como não lida
                     raw_payload: message,
                     media_url: null, 
                     organizacao_id: config.organizacao_id,
@@ -302,16 +319,17 @@ export async function POST(request) {
                     });
                 }
             } else {
-                // Caso seja texto ou BOTÃO
+                // Mensagem de Texto
                 const { data: insertedMsg } = await supabaseAdmin.from('whatsapp_messages').insert({
                     contato_id: contatoId,
                     message_id: message.id, 
                     sender_id: from,
                     receiver_id: config.whatsapp_phone_number_id, 
-                    content: content || '[Interação desconhecida]', // Garante que não vá vazio
+                    content: content || '[Interação desconhecida]',
                     sent_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
                     direction: 'inbound', 
                     status: 'delivered', 
+                    is_read: false, // <--- NOVO: Marca como não lida
                     raw_payload: message,
                     media_url: null,
                     organizacao_id: config.organizacao_id,
@@ -320,14 +338,14 @@ export async function POST(request) {
                 finalMessageId = insertedMsg?.id;
             }
 
-            // 5. ATUALIZAR CONVERSA
+            // E. ATUALIZAR CONVERSA (Última Mensagem)
             if (conversationRecordId && finalMessageId) {
                 await supabaseAdmin.from('whatsapp_conversations')
                     .update({ last_message_id: finalMessageId })
                     .eq('id', conversationRecordId);
             }
 
-            // 6. Notificação
+            // F. NOTIFICAÇÃO
             if (content || mediaData) {
                 let notifTitle = isNewLead ? '🎉 Novo Lead!' : `💬 Mensagem de ${contatoNome}`;
                 let notifBody = mediaData ? `📎 Arquivo: ${content}` : (content?.substring(0, 100) || 'Nova mensagem');

@@ -11,31 +11,39 @@ export async function POST(request) {
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     try {
-        const { action, conversationId } = await request.json();
+        const { action, conversationId, phoneNumber } = await request.json();
 
-        if (!conversationId) return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+        // 1. RESOLVER ID (Garantia Extra)
+        // Se veio o ID direto, usa ele. Se veio telefone, busca o ID.
+        let targetId = conversationId;
+
+        if (!targetId && phoneNumber) {
+            const { data: conv } = await supabaseAdmin
+                .from('whatsapp_conversations')
+                .select('id')
+                .eq('phone_number', phoneNumber)
+                .single();
+            
+            if (conv) targetId = conv.id;
+        }
+
+        if (!targetId) return NextResponse.json({ error: 'ID ou Telefone inválido.' }, { status: 400 });
 
         // === AÇÃO: EXCLUIR (DELETE) ===
         if (action === 'delete') {
-            console.log(`[Delete] Iniciando faxina para conversa ID: ${conversationId}`);
+            console.log(`[Delete] Iniciando faxina para conversa ID: ${targetId}`);
 
-            // PASSO 0: QUEBRAR O VÍNCULO (O "Pulo do Gato" 🐈)
-            // Removemos a referência da última mensagem para desbloquear a exclusão
-            const { error: unlinkError } = await supabaseAdmin
+            // PASSO 0: QUEBRAR O VÍNCULO (Solta a última mensagem)
+            await supabaseAdmin
                 .from('whatsapp_conversations')
-                .update({ last_message_id: null }) // <--- Isso solta a mensagem presa
-                .eq('id', conversationId);
-
-            if (unlinkError) {
-                console.error("Erro ao desvincular last_message:", unlinkError);
-                // Não paramos aqui, tentamos continuar, mas é bom logar.
-            }
+                .update({ last_message_id: null })
+                .eq('id', targetId);
 
             // PASSO 1: Buscar mensagens para apagar anexos
             const { data: messages } = await supabaseAdmin
                 .from('whatsapp_messages')
                 .select('message_id')
-                .eq('conversation_record_id', conversationId);
+                .eq('conversation_record_id', targetId);
 
             // PASSO 2: Apagar Anexos
             if (messages && messages.length > 0) {
@@ -49,29 +57,23 @@ export async function POST(request) {
             }
 
             // PASSO 3: Apagar as Mensagens
-            // Agora que o last_message_id é null, o banco vai deixar apagar!
             const { error: msgError } = await supabaseAdmin
                 .from('whatsapp_messages')
                 .delete()
-                .eq('conversation_record_id', conversationId);
+                .eq('conversation_record_id', targetId);
 
             if (msgError) {
-                // Se ainda der erro, retornamos o detalhe técnico
-                return NextResponse.json({ 
-                    error: `Erro ao apagar mensagens: ${msgError.message}` 
-                }, { status: 500 });
+                return NextResponse.json({ error: `Erro ao apagar mensagens: ${msgError.message}` }, { status: 500 });
             }
 
             // PASSO 4: Apagar a Conversa
             const { error: convError } = await supabaseAdmin
                 .from('whatsapp_conversations')
                 .delete()
-                .eq('id', conversationId);
+                .eq('id', targetId);
 
             if (convError) {
-                return NextResponse.json({ 
-                    error: `Erro ao apagar conversa: ${convError.message}` 
-                }, { status: 500 });
+                return NextResponse.json({ error: `Erro ao apagar conversa: ${convError.message}` }, { status: 500 });
             }
 
             return NextResponse.json({ success: true, message: "Conversa totalmente excluída!" });
@@ -79,15 +81,25 @@ export async function POST(request) {
 
         // --- OUTRAS AÇÕES ---
         if (action === 'archive') {
-            const { error } = await supabaseAdmin.from('whatsapp_conversations').update({ is_archived: true }).eq('id', conversationId);
+            const { error } = await supabaseAdmin.from('whatsapp_conversations').update({ is_archived: true }).eq('id', targetId);
             if (error) throw error;
             return NextResponse.json({ success: true, message: "Arquivada" });
         }
 
         if (action === 'unarchive') {
-            const { error } = await supabaseAdmin.from('whatsapp_conversations').update({ is_archived: false }).eq('id', conversationId);
+            const { error } = await supabaseAdmin.from('whatsapp_conversations').update({ is_archived: false }).eq('id', targetId);
             if (error) throw error;
             return NextResponse.json({ success: true, message: "Desarquivada" });
+        }
+
+        // Ação nova para limpar contador (Visto Azul)
+        if (action === 'mark_read') {
+             await supabaseAdmin
+                .from('whatsapp_messages')
+                .update({ is_read: true })
+                .eq('conversation_record_id', targetId)
+                .eq('is_read', false);
+             return NextResponse.json({ success: true });
         }
 
         return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });
