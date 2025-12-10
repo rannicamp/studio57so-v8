@@ -15,15 +15,16 @@ import { toast } from 'sonner'
 import { useLayout } from '@/contexts/LayoutContext'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
-  faPlus, faSpinner, faTimes, faUser, faBuilding,
-  faAddressBook, faSort, faSortUp, faSortDown, faSearch,
-  faPen, faUserCircle, faTrash, faCopy,
-  faFileImport, faFileExport, faClone, faLayerGroup, 
-  faObjectGroup, faCheckSquare, faSquare,
-  faWandMagicSparkles, faFilter // <--- NOVO ÍCONE DE FILTRO
+  faPlus, faSpinner, faTimes, faSearch,
+  faPen, faTrash, faCopy, faUserCircle, faBuilding,
+  faFileImport, faFileExport, faLayerGroup, 
+  faObjectGroup, faWandMagicSparkles, faFilter,
+  faSort, faSortUp, faSortDown
 } from '@fortawesome/free-solid-svg-icons'
 import { useDebounce } from 'use-debounce'
 import Image from 'next/image'
+
+// Componentes
 import ContatoForm from '@/components/contatos/ContatoForm'
 import ContatoImporter from '@/components/contatos/ContatoImporter'
 import MergeModal from '@/components/contatos/MergeModal'
@@ -31,23 +32,62 @@ import DuplicateContactsManager from '@/components/contatos/DuplicateContactsMan
 import PadronizacaoManager from '@/components/contatos/PadronizacaoManager'
 import { saveContactAction } from '@/components/contatos/actions';
 
-// --- BUSCA ADMIN COM FILTRO DE TIPO ---
+// CHAVE ÚNICA PARA O LOCALSTORAGE
+const CONTATOS_UI_STATE_KEY = 'STUDIO57_CONTATOS_UI_STATE_V1';
+
+// Helper para ler o cache inicial (evita flash de conteúdo)
+const getCachedUiState = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+        const saved = localStorage.getItem(CONTATOS_UI_STATE_KEY);
+        return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+        return null;
+    }
+};
+
+// --- BUSCA ADMIN TURBINADA (AGORA COM TELEFONE) ---
 async function fetchContatosMain(organizacaoId, searchTerm, typeFilter) {
   if (!organizacaoId) return [];
   const supabase = createClient()
   
+  // Inicia a query base
   let query = supabase.from('contatos').select(`*, telefones(telefone), emails(email)`)
     .eq('organizacao_id', organizacaoId)
   
-  // 1. APLICA O FILTRO DE TIPO (SE HOUVER)
-  if (typeFilter && typeFilter !== 'Todos') {
-      query = query.eq('tipo_contato', typeFilter);
-  }
-    
-  if (searchTerm) { 
-      query = query.or(`nome.ilike.%${searchTerm}%,razao_social.ilike.%${searchTerm}%`); 
+  // LÓGICA INTELIGENTE DE BUSCA
+  if (searchTerm && searchTerm.trim().length > 0) {
+      // Se tem busca, usamos a RPC (Função SQL) para achar os IDs corretos
+      // Isso permite buscar no Nome, CPF, CNPJ e TELEFONE ao mesmo tempo
+      const { data: idsEncontrados, error: rpcError } = await supabase.rpc('filtrar_ids_contatos', {
+          p_organizacao_id: organizacaoId,
+          p_search_term: searchTerm,
+          p_type_filter: typeFilter === 'Todos' ? null : typeFilter
+      });
+
+      if (rpcError) {
+          console.error("Erro na Super Busca:", rpcError);
+          // Fallback: Se der erro na RPC, tenta busca simples por nome
+          query = query.or(`nome.ilike.%${searchTerm}%,razao_social.ilike.%${searchTerm}%`);
+          if (typeFilter && typeFilter !== 'Todos') {
+             query = query.eq('tipo_contato', typeFilter);
+          }
+      } else {
+          // Se não achou nada na Super Busca, retorna vazio direto
+          if (!idsEncontrados || idsEncontrados.length === 0) return [];
+          
+          // Filtra a query principal apenas pelos IDs encontrados
+          const listaIds = idsEncontrados.map(item => item.id);
+          query = query.in('id', listaIds);
+      }
+  } else {
+      // Se NÃO tem busca textual, aplicamos apenas o filtro de tipo se necessário
+      if (typeFilter && typeFilter !== 'Todos') {
+          query = query.eq('tipo_contato', typeFilter);
+      }
   }
   
+  // Ordenação padrão
   query = query.order('nome', { ascending: true }).order('razao_social', { ascending: true });
   
   const { data, error } = await query
@@ -79,7 +119,7 @@ export default function ContatosMain() {
       if(setPageTitle) setPageTitle('Gestão de Contatos');
   }, [setPageTitle]);
 
-  // Estados dos Modais
+  // --- ESTADOS DOS MODAIS ---
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false)
@@ -87,18 +127,38 @@ export default function ContatosMain() {
   const [isStandardizeModalOpen, setIsStandardizeModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   
-  const isInitialMount = useRef(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  // 2. ESTADO DO FILTRO
-  const [typeFilter, setTypeFilter] = useState('Todos') 
-  const [debouncedSearchTerm] = useDebounce(searchTerm, 500)
-  const [sortConfig, setSortConfig] = useState({ key: 'nome_display', direction: 'ascending' })
+  // --- ESTADOS COM PERSISTÊNCIA ---
+  // Inicializamos com o valor do cache (se existir) ou o padrão
+  const cachedState = getCachedUiState();
+  
+  const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '')
+  const [typeFilter, setTypeFilter] = useState(cachedState?.typeFilter || 'Todos') 
+  const [sortConfig, setSortConfig] = useState(cachedState?.sortConfig || { key: 'nome_display', direction: 'ascending' })
+  const [selectedContactIds, setSelectedContactIds] = useState(cachedState?.selectedContactIds || [])
+
   const [contatoParaEditar, setContatoParaEditar] = useState(null)
+  
+  // Debounce para a busca (apenas para a query, não para o input visual)
+  const [debouncedSearchTerm] = useDebounce(searchTerm, 500)
 
-  // Estado de Seleção Múltipla
-  const [selectedContactIds, setSelectedContactIds] = useState([])
+  // --- LÓGICA DE PERSISTÊNCIA (SALVAR NO LOCALSTORAGE) ---
+  const hasRestoredUiState = useRef(true); // Já restauramos na inicialização
 
-  // 3. ATUALIZA A QUERY PARA INCLUIR O FILTRO
+  // Monitora mudanças nos estados críticos e salva no localStorage
+  useEffect(() => {
+      if (typeof window !== 'undefined' && hasRestoredUiState.current) {
+          const stateToSave = {
+              searchTerm,
+              typeFilter,
+              sortConfig,
+              selectedContactIds
+          };
+          localStorage.setItem(CONTATOS_UI_STATE_KEY, JSON.stringify(stateToSave));
+      }
+  }, [searchTerm, typeFilter, sortConfig, selectedContactIds]);
+
+
+  // --- QUERY PRINCIPAL ---
   const { data: contatos, isLoading, isFetching, isError, error, } = useQuery({
     queryKey: ['contatosMainLista', organizacaoId, debouncedSearchTerm, typeFilter],
     queryFn: () => fetchContatosMain(organizacaoId, debouncedSearchTerm, typeFilter),
@@ -294,7 +354,7 @@ export default function ContatosMain() {
         
         {/* BARRA DE FERRAMENTAS */}
         <div className="flex flex-wrap gap-2 items-center">
-            {/* 4. DROPDOWN DE FILTRO DE TIPO */}
+            {/* DROPDOWN DE FILTRO DE TIPO */}
             <div className="relative">
                 <select
                     value={typeFilter}
@@ -341,7 +401,7 @@ export default function ContatosMain() {
       {/* Busca */}
       <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><FontAwesomeIcon icon={faSearch} className="text-gray-400" /></div>
-          <input type="text" placeholder="Buscar por nome, razão social, documento..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-2 pl-10 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"/>
+          <input type="text" placeholder="Buscar por nome, telefone, documento..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-2 pl-10 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"/>
           {searchTerm && (<button onClick={() => setSearchTerm('')} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-red-500" title="Limpar busca"><FontAwesomeIcon icon={faTimes} /></button> )}
       </div>
 
