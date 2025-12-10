@@ -1,39 +1,59 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Delay para segurança
+// Delay para segurança (entre envios)
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function processBroadcast(supabaseAdmin, config, targetContacts, templateData) {
+export async function processBroadcast(supabaseAdmin, config, targetContacts, templateData, jobInfo) {
     const { template_name, language, variables, full_text_base, components: extraComponents } = templateData;
+    const { jobId, jobCreatedAt, batchSize = 5 } = jobInfo || {}; // Padrão: 5 por vez
     
+    let processedCount = 0;
     let successCount = 0;
     let failCount = 0;
-    const results = [];
+    let skippedCount = 0;
 
-    console.log(`[Processor] Iniciando envio para ${targetContacts.length} contatos.`);
+    console.log(`[Processor] Processando lote de ${batchSize} para Job ${jobId}...`);
 
     for (const target of targetContacts) {
+        // 1. LIMITE DE LOTE: Se já enviou o limite deste minuto, para.
+        if (processedCount >= batchSize) {
+            break;
+        }
+
         try {
-            // 1. HUMANIZAÇÃO: Extrair Primeiro Nome
-            const firstName = target.nome.split(' ')[0] || target.nome;
-            
-            // 2. Personalizar Variáveis
-            const personalizedVariables = [...(variables || [])];
-            if (personalizedVariables.length > 0) {
-                personalizedVariables[0] = firstName; // Substitui {{1}}
+            // 2. VERIFICAÇÃO DE SEGURANÇA (IDEMPOTÊNCIA)
+            // Verifica se já enviamos mensagem para este contato neste Job específico
+            // Buscamos mensagens enviadas para este contato DEPOIS que o Job foi criado
+            const { data: existingMsg } = await supabaseAdmin
+                .from('whatsapp_messages')
+                .select('id')
+                .eq('contato_id', target.id)
+                .eq('direction', 'outbound')
+                .gte('created_at', jobInfo.jobCreatedAt) // Criado DEPOIS do agendamento
+                .limit(1);
+
+            if (existingMsg && existingMsg.length > 0) {
+                // Já enviou, pula sem contar no lote (para avançar a fila rápido)
+                // skippedCount++;
+                continue; 
             }
 
-            // 3. Montar Componentes (Body + Header se tiver)
-            const messageComponents = [];
+            // --- INICIO DO ENVIO ---
             
-            // Adiciona Header/Mídia se veio do modal
-            if (extraComponents && extraComponents.length > 0) {
-                // Filtra apenas componentes de HEADER para garantir
+            // Incrementa contador do lote (agora sim vamos gastar tempo)
+            processedCount++;
+
+            // Humanização
+            const firstName = target.nome ? target.nome.split(' ')[0] : 'Cliente';
+            const personalizedVariables = [...(variables || [])];
+            if (personalizedVariables.length > 0) personalizedVariables[0] = firstName;
+
+            // Monta Componentes
+            const messageComponents = [];
+            if (extraComponents && Array.isArray(extraComponents)) {
                 const headerComp = extraComponents.find(c => c.type === 'header');
                 if (headerComp) messageComponents.push(headerComp);
             }
-
-            // Adiciona Body com variáveis personalizadas
             if (personalizedVariables.length > 0) {
                 messageComponents.push({
                     type: 'body',
@@ -41,13 +61,13 @@ export async function processBroadcast(supabaseAdmin, config, targetContacts, te
                 });
             }
 
-            // 4. Montar Texto para Histórico
+            // Texto Histórico
             let personalizedText = full_text_base || `Template: ${template_name}`;
             personalizedVariables.forEach((val, i) => {
                 personalizedText = personalizedText.replace(new RegExp(`\\{\\{${i + 1}\\}\\}`, 'g'), val);
             });
 
-            // 5. Payload Meta
+            // Payload API
             const payload = {
                 messaging_product: 'whatsapp',
                 recipient_type: 'individual',
@@ -60,7 +80,7 @@ export async function processBroadcast(supabaseAdmin, config, targetContacts, te
                 }
             };
 
-            // 6. Envio
+            // Fetch API WhatsApp
             const response = await fetch(`https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`, {
                 method: 'POST',
                 headers: {
@@ -75,12 +95,9 @@ export async function processBroadcast(supabaseAdmin, config, targetContacts, te
             if (!response.ok) {
                 console.error(`[Processor] Falha para ${target.nome}:`, resData);
                 failCount++;
-                results.push({ contact: target.nome, status: 'error', error: resData });
             } else {
                 successCount++;
-                results.push({ contact: target.nome, status: 'success' });
-
-                // Salva no Histórico Individual
+                // Grava log
                 const newMessageId = resData.messages?.[0]?.id;
                 if (newMessageId) {
                     await supabaseAdmin.from('whatsapp_messages').insert({
@@ -98,15 +115,21 @@ export async function processBroadcast(supabaseAdmin, config, targetContacts, te
                 }
             }
 
-            // 7. Delay de Segurança (2 a 4 segundos)
-            const delay = Math.floor(Math.random() * 2000) + 2000;
+            // Delay entre mensagens do mesmo lote (4 segundos)
+            // 5 msgs x 4s = 20s (Seguro para Netlify)
+            const delay = 4000; 
             await sleep(delay);
 
         } catch (error) {
-            console.error(`[Processor] Erro interno:`, error);
+            console.error(`[Processor] Erro no loop:`, error);
             failCount++;
         }
     }
 
-    return { total: targetContacts.length, success: successCount, failed: failCount };
+    return { 
+        processedInThisRun: processedCount, 
+        success: successCount, 
+        failed: failCount,
+        skipped: skippedCount // Pessoas que já tinham recebido
+    };
 }
