@@ -142,7 +142,8 @@ export default function ContatosMain() {
   const [debouncedSearchTerm] = useDebounce(searchTerm, 500)
 
   // --- LÓGICA DE PERSISTÊNCIA (SALVAR NO LOCALSTORAGE) ---
-  const hasRestoredUiState = useRef(true); // Já restauramos na inicialização
+  const hasRestoredUiState = useRef(true); 
+  const isInitialMount = useRef(true); // <--- AQUI ESTÁ A CORREÇÃO! (Adicionado de volta)
 
   // Monitora mudanças nos estados críticos e salva no localStorage
   useEffect(() => {
@@ -289,6 +290,7 @@ export default function ContatosMain() {
       onError: (err) => toast.error(`Erro ao duplicar: ${err.message}`),
   });
 
+  // Atualização Visual (Loading state)
   useEffect(() => {
     if (!isInitialMount.current) { 
         if (!isFetching && !isError && prevIsFetchingRef.current && !isLoading) { } 
