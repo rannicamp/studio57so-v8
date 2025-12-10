@@ -15,6 +15,7 @@ import {
   faPlus, 
   faSpinner, 
   faBullhorn, 
+  faTag
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQueryClient, useMutation } from '@tanstack/react-query'; 
@@ -48,9 +49,9 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
                 isSelected ? 'bg-[#f0f2f5] border-l-4 border-l-[#00a884]' : 'bg-white'
             }`}
         >
-            <div className="flex items-center">
+            <div className="flex items-start">
                 {/* Avatar */}
-                <div className="relative">
+                <div className="relative mt-1">
                     <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center text-xl font-bold text-white overflow-hidden shrink-0">
                         {conversation.avatar_url ? (
                             <img src={conversation.avatar_url} alt="" className="w-full h-full object-cover" />
@@ -67,6 +68,7 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
 
                 {/* Info */}
                 <div className="ml-4 flex-grow min-w-0 pr-8">
+                    {/* Linha 1: Nome e Hora */}
                     <div className="flex justify-between items-baseline">
                         <h3 className="font-semibold text-gray-900 truncate pr-2 text-sm">
                             {conversation.nome || conversation.phone_number}
@@ -77,32 +79,53 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
                             </span>
                         )}
                     </div>
-                    <div className="flex justify-between items-center mt-1">
+
+                    {/* Linha 2: Última Mensagem */}
+                    <div className="flex justify-between items-center mt-0.5">
                         <p className="text-sm text-gray-500 truncate w-full">
                             {conversation.last_message_content || 'Inicie uma conversa'}
                         </p>
                     </div>
+
+                    {/* Linha 3: Tags (Tipo e Funil) - AQUI ESTÁ A NOVIDADE 🟢 */}
+                    {(conversation.tipo_contato || conversation.etapa_funil) && (
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {/* Tag de Tipo (Discreta) */}
+                            {conversation.tipo_contato && (
+                                <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 uppercase tracking-wide">
+                                    {conversation.tipo_contato}
+                                </span>
+                            )}
+                            
+                            {/* Tag de Etapa do Funil (Destaque Suave) */}
+                            {conversation.etapa_funil && (
+                                <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 flex items-center gap-1 max-w-full truncate">
+                                    <FontAwesomeIcon icon={faTag} className="text-[9px] opacity-70" />
+                                    {conversation.etapa_funil}
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
 
-                {/* --- BOTÃO DE MENU (Aparece no Hover da linha ou se o menu estiver aberto) --- */}
+                {/* --- BOTÃO DE MENU --- */}
                 <div className={`absolute right-2 top-4 z-20 transition-opacity duration-200 ${isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                     <button 
                         className={`flex items-center justify-center w-8 h-8 rounded-full focus:outline-none shadow-sm transition-colors ${
                             isMenuOpen ? 'bg-gray-200 text-gray-700' : 'bg-white/80 text-gray-500 hover:text-gray-700 hover:bg-gray-200'
                         }`}
                         onClick={(e) => {
-                            e.stopPropagation(); // Impede de selecionar a conversa ao clicar no botão
+                            e.stopPropagation();
                             setIsMenuOpen(!isMenuOpen);
                         }}
                     >
                         <FontAwesomeIcon icon={faEllipsisV} />
                     </button>
 
-                    {/* --- MENU FLUTUANTE (Só aparece se isMenuOpen for true) --- */}
                     {isMenuOpen && (
                         <div 
                             className="absolute right-0 mt-1 w-40 bg-white rounded-md shadow-xl ring-1 ring-black ring-opacity-5 z-50 animate-in fade-in zoom-in-95 duration-100"
-                            onClick={(e) => e.stopPropagation()} // Impede que cliques dentro do menu fechem ele ou selecionem a conversa
+                            onClick={(e) => e.stopPropagation()}
                         >
                             <div className="py-1">
                                 <button
@@ -189,7 +212,6 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
             })
         });
 
-        // Verificação segura se a resposta é JSON
         const contentType = response.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
             throw new Error("O servidor retornou uma resposta inválida (provavelmente erro 404 ou 500). Verifique a rota da API.");
@@ -205,11 +227,9 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
         const actionMsg = data.action === 'delete' ? 'Conversa excluída!' : data.action === 'archive' ? 'Arquivada!' : 'Recuperada!';
         toast.success(actionMsg);
         
-        // Força atualização das listas
         queryClient.invalidateQueries({ queryKey: ['conversations'] });
         queryClient.invalidateQueries({ queryKey: ['messages'] });
         
-        // Se excluiu a conversa ativa, limpa a seleção
         if (data.action === 'delete') {
             onSelectContact(null);
         }
@@ -220,7 +240,6 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
     }
   });
 
-  // --- MUTATION PARA DELETAR LISTA ---
   const deleteListMutation = useMutation({
       mutationFn: async (listId) => {
           const response = await fetch(`/api/whatsapp/lists?id=${listId}`, { method: 'DELETE' });
@@ -235,7 +254,6 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
       onError: () => toast.error("Erro ao excluir lista.")
   });
 
-  // Função Wrapper para chamar a mutation
   const handleAction = async (action, conversation) => {
     if (action === 'delete') {
         if (!confirm('Tem certeza? Isso apagará TODO o histórico de mensagens permanentemente.')) return;

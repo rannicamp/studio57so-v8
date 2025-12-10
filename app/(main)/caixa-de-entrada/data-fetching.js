@@ -11,7 +11,13 @@ export const getConversations = async (supabase, organizacaoId) => {
                 id,
                 nome,
                 foto_url,
-                telefone_principal: telefones (telefone)
+                tipo_contato,
+                telefone_principal: telefones (telefone),
+                funil: contatos_no_funil!contato_id (
+                    coluna: colunas_funil (
+                        nome
+                    )
+                )
             ),
             last_message: whatsapp_messages!last_message_id (
                 content,
@@ -36,15 +42,18 @@ export const getConversations = async (supabase, organizacaoId) => {
         unread_count: conv.unread_count || 0,
         last_message_content: conv.last_message?.content,
         last_message_at: conv.last_message?.created_at || conv.updated_at,
-        is_archived: conv.is_archived || false
+        is_archived: conv.is_archived || false,
+        // --- DADOS PARA A LISTA ---
+        tipo_contato: conv.contatos?.tipo_contato,
+        // Como 'funil' retorna um array, pegamos o primeiro item (se existir)
+        etapa_funil: conv.contatos?.funil?.[0]?.coluna?.nome || null
     }));
 };
 
-// --- NOVA FUNÇÃO: BUSCAR LISTAS DE TRANSMISSÃO ---
+// --- FUNÇÃO: BUSCAR LISTAS DE TRANSMISSÃO ---
 export const getBroadcastLists = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
 
-    // Busca as listas e conta quantos membros cada uma tem
     const { data, error } = await supabase
         .from('whatsapp_broadcast_lists')
         .select(`
