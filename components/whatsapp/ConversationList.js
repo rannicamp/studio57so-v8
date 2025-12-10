@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -32,14 +32,21 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
         return format(new Date(dateString), 'HH:mm', { locale: ptBR });
     };
 
+    // Fecha o menu se clicar fora dele
+    useEffect(() => {
+        if (isMenuOpen) {
+            const closeMenu = () => setIsMenuOpen(false);
+            document.addEventListener('click', closeMenu);
+            return () => document.removeEventListener('click', closeMenu);
+        }
+    }, [isMenuOpen]);
+
     return (
         <li
             onClick={() => onSelect(conversation)}
             className={`relative group p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
                 isSelected ? 'bg-[#f0f2f5] border-l-4 border-l-[#00a884]' : 'bg-white'
             }`}
-            onMouseEnter={() => setIsMenuOpen(true)}
-            onMouseLeave={() => setIsMenuOpen(false)}
         >
             <div className="flex items-center">
                 {/* Avatar */}
@@ -77,23 +84,31 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
                     </div>
                 </div>
 
-                {/* --- MENU FLUTUANTE --- */}
-                <div className={`absolute right-2 top-4 z-20 transition-opacity duration-200 ${isMenuOpen ? 'opacity-100' : 'opacity-0'}`}>
+                {/* --- BOTÃO DE MENU (Aparece no Hover da linha ou se o menu estiver aberto) --- */}
+                <div className={`absolute right-2 top-4 z-20 transition-opacity duration-200 ${isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                     <button 
-                        className="flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-200 focus:outline-none bg-white/80 shadow-sm"
+                        className={`flex items-center justify-center w-8 h-8 rounded-full focus:outline-none shadow-sm transition-colors ${
+                            isMenuOpen ? 'bg-gray-200 text-gray-700' : 'bg-white/80 text-gray-500 hover:text-gray-700 hover:bg-gray-200'
+                        }`}
                         onClick={(e) => {
-                            e.stopPropagation();
+                            e.stopPropagation(); // Impede de selecionar a conversa ao clicar no botão
+                            setIsMenuOpen(!isMenuOpen);
                         }}
                     >
                         <FontAwesomeIcon icon={faEllipsisV} />
                     </button>
 
+                    {/* --- MENU FLUTUANTE (Só aparece se isMenuOpen for true) --- */}
                     {isMenuOpen && (
-                        <div className="absolute right-0 mt-1 w-40 bg-white rounded-md shadow-xl ring-1 ring-black ring-opacity-5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                        <div 
+                            className="absolute right-0 mt-1 w-40 bg-white rounded-md shadow-xl ring-1 ring-black ring-opacity-5 z-50 animate-in fade-in zoom-in-95 duration-100"
+                            onClick={(e) => e.stopPropagation()} // Impede que cliques dentro do menu fechem ele ou selecionem a conversa
+                        >
                             <div className="py-1">
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
+                                        setIsMenuOpen(false);
                                         onAction(isArchivedList ? 'unarchive' : 'archive', conversation);
                                     }}
                                     className="group flex w-full items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
@@ -105,6 +120,7 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
+                                        setIsMenuOpen(false);
                                         onAction('delete', conversation);
                                     }}
                                     className="group flex w-full items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50"
