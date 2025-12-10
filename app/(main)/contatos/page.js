@@ -1,4 +1,3 @@
-// app/(main)/contatos/page.js
 'use client'
 
 export const dynamic = 'force-dynamic'
@@ -19,7 +18,7 @@ import {
   faPen, faTrash, faCopy, faUserCircle, faBuilding,
   faFileImport, faFileExport, faLayerGroup, 
   faObjectGroup, faWandMagicSparkles, faFilter,
-  faSort, faSortUp, faSortDown
+  faSort, faSortUp, faSortDown, faAddressBook // <--- CORREÇÃO 1: Importação do ícone adicionada
 } from '@fortawesome/free-solid-svg-icons'
 import { useDebounce } from 'use-debounce'
 import Image from 'next/image'
@@ -143,7 +142,7 @@ export default function ContatosMain() {
 
   // --- LÓGICA DE PERSISTÊNCIA (SALVAR NO LOCALSTORAGE) ---
   const hasRestoredUiState = useRef(true); 
-  const isInitialMount = useRef(true); // <--- AQUI ESTÁ A CORREÇÃO! (Adicionado de volta)
+  const isInitialMount = useRef(true);
 
   // Monitora mudanças nos estados críticos e salva no localStorage
   useEffect(() => {
@@ -348,8 +347,12 @@ export default function ContatosMain() {
         <div className="flex items-center gap-3">
             <h2 className="text-3xl font-bold text-gray-800">Contatos</h2>
             {selectedContactIds.length > 0 && (
-                <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-2">
                     {selectedContactIds.length} selecionado(s)
+                    {/* Botão para limpar seleção */}
+                    <button onClick={() => setSelectedContactIds([])} className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none">
+                        <FontAwesomeIcon icon={faTimes} />
+                    </button>
                 </span>
             )}
         </div>
@@ -368,6 +371,7 @@ export default function ContatosMain() {
                     <option value="Cliente">Clientes</option>
                     <option value="Fornecedor">Fornecedores</option>
                     <option value="Parceiro">Parceiros</option>
+                    <option value="Corretor">Corretores</option> {/* <--- CORREÇÃO 2: Filtro adicionado */}
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
                     <FontAwesomeIcon icon={faFilter} className="w-3 h-3" />
@@ -482,8 +486,8 @@ export default function ContatosMain() {
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
           <div className="bg-white p-0 rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
              <div className="flex justify-between items-center p-6 border-b">
-                <h3 className="text-xl font-bold text-gray-800">Importar Contatos</h3>
-                <button onClick={() => setIsImportModalOpen(false)} className="text-gray-400 hover:text-gray-600"><FontAwesomeIcon icon={faTimes} size="lg" /></button>
+               <h3 className="text-xl font-bold text-gray-800">Importar Contatos</h3>
+               <button onClick={() => setIsImportModalOpen(false)} className="text-gray-400 hover:text-gray-600"><FontAwesomeIcon icon={faTimes} size="lg" /></button>
              </div>
              <div className="flex-grow overflow-y-auto p-6">
                 <ContatoImporter onImportSuccess={() => { setIsImportModalOpen(false); queryClient.invalidateQueries({ queryKey: ['contatosMainLista'] }); toast.success("Importação realizada!"); }} />
@@ -497,8 +501,8 @@ export default function ContatosMain() {
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
           <div className="bg-white p-0 rounded-lg shadow-2xl w-full max-w-5xl h-[95vh] flex flex-col">
              <div className="flex justify-between items-center p-6 border-b">
-                <h3 className="text-xl font-bold text-gray-800">Gerenciar Duplicatas</h3>
-                <button onClick={() => { setIsDuplicatesModalOpen(false); queryClient.invalidateQueries({ queryKey: ['contatosMainLista'] }); }} className="text-gray-400 hover:text-gray-600"><FontAwesomeIcon icon={faTimes} size="lg" /></button>
+               <h3 className="text-xl font-bold text-gray-800">Gerenciar Duplicatas</h3>
+               <button onClick={() => { setIsDuplicatesModalOpen(false); queryClient.invalidateQueries({ queryKey: ['contatosMainLista'] }); }} className="text-gray-400 hover:text-gray-600"><FontAwesomeIcon icon={faTimes} size="lg" /></button>
              </div>
              <div className="flex-grow overflow-y-auto p-6">
                 <DuplicateContactsManager />
@@ -512,8 +516,8 @@ export default function ContatosMain() {
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
           <div className="bg-white p-0 rounded-lg shadow-2xl w-full max-w-5xl h-[95vh] flex flex-col">
              <div className="flex justify-between items-center p-6 border-b">
-                <h3 className="text-xl font-bold text-gray-800">Padronizar Contatos</h3>
-                <button onClick={() => { setIsStandardizeModalOpen(false); queryClient.invalidateQueries({ queryKey: ['contatosMainLista'] }); }} className="text-gray-400 hover:text-gray-600"><FontAwesomeIcon icon={faTimes} size="lg" /></button>
+               <h3 className="text-xl font-bold text-gray-800">Padronizar Contatos</h3>
+               <button onClick={() => { setIsStandardizeModalOpen(false); queryClient.invalidateQueries({ queryKey: ['contatosMainLista'] }); }} className="text-gray-400 hover:text-gray-600"><FontAwesomeIcon icon={faTimes} size="lg" /></button>
              </div>
              <div className="flex-grow overflow-y-auto p-6">
                 <PadronizacaoManager />

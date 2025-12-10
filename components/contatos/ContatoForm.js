@@ -1,7 +1,7 @@
 // components/contatos/ContatoForm.js
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react'; // Adicionei useRef
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -134,7 +134,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     const [conjugeSearchResults, setConjugeSearchResults] = useState([]);
     const [selectedConjugeName, setSelectedConjugeName] = useState('');
 
-    // --- CORREÇÃO DO PROBLEMA DE RESET (TYPING) ---
+    // --- CORREÇÃO DO LOOP DE RESET (TEXTO SUMINDO) ---
     useEffect(() => {
         const initializeData = async () => {
             if (isEditing && contactToEdit) {
@@ -158,9 +158,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                     emails: emailsData.length > 0 ? emailsData : [{ email: '' }],
                 });
             } else {
-                // Se não estiver editando, mantemos o estado inicial ou resetamos apenas se necessário
-                // Evitamos resetar se já houver dados digitados e não mudamos o modo
-                // Mas aqui, para 'Novo', sempre reiniciamos ao abrir
                 setFormData(prev => ({ ...getInitialState(), organizacao_id: currentOrgId }));
                 setSelectedConjugeName('');
             }
@@ -168,9 +165,8 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         
         initializeData();
         
-        // AQUI ESTÁ A CORREÇÃO PRINCIPAL: 
-        // Removemos 'supabase' e 'contactToEdit' (objeto completo) das dependências.
-        // Usamos contactToEdit?.id para garantir que só reseta se MUDAR o contato sendo editado.
+        // Removemos 'supabase' e 'contactToEdit' (objeto) das dependências
+        // Usamos contactToEdit?.id para resetar APENAS se mudar de contato
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isEditing, contactToEdit?.id, currentOrgId]); 
 
@@ -274,7 +270,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
             
             queryClient.invalidateQueries({ queryKey: ['contatos'] });
-            if (isEditing) queryClient.invalidateQueries({ queryKey: ['contactProfileData', contatoId] }); // Atualiza sidebar
+            if (isEditing) queryClient.invalidateQueries({ queryKey: ['contactProfileData', contatoId] });
 
             if (onSaveSuccess) onSaveSuccess(contatoId);
             if (onClose) onClose();
@@ -519,7 +515,11 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                     <div>
                         <label className="block text-sm font-medium">Tipo de Contato</label>
                         <select name="tipo_contato" value={formData.tipo_contato || 'Lead'} onChange={handleChange} className="w-full p-2 border rounded-md">
-                            <option value="Lead">Lead</option> <option value="Cliente">Cliente</option> <option value="Fornecedor">Fornecedor</option> <option value="Parceiro">Parceiro</option>
+                            <option value="Lead">Lead</option>
+                            <option value="Cliente">Cliente</option>
+                            <option value="Fornecedor">Fornecedor</option>
+                            <option value="Parceiro">Parceiro</option>
+                            <option value="Corretor">Corretor</option> {/* <--- AQUI ESTÁ A OPÇÃO! */}
                         </select>
                     </div>
                 </div>
