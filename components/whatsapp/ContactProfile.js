@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faStickyNote, faTasks, faSpinner, faPlus, faPhone, 
     faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, 
-    faSave, faBullhorn, faUserTie, faCalculator, faExternalLinkAlt,
-    faHistory
+    faBullhorn, faUserTie, faCalculator, faExternalLinkAlt,
+    faHistory, faTimes, faBriefcase, faSave // <--- ADICIONADO AQUI
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,7 +16,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// --- COMPONENTES AUXILIARES (IGUAIS AO CRM) ---
+// Importa o Formulário Completo
+import ContatoForm from '@/components/contatos/ContatoForm';
+
+// --- COMPONENTES AUXILIARES ---
 
 const formatDateString = (dateStr) => {
     if (!dateStr || !dateStr.includes('-')) return 'Não definido';
@@ -121,7 +124,7 @@ const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
         .eq('id', contatoId)
         .single();
 
-    // 2. Dados de Funil (Importante para Notas)
+    // 2. Dados de Funil
     const { data: funilEntryData } = await supabase
         .from('contatos_no_funil')
         .select('id, corretores:corretor_id(id, nome, razao_social)')
@@ -144,7 +147,7 @@ const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
     return { 
         contactDetails: contactDetails || {}, 
         corretor: funilEntryData?.corretores,
-        funilEntryId, // Essencial para criar notas
+        funilEntryId, 
         notes: notes || [], 
         activities: activities || [], 
         simulations: simulations || [],
@@ -159,9 +162,11 @@ export default function ContactProfile({ contact }) {
     const organizacaoId = user?.organizacao_id;
     const queryClient = useQueryClient();
 
-    // Estados locais para edição e notas
-    const [isEditing, setIsEditing] = useState(false);
+    // Estados locais
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false); // Modal completo
+    const [isEditing, setIsEditing] = useState(false); // Edição rápida (lateral)
     const [editData, setEditData] = useState({});
+    
     const [newNoteContent, setNewNoteContent] = useState('');
     const [editingNoteId, setEditingNoteId] = useState(null);
     const [editingNoteContent, setEditingNoteContent] = useState('');
@@ -185,7 +190,8 @@ export default function ContactProfile({ contact }) {
                 email: displayContact.email || '',
                 cpf: displayContact.cpf || '',
                 cnpj: displayContact.cnpj || '',
-                origem: displayContact.origem || ''
+                origem: displayContact.origem || '',
+                cargo: displayContact.cargo || '' 
             });
         }
     }, [contact?.contato_id, profileData]);
@@ -194,24 +200,34 @@ export default function ContactProfile({ contact }) {
 
     const saveContactMutation = useMutation({
         mutationFn: async (updatedData) => {
-            const { nome, razao_social, cpf, cnpj, origem, telefone, email } = updatedData;
+            const { nome, razao_social, cpf, cnpj, origem, telefone, email, cargo } = updatedData;
+            
             // Atualiza tabela principal
-            const { error } = await supabase.from('contatos').update({ nome, razao_social, cpf, cnpj, origem }).eq('id', contact.contato_id);
+            const { error } = await supabase.from('contatos')
+                .update({ nome, razao_social, cpf, cnpj, origem, cargo })
+                .eq('id', contact.contato_id);
+            
             if (error) throw error;
             
-            // Atualiza tabelas auxiliares (se existirem IDs, senão cria)
-            // Simplificado para update direto se existir, ou upsert básico
+            // Atualiza tabelas auxiliares
             if (telefone) await supabase.from('telefones').upsert({ contato_id: contact.contato_id, telefone, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'contato_id, telefone' });
             if (email) await supabase.from('emails').upsert({ contato_id: contact.contato_id, email, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'contato_id, email' });
         },
         onSuccess: () => {
             setIsEditing(false);
             queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
-            queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] }); // Atualiza nome na lista
+            queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
             toast.success("Contato atualizado!");
         },
         onError: (e) => toast.error("Erro ao salvar: " + e.message)
     });
+
+    const handleSaveSuccessModal = () => {
+        setIsEditModalOpen(false);
+        queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+        queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
+        toast.success("Contato atualizado com sucesso!");
+    };
 
     const addNoteMutation = useMutation({
         mutationFn: async (noteContent) => {
@@ -265,14 +281,16 @@ export default function ContactProfile({ contact }) {
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 text-center leading-tight">{displayContact.nome}</h3>
                 <p className="text-sm text-gray-500 mt-1">{displayContact.telefone || displayContact.phone_number}</p>
+                {displayContact.cargo && <p className="text-xs text-gray-400 font-medium mt-1 uppercase tracking-wide">{displayContact.cargo}</p>}
             </div>
 
             <main className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
                 
-                {/* Seção de Dados Cadastrais (Editável) */}
+                {/* Seção de Dados Cadastrais (Edição Rápida) */}
                 <section>
                     <div className="flex justify-between items-center mb-3">
                         <h4 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Dados Cadastrais</h4>
+                        
                         {isEditing ? (
                             <div className="flex items-center gap-2">
                                 <button onClick={() => setIsEditing(false)} className="text-xs text-gray-500 hover:text-gray-700">Cancelar</button>
@@ -281,9 +299,16 @@ export default function ContactProfile({ contact }) {
                                 </button>
                             </div>
                         ) : (
-                            <button onClick={() => setIsEditing(true)} className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
-                                <FontAwesomeIcon icon={faPen}/> Editar
-                            </button>
+                            <div className="flex items-center gap-3">
+                                {/* Botão Editar Rápido (Inline) */}
+                                <button onClick={() => setIsEditing(true)} className="text-xs text-blue-600 hover:text-blue-800" title="Edição Rápida">
+                                    <FontAwesomeIcon icon={faPen}/> Rápido
+                                </button>
+                                {/* Botão Editar Completo (Modal) */}
+                                <button onClick={() => setIsEditModalOpen(true)} className="text-xs text-gray-500 hover:text-gray-800" title="Edição Completa">
+                                    <FontAwesomeIcon icon={faExternalLinkAlt}/> Completo
+                                </button>
+                            </div>
                         )}
                     </div>
 
@@ -291,6 +316,7 @@ export default function ContactProfile({ contact }) {
                         {isEditing ? (
                             <>
                                 <EditableField label="Nome/Razão Social" value={editData.nome || editData.razao_social} name={displayContact.personalidade_juridica === 'Pessoa Física' ? 'nome' : 'razao_social'} onChange={(e) => setEditData({ ...editData, [e.target.name]: e.target.value })} icon={faIdCard} />
+                                <EditableField label="Profissão" value={editData.cargo} name="cargo" onChange={(e) => setEditData({ ...editData, cargo: e.target.value })} icon={faBriefcase} />
                                 <EditableField label="Telefone" value={editData.telefone} name="telefone" onChange={(e) => setEditData({ ...editData, telefone: e.target.value })} icon={faPhone} />
                                 <EditableField label="Email" value={editData.email} name="email" onChange={(e) => setEditData({ ...editData, email: e.target.value })} icon={faEnvelope} />
                                 <EditableField label="CPF/CNPJ" value={editData.cpf || editData.cnpj} name={displayContact.personalidade_juridica === 'Pessoa Física' ? 'cpf' : 'cnpj'} onChange={(e) => setEditData({ ...editData, [e.target.name]: e.target.value })} icon={faIdCard} />
@@ -298,6 +324,7 @@ export default function ContactProfile({ contact }) {
                             </>
                         ) : (
                             <>
+                                <InfoField label="Profissão" value={displayContact.cargo} icon={faBriefcase} />
                                 <InfoField label="Email" value={displayContact.email} icon={faEnvelope} />
                                 <InfoField label="CPF/CNPJ" value={displayContact.cpf || displayContact.cnpj} icon={faIdCard} />
                                 <InfoField label="Origem" value={displayContact.origem} icon={faGlobe} />
@@ -412,6 +439,29 @@ export default function ContactProfile({ contact }) {
                     </div>
                 </section>
             </main>
+
+            {/* --- MODAL DE EDIÇÃO COMPLETA --- */}
+            {isEditModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-70 z-[60] flex justify-center items-center p-4">
+                    <div className="bg-white p-0 rounded-lg shadow-2xl w-full max-w-5xl h-[95vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white rounded-t-lg z-10">
+                            <h3 className="text-2xl font-bold text-gray-800">Editar Contato</h3>
+                            <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                                <FontAwesomeIcon icon={faTimes} size="lg" />
+                            </button>
+                        </div>
+                        <div className="flex-grow overflow-y-auto">
+                            <ContatoForm 
+                                contactToEdit={displayContact} 
+                                onClose={() => setIsEditModalOpen(false)} 
+                                onSaveSuccess={handleSaveSuccessModal} 
+                                organizacaoId={organizacaoId} 
+                                criadoPorUsuarioId={user?.id} 
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
