@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { createClient } from '@/utils/supabase/client'; // Cliente Supabase (igual ao Duplicatas)
+import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { IMaskInput } from 'react-imask';
@@ -11,10 +11,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTrashAlt, faPlusCircle, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
-// Importamos APENAS a busca de CNPJ da server action (pois ela precisa de API externa)
-// A função de salvar faremos LOCALMENTE para evitar erro de servidor.
+// Importamos APENAS a busca de CNPJ da server action
 import { buscarDadosCnpj } from './actions';
-import { enviarNotificacao } from '@/utils/notificacoes';
 
 // -- COMPONENTES AUXILIARES --
 const SearchableField = ({ label, selectedName, onClear, children }) => (
@@ -116,7 +114,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
 
     const [formData, setFormData] = useState(getInitialState());
     const [isApiLoading, setIsApiLoading] = useState(false);
-    const [isSaving, setIsSaving] = useState(false); // Estado local de salvamento
+    const [isSaving, setIsSaving] = useState(false);
     const [conjugeSearchTerm, setConjugeSearchTerm] = useState('');
     const [conjugeSearchResults, setConjugeSearchResults] = useState([]);
     const [selectedConjugeName, setSelectedConjugeName] = useState('');
@@ -167,7 +165,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         enabled: !!currentOrgId
     });
     
-    // --- FUNÇÃO DE SALVAR CLIENT-SIDE (A CORREÇÃO DEFINITIVA) ---
+    // --- FUNÇÃO DE SALVAR CLIENT-SIDE (ATUALIZADA) ---
     const handleSave = async (e) => {
         e.preventDefault();
         
@@ -181,17 +179,18 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
 
         try {
             // 1. LIMPEZA DE DADOS (Sanitização no Cliente)
-            // Separamos arrays auxiliares
             const { id, telefones, emails, created_at, updated_at, ...rawData } = formData;
             
             const payload = { ...rawData };
             payload.organizacao_id = currentOrgId;
 
-            // Remove campos virtuais
+            // Remove campos virtuais e "fantasmas" (A CORREÇÃO DO ERRO 'EMAIL NOT FOUND')
             delete payload.origem; 
             delete payload.criado_por;
+            delete payload.email;    // <--- Removemos campo singular intruso
+            delete payload.telefone; // <--- Removemos campo singular intruso
             
-            // CONVERTE STRING VAZIA EM NULL (Resolve o erro de Data/FK)
+            // CONVERTE STRING VAZIA EM NULL
             Object.keys(payload).forEach(key => {
                 if (payload[key] === '' || payload[key] === undefined) {
                     payload[key] = null;
@@ -203,19 +202,16 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                 payload.criado_por_usuario_id = user.id;
                 payload.origem = formData.origem || 'Manual';
             } else {
-                // Na edição, verificamos se já tem dono
                 if (!contactToEdit?.criado_por_usuario_id) {
-                     // Se for antigo e não tiver dono, assume a autoria
                      payload.criado_por_usuario_id = user.id;
                 } else {
-                     // Se já tem, não mexe
                      delete payload.criado_por_usuario_id;
                 }
             }
 
             let contatoId = isEditing ? id : null;
 
-            // 2. OPERAÇÃO NO BANCO (Direto do Navegador)
+            // 2. OPERAÇÃO NO BANCO
             let errorDb;
             let dataDb;
 
@@ -234,15 +230,12 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             if (!contatoId) throw new Error("ID do contato não retornado.");
 
             // 3. ATUALIZAR TELEFONES E EMAILS
-            // Limpeza
             const cleanedPhones = (telefones || []).filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0);
             const cleanedEmails = (emails || []).filter(mail => mail.email && mail.email.trim() !== '');
 
-            // Remove antigos
             await supabase.from('telefones').delete().eq('contato_id', contatoId);
             await supabase.from('emails').delete().eq('contato_id', contatoId);
 
-            // Insere novos
             if (cleanedPhones.length > 0) {
                 await supabase.from('telefones').insert(cleanedPhones.map(tel => ({
                     contato_id: contatoId,
@@ -266,26 +259,15 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             toast.dismiss(toastId);
             toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
             
-            // Invalida cache
             queryClient.invalidateQueries({ queryKey: ['contatos'] });
             if (isEditing) queryClient.invalidateQueries({ queryKey: ['contactDetails', contatoId] });
 
-            // Redireciona
             if (onSaveSuccess) onSaveSuccess(contatoId);
             if (onClose) onClose();
             else router.push('/contatos');
 
-            // 5. NOTIFICAÇÃO (Opcional, em background)
-            if (!isEditing) {
-                try {
-                    // Como estamos no cliente, chamamos uma API route ou deixamos quieto
-                    // Se a função enviarNotificacao for server-side only, não podemos chamar aqui direto.
-                    // Mas se for helper misto, ok. Por segurança, vamos pular ou chamar via fetch se necessário.
-                } catch (e) { console.log("Erro notif", e) }
-            }
-
         } catch (error) {
-            console.error("Erro ao salvar (Client-Side):", error);
+            console.error("Erro ao salvar:", error);
             toast.dismiss(toastId);
             toast.error(`Erro: ${error.message || "Falha ao salvar."}`);
         } finally {
@@ -375,8 +357,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
 
     const handleCnpjLookup = useCallback(async (unmaskedCnpj) => {
         setIsApiLoading(true);
-        // Essa função precisa continuar sendo Server Action ou API Route por causa de CORS/BrasilAPI
-        // Como o erro era no "Update", essa leitura deve funcionar.
         const promise = buscarDadosCnpj(unmaskedCnpj);
         
         toast.promise(promise, {
