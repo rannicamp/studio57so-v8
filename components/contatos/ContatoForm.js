@@ -165,7 +165,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         enabled: !!currentOrgId
     });
     
-    // --- FUNÇÃO DE SALVAR CLIENT-SIDE (ATUALIZADA) ---
+    // --- FUNÇÃO DE SALVAR CLIENT-SIDE (VERSÃO BLINDADA) ---
     const handleSave = async (e) => {
         e.preventDefault();
         
@@ -184,11 +184,13 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             const payload = { ...rawData };
             payload.organizacao_id = currentOrgId;
 
-            // Remove campos virtuais e "fantasmas" (A CORREÇÃO DO ERRO 'EMAIL NOT FOUND')
+            // Remove campos virtuais e "fantasmas"
+            // Essa lista deve conter QUALQUER campo que não exista na tabela 'contatos'
             delete payload.origem; 
             delete payload.criado_por;
-            delete payload.email;    // <--- Removemos campo singular intruso
-            delete payload.telefone; // <--- Removemos campo singular intruso
+            delete payload.email;        // Campo fantasma
+            delete payload.telefone;     // Campo fantasma
+            delete payload.etapa_funil;  // <--- NOVO: Remove campo do erro atual
             
             // CONVERTE STRING VAZIA EM NULL
             Object.keys(payload).forEach(key => {
