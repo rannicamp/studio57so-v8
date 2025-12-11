@@ -223,42 +223,68 @@ export async function POST(request) {
 
             if (existingMsg) return NextResponse.json({ status: 'ok' });
             
-            // B. CONTATO (Busca INTELIGENTE ou Criação)
-            // Alterado para usar a nova função 'find_contact_smart' que ignora formatação e 9º dígito
-            const { data: foundId } = await supabaseAdmin.rpc('find_contact_smart', { phone_input: from });
+            // B. CONTATO (BUSCA MELHORADA E SEGURA)
+            // Aqui substituímos a lógica antiga pela busca direta na tabela 'telefones'
             
-            let contatoId = foundId;
+            const orgId = config.organizacao_id;
+            let contatoId = null;
             let contatoNome = `Lead (${from})`;
             let isNewLead = false;
 
+            // 1. Tenta achar na tabela TELEFONES usando os últimos 8 dígitos (ignora DDD e 9º dígito)
+            const phoneSuffix = from.slice(-8); 
+            const { data: telefoneExistente } = await supabaseAdmin
+                .from('telefones')
+                .select('contato_id')
+                .eq('organizacao_id', orgId)
+                .ilike('telefone', `%${phoneSuffix}%`) 
+                .limit(1)
+                .maybeSingle();
+
+            if (telefoneExistente) {
+                console.log(`[Smart Search] Contato encontrado via telefone: ${telefoneExistente.contato_id}`);
+                contatoId = telefoneExistente.contato_id;
+            } else {
+                // 2. Se falhar, tenta achar uma conversa existente (backup)
+                const { data: conversaExistente } = await supabaseAdmin
+                    .from('whatsapp_conversations')
+                    .select('contato_id')
+                    .eq('phone_number', from)
+                    .eq('organizacao_id', orgId)
+                    .maybeSingle();
+                
+                if (conversaExistente?.contato_id) {
+                    contatoId = conversaExistente.contato_id;
+                }
+            }
+
+            // 3. Se ainda assim não achou, CRIA UM NOVO (Só aqui!)
             if (!contatoId) {
                 isNewLead = true;
-                // Criação de contato se não encontrar pela busca inteligente
                 const { data: newContact } = await supabaseAdmin.from('contatos').insert({
-                    nome: contatoNome, tipo_contato: 'Lead', organizacao_id: config.organizacao_id, is_awaiting_name_response: false
+                    nome: contatoNome, tipo_contato: 'Lead', organizacao_id: orgId, is_awaiting_name_response: false
                 }).select().single();
                 
                 contatoId = newContact.id;
                 
-                // Salva o telefone exatamente como veio do WhatsApp, mas limpo
+                // Salva o telefone novo na tabela para achar rápido na próxima vez
                 const cleanPhone = from.replace(/[^0-9]/g, '');
                 await supabaseAdmin.from('telefones').insert({
-                    contato_id: contatoId, telefone: cleanPhone, tipo: 'celular', organizacao_id: config.organizacao_id
+                    contato_id: contatoId, telefone: cleanPhone, tipo: 'celular', organizacao_id: orgId
                 });
                 
                 // Insere no Funil (se configurado)
-                const { data: funil } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', config.organizacao_id).limit(1).single();
+                const { data: funil } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', orgId).limit(1).single();
                 if (funil) {
                     const { data: col } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem').limit(1).single();
-                    if (col) await supabaseAdmin.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: col.id, organizacao_id: config.organizacao_id });
+                    if (col) await supabaseAdmin.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: col.id, organizacao_id: orgId });
                 }
             } else {
-                // Contato Existente Encontrado!
+                // Contato Existente Encontrado! Atualiza nome se necessário
                 const { data: existing } = await supabaseAdmin.from('contatos').select('nome, is_awaiting_name_response').eq('id', contatoId).single();
                 if (existing) {
                     contatoNome = existing.nome;
                     let textBody = getTextContent(message);
-                    // Lógica para capturar o nome se estiver aguardando resposta
                     if (textBody && existing.is_awaiting_name_response && textBody.length > 2) {
                         await supabaseAdmin.from('contatos').update({ nome: textBody, is_awaiting_name_response: false }).eq('id', contatoId);
                         contatoNome = textBody;
@@ -271,7 +297,7 @@ export async function POST(request) {
                 .upsert({ 
                     phone_number: from, 
                     updated_at: new Date().toISOString(),
-                    contato_id: contatoId, // Vincula ao ID encontrado pela busca inteligente
+                    contato_id: contatoId, // Vincula ao ID certo (velho ou novo)
                     organizacao_id: config.organizacao_id
                 }, { onConflict: 'phone_number' })
                 .select()
@@ -337,7 +363,7 @@ export async function POST(request) {
                     status: 'delivered', 
                     is_read: false, 
                     raw_payload: message,
-                    media_url: null,
+                    media_url: null, 
                     organizacao_id: config.organizacao_id,
                     conversation_record_id: conversationRecordId
                 }).select().single();
