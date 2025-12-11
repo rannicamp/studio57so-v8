@@ -32,7 +32,7 @@ const getCachedData = (key) => {
 export default function CaixaDeEntrada() {
     const [selectedContact, setSelectedContact] = useState(null);
     const [selectedList, setSelectedList] = useState(null);
-    const [searchTerm, setSearchTerm] = useState(''); // Estado para busca (preparando terreno)
+    const [searchTerm, setSearchTerm] = useState(''); 
     
     // Refs para controlar a restauração
     const hasRestoredUiState = useRef(false);
@@ -83,32 +83,26 @@ export default function CaixaDeEntrada() {
         refetchOnWindowFocus: true,
     });
 
-    // --- 4. REALTIME UPDATES (O PULO DO GATO 🐈) ---
+    // --- 4. REALTIME UPDATES ---
     useEffect(() => {
         if (!organizacaoId) return;
         
         const channel = supabase.channel('whatsapp-realtime-dashboard')
-            // Escuta mudanças nos CONTATOS (Edição de nome, foto, etc)
             .on('postgres_changes', 
                 { event: '*', schema: 'public', table: 'contatos', filter: `organizacao_id=eq.${organizacaoId}` }, 
                 (payload) => {
                     queryClient.invalidateQueries(['conversations', organizacaoId]);
-                    // Atualiza o contato aberto se for o mesmo que mudou
                     if (selectedContact?.contato_id === payload.new?.id) {
                         setSelectedContact(prev => ({ ...prev, nome: payload.new.nome, avatar_url: payload.new.foto_url }));
                     }
                 }
             )
-            // Escuta mudanças nas CONVERSAS (Novas mensagens, contagem de não lidas, ordenação)
-            // AQUI ESTAVA FALTANDO! 👇
             .on('postgres_changes', 
                 { event: '*', schema: 'public', table: 'whatsapp_conversations', filter: `organizacao_id=eq.${organizacaoId}` }, 
                 () => {
-                    // Recarrega a lista para atualizar a bolinha verde e a ordem
                     queryClient.invalidateQueries(['conversations', organizacaoId]);
                 }
             )
-            // Escuta mudanças nas LISTAS DE TRANSMISSÃO
             .on('postgres_changes', 
                 { event: '*', schema: 'public', table: 'whatsapp_broadcast_lists', filter: `organizacao_id=eq.${organizacaoId}` }, 
                 () => {
@@ -125,11 +119,8 @@ export default function CaixaDeEntrada() {
         setSelectedList(null);
         setSelectedContact(contact);
         
-        // Marca como lida localmente e no servidor ao clicar
-        if (contact.unread_count > 0) {
-            // Chama a função do data-fetching (que já tínhamos)
+        if (contact && contact.unread_count > 0) {
             await markMessagesAsRead(supabase, organizacaoId, contact.contato_id);
-            // Invalida para sumir a bolinha
             queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
         }
     };
@@ -144,7 +135,6 @@ export default function CaixaDeEntrada() {
         setSelectedList(null);
     };
     
-    // Filtro simples no front (pode ser melhorado para back depois)
     const filteredConversations = conversations?.filter(c => 
         c.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
         c.phone_number.includes(searchTerm)
@@ -153,12 +143,20 @@ export default function CaixaDeEntrada() {
     const hasSelection = selectedContact || selectedList;
 
     return (
-        <div className="flex h-full w-full bg-gray-100 overflow-hidden">
+        // --- LAYOUT AJUSTADO PC E MOBILE ---
+        // MOBILE: fixed top-16 bottom-[88px] (trava no meio da tela)
+        // DESKTOP (md): md:h-[calc(100vh-144px)] 
+        // -> Cálculo Desktop: 100vh (Tela Total) - 64px (Topo) - 80px (Folga Embaixo) = 144px
+        <div className="
+            w-full bg-gray-100 overflow-hidden flex
+            fixed inset-x-0 top-16 bottom-[88px] 
+            md:static md:inset-auto md:h-[calc(100vh-144px)]
+        ">
             <Toaster position="top-right" richColors />
 
-            {/* COLUNA 1: LISTA (Conversas/Listas) */}
-            <div className={`${hasSelection ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 lg:w-1/4 flex-col border-r bg-white`}>
-                <div className="h-16 border-b flex flex-col justify-center px-4 bg-[#f0f2f5] shrink-0">
+            {/* COLUNA 1: LISTA */}
+            <div className={`${hasSelection ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 lg:w-1/4 flex-col border-r bg-white h-full overflow-hidden min-h-0`}>
+                <div className="h-16 border-b flex flex-col justify-center px-4 bg-[#f0f2f5] shrink-0 z-10">
                     <div className="relative">
                         <input 
                             type="text" 
@@ -170,20 +168,21 @@ export default function CaixaDeEntrada() {
                         <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                     </div>
                 </div>
-                
-                <ConversationList
-                    conversations={filteredConversations || conversations}
-                    broadcastLists={broadcastLists}
-                    isLoading={isLoadingConversations || isLoadingLists}
-                    onSelectContact={handleSelectContact}
-                    selectedContactId={selectedContact?.contato_id}
-                    onSelectList={handleSelectList}
-                    selectedListId={selectedList?.id}
-                />
+                <div className="flex-grow overflow-y-auto custom-scrollbar">
+                    <ConversationList
+                        conversations={filteredConversations || conversations}
+                        broadcastLists={broadcastLists}
+                        isLoading={isLoadingConversations || isLoadingLists}
+                        onSelectContact={handleSelectContact}
+                        selectedContactId={selectedContact?.contato_id || selectedContact?.conversation_id}
+                        onSelectList={handleSelectList}
+                        selectedListId={selectedList?.id}
+                    />
+                </div>
             </div>
 
-            {/* COLUNA 2: PAINEL CENTRAL (Chat ou Broadcast) */}
-            <div className={`${hasSelection ? 'flex' : 'hidden md:flex'} flex-grow flex-col bg-[#efeae2]`}>
+            {/* COLUNA 2: PAINEL CENTRAL */}
+            <div className={`${hasSelection ? 'flex' : 'hidden md:flex'} flex-grow flex-col bg-[#efeae2] h-full overflow-hidden relative min-h-0`}>
                 {selectedContact ? (
                     <MessagePanel contact={selectedContact} onBack={handleBackToList} />
                 ) : selectedList ? (
@@ -195,13 +194,13 @@ export default function CaixaDeEntrada() {
                 )}
             </div>
             
-            {/* COLUNA 3: PERFIL (Só aparece se for Contato) */}
+            {/* COLUNA 3: PERFIL */}
             {selectedContact && (
-                <div className="hidden lg:flex w-1/4 flex-col border-l bg-white">
+                <div className="hidden lg:flex w-1/4 flex-col border-l bg-white h-full overflow-hidden min-h-0">
                     <div className="h-16 border-b flex items-center px-4 bg-[#f0f2f5] shrink-0">
                         <h2 className="text-base font-semibold text-gray-700">Dados do Contato</h2>
                     </div>
-                    <div className="flex-grow overflow-y-auto">
+                    <div className="flex-grow overflow-y-auto custom-scrollbar">
                         <ContactProfile contact={selectedContact} />
                     </div>
                 </div>
