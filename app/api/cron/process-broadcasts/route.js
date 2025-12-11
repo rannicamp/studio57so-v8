@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { sendWhatsAppTemplate } from '@/utils/whatsapp';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Timeout de 60 segundos
@@ -20,13 +19,13 @@ export async function GET(request) {
     const now = new Date().toISOString();
 
     try {
-        // 1. FAXINA DE TRAVAMENTOS (Se travou por mais de 3 min, libera)
-        const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+        // 1. FAXINA DE TRAVAMENTOS (Se travou por mais de 5 min, libera)
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
         await supabaseAdmin
             .from('whatsapp_scheduled_broadcasts')
             .update({ status: 'pending' })
             .eq('status', 'processing')
-            .lte('updated_at', threeMinutesAgo);
+            .lte('updated_at', fiveMinutesAgo);
 
         // 2. BUSCAR TAREFA
         const { data: jobs, error: jobError } = await supabaseAdmin
@@ -42,13 +41,25 @@ export async function GET(request) {
 
         const job = jobs[0];
 
-        // --- CONFIGURAÇÃO DO MODO SEGURO ---
-        // Se queremos 1 mensagem a cada 3 segundos, cabem no máximo 15 a 18 em 60 segundos.
-        // Vamos usar 15 para ter margem de segurança.
-        const BATCH_SIZE = 15; 
-        const DELAY_BETWEEN_MSGS = 3000; // 3 segundos de pausa
+        // --- BUSCA CREDENCIAIS DA META (Correção do Erro de URL) ---
+        const { data: config } = await supabaseAdmin
+            .from('configuracoes_whatsapp')
+            .select('*')
+            .eq('organizacao_id', job.organizacao_id)
+            .single();
 
-        console.log(`[CRON] 🐢 Iniciando Modo Seguro para Job ${job.id}. Lote: ${BATCH_SIZE}, Delay: ${DELAY_BETWEEN_MSGS}ms`);
+        if (!config || !config.whatsapp_permanent_token || !config.whatsapp_phone_number_id) {
+            console.error(`[CRON] Erro: Configuração do WhatsApp não encontrada para Org ${job.organizacao_id}`);
+            // Marca como falha para não travar a fila
+            await supabaseAdmin.from('whatsapp_scheduled_broadcasts').update({ status: 'failed' }).eq('id', job.id);
+            return NextResponse.json({ error: "Configuração WhatsApp ausente" });
+        }
+
+        // --- CONFIGURAÇÃO DO MODO SEGURO ---
+        const BATCH_SIZE = 15; 
+        const DELAY_BETWEEN_MSGS = 3000; // 3 segundos
+
+        console.log(`[CRON] 🐢 Iniciando Modo Seguro Direto para Job ${job.id}.`);
 
         // 3. HEARTBEAT
         await supabaseAdmin
@@ -57,13 +68,13 @@ export async function GET(request) {
             .eq('id', job.id);
 
         // 4. IDENTIFICAR PENDENTES
-        // Busca todos os membros
+        // Busca membros
         const { data: allMembers } = await supabaseAdmin
             .from('whatsapp_list_members')
             .select('contato_id, contatos(id, nome, telefones(telefone))')
             .eq('lista_id', job.lista_id);
 
-        // Busca quem já recebeu (para não duplicar)
+        // Busca já enviados
         const { data: alreadySent } = await supabaseAdmin
             .from('whatsapp_messages')
             .select('contato_id')
@@ -71,7 +82,7 @@ export async function GET(request) {
 
         const sentIds = new Set(alreadySent?.map(m => m.contato_id));
 
-        // Filtra pendentes com telefone válido
+        // Filtra pendentes
         const pendingTargets = allMembers
             .filter(m => !sentIds.has(m.contato_id) && m.contatos?.telefones?.[0]?.telefone)
             .map(m => ({
@@ -83,7 +94,6 @@ export async function GET(request) {
         const totalReal = allMembers.length;
         const totalProcessadoAntes = sentIds.size;
 
-        // Se acabou
         if (pendingTargets.length === 0) {
             await supabaseAdmin
                 .from('whatsapp_scheduled_broadcasts')
@@ -100,12 +110,12 @@ export async function GET(request) {
         // 5. SELECIONA O LOTE
         const batch = pendingTargets.slice(0, BATCH_SIZE);
         
-        // 6. DISPARO SEQUENCIAL COM PAUSA (O Segredo)
+        // 6. DISPARO SEQUENCIAL (Direto na Meta)
         let successCount = 0;
         let failedCount = 0;
 
         for (const target of batch) {
-            // Verifica se o Job foi pausado/cancelado no meio do loop
+            // Verifica status (Pausa/Stop)
             const { data: checkStatus } = await supabaseAdmin
                 .from('whatsapp_scheduled_broadcasts')
                 .select('status')
@@ -114,50 +124,83 @@ export async function GET(request) {
 
             if (checkStatus.status !== 'processing') {
                 console.log("[CRON] Job interrompido pelo usuário.");
-                break; // Para o loop imediatamente
+                break; 
             }
 
             try {
+                // Prepara Variáveis
                 const variables = (job.variables || []).map(v => v === '{{nome}}' ? target.nome.split(' ')[0] : v);
                 
-                const result = await sendWhatsAppTemplate(
-                    target.telefone, 
-                    job.template_name, 
-                    job.language, 
-                    variables.length > 0 ? [{ type: 'body', parameters: variables.map(txt => ({ type: 'text', text: txt })) }] : []
-                );
+                // Monta Payload da Meta
+                const payload = {
+                    messaging_product: 'whatsapp',
+                    recipient_type: 'individual',
+                    to: target.telefone,
+                    type: 'template',
+                    template: {
+                        name: job.template_name,
+                        language: { code: job.language || 'pt_BR' },
+                        components: [
+                            ...(job.components || []), // Mantém componentes visuais (imagem/video) se houver
+                            // Adiciona corpo se houver variáveis
+                            ...(variables.length > 0 ? [{
+                                type: 'body',
+                                parameters: variables.map(txt => ({ type: 'text', text: txt }))
+                            }] : [])
+                        ]
+                    }
+                };
 
-                if (result && result.success === false) throw new Error(result.error || 'Erro API');
+                // ENVIA DIRETO PARA A META (Sem passar por /api/whatsapp/send)
+                const response = await fetch(`https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${config.whatsapp_permanent_token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
 
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error?.message || 'Erro na API da Meta');
+                }
+
+                // Salva Sucesso
                 await supabaseAdmin.from('whatsapp_messages').insert({
                     contato_id: target.id,
                     broadcast_id: job.id,
-                    sender_id: 'BROADCAST',
+                    sender_id: config.whatsapp_phone_number_id,
                     receiver_id: target.telefone,
+                    message_id: data.messages?.[0]?.id,
                     content: `Template: ${job.template_name}`,
                     status: 'sent',
                     direction: 'outbound',
                     organizacao_id: job.organizacao_id,
-                    is_read: true
+                    is_read: true,
+                    created_at: new Date().toISOString()
                 });
 
                 successCount++;
+
             } catch (err) {
                 console.error(`[CRON] Falha para ${target.nome}:`, err.message);
+                // Salva Falha
                 await supabaseAdmin.from('whatsapp_messages').insert({
                     contato_id: target.id,
                     broadcast_id: job.id,
-                    sender_id: 'BROADCAST',
+                    sender_id: config.whatsapp_phone_number_id,
                     receiver_id: target.telefone,
                     content: `Falha: ${err.message}`,
                     status: 'failed',
                     direction: 'outbound',
-                    organizacao_id: job.organizacao_id
+                    organizacao_id: job.organizacao_id,
+                    created_at: new Date().toISOString()
                 });
                 failedCount++;
             }
 
-            // PAUSA DE SEGURANÇA (exceto no último)
             if (target !== batch[batch.length - 1]) {
                 await sleep(DELAY_BETWEEN_MSGS);
             }
@@ -168,7 +211,7 @@ export async function GET(request) {
         
         const newSuccess = (currentJobData?.success_count || 0) + successCount;
         const newFailed = (currentJobData?.failed_count || 0) + failedCount;
-        const newProcessed = totalProcessadoAntes + successCount + failedCount; // Conta só o que realmente rodou
+        const newProcessed = totalProcessadoAntes + successCount + failedCount;
 
         const isFinished = (pendingTargets.length <= batch.length) && (successCount + failedCount === batch.length);
 
@@ -186,7 +229,7 @@ export async function GET(request) {
             .eq('id', job.id);
 
         return NextResponse.json({ 
-            message: 'Lote Seguro processado', 
+            message: 'Lote Direto processado', 
             stats: { sent: successCount, failed: failedCount },
             status: isFinished ? 'completed' : 'processing'
         });
