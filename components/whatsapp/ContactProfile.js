@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -8,24 +8,19 @@ import {
     faStickyNote, faTasks, faSpinner, faPlus, faPhone, 
     faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, 
     faBullhorn, faUserTie, faCalculator, faExternalLinkAlt,
-    faHistory, faTimes, faBriefcase, faSave 
+    faHistory, faTimes, faBriefcase, faSave, faFunnelDollar
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 
 // Importa o Formulário Completo
 import ContatoForm from '@/components/contatos/ContatoForm';
+// Importa o Card do CRM para integração
+import ContatoCardCRM from '@/components/crm/ContatoCardCRM';
 
 // --- COMPONENTES AUXILIARES ---
-
-const formatDateString = (dateStr) => {
-    if (!dateStr || !dateStr.includes('-')) return 'Não definido';
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
-};
 
 const EditableField = ({ label, value, name, onChange, icon }) => (
     <div className="mb-3">
@@ -113,24 +108,36 @@ const HistoricoTimeline = ({ history }) => {
     );
 };
 
-// --- FUNÇÃO DE BUSCA DE DADOS (CORRIGIDA) ---
+// --- FUNÇÃO DE BUSCA DE DADOS ---
 const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
     if (!contatoId || !organizacaoId) return null;
 
-    // 1. Dados Cadastrais COMPLETOS (Incluindo Telefones e Emails para o Modal funcionar)
+    // 1. Dados Cadastrais COMPLETOS
     const { data: contactDetails } = await supabase
         .from('contatos')
-        .select('*, telefones(*), emails(*)') // <--- AQUI ESTAVA O PULO DO GATO! Faltava buscar as relações.
+        .select('*, telefones(*), emails(*)') 
         .eq('id', contatoId)
         .single();
 
-    // 2. Dados de Funil
+    // 2. Dados de Funil (AGORA EXPANDIDO PARA O CARD)
     const { data: funilEntryData } = await supabase
         .from('contatos_no_funil')
-        .select('id, corretores:corretor_id(id, nome, razao_social)')
+        .select(`
+            *,
+            corretores:corretor_id(id, nome, razao_social),
+            produtos_interesse:contatos_no_funil_produtos(
+                id,
+                produto:produto_id(*)
+            )
+        `)
         .eq('contato_id', contatoId)
-        .single();
+        .maybeSingle();
     
+    // Injetamos o contato dentro do funilEntryData para o CardCRM usar (ele espera essa estrutura)
+    if (funilEntryData) {
+        funilEntryData.contatos = contactDetails; 
+    }
+
     const funilEntryId = funilEntryData?.id;
 
     // 3. Informações Relacionadas
@@ -146,7 +153,7 @@ const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
 
     return { 
         contactDetails: contactDetails || {}, 
-        corretor: funilEntryData?.corretores,
+        funilEntry: funilEntryData, // Objeto completo para o CardCRM
         funilEntryId, 
         notes: notes || [], 
         activities: activities || [], 
@@ -161,10 +168,11 @@ export default function ContactProfile({ contact }) {
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
     const queryClient = useQueryClient();
+    const notesSectionRef = useRef(null);
 
     // Estados locais
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false); // Modal completo
-    const [isEditing, setIsEditing] = useState(false); // Edição rápida (lateral)
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false); 
+    const [isEditing, setIsEditing] = useState(false); 
     const [editData, setEditData] = useState({});
     
     const [newNoteContent, setNewNoteContent] = useState('');
@@ -177,12 +185,29 @@ export default function ContactProfile({ contact }) {
         enabled: !!contact && !!organizacaoId,
     });
     
-    const { notes = [], activities = [], simulations = [], history = [], corretor, contactDetails, funilEntryId } = profileData || {};
+    // Dados para o Card CRM (Colunas e Produtos)
+    const { data: allColumns = [] } = useQuery({
+        queryKey: ['colunasFunil', organizacaoId],
+        queryFn: async () => {
+             const { data } = await supabase.from('colunas_funil').select('*').eq('organizacao_id', organizacaoId).order('ordem');
+             return data || [];
+        },
+        enabled: !!organizacaoId
+    });
+
+    const { data: availableProducts = [] } = useQuery({
+        queryKey: ['produtosDisponiveis', organizacaoId],
+        queryFn: async () => {
+             const { data } = await supabase.from('produtos_empreendimento').select('*').eq('organizacao_id', organizacaoId).eq('status', 'Disponível');
+             return data || [];
+        },
+        enabled: !!organizacaoId
+    });
     
-    // Mescla garantindo que contactDetails tenha prioridade (pois tem telefones/emails completos)
+    const { notes = [], activities = [], simulations = [], history = [], funilEntry, contactDetails, funilEntryId } = profileData || {};
+    
     const displayContact = { ...contact, ...contactDetails };
 
-    // Inicializa dados de edição rápida
     useEffect(() => {
         if (displayContact) {
             setEditData({
@@ -198,20 +223,13 @@ export default function ContactProfile({ contact }) {
         }
     }, [contact?.contato_id, profileData]);
 
-    // --- MUTAÇÕES ---
+    // --- MUTAÇÕES GERAIS ---
 
     const saveContactMutation = useMutation({
         mutationFn: async (updatedData) => {
             const { nome, razao_social, cpf, cnpj, origem, telefone, email, cargo } = updatedData;
-            
-            // Atualiza tabela principal
-            const { error } = await supabase.from('contatos')
-                .update({ nome, razao_social, cpf, cnpj, origem, cargo })
-                .eq('id', contact.contato_id);
-            
+            const { error } = await supabase.from('contatos').update({ nome, razao_social, cpf, cnpj, origem, cargo }).eq('id', contact.contato_id);
             if (error) throw error;
-            
-            // Atualiza tabelas auxiliares (Edição rápida: assume o primeiro telefone/email)
             if (telefone) await supabase.from('telefones').upsert({ contato_id: contact.contato_id, telefone, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'contato_id, telefone' });
             if (email) await supabase.from('emails').upsert({ contato_id: contact.contato_id, email, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'contato_id, email' });
         },
@@ -223,13 +241,6 @@ export default function ContactProfile({ contact }) {
         },
         onError: (e) => toast.error("Erro ao salvar: " + e.message)
     });
-
-    const handleSaveSuccessModal = () => {
-        setIsEditModalOpen(false);
-        queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
-        queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
-        // Feedback já é dado pelo ContatoForm, mas garantimos aqui também
-    };
 
     const addNoteMutation = useMutation({
         mutationFn: async (noteContent) => {
@@ -262,10 +273,62 @@ export default function ContactProfile({ contact }) {
         }
     });
 
+    // --- MUTAÇÕES DO CARD CRM ---
+
+    const moveCardMutation = useMutation({
+        mutationFn: async ({ cardId, newColumnId }) => {
+            await supabase.from('contatos_no_funil').update({ coluna_id: newColumnId, updated_at: new Date() }).eq('id', cardId).throwOnError();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+            toast.success("Card movido!");
+        }
+    });
+
+    const associateProductMutation = useMutation({
+        mutationFn: async ({ cardId, productId }) => {
+            await supabase.from('contatos_no_funil_produtos').insert({ contato_no_funil_id: cardId, produto_id: productId, organizacao_id: organizacaoId }).throwOnError();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+            toast.success("Unidade associada!");
+        }
+    });
+
+    const dissociateProductMutation = useMutation({
+        mutationFn: async (itemId) => {
+            await supabase.from('contatos_no_funil_produtos').delete().eq('id', itemId).throwOnError();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+            toast.success("Unidade removida.");
+        }
+    });
+
+    const associateCorretorMutation = useMutation({
+        mutationFn: async ({ cardId, corretorId }) => {
+            await supabase.from('contatos_no_funil').update({ corretor_id: corretorId }).eq('id', cardId).throwOnError();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+            toast.success("Corretor atualizado.");
+        }
+    });
+
+    const deleteCardMutation = useMutation({
+        mutationFn: async (cardId) => {
+            await supabase.from('contatos_no_funil').delete().eq('id', cardId).throwOnError();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+            toast.success("Card excluído do funil.");
+        }
+    });
+
+    // --- HANDLERS ---
     const handleSaveNoteEdit = (noteId) => crudMutation.mutate({ action: 'update', table: 'crm_notas', data: { conteudo: editingNoteContent }, id: noteId });
-    const createDeleteHandler = (itemType, itemId) => {
-        if(confirm("Tem certeza que deseja excluir?")) crudMutation.mutate({ action: 'delete', table: itemType, id: itemId });
-    };
+    const createDeleteHandler = (itemType, itemId) => { if(confirm("Tem certeza que deseja excluir?")) crudMutation.mutate({ action: 'delete', table: itemType, id: itemId }); };
+    const handleSaveSuccessModal = () => { setIsEditModalOpen(false); queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] }); queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] }); };
 
     if (!contact) return <div className="p-4 text-center text-sm text-gray-500">Selecione uma conversa.</div>;
     if (isLoading) return <div className="p-8 text-center text-gray-500"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-2 text-[#00a884]"/><p>Carregando perfil...</p></div>;
@@ -288,7 +351,35 @@ export default function ContactProfile({ contact }) {
 
             <main className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
                 
-                {/* Seção de Dados Cadastrais (Edição Rápida + Botão Modal) */}
+                {/* --- CARD DO FUNIL (NOVO) --- */}
+                {funilEntry && (
+                    <section className="animate-in fade-in slide-in-from-top-4 duration-300">
+                        <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2 text-sm uppercase tracking-wide">
+                            <FontAwesomeIcon icon={faFunnelDollar} /> CRM / Funil
+                        </h4>
+                        <ContatoCardCRM
+                            funilEntry={funilEntry}
+                            allColumns={allColumns}
+                            availableProducts={availableProducts}
+                            onDragStart={() => {}} // Não aplicável na sidebar
+                            onCardClick={() => {}} // Não aplicável
+                            onMoveToColumn={(cardId, colId) => moveCardMutation.mutate({ cardId, newColumnId: colId })}
+                            onAssociateProduct={(cardId, prodId) => associateProductMutation.mutate({ cardId, productId: prodId })}
+                            onDissociateProduct={(itemId) => dissociateProductMutation.mutate(itemId)}
+                            onAssociateCorretor={(cardId, corrId) => associateCorretorMutation.mutate({ cardId, corretorId: corrId })}
+                            onDeleteCard={(cardId) => deleteCardMutation.mutate(cardId)}
+                            onOpenNotesModal={() => {
+                                if (notesSectionRef.current) {
+                                    notesSectionRef.current.scrollIntoView({ behavior: 'smooth' });
+                                    toast.info("Role para baixo para ver as notas.");
+                                }
+                            }}
+                            onAddActivity={() => toast.info("Use o menu de atividades abaixo.")}
+                        />
+                    </section>
+                )}
+
+                {/* Seção de Dados Cadastrais */}
                 <section>
                     <div className="flex justify-between items-center mb-3">
                         <h4 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Dados Cadastrais</h4>
@@ -302,11 +393,9 @@ export default function ContactProfile({ contact }) {
                             </div>
                         ) : (
                             <div className="flex items-center gap-3">
-                                {/* Botão Editar Rápido (Inline) */}
                                 <button onClick={() => setIsEditing(true)} className="text-xs text-blue-600 hover:text-blue-800" title="Edição Rápida">
                                     <FontAwesomeIcon icon={faPen}/> Rápido
                                 </button>
-                                {/* Botão Editar Completo (Modal) */}
                                 <button onClick={() => setIsEditModalOpen(true)} className="text-xs text-gray-500 hover:text-gray-800" title="Edição Completa">
                                     <FontAwesomeIcon icon={faExternalLinkAlt}/> Completo
                                 </button>
@@ -330,7 +419,7 @@ export default function ContactProfile({ contact }) {
                                 <InfoField label="Email" value={displayContact.email} icon={faEnvelope} />
                                 <InfoField label="CPF/CNPJ" value={displayContact.cpf || displayContact.cnpj} icon={faIdCard} />
                                 <InfoField label="Origem" value={displayContact.origem} icon={faGlobe} />
-                                <InfoField label="Corretor" value={corretor?.nome || 'Sem corretor'} icon={faUserTie} />
+                                {/* Removemos a linha "Corretor" daqui, pois agora aparece no Card do CRM */}
                             </>
                         )}
                     </div>
@@ -339,7 +428,7 @@ export default function ContactProfile({ contact }) {
                 <MetaFormData data={displayContact.meta_form_data} />
 
                 {/* Seção de Notas */}
-                <section>
+                <section ref={notesSectionRef}>
                     <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2 text-sm uppercase tracking-wide"><FontAwesomeIcon icon={faStickyNote} /> Notas</h4>
                     <div className="space-y-3">
                         {funilEntryId ? (
