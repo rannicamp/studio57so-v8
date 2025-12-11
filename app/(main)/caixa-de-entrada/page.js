@@ -14,52 +14,43 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
 import { useDebounce } from 'use-debounce';
 
-// CHAVE DE CACHE
+// CHAVE DE CACHE (Para salvar o estado desta página)
 const CAIXA_ENTRADA_UI_STATE_KEY = 'caixaEntradaUiState';
 
-// Função auxiliar para ler o cache
-const getCachedData = (key) => {
-    if (typeof window === 'undefined') return undefined;
+// Função auxiliar para ler o cache ANTES de renderizar (evita "piscada")
+const getCachedData = () => {
+    if (typeof window === 'undefined') return null;
     try {
-        const cachedData = localStorage.getItem(key);
-        return cachedData ? JSON.parse(cachedData) : undefined;
+        const cachedData = localStorage.getItem(CAIXA_ENTRADA_UI_STATE_KEY);
+        return cachedData ? JSON.parse(cachedData) : null;
     } catch (error) {
-        console.error(`Erro ao ler cache (${key}):`, error);
-        return undefined;
+        console.error(`Erro ao ler cache (${CAIXA_ENTRADA_UI_STATE_KEY}):`, error);
+        return null;
     }
 };
 
 export default function CaixaDeEntrada() {
-    const [selectedContact, setSelectedContact] = useState(null);
-    const [selectedList, setSelectedList] = useState(null);
-    const [searchTerm, setSearchTerm] = useState(''); 
-    
-    // Refs para controlar a restauração
-    const hasRestoredUiState = useRef(false);
+    // 1. INICIALIZAÇÃO INTELIGENTE (Já nasce com os dados salvos)
+    const cachedState = getCachedData();
+
+    const [selectedContact, setSelectedContact] = useState(cachedState?.selectedContact || null);
+    const [selectedList, setSelectedList] = useState(cachedState?.selectedList || null);
+    const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || ''); // Agora o termo de busca também é salvo!
     
     const queryClient = useQueryClient();
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    // --- 1. RESTAURAÇÃO DE ESTADO ---
-    useEffect(() => {
-        if (!hasRestoredUiState.current) {
-            const savedUiState = getCachedData(CAIXA_ENTRADA_UI_STATE_KEY);
-            if (savedUiState) {
-                if (savedUiState.selectedContact) setSelectedContact(savedUiState.selectedContact);
-                if (savedUiState.selectedList) setSelectedList(savedUiState.selectedList);
-            }
-            hasRestoredUiState.current = true;
-        }
-    }, []);
-
-    // --- 2. SALVAMENTO AUTOMÁTICO ---
-    const uiStateToSave = { selectedContact, selectedList };
+    // --- 2. PERSISTÊNCIA AUTOMÁTICA ---
+    // Agrupamos tudo que queremos salvar
+    const uiStateToSave = { selectedContact, selectedList, searchTerm };
+    // Usamos debounce para não salvar a cada letra digitada (espera 1s)
     const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
 
+    // Efeito que efetivamente grava no navegador
     useEffect(() => {
-        if (hasRestoredUiState.current) {
+        if (typeof window !== 'undefined') {
             try {
                 localStorage.setItem(CAIXA_ENTRADA_UI_STATE_KEY, JSON.stringify(debouncedUiState));
             } catch (error) {
@@ -92,6 +83,7 @@ export default function CaixaDeEntrada() {
                 { event: '*', schema: 'public', table: 'contatos', filter: `organizacao_id=eq.${organizacaoId}` }, 
                 (payload) => {
                     queryClient.invalidateQueries(['conversations', organizacaoId]);
+                    // Se o contato aberto foi editado, atualizamos os dados dele na tela
                     if (selectedContact?.contato_id === payload.new?.id) {
                         setSelectedContact(prev => ({ ...prev, nome: payload.new.nome, avatar_url: payload.new.foto_url }));
                     }
@@ -143,14 +135,12 @@ export default function CaixaDeEntrada() {
     const hasSelection = selectedContact || selectedList;
 
     return (
-        // --- LAYOUT AJUSTADO PC E MOBILE ---
-        // MOBILE: fixed top-16 bottom-[88px] (trava no meio da tela)
-        // DESKTOP (md): md:h-[calc(100vh-144px)] 
-        // -> Cálculo Desktop: 100vh (Tela Total) - 64px (Topo) - 80px (Folga Embaixo) = 144px
+        // --- LAYOUT TRAVADO (Mantendo o ajuste de altura que funcionou) ---
+        // PC: Altura da tela - Header (64px) - Padding Inferior (80px para garantir folga do menu)
         <div className="
             w-full bg-gray-100 overflow-hidden flex
             fixed inset-x-0 top-16 bottom-[88px] 
-            md:static md:inset-auto md:h-[calc(100vh-144px)]
+            md:static md:inset-auto md:h-[calc(100vh-64px)] md:pb-20
         ">
             <Toaster position="top-right" richColors />
 
