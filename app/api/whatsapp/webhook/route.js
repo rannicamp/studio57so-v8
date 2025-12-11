@@ -223,32 +223,42 @@ export async function POST(request) {
 
             if (existingMsg) return NextResponse.json({ status: 'ok' });
             
-            // B. CONTATO (Busca ou Criação)
-            const { data: foundId } = await supabaseAdmin.rpc('find_contact_by_phone', { phone_input: from });
+            // B. CONTATO (Busca INTELIGENTE ou Criação)
+            // Alterado para usar a nova função 'find_contact_smart' que ignora formatação e 9º dígito
+            const { data: foundId } = await supabaseAdmin.rpc('find_contact_smart', { phone_input: from });
+            
             let contatoId = foundId;
             let contatoNome = `Lead (${from})`;
             let isNewLead = false;
 
             if (!contatoId) {
                 isNewLead = true;
+                // Criação de contato se não encontrar pela busca inteligente
                 const { data: newContact } = await supabaseAdmin.from('contatos').insert({
                     nome: contatoNome, tipo_contato: 'Lead', organizacao_id: config.organizacao_id, is_awaiting_name_response: false
                 }).select().single();
+                
                 contatoId = newContact.id;
+                
+                // Salva o telefone exatamente como veio do WhatsApp, mas limpo
+                const cleanPhone = from.replace(/[^0-9]/g, '');
                 await supabaseAdmin.from('telefones').insert({
-                    contato_id: contatoId, telefone: from, tipo: 'celular', organizacao_id: config.organizacao_id
+                    contato_id: contatoId, telefone: cleanPhone, tipo: 'celular', organizacao_id: config.organizacao_id
                 });
                 
+                // Insere no Funil (se configurado)
                 const { data: funil } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', config.organizacao_id).limit(1).single();
                 if (funil) {
                     const { data: col } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem').limit(1).single();
                     if (col) await supabaseAdmin.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: col.id, organizacao_id: config.organizacao_id });
                 }
             } else {
+                // Contato Existente Encontrado!
                 const { data: existing } = await supabaseAdmin.from('contatos').select('nome, is_awaiting_name_response').eq('id', contatoId).single();
                 if (existing) {
                     contatoNome = existing.nome;
                     let textBody = getTextContent(message);
+                    // Lógica para capturar o nome se estiver aguardando resposta
                     if (textBody && existing.is_awaiting_name_response && textBody.length > 2) {
                         await supabaseAdmin.from('contatos').update({ nome: textBody, is_awaiting_name_response: false }).eq('id', contatoId);
                         contatoNome = textBody;
@@ -261,7 +271,7 @@ export async function POST(request) {
                 .upsert({ 
                     phone_number: from, 
                     updated_at: new Date().toISOString(),
-                    contato_id: contatoId,
+                    contato_id: contatoId, // Vincula ao ID encontrado pela busca inteligente
                     organizacao_id: config.organizacao_id
                 }, { onConflict: 'phone_number' })
                 .select()
@@ -336,8 +346,6 @@ export async function POST(request) {
 
             // E. ATUALIZAR CONVERSA (Última Mensagem + CONTADOR DE NÃO LIDAS)
             if (conversationRecordId && finalMessageId) {
-                // Recupera o contador atual para incrementar com segurança
-                // (Em produção idealmente usaria RPC 'increment', mas aqui lemos e escrevemos)
                 const { data: currentConv } = await supabaseAdmin
                     .from('whatsapp_conversations')
                     .select('unread_count')
@@ -349,7 +357,7 @@ export async function POST(request) {
                 await supabaseAdmin.from('whatsapp_conversations')
                     .update({ 
                         last_message_id: finalMessageId,
-                        unread_count: currentCount + 1, // <--- AQUI ESTÁ A MÁGICA 🟢
+                        unread_count: currentCount + 1, 
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', conversationRecordId);

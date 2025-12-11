@@ -1,15 +1,17 @@
 // components/contatos/DuplicateContactsManager.js
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatPhoneNumber } from '../../utils/formatters';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUsers, faIdCard, faBuilding, faPhone, faEnvelope, faSpinner, faLink, faBolt, faStore } from '@fortawesome/free-solid-svg-icons';
+import { faUsers, faIdCard, faBuilding, faPhone, faEnvelope, faSpinner, faLink, faBolt, faStore, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 // 1. IMPORTAR O MODAL DE UNIR
 import MergeModal from './MergeModal';
+
+const CACHE_KEY = 'DUPLICATE_CONTACTS_DATA';
 
 export default function DuplicateContactsManager() {
     const supabase = createClient();
@@ -19,6 +21,9 @@ export default function DuplicateContactsManager() {
     const [duplicateGroups, setDuplicateGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     
+    // Ref para controlar se já carregamos o cache inicial
+    const hasLoadedCache = useRef(false);
+
     // 2. ESTADOS PARA O MODAL
     const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
     const [contactsToMerge, setContactsToMerge] = useState([]);
@@ -26,38 +31,86 @@ export default function DuplicateContactsManager() {
     // Estado para "Mesclar Tudo" (automático)
     const [isMergingAll, setIsMergingAll] = useState(false);
 
-    const fetchDuplicates = useCallback(() => {
-        if (!organizacaoId) return;
-        setLoading(true);
+    // --- LÓGICA DE CARREGAMENTO MÁGICO ---
+    const loadFromCache = useCallback(() => {
+        try {
+            const cached = localStorage.getItem(CACHE_KEY);
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    setDuplicateGroups(parsed);
+                    setLoading(false); // Já temos dados, não precisa mostrar loading
+                    hasLoadedCache.current = true;
+                    console.log('⚡ [Cache Mágico] Dados de duplicatas carregados do cache.');
+                    return true;
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao ler cache de duplicatas:', error);
+        }
+        return false;
+    }, []);
 
-        const promise = fetch('/api/contatos/duplicates', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ organizacaoId }),
-            cache: 'no-store' 
-        })
-          .then(res => {
-              if (!res.ok) {
-                  return res.json().then(err => { throw new Error(err.error || 'Erro na resposta da API') });
-              }
-              return res.json();
-          })
-          .then(data => {
-            setDuplicateGroups(data);
-            return data.length > 0 ? `${data.length} grupos de duplicatas encontrados.` : 'Nenhuma duplicata encontrada!';
-          });
+    const fetchDuplicates = useCallback(async (isBackgroundUpdate = false) => {
+        if (!organizacaoId) return;
         
-        toast.promise(promise, {
-            loading: 'Buscando contatos duplicados...',
-            success: (message) => message,
-            error: (err) => `Falha ao carregar: ${err.message}`,
-            finally: () => setLoading(false)
-        });
+        // Se não for update em background e não tivermos cache carregado, mostra loading
+        if (!isBackgroundUpdate && !hasLoadedCache.current) {
+            setLoading(true);
+        }
+
+        try {
+            const res = await fetch('/api/contatos/duplicates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ organizacaoId }),
+                cache: 'no-store' 
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Erro na resposta da API');
+            }
+
+            const data = await res.json();
+            
+            // Comparação Inteligente para evitar re-render ou toast desnecessário
+            const prevDataStr = localStorage.getItem(CACHE_KEY);
+            const newDataStr = JSON.stringify(data);
+            const hasChanges = prevDataStr !== newDataStr;
+
+            if (hasChanges) {
+                setDuplicateGroups(data);
+                localStorage.setItem(CACHE_KEY, newDataStr);
+                
+                // Se foi atualização em background (já tinha dados na tela), avisa o usuário
+                if (isBackgroundUpdate || hasLoadedCache.current) {
+                    toast.success('Lista de duplicatas atualizada!', {
+                        icon: <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
+                    });
+                }
+            } else {
+                console.log('⚡ [Cache Mágico] Nenhuma alteração detectada nas duplicatas.');
+            }
+
+        } catch (error) {
+            console.error('Erro ao buscar duplicatas:', error);
+            // Só mostra erro na tela se não tivermos dados em cache para mostrar
+            if (!hasLoadedCache.current) {
+                toast.error(`Falha ao carregar: ${error.message}`);
+            }
+        } finally {
+            setLoading(false);
+        }
     }, [organizacaoId]);
 
     useEffect(() => {
-        fetchDuplicates();
-    }, [fetchDuplicates]);
+        // 1. Tenta carregar do cache imediatamente
+        const hasCache = loadFromCache();
+        
+        // 2. Dispara a busca (se tiver cache, vai ser em "background")
+        fetchDuplicates(hasCache);
+    }, [fetchDuplicates, loadFromCache]);
 
     const getIconForType = (type) => {
         switch (type) {
@@ -81,7 +134,8 @@ export default function DuplicateContactsManager() {
     const handleMergeComplete = () => {
         setIsMergeModalOpen(false);
         setContactsToMerge([]);
-        fetchDuplicates(); // Recarrega a lista para ver se sumiu
+        // Força atualização sem background para mostrar loading se necessário, ou com background para ser suave
+        fetchDuplicates(true); 
     };
 
     const handleMergeAll = () => {
@@ -95,8 +149,7 @@ export default function DuplicateContactsManager() {
                         for (let i = 0; i < duplicateGroups.length; i++) {
                             const group = duplicateGroups[i];
                             const contactIds = group.contatos.map(c => c.id);
-                            // Aqui mantemos a RPC automática para processamento em lote
-                            // pois abrir 50 modais seria inviável.
+                            
                             const { error } = await supabase.rpc('auto_merge_contacts_and_relink', { 
                                 p_contact_ids: contactIds,
                                 p_organizacao_id: organizacaoId
@@ -111,7 +164,7 @@ export default function DuplicateContactsManager() {
                     toast.promise(mergeAllPromise, {
                         loading: 'Processando fusão automática...',
                         success: (message) => {
-                            fetchDuplicates();
+                            fetchDuplicates(false); // Recarrega dados frescos
                             return message;
                         },
                         error: (err) => err.message,
