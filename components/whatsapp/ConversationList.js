@@ -15,7 +15,8 @@ import {
   faPlus, 
   faSpinner, 
   faBullhorn, 
-  faTag
+  faTag,
+  faFilter // Adicionei o ícone de filtro/funil para ficar igual ao Broadcast
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQueryClient, useMutation } from '@tanstack/react-query'; 
@@ -30,7 +31,10 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
     // Formata Data
     const formatMessageDate = (dateString) => {
         if (!dateString) return '';
-        return format(new Date(dateString), 'HH:mm', { locale: ptBR });
+        const date = new Date(dateString);
+        // Se for hoje, mostra só a hora. Se for outro dia, mostra dia/mês
+        const isToday = new Date().toDateString() === date.toDateString();
+        return isToday ? format(date, 'HH:mm', { locale: ptBR }) : format(date, 'dd/MM', { locale: ptBR });
     };
 
     // Fecha o menu se clicar fora dele
@@ -87,21 +91,22 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
                         </p>
                     </div>
 
-                    {/* Linha 3: Tags (Tipo e Funil) - AQUI ESTÁ A NOVIDADE 🟢 */}
+                    {/* Linha 3: Tags (Tipo e Funil) */}
                     {(conversation.tipo_contato || conversation.etapa_funil) && (
                         <div className="flex items-center gap-2 mt-2 flex-wrap">
-                            {/* Tag de Tipo (Discreta) */}
+                            
+                            {/* Tag de Etapa do Funil (AZUL - Destaque) */}
+                            {conversation.etapa_funil && (
+                                <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1 max-w-full truncate">
+                                    <FontAwesomeIcon icon={faFilter} className="text-[9px] opacity-70" />
+                                    {conversation.etapa_funil}
+                                </span>
+                            )}
+
+                            {/* Tag de Tipo (CINZA - Discreta) */}
                             {conversation.tipo_contato && (
                                 <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 uppercase tracking-wide">
                                     {conversation.tipo_contato}
-                                </span>
-                            )}
-                            
-                            {/* Tag de Etapa do Funil (Destaque Suave) */}
-                            {conversation.etapa_funil && (
-                                <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 flex items-center gap-1 max-w-full truncate">
-                                    <FontAwesomeIcon icon={faTag} className="text-[9px] opacity-70" />
-                                    {conversation.etapa_funil}
                                 </span>
                             )}
                         </div>

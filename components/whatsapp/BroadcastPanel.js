@@ -7,7 +7,7 @@ import {
     faBullhorn, faUsers, faPaperPlane, faSpinner, faArrowLeft, 
     faClock, faCheckCircle, faTimesCircle, faCalendarAlt, 
     faEdit, faTrash, faPlay, faSync, faBolt, faLock, faEye, faCheckDouble,
-    faPause, faStop, faTachometerAlt // <--- Novos ícones
+    faPause, faStop, faTachometerAlt, faFilter 
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { format, differenceInMinutes } from 'date-fns';
@@ -16,21 +16,17 @@ import TemplateMessageModal from './TemplateMessageModal';
 import CreateBroadcastModal from './CreateBroadcastModal';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-// Componente da Barra de Progresso (Mantido o visual, ajustado para dados híbridos)
+// Componente da Barra de Progresso
 const ProgressBar = ({ stats, total }) => {
     if (!total || total === 0) return null;
     
-    // Prioriza dados do Cron (novos campos) se existirem, senão usa stats antigos
     const sentCount = stats.success_count ?? stats.sent ?? 0;
     const failedCount = stats.failed_count ?? stats.failed ?? 0;
-    const readCount = stats.read ?? 0; // Esses vêm do RPC ou mensagens
+    const readCount = stats.read ?? 0;
     const deliveredCount = stats.delivered ?? 0;
 
-    // Calcula porcentagens
     const sentPct = Math.round((sentCount / total) * 100);
     const failedPct = Math.round((failedCount / total) * 100);
-    // Read/Delivered são baseados no total enviado para não estourar a barra visualmente se o realtime atrasar
-    const safeTotalSent = Math.max(sentCount, 1);
     const readPct = Math.round((readCount / total) * 100); 
     const deliveredPct = Math.round((deliveredCount / total) * 100);
 
@@ -41,7 +37,6 @@ const ProgressBar = ({ stats, total }) => {
                 <span>{readPct}% Lido</span>
             </div>
             <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden flex">
-                {/* Ordem de empilhamento visual */}
                 <div style={{ width: `${readPct}%` }} className="h-full bg-green-600 transition-all duration-500" title="Lido" />
                 <div style={{ width: `${Math.max(0, deliveredPct - readPct)}%` }} className="h-full bg-green-400 transition-all duration-500" title="Entregue" />
                 <div style={{ width: `${Math.max(0, sentPct - deliveredPct)}%` }} className="h-full bg-blue-300 transition-all duration-500" title="Enviado" />
@@ -73,7 +68,7 @@ export default function BroadcastPanel({ list, onBack }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
 
-    // 1. Mutação de Controle (Pausa/Stop) - ADICIONADA
+    // Mutação de Controle
     const controlMutation = useMutation({
         mutationFn: async ({ id, action, organizacao_id }) => {
             const response = await fetch('/api/whatsapp/scheduled-broadcasts', {
@@ -87,7 +82,7 @@ export default function BroadcastPanel({ list, onBack }) {
         onSuccess: (action) => {
             const msg = action === 'pause' ? 'Pausado!' : action === 'resume' ? 'Retomado!' : 'Parado!';
             toast.success(msg);
-            fetchData(); // Atualiza a lista imediatamente
+            fetchData();
         },
         onError: () => toast.error("Erro ao enviar comando.")
     });
@@ -96,55 +91,90 @@ export default function BroadcastPanel({ list, onBack }) {
         if (!list?.id) return;
         setLoading(true);
         
-        // Membros
-        const { data: membersData } = await supabase
-            .from('whatsapp_list_members')
-            .select('contatos(id, nome, telefones(telefone), tipo_contato)')
-            .eq('lista_id', list.id);
-            
-        if (membersData) {
-            const formatted = membersData.map(m => ({
-                id: m.contatos?.id, nome: m.contatos?.nome, telefone: m.contatos?.telefones?.[0]?.telefone, tipo: m.contatos?.tipo_contato
-            })).filter(c => c.telefone);
-            setMembers(formatted);
-        }
+        try {
+            // --- CORREÇÃO APLICADA AQUI ---
+            // Usamos a referência explícita da chave estrangeira (!contatos_no_funil_contato_id_fkey)
+            // igualzinho ao que você me mostrou no código do modal que funciona.
+            const { data: membersData, error: membersError } = await supabase
+                .from('whatsapp_list_members')
+                .select(`
+                    contatos (
+                        id, 
+                        nome, 
+                        telefones(telefone), 
+                        tipo_contato,
+                        contatos_no_funil!contatos_no_funil_contato_id_fkey (
+                            colunas_funil (
+                                nome
+                            )
+                        )
+                    )
+                `)
+                .eq('lista_id', list.id);
 
-        // Histórico com Estatísticas
-        const { data: broadcastsData } = await supabase
-            .from('whatsapp_scheduled_broadcasts')
-            .select('*')
-            .eq('lista_id', list.id)
-            .order('scheduled_at', { ascending: false });
-            
-        if (broadcastsData) {
-            // Buscar stats para cada broadcast (Híbrido: RPC + Colunas Novas)
-            const broadcastsWithStats = await Promise.all(broadcastsData.map(async (b) => {
-                // Tenta RPC para Lidos/Entregues (Antigo)
-                let rpcStats = { read: 0, delivered: 0 };
-                try {
-                    const { data: s } = await supabase.rpc('get_broadcast_stats', { p_broadcast_id: b.id });
-                    if (s) rpcStats = s;
-                } catch (e) { /* Silencia erro se RPC não existir */ }
+            if (membersError) {
+                console.error("Erro ao buscar membros:", membersError);
+                toast.error("Erro ao carregar lista de membros.");
+            }
+                
+            if (membersData) {
+                const formatted = membersData.map(m => {
+                    const c = m.contatos;
+                    if (!c) return null;
 
-                // Mescla com colunas do Robô Turbo (b.processed_count, etc)
-                return { 
-                    ...b, 
-                    stats: { 
-                        ...rpcStats,
-                        sent: b.success_count || 0, // Prioriza contador do banco
-                        failed: b.failed_count || 0,
-                        total: b.total_contacts || 0
-                    } 
-                };
-            }));
-            setBroadcasts(broadcastsWithStats);
+                    // Lógica robusta copiada do seu exemplo para pegar a etapa
+                    const funilInfo = Array.isArray(c.contatos_no_funil) ? c.contatos_no_funil[0] : c.contatos_no_funil;
+                    const etapaNome = funilInfo?.colunas_funil?.nome || null;
+
+                    return {
+                        id: c.id, 
+                        nome: c.nome, 
+                        telefone: c.telefones?.[0]?.telefone, 
+                        tipo: c.tipo_contato,
+                        etapa: etapaNome // Etapa do funil extraída corretamente
+                    };
+                }).filter(c => c && c.telefone);
+                
+                setMembers(formatted);
+            }
+
+            // Histórico com Estatísticas
+            const { data: broadcastsData } = await supabase
+                .from('whatsapp_scheduled_broadcasts')
+                .select('*')
+                .eq('lista_id', list.id)
+                .order('scheduled_at', { ascending: false });
+                
+            if (broadcastsData) {
+                const broadcastsWithStats = await Promise.all(broadcastsData.map(async (b) => {
+                    let rpcStats = { read: 0, delivered: 0 };
+                    try {
+                        const { data: s } = await supabase.rpc('get_broadcast_stats', { p_broadcast_id: b.id });
+                        if (s) rpcStats = s;
+                    } catch (e) { }
+
+                    return { 
+                        ...b, 
+                        stats: { 
+                            ...rpcStats,
+                            sent: b.success_count || 0,
+                            failed: b.failed_count || 0,
+                            total: b.total_contacts || 0
+                        } 
+                    };
+                }));
+                setBroadcasts(broadcastsWithStats);
+            }
+        } catch (error) {
+            console.error("Erro geral fetchData:", error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }, [list, supabase]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    // Realtime para atualizar stats
+    // Realtime
     useEffect(() => {
         if (!list?.id) return;
         const channelMsg = supabase.channel(`msgs-stats-${list.id}`)
@@ -161,7 +191,7 @@ export default function BroadcastPanel({ list, onBack }) {
         };
     }, [list, supabase, fetchData]);
 
-    // ... (Funções auxiliares mantidas)
+    // Funções de ação
     const handleListUpdated = () => { fetchData(); toast.success("Lista atualizada!"); };
     const handleSyncList = async () => { setSyncing(true); try { await fetch('/api/whatsapp/lists/sync', { method: 'POST', body: JSON.stringify({ list_id: list.id }) }); toast.success("Atualizada!"); fetchData(); } catch(e){ toast.error(e.message); } finally { setSyncing(false); } };
     const handleSendBroadcast = async (t, l, v, f, c, s, eid) => { setSending(true); try { const url = eid ? '/api/whatsapp/scheduled-broadcasts' : '/api/whatsapp/broadcast/send'; const method = eid ? 'PUT' : 'POST'; await fetch(url, { method, body: JSON.stringify({ id: eid, list_id: list.id, template_name: t, language: l, variables: v, full_text_base: f, components: c, scheduled_at: s }) }); toast.success("Salvo!"); setIsTemplateModalOpen(false); setEditingBroadcast(null); fetchData(); } catch(e){ toast.error(e.message); } finally { setSending(false); } };
@@ -169,14 +199,12 @@ export default function BroadcastPanel({ list, onBack }) {
     const handleProcessQueue = async () => { setIsProcessingQueue(true); await fetch('/api/cron/process-broadcasts'); fetchData(); setIsProcessingQueue(false); };
     const handleEditBroadcast = (b) => { setEditingBroadcast(b); setIsTemplateModalOpen(true); };
     const handleOpenNew = () => { setEditingBroadcast(null); setIsTemplateModalOpen(true); };
-
-    // Função de Controle
+    
     const handleControl = (id, action, orgId) => {
         if (action === 'stop' && !confirm("Tem certeza que deseja cancelar definitivamente?")) return;
         controlMutation.mutate({ id, action, organizacao_id: orgId });
     };
 
-    // Calculadora de Velocidade
     const getSpeed = (broadcast) => {
         if (!broadcast.started_at) return 0;
         const minutes = Math.max(1, differenceInMinutes(new Date(), new Date(broadcast.started_at)));
@@ -189,7 +217,6 @@ export default function BroadcastPanel({ list, onBack }) {
         if (b.status === 'processing') return { icon: faSpinner, color: 'text-blue-500', label: 'Enviando...', bg: 'bg-blue-50 border-blue-200', spin: true };
         if (b.status === 'paused') return { icon: faPause, color: 'text-orange-500', label: 'Pausado', bg: 'bg-orange-50 border-orange-200' };
         if (b.status === 'stopped') return { icon: faStop, color: 'text-red-600', label: 'Cancelado', bg: 'bg-gray-100 border-gray-200' };
-        
         const isFuture = new Date(b.scheduled_at) > new Date();
         return { icon: faClock, color: isFuture ? 'text-yellow-600' : 'text-orange-500', label: isFuture ? 'Agendado' : 'Na Fila', bg: 'bg-yellow-50 border-yellow-100' };
     };
@@ -225,7 +252,7 @@ export default function BroadcastPanel({ list, onBack }) {
                     <button onClick={handleOpenNew} disabled={members.length === 0} className="bg-[#00a884] text-white px-6 py-3 rounded-lg hover:bg-[#008f6f] flex items-center justify-center gap-2 mx-auto disabled:opacity-50"><FontAwesomeIcon icon={faPaperPlane} /> Criar Mensagem</button>}
                 </div>
 
-                {/* HISTÓRICO COM CONTROLES INJETADOS */}
+                {/* HISTÓRICO */}
                 <div>
                     <div className="flex justify-between items-center mb-3">
                         <h4 className="text-sm font-bold text-gray-500 uppercase flex items-center gap-2"><FontAwesomeIcon icon={faCalendarAlt} /> Histórico</h4>
@@ -253,19 +280,16 @@ export default function BroadcastPanel({ list, onBack }) {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                {/* Botões de Edição (Apenas se pendente) */}
                                                 {isPending && (
                                                     <>
                                                         <button onClick={() => handleEditBroadcast(broadcast)} className="text-blue-500 hover:bg-blue-50 p-2 rounded"><FontAwesomeIcon icon={faEdit} /></button>
                                                         <button onClick={() => handleDeleteBroadcast(broadcast.id)} className="text-red-500 hover:bg-red-50 p-2 rounded"><FontAwesomeIcon icon={faTrash} /></button>
                                                     </>
                                                 )}
-                                                {/* Label de Status */}
                                                 <div className={`text-xs font-bold px-2 py-1 rounded ${statusInfo.color} bg-white border`}>{statusInfo.label}</div>
                                             </div>
                                         </div>
                                         
-                                        {/* --- PAINEL DE CONTROLE (INJETADO AQUI) --- */}
                                         {(isProcessing || isPaused) && (
                                             <div className="mt-3 pt-3 border-t border-gray-200/50 flex justify-between items-center bg-white/50 p-2 rounded">
                                                 <div className="text-xs font-mono text-gray-600 flex items-center gap-2">
@@ -290,7 +314,6 @@ export default function BroadcastPanel({ list, onBack }) {
                                             </div>
                                         )}
 
-                                        {/* BARRA DE PROGRESSO */}
                                         {broadcast.stats && broadcast.status !== 'pending' && (
                                             <ProgressBar stats={broadcast.stats} total={totalReal} />
                                         )}
@@ -308,8 +331,19 @@ export default function BroadcastPanel({ list, onBack }) {
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y max-h-60 overflow-y-auto">
                             {members.map(member => (
                                 <div key={member.id} className="p-3 flex justify-between items-center hover:bg-gray-50">
-                                    <div><p className="font-medium text-gray-800 text-sm">{member.nome}</p><p className="text-xs text-gray-500">{member.telefone}</p></div>
-                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{member.tipo || 'Contato'}</span>
+                                    <div>
+                                        <p className="font-medium text-gray-800 text-sm">{member.nome}</p>
+                                        <p className="text-xs text-gray-500">{member.telefone}</p>
+                                    </div>
+                                    <div className="flex gap-2 items-center">
+                                        {member.etapa && (
+                                            <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100 flex items-center gap-1">
+                                                <FontAwesomeIcon icon={faFilter} className="text-[8px] opacity-50" />
+                                                {member.etapa}
+                                            </span>
+                                        )}
+                                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{member.tipo || 'Contato'}</span>
+                                    </div>
                                 </div>
                             ))}
                         </div>
