@@ -16,28 +16,27 @@ import {
   faSpinner, 
   faBullhorn, 
   faTag,
-  faFilter // Adicionei o ícone de filtro/funil para ficar igual ao Broadcast
+  faFilter,
+  faClipboardList // Novo ícone para o card
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQueryClient, useMutation } from '@tanstack/react-query'; 
 import NewConversationModal from './NewConversationModal';
 import CreateBroadcastModal from './CreateBroadcastModal'; 
+import QuickCardModal from './QuickCardModal'; // <--- IMPORTADO AQUI
 import { usePersistentState } from '@/hooks/usePersistentState';
 
-// --- COMPONENTE EXTRAÍDO (ITEM DA CONVERSA) ---
+// --- COMPONENTE ITEM DA CONVERSA ---
 const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArchivedList }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-    // Formata Data
     const formatMessageDate = (dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
-        // Se for hoje, mostra só a hora. Se for outro dia, mostra dia/mês
         const isToday = new Date().toDateString() === date.toDateString();
         return isToday ? format(date, 'HH:mm', { locale: ptBR }) : format(date, 'dd/MM', { locale: ptBR });
     };
 
-    // Fecha o menu se clicar fora dele
     useEffect(() => {
         if (isMenuOpen) {
             const closeMenu = () => setIsMenuOpen(false);
@@ -72,7 +71,6 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
 
                 {/* Info */}
                 <div className="ml-4 flex-grow min-w-0 pr-8">
-                    {/* Linha 1: Nome e Hora */}
                     <div className="flex justify-between items-baseline">
                         <h3 className="font-semibold text-gray-900 truncate pr-2 text-sm">
                             {conversation.nome || conversation.phone_number}
@@ -84,26 +82,21 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
                         )}
                     </div>
 
-                    {/* Linha 2: Última Mensagem */}
                     <div className="flex justify-between items-center mt-0.5">
                         <p className="text-sm text-gray-500 truncate w-full">
                             {conversation.last_message_content || 'Inicie uma conversa'}
                         </p>
                     </div>
 
-                    {/* Linha 3: Tags (Tipo e Funil) */}
+                    {/* Tags */}
                     {(conversation.tipo_contato || conversation.etapa_funil) && (
                         <div className="flex items-center gap-2 mt-2 flex-wrap">
-                            
-                            {/* Tag de Etapa do Funil (AZUL - Destaque) */}
                             {conversation.etapa_funil && (
                                 <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1 max-w-full truncate">
                                     <FontAwesomeIcon icon={faFilter} className="text-[9px] opacity-70" />
                                     {conversation.etapa_funil}
                                 </span>
                             )}
-
-                            {/* Tag de Tipo (CINZA - Discreta) */}
                             {conversation.tipo_contato && (
                                 <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 uppercase tracking-wide">
                                     {conversation.tipo_contato}
@@ -113,7 +106,7 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
                     )}
                 </div>
 
-                {/* --- BOTÃO DE MENU --- */}
+                {/* --- MENU DE AÇÕES --- */}
                 <div className={`absolute right-2 top-4 z-20 transition-opacity duration-200 ${isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                     <button 
                         className={`flex items-center justify-center w-8 h-8 rounded-full focus:outline-none shadow-sm transition-colors ${
@@ -129,10 +122,23 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
 
                     {isMenuOpen && (
                         <div 
-                            className="absolute right-0 mt-1 w-40 bg-white rounded-md shadow-xl ring-1 ring-black ring-opacity-5 z-50 animate-in fade-in zoom-in-95 duration-100"
+                            className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-xl ring-1 ring-black ring-opacity-5 z-50 animate-in fade-in zoom-in-95 duration-100"
                             onClick={(e) => e.stopPropagation()}
                         >
                             <div className="py-1">
+                                {/* OPÇÃO CRIAR CARD */}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsMenuOpen(false);
+                                        onAction('create_card', conversation);
+                                    }}
+                                    className="group flex w-full items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600"
+                                >
+                                    <FontAwesomeIcon icon={faClipboardList} className="mr-3 h-4 w-4 text-gray-400 group-hover:text-blue-500" />
+                                    Criar Card
+                                </button>
+
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -165,7 +171,7 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
     );
 };
 
-// --- ITEM DE LISTA DE TRANSMISSÃO ---
+// --- ITEM DE LISTA DE TRANSMISSÃO (MANTIDO) ---
 const BroadcastListItem = ({ list, onSelect, onDelete, isSelected }) => (
     <li 
       onClick={() => onSelect(list)}
@@ -200,51 +206,38 @@ const BroadcastListItem = ({ list, onSelect, onDelete, isSelected }) => (
 export default function ConversationList({ conversations, broadcastLists, isLoading, onSelectContact, selectedContactId, onSelectList, selectedListId }) {
   const [activeTab, setActiveTab] = usePersistentState('whatsapp_active_tab', 'chats'); 
   const [showArchived, setShowArchived] = useState(false);
+  
+  // Modais
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [isNewListOpen, setIsNewListOpen] = useState(false);
+  const [isCardModalOpen, setIsCardModalOpen] = useState(false); // NOVO
+  const [cardTargetConversation, setCardTargetConversation] = useState(null); // NOVO
   
   const queryClient = useQueryClient();
 
-  // --- MUTATION PARA GERENCIAR AÇÕES (Delete/Archive) ---
+  // Mutation de Conversa (MANTIDA)
   const conversationMutation = useMutation({
     mutationFn: async ({ action, conversationId }) => {
         const response = await fetch('/api/whatsapp/chat-manager', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action,
-                conversationId,
-            })
+            body: JSON.stringify({ action, conversationId })
         });
-
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-            throw new Error("O servidor retornou uma resposta inválida (provavelmente erro 404 ou 500). Verifique a rota da API.");
-        }
-
         const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.error || 'Erro ao processar ação');
-        }
+        if (!response.ok) throw new Error(data.error || 'Erro ao processar ação');
         return { ...data, action };
     },
     onSuccess: (data) => {
         const actionMsg = data.action === 'delete' ? 'Conversa excluída!' : data.action === 'archive' ? 'Arquivada!' : 'Recuperada!';
         toast.success(actionMsg);
-        
         queryClient.invalidateQueries({ queryKey: ['conversations'] });
         queryClient.invalidateQueries({ queryKey: ['messages'] });
-        
-        if (data.action === 'delete') {
-            onSelectContact(null);
-        }
+        if (data.action === 'delete') onSelectContact(null);
     },
-    onError: (error) => {
-        console.error(error);
-        toast.error(`Erro: ${error.message}`);
-    }
+    onError: (error) => toast.error(`Erro: ${error.message}`)
   });
 
+  // Mutation de Lista (MANTIDA)
   const deleteListMutation = useMutation({
       mutationFn: async (listId) => {
           const response = await fetch(`/api/whatsapp/lists?id=${listId}`, { method: 'DELETE' });
@@ -259,7 +252,18 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
       onError: () => toast.error("Erro ao excluir lista.")
   });
 
+  // Gerenciador de Ações (Atualizado com 'create_card')
   const handleAction = async (action, conversation) => {
+    if (action === 'create_card') {
+        if (!conversation.contato_id) {
+            toast.error("Salve este contato antes de criar um card.");
+            return;
+        }
+        setCardTargetConversation(conversation);
+        setIsCardModalOpen(true);
+        return;
+    }
+
     if (action === 'delete') {
         if (!confirm('Tem certeza? Isso apagará TODO o histórico de mensagens permanentemente.')) return;
     }
@@ -283,8 +287,10 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
       else setIsNewListOpen(true);
   };
 
-  const handleListCreated = () => {
-      queryClient.invalidateQueries({ queryKey: ['broadcastLists'] });
+  // Callback de sucesso do Card
+  const handleCardCreated = () => {
+      // Invalida para atualizar a tag azul na lista
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
   };
 
   if (isLoading) return <div className="flex justify-center p-8 text-gray-500"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-[#00a884]" /></div>;
@@ -302,7 +308,15 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
         <CreateBroadcastModal
             isOpen={isNewListOpen}
             onClose={() => setIsNewListOpen(false)}
-            onListCreated={handleListCreated}
+            onListCreated={() => queryClient.invalidateQueries({ queryKey: ['broadcastLists'] })}
+        />
+        
+        {/* NOVO MODAL DE CARD */}
+        <QuickCardModal
+            isOpen={isCardModalOpen}
+            onClose={() => setIsCardModalOpen(false)}
+            conversation={cardTargetConversation}
+            onSuccess={handleCardCreated}
         />
 
         <div className="border-b bg-gray-50 shrink-0">
