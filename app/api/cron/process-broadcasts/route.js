@@ -7,19 +7,25 @@ export const maxDuration = 60; // Timeout de 60 segundos
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Função de Pausa (Sleep)
+// Função de Pausa
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Função para limpar telefone (mantém apenas números)
+const sanitizePhone = (phone) => {
+    if (!phone) return null;
+    return phone.replace(/\D/g, ''); // Remove tudo que não é número
+};
 
 export async function GET(request) {
     if (!supabaseUrl || !supabaseServiceKey) {
-        return NextResponse.json({ error: "Configuração de servidor incompleta" }, { status: 500 });
+        return NextResponse.json({ error: "Configuração incompleta" }, { status: 500 });
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     const now = new Date().toISOString();
 
     try {
-        // 1. FAXINA DE TRAVAMENTOS (Se travou por mais de 5 min, libera)
+        // 1. FAXINA DE JOBS TRAVADOS (Reset se travado há > 5min)
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
         await supabaseAdmin
             .from('whatsapp_scheduled_broadcasts')
@@ -28,7 +34,7 @@ export async function GET(request) {
             .lte('updated_at', fiveMinutesAgo);
 
         // 2. BUSCAR TAREFA
-        const { data: jobs, error: jobError } = await supabaseAdmin
+        const { data: jobs } = await supabaseAdmin
             .from('whatsapp_scheduled_broadcasts')
             .select('*')
             .in('status', ['pending', 'processing'])
@@ -36,144 +42,112 @@ export async function GET(request) {
             .order('scheduled_at', { ascending: true })
             .limit(1);
 
-        if (jobError) throw new Error(jobError.message);
-        if (!jobs || jobs.length === 0) return NextResponse.json({ message: 'Nenhuma tarefa ativa.' });
+        if (!jobs || jobs.length === 0) return NextResponse.json({ message: 'Sem tarefas.' });
 
         const job = jobs[0];
 
-        // --- BUSCA CREDENCIAIS DA META (Correção do Erro de URL) ---
+        // --- MODO SEGURO ---
+        // 5 msgs por lote com pausas curtas garante entrega sem timeout
+        const BATCH_SIZE = 10; 
+        const DELAY_MS = 2000; 
+
+        // 3. HEARTBEAT (Trava o job)
+        await supabaseAdmin
+            .from('whatsapp_scheduled_broadcasts')
+            .update({ status: 'processing', updated_at: now, started_at: job.started_at || now })
+            .eq('id', job.id);
+
+        // 4. BUSCAR DADOS
         const { data: config } = await supabaseAdmin
             .from('configuracoes_whatsapp')
             .select('*')
             .eq('organizacao_id', job.organizacao_id)
             .single();
 
-        if (!config || !config.whatsapp_permanent_token || !config.whatsapp_phone_number_id) {
-            console.error(`[CRON] Erro: Configuração do WhatsApp não encontrada para Org ${job.organizacao_id}`);
-            // Marca como falha para não travar a fila
+        if (!config?.whatsapp_permanent_token) {
             await supabaseAdmin.from('whatsapp_scheduled_broadcasts').update({ status: 'failed' }).eq('id', job.id);
-            return NextResponse.json({ error: "Configuração WhatsApp ausente" });
+            return NextResponse.json({ error: "Sem configuração de WhatsApp" });
         }
 
-        // --- CONFIGURAÇÃO DO MODO SEGURO ---
-        const BATCH_SIZE = 15; 
-        const DELAY_BETWEEN_MSGS = 3000; // 3 segundos
-
-        console.log(`[CRON] 🐢 Iniciando Modo Seguro Direto para Job ${job.id}.`);
-
-        // 3. HEARTBEAT
-        await supabaseAdmin
-            .from('whatsapp_scheduled_broadcasts')
-            .update({ status: 'processing', updated_at: now, started_at: job.started_at || now })
-            .eq('id', job.id);
-
-        // 4. IDENTIFICAR PENDENTES
-        // Busca membros
-        const { data: allMembers } = await supabaseAdmin
+        // Busca pendentes (Lógica otimizada)
+        // Pega membros da lista
+        const { data: members } = await supabaseAdmin
             .from('whatsapp_list_members')
             .select('contato_id, contatos(id, nome, telefones(telefone))')
             .eq('lista_id', job.lista_id);
 
-        // Busca já enviados
-        const { data: alreadySent } = await supabaseAdmin
+        // Pega já enviados
+        const { data: sent } = await supabaseAdmin
             .from('whatsapp_messages')
             .select('contato_id')
             .eq('broadcast_id', job.id);
+        
+        const sentSet = new Set(sent?.map(s => s.contato_id));
 
-        const sentIds = new Set(alreadySent?.map(m => m.contato_id));
-
-        // Filtra pendentes
-        const pendingTargets = allMembers
-            .filter(m => !sentIds.has(m.contato_id) && m.contatos?.telefones?.[0]?.telefone)
+        // Filtra
+        const targets = members
+            ?.filter(m => !sentSet.has(m.contato_id) && m.contatos?.telefones?.[0]?.telefone)
             .map(m => ({
                 id: m.contatos.id,
                 nome: m.contatos.nome || 'Cliente',
-                telefone: m.contatos.telefones[0].telefone
-            }));
+                phone: sanitizePhone(m.contatos.telefones[0].telefone)
+            })) || [];
 
-        const totalReal = allMembers.length;
-        const totalProcessadoAntes = sentIds.size;
+        const totalReal = members.length;
+        const totalProcessedBefore = sentSet.size;
 
-        if (pendingTargets.length === 0) {
-            await supabaseAdmin
-                .from('whatsapp_scheduled_broadcasts')
-                .update({ 
-                    status: 'completed', 
-                    stopped_at: now, 
-                    total_contacts: totalReal,
-                    processed_count: totalReal 
-                })
+        if (targets.length === 0) {
+            await supabaseAdmin.from('whatsapp_scheduled_broadcasts')
+                .update({ status: 'completed', stopped_at: now, total_contacts: totalReal, processed_count: totalReal })
                 .eq('id', job.id);
-            return NextResponse.json({ message: 'Finalizado com sucesso!' });
+            return NextResponse.json({ message: 'Finalizado' });
         }
 
-        // 5. SELECIONA O LOTE
-        const batch = pendingTargets.slice(0, BATCH_SIZE);
-        
-        // 6. DISPARO SEQUENCIAL (Direto na Meta)
-        let successCount = 0;
-        let failedCount = 0;
+        // 5. PROCESSAR LOTE
+        const batch = targets.slice(0, BATCH_SIZE);
+        let success = 0;
+        let failed = 0;
 
         for (const target of batch) {
-            // Verifica status (Pausa/Stop)
-            const { data: checkStatus } = await supabaseAdmin
-                .from('whatsapp_scheduled_broadcasts')
-                .select('status')
-                .eq('id', job.id)
-                .single();
-
-            if (checkStatus.status !== 'processing') {
-                console.log("[CRON] Job interrompido pelo usuário.");
-                break; 
-            }
+            // Checa pausa a cada envio
+            const { data: check } = await supabaseAdmin.from('whatsapp_scheduled_broadcasts').select('status').eq('id', job.id).single();
+            if (check.status !== 'processing') break;
 
             try {
-                // Prepara Variáveis
-                const variables = (job.variables || []).map(v => v === '{{nome}}' ? target.nome.split(' ')[0] : v);
+                // Variáveis
+                const vars = (job.variables || []).map(v => v === '{{nome}}' ? target.nome.split(' ')[0] : v);
                 
-                // Monta Payload da Meta
-                const payload = {
-                    messaging_product: 'whatsapp',
-                    recipient_type: 'individual',
-                    to: target.telefone,
-                    type: 'template',
-                    template: {
-                        name: job.template_name,
-                        language: { code: job.language || 'pt_BR' },
-                        components: [
-                            ...(job.components || []), // Mantém componentes visuais (imagem/video) se houver
-                            // Adiciona corpo se houver variáveis
-                            ...(variables.length > 0 ? [{
-                                type: 'body',
-                                parameters: variables.map(txt => ({ type: 'text', text: txt }))
-                            }] : [])
-                        ]
-                    }
-                };
-
-                // ENVIA DIRETO PARA A META (Sem passar por /api/whatsapp/send)
-                const response = await fetch(`https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`, {
+                // Envio Direto Meta
+                const res = await fetch(`https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${config.whatsapp_permanent_token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({
+                        messaging_product: 'whatsapp',
+                        recipient_type: 'individual',
+                        to: target.phone,
+                        type: 'template',
+                        template: {
+                            name: job.template_name,
+                            language: { code: job.language || 'pt_BR' },
+                            components: vars.length ? [{ type: 'body', parameters: vars.map(t => ({ type: 'text', text: t })) }] : []
+                        }
+                    })
                 });
 
-                const data = await response.json();
+                const json = await res.json();
 
-                if (!response.ok) {
-                    throw new Error(data.error?.message || 'Erro na API da Meta');
-                }
+                if (!res.ok) throw new Error(json.error?.message || 'Erro Meta');
 
-                // Salva Sucesso
+                // Sucesso
                 await supabaseAdmin.from('whatsapp_messages').insert({
                     contato_id: target.id,
                     broadcast_id: job.id,
                     sender_id: config.whatsapp_phone_number_id,
-                    receiver_id: target.telefone,
-                    message_id: data.messages?.[0]?.id,
+                    receiver_id: target.phone,
+                    message_id: json.messages?.[0]?.id,
                     content: `Template: ${job.template_name}`,
                     status: 'sent',
                     direction: 'outbound',
@@ -181,61 +155,51 @@ export async function GET(request) {
                     is_read: true,
                     created_at: new Date().toISOString()
                 });
-
-                successCount++;
+                success++;
 
             } catch (err) {
-                console.error(`[CRON] Falha para ${target.nome}:`, err.message);
-                // Salva Falha
+                console.error(`Erro envio ${target.nome}:`, err.message);
+                // Falha
                 await supabaseAdmin.from('whatsapp_messages').insert({
                     contato_id: target.id,
                     broadcast_id: job.id,
-                    sender_id: config.whatsapp_phone_number_id,
-                    receiver_id: target.telefone,
+                    sender_id: 'SYSTEM',
+                    receiver_id: target.phone,
                     content: `Falha: ${err.message}`,
                     status: 'failed',
                     direction: 'outbound',
                     organizacao_id: job.organizacao_id,
                     created_at: new Date().toISOString()
                 });
-                failedCount++;
+                failed++;
             }
-
-            if (target !== batch[batch.length - 1]) {
-                await sleep(DELAY_BETWEEN_MSGS);
-            }
+            await sleep(DELAY_MS);
         }
 
-        // 7. ATUALIZA CONTADORES
-        const { data: currentJobData } = await supabaseAdmin.from('whatsapp_scheduled_broadcasts').select('success_count, failed_count').eq('id', job.id).single();
+        // 6. ATUALIZAR CONTADORES
+        const { data: current } = await supabaseAdmin.from('whatsapp_scheduled_broadcasts').select('success_count, failed_count').eq('id', job.id).single();
         
-        const newSuccess = (currentJobData?.success_count || 0) + successCount;
-        const newFailed = (currentJobData?.failed_count || 0) + failedCount;
-        const newProcessed = totalProcessadoAntes + successCount + failedCount;
+        const newSuccess = (current?.success_count || 0) + success;
+        const newFailed = (current?.failed_count || 0) + failed;
+        const newTotalProcessed = totalProcessedBefore + success + failed;
 
-        const isFinished = (pendingTargets.length <= batch.length) && (successCount + failedCount === batch.length);
+        const isDone = (targets.length <= batch.length) && (success + failed === batch.length);
 
-        await supabaseAdmin
-            .from('whatsapp_scheduled_broadcasts')
-            .update({ 
-                processed_count: newProcessed,
+        await supabaseAdmin.from('whatsapp_scheduled_broadcasts')
+            .update({
+                processed_count: newTotalProcessed,
                 success_count: newSuccess,
                 failed_count: newFailed,
                 total_contacts: totalReal,
-                updated_at: new Date().toISOString(),
-                status: isFinished ? 'completed' : 'processing',
-                stopped_at: isFinished ? new Date().toISOString() : null
+                status: isDone ? 'completed' : 'processing',
+                stopped_at: isDone ? new Date().toISOString() : null,
+                updated_at: new Date().toISOString()
             })
             .eq('id', job.id);
 
-        return NextResponse.json({ 
-            message: 'Lote Direto processado', 
-            stats: { sent: successCount, failed: failedCount },
-            status: isFinished ? 'completed' : 'processing'
-        });
+        return NextResponse.json({ success: true, processed: success + failed });
 
     } catch (e) {
-        console.error("[CRON] Erro Fatal:", e);
         return NextResponse.json({ error: e.message }, { status: 500 });
     }
 }
