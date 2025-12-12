@@ -4,8 +4,7 @@ export const getConversations = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
 
     try {
-        // --- CÓDIGO ORIGINAL (PRESERVADO) ---
-        // Usamos exatamente a estrutura que você confirmou que funciona bem
+        // --- QUERY HÍBRIDA (Seu Original + Cronômetro) ---
         const { data, error } = await supabase
             .from('whatsapp_conversations')
             .select(`
@@ -26,21 +25,25 @@ export const getConversations = async (supabase, organizacaoId) => {
                     content,
                     created_at,
                     status
+                ),
+                recent_msgs: whatsapp_messages!whatsapp_messages_conversation_record_id_fkey (
+                    sent_at,
+                    direction
                 )
             `)
             .eq('organizacao_id', organizacaoId)
+            // Ordenamos as mensagens recentes para garantir que achamos a última recebida do cliente
+            .order('sent_at', { foreignTable: 'recent_msgs', ascending: false })
+            .limit(10, { foreignTable: 'recent_msgs' })
             .order('updated_at', { ascending: false });
 
         if (error) {
             console.error('Erro ao buscar conversas:', error);
-            // Fallback silencioso para não quebrar a tela inteira em caso de erro
             return [];
         }
 
-        // --- MAP (ONDE A MÁGICA ACONTECE) ---
         return data.map(conv => {
-            // Lógica de Segurança para extrair a etapa
-            // Verifica se 'funil' é uma lista (array) ou objeto e pega o nome da coluna
+            // --- 1. LÓGICA DO FUNIL (Sua Original) ---
             let nomeEtapa = null;
             const dadosFunil = conv.contatos?.funil;
 
@@ -50,24 +53,28 @@ export const getConversations = async (supabase, organizacaoId) => {
                 nomeEtapa = dadosFunil?.coluna?.nome;
             }
 
+            // --- 2. LÓGICA DO CRONÔMETRO (Nova) ---
+            // Procura a primeira mensagem que veio do cliente ('inbound') na lista de recentes
+            const lastInboundMsg = conv.recent_msgs?.find(m => m.direction === 'inbound');
+            const lastInboundAt = lastInboundMsg ? lastInboundMsg.sent_at : null;
+
             return {
                 conversation_id: conv.id,
                 contato_id: conv.contatos?.id,
                 phone_number: conv.phone_number,
-                // Prioriza o nome do contato, senão usa o número
                 nome: conv.contatos?.nome || conv.phone_number,
                 avatar_url: conv.contatos?.foto_url,
                 unread_count: conv.unread_count || 0,
-                
-                // Dados da última mensagem
                 last_message_content: conv.last_message?.content,
                 last_message_at: conv.last_message?.created_at || conv.updated_at,
-                
                 is_archived: conv.is_archived || false,
                 
-                // Dados extras para a lista
+                // Dados Restaurados
                 tipo_contato: conv.contatos?.tipo_contato,
-                etapa_funil: nomeEtapa // <--- AQUI ESTÁ A ETAPA QUE VOCÊ QUERIA
+                etapa_funil: nomeEtapa, // A tag vai voltar a aparecer!
+                
+                // Dado Novo
+                last_inbound_at: lastInboundAt
             };
         });
 
@@ -78,7 +85,6 @@ export const getConversations = async (supabase, organizacaoId) => {
 };
 
 // --- FUNÇÃO: BUSCAR LISTAS DE TRANSMISSÃO ---
-// Mantida conforme seu original
 export const getBroadcastLists = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
 
@@ -102,7 +108,6 @@ export const getBroadcastLists = async (supabase, organizacaoId) => {
     }));
 };
 
-// Funções auxiliares mantidas
 export const getMessages = async (supabase, organizacaoId, contatoId) => {
     if (!organizacaoId || !contatoId) return [];
 

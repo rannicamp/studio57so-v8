@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, addHours, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -17,14 +17,66 @@ import {
   faBullhorn, 
   faTag,
   faFilter,
-  faClipboardList // Novo ícone para o card
+  faClipboardList,
+  faClock // Ícone do relógio
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQueryClient, useMutation } from '@tanstack/react-query'; 
 import NewConversationModal from './NewConversationModal';
 import CreateBroadcastModal from './CreateBroadcastModal'; 
-import QuickCardModal from './QuickCardModal'; // <--- IMPORTADO AQUI
+import QuickCardModal from './QuickCardModal';
 import { usePersistentState } from '@/hooks/usePersistentState';
+
+// --- COMPONENTE DO CRONÔMETRO DA JANELA ---
+const ServiceWindowTimer = ({ lastInboundAt }) => {
+    const [timeLeftLabel, setTimeLeftLabel] = useState(null);
+    const [isClosed, setIsClosed] = useState(false);
+
+    useEffect(() => {
+        if (!lastInboundAt) {
+            setIsClosed(true);
+            return;
+        }
+
+        const updateTimer = () => {
+            const now = new Date();
+            const windowStart = new Date(lastInboundAt);
+            const windowEnd = addHours(windowStart, 24);
+            const minutesLeft = differenceInMinutes(windowEnd, now);
+
+            if (minutesLeft <= 0) {
+                setIsClosed(true);
+                setTimeLeftLabel(null);
+            } else {
+                setIsClosed(false);
+                const h = Math.floor(minutesLeft / 60);
+                const m = minutesLeft % 60;
+                // Formato HH:mm (sem segundos)
+                setTimeLeftLabel(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+            }
+        };
+
+        updateTimer();
+        const interval = setInterval(updateTimer, 60000); // Atualiza a cada minuto
+        return () => clearInterval(interval);
+    }, [lastInboundAt]);
+
+    if (isClosed) {
+        return (
+            <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 flex items-center gap-1 max-w-full truncate" title="Janela de 24h fechada">
+                <FontAwesomeIcon icon={faClock} className="text-[9px] opacity-50" />
+                Janela Fechada
+            </span>
+        );
+    }
+
+    return (
+        <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-100 flex items-center gap-1 max-w-full truncate" title="Tempo restante na janela de 24h">
+            <FontAwesomeIcon icon={faClock} className="text-[9px]" />
+            {timeLeftLabel}
+        </span>
+    );
+};
 
 // --- COMPONENTE ITEM DA CONVERSA ---
 const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArchivedList }) => {
@@ -88,22 +140,26 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
                         </p>
                     </div>
 
-                    {/* Tags */}
-                    {(conversation.tipo_contato || conversation.etapa_funil) && (
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
-                            {conversation.etapa_funil && (
-                                <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1 max-w-full truncate">
-                                    <FontAwesomeIcon icon={faFilter} className="text-[9px] opacity-70" />
-                                    {conversation.etapa_funil}
-                                </span>
-                            )}
-                            {conversation.tipo_contato && (
-                                <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 uppercase tracking-wide">
-                                    {conversation.tipo_contato}
-                                </span>
-                            )}
-                        </div>
-                    )}
+                    {/* Tags (Funil, Tipo e TIMER) */}
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        {/* TIMER DA JANELA 24H (Novo!) */}
+                        <ServiceWindowTimer lastInboundAt={conversation.last_inbound_at} />
+
+                        {/* Etapa do Funil */}
+                        {conversation.etapa_funil && (
+                            <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1 max-w-full truncate">
+                                <FontAwesomeIcon icon={faFilter} className="text-[9px] opacity-70" />
+                                {conversation.etapa_funil}
+                            </span>
+                        )}
+                        
+                        {/* Tipo de Contato */}
+                        {conversation.tipo_contato && (
+                            <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 uppercase tracking-wide">
+                                {conversation.tipo_contato}
+                            </span>
+                        )}
+                    </div>
                 </div>
 
                 {/* --- MENU DE AÇÕES --- */}
@@ -126,7 +182,6 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
                             onClick={(e) => e.stopPropagation()}
                         >
                             <div className="py-1">
-                                {/* OPÇÃO CRIAR CARD */}
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -171,7 +226,9 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
     );
 };
 
-// --- ITEM DE LISTA DE TRANSMISSÃO (MANTIDO) ---
+// ... (BroadcastListItem e ConversationList mantidos, apenas substituídos no arquivo final)
+// Vou incluir o resto do arquivo para garantir que você tenha o código completo para copiar e colar
+
 const BroadcastListItem = ({ list, onSelect, onDelete, isSelected }) => (
     <li 
       onClick={() => onSelect(list)}
@@ -202,20 +259,17 @@ const BroadcastListItem = ({ list, onSelect, onDelete, isSelected }) => (
     </li>
 );
 
-// --- COMPONENTE PRINCIPAL ---
 export default function ConversationList({ conversations, broadcastLists, isLoading, onSelectContact, selectedContactId, onSelectList, selectedListId }) {
   const [activeTab, setActiveTab] = usePersistentState('whatsapp_active_tab', 'chats'); 
   const [showArchived, setShowArchived] = useState(false);
   
-  // Modais
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [isNewListOpen, setIsNewListOpen] = useState(false);
-  const [isCardModalOpen, setIsCardModalOpen] = useState(false); // NOVO
-  const [cardTargetConversation, setCardTargetConversation] = useState(null); // NOVO
+  const [isCardModalOpen, setIsCardModalOpen] = useState(false);
+  const [cardTargetConversation, setCardTargetConversation] = useState(null);
   
   const queryClient = useQueryClient();
 
-  // Mutation de Conversa (MANTIDA)
   const conversationMutation = useMutation({
     mutationFn: async ({ action, conversationId }) => {
         const response = await fetch('/api/whatsapp/chat-manager', {
@@ -237,7 +291,6 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
     onError: (error) => toast.error(`Erro: ${error.message}`)
   });
 
-  // Mutation de Lista (MANTIDA)
   const deleteListMutation = useMutation({
       mutationFn: async (listId) => {
           const response = await fetch(`/api/whatsapp/lists?id=${listId}`, { method: 'DELETE' });
@@ -252,7 +305,6 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
       onError: () => toast.error("Erro ao excluir lista.")
   });
 
-  // Gerenciador de Ações (Atualizado com 'create_card')
   const handleAction = async (action, conversation) => {
     if (action === 'create_card') {
         if (!conversation.contato_id) {
@@ -287,9 +339,7 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
       else setIsNewListOpen(true);
   };
 
-  // Callback de sucesso do Card
   const handleCardCreated = () => {
-      // Invalida para atualizar a tag azul na lista
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
   };
 
@@ -310,8 +360,6 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
             onClose={() => setIsNewListOpen(false)}
             onListCreated={() => queryClient.invalidateQueries({ queryKey: ['broadcastLists'] })}
         />
-        
-        {/* NOVO MODAL DE CARD */}
         <QuickCardModal
             isOpen={isCardModalOpen}
             onClose={() => setIsCardModalOpen(false)}
