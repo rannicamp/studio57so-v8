@@ -30,7 +30,7 @@ const montserrat = Montserrat({
 });
 
 // --- CONFIGURAÇÕES DO BETA ---
-const primaryColor = '#f97316'; // Laranja do Beta
+const primaryColor = '#f97316'; // Laranja (Apenas para destaques pontuais)
 
 // --- DADOS DA GALERIA ---
 const galleryImages = [
@@ -60,7 +60,7 @@ const testimonialsData = [
 
 const floorPlanImage = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/planta%20humanizada%20aps.png"; 
 
-// Componentes de Ícones
+// Componentes de Ícones (Pretos/Cinza Escuro)
 const IconeLocalizacao = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"></path></svg>;
 const IconeRentabilidade = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path d="M10.293 3.293a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V16a1 1 0 11-2 0V5.414L5.707 8.707a1 1 0 01-1.414-1.414l4-4z"></path></svg>;
 const IconeSeguranca = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>;
@@ -71,7 +71,6 @@ export default function BetaSuitesPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     // CONTROLE DE VISIBILIDADE DOS DEPOIMENTOS
-    // Mude para 'true' quando tiver depoimentos reais
     const showTestimonials = false;
 
     const openModal = (imageUrl) => setSelectedImage(imageUrl);
@@ -91,25 +90,27 @@ export default function BetaSuitesPage() {
                 .swiper-button-next,
                 .swiper-button-prev {
                     color: #000000 !important;
-                    background-color: rgba(255, 255, 255, 0.8);
+                    background-color: rgba(255, 255, 255, 0.9);
                     border-radius: 50%;
                     width: 40px !important;
                     height: 40px !important;
                     transition: all 0.3s ease;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
                 }
                 .swiper-button-next:hover,
                 .swiper-button-prev:hover {
-                    background-color: #ffffff;
-                    color: ${primaryColor} !important;
+                    background-color: #000000;
+                    color: #ffffff !important;
                 }
                 .swiper-pagination-bullet {
-                    background-color: #a1a1aa !important;
+                    background-color: #000000 !important;
                     width: 10px !important;
                     height: 10px !important;
-                    opacity: 0.8;
+                    opacity: 0.3;
                 }
                 .swiper-pagination-bullet-active {
                     background-color: ${primaryColor} !important;
+                    opacity: 1;
                 }
                 .gallery-swiper .swiper-slide {
                     width: 60% !important;
@@ -173,12 +174,11 @@ export default function BetaSuitesPage() {
                 </div>
             </section>
             
-            {/* --- SEGUNDA DOBRA: PRÉ-LANÇAMENTO --- */}
+            {/* --- SEGUNDA DOBRA: PRÉ-LANÇAMENTO (EDITADA) --- */}
             <section className="bg-white py-16 md:py-20">
                 <div className="container mx-auto px-4 text-center">
                     <div className="max-w-3xl mx-auto bg-gray-50 p-8 rounded-2xl shadow-lg border border-gray-100">
                         
-                        {/* Selo de Destaque */}
                         <div className="inline-block bg-orange-100 text-orange-600 px-4 py-1 rounded-full text-sm font-bold uppercase tracking-widest mb-6">
                             Fase de Pré-Lançamento
                         </div>
@@ -191,26 +191,30 @@ export default function BetaSuitesPage() {
                             O Beta Suítes está em fase exclusiva de pré-lançamento. Aproveite este momento único para garantir sua unidade com <strong>tabela especial de investidor</strong> e máxima rentabilidade futura.
                         </p>
                         
-                        {/* Ícones de Destaque da Oportunidade */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center mb-10">
+                            {/* Card 1: Editado */}
                             <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                                <FontAwesomeIcon icon={faTag} className="text-3xl text-orange-500 mb-3"/>
-                                <p className="font-bold text-gray-800">Preço de Tabela Zero</p>
+                                <FontAwesomeIcon icon={faTag} className="text-3xl text-gray-900 mb-3"/>
+                                <p className="font-bold text-gray-800">Preço de Pré-Lançamento</p>
                             </div>
+                            
+                            {/* Card 2: Editado */}
                             <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                                <FontAwesomeIcon icon={faGraduationCap} className="text-3xl text-orange-500 mb-3"/>
-                                <p className="font-bold text-gray-800">Alta Demanda UFJF</p>
+                                <FontAwesomeIcon icon={faGraduationCap} className="text-3xl text-gray-900 mb-3"/>
+                                <p className="font-bold text-gray-800">Alta Demanda Estudantil</p>
                             </div>
+                            
                             <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                                <FontAwesomeIcon icon={faHouseMedical} className="text-3xl text-orange-500 mb-3"/>
+                                <FontAwesomeIcon icon={faHouseMedical} className="text-3xl text-gray-900 mb-3"/>
                                 <p className="font-bold text-gray-800">Polo de Saúde</p>
                             </div>
                         </div>
                         
                         <div>
+                            {/* Botão Editado: rounded-lg */}
                             <button
                                 onClick={openLeadModal}
-                                className="inline-block bg-orange-500 text-white font-bold py-4 px-10 rounded-full hover:bg-orange-600 transition-colors duration-300 shadow-xl uppercase tracking-wide transform hover:scale-105"
+                                className="inline-block bg-orange-500 text-white font-bold py-4 px-10 rounded-lg hover:bg-orange-600 transition-colors duration-300 shadow-xl uppercase tracking-wide transform hover:scale-105"
                             >
                                 Quero Aproveitar a Oportunidade
                             </button>
@@ -219,7 +223,7 @@ export default function BetaSuitesPage() {
                 </div>
             </section>
             
-            {/* --- DEPOIMENTOS (ESCONDIDO CONDICIONALMENTE) --- */}
+            {/* --- DEPOIMENTOS (ESCONDIDO) --- */}
             {showTestimonials && (
                 <section className="bg-gray-50 py-16 md:py-24">
                     <div className="container mx-auto px-4">
@@ -256,7 +260,7 @@ export default function BetaSuitesPage() {
                                                 <p className="font-bold text-gray-900 text-lg mt-2">{testimonial.name}</p>
                                                 <p className="text-sm text-gray-500 mb-4">{testimonial.title}</p>
                                                 
-                                                <FontAwesomeIcon icon={faQuoteLeft} className="text-orange-500 text-2xl mb-4" />
+                                                <FontAwesomeIcon icon={faQuoteLeft} className="text-gray-900 text-2xl mb-4" />
                                                 <p className="text-gray-600 italic mb-4">{`"${testimonial.intro}"`}</p>
                                                 
                                                 <AnimatePresence>
@@ -276,7 +280,7 @@ export default function BetaSuitesPage() {
                                             
                                             <button
                                                 onClick={() => handleToggleTestimonial(testimonial.id)}
-                                                className="text-orange-500 font-bold self-center mt-4 hover:underline"
+                                                className="text-gray-900 font-bold self-center mt-4 hover:underline"
                                             >
                                                 {expandedTestimonial === testimonial.id ? 'Ler menos' : 'Leia mais'}
                                             </button>
@@ -289,22 +293,22 @@ export default function BetaSuitesPage() {
                 </section>
             )}
             
-            {/* --- CARACTERÍSTICAS (BG BRANCO) --- */}
+            {/* --- CARACTERÍSTICAS --- */}
             <section className="py-16 md:py-24 bg-white">
                 <div className="container mx-auto px-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <div className="p-8 bg-gray-50 rounded-xl text-center hover:bg-white hover:shadow-xl transition-all duration-300 border border-transparent hover:border-gray-100">
-                            <div className="mb-4 inline-block text-orange-500"><IconeLocalizacao /></div>
+                            <div className="mb-4 inline-block text-gray-900"><IconeLocalizacao /></div>
                             <h3 className="text-xl font-bold mb-2 text-gray-900">Polo Regional</h3>
                             <p className="text-gray-600">GV atrai fluxo constante de estudantes de medicina e profissionais de saúde das cidades vizinhas.</p>
                         </div>
                         <div className="p-8 bg-gray-50 rounded-xl text-center hover:bg-white hover:shadow-xl transition-all duration-300 border border-transparent hover:border-gray-100">
-                            <div className="mb-4 inline-block text-orange-500"><IconeRentabilidade /></div>
+                            <div className="mb-4 inline-block text-gray-900"><IconeRentabilidade /></div>
                             <h3 className="text-xl font-bold mb-2 text-gray-900">Alta Demanda</h3>
                             <p className="text-gray-600">A poucos passos da UFJF-GV e hospitais. Garantia de alta taxa de ocupação para seu investimento.</p>
                         </div>
                         <div className="p-8 bg-gray-50 rounded-xl text-center hover:bg-white hover:shadow-xl transition-all duration-300 border border-transparent hover:border-gray-100">
-                            <div className="mb-4 inline-block text-orange-500"><IconeSeguranca /></div>
+                            <div className="mb-4 inline-block text-gray-900"><IconeSeguranca /></div>
                             <h3 className="text-xl font-bold mb-2 text-gray-900">Segurança Patrimonial</h3>
                             <p className="text-gray-600">O Alto Esplanada oferece segurança total contra sazonalidades climáticas (Livre de enchentes).</p>
                         </div>
@@ -312,7 +316,7 @@ export default function BetaSuitesPage() {
                 </div>
             </section>
 
-            {/* --- LOCALIZAÇÃO (BG CINZA CLARO) --- */}
+            {/* --- LOCALIZAÇÃO --- */}
             <section className="bg-gray-50 pb-16 md:pb-24 pt-16">
                 <div className="container mx-auto px-4">
                     <div className="mt-0">
@@ -324,9 +328,9 @@ export default function BetaSuitesPage() {
                             <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-gray-300"></div>
                             
                             <div className="relative pl-10 pb-8">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-orange-500 rounded-full border-4 border-white shadow-sm"></div>
+                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-900 rounded-full border-4 border-white shadow-sm"></div>
                                 <div className="flex items-center">
-                                    <FontAwesomeIcon icon={faLocationDot} className="text-2xl text-orange-500 mr-4" />
+                                    <FontAwesomeIcon icon={faLocationDot} className="text-2xl text-gray-900 mr-4" />
                                     <div>
                                         <p className="font-bold text-gray-800 text-lg">Beta Suítes</p>
                                         <p className="text-sm text-gray-500">Alto Esplanada</p>
@@ -334,9 +338,8 @@ export default function BetaSuitesPage() {
                                 </div>
                             </div>
 
-                            {/* Itens seguintes */}
                             <div className="relative pl-10 pb-8">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-600 rounded-full border-4 border-white"></div>
+                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-500 rounded-full border-4 border-white"></div>
                                 <div className="flex items-center">
                                     <FontAwesomeIcon icon={faGraduationCap} className="text-2xl text-gray-600 mr-4" />
                                     <div>
@@ -346,7 +349,7 @@ export default function BetaSuitesPage() {
                             </div>
                             
                             <div className="relative pl-10 pb-8">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-600 rounded-full border-4 border-white"></div>
+                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-500 rounded-full border-4 border-white"></div>
                                 <div className="flex items-center">
                                     <FontAwesomeIcon icon={faSchool} className="text-2xl text-gray-600 mr-4" />
                                     <div>
@@ -356,7 +359,7 @@ export default function BetaSuitesPage() {
                             </div>
 
                             <div className="relative pl-10 pb-8">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-600 rounded-full border-4 border-white"></div>
+                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-500 rounded-full border-4 border-white"></div>
                                 <div className="flex items-center">
                                     <FontAwesomeIcon icon={faUsers} className="text-2xl text-gray-600 mr-4" />
                                     <div>
@@ -366,7 +369,7 @@ export default function BetaSuitesPage() {
                             </div>
 
                             <div className="relative pl-10 pb-8">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-600 rounded-full border-4 border-white"></div>
+                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-500 rounded-full border-4 border-white"></div>
                                 <div className="flex items-center">
                                     <FontAwesomeIcon icon={faCartShopping} className="text-2xl text-gray-600 mr-4" />
                                     <div>
@@ -376,7 +379,7 @@ export default function BetaSuitesPage() {
                             </div>
 
                             <div className="relative pl-10">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-600 rounded-full border-4 border-white"></div>
+                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-500 rounded-full border-4 border-white"></div>
                                 <div className="flex items-center">
                                     <FontAwesomeIcon icon={faHospital} className="text-2xl text-gray-600 mr-4" />
                                     <div>
@@ -397,7 +400,7 @@ export default function BetaSuitesPage() {
                     </p>
                     <div className="w-full h-96 rounded-xl shadow-xl overflow-hidden border border-gray-200">
                         <iframe
-                            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3780.40228156114!2d-41.95698588889815!3d-18.646002766395343!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x7b102ff6720d20b%3A0x8a9e48f1b1b1e7f!2sResidencial%20Alfa!5e0!3m2!1spt-BR!2sbr!4v1727544078174!5m2!1spt-BR!2sbr"
+                            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1123.4446044211293!2d-41.940456530379386!3d-18.844714498894543!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xb1a714cea1bf23%3A0x8b0d18e49baf52e6!2sR.%20das%20Arar%C3%A1s%2C%20543%20-%20Alto%20Esplanada%2C%20Gov.%20Valadares%20-%20MG%2C%2035064-001!5e1!3m2!1spt-BR!2sbr!4v1765551156537!5m2!1spt-BR!2sbr"
                             width="100%"
                             height="100%"
                             style={{ border: 0 }}
@@ -409,7 +412,7 @@ export default function BetaSuitesPage() {
                 </div>
             </section>
             
-            {/* --- LAYOUTS (BG CINZA CLARO) --- */}
+            {/* --- LAYOUTS --- */}
             <section className="py-16 md:py-24 bg-gray-50">
                 <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                     <div className="md:order-2">
@@ -420,19 +423,19 @@ export default function BetaSuitesPage() {
 
                         <div className="grid grid-cols-2 gap-x-4 gap-y-8 text-center bg-white p-8 rounded-xl shadow-sm">
                             <div className="flex flex-col items-center">
-                                <FontAwesomeIcon icon={faRulerCombined} className="text-3xl text-orange-500 mb-2" />
+                                <FontAwesomeIcon icon={faRulerCombined} className="text-3xl text-gray-900 mb-2" />
                                 <span className="text-sm text-gray-700 font-medium">23m² a 32m²</span>
                             </div>
                             <div className="flex flex-col items-center">
-                                <FontAwesomeIcon icon={faBed} className="text-3xl text-orange-500 mb-2" />
+                                <FontAwesomeIcon icon={faBed} className="text-3xl text-gray-900 mb-2" />
                                 <span className="text-sm text-gray-700 font-medium">Suíte Integrada</span>
                             </div>
                             <div className="flex flex-col items-center">
-                                <FontAwesomeIcon icon={faBath} className="text-3xl text-orange-500 mb-2" />
+                                <FontAwesomeIcon icon={faBath} className="text-3xl text-gray-900 mb-2" />
                                 <span className="text-sm text-gray-700 font-medium">Banheiro Moderno</span>
                             </div>
                             <div className="flex flex-col items-center">
-                                <FontAwesomeIcon icon={faElevator} className="text-3xl text-orange-500 mb-2" />
+                                <FontAwesomeIcon icon={faElevator} className="text-3xl text-gray-900 mb-2" />
                                 <span className="text-sm text-gray-700 font-medium">Elevador</span>
                             </div>
                         </div>
@@ -454,7 +457,7 @@ export default function BetaSuitesPage() {
                 </div>
             </section>
             
-            {/* --- GALERIA (BG PRETO) --- */}
+            {/* --- GALERIA --- */}
             <section className="bg-black py-16 md:py-24 text-white">
                 <div className="container mx-auto px-4">
                     <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
@@ -498,14 +501,15 @@ export default function BetaSuitesPage() {
                 </div>
             </section>
             
-            {/* --- CTA FINAL (BG PRETO com Botão Laranja) --- */}
+            {/* --- CTA FINAL --- */}
             <section className="bg-black py-16 md:py-20 relative overflow-hidden border-t border-gray-800">
                 <div className="container mx-auto px-4 text-center relative z-10">
                     <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">Garanta condições de Pré-Lançamento</h2>
                     <p className="text-gray-400 max-w-2xl mx-auto mb-8 text-lg">Cadastre-se para receber a tabela de vendas e o book completo do Beta Suítes.</p>
+                    {/* BOTÃO FINAL TAMBÉM AJUSTADO PARA ROUNDED-LG */}
                     <button 
                         onClick={openLeadModal}
-                        className="inline-block bg-orange-500 text-white font-bold py-4 px-10 rounded-full hover:bg-orange-600 transition-all duration-300 shadow-2xl transform hover:scale-105 uppercase tracking-wider"
+                        className="inline-block bg-orange-500 text-white font-bold py-4 px-10 rounded-lg hover:bg-orange-600 transition-all duration-300 shadow-2xl transform hover:scale-105 uppercase tracking-wider"
                     >
                         Solicitar Tabela e Book
                     </button>
