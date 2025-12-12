@@ -8,11 +8,11 @@ import { useLayout } from '@/contexts/LayoutContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
-// 1. Importamos o mesmo componente da tabela principal
-// (Ajuste o caminho se o seu estiver diferente)
 import TabelaVendasGeral from '@/components/comercial/TabelaVendasGeral';
 
-// 2. Função de busca de dados PARA O CORRETOR
+// Define a chave única para salvar o estado desta página específica
+const CORRETOR_TABELA_UI_KEY = 'STUDIO57_CORRETOR_TABELA_VENDAS_V1';
+
 async function fetchTabelaVendas(organizacaoId) {
   if (!organizacaoId) {
     return [];
@@ -20,9 +20,6 @@ async function fetchTabelaVendas(organizacaoId) {
   
   const supabase = createClient();
   
-  // 3. A Query Mágica com o Filtro
-  // Usamos !inner para garantir que o empreendimento exista
-  // E filtramos por 'listado_para_venda' = true
   const { data, error } = await supabase
     .from('produtos_empreendimento')
     .select(`
@@ -32,7 +29,7 @@ async function fetchTabelaVendas(organizacaoId) {
       )
     `)
     .eq('organizacao_id', organizacaoId)
-    .eq('empreendimentos.listado_para_venda', true) // <-- O FILTRO MÁGICO!
+    .eq('empreendimentos.listado_para_venda', true)
     .order('unidade', { ascending: true });
 
   if (error) {
@@ -43,10 +40,7 @@ async function fetchTabelaVendas(organizacaoId) {
   return data;
 }
 
-// 4. Componente da Página (Versão 'use client')
 export default function TabelaVendasCorretor() {
-  
-  // Pega o usuário do nosso LayoutContext
   const { user, isUserLoading } = useLayout();
   const organizacaoId = user?.organizacao_id;
 
@@ -58,13 +52,11 @@ export default function TabelaVendasCorretor() {
   } = useQuery({
     queryKey: ['tabelaVendasCorretor', organizacaoId],
     queryFn: () => fetchTabelaVendas(organizacaoId),
-    enabled: !!organizacaoId, // Só executa a query quando o ID da organização estiver disponível
+    enabled: !!organizacaoId,
   });
 
-  // Define o estado de "carregando" principal
   const isLoading = isUserLoading || isLoadingProdutos;
 
-  // 5. Renderização (Loading, Erro, Sucesso)
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -87,11 +79,16 @@ export default function TabelaVendasCorretor() {
     );
   }
 
-  // 6. Sucesso: Renderiza o mesmo componente da página principal
   return (
     <div className="max-w-full mx-auto">
       <h1 className="text-3xl font-bold text-gray-800 mb-6">Tabela de Vendas</h1>
-      <TabelaVendasGeral initialProdutos={produtos || []} />
+      {/* Passamos a chave de persistência aqui! 
+          Assim o componente sabe onde salvar/ler os filtros.
+      */}
+      <TabelaVendasGeral 
+        initialProdutos={produtos || []} 
+        uiStateKey={CORRETOR_TABELA_UI_KEY}
+      />
     </div>
   );
 }
