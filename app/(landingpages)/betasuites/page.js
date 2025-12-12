@@ -144,16 +144,15 @@ export default function BetaSuitesPage() {
                     }}
                 ></div>
                 
-                {/* --- MUDANÇA AQUI: Aumentei a opacidade do preto para 65% (bg-black/65) --- */}
-                {/* Isso cria o efeito de "vidro fumê" mais escuro para destacar a logo e o texto */}
+                {/* Camada Escura (Vidro Fumê) */}
                 <div className="absolute inset-0 bg-black/65 z-10"></div>
                 
                 <div className="relative z-30 flex flex-col items-center p-4 w-full pt-16 sm:pt-0 text-center">
                     
-                    {/* LOGO BETA SUITES */}
+                    {/* LOGO BETA SUITES (ATUALIZADO PARA VERSÃO BRANCA) */}
                     <div className="mb-4 drop-shadow-2xl">
                         <Image 
-                            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944008469.png"
+                            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png"
                             alt="Beta Suítes Logo"
                             width={350}
                             height={150}
@@ -163,7 +162,6 @@ export default function BetaSuitesPage() {
                     </div>
 
                     <div className="mt-4 text-center max-w-2xl">
-                         {/* --- MUDANÇA AQUI: Texto atualizado com a nova metragem --- */}
                          <p className="text-lg md:text-xl font-light text-gray-100 drop-shadow-md uppercase tracking-wider">
                             Suítes de 23 a 32m² no Alto Esplanada.
                          </p>
