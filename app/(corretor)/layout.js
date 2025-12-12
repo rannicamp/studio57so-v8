@@ -12,7 +12,10 @@ function CorretorLayoutInner({ children }) {
   const { user, isUserLoading } = useLayout()
   
   const [isSidebarOpen, setSidebarOpen] = useState(false); // Mobile
-  const [isCollapsed, setIsCollapsed] = useState(false);   // Desktop
+
+  // Desktop: Se quiser implementar colapso depois, usaremos este estado. 
+  // Por enquanto, deixamos ele sempre expandido (false) para simplificar.
+  const [isCollapsed, setIsCollapsed] = useState(false);   
 
   const toggleSidebarMobile = () => setSidebarOpen(!isSidebarOpen);
   const toggleSidebarDesktop = () => setIsCollapsed(!isCollapsed);
@@ -21,14 +24,18 @@ function CorretorLayoutInner({ children }) {
     <EmpreendimentoProvider>
       <Toaster position="top-right" richColors />
       
-      {/* Layout Flex Row para garantir Sidebar na esquerda */}
+      {/* Container Principal: Flex Row (Lado a Lado) e Altura Total */}
       <div className="flex h-screen bg-gray-50 overflow-hidden">
         
-        {/* SIDEBAR */}
+        {/* === SIDEBAR WRAPPER === 
+            Correção: Adicionado 'w-64' e 'shrink-0' para garantir largura fixa no Desktop
+        */}
         <div className={`
-            fixed inset-y-0 left-0 z-30 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto
+            fixed inset-y-0 left-0 z-30 
+            w-64 shrink-0 bg-white border-r border-gray-200 h-full
+            transform transition-transform duration-300 ease-in-out
+            lg:translate-x-0 lg:static lg:inset-auto
             ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-            bg-white border-r border-gray-200 h-full
         `}>
             <CorretorSidebar 
               user={user} 
@@ -39,7 +46,7 @@ function CorretorLayoutInner({ children }) {
             />
         </div>
 
-        {/* OVERLAY MOBILE */}
+        {/* OVERLAY MOBILE (Fundo escuro) */}
         {isSidebarOpen && (
           <div 
             className="fixed inset-0 bg-black/50 z-20 lg:hidden"
@@ -47,7 +54,7 @@ function CorretorLayoutInner({ children }) {
           />
         )}
 
-        {/* CONTEÚDO PRINCIPAL */}
+        {/* CONTEÚDO PRINCIPAL (Cresce para ocupar o resto) */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           
           <CorretorHeader toggleSidebar={toggleSidebarMobile} />
