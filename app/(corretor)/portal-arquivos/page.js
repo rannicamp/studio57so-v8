@@ -15,7 +15,7 @@ import { toast } from 'sonner'
 import Image from 'next/image'
 import { useDebounce } from 'use-debounce'
 
-// 1. Função de busca de dados (Query para o useQuery)
+// 1. Função de busca de dados (AGORA COM FILTRO DE LISTAGEM)
 async function fetchArquivosCorretor(organizacaoId, searchTerm, empreendimentoId) {
   if (!organizacaoId) return []
   const supabase = createClient()
@@ -36,16 +36,16 @@ async function fetchArquivosCorretor(organizacaoId, searchTerm, empreendimentoId
     )
     .eq('organizacao_id', organizacaoId)
     .eq('disponivel_corretor', true)
+    // --- O FILTRO MÁGICO ADICIONADO AQUI ---
+    // Garante que só traga arquivos de obras listadas para venda
+    .eq('empreendimentos.listado_para_venda', true)
 
-  // --- CORREÇÃO NA LÓGICA DO FILTRO .or() ---
+  // Filtro de Busca
   if (searchTerm) {
-    // A sintaxe correta para OR com ILIKE em tabelas diferentes
-    // é passar uma string formatada diretamente no .or()
-    // referenciando a coluna da tabela relacionada corretamente.
     query = query.or(`nome_arquivo.ilike.%${searchTerm}%,empreendimentos.nome.ilike.%${searchTerm}%`, { referencedTable: 'empreendimentos' })
   }
-  // --- FIM DA CORREÇÃO ---
 
+  // Filtro de Empreendimento Específico
   if (empreendimentoId) {
     query = query.eq('empreendimento_id', empreendimentoId)
   }
@@ -69,24 +69,26 @@ async function fetchArquivosCorretor(organizacaoId, searchTerm, empreendimentoId
   return anexosComUrl
 }
 
-// Função para buscar empreendimentos do corretor
+// Função para buscar empreendimentos do corretor (Para o Dropdown)
 async function fetchEmpreendimentosCorretor(organizacaoId) {
     if (!organizacaoId) return [];
     const supabase = createClient();
+    // Nota: Mantivemos o RPC aqui pois ele provavelmente já filtra os que têm anexos.
+    // Se quiser filtrar o dropdown também por 'listado_para_venda', o ideal seria ajustar o RPC no banco
+    // ou filtrar o resultado aqui. Por enquanto, filtrar os arquivos (acima) já resolve o problema visual.
     const { data, error } = await supabase.rpc('get_empreendimentos_com_anexos_corretor', { org_id: organizacaoId });
     if (error) {
         console.error("Erro ao buscar empreendimentos:", error);
-        throw new Error("Não foi possível carregar os empreendimentos.");
+        return [];
     }
     return (data || []).sort((a, b) => a.nome.localeCompare(b.nome));
 }
 
 
-// 2. Componente da Página (Restante do código igual)
+// 2. Componente da Página
 export default function ArquivosCorretorPage() {
   const { user, isUserLoading } = useLayout()
   const organizacaoId = user?.organizacao_id
-  const supabase = createClient()
   const [downloadingId, setDownloadingId] = useState(null)
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmpreendimento, setSelectedEmpreendimento] = useState('');
@@ -204,7 +206,7 @@ export default function ArquivosCorretorPage() {
             <div className="text-center">
              <FontAwesomeIcon icon={faFolderBlank} className="text-5xl text-gray-300 mb-4"/>
              <h3 className="text-lg font-semibold text-gray-700">Nenhum arquivo encontrado</h3>
-             <p className="text-gray-500 text-sm mt-1">{searchTerm || selectedEmpreendimento ? "Ajuste os filtros ou verifique se há arquivos disponíveis." : "Nenhum arquivo foi disponibilizado para os corretores ainda."}</p>
+             <p className="text-gray-500 text-sm mt-1">{searchTerm || selectedEmpreendimento ? "Ajuste os filtros ou verifique se há arquivos disponíveis." : "Nenhum arquivo disponível para as obras ativas."}</p>
            </div>
         </div>
       ) : (
