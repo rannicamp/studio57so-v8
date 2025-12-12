@@ -1,14 +1,9 @@
-// Caminho: app/(landingpages)/studiosbeta/actions.js
+// Caminho: app/(landingpages)/betasuites/actions.js
 'use server';
 
 import { createClient } from '../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 
-// =================================================================================
-// O PORQUÊ DESTA FUNÇÃO (IDÊNTICA À SUA DO ALFA)
-// Mantive sua função "à prova de balas" que garante que o funil e a coluna
-// "Novos Leads" existam. Isso é essencial para o sistema funcionar corretamente.
-// =================================================================================
 async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
   let { data: funil } = await supabase
     .from('funis')
@@ -46,15 +41,10 @@ async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
   return primeiraColuna.id;
 }
 
-// O PORQUÊ DAS MUDANÇAS:
-// - Nome da função: Renomeei para 'salvarLeadBeta' para ficar específico.
-// - Campos: Removi a variável 'email', pois o novo formulário não terá esse campo.
-// - Origem: O valor do campo 'origem' é fixo para 'Landing Page - Studios Beta'.
-// - Redirect: O redirecionamento no final aponta para a página de obrigado do Beta.
 export async function salvarLeadBeta(formData) {
   const nome = formData.get('nome');
   const telefone = formData.get('telefone');
-  const origem = 'Landing Page - Studios Beta'; // Origem fixa
+  const origem = 'Landing Page - Beta Suítes'; // Atualizado para o nome novo
   const supabase = createClient();
 
   try {
@@ -76,11 +66,10 @@ export async function salvarLeadBeta(formData) {
     if (contatoError) throw new Error(`Erro ao salvar o contato: ${contatoError.message}`);
     const contatoId = novoContato.id;
     
-    // Salva apenas o telefone, removendo o e-mail
     if (telefone) {
       await supabase.from('telefones').insert({ 
         contato_id: contatoId, 
-        telefone: telefone.replace(/\D/g, ''), // Limpa a máscara
+        telefone: telefone.replace(/\D/g, ''),
         tipo: 'Celular', 
         organizacao_id: organizacaoId
       });
@@ -96,11 +85,9 @@ export async function salvarLeadBeta(formData) {
     
   } catch (error) {
     console.error('Falha crítica no processo de salvar lead da LP Beta:', error.message);
-    // Em caso de erro, podemos redirecionar para uma página de erro ou de volta
-    // Mas por enquanto, apenas logamos no servidor.
-    return { message: 'Erro ao salvar o lead.' }; // Adicionado retorno para o formulário
+    return { message: 'Erro ao salvar o lead.' };
   }
   
-  // Redireciona para a página de obrigado do Beta
-  redirect('/studiosbeta/obrigado');
+  // CORREÇÃO AQUI: Redireciona para a pasta correta 'betasuites'
+  redirect('/betasuites/obrigado');
 }
