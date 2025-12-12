@@ -23,6 +23,8 @@ export async function middleware(req) {
   const publicExactPaths = [
     '/',
     '/login',
+    '/recuperar-senha', // <--- ADICIONADO: Página de pedido de senha
+    '/atualizar-senha', // <--- ADICIONADO: Página de nova senha
     '/register',
     '/cadastro-corretor',
     '/empreendimentosstudio',
@@ -39,7 +41,7 @@ export async function middleware(req) {
     '/cadastrocliente', 
     '/simulador-financiamento', 
     '/api/auth',
-    '/api/cron', // <--- ADICIONADO: Libera o Robô de Agendamento! 🤖✅
+    '/api/cron', 
   ]
 
   // Verifica se é rota pública
@@ -59,34 +61,54 @@ export async function middleware(req) {
 
   // 2. LÓGICA DE USUÁRIO LOGADO
   if (session && user) {
-    const { data: profile } = await supabase
-      .from('usuarios')
-      .select('funcao_id')
-      .eq('id', user.id)
-      .single()
+    // Se o usuário está tentando acessar login ou recuperação estando logado,
+    // vamos ver para onde redirecionar.
+    // Mas ATENÇÃO: Se ele estiver em /atualizar-senha, deixamos ele ficar lá para trocar a senha!
+    const isAuthPage = ['/login', '/', '/recuperar-senha'].includes(url.pathname);
 
-    const funcao_id = profile?.funcao_id
-
-    // 3. REDIRECIONAMENTO INTELIGENTE (HOME E LOGIN)
-    if (url.pathname === '/login' || url.pathname === '/') {
-      if (funcao_id === 20) {
-        return NextResponse.redirect(new URL('/portal-painel', req.url))
-      }
-      return NextResponse.redirect(new URL('/painel', req.url))
-    }
-
-    // 4. Proteção do Portal do Corretor
-    const isCorretorPath = url.pathname.startsWith('/portal-') || url.pathname.startsWith('/clientes') || url.pathname.startsWith('/tabela-de-vendas')
+    if (isAuthPage) {
+        const { data: profile } = await supabase
+          .from('usuarios')
+          .select('funcao_id')
+          .eq('id', user.id)
+          .single()
     
-    if (isCorretorPath && funcao_id !== 20) {
-      return NextResponse.redirect(new URL('/painel', req.url))
+        const funcao_id = profile?.funcao_id
+        
+        if (funcao_id === 20) {
+            return NextResponse.redirect(new URL('/portal-painel', req.url))
+        }
+        return NextResponse.redirect(new URL('/painel', req.url))
     }
-
-    // 5. Proteção do Painel Principal
-    const isMainPanelPath = !isCorretorPath && !isPublicPath && url.pathname !== '/login'
     
-    if (isMainPanelPath && funcao_id === 20) {
-      return NextResponse.redirect(new URL('/portal-painel', req.url))
+    // Se não é página de auth, prossegue com verificação de permissões
+    // Mas precisamos carregar o profile se não carregamos acima
+    // Nota: Para otimizar, idealmente verificaríamos o pathname antes de buscar o profile novamente,
+    // mas para manter a lógica segura e simples:
+    
+    // (Apenas para rotas protegidas que precisam de verificação de função)
+    if (!isPublicPath && url.pathname !== '/atualizar-senha') {
+        const { data: profile } = await supabase
+            .from('usuarios')
+            .select('funcao_id')
+            .eq('id', user.id)
+            .single()
+
+        const funcao_id = profile?.funcao_id
+
+        // 4. Proteção do Portal do Corretor
+        const isCorretorPath = url.pathname.startsWith('/portal-') || url.pathname.startsWith('/clientes') || url.pathname.startsWith('/tabela-de-vendas')
+        
+        if (isCorretorPath && funcao_id !== 20) {
+          return NextResponse.redirect(new URL('/painel', req.url))
+        }
+
+        // 5. Proteção do Painel Principal
+        const isMainPanelPath = !isCorretorPath && !isPublicPath && url.pathname !== '/login'
+        
+        if (isMainPanelPath && funcao_id === 20) {
+          return NextResponse.redirect(new URL('/portal-painel', req.url))
+        }
     }
   }
 
