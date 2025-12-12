@@ -3,15 +3,16 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { createClient } from '../../utils/supabase/client';
 // O PORQUÊ DESTA IMPORTAÇÃO: Adicionamos o componente otimizado de Imagem do Next.js
 import Image from 'next/image';
+import Link from 'next/link'; // Importante para o link de recuperação
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false); // Adicionei estado de carregamento para feedback visual
   const router = useRouter();
   const supabase = createClient();
 
@@ -21,17 +22,20 @@ export default function LoginPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
+    setIsLoading(true); // Começa a carregar
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
-      setError(error.message);
+      setError(error.message); // Em produção, traduza "Invalid login credentials" para algo mais amigável se quiser
+      setIsLoading(false); // Para de carregar se der erro
     } else {
-      // O PORQUÊ DESTA MUDANÇA (CORREÇÃO CRÍTICA):
-      // Após o login, o usuário deve ser levado para o painel interno (/painel),
-      // e não para a nova home page pública (/).
+      // O PORQUÊ DESTA LÓGICA:
+      // Redirecionamos para o /painel. O middleware vai interceptar essa rota
+      // e decidir se joga o usuário para /painel ou /portal-painel (se for corretor).
       router.push('/painel');
       router.refresh();
     }
@@ -85,25 +89,40 @@ export default function LoginPage() {
                   className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
+              
+              {/* --- NOVO: Link de Recuperação de Senha --- */}
+              <div className="flex items-center justify-end mt-2">
+                <div className="text-sm">
+                  <Link 
+                    href="/recuperar-senha" 
+                    className="font-medium text-blue-600 hover:text-blue-500"
+                  >
+                    Esqueceu sua senha?
+                  </Link>
+                </div>
+              </div>
+              {/* ------------------------------------------ */}
             </div>
 
             {error && (
-              <p className="text-sm text-red-600 text-center">{error}</p>
+              <p className="text-sm text-red-600 text-center bg-red-50 p-2 rounded border border-red-200">
+                {error === "Invalid login credentials" ? "E-mail ou senha incorretos." : error}
+              </p>
             )}
 
             <div>
               <button
                 type="submit"
-                className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                disabled={isLoading}
+                className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                Entrar
+                {isLoading ? "Entrando..." : "Entrar"}
               </button>
             </div>
           </form>
         </div>
         
-        {/* O PORQUÊ DESTA MUDANÇA (SUA SOLICITAÇÃO):
-            O bloco de código abaixo, que continha o link para a página de registro, foi completamente removido. */}
+        {/* Bloco de registro removido conforme solicitado anteriormente */}
             
       </div>
     </div>
