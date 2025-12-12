@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     faRulerCombined, faBed, faBath, faElevator,
     faHospital, faGraduationCap, faCartShopping, faLocationDot,
-    faSchool, faHouseMedical, faUsers, faXmark, faQuoteLeft, faWater, faDumbbell, faUtensils
+    faSchool, faHouseMedical, faUsers, faXmark, faQuoteLeft, faWater, faDumbbell, faUtensils, faTag
 } from '@fortawesome/free-solid-svg-icons';
 
 // Importações do Swiper
@@ -26,7 +26,7 @@ import 'swiper/css/navigation';
 
 const montserrat = Montserrat({
     subsets: ['latin'],
-    weight: ['200', '300', '400', '700', '900'],
+    weight: ['200', '300', '400', '500', '700', '900'],
 });
 
 // --- CONFIGURAÇÕES DO BETA ---
@@ -70,6 +70,10 @@ export default function BetaSuitesPage() {
     const [expandedTestimonial, setExpandedTestimonial] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    // CONTROLE DE VISIBILIDADE DOS DEPOIMENTOS
+    // Mude para 'true' quando tiver depoimentos reais
+    const showTestimonials = false;
+
     const openModal = (imageUrl) => setSelectedImage(imageUrl);
     const closeModal = () => setSelectedImage(null);
     
@@ -86,16 +90,17 @@ export default function BetaSuitesPage() {
             <style jsx global>{`
                 .swiper-button-next,
                 .swiper-button-prev {
-                    color: #ffffff !important;
-                    background-color: rgba(0, 0, 0, 0.4);
+                    color: #000000 !important;
+                    background-color: rgba(255, 255, 255, 0.8);
                     border-radius: 50%;
                     width: 40px !important;
                     height: 40px !important;
-                    transition: background-color 0.3s ease;
+                    transition: all 0.3s ease;
                 }
                 .swiper-button-next:hover,
                 .swiper-button-prev:hover {
-                    background-color: ${primaryColor};
+                    background-color: #ffffff;
+                    color: ${primaryColor} !important;
                 }
                 .swiper-pagination-bullet {
                     background-color: #a1a1aa !important;
@@ -132,9 +137,8 @@ export default function BetaSuitesPage() {
                 }
             `}</style>
             
-            {/* --- HERO SECTION (DOBRA 1) --- */}
+            {/* --- HERO SECTION --- */}
             <section className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden">
-                {/* Imagem de Fundo */}
                 <div
                     className="absolute inset-0 bg-no-repeat z-0"
                     style={{
@@ -144,12 +148,9 @@ export default function BetaSuitesPage() {
                     }}
                 ></div>
                 
-                {/* Camada Escura (Vidro Fumê) */}
                 <div className="absolute inset-0 bg-black/65 z-10"></div>
                 
                 <div className="relative z-30 flex flex-col items-center p-4 w-full pt-16 sm:pt-0 text-center">
-                    
-                    {/* LOGO BETA SUITES (ATUALIZADO PARA VERSÃO BRANCA) */}
                     <div className="mb-4 drop-shadow-2xl">
                         <Image 
                             src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png"
@@ -172,127 +173,137 @@ export default function BetaSuitesPage() {
                 </div>
             </section>
             
-            {/* --- CONTEÚDO INVESTIDOR (FIXO) --- */}
-            
-            <section className="bg-gray-50 py-16 md:py-20">
+            {/* --- SEGUNDA DOBRA: PRÉ-LANÇAMENTO --- */}
+            <section className="bg-white py-16 md:py-20">
                 <div className="container mx-auto px-4 text-center">
-                    <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl shadow-xl border-t-4 border-orange-500">
-                        <h2 className="text-xl md:text-2xl font-semibold uppercase tracking-wider text-gray-500 mb-4">
-                            Oportunidade de Investimento
+                    <div className="max-w-3xl mx-auto bg-gray-50 p-8 rounded-2xl shadow-lg border border-gray-100">
+                        
+                        {/* Selo de Destaque */}
+                        <div className="inline-block bg-orange-100 text-orange-600 px-4 py-1 rounded-full text-sm font-bold uppercase tracking-widest mb-6">
+                            Fase de Pré-Lançamento
+                        </div>
+
+                        <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+                            Condições Especiais
                         </h2>
-                        <p className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-                            Alta Liquidez
+                        
+                        <p className="text-gray-600 text-lg mb-8 leading-relaxed">
+                            O Beta Suítes está em fase exclusiva de pré-lançamento. Aproveite este momento único para garantir sua unidade com <strong>tabela especial de investidor</strong> e máxima rentabilidade futura.
                         </p>
-                        <p className="text-gray-600 text-lg mb-6">
-                            A união entre bairro nobre e alta demanda de aluguel (estudantes e saúde) transforma o Beta em um ativo de giro rápido.
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center mb-8">
-                            <div className="p-4 bg-orange-50 rounded-lg">
-                                <FontAwesomeIcon icon={faGraduationCap} className="text-3xl text-orange-500 mb-2"/>
-                                <p className="font-bold">Ao lado da UFJF</p>
+                        
+                        {/* Ícones de Destaque da Oportunidade */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center mb-10">
+                            <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                                <FontAwesomeIcon icon={faTag} className="text-3xl text-orange-500 mb-3"/>
+                                <p className="font-bold text-gray-800">Preço de Tabela Zero</p>
                             </div>
-                            <div className="p-4 bg-orange-50 rounded-lg">
-                                <FontAwesomeIcon icon={faHouseMedical} className="text-3xl text-orange-500 mb-2"/>
-                                <p className="font-bold">Polo de Saúde</p>
+                            <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                                <FontAwesomeIcon icon={faGraduationCap} className="text-3xl text-orange-500 mb-3"/>
+                                <p className="font-bold text-gray-800">Alta Demanda UFJF</p>
                             </div>
-                            <div className="p-4 bg-orange-50 rounded-lg">
-                                <FontAwesomeIcon icon={faWater} className="text-3xl text-orange-500 mb-2"/>
-                                <p className="font-bold">Livre de Enchentes</p>
+                            <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                                <FontAwesomeIcon icon={faHouseMedical} className="text-3xl text-orange-500 mb-3"/>
+                                <p className="font-bold text-gray-800">Polo de Saúde</p>
                             </div>
                         </div>
+                        
                         <div>
                             <button
                                 onClick={openLeadModal}
-                                className="inline-block bg-orange-500 text-white font-bold py-3 px-8 rounded-full hover:bg-orange-600 transition-colors duration-300 shadow-lg uppercase tracking-wide"
+                                className="inline-block bg-orange-500 text-white font-bold py-4 px-10 rounded-full hover:bg-orange-600 transition-colors duration-300 shadow-xl uppercase tracking-wide transform hover:scale-105"
                             >
-                                Baixar Apresentação Completa
+                                Quero Aproveitar a Oportunidade
                             </button>
                         </div>
                     </div>
                 </div>
             </section>
             
-            <section className="bg-white py-16 md:py-24">
-                <div className="container mx-auto px-4">
-                    <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-gray-900">
-                        Por que escolher o Beta?
-                    </h2>
-                    <div className="pt-12">
-                        <Swiper
-                            slidesPerView={1}
-                            spaceBetween={30}
-                            loop={true}
-                            pagination={{ clickable: true }}
-                            navigation={true}
-                            modules={[Pagination, Navigation]}
-                            className="testimonial-swiper"
-                            breakpoints={{
-                                768: { slidesPerView: 2, spaceBetween: 40 },
-                            }}
-                        >
-                            {testimonialsData.map((testimonial) => (
-                                <SwiperSlide key={testimonial.id}>
-                                    <div className="bg-gray-50 rounded-xl p-8 pt-16 shadow-lg h-full flex flex-col text-center relative mt-12 border border-gray-100">
-                                        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                                            <Image
-                                                src={testimonial.photoUrl}
-                                                alt={testimonial.name}
-                                                width={96}
-                                                height={96}
-                                                className="rounded-full object-cover border-4 border-white shadow-md"
-                                            />
-                                        </div>
+            {/* --- DEPOIMENTOS (ESCONDIDO CONDICIONALMENTE) --- */}
+            {showTestimonials && (
+                <section className="bg-gray-50 py-16 md:py-24">
+                    <div className="container mx-auto px-4">
+                        <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-gray-900">
+                            Por que escolher o Beta?
+                        </h2>
+                        <div className="pt-12">
+                            <Swiper
+                                slidesPerView={1}
+                                spaceBetween={30}
+                                loop={true}
+                                pagination={{ clickable: true }}
+                                navigation={true}
+                                modules={[Pagination, Navigation]}
+                                className="testimonial-swiper"
+                                breakpoints={{
+                                    768: { slidesPerView: 2, spaceBetween: 40 },
+                                }}
+                            >
+                                {testimonialsData.map((testimonial) => (
+                                    <SwiperSlide key={testimonial.id}>
+                                        <div className="bg-white rounded-xl p-8 pt-16 shadow-lg h-full flex flex-col text-center relative mt-12 border border-gray-100">
+                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                                                <Image
+                                                    src={testimonial.photoUrl}
+                                                    alt={testimonial.name}
+                                                    width={96}
+                                                    height={96}
+                                                    className="rounded-full object-cover border-4 border-gray-50 shadow-md"
+                                                />
+                                            </div>
 
-                                        <div className="flex-grow">
-                                            <p className="font-bold text-gray-900 text-lg mt-2">{testimonial.name}</p>
-                                            <p className="text-sm text-gray-500 mb-4">{testimonial.title}</p>
+                                            <div className="flex-grow">
+                                                <p className="font-bold text-gray-900 text-lg mt-2">{testimonial.name}</p>
+                                                <p className="text-sm text-gray-500 mb-4">{testimonial.title}</p>
+                                                
+                                                <FontAwesomeIcon icon={faQuoteLeft} className="text-orange-500 text-2xl mb-4" />
+                                                <p className="text-gray-600 italic mb-4">{`"${testimonial.intro}"`}</p>
+                                                
+                                                <AnimatePresence>
+                                                    {expandedTestimonial === testimonial.id && (
+                                                        <motion.p
+                                                            initial={{ opacity: 0, height: 0 }}
+                                                            animate={{ opacity: 1, height: 'auto' }}
+                                                            exit={{ opacity: 0, height: 0 }}
+                                                            transition={{ duration: 0.4 }}
+                                                            className="text-gray-600 text-left text-sm"
+                                                        >
+                                                            {testimonial.fullText}
+                                                        </motion.p>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
                                             
-                                            <FontAwesomeIcon icon={faQuoteLeft} className="text-orange-500 text-2xl mb-4" />
-                                            <p className="text-gray-600 italic mb-4">{`"${testimonial.intro}"`}</p>
-                                            
-                                            <AnimatePresence>
-                                                {expandedTestimonial === testimonial.id && (
-                                                    <motion.p
-                                                        initial={{ opacity: 0, height: 0 }}
-                                                        animate={{ opacity: 1, height: 'auto' }}
-                                                        exit={{ opacity: 0, height: 0 }}
-                                                        transition={{ duration: 0.4 }}
-                                                        className="text-gray-600 text-left text-sm"
-                                                    >
-                                                        {testimonial.fullText}
-                                                    </motion.p>
-                                                )}
-                                            </AnimatePresence>
+                                            <button
+                                                onClick={() => handleToggleTestimonial(testimonial.id)}
+                                                className="text-orange-500 font-bold self-center mt-4 hover:underline"
+                                            >
+                                                {expandedTestimonial === testimonial.id ? 'Ler menos' : 'Leia mais'}
+                                            </button>
                                         </div>
-                                        
-                                        <button
-                                            onClick={() => handleToggleTestimonial(testimonial.id)}
-                                            className="text-orange-500 font-bold self-center mt-4 hover:underline"
-                                        >
-                                            {expandedTestimonial === testimonial.id ? 'Ler menos' : 'Leia mais'}
-                                        </button>
-                                    </div>
-                                </SwiperSlide>
-                            ))}
-                        </Swiper>
+                                    </SwiperSlide>
+                                ))}
+                            </Swiper>
+                        </div>
                     </div>
-                </div>
-            </section>
+                </section>
+            )}
             
-            <section className="py-16 md:py-24 bg-orange-50">
+            {/* --- CARACTERÍSTICAS (BG BRANCO) --- */}
+            <section className="py-16 md:py-24 bg-white">
                 <div className="container mx-auto px-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <div className="p-8 bg-white rounded-xl shadow-sm text-center border-b-4 border-orange-500">
+                        <div className="p-8 bg-gray-50 rounded-xl text-center hover:bg-white hover:shadow-xl transition-all duration-300 border border-transparent hover:border-gray-100">
                             <div className="mb-4 inline-block text-orange-500"><IconeLocalizacao /></div>
                             <h3 className="text-xl font-bold mb-2 text-gray-900">Polo Regional</h3>
                             <p className="text-gray-600">GV atrai fluxo constante de estudantes de medicina e profissionais de saúde das cidades vizinhas.</p>
                         </div>
-                        <div className="p-8 bg-white rounded-xl shadow-sm text-center border-b-4 border-orange-500">
+                        <div className="p-8 bg-gray-50 rounded-xl text-center hover:bg-white hover:shadow-xl transition-all duration-300 border border-transparent hover:border-gray-100">
                             <div className="mb-4 inline-block text-orange-500"><IconeRentabilidade /></div>
                             <h3 className="text-xl font-bold mb-2 text-gray-900">Alta Demanda</h3>
                             <p className="text-gray-600">A poucos passos da UFJF-GV e hospitais. Garantia de alta taxa de ocupação para seu investimento.</p>
                         </div>
-                        <div className="p-8 bg-white rounded-xl shadow-sm text-center border-b-4 border-orange-500">
+                        <div className="p-8 bg-gray-50 rounded-xl text-center hover:bg-white hover:shadow-xl transition-all duration-300 border border-transparent hover:border-gray-100">
                             <div className="mb-4 inline-block text-orange-500"><IconeSeguranca /></div>
                             <h3 className="text-xl font-bold mb-2 text-gray-900">Segurança Patrimonial</h3>
                             <p className="text-gray-600">O Alto Esplanada oferece segurança total contra sazonalidades climáticas (Livre de enchentes).</p>
@@ -301,14 +312,16 @@ export default function BetaSuitesPage() {
                 </div>
             </section>
 
-            <section className="bg-white pb-16 md:pb-24 pt-16">
+            {/* --- LOCALIZAÇÃO (BG CINZA CLARO) --- */}
+            <section className="bg-gray-50 pb-16 md:pb-24 pt-16">
                 <div className="container mx-auto px-4">
                     <div className="mt-0">
                         <h3 className="text-2xl md:text-3xl font-bold text-gray-800 text-center mb-12">
                             Localização Estratégica
                         </h3>
                         <div className="relative max-w-sm mx-auto">
-                            <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-gray-200"></div>
+                            {/* Linha do tempo em cinza */}
+                            <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-gray-300"></div>
                             
                             <div className="relative pl-10 pb-8">
                                 <div className="absolute left-0 top-1 w-5 h-5 bg-orange-500 rounded-full border-4 border-white shadow-sm"></div>
@@ -321,10 +334,11 @@ export default function BetaSuitesPage() {
                                 </div>
                             </div>
 
+                            {/* Itens seguintes */}
                             <div className="relative pl-10 pb-8">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-400 rounded-full border-4 border-white"></div>
+                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-600 rounded-full border-4 border-white"></div>
                                 <div className="flex items-center">
-                                    <FontAwesomeIcon icon={faGraduationCap} className="text-2xl text-orange-400 mr-4" />
+                                    <FontAwesomeIcon icon={faGraduationCap} className="text-2xl text-gray-600 mr-4" />
                                     <div>
                                         <p className="font-bold text-gray-800">UFJF-GV</p><p className="text-sm text-gray-500">950m</p>
                                     </div>
@@ -332,9 +346,9 @@ export default function BetaSuitesPage() {
                             </div>
                             
                             <div className="relative pl-10 pb-8">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-400 rounded-full border-4 border-white"></div>
+                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-600 rounded-full border-4 border-white"></div>
                                 <div className="flex items-center">
-                                    <FontAwesomeIcon icon={faSchool} className="text-2xl text-orange-400 mr-4" />
+                                    <FontAwesomeIcon icon={faSchool} className="text-2xl text-gray-600 mr-4" />
                                     <div>
                                         <p className="font-bold text-gray-800">Maple Bear</p><p className="text-sm text-gray-500">950m</p>
                                     </div>
@@ -342,9 +356,9 @@ export default function BetaSuitesPage() {
                             </div>
 
                             <div className="relative pl-10 pb-8">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-400 rounded-full border-4 border-white"></div>
+                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-600 rounded-full border-4 border-white"></div>
                                 <div className="flex items-center">
-                                    <FontAwesomeIcon icon={faUsers} className="text-2xl text-orange-400 mr-4" />
+                                    <FontAwesomeIcon icon={faUsers} className="text-2xl text-gray-600 mr-4" />
                                     <div>
                                         <p className="font-bold text-gray-800">Clube Filadélfia</p><p className="text-sm text-gray-500">1.6km</p>
                                     </div>
@@ -352,9 +366,9 @@ export default function BetaSuitesPage() {
                             </div>
 
                             <div className="relative pl-10 pb-8">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-400 rounded-full border-4 border-white"></div>
+                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-600 rounded-full border-4 border-white"></div>
                                 <div className="flex items-center">
-                                    <FontAwesomeIcon icon={faCartShopping} className="text-2xl text-orange-400 mr-4" />
+                                    <FontAwesomeIcon icon={faCartShopping} className="text-2xl text-gray-600 mr-4" />
                                     <div>
                                         <p className="font-bold text-gray-800">Big Mais Supermercado</p><p className="text-sm text-gray-500">1.7km</p>
                                     </div>
@@ -362,9 +376,9 @@ export default function BetaSuitesPage() {
                             </div>
 
                             <div className="relative pl-10">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-400 rounded-full border-4 border-white"></div>
+                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-600 rounded-full border-4 border-white"></div>
                                 <div className="flex items-center">
-                                    <FontAwesomeIcon icon={faHospital} className="text-2xl text-orange-400 mr-4" />
+                                    <FontAwesomeIcon icon={faHospital} className="text-2xl text-gray-600 mr-4" />
                                     <div>
                                         <p className="font-bold text-gray-800">Hospitais (São Vicente/Unimed)</p><p className="text-sm text-gray-500">Próximos</p>
                                     </div>
@@ -375,13 +389,13 @@ export default function BetaSuitesPage() {
                 </div>
             </section>
 
-            <section className="bg-gray-50 pt-16 md:pt-24 pb-16 md:pb-24">
+            <section className="bg-white pt-16 md:pt-24 pb-16 md:pb-24">
                 <div className="container mx-auto px-4 text-center">
                     <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">Mapa</h2>
                     <p className="max-w-2xl mx-auto mb-8 text-gray-600">
                         Explore a região do Alto Esplanada.
                     </p>
-                    <div className="w-full h-96 rounded-xl shadow-xl overflow-hidden border-4 border-white">
+                    <div className="w-full h-96 rounded-xl shadow-xl overflow-hidden border border-gray-200">
                         <iframe
                             src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3780.40228156114!2d-41.95698588889815!3d-18.646002766395343!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x7b102ff6720d20b%3A0x8a9e48f1b1b1e7f!2sResidencial%20Alfa!5e0!3m2!1spt-BR!2sbr!4v1727544078174!5m2!1spt-BR!2sbr"
                             width="100%"
@@ -395,7 +409,8 @@ export default function BetaSuitesPage() {
                 </div>
             </section>
             
-            <section className="py-16 md:py-24 bg-white">
+            {/* --- LAYOUTS (BG CINZA CLARO) --- */}
+            <section className="py-16 md:py-24 bg-gray-50">
                 <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                     <div className="md:order-2">
                         <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">Layouts Inteligentes</h2>
@@ -403,7 +418,7 @@ export default function BetaSuitesPage() {
                             Suítes de 23m² a 32m² projetadas para otimizar cada centímetro, oferecendo funcionalidade total para o dia a dia.
                         </p>
 
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-8 text-center bg-gray-50 p-6 rounded-xl border border-gray-100">
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-8 text-center bg-white p-8 rounded-xl shadow-sm">
                             <div className="flex flex-col items-center">
                                 <FontAwesomeIcon icon={faRulerCombined} className="text-3xl text-orange-500 mb-2" />
                                 <span className="text-sm text-gray-700 font-medium">23m² a 32m²</span>
@@ -439,7 +454,8 @@ export default function BetaSuitesPage() {
                 </div>
             </section>
             
-            <section className="bg-gray-900 py-16 md:py-24 text-white">
+            {/* --- GALERIA (BG PRETO) --- */}
+            <section className="bg-black py-16 md:py-24 text-white">
                 <div className="container mx-auto px-4">
                     <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
                         Galeria de Imagens
@@ -471,7 +487,7 @@ export default function BetaSuitesPage() {
                                             alt={image.alt}
                                             fill
                                             style={{objectFit: 'cover'}}
-                                            className="rounded-lg cursor-pointer shadow-lg"
+                                            className="rounded-lg cursor-pointer shadow-lg border border-gray-800"
                                             onClick={() => openModal(image.src)}
                                         />
                                     </div>
@@ -482,22 +498,22 @@ export default function BetaSuitesPage() {
                 </div>
             </section>
             
-            <section className="bg-orange-600 py-16 md:py-20 relative overflow-hidden">
-                <div className="absolute inset-0 bg-black opacity-10"></div>
+            {/* --- CTA FINAL (BG PRETO com Botão Laranja) --- */}
+            <section className="bg-black py-16 md:py-20 relative overflow-hidden border-t border-gray-800">
                 <div className="container mx-auto px-4 text-center relative z-10">
                     <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">Garanta condições de Pré-Lançamento</h2>
-                    <p className="text-orange-100 max-w-2xl mx-auto mb-8 text-lg">Cadastre-se para receber a tabela de vendas e o book completo do Beta Suítes.</p>
+                    <p className="text-gray-400 max-w-2xl mx-auto mb-8 text-lg">Cadastre-se para receber a tabela de vendas e o book completo do Beta Suítes.</p>
                     <button 
                         onClick={openLeadModal}
-                        className="inline-block bg-white text-orange-600 font-bold py-4 px-10 rounded-full hover:bg-gray-100 transition-all duration-300 shadow-2xl transform hover:scale-105 uppercase"
+                        className="inline-block bg-orange-500 text-white font-bold py-4 px-10 rounded-full hover:bg-orange-600 transition-all duration-300 shadow-2xl transform hover:scale-105 uppercase tracking-wider"
                     >
                         Solicitar Tabela e Book
                     </button>
                 </div>
             </section>
             
-            <footer className="bg-black text-white py-8 border-t border-gray-800">
-                <div className="container mx-auto px-4 text-center text-gray-500 text-sm">
+            <footer className="bg-black text-white py-8 border-t border-gray-900">
+                <div className="container mx-auto px-4 text-center text-gray-600 text-sm">
                     <div className="mb-4">
                          <Image
                             src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759092334426.PNG" 

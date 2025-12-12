@@ -19,6 +19,7 @@ import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 import imageCompression from 'browser-image-compression';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useDebounce } from 'use-debounce'; // <-- IMPORTANTE: Adicionado para persistência
 import dynamic from 'next/dynamic';
 
 // --- Carregamento Dinâmico do TipTap ---
@@ -27,6 +28,19 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 // --- FIM Carregamento Dinâmico ---
 
+// --- CHAVE ÚNICA PARA O LOCALSTORAGE ---
+const EMPREENDIMENTO_UI_STATE_KEY = 'STUDIO57_EMPREENDIMENTO_UI_V1';
+
+// Helper para ler o cache inicial
+const getCachedUiState = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+        const saved = localStorage.getItem(EMPREENDIMENTO_UI_STATE_KEY);
+        return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+        return null;
+    }
+};
 
 // --- SUB-COMPONENTES ---
 function InfoField({ label, value, fullWidth = false }) {
@@ -153,14 +167,48 @@ const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, catego
         </div>
     );
 };
-const TabelaVendas = ({ produtos, empreendimentoId }) => {
-     const [sortConfig, setSortConfig] = useState({ key: 'unidade', direction: 'ascending' });
-    const requestSort = (key) => { let direction = 'ascending'; if (sortConfig.key === key && sortConfig.direction === 'ascending') { direction = 'descending'; } setSortConfig({ key, direction }); };
-    const sortedProdutos = useMemo(() => { let sortableItems = [...produtos]; if (sortConfig.key !== null) { sortableItems.sort((a, b) => { const valA = a[sortConfig.key]; const valB = b[sortConfig.key]; if (valA === null || valA === undefined) return 1; if (valB === null || valB === undefined) return -1; if (sortConfig.key === 'valor_venda_calculado' || sortConfig.key === 'area_privativa') { const numA = parseFloat(valA) || 0; const numB = parseFloat(valB) || 0; return sortConfig.direction === 'ascending' ? numA - numB : numB - numA; } if (String(valA).toLowerCase() < String(valB).toLowerCase()) { return sortConfig.direction === 'ascending' ? -1 : 1; } if (String(valA).toLowerCase() > String(valB).toLowerCase()) { return sortConfig.direction === 'ascending' ? 1 : -1; } return 0; }); } return sortableItems; }, [produtos, sortConfig]);
-    const SortableHeader = ({ label, sortKey, className = '' }) => { const getSortIcon = () => { if (sortConfig.key !== sortKey) return faSort; return sortConfig.direction === 'ascending' ? faSortUp : faSortDown; }; return ( <th className={`py-3 px-4 text-sm font-semibold text-gray-600 ${className}`}> <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 w-full"> <span>{label}</span> <FontAwesomeIcon icon={getSortIcon()} className="text-gray-400" /> </button> </th> ); };
+
+// --- ATUALIZAÇÃO: TabelaVendas agora recebe sortConfig via props ---
+const TabelaVendas = ({ produtos, empreendimentoId, sortConfig, onSortChange }) => {
+    // A lógica de estado local foi removida para permitir persistência no componente pai
+    
+    const requestSort = (key) => {
+        let direction = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') { direction = 'descending'; }
+        onSortChange({ key, direction });
+    };
+
+    const sortedProdutos = useMemo(() => {
+        let sortableItems = [...produtos];
+        if (sortConfig.key !== null) {
+            sortableItems.sort((a, b) => {
+                const valA = a[sortConfig.key];
+                const valB = b[sortConfig.key];
+                if (valA === null || valA === undefined) return 1;
+                if (valB === null || valB === undefined) return -1;
+                if (sortConfig.key === 'valor_venda_calculado' || sortConfig.key === 'area_privativa') {
+                    const numA = parseFloat(valA) || 0;
+                    const numB = parseFloat(valB) || 0;
+                    return sortConfig.direction === 'ascending' ? numA - numB : numB - numA;
+                }
+                if (String(valA).toLowerCase() < String(valB).toLowerCase()) { return sortConfig.direction === 'ascending' ? -1 : 1; }
+                if (String(valA).toLowerCase() > String(valB).toLowerCase()) { return sortConfig.direction === 'ascending' ? 1 : -1; }
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [produtos, sortConfig]);
+
+    const SortableHeader = ({ label, sortKey, className = '' }) => {
+        const getSortIcon = () => { if (sortConfig.key !== sortKey) return faSort; return sortConfig.direction === 'ascending' ? faSortUp : faSortDown; };
+        return ( <th className={`py-3 px-4 text-sm font-semibold text-gray-600 ${className}`}> <button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 w-full"> <span>{label}</span> <FontAwesomeIcon icon={getSortIcon()} className="text-gray-400" /> </button> </th> );
+    };
+    
     const formatCurrency = (value) => { if (value == null || isNaN(value)) return 'N/A'; return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(value)); };
     const statusColors = { 'Disponível': 'bg-green-100 text-green-800', 'Vendido': 'bg-red-100 text-red-800', 'Reservado': 'bg-yellow-100 text-yellow-800', 'Bloqueado': 'bg-gray-100 text-gray-800' };
+    
     const tableSummary = useMemo(() => { const total = produtos.length; const disponiveis = produtos.filter(p => p.status === 'Disponível').length; const vendidos = produtos.filter(p => p.status === 'Vendido').length; const vgv = produtos.reduce((acc, p) => acc + (parseFloat(p.valor_venda_calculado) || 0), 0); return { total, disponiveis, vendidos, vgv: formatCurrency(vgv) }; }, [produtos]);
+    
     if (!produtos || produtos.length === 0) { return ( <div className="text-center p-6 bg-gray-50 rounded-lg"> <p className="text-gray-600">Nenhum produto cadastrado para este empreendimento ainda.</p> <Link href={`/empreendimentos/${empreendimentoId}/produtos`} className="mt-4 inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"> Cadastrar Produtos </Link> </div> ); }
     return ( <div className="animate-fade-in"> <div className="flex justify-between items-center mb-4"> <h2 className="text-2xl font-semibold text-gray-800">Tabela de Vendas</h2> <Link href={`/empreendimentos/${empreendimentoId}/produtos`} className="text-blue-500 hover:underline font-semibold"> Gerenciar Produtos e Condições &rarr; </Link> </div> <div className="overflow-x-auto shadow-md rounded-lg"> <table className="min-w-full bg-white"> <thead className="bg-gray-100"> <tr> <SortableHeader label="Unidade" sortKey="unidade" className="text-left" /> <SortableHeader label="Tipo" sortKey="tipo" className="text-left" /> <SortableHeader label="Área Privativa" sortKey="area_privativa" className="text-right" /> <SortableHeader label="Status" sortKey="status" className="text-center" /> <SortableHeader label="Valor de Venda" sortKey="valor_venda_calculado" className="text-right" /> </tr> </thead> <tbody className="divide-y divide-gray-200"> {sortedProdutos.map(produto => ( <tr key={produto.id} className="hover:bg-gray-50"> <td className="py-3 px-4 font-medium">{produto.unidade}</td> <td className="py-3 px-4 text-gray-600">{produto.tipo}</td> <td className="py-3 px-4 text-right text-gray-600">{produto.area_privativa} m²</td> <td className="py-3 px-4 text-center"> <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusColors[produto.status] || 'bg-gray-100 text-gray-800'}`}> {produto.status} </span> </td> <td className="py-3 px-4 text-right font-semibold text-gray-800">{formatCurrency(produto.valor_venda_calculado)}</td> </tr> ))} </tbody> <tfoot className="bg-gray-100 font-bold"> <tr> <td colSpan="2" className="py-3 px-4 text-left">Total: {tableSummary.total} unidades</td> <td className="py-3 px-4 text-right">Disponíveis: {tableSummary.disponiveis}</td> <td className="py-3 px-4 text-center">Vendidos: {tableSummary.vendidos}</td> <td className="py-3 px-4 text-right">VGV Total: {tableSummary.vgv}</td> </tr> </tfoot> </table> </div> </div> );
 };
@@ -402,12 +450,53 @@ const GerenciamentoModelosContrato = ({ empreendimentoId, organizacaoId }) => {
 
 // --- COMPONENTE PRINCIPAL ---
 export default function EmpreendimentoDetails({ empreendimento, corporateEntities = [], proprietariaOptions = [], produtos = [], initialAnexos, documentoTipos, initialQuadroDeAreas, organizacaoId }) {
-    const [activeTab, setActiveTab] = useState('dados_gerais');
+    // --- ESTADOS COM PERSISTÊNCIA ---
+    const cachedState = getCachedUiState();
+
+    // Estado da Aba com inicialização "preguiçosa" para evitar flash de conteúdo
+    const [activeTab, setActiveTab] = useState(() => {
+        if (typeof window !== 'undefined') {
+             // Tenta recuperar do cache, se não existir, usa 'dados_gerais'
+             const saved = localStorage.getItem(EMPREENDIMENTO_UI_STATE_KEY);
+             if (saved) {
+                 const parsed = JSON.parse(saved);
+                 return parsed.activeTab || 'dados_gerais';
+             }
+        }
+        return 'dados_gerais';
+    });
+
+    // Estado da Ordenação da Tabela (Lifted State - trazido de TabelaVendas para cá)
+    const [sortConfig, setSortConfig] = useState(() => {
+        if (cachedState && cachedState.sortConfig) {
+            return cachedState.sortConfig;
+        }
+        return { key: 'unidade', direction: 'ascending' };
+    });
+
     const [anexos, setAnexos] = useState(initialAnexos); // Estado local para os anexos
     const supabase = createClient();
     const router = useRouter();
     const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
     const [summary, setSummary] = useState('');
+
+    // --- LÓGICA DE PERSISTÊNCIA (SALVAR NO LOCALSTORAGE) ---
+    const hasRestoredUiState = useRef(true); 
+    
+    // Debounce para evitar salvar a cada clique rápido
+    const [debouncedActiveTab] = useDebounce(activeTab, 500);
+    const [debouncedSortConfig] = useDebounce(sortConfig, 500);
+
+    // Monitora mudanças nos estados críticos e salva no localStorage
+    useEffect(() => {
+        if (typeof window !== 'undefined' && hasRestoredUiState.current) {
+            const stateToSave = {
+                activeTab: debouncedActiveTab,
+                sortConfig: debouncedSortConfig
+            };
+            localStorage.setItem(EMPREENDIMENTO_UI_STATE_KEY, JSON.stringify(stateToSave));
+        }
+    }, [debouncedActiveTab, debouncedSortConfig]);
 
     // Hook useMutation para ligar/desligar a visibilidade do corretor
     const { mutate: toggleCorretorVisibility, isPending: isToggling } = useMutation({
@@ -522,7 +611,17 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
             {/* Conteúdo das Abas */}
             <div>
                 {activeTab === 'dados_gerais' && (<div className="space-y-8 animate-fade-in"><div><h2 className="text-2xl font-semibold text-gray-800 mb-4">Dados do Empreendimento</h2><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><InfoField label="Nome Fantasia" value={empreendimento.nome} /><InfoField label="Nome Oficial (Cartório)" value={empreendimento.nome_empreendimento} /><InfoField label="Status" value={empreendimento.status} /><InfoField label="Empresa Proprietária" value={proprietaria ? (proprietaria.nome_fantasia || proprietaria.razao_social) : 'N/A'} /><InfoField label="Incorporadora" value={incorporadora ? `${incorporadora.nome || incorporadora.razao_social}` : 'N/A'} /><InfoField label="Construtora" value={construtora ? `${construtora.nome || construtora.razao_social}` : 'N/A'} /><InfoField label="Data de Início" value={empreendimento.data_inicio} /><InfoField label="Data Fim Prevista" value={empreendimento.data_fim_prevista} /><InfoField label="Prazo de Entrega" value={empreendimento.prazo_entrega} /><InfoField label="Valor Total" value={formattedValorTotal} /><InfoField label="Número da Matrícula" value={empreendimento.matricula_numero} /><InfoField label="Cartório da Matrícula" value={empreendimento.matricula_cartorio} /><InfoField label="Índice de Reajuste" value={empreendimento.indice_reajuste} /></div></div><div className="pt-6 border-t"><h3 className="text-xl font-semibold text-gray-800 mb-4">Endereço</h3><div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"><InfoField label="CEP" value={empreendimento.cep} /><InfoField label="Rua" value={empreendimento.address_street} /><InfoField label="Número" value={empreendimento.address_number} /><InfoField label="Complemento" value={empreendimento.address_complement} /><InfoField label="Bairro" value={empreendimento.neighborhood} /><InfoField label="Cidade" value={empreendimento.city} /><InfoField label="Estado" value={empreendimento.state} /></div></div><div className="pt-6 border-t"><h3 className="text-xl font-semibold text-gray-800 mb-4">Características Construtivas</h3><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><InfoField label="Área Total do Terreno" value={formattedTerrenoAreaTotal} /><InfoField label="Tipo de Estrutura" value={empreendimento.estrutura_tipo} /><InfoField label="Tipo de Alvenaria" value={empreendimento.alvenaria_tipo} /><InfoField label="Detalhes da Cobertura" value={empreendimento.cobertura_detalhes} fullWidth={true}/></div></div>{initialQuadroDeAreas && initialQuadroDeAreas.length > 0 && (<div className="pt-6 border-t"><h3 className="text-xl font-semibold text-gray-800 mb-4">Quadro de Áreas</h3><table className="min-w-full bg-white border rounded-lg"><thead className="bg-gray-100"><tr><th className="py-2 px-4 text-left text-sm font-semibold">Pavimento</th><th className="py-2 px-4 text-right text-sm font-semibold">Área (m²)</th></tr></thead><tbody>{initialQuadroDeAreas.map((item) => (<tr key={item.id} className="border-t"><td className="py-2 px-4">{item.pavimento_nome}</td><td className="py-2 px-4 text-right">{item.area_m2} m²</td></tr>))}<tr className="bg-gray-100 font-bold"><td className="py-2 px-4 text-left">Total</td><td className="py-2 px-4 text-right">{initialQuadroDeAreas.reduce((sum, item) => sum + parseFloat(item.area_m2 || 0), 0).toFixed(2)} m²</td></tr></tbody></table></div>)}</div>)}
-                {activeTab === 'produtos' && <TabelaVendas produtos={produtos} empreendimentoId={empreendimento.id} />}
+                
+                {/* ATUALIZADO: Passando as props de sort para TabelaVendas */}
+                {activeTab === 'produtos' && (
+                    <TabelaVendas 
+                        produtos={produtos} 
+                        empreendimentoId={empreendimento.id}
+                        sortConfig={sortConfig}
+                        onSortChange={setSortConfig}
+                    />
+                )}
+                
                 {activeTab === 'gerenciamento_contratos' && (<GerenciamentoModelosContrato empreendimentoId={empreendimento.id} organizacaoId={organizacaoId} />)}
                 {['documentos_juridicos', 'documentos_gerais', 'marketing'].includes(activeTab) && (
                     <div className="space-y-6 animate-fade-in">
