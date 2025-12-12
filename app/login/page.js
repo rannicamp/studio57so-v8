@@ -4,25 +4,24 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../utils/supabase/client';
-// O PORQUÊ DESTA IMPORTAÇÃO: Adicionamos o componente otimizado de Imagem do Next.js
 import Image from 'next/image';
-import Link from 'next/link'; // Importante para o link de recuperação
+import Link from 'next/link';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
-  const [isLoading, setIsLoading] = useState(false); // Adicionei estado de carregamento para feedback visual
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
-  // O PORQUÊ DESTA MUDANÇA: Usando a logo oficial e pública para consistência.
-  const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/logo/logo-studio57-preto.png";
+  // --- NOVA LOGO ATUALIZADA ---
+  const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/LOGO-P_1765565958716.PNG";
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
-    setIsLoading(true); // Começa a carregar
+    setIsLoading(true);
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -30,12 +29,9 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setError(error.message); // Em produção, traduza "Invalid login credentials" para algo mais amigável se quiser
-      setIsLoading(false); // Para de carregar se der erro
+      setError(error.message);
+      setIsLoading(false);
     } else {
-      // O PORQUÊ DESTA LÓGICA:
-      // Redirecionamos para o /painel. O middleware vai interceptar essa rota
-      // e decidir se joga o usuário para /painel ou /portal-painel (se for corretor).
       router.push('/painel');
       router.refresh();
     }
@@ -46,8 +42,15 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="bg-white p-8 rounded-lg shadow-md">
           <div className="mb-8 flex justify-center">
-            {/* O PORQUÊ DESTA MUDANÇA: Trocamos <img> por <Image> para otimização. */}
-            <Image src={logoUrl} alt="Logo Studio 57" width={180} height={40} priority />
+            {/* Ajustei o width/height para garantir que a proporção fique boa */}
+            <Image 
+                src={logoUrl} 
+                alt="Logo Studio 57" 
+                width={200} 
+                height={60} 
+                priority 
+                className="object-contain" // Garante que a imagem não distorça
+            />
           </div>
 
           <h2 className="mb-6 text-center text-2xl text-gray-900 font-khand uppercase font-light tracking-widest">
@@ -90,7 +93,6 @@ export default function LoginPage() {
                 />
               </div>
               
-              {/* --- NOVO: Link de Recuperação de Senha --- */}
               <div className="flex items-center justify-end mt-2">
                 <div className="text-sm">
                   <Link 
@@ -101,7 +103,6 @@ export default function LoginPage() {
                   </Link>
                 </div>
               </div>
-              {/* ------------------------------------------ */}
             </div>
 
             {error && (
@@ -121,9 +122,6 @@ export default function LoginPage() {
             </div>
           </form>
         </div>
-        
-        {/* Bloco de registro removido conforme solicitado anteriormente */}
-            
       </div>
     </div>
   );

@@ -16,18 +16,16 @@ export default function AtualizarSenhaPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/logo/logo-studio57-preto.png";
+  // --- NOVA LOGO ATUALIZADA ---
+  const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/LOGO-P_1765565958716.PNG";
 
-  // Verificação básica se temos sessão (o link do email loga o usuário automaticamente)
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        // Se não tiver sessão, o link pode ter expirado ou ser inválido
         toast.error("Link inválido ou expirado.", {
             description: "Por favor, solicite uma nova recuperação de senha."
         });
-        // Atrasamos um pouco o redirecionamento para o usuário ler o erro
         setTimeout(() => router.push('/recuperar-senha'), 3000);
       }
     };
@@ -60,7 +58,6 @@ export default function AtualizarSenhaPage() {
     } else {
       toast.success("Senha atualizada!", { description: "Você já pode acessar o sistema." });
       
-      // Redireciona para o painel (já que o usuário está logado) ou login
       setTimeout(() => {
           router.push('/painel'); 
       }, 1500);
@@ -72,7 +69,7 @@ export default function AtualizarSenhaPage() {
       <div className="w-full max-w-md">
         <div className="bg-white p-8 rounded-lg shadow-md">
           <div className="mb-8 flex justify-center">
-            <Image src={logoUrl} alt="Logo Studio 57" width={180} height={40} priority />
+             <Image src={logoUrl} alt="Logo Studio 57" width={200} height={60} priority className="object-contain" />
           </div>
 
           <h2 className="mb-6 text-center text-2xl text-gray-900 font-khand uppercase font-light tracking-widest">
