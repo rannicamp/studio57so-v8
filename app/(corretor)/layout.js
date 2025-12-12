@@ -3,68 +3,65 @@
 
 import { useState } from 'react'
 import CorretorSidebar from '@/components/CorretorSidebar'
-// --- MUDANÇA 1: REMOVIDO CotacoesBar ---
+import CorretorHeader from '@/components/CorretorHeader'
 import { useLayout, LayoutProvider } from '@/contexts/LayoutContext'
 import { Toaster } from 'sonner'
 import { EmpreendimentoProvider } from '@/contexts/EmpreendimentoContext'
 
-// =================================================================
-// 1. COMPONENTE "INTERNO" (O CONSUMIDOR)
-// =================================================================
 function CorretorLayoutInner({ children }) {
-  
-  // --- MUDANÇA 2: REMOVIDO 'mostrarBarraCotacoes' ---
-  // Pegamos apenas o que o LayoutContext realmente fornece
   const { user, isUserLoading } = useLayout()
-  // --- FIM DA MUDANÇA ---
-
-  const sidebarPosition = user?.sidebar_position || 'left'
   
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const toggleSidebar = () => setIsCollapsed(!isCollapsed);
+  const [isSidebarOpen, setSidebarOpen] = useState(false); // Mobile
+  const [isCollapsed, setIsCollapsed] = useState(false);   // Desktop
 
-  const getMainContentPadding = () => {
-    if (sidebarPosition === 'bottom') return ''; 
-    const paddingClass = isCollapsed ? 'pl-[80px]' : 'pl-[260px]';
-    const paddingClassRight = isCollapsed ? 'pr-[80px]' : 'pr-[260px]';
-    return sidebarPosition === 'left' ? paddingClass : paddingClassRight;
-  }
+  const toggleSidebarMobile = () => setSidebarOpen(!isSidebarOpen);
+  const toggleSidebarDesktop = () => setIsCollapsed(!isCollapsed);
 
   return (
     <EmpreendimentoProvider>
       <Toaster position="top-right" richColors />
-      <div
-        className={`flex ${
-          sidebarPosition === 'bottom' ? 'flex-col' : 'flex-row'
-        } min-h-screen bg-gray-100`}
-      >
+      
+      {/* Layout Flex Row para garantir Sidebar na esquerda */}
+      <div className="flex h-screen bg-gray-50 overflow-hidden">
         
-        <CorretorSidebar 
-          user={user} 
-          isUserLoading={isUserLoading} 
-          isCollapsed={isCollapsed} 
-          toggleSidebar={toggleSidebar} 
-        />
+        {/* SIDEBAR */}
+        <div className={`
+            fixed inset-y-0 left-0 z-30 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto
+            ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+            bg-white border-r border-gray-200 h-full
+        `}>
+            <CorretorSidebar 
+              user={user} 
+              isUserLoading={isUserLoading} 
+              isCollapsed={isCollapsed} 
+              toggleSidebar={toggleSidebarDesktop} 
+              onMobileItemClick={() => setSidebarOpen(false)}
+            />
+        </div>
 
-        <div 
-          className={`flex-1 flex flex-col transition-all duration-300 ${getMainContentPadding()}`}
-        >
-          <main className="flex-1 p-4 md:p-6 overflow-y-auto">
+        {/* OVERLAY MOBILE */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* CONTEÚDO PRINCIPAL */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          
+          <CorretorHeader toggleSidebar={toggleSidebarMobile} />
+
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth">
             {children}
           </main>
-          
-          {/* --- MUDANÇA 3: REMOVIDA a renderização da barra --- */}
-          {/* {mostrarBarraCotacoes && <CotacoesBar />} */}
-          {/* --- FIM DA MUDANÇA --- */}
+
         </div>
       </div>
     </EmpreendimentoProvider>
   )
 }
 
-// =================================================================
-// 2. COMPONENTE "EXTERNO" (O PROVEDOR)
-// =================================================================
 export default function CorretorLayout({ children }) {
   return (
     <LayoutProvider>
