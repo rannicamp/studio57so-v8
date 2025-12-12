@@ -11,7 +11,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     faRulerCombined, faBed, faBath, faElevator,
     faHospital, faGraduationCap, faCartShopping, faLocationDot,
-    faSchool, faHouseMedical, faUsers, faXmark, faQuoteLeft, faWater, faDumbbell, faUtensils, faTag
+    faSchool, faHouseMedical, faUsers, faXmark, faQuoteLeft, faWater, 
+    faDumbbell, faUtensils, faTag, faLandmark, faCar, faJugDetergent
 } from '@fortawesome/free-solid-svg-icons';
 
 // Importações do Swiper
@@ -32,11 +33,41 @@ const montserrat = Montserrat({
 // --- CONFIGURAÇÕES DO BETA ---
 const primaryColor = '#f97316'; // Laranja (Apenas para destaques pontuais)
 
-// --- DADOS DA GALERIA ---
+// --- DADOS DA GALERIA (ATUALIZADO) ---
 const galleryImages = [
     { id: 1, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765545243766.png', alt: 'Fachada Beta Suítes' },
-    { id: 2, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759018929039.png', alt: 'Área gourmet' },
-    { id: 3, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759018987365.png', alt: 'Rooftop' },
+    { id: 2, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765549015211.png', alt: 'Hall de Entrada' },
+    { id: 3, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765549054789.png', alt: 'Hall Social' },
+    { id: 4, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765549105693.png', alt: 'Lavanderia Compartilhada' },
+    { id: 5, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765549145583.png', alt: 'Cozinha Compacta' },
+    { id: 6, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765549893836.png', alt: 'Suíte Decorada' },
+    { id: 7, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765549928135.png', alt: 'Vista da Suíte' },
+    { id: 8, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765550073799.png', alt: 'Academia Equipada' },
+    { id: 9, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765550115538.png', alt: 'Terraço Gourmet' },
+    { id: 10, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765550163018.png', alt: 'Área de Lazer no Terraço' },
+];
+
+// --- DADOS DAS PLANTAS ---
+const floorPlanImages = [
+    { id: 1, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765556400555.png', alt: 'Planta Humanizada Opção 1' },
+    { id: 2, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765556372569.png', alt: 'Planta Humanizada Opção 2' },
+    { id: 3, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765556336345.png', alt: 'Planta Humanizada Opção 3' },
+    { id: 4, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765556430412.png', alt: 'Planta Humanizada Opção 4' },
+];
+
+// --- DADOS DE LOCALIZAÇÃO ---
+const locationPoints = [
+    { name: 'Beta Suítes', time: 'Ponto de partida', icon: faLocationDot, highlight: true },
+    { name: 'Maple Bear', time: '1 min', icon: faSchool },
+    { name: 'Casa Unimed', time: '2 min', icon: faHouseMedical },
+    { name: 'UFJF-GV', time: '2 min', icon: faGraduationCap },
+    { name: 'Clube Filadélfia', time: '4 min', icon: faUsers },
+    { name: 'Hospital São Lucas', time: '5 min', icon: faHospital },
+    { name: 'Supermercado Big Mais', time: '5 min', icon: faCartShopping },
+    { name: 'Supermercado Coelho Diniz', time: '5 min', icon: faCartShopping },
+    { name: 'Colégio Ibituruna', time: '6 min', icon: faSchool },
+    { name: 'Hospital Municipal', time: '7 min', icon: faHospital },
+    { name: 'Caixa Serra Lima', time: '7 min', icon: faLandmark },
 ];
 
 const testimonialsData = [
@@ -57,8 +88,6 @@ const testimonialsData = [
         fullText: "Ter uma academia e lavanderia no prédio, além de estar a poucos metros da faculdade, me economiza horas do dia. O Beta foi pensado exatamente para o meu estilo de vida."
     }
 ];
-
-const floorPlanImage = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/planta%20humanizada%20aps.png"; 
 
 // Componentes de Ícones (Pretos/Cinza Escuro)
 const IconeLocalizacao = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"></path></svg>;
@@ -123,6 +152,9 @@ export default function BetaSuitesPage() {
                     height: auto;
                     padding-bottom: 2.5rem; 
                 }
+                .floorplan-swiper .swiper-slide {
+                    width: 100% !important;
+                }
                 ::selection {
                     background-color: ${primaryColor};
                     color: white;
@@ -174,7 +206,7 @@ export default function BetaSuitesPage() {
                 </div>
             </section>
             
-            {/* --- SEGUNDA DOBRA: PRÉ-LANÇAMENTO (EDITADA) --- */}
+            {/* --- SEGUNDA DOBRA: PRÉ-LANÇAMENTO --- */}
             <section className="bg-white py-16 md:py-20">
                 <div className="container mx-auto px-4 text-center">
                     <div className="max-w-3xl mx-auto bg-gray-50 p-8 rounded-2xl shadow-lg border border-gray-100">
@@ -192,13 +224,11 @@ export default function BetaSuitesPage() {
                         </p>
                         
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center mb-10">
-                            {/* Card 1: Editado */}
                             <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
                                 <FontAwesomeIcon icon={faTag} className="text-3xl text-gray-900 mb-3"/>
                                 <p className="font-bold text-gray-800">Preço de Pré-Lançamento</p>
                             </div>
                             
-                            {/* Card 2: Editado */}
                             <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
                                 <FontAwesomeIcon icon={faGraduationCap} className="text-3xl text-gray-900 mb-3"/>
                                 <p className="font-bold text-gray-800">Alta Demanda Estudantil</p>
@@ -211,7 +241,6 @@ export default function BetaSuitesPage() {
                         </div>
                         
                         <div>
-                            {/* Botão Editado: rounded-lg */}
                             <button
                                 onClick={openLeadModal}
                                 className="inline-block bg-orange-500 text-white font-bold py-4 px-10 rounded-lg hover:bg-orange-600 transition-colors duration-300 shadow-xl uppercase tracking-wide transform hover:scale-105"
@@ -222,76 +251,6 @@ export default function BetaSuitesPage() {
                     </div>
                 </div>
             </section>
-            
-            {/* --- DEPOIMENTOS (ESCONDIDO) --- */}
-            {showTestimonials && (
-                <section className="bg-gray-50 py-16 md:py-24">
-                    <div className="container mx-auto px-4">
-                        <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-gray-900">
-                            Por que escolher o Beta?
-                        </h2>
-                        <div className="pt-12">
-                            <Swiper
-                                slidesPerView={1}
-                                spaceBetween={30}
-                                loop={true}
-                                pagination={{ clickable: true }}
-                                navigation={true}
-                                modules={[Pagination, Navigation]}
-                                className="testimonial-swiper"
-                                breakpoints={{
-                                    768: { slidesPerView: 2, spaceBetween: 40 },
-                                }}
-                            >
-                                {testimonialsData.map((testimonial) => (
-                                    <SwiperSlide key={testimonial.id}>
-                                        <div className="bg-white rounded-xl p-8 pt-16 shadow-lg h-full flex flex-col text-center relative mt-12 border border-gray-100">
-                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                                                <Image
-                                                    src={testimonial.photoUrl}
-                                                    alt={testimonial.name}
-                                                    width={96}
-                                                    height={96}
-                                                    className="rounded-full object-cover border-4 border-gray-50 shadow-md"
-                                                />
-                                            </div>
-
-                                            <div className="flex-grow">
-                                                <p className="font-bold text-gray-900 text-lg mt-2">{testimonial.name}</p>
-                                                <p className="text-sm text-gray-500 mb-4">{testimonial.title}</p>
-                                                
-                                                <FontAwesomeIcon icon={faQuoteLeft} className="text-gray-900 text-2xl mb-4" />
-                                                <p className="text-gray-600 italic mb-4">{`"${testimonial.intro}"`}</p>
-                                                
-                                                <AnimatePresence>
-                                                    {expandedTestimonial === testimonial.id && (
-                                                        <motion.p
-                                                            initial={{ opacity: 0, height: 0 }}
-                                                            animate={{ opacity: 1, height: 'auto' }}
-                                                            exit={{ opacity: 0, height: 0 }}
-                                                            transition={{ duration: 0.4 }}
-                                                            className="text-gray-600 text-left text-sm"
-                                                        >
-                                                            {testimonial.fullText}
-                                                        </motion.p>
-                                                    )}
-                                                </AnimatePresence>
-                                            </div>
-                                            
-                                            <button
-                                                onClick={() => handleToggleTestimonial(testimonial.id)}
-                                                className="text-gray-900 font-bold self-center mt-4 hover:underline"
-                                            >
-                                                {expandedTestimonial === testimonial.id ? 'Ler menos' : 'Leia mais'}
-                                            </button>
-                                        </div>
-                                    </SwiperSlide>
-                                ))}
-                            </Swiper>
-                        </div>
-                    </div>
-                </section>
-            )}
             
             {/* --- CARACTERÍSTICAS --- */}
             <section className="py-16 md:py-24 bg-white">
@@ -327,66 +286,41 @@ export default function BetaSuitesPage() {
                             {/* Linha do tempo em cinza */}
                             <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-gray-300"></div>
                             
-                            <div className="relative pl-10 pb-8">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-900 rounded-full border-4 border-white shadow-sm"></div>
-                                <div className="flex items-center">
-                                    <FontAwesomeIcon icon={faLocationDot} className="text-2xl text-gray-900 mr-4" />
-                                    <div>
-                                        <p className="font-bold text-gray-800 text-lg">Beta Suítes</p>
-                                        <p className="text-sm text-gray-500">Alto Esplanada</p>
+                            {locationPoints.map((point, index) => (
+                                <div key={index} className={`relative pl-10 ${index === locationPoints.length - 1 ? '' : 'pb-8'}`}>
+                                    <div 
+                                        className={`absolute left-0 top-1 w-5 h-5 rounded-full border-4 border-white shadow-sm ${
+                                            point.highlight ? 'bg-gray-900' : 'bg-gray-500'
+                                        }`}
+                                    ></div>
+                                    <div className="flex items-center">
+                                        <FontAwesomeIcon 
+                                            icon={point.icon} 
+                                            className={`text-2xl mr-4 ${point.highlight ? 'text-gray-900' : 'text-gray-500'}`} 
+                                        />
+                                        <div>
+                                            <p className={`font-bold ${point.highlight ? 'text-gray-900 text-lg' : 'text-gray-800'}`}>
+                                                {point.name}
+                                            </p>
+                                            <p className="text-sm text-gray-500">{point.time}</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-
-                            <div className="relative pl-10 pb-8">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-500 rounded-full border-4 border-white"></div>
-                                <div className="flex items-center">
-                                    <FontAwesomeIcon icon={faGraduationCap} className="text-2xl text-gray-600 mr-4" />
-                                    <div>
-                                        <p className="font-bold text-gray-800">UFJF-GV</p><p className="text-sm text-gray-500">950m</p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div className="relative pl-10 pb-8">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-500 rounded-full border-4 border-white"></div>
-                                <div className="flex items-center">
-                                    <FontAwesomeIcon icon={faSchool} className="text-2xl text-gray-600 mr-4" />
-                                    <div>
-                                        <p className="font-bold text-gray-800">Maple Bear</p><p className="text-sm text-gray-500">950m</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="relative pl-10 pb-8">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-500 rounded-full border-4 border-white"></div>
-                                <div className="flex items-center">
-                                    <FontAwesomeIcon icon={faUsers} className="text-2xl text-gray-600 mr-4" />
-                                    <div>
-                                        <p className="font-bold text-gray-800">Clube Filadélfia</p><p className="text-sm text-gray-500">1.6km</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="relative pl-10 pb-8">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-500 rounded-full border-4 border-white"></div>
-                                <div className="flex items-center">
-                                    <FontAwesomeIcon icon={faCartShopping} className="text-2xl text-gray-600 mr-4" />
-                                    <div>
-                                        <p className="font-bold text-gray-800">Big Mais Supermercado</p><p className="text-sm text-gray-500">1.7km</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="relative pl-10">
-                                <div className="absolute left-0 top-1 w-5 h-5 bg-gray-500 rounded-full border-4 border-white"></div>
-                                <div className="flex items-center">
-                                    <FontAwesomeIcon icon={faHospital} className="text-2xl text-gray-600 mr-4" />
-                                    <div>
-                                        <p className="font-bold text-gray-800">Hospitais (São Vicente/Unimed)</p><p className="text-sm text-gray-500">Próximos</p>
-                                    </div>
-                                </div>
-                            </div>
+                            ))}
+                        </div>
+                        
+                        {/* --- FOTO INSERÇÃO --- */}
+                        <div className="mt-16 md:mt-24">
+                             <Image
+                                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765557975005.png" 
+                                alt="Beta Suítes - Inserção no Local"
+                                width={1200}
+                                height={800}
+                                className="w-full h-auto rounded-xl shadow-2xl"
+                            />
+                            <p className="text-center text-sm text-gray-500 mt-4 italic">
+                                Perspectiva ilustrativa de inserção no local.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -412,16 +346,16 @@ export default function BetaSuitesPage() {
                 </div>
             </section>
             
-            {/* --- LAYOUTS --- */}
+            {/* --- LAYOUTS INTELIGENTES --- */}
             <section className="py-16 md:py-24 bg-gray-50">
                 <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                     <div className="md:order-2">
                         <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">Layouts Inteligentes</h2>
                         <p className="mb-8 text-gray-700">
-                            Suítes de 23m² a 32m² projetadas para otimizar cada centímetro, oferecendo funcionalidade total para o dia a dia.
+                            Suítes de 23m² a 32m² projetadas para otimizar cada centímetro, oferecendo funcionalidade total para o dia a dia e áreas comuns completas.
                         </p>
 
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-8 text-center bg-white p-8 rounded-xl shadow-sm">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-8 text-center bg-white p-8 rounded-xl shadow-sm">
                             <div className="flex flex-col items-center">
                                 <FontAwesomeIcon icon={faRulerCombined} className="text-3xl text-gray-900 mb-2" />
                                 <span className="text-sm text-gray-700 font-medium">23m² a 32m²</span>
@@ -431,33 +365,71 @@ export default function BetaSuitesPage() {
                                 <span className="text-sm text-gray-700 font-medium">Suíte Integrada</span>
                             </div>
                             <div className="flex flex-col items-center">
-                                <FontAwesomeIcon icon={faBath} className="text-3xl text-gray-900 mb-2" />
-                                <span className="text-sm text-gray-700 font-medium">Banheiro Moderno</span>
+                                <FontAwesomeIcon icon={faCar} className="text-3xl text-gray-900 mb-2" />
+                                <span className="text-sm text-gray-700 font-medium">Vaga de Garagem</span>
                             </div>
                             <div className="flex flex-col items-center">
                                 <FontAwesomeIcon icon={faElevator} className="text-3xl text-gray-900 mb-2" />
                                 <span className="text-sm text-gray-700 font-medium">Elevador</span>
                             </div>
+                            <div className="flex flex-col items-center">
+                                <FontAwesomeIcon icon={faJugDetergent} className="text-3xl text-gray-900 mb-2" />
+                                <span className="text-sm text-gray-700 font-medium">Lavanderia</span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                                <FontAwesomeIcon icon={faDumbbell} className="text-3xl text-gray-900 mb-2" />
+                                <span className="text-sm text-gray-700 font-medium">Academia</span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                                <FontAwesomeIcon icon={faWater} className="text-3xl text-gray-900 mb-2" />
+                                <span className="text-sm text-gray-700 font-medium">Piscina</span>
+                            </div>
+                            <div className="flex flex-col items-center">
+                                <FontAwesomeIcon icon={faUtensils} className="text-3xl text-gray-900 mb-2" />
+                                <span className="text-sm text-gray-700 font-medium">Área Gourmet</span>
+                            </div>
                         </div>
                     </div>
                     <div className="md:order-1 relative">
-                        <div className="group cursor-pointer relative overflow-hidden rounded-lg shadow-xl" onClick={() => openModal(floorPlanImage)}>
-                            <Image
-                                src={floorPlanImage}
-                                alt="Planta Baixa Beta"
-                                width={500}
-                                height={500}
-                                className="w-full h-auto transition-transform duration-500 group-hover:scale-105"
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
-                                <span className="text-white opacity-0 group-hover:opacity-100 font-bold bg-black/50 px-4 py-2 rounded-full">Ampliar Planta</span>
-                            </div>
+                        {/* SWIPER DE PLANTAS */}
+                        <div className="relative rounded-lg shadow-xl overflow-hidden bg-white">
+                            <Swiper
+                                slidesPerView={1}
+                                loop={true}
+                                pagination={{ clickable: true }}
+                                navigation={true}
+                                modules={[Pagination, Navigation]}
+                                className="floorplan-swiper"
+                            >
+                                {floorPlanImages.map((plan) => (
+                                    <SwiperSlide key={plan.id}>
+                                        <div 
+                                            className="relative group cursor-pointer"
+                                            onClick={() => openModal(plan.src)}
+                                        >
+                                            <Image
+                                                src={plan.src}
+                                                alt={plan.alt}
+                                                width={500}
+                                                height={500}
+                                                className="w-full h-auto transition-transform duration-500 group-hover:scale-105"
+                                            />
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
+                                                <span className="text-white opacity-0 group-hover:opacity-100 font-bold bg-black/50 px-4 py-2 rounded-full">
+                                                    Ampliar Planta
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </SwiperSlide>
+                                ))}
+                            </Swiper>
+                            <p className="text-center text-xs text-gray-400 py-2">Arraste para ver mais opções</p>
                         </div>
                     </div>
                 </div>
             </section>
             
-            {/* --- GALERIA --- */}
+            {/* --- GALERIA COMPLETA --- */}
             <section className="bg-black py-16 md:py-24 text-white">
                 <div className="container mx-auto px-4">
                     <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
@@ -506,7 +478,6 @@ export default function BetaSuitesPage() {
                 <div className="container mx-auto px-4 text-center relative z-10">
                     <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">Garanta condições de Pré-Lançamento</h2>
                     <p className="text-gray-400 max-w-2xl mx-auto mb-8 text-lg">Cadastre-se para receber a tabela de vendas e o book completo do Beta Suítes.</p>
-                    {/* BOTÃO FINAL TAMBÉM AJUSTADO PARA ROUNDED-LG */}
                     <button 
                         onClick={openLeadModal}
                         className="inline-block bg-orange-500 text-white font-bold py-4 px-10 rounded-lg hover:bg-orange-600 transition-all duration-300 shadow-2xl transform hover:scale-105 uppercase tracking-wider"
