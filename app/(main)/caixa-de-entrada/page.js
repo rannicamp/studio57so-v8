@@ -9,10 +9,13 @@ import ConversationList from '@/components/whatsapp/ConversationList';
 import MessagePanel from '@/components/whatsapp/MessagePanel';
 import BroadcastPanel from '@/components/whatsapp/BroadcastPanel';
 import ContactProfile from '@/components/whatsapp/ContactProfile';
-import EmailConfigModal from '@/components/email/EmailConfigModal'; // <--- IMPORT NOVO
+import EmailConfigModal from '@/components/email/EmailConfigModal';
 import { Toaster } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faEnvelope, faInbox, faCog } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faSearch, faEnvelope, faInbox, faCog, faFolder, 
+    faSpinner, faExclamationTriangle, faPaperPlane, faTrash, faBan
+} from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { useDebounce } from 'use-debounce';
 import Link from 'next/link';
@@ -32,6 +35,27 @@ const getCachedData = () => {
     }
 };
 
+// --- FUNÇÃO PARA BUSCAR PASTAS DE E-MAIL (O NOVO CARTEIRO) ---
+const getEmailFolders = async () => {
+    const res = await fetch('/api/email/folders');
+    if (!res.ok) {
+        const errorData = await res.json();
+        // Se for 404, é configuração inexistente. Se for 500, é erro de conexão (senha/host).
+        throw new Error(errorData.error || 'Erro ao buscar pastas');
+    }
+    return res.json();
+};
+
+// Ícones bonitos para as pastas padrões
+const getFolderIcon = (name) => {
+    const n = name.toLowerCase();
+    if (n.includes('inbox') || n.includes('entrada')) return faInbox;
+    if (n.includes('sent') || n.includes('enviad')) return faPaperPlane;
+    if (n.includes('trash') || n.includes('lixeira')) return faTrash;
+    if (n.includes('spam') || n.includes('junk')) return faBan;
+    return faFolder; // Padrão
+};
+
 export default function CaixaDeEntrada() {
     // 1. INICIALIZAÇÃO INTELIGENTE
     const cachedState = getCachedData();
@@ -42,9 +66,9 @@ export default function CaixaDeEntrada() {
     const [selectedList, setSelectedList] = useState(cachedState?.selectedList || null);
     const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '');
     
-    // Novo estado para e-mail
-    const [selectedEmail, setSelectedEmail] = useState(null);
-    const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false); // <--- NOVO ESTADO
+    // Estados E-mail
+    const [selectedEmailFolder, setSelectedEmailFolder] = useState(null); // Pasta selecionada
+    const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false);
 
     const queryClient = useQueryClient();
     const supabase = createClient();
@@ -82,7 +106,22 @@ export default function CaixaDeEntrada() {
         refetchOnWindowFocus: true,
     });
 
-    // --- 4. REALTIME UPDATES (WHATSAPP) ---
+    // --- 4. QUERY DE E-MAIL (NOVO!) ---
+    const isEmailTab = activeTab === 'email';
+    const { 
+        data: emailData, 
+        isLoading: isLoadingEmail, 
+        isError: isEmailError, 
+        error: emailError 
+    } = useQuery({
+        queryKey: ['emailFolders'],
+        queryFn: getEmailFolders,
+        enabled: isEmailTab, // Só busca se estiver na aba de e-mail
+        retry: false, // Não insiste se der erro (ex: senha errada)
+        refetchOnWindowFocus: false, // Evita recarregar toda hora
+    });
+
+    // --- 5. REALTIME UPDATES (WHATSAPP) ---
     useEffect(() => {
         if (!organizacaoId || !isWhatsAppTab) return;
         
@@ -114,7 +153,7 @@ export default function CaixaDeEntrada() {
         setActiveTab(tab);
         setSelectedContact(null);
         setSelectedList(null);
-        setSelectedEmail(null);
+        setSelectedEmailFolder(null);
     };
 
     const handleSelectContact = async (contact) => {
@@ -134,7 +173,7 @@ export default function CaixaDeEntrada() {
     const handleBackToList = () => {
         setSelectedContact(null);
         setSelectedList(null);
-        setSelectedEmail(null);
+        setSelectedEmailFolder(null);
     };
     
     // Filtros
@@ -143,7 +182,7 @@ export default function CaixaDeEntrada() {
         c.phone_number.includes(searchTerm)
     );
 
-    const hasSelection = selectedContact || selectedList || selectedEmail;
+    const hasSelection = selectedContact || selectedList || selectedEmailFolder;
 
     return (
         <div className="
@@ -153,7 +192,7 @@ export default function CaixaDeEntrada() {
         ">
             <Toaster position="top-right" richColors />
             
-            {/* --- MODAL DE CONFIGURAÇÃO DE EMAIL (INVISÍVEL ATÉ CLICAR) --- */}
+            {/* MODAL DE CONFIGURAÇÃO */}
             <EmailConfigModal isOpen={isEmailConfigOpen} onClose={() => setIsEmailConfigOpen(false)} />
 
             {/* --- COLUNA 1: LISTAS (Esquerda) --- */}
@@ -177,7 +216,7 @@ export default function CaixaDeEntrada() {
                     </button>
                 </div>
 
-                {/* 2. BARRA DE PESQUISA (Comum às duas abas) */}
+                {/* 2. BARRA DE PESQUISA */}
                 <div className="h-16 border-b flex flex-col justify-center px-4 bg-white shrink-0 z-10">
                     <div className="relative">
                         <input 
@@ -204,14 +243,59 @@ export default function CaixaDeEntrada() {
                             selectedListId={selectedList?.id}
                         />
                     ) : (
-                        // --- LISTA DE E-MAILS (Placeholder) ---
-                        <div className="flex flex-col items-center justify-center h-64 text-center p-6 text-gray-400">
-                            <div className="bg-blue-50 p-4 rounded-full mb-3">
-                                <FontAwesomeIcon icon={faEnvelope} className="text-3xl text-blue-300" />
+                        // --- LÓGICA DE EXIBIÇÃO DO E-MAIL ---
+                        isLoadingEmail ? (
+                            <div className="flex flex-col items-center justify-center h-40 text-gray-400">
+                                <FontAwesomeIcon icon={faSpinner} spin className="text-2xl mb-2 text-blue-500" />
+                                <p className="text-xs">Conectando ao servidor...</p>
                             </div>
-                            <p className="text-sm font-medium text-gray-600">Nenhum e-mail conectado</p>
-                            <p className="text-xs mt-1">Configure sua conta para ver seus e-mails aqui.</p>
-                        </div>
+                        ) : isEmailError ? (
+                            // Tela de Erro / Configuração
+                            <div className="p-6 text-center text-gray-500">
+                                <div className="bg-red-50 p-4 rounded-full mb-3 inline-block">
+                                    <FontAwesomeIcon icon={faExclamationTriangle} className="text-2xl text-red-400" />
+                                </div>
+                                <p className="text-sm font-medium text-gray-700 mb-1">
+                                    {emailError.message === 'E-mail não configurado' ? 'Vamos começar?' : 'Ops! Falha na conexão'}
+                                </p>
+                                <p className="text-xs text-gray-500 mb-4 max-w-[200px] mx-auto">
+                                    {emailError.message === 'E-mail não configurado' 
+                                        ? 'Conecte seu e-mail profissional para centralizar tudo aqui.' 
+                                        : 'Verifique se a senha e o servidor estão corretos.'}
+                                </p>
+                                <button 
+                                    onClick={() => setIsEmailConfigOpen(true)} 
+                                    className="text-xs bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
+                                >
+                                    Configurar E-mail
+                                </button>
+                            </div>
+                        ) : (
+                            // LISTA DE PASTAS (SUCESSO!)
+                            <div className="divide-y divide-gray-100">
+                                <div className="p-3 bg-blue-50/50 text-xs font-bold text-blue-800 flex justify-between items-center tracking-wide">
+                                    <span>SUAS PASTAS</span>
+                                    <button onClick={() => setIsEmailConfigOpen(true)} title="Ajustes" className="hover:text-blue-600">
+                                        <FontAwesomeIcon icon={faCog} />
+                                    </button>
+                                </div>
+                                {emailData?.folders?.map((folder, idx) => (
+                                    <button 
+                                        key={idx} 
+                                        onClick={() => setSelectedEmailFolder(folder)}
+                                        className={`w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 text-sm transition-colors
+                                            ${selectedEmailFolder?.name === folder.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}
+                                        `}
+                                    >
+                                        <FontAwesomeIcon 
+                                            icon={getFolderIcon(folder.name)} 
+                                            className={`${selectedEmailFolder?.name === folder.name ? 'text-blue-500' : 'text-gray-400'}`} 
+                                        />
+                                        <span className="truncate">{folder.name}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )
                     )}
                 </div>
             </div>
@@ -231,33 +315,42 @@ export default function CaixaDeEntrada() {
                         </div>
                     )
                 ) : (
-                    // --- CONTEÚDO E-MAIL (Placeholder com Botão Ativo) ---
-                    <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500 p-8 text-center">
-                        <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 max-w-md w-full">
-                            <FontAwesomeIcon icon={faInbox} className="text-5xl text-blue-500 mb-6" />
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">Cliente de E-mail Studio 57</h3>
-                            <p className="text-sm text-gray-600 mb-6">
-                                Centralize sua comunicação. Conecte seu e-mail profissional (IMAP/SMTP) para enviar e receber mensagens diretamente do painel.
-                            </p>
+                    // --- CONTEÚDO E-MAIL ---
+                    selectedEmailFolder ? (
+                        <div className="flex flex-col h-full bg-white">
+                            {/* Header da Pasta */}
+                            <div className="h-16 border-b flex items-center px-6 justify-between bg-white shrink-0">
+                                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                    <FontAwesomeIcon icon={getFolderIcon(selectedEmailFolder.name)} className="text-blue-500" />
+                                    {selectedEmailFolder.name}
+                                </h3>
+                                {/* Botão Voltar no Mobile */}
+                                <button onClick={handleBackToList} className="md:hidden text-gray-500">Voltar</button>
+                            </div>
                             
-                            <div className="space-y-3">
-                                <button 
-                                    onClick={() => setIsEmailConfigOpen(true)} // <--- AÇÃO DO BOTÃO
-                                    className="block w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex justify-center items-center gap-2"
-                                >
-                                    <FontAwesomeIcon icon={faCog} />
-                                    Configurar E-mail
-                                </button>
-                                <button className="block w-full py-2.5 px-4 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg font-medium transition-colors">
-                                    Saiba mais
-                                </button>
+                            {/* Lista de Mensagens (Vazio por enquanto) */}
+                            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+                                <FontAwesomeIcon icon={faEnvelope} className="text-4xl mb-3 text-gray-300" />
+                                <p className="text-sm">Lista de mensagens em breve...</p>
+                                <p className="text-xs mt-1">Estamos construindo o leitor de e-mails.</p>
                             </div>
                         </div>
-                    </div>
+                    ) : (
+                        // Estado Inicial do Painel de E-mail
+                        <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500 p-8 text-center">
+                            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 max-w-md w-full">
+                                <FontAwesomeIcon icon={faInbox} className="text-5xl text-blue-500 mb-6" />
+                                <h3 className="text-xl font-bold text-gray-800 mb-2">E-mail Conectado!</h3>
+                                <p className="text-sm text-gray-600 mb-6">
+                                    Selecione uma pasta ao lado para ver suas mensagens.
+                                </p>
+                            </div>
+                        </div>
+                    )
                 )}
             </div>
             
-            {/* --- COLUNA 3: PERFIL (Direita) --- */}
+            {/* --- COLUNA 3: PERFIL (Direita - Apenas WhatsApp por enquanto) --- */}
             {activeTab === 'whatsapp' && selectedContact && (
                 <div className="hidden lg:flex w-1/4 flex-col border-l bg-white h-full overflow-hidden min-h-0">
                     <div className="h-16 border-b flex items-center px-4 bg-[#f0f2f5] shrink-0">
