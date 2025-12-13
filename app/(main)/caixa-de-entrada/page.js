@@ -9,7 +9,7 @@ import ConversationList from '@/components/whatsapp/ConversationList';
 import MessagePanel from '@/components/whatsapp/MessagePanel';
 import BroadcastPanel from '@/components/whatsapp/BroadcastPanel';
 import ContactProfile from '@/components/whatsapp/ContactProfile';
-import EmailConfigModal from '@/components/email/EmailConfigModal'; // <--- NOVO IMPORT
+import EmailConfigModal from '@/components/email/EmailConfigModal'; // <--- IMPORT NOVO
 import { Toaster } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch, faEnvelope, faInbox, faCog } from '@fortawesome/free-solid-svg-icons';
@@ -177,7 +177,7 @@ export default function CaixaDeEntrada() {
                     </button>
                 </div>
 
-                {/* 2. BARRA DE PESQUISA */}
+                {/* 2. BARRA DE PESQUISA (Comum às duas abas) */}
                 <div className="h-16 border-b flex flex-col justify-center px-4 bg-white shrink-0 z-10">
                     <div className="relative">
                         <input 
@@ -219,6 +219,7 @@ export default function CaixaDeEntrada() {
             {/* --- COLUNA 2: PAINEL CENTRAL --- */}
             <div className={`${hasSelection ? 'flex' : 'hidden md:flex'} flex-grow flex-col bg-[#efeae2] h-full overflow-hidden relative min-h-0`}>
                 {activeTab === 'whatsapp' ? (
+                    // --- CONTEÚDO WHATSAPP ---
                     selectedContact ? (
                         <MessagePanel contact={selectedContact} onBack={handleBackToList} />
                     ) : selectedList ? (
@@ -230,7 +231,7 @@ export default function CaixaDeEntrada() {
                         </div>
                     )
                 ) : (
-                    // --- PAINEL VAZIO DE E-MAIL (Com Botão de Configuração) ---
+                    // --- CONTEÚDO E-MAIL (Placeholder com Botão Ativo) ---
                     <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500 p-8 text-center">
                         <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 max-w-md w-full">
                             <FontAwesomeIcon icon={faInbox} className="text-5xl text-blue-500 mb-6" />
@@ -241,7 +242,7 @@ export default function CaixaDeEntrada() {
                             
                             <div className="space-y-3">
                                 <button 
-                                    onClick={() => setIsEmailConfigOpen(true)} // <--- ABRE O MODAL
+                                    onClick={() => setIsEmailConfigOpen(true)} // <--- AÇÃO DO BOTÃO
                                     className="block w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex justify-center items-center gap-2"
                                 >
                                     <FontAwesomeIcon icon={faCog} />
@@ -256,7 +257,7 @@ export default function CaixaDeEntrada() {
                 )}
             </div>
             
-            {/* --- COLUNA 3: PERFIL (Apenas WhatsApp por enquanto) --- */}
+            {/* --- COLUNA 3: PERFIL (Direita) --- */}
             {activeTab === 'whatsapp' && selectedContact && (
                 <div className="hidden lg:flex w-1/4 flex-col border-l bg-white h-full overflow-hidden min-h-0">
                     <div className="h-16 border-b flex items-center px-4 bg-[#f0f2f5] shrink-0">
