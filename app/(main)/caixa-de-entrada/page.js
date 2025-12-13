@@ -9,9 +9,10 @@ import ConversationList from '@/components/whatsapp/ConversationList';
 import MessagePanel from '@/components/whatsapp/MessagePanel';
 import BroadcastPanel from '@/components/whatsapp/BroadcastPanel';
 import ContactProfile from '@/components/whatsapp/ContactProfile';
+import EmailConfigModal from '@/components/email/EmailConfigModal'; // <--- NOVO IMPORT
 import { Toaster } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faEnvelope, faInbox } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faEnvelope, faInbox, faCog } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { useDebounce } from 'use-debounce';
 import Link from 'next/link';
@@ -41,8 +42,9 @@ export default function CaixaDeEntrada() {
     const [selectedList, setSelectedList] = useState(cachedState?.selectedList || null);
     const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '');
     
-    // Novo estado para e-mail (placeholder)
+    // Novo estado para e-mail
     const [selectedEmail, setSelectedEmail] = useState(null);
+    const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false); // <--- NOVO ESTADO
 
     const queryClient = useQueryClient();
     const supabase = createClient();
@@ -64,7 +66,6 @@ export default function CaixaDeEntrada() {
     }, [debouncedUiState]);
 
     // --- 3. QUERIES DE DADOS (WHATSAPP) ---
-    // Só busca dados do zap se a aba for zap (economiza recurso)
     const isWhatsAppTab = activeTab === 'whatsapp';
 
     const { data: conversations, isLoading: isLoadingConversations } = useQuery({
@@ -111,7 +112,6 @@ export default function CaixaDeEntrada() {
     // --- HANDLERS ---
     const handleTabChange = (tab) => {
         setActiveTab(tab);
-        // Limpa seleções ao trocar de aba para evitar confusão visual
         setSelectedContact(null);
         setSelectedList(null);
         setSelectedEmail(null);
@@ -152,6 +152,9 @@ export default function CaixaDeEntrada() {
             md:static md:inset-auto md:h-[calc(100vh-64px)] md:pb-20
         ">
             <Toaster position="top-right" richColors />
+            
+            {/* --- MODAL DE CONFIGURAÇÃO DE EMAIL (INVISÍVEL ATÉ CLICAR) --- */}
+            <EmailConfigModal isOpen={isEmailConfigOpen} onClose={() => setIsEmailConfigOpen(false)} />
 
             {/* --- COLUNA 1: LISTAS (Esquerda) --- */}
             <div className={`${hasSelection ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 lg:w-1/4 flex-col border-r bg-white h-full overflow-hidden min-h-0`}>
@@ -174,7 +177,7 @@ export default function CaixaDeEntrada() {
                     </button>
                 </div>
 
-                {/* 2. BARRA DE PESQUISA (Comum às duas abas) */}
+                {/* 2. BARRA DE PESQUISA */}
                 <div className="h-16 border-b flex flex-col justify-center px-4 bg-white shrink-0 z-10">
                     <div className="relative">
                         <input 
@@ -216,7 +219,6 @@ export default function CaixaDeEntrada() {
             {/* --- COLUNA 2: PAINEL CENTRAL --- */}
             <div className={`${hasSelection ? 'flex' : 'hidden md:flex'} flex-grow flex-col bg-[#efeae2] h-full overflow-hidden relative min-h-0`}>
                 {activeTab === 'whatsapp' ? (
-                    // --- CONTEÚDO WHATSAPP ---
                     selectedContact ? (
                         <MessagePanel contact={selectedContact} onBack={handleBackToList} />
                     ) : selectedList ? (
@@ -228,7 +230,7 @@ export default function CaixaDeEntrada() {
                         </div>
                     )
                 ) : (
-                    // --- CONTEÚDO E-MAIL (Placeholder) ---
+                    // --- PAINEL VAZIO DE E-MAIL (Com Botão de Configuração) ---
                     <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500 p-8 text-center">
                         <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 max-w-md w-full">
                             <FontAwesomeIcon icon={faInbox} className="text-5xl text-blue-500 mb-6" />
@@ -238,12 +240,13 @@ export default function CaixaDeEntrada() {
                             </p>
                             
                             <div className="space-y-3">
-                                <Link 
-                                    href="/perfil" // Link para onde vamos criar a config depois
-                                    className="block w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                                <button 
+                                    onClick={() => setIsEmailConfigOpen(true)} // <--- ABRE O MODAL
+                                    className="block w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex justify-center items-center gap-2"
                                 >
+                                    <FontAwesomeIcon icon={faCog} />
                                     Configurar E-mail
-                                </Link>
+                                </button>
                                 <button className="block w-full py-2.5 px-4 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg font-medium transition-colors">
                                     Saiba mais
                                 </button>
@@ -253,7 +256,7 @@ export default function CaixaDeEntrada() {
                 )}
             </div>
             
-            {/* --- COLUNA 3: PERFIL (Direita) --- */}
+            {/* --- COLUNA 3: PERFIL (Apenas WhatsApp por enquanto) --- */}
             {activeTab === 'whatsapp' && selectedContact && (
                 <div className="hidden lg:flex w-1/4 flex-col border-l bg-white h-full overflow-hidden min-h-0">
                     <div className="h-16 border-b flex items-center px-4 bg-[#f0f2f5] shrink-0">
