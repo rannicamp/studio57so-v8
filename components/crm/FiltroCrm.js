@@ -3,14 +3,11 @@
 
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-    faFilter, faTimes, faChevronUp, faChevronDown,
-    faCalendarDay, faCalendarWeek, faCalendarAlt
-} from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faCalendarDay, faCalendarWeek, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 import MultiSelectDropdown from '../financeiro/MultiSelectDropdown';
 
 const getDefaultFilterState = () => ({
-    searchTerm: '',
+    // searchTerm é gerenciado fora agora, mas mantemos a estrutura limpa
     corretorIds: [],
     origens: [],
     unidadeIds: [],
@@ -23,7 +20,6 @@ const getDefaultFilterState = () => ({
 export default function FiltroCrm({ 
     filters, setFilters, unidades, origens, campaigns, ads, corretores
 }) {
-    const [filtersVisible, setFiltersVisible] = useState(true);
     const [activePeriodFilter, setActivePeriodFilter] = useState('');
 
     const handleFilterChange = (name, value) => {
@@ -52,82 +48,68 @@ export default function FiltroCrm({
     };
     
     const clearFilters = () => {
-        setFilters(getDefaultFilterState());
+        // Mantém o termo de busca atual, limpa apenas os filtros avançados
+        setFilters(prev => ({ ...getDefaultFilterState(), searchTerm: prev.searchTerm }));
         setActivePeriodFilter('');
     };
 
     return (
-        <div className="p-4 border rounded-lg bg-white shadow-sm space-y-4 mb-4">
-            <div className="flex justify-between items-center cursor-pointer" onClick={() => setFiltersVisible(!filtersVisible)}>
-                <h2 className="font-semibold text-lg flex items-center gap-2 text-gray-700">
-                    <FontAwesomeIcon icon={faFilter} /> Filtros
-                </h2>
-                <FontAwesomeIcon icon={filtersVisible ? faChevronUp : faChevronDown} className="text-sm" />
+        <div className="bg-gray-50 border-b border-gray-200 p-4 animate-slide-down shadow-inner">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Corretores */}
+                <div>
+                   <MultiSelectDropdown 
+                        label="Corretor Responsável" 
+                        options={corretores || []} 
+                        selectedIds={filters.corretorIds} 
+                        onChange={(selected) => handleFilterChange('corretorIds', selected)} 
+                        placeholder="Todos os Corretores" 
+                   />
+                </div>
+
+                {/* Origens */}
+                <div>
+                     <MultiSelectDropdown label="Origem do Lead" options={origens || []} selectedIds={filters.origens} onChange={(selected) => handleFilterChange('origens', selected)} placeholder="Todas as Origens" />
+                </div>
+
+                {/* Unidades */}
+                <div>
+                    <MultiSelectDropdown label="Unidade de Interesse" options={unidades || []} selectedIds={filters.unidadeIds} onChange={(selected) => handleFilterChange('unidadeIds', selected)} placeholder="Todas as Unidades" />
+                </div>
             </div>
 
-            {filtersVisible && (
-                <div className="space-y-4 animate-fade-in pt-4 border-t">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div>
-                            <label className="text-xs uppercase font-medium text-gray-600">Buscar Contato</label>
-                            <input type="text" name="searchTerm" placeholder="Nome, telefone, email..." value={filters.searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} className="p-2 border rounded-md shadow-sm w-full mt-1" />
-                        </div>
-                        
-                        {/* ================================================================================= */}
-                        {/* A GRANDE MUDANÇA ESTÁ AQUI: Usando o MultiSelectDropdown para corretores!   */}
-                        {/* ================================================================================= */}
-                        <div>
-                           <MultiSelectDropdown 
-                                label="Corretor Responsável" 
-                                options={corretores || []} 
-                                selectedIds={filters.corretorIds} 
-                                onChange={(selected) => handleFilterChange('corretorIds', selected)} 
-                                placeholder="Todos os Corretores" 
-                           />
-                        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                {/* Campanhas e Ads */}
+                <div>
+                   <MultiSelectDropdown label="Campanha" options={campaigns || []} selectedIds={filters.campaignIds} onChange={(selected) => handleFilterChange('campaignIds', selected)} placeholder="Todas as Campanhas" />
+                </div>
+                <div>
+                   <MultiSelectDropdown label="Anúncio" options={ads || []} selectedIds={filters.adIds} onChange={(selected) => handleFilterChange('adIds', selected)} placeholder="Todos os Anúncios" />
+                </div>
 
-                        <div>
-                             <MultiSelectDropdown label="Origem do Lead" options={origens || []} selectedIds={filters.origens} onChange={(selected) => handleFilterChange('origens', selected)} placeholder="Todas as Origens" />
-                        </div>
+                {/* Datas */}
+                <div className="grid grid-cols-2 gap-2">
+                    <div>
+                        <label className="text-xs uppercase font-medium text-gray-600">Criado De:</label>
+                        <input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                           <MultiSelectDropdown label="Campanha" options={campaigns || []} selectedIds={filters.campaignIds} onChange={(selected) => handleFilterChange('campaignIds', selected)} placeholder="Todas as Campanhas" />
-                        </div>
-                        <div>
-                           <MultiSelectDropdown label="Anúncio" options={ads || []} selectedIds={filters.adIds} onChange={(selected) => handleFilterChange('adIds', selected)} placeholder="Todos os Anúncios" />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="lg:col-span-1">
-                            <MultiSelectDropdown label="Unidade de Interesse" options={unidades || []} selectedIds={filters.unidadeIds} onChange={(selected) => handleFilterChange('unidadeIds', selected)} placeholder="Todas as Unidades" />
-                        </div>
-                        <div className="lg:col-span-2 grid grid-cols-2 gap-2">
-                            <div>
-                                <label className="text-xs uppercase font-medium text-gray-600">Criado De:</label>
-                                <input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm" />
-                            </div>
-                            <div>
-                                <label className="text-xs uppercase font-medium text-gray-600">Criado Até:</label>
-                                <input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t">
-                        <div className="flex items-center gap-2">
-                            <button onClick={() => setDateRange('today')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarDay}/> Hoje</button>
-                            <button onClick={() => setDateRange('week')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarWeek}/> Semana</button>
-                            <button onClick={() => setDateRange('month')} className={`text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarAlt}/> Mês</button>
-                        </div>
-                        <button onClick={clearFilters} className="text-sm bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md flex items-center gap-2 uppercase font-semibold">
-                            <FontAwesomeIcon icon={faTimes} />Limpar Filtros
-                        </button>
+                    <div>
+                        <label className="text-xs uppercase font-medium text-gray-600">Criado Até:</label>
+                        <input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
                     </div>
                 </div>
-            )}
+            </div>
+
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 mt-4 border-t border-gray-200">
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setDateRange('today')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarDay}/> Hoje</button>
+                    <button onClick={() => setDateRange('week')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarWeek}/> Semana</button>
+                    <button onClick={() => setDateRange('month')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarAlt}/> Mês</button>
+                </div>
+                <button onClick={clearFilters} className="text-xs bg-white border border-gray-300 text-gray-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 px-4 py-2 rounded-md flex items-center gap-2 font-semibold transition-all shadow-sm">
+                    <FontAwesomeIcon icon={faTimes} /> Limpar Filtros
+                </button>
+            </div>
         </div>
     );
 }

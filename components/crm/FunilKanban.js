@@ -1,3 +1,4 @@
+// components/crm/FunilKanban.js
 "use client";
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
@@ -6,12 +7,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faSort, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-// 1. IMPORTAÇÃO
 import { enviarNotificacao } from '@/utils/notificacoes';
-import { useAuth } from '@/contexts/AuthContext'; // Para pegar o ID de quem moveu
+import { useAuth } from '@/contexts/AuthContext';
 
 const AddColumn = ({ onCreate }) => {
-    // ... (Mantido igual, sem alterações no AddColumn)
     const [isCreating, setIsCreating] = useState(false);
     const [newColumnName, setNewColumnName] = useState("");
 
@@ -78,13 +77,16 @@ export default function FunilKanban({
     onDeleteAllCardsInColumn,
     onDeleteCard
 }) {
-    const { user } = useAuth(); // Hook para pegar usuário logado
+    const { user } = useAuth();
     const [editingColumnId, setEditingColumnId] = useState(null);
     const [editedColumnName, setEditedColumnName] = useState("");
     const [draggedItem, setDraggedItem] = useState(null);
     const [openSortMenu, setOpenSortMenu] = useState(null);
     const sortMenuRef = useRef(null);
     const [deletingColumnId, setDeletingColumnId] = useState(null);
+    
+    // Novo estado para controlar o efeito visual de "Drag Over"
+    const [dragOverColumnId, setDragOverColumnId] = useState(null);
     
     const scrollContainerRef = useRef(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -93,7 +95,6 @@ export default function FunilKanban({
 
     const protectedColumns = ['excluir', 'vendido', 'perdido'];
 
-    // ... (Hooks de scroll e clique mantidos iguais) ...
     useEffect(() => {
         function handleClickOutside(event) {
             if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
@@ -107,7 +108,7 @@ export default function FunilKanban({
     }, [sortMenuRef]);
 
     const handleMouseDown = (e) => {
-        if (e.target.closest('.kanban-card') || e.target.closest('button')) return;
+        if (e.target.closest('.kanban-card') || e.target.closest('button') || e.target.closest('input')) return;
         setIsDragging(true);
         const container = scrollContainerRef.current;
         setStartX(e.pageX - container.offsetLeft);
@@ -140,11 +141,25 @@ export default function FunilKanban({
         }
     };
 
-    const handleDragOver = (e) => { e.preventDefault(); };
+    // Atualizado para controlar o estado visual
+    const handleDragOver = (e, colunaId) => { 
+        e.preventDefault(); 
+        if (draggedItem && draggedItem.type === 'card' && draggedItem.item.coluna_id !== colunaId) {
+            setDragOverColumnId(colunaId);
+        }
+    };
+
+    // Limpa o estado visual quando sai da coluna
+    const handleDragLeave = (e) => {
+        e.preventDefault();
+        setDragOverColumnId(null);
+    };
 
     const handleDrop = async (e, targetColumn) => {
         e.preventDefault();
         e.stopPropagation();
+        setDragOverColumnId(null); // Limpa o visual
+
         if (!draggedItem) return;
         
         // Lógica de Colunas
@@ -161,16 +176,13 @@ export default function FunilKanban({
         
         // Lógica de Cards (Leads)
         if (draggedItem.type === 'card' && draggedItem.item.coluna_id !== targetColumn.id) {
-            // Executa a mudança visual e no banco
             await onStatusChange(draggedItem.item.id, targetColumn.id);
             
-            // 2. DISPARA NOTIFICAÇÃO 🔔
             const nomeContato = draggedItem.item.contatos?.nome || draggedItem.item.contatos?.razao_social || 'Contato';
             const nomeOrigem = statusColumns.find(c => c.id === draggedItem.item.coluna_id)?.nome || '?';
             
-            // Só notifica se mudou de coluna e não é apenas reordenação
             await enviarNotificacao({
-                userId: user.id, // Opcional: Se quiser avisar O DONO DO LEAD em vez de quem arrastou, precisaria buscar o corretor_id
+                userId: user.id,
                 titulo: "🚀 Movimentação no Funil",
                 mensagem: `${nomeContato} mudou de "${nomeOrigem}" para "${targetColumn.nome}".`,
                 link: '/crm',
@@ -181,7 +193,6 @@ export default function FunilKanban({
         setDraggedItem(null);
     };
 
-    // ... (Resto das funções auxiliares mantidas iguais: handleEditClick, handleDeleteClick, etc.) ...
     const handleEditClick = (coluna) => { setEditingColumnId(coluna.id); setEditedColumnName(coluna.nome); };
     const handleSaveEdit = async (columnId) => { if (!editedColumnName.trim()) return; await onEditColumn(columnId, editedColumnName); setEditingColumnId(null); setEditedColumnName(""); };
     const handleCancelEdit = () => { setEditingColumnId(null); setEditedColumnName(""); };
@@ -273,7 +284,13 @@ export default function FunilKanban({
             onMouseMove={handleMouseMove}
         >
             {statusColumns.map((coluna) => (
-                <div key={coluna.id} className="w-80 flex-shrink-0 bg-white rounded-lg shadow-sm flex flex-col kanban-card" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, coluna)}>
+                <div 
+                    key={coluna.id} 
+                    className={`w-80 flex-shrink-0 bg-white rounded-lg shadow-sm flex flex-col kanban-card transition-colors duration-200 ${dragOverColumnId === coluna.id ? 'bg-blue-50 border-2 border-blue-400' : ''}`} 
+                    onDragOver={(e) => handleDragOver(e, coluna.id)} 
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, coluna)}
+                >
                     <div className="p-3 text-sm font-semibold text-gray-700 border-b bg-gray-50 rounded-t-lg flex justify-between items-center cursor-move" draggable onDragStart={(e) => handleDragStart(e, coluna, 'column')} onDragEnd={() => setDraggedItem(null)}>
                         {editingColumnId === coluna.id ? (
                             <div className="flex w-full items-center gap-2">
