@@ -2,14 +2,27 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faExclamationTriangle, faSearch, faFilter } from '@fortawesome/free-solid-svg-icons';
+import { useDebounce } from 'use-debounce';
 
 import FiltroAnuncios from '@/components/comercial/FiltroAnuncios';
 import TabelaAnuncios from '@/components/comercial/TabelaAnuncios';
-import KpiAnuncios from '@/components/comercial/KpiAnuncios'; // NOVO: Importa o componente de KPI
+import KpiAnuncios from '@/components/comercial/KpiAnuncios';
+
+const ANUNCIOS_UI_STATE_KEY = 'STUDIO57_ANUNCIOS_UI_STATE_V1';
+
+const getCachedUiState = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+        const saved = localStorage.getItem(ANUNCIOS_UI_STATE_KEY);
+        return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+        return null;
+    }
+};
 
 const fetchMetaAds = async (filters) => {
     const params = new URLSearchParams();
@@ -29,7 +42,6 @@ const fetchMetaAds = async (filters) => {
         params.append('adset_ids', filters.adsetIds.join(','));
     }
 
-    // A requisição agora vai para a nossa API atualizada
     const response = await fetch(`/api/meta/anuncios?${params.toString()}`);
     if (!response.ok) {
         const errorData = await response.json();
@@ -38,22 +50,38 @@ const fetchMetaAds = async (filters) => {
     return response.json();
 };
 
-const initialFilterState = {
-    searchTerm: '',
-    status: [],
-    startDate: '',
-    endDate: '',
-    campaignIds: [],
-    adsetIds: [],
-};
-
 export default function AnunciosPage() {
-    const [filters, setFilters] = useState(initialFilterState);
+    // --- ESTADO COM PERSISTÊNCIA ---
+    const cachedState = getCachedUiState();
+    
+    const initialFilterState = {
+        searchTerm: '',
+        status: [],
+        startDate: '',
+        endDate: '',
+        campaignIds: [],
+        adsetIds: [],
+    };
 
+    const [filters, setFilters] = useState(cachedState?.filters || initialFilterState);
+    const [showFilters, setShowFilters] = useState(cachedState?.showFilters || false);
+    
+    const [debouncedFilters] = useDebounce(filters, 500);
+
+    // Salvar estado ao alterar
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const stateToSave = { filters, showFilters };
+            localStorage.setItem(ANUNCIOS_UI_STATE_KEY, JSON.stringify(stateToSave));
+        }
+    }, [filters, showFilters]);
+
+    // Usamos debouncedFilters para a query da API (exceto searchTerm que é client-side na tabela)
     const { data: adsData, isLoading, isError, error } = useQuery({
-        queryKey: ['metaAds', filters],
-        queryFn: () => fetchMetaAds(filters),
+        queryKey: ['metaAds', { ...debouncedFilters, searchTerm: '' }], // Remove searchTerm da query key da API se for filtrar no cliente
+        queryFn: () => fetchMetaAds(debouncedFilters),
         keepPreviousData: true, 
+        staleTime: 1000 * 60 * 5, // 5 minutos de cache
     });
 
     const { campaigns, adsets } = useMemo(() => {
@@ -78,45 +106,72 @@ export default function AnunciosPage() {
     }, [adsData]);
 
     return (
-        <div className="p-4 md:p-6 lg:p-8 space-y-6">
-            <header>
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Anúncios da Meta</h1>
-                <p className="text-gray-600 mt-1">Monitore o desempenho e o status de suas campanhas e anúncios.</p>
-            </header>
+        <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-gray-50 min-h-screen">
+            
+            {/* CABEÇALHO UNIFICADO */}
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+                <div className="flex flex-col">
+                    <h1 className="text-2xl font-bold text-gray-800 uppercase">Anúncios Meta Ads</h1>
+                    <p className="text-xs text-gray-500">Monitore o desempenho de suas campanhas em tempo real.</p>
+                </div>
 
-            {/* ================================================================================= */}
-            {/* O PORQUÊ da alteração aqui:                                                     */}
-            {/* Adicionamos o novo componente KpiAnuncios, que agora é responsável por          */}
-            {/* mostrar os cartões de performance. Passamos para ele os dados dos anúncios      */}
-            {/* (`adsData`) e o estado de carregamento (`isLoading`) para que ele possa         */}
-            {/* exibir os KPIs ou um esqueleto de carregamento.                                 */}
-            {/* ================================================================================= */}
+                <div className="flex flex-wrap gap-2 items-center w-full xl:w-auto">
+                    {/* Busca Global */}
+                    <div className="relative flex-grow xl:flex-grow-0 min-w-[250px]">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <FontAwesomeIcon icon={faSearch} className="text-gray-400" />
+                        </div>
+                        <input 
+                            type="text" 
+                            placeholder="Buscar anúncio, campanha..." 
+                            value={filters.searchTerm} 
+                            onChange={(e) => setFilters(prev => ({ ...prev, searchTerm: e.target.value }))} 
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
+                        />
+                    </div>
+
+                    {/* Botão Filtros */}
+                    <button 
+                        onClick={() => setShowFilters(!showFilters)} 
+                        className={`border font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200 ${showFilters ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                        title="Filtros Avançados"
+                    >
+                        <FontAwesomeIcon icon={faFilter} className={showFilters ? "text-blue-500 mr-2" : "text-gray-500 mr-2"} />
+                        Filtros
+                    </button>
+                </div>
+            </div>
+
+            {/* Painel de Filtros (AGORA ACIMA DOS KPIS) */}
+            {showFilters && (
+                <FiltroAnuncios 
+                    filters={filters} 
+                    setFilters={setFilters}
+                    campaigns={campaigns}
+                    adsets={adsets}
+                />
+            )}
+
+            {/* KPIs */}
             <KpiAnuncios data={adsData} isLoading={isLoading} />
             
-            <FiltroAnuncios 
-                filters={filters} 
-                setFilters={setFilters}
-                campaigns={campaigns}
-                adsets={adsets}
-            />
-
-            <main className="bg-white rounded-lg shadow-md">
-                {isLoading && !adsData && ( // Mostra o spinner principal apenas no carregamento inicial
+            {/* Tabela de Dados */}
+            <main className="bg-white rounded-lg shadow-md overflow-hidden">
+                {isLoading && !adsData && (
                     <div className="flex flex-col items-center justify-center text-center p-10">
                         <FontAwesomeIcon icon={faSpinner} spin size="3x" className="text-blue-500" />
-                        <p className="mt-4 text-lg font-semibold text-gray-700">Buscando anúncios...</p>
+                        <p className="mt-4 text-lg font-semibold text-gray-700">Carregando dados do Meta...</p>
                     </div>
                 )}
 
                 {isError && (
-                    <div className="flex flex-col items-center justify-center text-center p-10 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex flex-col items-center justify-center text-center p-10 bg-red-50">
                         <FontAwesomeIcon icon={faExclamationTriangle} size="3x" className="text-red-500" />
-                        <p className="mt-4 text-lg font-semibold text-red-700">Ocorreu um Erro</p>
-                        <p className="text-red-600">{error.message}</p>
+                        <p className="mt-4 text-lg font-semibold text-red-700">Erro de Conexão</p>
+                        <p className="text-red-600 max-w-md">{error.message}</p>
                     </div>
                 )}
 
-                {/* A tabela agora é exibida mesmo durante o recarregamento, graças ao keepPreviousData */}
                 {!isError && (
                     <TabelaAnuncios data={adsData || []} filters={filters} />
                 )}
