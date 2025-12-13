@@ -1,4 +1,3 @@
-// app/(main)/atividades/page.js
 "use client";
 
 // --- 1. IMPORTAÇÕES DO SISTEMA ---
@@ -189,6 +188,7 @@ export default function AtividadesPage() {
             return { activityId, nome: act?.nome };
         },
         onSuccess: async (data) => {
+            // NOTIFICAÇÃO MANUAL MANTIDA PARA EXCLUSÃO (POIS O BANCO SÓ VIGIA UPDATE)
             await enviarNotificacao({
                 userId: user.id,
                 titulo: "🗑️ Atividade Excluída",
@@ -238,14 +238,7 @@ export default function AtividadesPage() {
             return { activity, newStatus };
         },
         onSuccess: async (data) => {
-            await enviarNotificacao({
-                userId: user.id,
-                titulo: "🔄 Status Atualizado",
-                mensagem: `"${data.activity.nome}" mudou para: ${data.newStatus}`,
-                link: '/atividades',
-                organizacaoId: organizacaoId,
-                canal: 'operacional'
-            });
+            // REMOVIDO: enviarNotificacao() - O banco de dados já faz isso via Trigger agora!
             queryClient.invalidateQueries(['atividades', organizacaoId]);
         },
         onError: (error) => toast.error(`Erro ao atualizar status: ${error.message}`)
