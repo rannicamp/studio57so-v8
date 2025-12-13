@@ -84,7 +84,6 @@ export default function FichaContrato({
     const hasMounted = useRef(false);
 
     // --- PERSISTÊNCIA DA ABA ---
-    // Inicializa com o valor salvo ou padrão 'resumo'
     const [activeTab, setActiveTab] = useState(() => {
         if (typeof window !== 'undefined') {
             return localStorage.getItem(CONTRATO_TAB_KEY) || 'resumo';
@@ -92,7 +91,6 @@ export default function FichaContrato({
         return 'resumo';
     });
 
-    // Salva a aba sempre que mudar
     useEffect(() => {
         if (typeof window !== 'undefined') {
             localStorage.setItem(CONTRATO_TAB_KEY, activeTab);
@@ -194,7 +192,7 @@ export default function FichaContrato({
     const TabButton = ({ tabId, label, icon, disabled = false }) => {
         let finalDisabled = disabled;
         if (tabId === 'cronograma') {
-            finalDisabled = true; 
+            finalDisabled = false; // Cronograma deve estar habilitado para visualização/impressão
         }
         const isDisabled = finalDisabled && !isClienteDefined;
 
@@ -219,7 +217,7 @@ export default function FichaContrato({
 
     return (
         <div className="space-y-6">
-            {/* Header do Contrato */}
+            {/* Header do Contrato - Escondido na Impressão */}
             <div className="print:hidden bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
@@ -261,7 +259,7 @@ export default function FichaContrato({
                 </div>
             </div>
 
-            {/* KPIs */}
+            {/* KPIs - Escondido na Impressão */}
             <div className="print:hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <KpiCard title="Valor do Contrato" value={kpiData.valorTotal} icon={faFileSignature} color="blue" />
                 <KpiCard title="Total Pago" value={kpiData.totalPago} icon={faCheckCircle} color="green" />
@@ -269,23 +267,26 @@ export default function FichaContrato({
                 <KpiCard title="Próxima Parcela" value={kpiData.proximaParcela} icon={faCalendarCheck} color="purple" />
             </div>
 
-            {/* Navegação por Abas */}
-            <div className="print:hidden bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <div className="border-b border-gray-200 bg-gray-50/50">
+            {/* ÁREA PRINCIPAL DAS ABAS */}
+            {/* CORREÇÃO: Removemos 'print:hidden' daqui para que o conteúdo (contrato) seja impresso */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:border-none">
+                
+                {/* Menu de Navegação - Escondido na Impressão */}
+                <div className="print:hidden border-b border-gray-200 bg-gray-50/50">
                     <nav className="flex gap-1 overflow-x-auto px-2 pt-2">
                         <TabButton tabId="resumo" label="Resumo da Venda" icon={faHandshake} />
                         
                         {contrato.tipo_documento === 'CONTRATO' && (
-                            <TabButton tabId="cronograma" label="Plano e Cronograma" icon={faFileInvoiceDollar} disabled={true} /> 
+                            <TabButton tabId="cronograma" label="Plano e Cronograma" icon={faFileInvoiceDollar} /> 
                         )}
                         
-                        <TabButton tabId="gerador" label="Gerar Documento" icon={faFileContract} disabled={true} />
-                        <TabButton tabId="documentos" label="Anexos e Documentos" icon={faFileLines} disabled={true} />
+                        <TabButton tabId="gerador" label="Gerar Documento" icon={faFileContract} disabled={false} />
+                        <TabButton tabId="documentos" label="Anexos e Documentos" icon={faFileLines} disabled={false} />
                     </nav>
                 </div>
 
-                {/* Conteúdo das Abas */}
-                <div className="p-6 min-h-[400px]">
+                {/* Conteúdo das Abas - Visível na Impressão */}
+                <div className="p-6 min-h-[400px] print:p-0">
                     {activeTab === 'resumo' && (
                         <DetalhesVendaContrato 
                             contratoData={contrato} 
