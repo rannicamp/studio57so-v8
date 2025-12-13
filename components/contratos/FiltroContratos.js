@@ -1,18 +1,18 @@
 // components/contratos/FiltroContratos.js
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-    faFilter, faTimes, faChevronUp, faChevronDown, faSave,
-    faStar as faStarSolid, faEllipsisV, faSyncAlt, faTrash
+    faTimes, faSave, faStar as faStarSolid, faEllipsisV, faTrash, faSyncAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import MultiSelectDropdown from '../financeiro/MultiSelectDropdown';
 import { toast } from 'sonner';
 
 const initialFilterState = {
-    searchTerm: '', clienteId: [], corretorId: [], produtoId: [], empreendimentoId: [],
+    // searchTerm é gerenciado pelo componente pai (Page)
+    clienteId: [], corretorId: [], produtoId: [], empreendimentoId: [],
     status: [], startDate: '', endDate: ''
 };
 
@@ -24,7 +24,6 @@ export default function FiltroContratos({
     produtos,
     empreendimentos
 }) {
-    const [filtersVisible, setFiltersVisible] = useState(true);
     const [savedFilters, setSavedFilters] = useState([]);
     const [newFilterName, setNewFilterName] = useState('');
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
@@ -49,16 +48,21 @@ export default function FiltroContratos({
         setFilters(prev => ({ ...prev, [name]: value }));
     };
 
-    const clearFilters = () => setFilters(initialFilterState);
+    const clearFilters = () => {
+        // Preserva o termo de busca que está no header
+        setFilters(prev => ({ ...initialFilterState, searchTerm: prev.searchTerm }));
+    };
 
     const handleSaveFilter = () => {
         if (!newFilterName.trim()) {
             toast.warning('Por favor, dê um nome para o filtro.');
             return;
         }
+        const isFavorited = savedFilters.find(f => f.name === newFilterName)?.isFavorite || false;
         const updatedFilters = savedFilters.filter(f => f.name !== newFilterName);
-        const newSavedFilter = { name: newFilterName, settings: filters, isFavorite: false };
+        const newSavedFilter = { name: newFilterName, settings: filters, isFavorite: isFavorited };
         const newFiltersList = [...updatedFilters, newSavedFilter];
+        
         setSavedFilters(newFiltersList);
         localStorage.setItem('savedContractFilters', JSON.stringify(newFiltersList));
         setNewFilterName('');
@@ -83,11 +87,21 @@ export default function FiltroContratos({
         localStorage.setItem('savedContractFilters', JSON.stringify(updated));
     };
 
+    const handleUpdateFilter = (filterName) => {
+        const updated = savedFilters.map(f => f.name === filterName ? { ...f, settings: filters } : f);
+        setSavedFilters(updated);
+        localStorage.setItem('savedContractFilters', JSON.stringify(updated));
+        toast.success(`Filtro "${filterName}" atualizado!`);
+    };
+
     const statusOptions = [
+        { id: 'Rascunho', nome: 'Rascunho' },
+        { id: 'Em negociação', nome: 'Em negociação' },
         { id: 'Em assinatura', nome: 'Em assinatura' },
         { id: 'Assinado', nome: 'Assinado' },
         { id: 'Distratado', nome: 'Distratado' },
         { id: 'Finalizado', nome: 'Finalizado' },
+        { id: 'Cancelado', nome: 'Cancelado' },
     ];
     
     const clientesOptions = clientes.map(c => ({...c, nome: c.nome || c.razao_social }));
@@ -95,37 +109,37 @@ export default function FiltroContratos({
     const produtosOptions = produtos.map(p => ({...p, nome: `${p.tipo || 'Unidade'} ${p.unidade || ''}`.trim() }));
 
     return (
-        <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
-            <div className="flex justify-between items-center">
-                <button onClick={() => setFiltersVisible(!filtersVisible)} className="font-semibold text-lg flex items-center gap-2 uppercase">
-                    <FontAwesomeIcon icon={faFilter} /> Filtros de Contratos
-                    <FontAwesomeIcon icon={filtersVisible ? faChevronUp : faChevronDown} className="text-sm" />
-                </button>
+        <div className="bg-gray-50 border-b border-gray-200 p-4 animate-slide-down shadow-inner rounded-lg mb-4">
+            <div className="flex justify-between items-start mb-4">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-2">Configuração de Filtros</h3>
+                
+                {/* Menu de Gerenciamento de Filtros */}
                 <div className="relative" ref={filterMenuRef}>
-                    <button onClick={() => setIsFilterMenuOpen(prev => !prev)} className="p-2 border rounded-md bg-white hover:bg-gray-100">
+                    <button onClick={() => setIsFilterMenuOpen(prev => !prev)} className="text-gray-500 hover:text-blue-600 transition-colors p-2 rounded-md hover:bg-white border border-transparent hover:border-gray-200" title="Gerenciar Filtros Salvos">
                         <FontAwesomeIcon icon={faEllipsisV} />
                     </button>
                     {isFilterMenuOpen && (
-                        <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg z-20 border">
-                            <div className="p-3 border-b">
-                                <p className="font-semibold text-sm mb-2">Salvar Filtro Atual</p>
+                        <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg z-20 border ring-1 ring-black ring-opacity-5">
+                            <div className="p-3 border-b bg-gray-50 rounded-t-md">
+                                <p className="font-semibold text-xs text-gray-500 mb-2 uppercase">Salvar Filtro Atual</p>
                                 <div className="flex items-center gap-2">
-                                    <input type="text" value={newFilterName} onChange={(e) => setNewFilterName(e.target.value)} placeholder="Nome do filtro..." className="p-2 border rounded-md text-sm w-full"/>
-                                    <button onClick={handleSaveFilter} className="text-sm bg-blue-500 text-white hover:bg-blue-600 px-3 py-2 rounded-md"><FontAwesomeIcon icon={faSave}/></button>
+                                    <input type="text" value={newFilterName} onChange={(e) => setNewFilterName(e.target.value)} placeholder="Nome do filtro..." className="p-1.5 border rounded text-xs w-full"/>
+                                    <button onClick={handleSaveFilter} className="text-xs bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded"><FontAwesomeIcon icon={faSave}/></button>
                                 </div>
                             </div>
                             <div className="p-3">
-                                <p className="font-semibold text-sm mb-2">Filtros Salvos</p>
-                                <ul className="max-h-40 overflow-y-auto">
+                                <p className="font-semibold text-xs text-gray-500 mb-2 uppercase">Meus Filtros</p>
+                                <ul className="max-h-40 overflow-y-auto space-y-1">
                                     {savedFilters.length > 0 ? savedFilters.map((f, i) => (
-                                        <li key={i} className="flex justify-between items-center text-sm py-1 group">
-                                            <span onClick={() => handleLoadFilter(f.settings)} className="cursor-pointer hover:underline">{f.name}</span>
-                                            <div className="flex items-center gap-2">
-                                                <button onClick={() => handleToggleFavorite(f.name)} title="Favoritar" className="text-gray-400 hover:text-yellow-500"><FontAwesomeIcon icon={f.isFavorite ? faStarSolid : faStarRegular} className={f.isFavorite ? 'text-yellow-500' : ''}/></button>
-                                                <button onClick={() => handleDeleteFilter(f.name)} title="Excluir" className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100"><FontAwesomeIcon icon={faTrash}/></button>
+                                        <li key={i} className="flex justify-between items-center text-sm p-1 hover:bg-gray-50 rounded group">
+                                            <span onClick={() => handleLoadFilter(f.settings)} className="cursor-pointer text-gray-700 hover:text-blue-600 truncate flex-1">{f.name}</span>
+                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => handleUpdateFilter(f.name)} title="Atualizar com seleção atual" className="text-gray-400 hover:text-blue-500 p-1"><FontAwesomeIcon icon={faSyncAlt} size="xs"/></button>
+                                                <button onClick={() => handleToggleFavorite(f.name)} title="Favoritar" className={`p-1 ${f.isFavorite ? 'text-yellow-500' : 'text-gray-400 hover:text-yellow-500'}`}><FontAwesomeIcon icon={f.isFavorite ? faStarSolid : faStarRegular} size="xs"/></button>
+                                                <button onClick={() => handleDeleteFilter(f.name)} title="Excluir" className="text-gray-400 hover:text-red-500 p-1"><FontAwesomeIcon icon={faTrash} size="xs"/></button>
                                             </div>
                                         </li>
-                                    )) : <li className="text-xs text-gray-500">Nenhum filtro salvo.</li>}
+                                    )) : <li className="text-xs text-gray-400 italic">Nenhum salvo.</li>}
                                 </ul>
                             </div>
                         </div>
@@ -133,69 +147,78 @@ export default function FiltroContratos({
                 </div>
             </div>
             
-            {filtersVisible && (
-                <div className="space-y-4 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <MultiSelectDropdown 
+                    label="Empreendimento" 
+                    options={empreendimentos} 
+                    selectedIds={filters.empreendimentoId} 
+                    onChange={(selected) => handleFilterChange('empreendimentoId', selected)} 
+                />
+                <MultiSelectDropdown 
+                    label="Produto/Unidade" 
+                    options={produtosOptions} 
+                    selectedIds={filters.produtoId} 
+                    onChange={(selected) => handleFilterChange('produtoId', selected)} 
+                />
+                <MultiSelectDropdown 
+                    label="Cliente" 
+                    options={clientesOptions} 
+                    selectedIds={filters.clienteId} 
+                    onChange={(selected) => handleFilterChange('clienteId', selected)} 
+                />
+                <MultiSelectDropdown 
+                    label="Corretor" 
+                    options={corretoresOptions} 
+                    selectedIds={filters.corretorId} 
+                    onChange={(selected) => handleFilterChange('corretorId', selected)} 
+                />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 items-end">
+                <div className="lg:col-span-2">
+                     <MultiSelectDropdown 
+                        label="Status" 
+                        options={statusOptions} 
+                        selectedIds={filters.status} 
+                        onChange={(selected) => handleFilterChange('status', selected)}
+                        placeholder="Todos os Status"
+                    />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <label className="text-xs uppercase font-medium text-gray-600">Busca Rápida</label>
-                        <input
-                            type="text"
-                            placeholder="Buscar por nº, cliente, produto, empreendimento ou corretor..."
-                            value={filters.searchTerm}
-                            onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
-                            className="mt-1 w-full p-2 border rounded-md"
-                        />
+                        <label className="text-xs uppercase font-medium text-gray-500 mb-1 block">Venda De</label>
+                        <input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-sm h-[38px]"/>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <MultiSelectDropdown 
-                            label="Empreendimento" 
-                            options={empreendimentos} 
-                            selectedIds={filters.empreendimentoId} 
-                            onChange={(selected) => handleFilterChange('empreendimentoId', selected)} 
-                        />
-                        <MultiSelectDropdown 
-                            label="Produto/Unidade" 
-                            options={produtosOptions} 
-                            selectedIds={filters.produtoId} 
-                            onChange={(selected) => handleFilterChange('produtoId', selected)} 
-                        />
-                        <MultiSelectDropdown 
-                            label="Cliente" 
-                            options={clientesOptions} 
-                            selectedIds={filters.clienteId} 
-                            onChange={(selected) => handleFilterChange('clienteId', selected)} 
-                        />
-                        <MultiSelectDropdown 
-                            label="Corretor" 
-                            options={corretoresOptions} 
-                            selectedIds={filters.corretorId} 
-                            onChange={(selected) => handleFilterChange('corretorId', selected)} 
-                        />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                        <div className="lg:col-span-2">
-                             <MultiSelectDropdown 
-                                label="Status" 
-                                options={statusOptions} 
-                                selectedIds={filters.status} 
-                                onChange={(selected) => handleFilterChange('status', selected)} 
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs uppercase font-medium text-gray-600">Venda De:</label>
-                            <input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/>
-                        </div>
-                        <div>
-                            <label className="text-xs uppercase font-medium text-gray-600">Venda Até:</label>
-                            <input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 p-2 border rounded-md shadow-sm"/>
-                        </div>
-                    </div>
-                    <div className="flex justify-end pt-4 border-t">
-                        <button onClick={clearFilters} className="text-sm bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-md flex items-center gap-2 uppercase">
-                            <FontAwesomeIcon icon={faTimes} />Limpar Filtros
-                        </button>
+                    <div>
+                        <label className="text-xs uppercase font-medium text-gray-500 mb-1 block">Até</label>
+                        <input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-sm h-[38px]"/>
                     </div>
                 </div>
-            )}
+                {/* Botão limpar escondido em telas grandes, acessível via atalhos */}
+            </div>
+
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 mt-4 border-t border-gray-200">
+                {/* Filtros Favoritos (Atalhos) */}
+                <div className="flex flex-wrap gap-2 items-center flex-1">
+                    {savedFilters.filter(f => f.isFavorite).length > 0 ? (
+                        <>
+                            <span className="text-xs font-bold text-gray-400 uppercase mr-2"><FontAwesomeIcon icon={faStarSolid} /> Favoritos:</span>
+                            {savedFilters.filter(f => f.isFavorite).map((f, i) => {
+                                const isActive = JSON.stringify(filters) === JSON.stringify(f.settings);
+                                return (
+                                    <button key={i} onClick={() => handleLoadFilter(f.settings)} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${isActive ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                        {f.name}
+                                    </button>
+                                )
+                            })}
+                        </>
+                    ) : <span className="text-xs text-gray-400 italic">Favoritos aparecem aqui.</span>}
+                </div>
+
+                <button onClick={clearFilters} className="text-xs bg-white border border-gray-300 text-gray-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 px-4 py-2 rounded-md flex items-center gap-2 font-semibold transition-all shadow-sm">
+                    <FontAwesomeIcon icon={faTimes} /> Limpar Filtros
+                </button>
+            </div>
         </div>
     );
 }

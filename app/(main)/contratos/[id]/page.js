@@ -21,22 +21,19 @@ export default async function ContratoPage({ params }) {
     }
 
     try {
-        // 1. Buscamos o perfil para pegar o organizacao_id
         const { data: userProfile, error: profileError } = await supabase
             .from('usuarios')
             .select('organizacao_id')
             .eq('id', user.id)
             .single();
         
-        // Tratamento de erro caso não ache o perfil
         if (profileError || !userProfile?.organizacao_id) {
              console.error("Erro ao buscar perfil do usuário ou organização não encontrada:", profileError);
              throw new Error('Perfil do usuário ou Organização não encontrada.');
         }
 
-        const organizacaoId = userProfile.organizacao_id; // <-- Temos o ID aqui
+        const organizacaoId = userProfile.organizacao_id;
 
-        // Query principal do contrato (Admin - sem filtro de usuário)
         const { data: contratoData, error } = await supabase
             .from('contratos')
             .select(`
@@ -70,7 +67,6 @@ export default async function ContratoPage({ params }) {
              notFound(); 
         }
 
-        // Busca de produtos (mantido)
         const { data: produtosDoContrato, error: produtosError } = await supabase
             .from('contrato_produtos')
             .select('produtos_empreendimento (*)')
@@ -83,34 +79,42 @@ export default async function ContratoPage({ params }) {
             contratoData.produtos = produtosDoContrato?.map(item => item.produtos_empreendimento) || [];
         }
 
-        // --- 2. A CORREÇÃO: Criar o objeto 'user' combinado ---
         const combinedUser = {
-            id: user.id, // ID do usuário autenticado
-            organizacao_id: organizacaoId // ID da organização vindo do perfil
-            // Adicione outros campos do user (como email) se FichaContrato precisar
+            id: user.id,
+            organizacao_id: organizacaoId
         };
-        // --- FIM DA CORREÇÃO ---
 
         return (
-            <div className="p-4 md:p-6 lg:p-8 space-y-6">
+            // REMOVIDO: max-w-7xl mx-auto
+            // Mantido apenas o padding e background para ocupar a tela toda
+            <div className="bg-gray-50 min-h-screen p-4 md:p-6 lg:p-8 space-y-6">
                 <div className="print:hidden">
-                    <Link href="/contratos" className="text-blue-600 hover:underline mb-4 inline-flex items-center gap-2">
+                    <Link href="/contratos" className="text-gray-500 hover:text-blue-600 mb-4 inline-flex items-center gap-2 transition-colors font-medium text-sm">
                         <FontAwesomeIcon icon={faArrowLeft} />
                         Voltar para a Lista de Contratos
                     </Link>
                 </div>
                 
-                {/* 3. Passamos o objeto 'combinedUser' */}
                 <FichaContrato
                     initialContratoData={contratoData}
                     user={combinedUser}
-                    clientSearchScope="organization" // <-- Escopo do Admin
+                    clientSearchScope="organization"
                 />
             </div>
         );
 
     } catch (error) {
         console.error("Erro geral na página do contrato:", error);
-        return <p className="p-4 text-red-500">Não foi possível carregar os dados do contrato. Causa: {error.message}</p>;
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
+                <div className="bg-white p-8 rounded-lg shadow-md max-w-md text-center">
+                    <h2 className="text-xl font-bold text-red-600 mb-2">Erro ao carregar contrato</h2>
+                    <p className="text-gray-600 mb-4">{error.message}</p>
+                    <Link href="/contratos" className="text-blue-600 hover:underline">
+                        Voltar para a lista
+                    </Link>
+                </div>
+            </div>
+        );
     }
 }

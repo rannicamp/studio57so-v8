@@ -1,9 +1,8 @@
+// components/contratos/FichaContrato.js
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react'; 
 import { createClient } from '../../utils/supabase/client';
-// 1. REMOVIDO o useAuth
-// import { useAuth } from '../../contexts/AuthContext';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'; 
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -21,10 +20,11 @@ import PlanoPagamentoContrato from './PlanoPagamentoContrato';
 import KpiCard from '../KpiCard';
 import GeradorContrato from './GeradorContrato';
 
-// --- FUNÇÕES DE BUSCA (Inalteradas) ---
-// A query com SELECT * já vai buscar nossa nova coluna 'tipo_documento'
+// Chave para persistência da aba ativa
+const CONTRATO_TAB_KEY = 'STUDIO57_CONTRATO_ACTIVE_TAB';
+
+// --- FUNÇÕES DE BUSCA ---
 const fetchContratoData = async (supabase, contratoId, organizacaoId) => {
-    // (Código inalterado)
     if (!contratoId || !organizacaoId) return null;
     const { data: contratoData, error } = await supabase
         .from('contratos')
@@ -58,7 +58,6 @@ const fetchContratoData = async (supabase, contratoId, organizacaoId) => {
 };
 
 const fetchModelosContrato = async (supabase, empreendimentoId, organizacaoId) => {
-    // (Código inalterado)
     if (!empreendimentoId || !organizacaoId) return [];
     const { data, error } = await supabase
         .from('modelos_contrato')
@@ -73,24 +72,33 @@ const fetchModelosContrato = async (supabase, empreendimentoId, organizacaoId) =
     }
     return data;
 };
-// --- FIM DAS FUNÇÕES DE BUSCA ---
 
-
-// 2. ADICIONADAS as props `user` e `clientSearchScope`
 export default function FichaContrato({ 
     initialContratoData, 
-    user, // <-- Prop obrigatória
-    clientSearchScope // <-- Prop obrigatória
+    user, 
+    clientSearchScope 
 }) {
     const supabase = createClient();
-    // 3. REMOVIDO useAuth, 'organizacaoId' vem do 'user' da prop
     const organizacaoId = user?.organizacao_id;
     const queryClient = useQueryClient();
     const hasMounted = useRef(false);
 
-    const [activeTab, setActiveTab] = useState('resumo');
+    // --- PERSISTÊNCIA DA ABA ---
+    // Inicializa com o valor salvo ou padrão 'resumo'
+    const [activeTab, setActiveTab] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem(CONTRATO_TAB_KEY) || 'resumo';
+        }
+        return 'resumo';
+    });
 
-    // (useQuery 'fetchContratoData' inalterado, pois 'organizacaoId' está correto)
+    // Salva a aba sempre que mudar
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(CONTRATO_TAB_KEY, activeTab);
+        }
+    }, [activeTab]);
+
     const { 
         data: contrato, 
         isLoading: isLoadingContrato,
@@ -105,13 +113,10 @@ export default function FichaContrato({
         staleTime: 1000 * 60 * 5, 
     });
 
-    // (useEffect de Notificação SILENCIADO 🤫)
     useEffect(() => {
         if (hasMounted.current) {
             if (!isRefetching && !isLoadingContrato && !isErrorContrato) {
-                // AQUI ESTAVA O TOAST "Página atualizada!".
-                // Removido para garantir silêncio.
-                console.log("Dados do contrato atualizados em segundo plano.");
+                // Atualização silenciosa
             }
         } else {
             hasMounted.current = true;
@@ -124,14 +129,12 @@ export default function FichaContrato({
         }
     }, [isErrorContrato, errorContrato]);
 
-    // (useQuery 'fetchModelosContrato' inalterado)
     const { data: modelosContrato = [], isLoading: loadingModelos } = useQuery({
         queryKey: ['modelosContratoFicha', contrato?.empreendimento_id, organizacaoId],
         queryFn: () => fetchModelosContrato(supabase, contrato?.empreendimento_id, organizacaoId),
         enabled: !!contrato?.empreendimento_id && !!organizacaoId, 
     });
 
-    // (Funções de formatação inalteradas)
     const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
     const formatDateForDisplay = (dateStr) => {
         if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return 'N/A';
@@ -139,13 +142,11 @@ export default function FichaContrato({
         return `${day}/${month}/${year}`;
     };
 
-    // (Função 'refreshContratoData' inalterada)
     const refreshContratoData = () => {
         queryClient.invalidateQueries({ queryKey: ['contrato', initialContratoData.id, organizacaoId] }); 
         queryClient.invalidateQueries({ queryKey: ['modelosContratoFicha', contrato?.empreendimento_id, organizacaoId]});
     };
     
-    // (useMemo 'descontoConcedido' e 'kpiData' inalterados)
     const descontoConcedido = useMemo(() => {
         const somaProdutos = (contrato.produtos || []).reduce((sum, p) => sum + parseFloat(p.valor_venda_calculado || 0), 0);
         const valorFinal = parseFloat(contrato.valor_final_venda || 0);
@@ -168,7 +169,6 @@ export default function FichaContrato({
         };
     }, [contrato]);
 
-    // (useMutation 'updateModeloMutation' e 'handleModeloChange' inalterados)
     const updateModeloMutation = useMutation({
         mutationFn: async (modeloId) => {
             const { error } = await supabase
@@ -189,30 +189,23 @@ export default function FichaContrato({
         updateModeloMutation.mutate(selectedModelId);
     };
 
-    // (Lógica de Abas 'TabButton' inalterada)
     const isClienteDefined = !!contrato?.contato_id;
+    
     const TabButton = ({ tabId, label, icon, disabled = false }) => {
-        // --- MUDANÇA AQUI ---
-        // Adiciona uma checagem específica para a aba de cronograma
         let finalDisabled = disabled;
         if (tabId === 'cronograma') {
-            finalDisabled = true; // Sempre começa desabilitada
+            finalDisabled = true; 
         }
-
         const isDisabled = finalDisabled && !isClienteDefined;
-        // --- FIM DA MUDANÇA ---
 
         return (
             <button
                 onClick={() => !isDisabled && setActiveTab(tabId)}
                 disabled={isDisabled}
                 title={isDisabled ? "Defina um cliente na aba 'Resumo da Venda' para habilitar" : ""}
-                className={`flex items-center gap-2 py-3 px-4 font-medium text-sm border-b-4 transition-colors
-                    ${activeTab === tabId ? 'border-blue-500 text-blue-600' : 'border-transparent'}
-                    ${isDisabled
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`
+                className={`flex items-center gap-2 py-3 px-4 font-medium text-sm border-b-2 transition-all duration-200 outline-none
+                    ${activeTab === tabId ? 'border-blue-500 text-blue-600 bg-blue-50/50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}
+                    ${isDisabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`
                 }
             >
                 <FontAwesomeIcon icon={isDisabled ? faLock : icon} /> {label}
@@ -221,110 +214,113 @@ export default function FichaContrato({
     };
 
     if (!contrato) {
-        return <div className="flex justify-center items-center h-64"><FontAwesomeIcon icon={faSpinner} spin size="3x" /> Carregando...</div>;
+        return <div className="flex justify-center items-center h-64"><FontAwesomeIcon icon={faSpinner} spin size="3x" className="text-blue-500" /></div>;
     }
 
-    // --- RENDERIZAÇÃO ---
     return (
-        <div className="space-y-8">
-            {/* Bloco de Header (inalterado) */}
-            <div className="print:hidden bg-white p-6 rounded-lg shadow-md border">
-                <div className="flex justify-between items-start">
+        <div className="space-y-6">
+            {/* Header do Contrato */}
+            <div className="print:hidden bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        {/* --- MUDANÇA AQUI --- */}
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                            {contrato.tipo_documento === 'TERMO_DE_INTERESSE' ? 'Termo de Interesse #' : 'Contrato #'}
-                            {contrato.id}
-                        </h2>
-                        {/* --- FIM DA MUDANÇA --- */}
-                        <p className="text-gray-600"><strong>Cliente:</strong> <span className={contrato.contato ? 'font-semibold text-gray-800' : 'font-semibold text-red-500'}>{contrato.contato?.nome || contrato.contato?.razao_social || 'NÃO DEFINIDO'}</span></p>
-                        <p className="text-gray-600"><strong>Empreendimento:</strong> {contrato.empreendimento?.nome}</p>
+                        <div className="flex items-center gap-3 mb-1">
+                            <h2 className="text-2xl font-bold text-gray-900">
+                                {contrato.tipo_documento === 'TERMO_DE_INTERESSE' ? 'Termo de Interesse' : 'Contrato'} 
+                                <span className="text-blue-600 ml-2">#{contrato.numero_contrato || contrato.id}</span>
+                            </h2>
+                            <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${contrato.status_contrato === 'Rascunho' ? 'bg-gray-100 text-gray-800' : 'bg-green-100 text-green-800'}`}>
+                                {contrato.status_contrato}
+                            </span>
+                        </div>
+                        <div className="text-sm text-gray-500 space-y-1">
+                            <p>Cliente: <span className="font-medium text-gray-800">{contrato.contato?.nome || contrato.contato?.razao_social || 'NÃO DEFINIDO'}</span></p>
+                            <p>Empreendimento: <span className="font-medium text-gray-800">{contrato.empreendimento?.nome}</span></p>
+                        </div>
                     </div>
-                     <div className='flex flex-col items-end gap-2'>
-                        <span className={`px-3 py-1 text-sm font-semibold rounded-full ${contrato.status_contrato === 'Rascunho' ? 'bg-gray-100 text-gray-800' : 'bg-green-100 text-green-800'}`}>
-                            {contrato.status_contrato}
-                        </span>
-                        <div>
-                            <label htmlFor="modeloContratoSelect" className="block text-xs font-medium text-gray-500 mb-1 text-right">Modelo de Cláusulas</label>
+                    
+                    <div className="w-full md:w-auto bg-gray-50 p-3 rounded-md border border-gray-100">
+                        <label htmlFor="modeloContratoSelect" className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Modelo de Cláusulas</label>
+                        <div className="flex items-center gap-2">
                             <select 
                                 id="modeloContratoSelect"
                                 value={contrato.modelo_contrato_id || ''} 
                                 onChange={handleModeloChange}
-                                className="p-2 border rounded-md text-sm shadow-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                                className="w-full md:w-64 p-2 border border-gray-300 rounded-md text-sm shadow-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                                 disabled={loadingModelos || updateModeloMutation.isPending || modelosContrato.length === 0}
                             >
-                                <option value="">{loadingModelos ? 'Carregando...' : (modelosContrato.length === 0 ? 'Nenhum modelo cadastrado' : '-- Selecione --')}</option>
+                                <option value="">{loadingModelos ? 'Carregando...' : (modelosContrato.length === 0 ? 'Nenhum modelo disponível' : '-- Selecione --')}</option>
                                 {modelosContrato.map(modelo => (
                                     <option key={modelo.id} value={modelo.id}>
                                         {modelo.nome_modelo}
                                     </option>
                                 ))}
                             </select>
-                           {updateModeloMutation.isPending && <FontAwesomeIcon icon={faSpinner} spin className="ml-2 text-gray-500" />}
+                            {updateModeloMutation.isPending && <FontAwesomeIcon icon={faSpinner} spin className="text-blue-500" />}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* KPIs (inalterado) */}
+            {/* KPIs */}
             <div className="print:hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <KpiCard title="Valor do Contrato" value={kpiData.valorTotal} icon={faFileSignature} colorClass="text-blue-500" />
-                <KpiCard title="Total Pago" value={kpiData.totalPago} icon={faCheckCircle} colorClass="text-green-500" />
-                <KpiCard title="Saldo Devedor" value={kpiData.saldoDevedor} icon={faDollarSign} colorClass="text-yellow-500" />
-                <KpiCard title="Próxima Parcela" value={kpiData.proximaParcela} icon={faCalendarCheck} colorClass="text-purple-500" />
+                <KpiCard title="Valor do Contrato" value={kpiData.valorTotal} icon={faFileSignature} color="blue" />
+                <KpiCard title="Total Pago" value={kpiData.totalPago} icon={faCheckCircle} color="green" />
+                <KpiCard title="Saldo Devedor" value={kpiData.saldoDevedor} icon={faDollarSign} color="yellow" />
+                <KpiCard title="Próxima Parcela" value={kpiData.proximaParcela} icon={faCalendarCheck} color="purple" />
             </div>
 
-            {/* Abas (COM MUDANÇA) */}
-            <div className="print:hidden border-b border-gray-200">
-                <nav className="flex gap-4 overflow-x-auto">
-                    <TabButton tabId="resumo" label="Resumo da Venda" icon={faHandshake} />
-                    
-                    {/* --- MUDANÇA AQUI: Renderização Condicional da Aba --- */}
-                    {contrato.tipo_documento === 'CONTRATO' && (
-                        <TabButton tabId="cronograma" label="Plano e Cronograma" icon={faFileInvoiceDollar} disabled={true} /> 
-                    )}
-                    {/* --- FIM DA MUDANÇA --- */}
-                    
-                    {/* --- MUDANÇA AQUI: Label alterado --- */}
-                    <TabButton tabId="gerador" label="Gerar Documento" icon={faFileContract} disabled={true} />
-                    <TabButton tabId="documentos" label="Documentos" icon={faFileLines} disabled={true} />
-                </nav>
-            </div>
+            {/* Navegação por Abas */}
+            <div className="print:hidden bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="border-b border-gray-200 bg-gray-50/50">
+                    <nav className="flex gap-1 overflow-x-auto px-2 pt-2">
+                        <TabButton tabId="resumo" label="Resumo da Venda" icon={faHandshake} />
+                        
+                        {contrato.tipo_documento === 'CONTRATO' && (
+                            <TabButton tabId="cronograma" label="Plano e Cronograma" icon={faFileInvoiceDollar} disabled={true} /> 
+                        )}
+                        
+                        <TabButton tabId="gerador" label="Gerar Documento" icon={faFileContract} disabled={true} />
+                        <TabButton tabId="documentos" label="Anexos e Documentos" icon={faFileLines} disabled={true} />
+                    </nav>
+                </div>
 
-            {/* Conteúdo das Abas (COM MUDANÇA) */}
-            <div>
-                {activeTab === 'resumo' && (
-                    <DetalhesVendaContrato 
-                        contratoData={contrato} 
-                        onUpdate={refreshContratoData} 
-                        user={user} 
-                        clientSearchScope={clientSearchScope} 
-                    />
-                )}
-
-                {/* --- MUDANÇA AQUI: Condição extra --- */}
-                {activeTab === 'cronograma' && isClienteDefined && contrato.tipo_documento === 'CONTRATO' && (
-                    <div className="animate-fade-in space-y-6">
-                        <div className="print:hidden">
-                            <PlanoPagamentoContrato contrato={contrato} onRecalculateSuccess={refreshContratoData} onUpdate={refreshContratoData} /> 
-                        </div>
-                        <CronogramaFinanceiro
-                            contrato={contrato}
-                            desconto={descontoConcedido}
-                            onUpdate={refreshContratoData}
+                {/* Conteúdo das Abas */}
+                <div className="p-6 min-h-[400px]">
+                    {activeTab === 'resumo' && (
+                        <DetalhesVendaContrato 
+                            contratoData={contrato} 
+                            onUpdate={refreshContratoData} 
+                            user={user} 
+                            clientSearchScope={clientSearchScope} 
                         />
-                    </div>
-                )}
-                {/* --- FIM DA MUDANÇA --- */}
+                    )}
 
-                {activeTab === 'gerador' && isClienteDefined && (
-                    <GeradorContrato contrato={contrato} modeloContratoId={contrato.modelo_contrato_id} /> 
-                )}
-                {activeTab === 'documentos' && isClienteDefined && (
-                    <div className="print:hidden animate-fade-in">
-                        <ContratoAnexos contratoId={contrato.id} onUpdate={refreshContratoData} />
-                    </div>
-                )}
+                    {activeTab === 'cronograma' && isClienteDefined && contrato.tipo_documento === 'CONTRATO' && (
+                        <div className="animate-fade-in space-y-8">
+                            <div className="print:hidden">
+                                <PlanoPagamentoContrato contrato={contrato} onRecalculateSuccess={refreshContratoData} onUpdate={refreshContratoData} /> 
+                            </div>
+                            <div className="border-t pt-6">
+                                <CronogramaFinanceiro
+                                    contrato={contrato}
+                                    desconto={descontoConcedido}
+                                    onUpdate={refreshContratoData}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'gerador' && isClienteDefined && (
+                        <div className="animate-fade-in">
+                            <GeradorContrato contrato={contrato} modeloContratoId={contrato.modelo_contrato_id} /> 
+                        </div>
+                    )}
+                    {activeTab === 'documentos' && isClienteDefined && (
+                        <div className="print:hidden animate-fade-in">
+                            <ContratoAnexos contratoId={contrato.id} onUpdate={refreshContratoData} />
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
