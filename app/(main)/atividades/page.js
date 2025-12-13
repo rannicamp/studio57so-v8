@@ -1,38 +1,73 @@
 // app/(main)/atividades/page.js
 "use client";
 
+// --- 1. IMPORTAÇÕES DO SISTEMA ---
 import { useState, useEffect, useMemo } from 'react';
-import { createClient } from '../../../utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../contexts/AuthContext';
-import AtividadeModal from '../../../components/atividades/AtividadeModal';
-import ActivityList from '../../../components/atividades/ActivityList';
-import GanttChart from '../../../components/atividades/GanttChart';
-import KanbanBoard from '../../../components/atividades/KanbanBoard';
-import ActivityCalendar from '../../../components/atividades/ActivityCalendar';
-import AtividadeFiltros from '../../../components/atividades/AtividadeFiltros';
-import KpiCard from '../../../components/KpiCard';
-import AtividadeDetalhesSidebar from '@/components/atividades/AtividadeDetalhesSidebar';
-import { useLayout } from '../../../contexts/LayoutContext';
-import { useEmpreendimento } from '../../../contexts/EmpreendimentoContext';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory, faLock, faSpinner } from '@fortawesome/free-solid-svg-icons';
-import { toast } from 'sonner';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-// 1. IMPORTAÇÃO DO CARTEIRO
+import { toast } from 'sonner';
+import { useDebounce } from 'use-debounce'; // Importante para não salvar a cada letra digitada instantaneamente
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { 
+  faExclamationTriangle, 
+  faCheckCircle, 
+  faTasks, 
+  faUserClock, 
+  faHistory, 
+  faLock, 
+  faSpinner,
+  faSearch,
+  faFilter,
+  faPlus
+} from '@fortawesome/free-solid-svg-icons';
+
+// --- 2. IMPORTAÇÕES INTERNAS E CONTEXTOS ---
+import { createClient } from '@/utils/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLayout } from '@/contexts/LayoutContext';
+import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
 import { enviarNotificacao } from '@/utils/notificacoes';
 
-const ACTIVITIES_UI_STATE_KEY = 'atividadesUiState';
+// --- 3. IMPORTAÇÕES DE COMPONENTES ---
+import AtividadeModal from '@/components/atividades/AtividadeModal';
+import ActivityList from '@/components/atividades/ActivityList';
+import GanttChart from '@/components/atividades/GanttChart';
+import KanbanBoard from '@/components/atividades/KanbanBoard';
+import ActivityCalendar from '@/components/atividades/ActivityCalendar';
+import AtividadeFiltros from '@/components/atividades/AtividadeFiltros';
+import KpiCard from '@/components/KpiCard';
+import AtividadeDetalhesSidebar from '@/components/atividades/AtividadeDetalhesSidebar';
 
+// --- 4. CONFIGURAÇÃO DE PERSISTÊNCIA (PADRÃO OURO) ---
+const STORAGE_KEY = 'STUDIO57_ACTIVITIES_UI_V1';
+
+const getCachedUiState = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+        console.error("Erro ao ler cache:", e);
+        return null;
+    }
+};
+
+// Funções de busca (Fetchers)
 const fetchAllActivities = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
+    
     const { data, error } = await supabase
         .from('activities')
-        .select('*, empreendimentos(empresa_proprietaria_id), anexos:activity_anexos(*), atividade_pai:atividade_pai_id(id, nome)')
+        .select(`
+            *, 
+            empreendimentos(empresa_proprietaria_id), 
+            anexos:activity_anexos(*), 
+            atividade_pai:atividade_pai_id(id, nome)
+        `)
         .eq('organizacao_id', organizacaoId);
 
     if (error) {
-        console.error("Erro ao buscar todas as atividades:", error);
+        console.error("Erro ao buscar atividades:", error);
         throw new Error(error.message);
     }
     return data || [];
@@ -40,35 +75,50 @@ const fetchAllActivities = async (supabase, organizacaoId) => {
 
 const fetchAuxiliaryData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { funcionarios: [], allEmpresas: [] };
-    const { data: funcData, error: funcError } = await supabase.from('funcionarios').select('id, full_name').eq('organizacao_id', organizacaoId).order('full_name');
-    const { data: empresasData, error: empresasError } = await supabase.from('cadastro_empresa').select('id, razao_social').eq('organizacao_id', organizacaoId).order('razao_social');
+    
+    const { data: funcData, error: funcError } = await supabase
+        .from('funcionarios')
+        .select('id, full_name')
+        .eq('organizacao_id', organizacaoId)
+        .order('full_name');
+        
+    const { data: empresasData, error: empresasError } = await supabase
+        .from('cadastro_empresa')
+        .select('id, razao_social')
+        .eq('organizacao_id', organizacaoId)
+        .order('razao_social');
 
     if (funcError || empresasError) console.error("Erro ao carregar dados auxiliares:", { funcError, empresasError });
+    
     return { funcionarios: funcData || [], allEmpresas: empresasData || [] };
 };
 
 export default function AtividadesPage() {
+    // --- A. HOOKS E CONTEXTOS INICIAIS ---
     const supabase = createClient();
     const router = useRouter();
-    const { hasPermission, loading: authLoading, user } = useAuth();
-    const organizacaoId = user?.organizacao_id;
-    const { setPageTitle } = useLayout();
-    const { selectedEmpreendimento, empreendimentos } = useEmpreendimento();
     const queryClient = useQueryClient();
+    const { setPageTitle } = useLayout();
+    
+    const { hasPermission, loading: authLoading, user } = useAuth();
+    const { selectedEmpreendimento, empreendimentos } = useEmpreendimento();
+    const organizacaoId = user?.organizacao_id;
 
+    // Permissões
     const canViewPage = hasPermission('atividades', 'pode_ver');
     const canCreate = hasPermission('atividades', 'pode_criar');
     const canEdit = hasPermission('atividades', 'pode_editar');
     const canDelete = hasPermission('atividades', 'pode_excluir');
-    
-    const [activeTab, setActiveTab] = useState('kanban');
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingActivity, setEditingActivity] = useState(null);
-    const [sortConfig, setSortConfig] = useState({ key: 'data_inicio_prevista', direction: 'ascending' });
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [selectedActivityForSidebar, setSelectedActivityForSidebar] = useState(null);
 
-    const [filters, setFilters] = useState({ 
+    // --- B. ESTADOS COM PERSISTÊNCIA ---
+    // Recupera o estado salvo ou usa o padrão
+    const cachedState = getCachedUiState();
+
+    const [activeTab, setActiveTab] = useState(cachedState?.activeTab || 'kanban');
+    const [showFilters, setShowFilters] = useState(cachedState?.showFilters || false);
+    const [sortConfig, setSortConfig] = useState(cachedState?.sortConfig || { key: 'data_inicio_prevista', direction: 'ascending' });
+    
+    const defaultFilters = { 
         searchTerm: '', 
         empresa: '', 
         empreendimento: '', 
@@ -76,46 +126,45 @@ export default function AtividadesPage() {
         status: [], 
         startDate: '', 
         endDate: '' 
-    });
+    };
+    const [filters, setFilters] = useState(cachedState?.filters || defaultFilters);
 
+    // Estados locais (não persistidos)
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingActivity, setEditingActivity] = useState(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [selectedActivityForSidebar, setSelectedActivityForSidebar] = useState(null);
+
+    // Debounce para evitar salvar no localStorage a cada tecla digitada na busca
+    const [debouncedFilters] = useDebounce(filters, 500);
+
+    // --- C. EFEITOS (USE EFFECT) ---
+    
+    // 1. Verificação de Segurança
     useEffect(() => {
         if (!authLoading && !canViewPage) router.push('/');
     }, [authLoading, canViewPage, router]);
 
+    // 2. Título da Página
     useEffect(() => {
         setPageTitle('Painel de Atividades');
-        try {
-            const savedFilters = localStorage.getItem('atividadesFilters');
-            if (savedFilters) {
-                const parsedFilters = JSON.parse(savedFilters);
-                if (!Array.isArray(parsedFilters.status)) parsedFilters.status = [];
-                if (parsedFilters.selectedDate) { delete parsedFilters.selectedDate; }
-                setFilters(parsedFilters);
-            }
-            const savedUiState = JSON.parse(localStorage.getItem(ACTIVITIES_UI_STATE_KEY) || '{}');
-            if (savedUiState && savedUiState.activeTab) setActiveTab(savedUiState.activeTab);
-        } catch (error) {
-            console.error("Falha ao carregar estado", error);
-        }
     }, [setPageTitle]);
 
+    // 3. PERSISTÊNCIA AUTOMÁTICA (O Segredo do Padrão Ouro)
+    // Salva tudo sempre que algo importante mudar
     useEffect(() => {
-        try {
-            localStorage.setItem('atividadesFilters', JSON.stringify(filters));
-        } catch (error) {
-            console.error("Falha ao salvar filtros", error);
+        if (typeof window !== 'undefined') {
+            const stateToSave = {
+                activeTab,
+                showFilters,
+                sortConfig,
+                filters: debouncedFilters // Usa a versão com debounce para performance
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
         }
-    }, [filters]);
+    }, [activeTab, showFilters, sortConfig, debouncedFilters]);
 
-    useEffect(() => {
-        try {
-            const uiState = { activeTab };
-            localStorage.setItem(ACTIVITIES_UI_STATE_KEY, JSON.stringify(uiState));
-        } catch (error) {
-            console.error("Falha ao salvar UI", error);
-        }
-    }, [activeTab]);
-
+    // --- D. QUERIES (BUSCA DE DADOS) ---
     const { data: allActivities = [], isLoading: isLoadingActivities } = useQuery({
         queryKey: ['atividades', organizacaoId],
         queryFn: () => fetchAllActivities(supabase, organizacaoId),
@@ -128,19 +177,18 @@ export default function AtividadesPage() {
         enabled: !!organizacaoId && canViewPage,
         staleTime: 300000,
     });
+    
     const { funcionarios = [], allEmpresas = [] } = auxiliaryData || {};
 
-    // --- MUTAÇÃO DE EXCLUIR ---
+    // --- E. MUTAÇÕES ---
     const deleteMutation = useMutation({
         mutationFn: async (activityId) => {
-            // Busca o nome antes de deletar para a notificação
             const { data: act } = await supabase.from('activities').select('nome').eq('id', activityId).single();
             const { error } = await supabase.from('activities').delete().eq('id', activityId);
             if (error) throw new Error(error.message);
             return { activityId, nome: act?.nome };
         },
         onSuccess: async (data) => {
-            // 2. NOTIFICAÇÃO DE EXCLUSÃO 🔔
             await enviarNotificacao({
                 userId: user.id,
                 titulo: "🗑️ Atividade Excluída",
@@ -149,7 +197,6 @@ export default function AtividadesPage() {
                 organizacaoId: organizacaoId,
                 canal: 'operacional'
             });
-
             toast.success('Atividade deletada com sucesso!');
             queryClient.invalidateQueries(['atividades', organizacaoId]);
             setIsSidebarOpen(false);
@@ -177,7 +224,6 @@ export default function AtividadesPage() {
         onError: (error) => toast.error(`Erro ao duplicar: ${error.message}`)
     });
 
-    // --- MUTAÇÃO DE STATUS (KANBAN) ---
     const statusMutation = useMutation({
         mutationFn: async ({ activityId, newStatus, activity }) => {
             const updateData = { status: newStatus };
@@ -192,25 +238,27 @@ export default function AtividadesPage() {
             return { activity, newStatus };
         },
         onSuccess: async (data) => {
-            // 3. NOTIFICAÇÃO DE MUDANÇA DE STATUS 🔔
             await enviarNotificacao({
-                userId: user.id, // Poderia ser o dono da atividade (activity.criado_por_usuario_id)
+                userId: user.id,
                 titulo: "🔄 Status Atualizado",
                 mensagem: `"${data.activity.nome}" mudou para: ${data.newStatus}`,
                 link: '/atividades',
                 organizacaoId: organizacaoId,
                 canal: 'operacional'
             });
-
             queryClient.invalidateQueries(['atividades', organizacaoId]);
         },
         onError: (error) => toast.error(`Erro ao atualizar status: ${error.message}`)
     });
 
+    // --- F. LÓGICA DE FILTRAGEM ---
     const filteredActivities = useMemo(() => {
         return allActivities
             .filter(act => {
+                // Filtro Global de Empreendimento
                 if (selectedEmpreendimento !== 'all' && act.empreendimento_id != selectedEmpreendimento) return false;
+                
+                // Filtros Locais (Usando o estado `filters` diretamente para resposta rápida na UI)
                 if (filters.searchTerm) {
                     const term = filters.searchTerm.toLowerCase();
                     const matchesName = act.nome?.toLowerCase().includes(term);
@@ -222,6 +270,7 @@ export default function AtividadesPage() {
                 if (filters.empreendimento && act.empreendimento_id != filters.empreendimento) return false;
                 if (filters.responsavel && act.funcionario_id != filters.responsavel) return false;
                 if (filters.status.length > 0 && !filters.status.includes(act.status)) return false;
+                
                 if (filters.startDate || filters.endDate) {
                     if (!act.data_inicio_prevista) return false;
                     const actStart = act.data_inicio_prevista;
@@ -238,6 +287,7 @@ export default function AtividadesPage() {
             });
     }, [selectedEmpreendimento, allActivities, filters, sortConfig]);
 
+    // --- G. KPIs e Helpers ---
     const kpiData = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -256,6 +306,11 @@ export default function AtividadesPage() {
             reprogramadas: filteredActivities.filter(act => act.data_fim_original).length,
         };
     }, [filteredActivities]);
+
+    const selectedEmpreendimentoObj = useMemo(() => {
+        if(!selectedEmpreendimento || selectedEmpreendimento === 'all') return null;
+        return empreendimentos.find(e => e.id.toString() === selectedEmpreendimento);
+    }, [selectedEmpreendimento, empreendimentos]);
 
     const handleDuplicateActivity = (act) => {
         if (!canCreate) { toast.error("Sem permissão."); return; }
@@ -289,26 +344,40 @@ export default function AtividadesPage() {
         setSortConfig({ key, direction });
     };
 
-    const selectedEmpreendimentoObj = useMemo(() => {
-        if(!selectedEmpreendimento || selectedEmpreendimento === 'all') return null;
-        return empreendimentos.find(e => e.id.toString() === selectedEmpreendimento);
-    }, [selectedEmpreendimento, empreendimentos]);
-
-    const TabButton = ({ tabName, label }) => (
-        <button onClick={() => setActiveTab(tabName)} className={`${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm`}>{label}</button>
-    );
-
     const handleFilterChange = (name, value) => {
         setFilters(prev => ({ ...prev, [name]: value }));
     };
 
     const clearFilters = () => {
         setFilters({ searchTerm: '', empresa: '', empreendimento: '', responsavel: '', status: [], startDate: '', endDate: '' });
-        localStorage.removeItem('atividadesFilters');
     };
 
-    if (authLoading || (isLoadingActivities && !allActivities.length)) return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando...</div>;
-    if (!canViewPage) return <div className="text-center p-10 text-red-600"><FontAwesomeIcon icon={faLock} size="3x" /> Acesso Negado</div>;
+    const TabButton = ({ tabName, label }) => (
+        <button 
+            onClick={() => setActiveTab(tabName)} 
+            className={`${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm`}
+        >
+            {label}
+        </button>
+    );
+
+    if (authLoading || (isLoadingActivities && !allActivities.length)) {
+        return (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+                <FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-4 text-blue-500" /> 
+                <p>Carregando atividades...</p>
+            </div>
+        );
+    }
+    
+    if (!canViewPage) {
+        return (
+            <div className="flex flex-col items-center justify-center h-64 text-red-600">
+                <FontAwesomeIcon icon={faLock} size="3x" className="mb-4" /> 
+                <p className="font-semibold">Acesso Negado</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -319,22 +388,64 @@ export default function AtividadesPage() {
                 onEditActivity={handleEditClick}
             />
 
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-lg shadow">
-                <h2 className="text-xl font-semibold">
-                    {selectedEmpreendimentoObj?.nome || 'Todas as Atividades'}
-                </h2>
-                {canCreate && (
-                    <button onClick={() => handleEditClick(null)} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 w-full md:w-auto">+ Nova Atividade</button>
-                )}
+            {/* --- 1. HEADER PADRÃO CRM --- */}
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white p-6 rounded-lg shadow-sm">
+                
+                <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-bold text-gray-800">
+                        {selectedEmpreendimentoObj?.nome || 'Todas as Atividades'}
+                    </h2>
+                    <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-2">
+                         {filteredActivities.length} atividades
+                    </span>
+                </div>
+
+                <div className="flex flex-wrap gap-2 items-center w-full xl:w-auto">
+                    
+                    <div className="relative flex-grow xl:flex-grow-0 min-w-[250px]">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <FontAwesomeIcon icon={faSearch} className="text-gray-400" />
+                        </div>
+                        <input 
+                            type="text" 
+                            placeholder="Buscar atividade..." 
+                            value={filters.searchTerm} 
+                            onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        />
+                    </div>
+
+                    <button 
+                        onClick={() => setShowFilters(!showFilters)} 
+                        className={`border font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200 ${showFilters ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                        title="Filtros Avançados"
+                    >
+                        <FontAwesomeIcon icon={faFilter} className={showFilters ? "text-blue-500 mr-2" : "text-gray-500 mr-2"} />
+                        Filtros
+                    </button>
+
+                    {canCreate && (
+                        <button 
+                            onClick={() => handleEditClick(null)} 
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow flex items-center transition duration-200"
+                        >
+                            <FontAwesomeIcon icon={faPlus} className="mr-2" /> Nova Atividade
+                        </button>
+                    )}
+                </div>
             </div>
 
-            <AtividadeFiltros 
-                filters={filters} 
-                onChange={handleFilterChange} 
-                onClear={clearFilters} 
-                listas={{ funcionarios, allEmpresas, empreendimentos }} 
-            />
+            {/* --- 2. FILTROS AVANÇADOS (VISIBILIDADE PERSISTENTE) --- */}
+            {showFilters && (
+                <AtividadeFiltros 
+                    filters={filters} 
+                    onChange={handleFilterChange} 
+                    onClear={clearFilters} 
+                    listas={{ funcionarios, allEmpresas, empreendimentos }} 
+                />
+            )}
 
+            {/* --- 3. KPIs --- */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 <KpiCard title="Atrasadas" value={kpiData.atrasadas} icon={faExclamationTriangle} color="red" />
                 <KpiCard title="Ativas" value={kpiData.ativas} icon={faTasks} color="blue" />
@@ -343,24 +454,59 @@ export default function AtividadesPage() {
                 <KpiCard title="Reprogramadas" value={kpiData.reprogramadas} icon={faHistory} color="purple" />
             </div>
 
-            <div className="border-b border-gray-200 bg-white shadow-sm rounded-t-lg">
-                <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">
-                    <TabButton tabName="kanban" label="Kanban" />
-                    <TabButton tabName="list" label="Lista" />
-                    <TabButton tabName="gantt" label="Gantt" />
-                    <TabButton tabName="calendar" label="Calendário" />
-                </nav>
-            </div>
+            {/* --- 4. ABAS E CONTEÚDO (ABA ATIVA PERSISTENTE) --- */}
+            <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+                <div className="border-b border-gray-200">
+                    <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">
+                        <TabButton tabName="kanban" label="Kanban" />
+                        <TabButton tabName="list" label="Lista" />
+                        <TabButton tabName="gantt" label="Gantt" />
+                        <TabButton tabName="calendar" label="Calendário" />
+                    </nav>
+                </div>
 
-            <div className="mt-4">
-                {(isLoadingActivities && !allActivities.length) ? <p className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin /> Carregando atividades...</p> : (
-                    <>
-                        {activeTab === 'kanban' && <KanbanBoard activities={filteredActivities} onEditActivity={handleCardClick} onStatusChange={handleStatusChange} canEdit={canEdit} onDeleteActivity={handleDeleteClick} onDuplicateActivity={handleDuplicateActivity} />}
-                        {activeTab === 'list' && <ActivityList activities={filteredActivities} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} />}
-                        {activeTab === 'gantt' && <GanttChart activities={filteredActivities} onEditActivity={handleEditClick} />}
-                        {activeTab === 'calendar' && <ActivityCalendar activities={filteredActivities} onActivityClick={handleCardClick} />}
-                    </>
-                )}
+                <div className="p-4 bg-gray-50 min-h-[500px]">
+                    {(isLoadingActivities && !allActivities.length) ? (
+                        <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin /> Atualizando...</div>
+                    ) : (
+                        <>
+                            {activeTab === 'kanban' && (
+                                <KanbanBoard 
+                                    activities={filteredActivities} 
+                                    onEditActivity={handleCardClick} 
+                                    onStatusChange={handleStatusChange} 
+                                    canEdit={canEdit} 
+                                    onDeleteActivity={handleDeleteClick} 
+                                    onDuplicateActivity={handleDuplicateActivity} 
+                                />
+                            )}
+                            {activeTab === 'list' && (
+                                <ActivityList 
+                                    activities={filteredActivities} 
+                                    requestSort={requestSort} 
+                                    sortConfig={sortConfig} 
+                                    onEditClick={handleEditClick} 
+                                    onDeleteClick={handleDeleteClick} 
+                                    onStatusChange={handleStatusChange} 
+                                    canEdit={canEdit} 
+                                    canDelete={canDelete} 
+                                />
+                            )}
+                            {activeTab === 'gantt' && (
+                                <GanttChart 
+                                    activities={filteredActivities} 
+                                    onEditActivity={handleEditClick} 
+                                />
+                            )}
+                            {activeTab === 'calendar' && (
+                                <ActivityCalendar 
+                                    activities={filteredActivities} 
+                                    onActivityClick={handleCardClick} 
+                                />
+                            )}
+                        </>
+                    )}
+                </div>
             </div>
 
             {isModalOpen && (
