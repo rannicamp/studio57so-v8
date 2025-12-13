@@ -1,17 +1,15 @@
 // components/rh/GerenciamentoPonto.js
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import FolhaPonto from '../FolhaPonto';
 import PontoImporter from '../PontoImporter';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faFileImport, faTimes, faCheckCircle, faExclamationCircle, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTimes, faCheckCircle, faExclamationCircle, faInfoCircle, faSearch } from '@fortawesome/free-solid-svg-icons';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
-import { toast } from 'sonner';
 
-// O Toast customizado pode ser mantido, ou substituído pelo Sonner global
 const ToastComponent = ({ message, type, onclose }) => {
     useEffect(() => { const timer = setTimeout(onclose, 4000); return () => clearTimeout(timer); }, [onclose]);
     const styles = { success: { bg: 'bg-green-500', icon: faCheckCircle }, error: { bg: 'bg-red-500', icon: faExclamationCircle }, info: { bg: 'bg-blue-500', icon: faInfoCircle } };
@@ -22,13 +20,13 @@ const ToastComponent = ({ message, type, onclose }) => {
 const ImporterModal = ({ isOpen, onClose, children }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-50 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-                <div className="flex justify-between items-center p-4 border-b">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-gray-100">
+                <div className="flex justify-between items-center p-5 border-b border-gray-100">
                     <h2 className="text-xl font-bold text-gray-800">Importar Registros de Ponto</h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><FontAwesomeIcon icon={faTimes} size="lg"/></button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition-colors"><FontAwesomeIcon icon={faTimes} size="lg"/></button>
                 </div>
-                <div className="p-6 overflow-y-auto">{children}</div>
+                <div className="p-6 overflow-y-auto custom-scrollbar">{children}</div>
             </div>
         </div>
     );
@@ -47,16 +45,12 @@ const fetchAllEmployees = async (organizacao_id) => {
     return data || [];
 };
 
-export default function GerenciamentoPonto() {
+// Recebendo searchTerm e controles do Modal do Pai
+export default function GerenciamentoPonto({ searchTerm = '', isImporterOpen, onCloseImporter }) {
     const { hasPermission, organizacao_id } = useAuth();
     const canCreate = hasPermission('ponto', 'pode_criar');
     const canEdit = hasPermission('ponto', 'pode_editar');
     
-    // =================================================================================
-    // CARREGAMENTO MÁGICO (CACHE)
-    // staleTime: 5 minutos. Significa que por 5 min, se você voltar aqui,
-    // ele usa os dados da memória instantaneamente.
-    // =================================================================================
     const { data: employees = [], isLoading, error, refetch: refetchEmployees } = useQuery({ 
         queryKey: ['employeesPonto', organizacao_id], 
         queryFn: () => fetchAllEmployees(organizacao_id),
@@ -66,12 +60,19 @@ export default function GerenciamentoPonto() {
 
     const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
     const [selectedMonth, setSelectedMonth] = useState('');
-    const [isImporterOpen, setIsImporterOpen] = useState(false);
+    
+    // Removemos o estado local isImporterOpen pois agora vem via props
+    
     const [internalToast, setInternalToast] = useState({ show: false, message: '', type: 'info' });
     
-    // Filtro para separar ativos de demitidos
-    const activeEmployees = employees.filter(emp => emp.status !== 'Demitido');
-    const dismissedEmployees = employees.filter(emp => emp.status === 'Demitido');
+    // LÓGICA DE FILTRO INTELIGENTE
+    const filteredEmployeesList = useMemo(() => {
+        if (!searchTerm) return employees;
+        return employees.filter(e => e.full_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }, [employees, searchTerm]);
+
+    const activeEmployees = filteredEmployeesList.filter(emp => emp.status !== 'Demitido');
+    const dismissedEmployees = filteredEmployeesList.filter(emp => emp.status === 'Demitido');
 
     useEffect(() => {
         const today = new Date();
@@ -94,75 +95,85 @@ export default function GerenciamentoPonto() {
     };
 
     const handleSuccessfulImport = () => {
-        setIsImporterOpen(false);
-        // Após importar, atualizamos os dados para refletir na tela se necessário
+        onCloseImporter(); // Fecha usando a função do pai
         refetchEmployees();
-        
-        // Pequeno truque para forçar reload do componente filho FolhaPonto se estiver aberto
         const currentId = selectedEmployeeId;
         if(currentId) {
             setSelectedEmployeeId('');
             setTimeout(() => setSelectedEmployeeId(currentId), 100);
         }
+        setInternalToast({ show: true, message: "Importação concluída com sucesso!", type: "success" });
     };
     
-    if (isLoading) return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>;
-    if (error) return <p className="text-center mt-10 text-red-500">{error.message}</p>;
+    if (isLoading) return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-blue-500" /></div>;
+    if (error) return <p className="text-center mt-10 text-red-500 bg-red-50 p-4 rounded">{error.message}</p>;
 
     return (
         <div className="space-y-6">
             {internalToast.show && <ToastComponent message={internalToast.message} type={internalToast.type} onclose={() => setInternalToast({ ...internalToast, show: false })} />}
             
-            <ImporterModal isOpen={isImporterOpen} onClose={() => setIsImporterOpen(false)}>
+            {/* Modal controlado pelo Pai */}
+            <ImporterModal isOpen={isImporterOpen} onClose={onCloseImporter}>
                 <PontoImporter employees={employees} onImport={handleSuccessfulImport} />
             </ImporterModal>
 
-            <div className="flex justify-between items-center no-print">
-                <p className="text-gray-600">Visualize e edite a folha de ponto dos funcionários.</p>
-                {canCreate && (
-                    <button onClick={() => setIsImporterOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center gap-2">
-                        <FontAwesomeIcon icon={faFileImport} /> Importar
-                    </button>
-                )}
-            </div>
+            {/* Removemos a Barra de Ação Local antiga aqui */}
             
-            <div className="bg-white p-6 rounded-lg shadow-md no-print">
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 no-print">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                     <div>
-                        <label htmlFor="employee-select" className="block text-sm font-medium text-gray-700">Funcionário</label>
+                        <label htmlFor="employee-select" className="block text-sm font-medium text-gray-700 mb-1">
+                            Selecione o Funcionário
+                            {searchTerm && <span className="text-xs text-blue-500 font-normal ml-2">(Filtrado por: "{searchTerm}")</span>}
+                        </label>
                         <select 
                             id="employee-select" 
                             value={selectedEmployeeId} 
                             onChange={(e) => handleEmployeeChange(e.target.value)} 
-                            className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
+                            className="mt-1 block w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
                         >
-                            <option value="">-- Selecione um funcionário --</option>
+                            <option value="">-- Escolha na lista --</option>
                             
                             {activeEmployees.map(emp => (
                                 <option key={emp.id} value={emp.id}>{emp.full_name}</option>
                             ))}
                             
                             {dismissedEmployees.length > 0 && (
-                                <optgroup label="--- Funcionários Demitidos ---">
+                                <optgroup label="--- Demitidos ---">
                                     {dismissedEmployees.map(emp => (
                                         <option key={emp.id} value={emp.id}>{emp.full_name}</option>
                                     ))}
                                 </optgroup>
                             )}
                         </select>
+                        {activeEmployees.length === 0 && dismissedEmployees.length === 0 && searchTerm && (
+                            <p className="text-xs text-red-400 mt-1">Nenhum funcionário encontrado com esse nome.</p>
+                        )}
                     </div>
                     <div>
-                        <label htmlFor="month-select" className="block text-sm font-medium text-gray-700">Mês/Ano</label>
-                        <input type="month" id="month-select" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                        <label htmlFor="month-select" className="block text-sm font-medium text-gray-700 mb-1">Mês de Referência</label>
+                        <input 
+                            type="month" 
+                            id="month-select" 
+                            value={selectedMonth} 
+                            onChange={(e) => setSelectedMonth(e.target.value)} 
+                            className="mt-1 block w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm" 
+                        />
                     </div>
                 </div>
             </div>
             
             {selectedEmployeeId && selectedMonth ? (
-                <FolhaPonto key={`${selectedEmployeeId}-${selectedMonth}`} employeeId={selectedEmployeeId} month={selectedMonth} canEdit={canEdit || canCreate} />
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <FolhaPonto key={`${selectedEmployeeId}-${selectedMonth}`} employeeId={selectedEmployeeId} month={selectedMonth} canEdit={canEdit || canCreate} />
+                </div>
             ) : (
-                 <div className="text-center p-10 bg-gray-50 rounded-lg no-print">
-                    <p className="text-gray-600">Selecione um funcionário e um mês para visualizar a folha de ponto.</p>
+                 <div className="text-center p-12 bg-gray-50 rounded-xl border border-dashed border-gray-200 no-print flex flex-col items-center">
+                    <div className="bg-white p-4 rounded-full shadow-sm mb-4">
+                        <FontAwesomeIcon icon={faSearch} className="text-gray-300 text-2xl" />
+                    </div>
+                    <p className="text-gray-500 font-medium">Selecione um funcionário e o mês acima</p>
+                    <p className="text-xs text-gray-400 mt-1">Os dados do ponto aparecerão aqui.</p>
                  </div>
             )}
         </div>
