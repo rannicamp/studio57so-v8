@@ -1,17 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faReceipt, faCalendarAlt, faRetweet, faExchangeAlt, faArrowUp, faArrowDown, faTimes, faPlus, faPaperclip, faUpload, faFileLines, faEye, faTrashAlt, faRobot } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faSpinner, faReceipt, faCalendarAlt, faRetweet, faExchangeAlt, 
+    faArrowUp, faArrowDown, faTimes, faPaperclip, faUpload, 
+    faFileLines, faEye, faTrashAlt 
+} from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 import { toast } from 'sonner';
-// 1. ATUALIZADO: Importamos o Carteiro "em Massa"
 import { notificarGrupo } from '@/utils/notificacoes';
 
-// Componentes internos (Mantidos idênticos)
+// Componentes internos (Mantidos)
 const TipoToggleButton = ({ label, icon, isActive, onClick, colorClass = 'bg-blue-500 hover:bg-blue-600' }) => {
     const baseClasses = "flex-1 p-2 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-colors";
     const activeClasses = `shadow text-white ${colorClass}`;
@@ -69,6 +72,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         data_vencimento: new Date().toISOString().split('T')[0],
         conta_origem_id: null,
         conta_destino_id: null,
+        pedido_compra_id: null, // <-- MANTIDO: Vínculo com Pedido
     });
 
     const [formData, setFormData] = useState(getInitialState());
@@ -77,9 +81,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     const [isSearchingFavorecido, setIsSearchingFavorecido] = useState(false);
     const [searchAttempted, setSearchAttempted] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
-    const [aiFile, setAiFile] = useState(null);
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-
 
     const fetchDropdownData = async () => {
         if (!organizacaoId) return null;
@@ -111,9 +112,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     
     const sanitizeFileName = (fileName) => {
         const withoutAccents = fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const sanitized = withoutAccents
-          .replace(/\s+/g, '_')
-          .replace(/[^a-zA-Z0-9._-]/g, '');
+        const sanitized = withoutAccents.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
         return sanitized;
     };
 
@@ -146,6 +145,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 organizacao_id: organizacaoId,
                 conta_id: formData.conta_id,
                 tipo: formData.tipo,
+                pedido_compra_id: formData.pedido_compra_id, // <-- MANTIDO: Vínculo com Pedido
             };
 
             let lancamentosSalvos = [];
@@ -285,7 +285,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             return lancamentosSalvos;
         },
         
-        // 2. CORRIGIDO: Agora usamos 'notificarGrupo' para avisar toda a equipe
         onSuccess: async (data) => {
             if (!isEditing && data && data.length > 0) {
                 const lancamentoPrincipal = data[0];
@@ -301,19 +300,19 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     msgNotif = `${lancamentoPrincipal.descricao} - ${valorFormatado} (Vence: ${new Date(lancamentoPrincipal.data_vencimento).toLocaleDateString('pt-BR')})`;
                 }
                 
-                // DISPARO EM MASSA (Fan-out)
-                // Avisa todos que têm a permissão 'financeiro'
                 await notificarGrupo({
                     permissao: 'financeiro', 
                     titulo: tituloNotif,
                     mensagem: msgNotif,
                     link: '/financeiro',
-                    tipo: 'financeiro', // Define o ícone de dinheiro verde
+                    tipo: 'financeiro',
                     organizacaoId: organizacaoId
                 });
             }
 
             queryClient.invalidateQueries({queryKey: ['lancamentos']});
+            queryClient.invalidateQueries({queryKey: ['painelCompras']});
+            
             if (onSuccess) onSuccess();
             toast.success('Operação realizada com sucesso!');
             setTimeout(onClose, 1500);
@@ -350,7 +349,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             }
             setFavorecidoSearchResults([]);
             setSearchAttempted(false);
-            setAiFile(null);
         }
     }, [isOpen, initialData]);
 
@@ -462,10 +460,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
             return { ...prev, anexos: newAnexos };
         });
     };
-
-    const handleAiFileChange = (e) => { if (e.target.files && e.target.files[0]) { setAiFile(e.target.files[0]); } };
-    const handleAiExtract = async () => { /* Código existente sem alteração */ };
-
 
     const buildHierarchy = (items, parentId = null) => {
         return items
