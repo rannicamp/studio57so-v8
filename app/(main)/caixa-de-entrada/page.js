@@ -10,6 +10,7 @@ import MessagePanel from '@/components/whatsapp/MessagePanel';
 import BroadcastPanel from '@/components/whatsapp/BroadcastPanel';
 import ContactProfile from '@/components/whatsapp/ContactProfile';
 import EmailConfigModal from '@/components/email/EmailConfigModal';
+import EmailListPanel from '@/components/email/EmailListPanel'; // <--- NOVO IMPORT
 import { Toaster } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -40,7 +41,6 @@ const getEmailFolders = async () => {
     const res = await fetch('/api/email/folders');
     if (!res.ok) {
         const errorData = await res.json();
-        // Se for 404, é configuração inexistente. Se for 500, é erro de conexão (senha/host).
         throw new Error(errorData.error || 'Erro ao buscar pastas');
     }
     return res.json();
@@ -53,7 +53,7 @@ const getFolderIcon = (name) => {
     if (n.includes('sent') || n.includes('enviad')) return faPaperPlane;
     if (n.includes('trash') || n.includes('lixeira')) return faTrash;
     if (n.includes('spam') || n.includes('junk')) return faBan;
-    return faFolder; // Padrão
+    return faFolder; 
 };
 
 export default function CaixaDeEntrada() {
@@ -116,9 +116,9 @@ export default function CaixaDeEntrada() {
     } = useQuery({
         queryKey: ['emailFolders'],
         queryFn: getEmailFolders,
-        enabled: isEmailTab, // Só busca se estiver na aba de e-mail
-        retry: false, // Não insiste se der erro (ex: senha errada)
-        refetchOnWindowFocus: false, // Evita recarregar toda hora
+        enabled: isEmailTab, 
+        retry: false, 
+        refetchOnWindowFocus: false, 
     });
 
     // --- 5. REALTIME UPDATES (WHATSAPP) ---
@@ -317,24 +317,8 @@ export default function CaixaDeEntrada() {
                 ) : (
                     // --- CONTEÚDO E-MAIL ---
                     selectedEmailFolder ? (
-                        <div className="flex flex-col h-full bg-white">
-                            {/* Header da Pasta */}
-                            <div className="h-16 border-b flex items-center px-6 justify-between bg-white shrink-0">
-                                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                                    <FontAwesomeIcon icon={getFolderIcon(selectedEmailFolder.name)} className="text-blue-500" />
-                                    {selectedEmailFolder.name}
-                                </h3>
-                                {/* Botão Voltar no Mobile */}
-                                <button onClick={handleBackToList} className="md:hidden text-gray-500">Voltar</button>
-                            </div>
-                            
-                            {/* Lista de Mensagens (Vazio por enquanto) */}
-                            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
-                                <FontAwesomeIcon icon={faEnvelope} className="text-4xl mb-3 text-gray-300" />
-                                <p className="text-sm">Lista de mensagens em breve...</p>
-                                <p className="text-xs mt-1">Estamos construindo o leitor de e-mails.</p>
-                            </div>
-                        </div>
+                        // AQUI ENTRA O NOVO COMPONENTE DE LISTA DE MENSAGENS
+                        <EmailListPanel folder={selectedEmailFolder} onBack={handleBackToList} />
                     ) : (
                         // Estado Inicial do Painel de E-mail
                         <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500 p-8 text-center">
