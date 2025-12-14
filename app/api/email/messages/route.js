@@ -1,15 +1,44 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import imapSimple from 'imap-simple';
-import { simpleParser } from 'mailparser';
+
+// Função auxiliar simples para ler cabeçalhos sem bibliotecas pesadas
+const parseHeader = (headerString) => {
+    try {
+        const subjectMatch = headerString.match(/^Subject: (.*)$/im);
+        const fromMatch = headerString.match(/^From: (.*)$/im);
+        const dateMatch = headerString.match(/^Date: (.*)$/im);
+        
+        // Decodificação básica de UTF-8 (ex: =?UTF-8?B?...)
+        const decode = (str) => {
+            if (!str) return '';
+            if (str.startsWith('=?') && typeof Buffer !== 'undefined') {
+                const parts = str.split('?');
+                if (parts[2] === 'B') return Buffer.from(parts[3], 'base64').toString('utf-8');
+                if (parts[2] === 'Q') return parts[3].replace(/=/g, '%').replace(/_/g, ' '); // Simplificado
+            }
+            return str;
+        };
+
+        return {
+            subject: decode(subjectMatch ? subjectMatch[1] : '(Sem Assunto)'),
+            from: decode(fromMatch ? fromMatch[1] : 'Desconhecido'),
+            date: dateMatch ? new Date(dateMatch[1]) : new Date()
+        };
+    } catch (e) {
+        return { subject: '(Erro ao ler)', from: 'Erro', date: new Date() };
+    }
+};
 
 export async function GET(request) {
   const supabase = createClient();
   const { searchParams } = new URL(request.url);
-  const folderName = searchParams.get('folder') || 'INBOX'; // Pega o nome da pasta clicada
+  const folderParam = searchParams.get('folder');
+  // Se não vier pasta, assume INBOX. Decodifica caracteres especiais.
+  const folderName = folderParam ? decodeURIComponent(folderParam) : 'INBOX';
 
   try {
-    // 1. Autenticação e Configuração (Igual ao anterior)
+    // 1. Segurança
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
@@ -21,6 +50,7 @@ export async function GET(request) {
 
     if (!config) return NextResponse.json({ error: 'Configuração não encontrada' }, { status: 404 });
 
+    // 2. Conexão
     const imapConfig = {
       imap: {
         user: config.imap_user || config.email,
@@ -28,51 +58,65 @@ export async function GET(request) {
         host: config.imap_host,
         port: config.imap_port || 993,
         tls: true,
-        authTimeout: 10000,
+        authTimeout: 15000, // Aumentei para 15s
         tlsOptions: { rejectUnauthorized: false }
       },
     };
 
-    // 2. Conectar e Abrir a Pasta
     const connection = await imapSimple.connect(imapConfig);
     
-    // Abre a pasta específica (ex: INBOX)
-    await connection.openBox(folderName);
+    // 3. Abrir Pasta
+    const box = await connection.openBox(folderName);
+    const totalMessages = box.messages.total;
 
-    // 3. Estratégia de Busca Rápida (Últimos 20 e-mails)
-    // O '*' significa o último e-mail. '*-19' significa 20 atrás.
-    const searchCriteria = ['1:*']; // Pega tudo se for pouco, ou ajustamos range
+    if (totalMessages === 0) {
+        connection.end();
+        return NextResponse.json({ messages: [] });
+    }
+
+    // 4. Buscar últimos 50 (Estratégia de Sequência)
+    const limit = 50;
+    const start = Math.max(1, totalMessages - limit + 1);
+    const sequence = `${start}:${totalMessages}`;
+
     const fetchOptions = {
-      bodies: ['HEADER'], // Pega apenas o cabeçalho primeiro (RÁPIDO)
-      struct: true,
-      markSeen: false
+      bodies: 'HEADER.FIELDS (FROM SUBJECT DATE)', // Pede campos específicos (mais rápido e seguro)
+      struct: true
     };
 
-    // Para ser eficiente, pegamos o total de mensagens e calculamos o range
-    // Mas para simplificar a V1, vamos buscar os headers dos últimos 50
-    const delay = 24 * 3600 * 1000 * 30; // Últimos 30 dias (exemplo)
-    const since = new Date();
-    since.setTime(since.getTime() - delay);
-    const searchSince = [['SINCE', since]];
-
-    const messages = await connection.search(searchSince, fetchOptions);
-    
-    // 4. Processar os dados para o Front
-    const emailList = messages.map(msg => {
-      const header = msg.parts.find(p => p.which === 'HEADER');
-      const body = header?.body || {};
-      
-      return {
-        id: msg.attributes.uid,
-        seq: msg.seq,
-        subject: body.subject?.[0] || '(Sem assunto)',
-        from: body.from?.[0] || 'Desconhecido',
-        date: body.date?.[0] || msg.attributes.date,
-        flags: msg.attributes.flags
-      };
+    // Uso direto do node-imap para performance
+    const emailList = await new Promise((resolve, reject) => {
+        const fetched = [];
+        const f = connection.imap.seq.fetch(sequence, fetchOptions);
+        
+        f.on('message', (msg, seqno) => {
+            let attributes;
+            let headerRaw = '';
+            
+            msg.on('body', (stream) => {
+                stream.on('data', (chunk) => { headerRaw += chunk.toString('utf8'); });
+            });
+            
+            msg.on('attributes', (attrs) => { attributes = attrs; });
+            
+            msg.on('end', () => {
+                const parsed = parseHeader(headerRaw);
+                fetched.push({
+                    id: attributes?.uid || seqno,
+                    seq: seqno,
+                    subject: parsed.subject,
+                    from: parsed.from.replace(/<.*>/, '').trim(), // Limpa o email <...> do nome
+                    date: parsed.date,
+                    flags: attributes?.flags || []
+                });
+            });
+        });
+        
+        f.once('error', (err) => reject(err));
+        f.once('end', () => resolve(fetched));
     });
 
-    // Ordenar do mais novo para o mais velho
+    // Ordena do mais novo para o mais velho
     emailList.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     connection.end();
@@ -80,7 +124,7 @@ export async function GET(request) {
     return NextResponse.json({ messages: emailList });
 
   } catch (error) {
-    console.error('Erro ao ler mensagens:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Erro API Email:', error);
+    return NextResponse.json({ error: 'Erro ao buscar e-mails: ' + error.message }, { status: 500 });
   }
 }
