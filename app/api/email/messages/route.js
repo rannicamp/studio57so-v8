@@ -2,30 +2,69 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import imapSimple from 'imap-simple';
 
-// Função auxiliar simples para ler cabeçalhos sem bibliotecas pesadas
+// --- SUPER DECODIFICADOR DE CABEÇALHOS (Versão PT-BR) ---
+const decodeHeaderValue = (str) => {
+    if (!str) return '';
+
+    // 1. Unfold: Junta linhas que foram quebradas (padrão RFC 2822)
+    const unfolded = str.replace(/\r\n\s+/g, ' ');
+
+    // 2. Regex para encontrar palavras codificadas
+    const encodedWordRegex = /=\?([\w-]+)\?([BbQq])\?([^\?]*)\?=/g;
+
+    if (!encodedWordRegex.test(unfolded)) {
+        return unfolded.replace(/^"|"$/g, '');
+    }
+
+    return unfolded.replace(encodedWordRegex, (match, charset, encoding, content) => {
+        try {
+            const lowerCharset = charset.toLowerCase();
+            let buffer;
+
+            if (encoding.toUpperCase() === 'B') {
+                buffer = Buffer.from(content, 'base64');
+            } else {
+                const bytes = [];
+                for (let i = 0; i < content.length; i++) {
+                    const char = content[i];
+                    if (char === '_') {
+                        bytes.push(32);
+                    } else if (char === '=') {
+                        const hex = content.substr(i + 1, 2);
+                        if (hex && /^[0-9A-Fa-f]{2}$/.test(hex)) {
+                            bytes.push(parseInt(hex, 16));
+                            i += 2;
+                        } else {
+                            bytes.push(61);
+                        }
+                    } else {
+                        bytes.push(char.charCodeAt(0));
+                    }
+                }
+                buffer = Buffer.from(bytes);
+            }
+
+            const decoder = new TextDecoder(lowerCharset);
+            return decoder.decode(buffer);
+
+        } catch (err) {
+            console.error('Erro ao decodificar:', match, err);
+            return match;
+        }
+    });
+};
+
 const parseHeader = (headerString) => {
     try {
-        const subjectMatch = headerString.match(/^Subject: (.*)$/im);
-        const fromMatch = headerString.match(/^From: (.*)$/im);
-        const dateMatch = headerString.match(/^Date: (.*)$/im);
+        const cleanHeader = headerString.replace(/\r\n\s+/g, ' ');
         
-        // Decodificação básica de UTF-8 (ex: =?UTF-8?B?...)
-        const decode = (str) => {
-            if (!str) return '';
-            // Remove aspas extras se houver
-            str = str.replace(/^"|"$/g, '');
-            
-            if (str.startsWith('=?') && typeof Buffer !== 'undefined') {
-                const parts = str.split('?');
-                if (parts[2] === 'B') return Buffer.from(parts[3], 'base64').toString('utf-8');
-                if (parts[2] === 'Q') return parts[3].replace(/=/g, '%').replace(/_/g, ' '); 
-            }
-            return str;
-        };
+        const subjectMatch = cleanHeader.match(/^Subject: (.*)$/im);
+        const fromMatch = cleanHeader.match(/^From: (.*)$/im);
+        const dateMatch = cleanHeader.match(/^Date: (.*)$/im);
 
         return {
-            subject: decode(subjectMatch ? subjectMatch[1] : '(Sem Assunto)'),
-            from: decode(fromMatch ? fromMatch[1] : 'Desconhecido'),
+            subject: decodeHeaderValue(subjectMatch ? subjectMatch[1].trim() : '(Sem Assunto)'),
+            from: decodeHeaderValue(fromMatch ? fromMatch[1].replace(/<.*>/, '').trim() : 'Desconhecido'),
             date: dateMatch ? new Date(dateMatch[1]) : new Date()
         };
     } catch (e) {
@@ -37,15 +76,13 @@ export async function GET(request) {
   const supabase = createClient();
   const { searchParams } = new URL(request.url);
   const folderParam = searchParams.get('folder');
-  const pageParam = searchParams.get('page'); // <--- NOVO: Parâmetro de página
+  const pageParam = searchParams.get('page');
   
-  // Se não vier pasta, assume INBOX.
   const folderName = folderParam ? decodeURIComponent(folderParam) : 'INBOX';
-  const page = parseInt(pageParam || '1'); // Página padrão é 1
-  const pageSize = 50; // Quantos e-mails por vez
+  const page = parseInt(pageParam || '1');
+  const pageSize = 50;
 
   try {
-    // 1. Segurança e Configuração
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
@@ -57,7 +94,6 @@ export async function GET(request) {
 
     if (!config) return NextResponse.json({ error: 'Configuração não encontrada' }, { status: 404 });
 
-    // 2. Conexão IMAP
     const imapConfig = {
       imap: {
         user: config.imap_user || config.email,
@@ -71,8 +107,6 @@ export async function GET(request) {
     };
 
     const connection = await imapSimple.connect(imapConfig);
-    
-    // 3. Abrir Pasta
     const box = await connection.openBox(folderName);
     const totalMessages = box.messages.total;
 
@@ -81,76 +115,52 @@ export async function GET(request) {
         return NextResponse.json({ messages: [], hasMore: false, total: 0 });
     }
 
-    // 4. Lógica de Paginação (A Mágica Acontece Aqui)
-    // IMAP usa sequencia baseada em 1. O ultimo numero (total) é o mais recente.
-    // Pagina 1: Pega do (Total) até (Total - 49)
-    // Pagina 2: Pega do (Total - 50) até (Total - 99)
-    
-    // Calculamos onde termina esta página (de cima para baixo)
     const endSeq = totalMessages - ((page - 1) * pageSize);
-    
-    // Se o fim for menor que 1, não tem mais mensagens antigas
     if (endSeq < 1) {
         connection.end();
         return NextResponse.json({ messages: [], hasMore: false, total: totalMessages });
     }
-
-    // Calculamos onde começa (o inicio não pode ser menor que 1)
     const startSeq = Math.max(1, endSeq - pageSize + 1);
-    
     const sequence = `${startSeq}:${endSeq}`;
-    
-    console.log(`Buscando e-mails da pasta ${folderName}: Seq ${sequence} (Pag ${page})`);
 
     const fetchOptions = {
       bodies: 'HEADER.FIELDS (FROM SUBJECT DATE)', 
       struct: true
     };
 
-    // Uso direto do node-imap para performance
     const emailList = await new Promise((resolve, reject) => {
         const fetched = [];
-        // fetch por sequencia
         const f = connection.imap.seq.fetch(sequence, fetchOptions);
         
         f.on('message', (msg, seqno) => {
-            let attributes;
             let headerRaw = '';
-            
+            let attributes;
             msg.on('body', (stream) => {
                 stream.on('data', (chunk) => { headerRaw += chunk.toString('utf8'); });
             });
-            
             msg.on('attributes', (attrs) => { attributes = attrs; });
-            
             msg.on('end', () => {
                 const parsed = parseHeader(headerRaw);
                 fetched.push({
-                    id: attributes?.uid || seqno, // UID é melhor para chave única
+                    id: attributes?.uid || seqno,
                     seq: seqno,
                     subject: parsed.subject,
-                    from: parsed.from.replace(/<.*>/, '').trim(), 
+                    from: parsed.from,
                     date: parsed.date,
                     flags: attributes?.flags || []
                 });
             });
         });
-        
         f.once('error', (err) => reject(err));
         f.once('end', () => resolve(fetched));
     });
 
-    // Ordena do mais novo para o mais velho (descendente) dentro dessa página
     emailList.sort((a, b) => new Date(b.date) - new Date(a.date));
-
     connection.end();
-
-    // Se o startSeq for 1, significa que chegamos no fundo do baú (primeiro e-mail da história)
-    const hasMore = startSeq > 1;
 
     return NextResponse.json({ 
         messages: emailList,
-        hasMore: hasMore,
+        hasMore: startSeq > 1,
         total: totalMessages,
         page: page 
     });
