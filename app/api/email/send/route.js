@@ -6,18 +6,24 @@ export async function POST(request) {
   const supabase = createClient();
   
   try {
-    // 1. Verificar Autenticação
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-    // 2. Receber dados do corpo (incluindo anexos)
     const { to, cc, bcc, subject, html, replyToMessageId, attachments } = await request.json();
 
-    if (!to || !subject || !html) {
-      return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 });
-    }
+    // --- VALIDAÇÃO DETALHADA ---
+    const missingFields = [];
+    if (!to) missingFields.push("Para (Destinatário)");
+    if (!subject) missingFields.push("Assunto");
+    if (!html) missingFields.push("Mensagem (Corpo do e-mail)");
 
-    // 3. Buscar Configurações SMTP
+    if (missingFields.length > 0) {
+      return NextResponse.json({ 
+          error: `Campos obrigatórios faltando: ${missingFields.join(', ')}` 
+      }, { status: 400 });
+    }
+    // ---------------------------
+
     const { data: config } = await supabase
       .from('email_configuracoes')
       .select('*')
@@ -26,7 +32,6 @@ export async function POST(request) {
 
     if (!config) return NextResponse.json({ error: 'Configure seu SMTP primeiro.' }, { status: 404 });
 
-    // 4. Configurar o Transporter
     const transporter = nodemailer.createTransport({
       host: config.smtp_host,
       port: config.smtp_port || 587,
@@ -38,7 +43,6 @@ export async function POST(request) {
       tls: { rejectUnauthorized: false }
     });
 
-    // 5. Montar o E-mail
     const mailOptions = {
       from: `"${config.nome_remetente || user.email}" <${config.email}>`,
       to,
@@ -46,16 +50,13 @@ export async function POST(request) {
       bcc,
       subject,
       html,
-      // Se houver resposta, adiciona headers
       ...(replyToMessageId && {
           inReplyTo: replyToMessageId,
           references: [replyToMessageId]
       }),
-      // Se houver anexos, adiciona ao objeto
       attachments: attachments || []
     };
 
-    // 6. Enviar
     const info = await transporter.sendMail(mailOptions);
     console.log("E-mail enviado:", info.messageId);
 

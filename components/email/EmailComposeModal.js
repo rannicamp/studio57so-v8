@@ -18,7 +18,13 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
     const fileInputRef = useRef(null);
     
     const [formData, setFormData] = useState({
-        to: '', cc: '', bcc: '', subject: '', body: '', replyToMessageId: null, attachments: []
+        to: '',
+        cc: '',
+        bcc: '',
+        subject: '',
+        body: '', // O texto fica aqui
+        replyToMessageId: null,
+        attachments: []
     });
 
     // --- AUTOCOMPLETE ---
@@ -35,7 +41,6 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
     const searchTerm = getLastTerm(formData.to);
     const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
 
-    // BUSCA DUPLA INTELIGENTE (Contatos + Emails)
     useEffect(() => {
         const fetchContacts = async () => {
             if (!debouncedSearchTerm || debouncedSearchTerm.length < 2) {
@@ -44,7 +49,6 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
                 return;
             }
             if (debouncedSearchTerm.includes('@') && debouncedSearchTerm.includes('.')) {
-                 // Se já digitou um email completo, para de sugerir
                  setSuggestions([]);
                  setShowSuggestions(false);
                  return;
@@ -54,7 +58,6 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
             setIsSearching(true);
 
             try {
-                // 1. Busca por NOME do Contato (Traz os emails associados)
                 const queryNome = supabase
                     .from('contatos')
                     .select('id, nome, razao_social, nome_fantasia, emails(email)')
@@ -62,7 +65,6 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
                     .or(`nome.ilike.%${debouncedSearchTerm}%,razao_social.ilike.%${debouncedSearchTerm}%,nome_fantasia.ilike.%${debouncedSearchTerm}%`)
                     .limit(5);
 
-                // 2. Busca por E-MAIL na tabela de emails (Traz o contato dono)
                 const queryEmail = supabase
                     .from('emails')
                     .select('email, contatos(id, nome, razao_social, nome_fantasia)')
@@ -73,18 +75,16 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
                 const [resNome, resEmail] = await Promise.all([queryNome, queryEmail]);
 
                 const combinedResults = [];
-                const seenEmails = new Set(); // Para evitar duplicatas
+                const seenEmails = new Set();
 
-                // Processa resultados por NOME
                 if (resNome.data) {
                     resNome.data.forEach(contato => {
                         const nomeDisplay = contato.nome || contato.razao_social || contato.nome_fantasia;
-                        // Se o contato tem emails cadastrados na tabela filha
                         if (contato.emails && contato.emails.length > 0) {
                             contato.emails.forEach(emailObj => {
                                 if (!seenEmails.has(emailObj.email)) {
                                     combinedResults.push({
-                                        id: contato.id, // ID do contato
+                                        id: contato.id,
                                         nome: nomeDisplay,
                                         email: emailObj.email,
                                         isCompany: !!contato.razao_social
@@ -96,7 +96,6 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
                     });
                 }
 
-                // Processa resultados por EMAIL
                 if (resEmail.data) {
                     resEmail.data.forEach(item => {
                         if (item.contatos && !seenEmails.has(item.email)) {
@@ -211,7 +210,12 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
             const res = await fetch('/api/email/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...formData, to: finalTo })
+                // CORREÇÃO AQUI: Mapeamos 'body' para 'html'
+                body: JSON.stringify({ 
+                    ...formData, 
+                    to: finalTo,
+                    html: formData.body // <--- A MÁGICA ESTÁ AQUI
+                })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Erro ao enviar');
@@ -263,7 +267,6 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
                                     )}
                                 </div>
                                 
-                                {/* Lista de Resultados da Busca Dupla */}
                                 {showSuggestions && suggestions.length > 0 && (
                                     <div className="absolute top-full left-16 right-0 bg-white border border-gray-200 rounded-lg shadow-xl z-50 mt-1 max-h-60 overflow-y-auto custom-scrollbar">
                                         {suggestions.map((item, idx) => (
