@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faUserCircle, faPaperclip, faTimes, faFileAlt, faExclamationTriangle, faDownload } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faUserCircle, faPaperclip, faTimes, faFileAlt, faExclamationTriangle, faDownload, faReply, faReplyAll, faShare } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DOMPurify from 'isomorphic-dompurify';
+import EmailComposeModal from './EmailComposeModal'; // <--- Importar Modal
 
 // Função de busca
 const fetchEmailContent = async ({ queryKey }) => {
@@ -17,7 +18,6 @@ const fetchEmailContent = async ({ queryKey }) => {
     return res.json();
 };
 
-// Função de ação (Marcar como lido)
 const performEmailAction = async ({ action, folder, uid }) => {
     const res = await fetch('/api/email/actions', {
         method: 'POST',
@@ -31,7 +31,10 @@ const performEmailAction = async ({ action, folder, uid }) => {
 export default function EmailViewPanel({ emailSummary, folder, onClose }) {
     const queryClient = useQueryClient();
     
-    // --- QUERY: Buscar Conteúdo ---
+    // Controle do Modal de Composição
+    const [isComposeOpen, setIsComposeOpen] = useState(false);
+    const [composeData, setComposeData] = useState(null);
+
     const { 
         data: fullEmail, 
         isLoading, 
@@ -40,25 +43,19 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
         queryKey: ['emailContent', folder?.name, emailSummary?.id],
         queryFn: fetchEmailContent,
         enabled: !!emailSummary?.id && !!folder?.name,
-        staleTime: 1000 * 60 * 30, // 30 min cache
+        staleTime: 1000 * 60 * 30, 
         refetchOnWindowFocus: false,
     });
 
-    // --- MUTATION: Marcar como Lido ---
     const markReadMutation = useMutation({
         mutationFn: performEmailAction,
         onSuccess: () => {
-            // Atualiza a lista de e-mails para remover o negrito
             queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
-            // Atualiza a contagem de pastas (opcional, pois é pesado)
-            // queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
         }
     });
 
-    // Efeito para marcar como lido ao carregar
     useEffect(() => {
         if (fullEmail && !emailSummary?.flags?.includes('\\Seen')) {
-            // Pequeno delay para garantir que o usuário viu
             const timer = setTimeout(() => {
                 markReadMutation.mutate({ 
                     action: 'markAsRead', 
@@ -70,28 +67,64 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
         }
     }, [fullEmail, emailSummary, folder]);
 
-    // --- FUNÇÃO: Baixar Anexo ---
+    // --- FUNÇÕES DE RESPOSTA ---
+    const prepareReply = (type) => {
+        if (!fullEmail) return;
+
+        let to = fullEmail.from; // Quem enviou
+        let cc = '';
+        let subject = fullEmail.subject;
+        
+        // Ajuste de Assunto
+        if (!subject.toLowerCase().startsWith('re:')) {
+            subject = `Re: ${subject}`;
+        }
+
+        // Se for Reply All, adiciona os CCs originais
+        if (type === 'replyAll' && fullEmail.to) {
+            // Lógica simples: adiciona quem estava no TO original (exceto eu mesmo, idealmente)
+            // Aqui vamos apenas concatenar por enquanto
+           // Nota: O 'fullEmail.to' geralmente vem como string ou array na API, ajuste conforme retorno real
+           if (typeof fullEmail.to === 'string') cc = fullEmail.to;
+        }
+
+        // Citação (Quote)
+        const dateStr = format(new Date(fullEmail.date), "dd/MM/yyyy HH:mm", { locale: ptBR });
+        const quote = `
+            <br><br><br>
+            <div style="border-left: 2px solid #ccc; padding-left: 10px; color: #555;">
+                Em ${dateStr}, <strong>${fullEmail.from}</strong> escreveu:<br><br>
+                ${fullEmail.html || fullEmail.text}
+            </div>
+        `;
+
+        setComposeData({
+            type: type === 'forward' ? 'forward' : 'reply',
+            to: type === 'forward' ? '' : to,
+            cc: type === 'replyAll' ? cc : '',
+            subject: type === 'forward' ? `Fwd: ${fullEmail.subject}` : subject,
+            body: quote,
+            messageId: fullEmail.id // ID original para threading
+        });
+        setIsComposeOpen(true);
+    };
+
     const handleDownloadAttachment = (att) => {
         if (!att || !att.content || !att.content.data) return;
-
         try {
-            // O Buffer vem do servidor como um array de bytes { type: 'Buffer', data: [...] }
             const byteArray = new Uint8Array(att.content.data);
             const blob = new Blob([byteArray], { type: att.contentType });
             const url = window.URL.createObjectURL(blob);
-            
             const link = document.createElement('a');
             link.href = url;
             link.download = att.filename || 'anexo_download';
             document.body.appendChild(link);
             link.click();
-            
-            // Limpeza
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
         } catch (err) {
-            console.error("Erro ao baixar anexo:", err);
-            alert("Erro ao processar o arquivo do anexo.");
+            console.error("Erro ao baixar:", err);
+            alert("Erro ao processar anexo.");
         }
     };
 
@@ -104,6 +137,12 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
 
     return (
         <div className="h-full flex flex-col bg-white border-l border-gray-200 w-full relative">
+            <EmailComposeModal 
+                isOpen={isComposeOpen} 
+                onClose={() => setIsComposeOpen(false)} 
+                initialData={composeData} 
+            />
+
             {/* Header */}
             <div className="p-5 border-b bg-gray-50 flex justify-between items-start shrink-0">
                 <div className="flex-1 overflow-hidden mr-4">
@@ -120,14 +159,40 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
                             </p>
                             <p className="text-xs text-gray-500 flex items-center gap-1">
                                 {format(new Date(emailSummary.date), "dd 'de' MMM 'às' HH:mm", { locale: ptBR })}
-                                {fullEmail?.to && <span className="hidden sm:inline text-gray-400">para {fullEmail.to}</span>}
                             </p>
                         </div>
                     </div>
                 </div>
-                <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-200 p-2 rounded-lg transition-colors">
-                    <FontAwesomeIcon icon={faTimes} className="text-lg" />
-                </button>
+                <div className="flex gap-2">
+                     {/* BOTÕES DE AÇÃO: RESPONDER / ENCAMINHAR */}
+                    <div className="flex bg-white rounded-lg border border-gray-300 shadow-sm overflow-hidden">
+                        <button 
+                            onClick={() => prepareReply('reply')} 
+                            className="p-2 text-gray-600 hover:bg-gray-100 border-r border-gray-200" 
+                            title="Responder"
+                        >
+                            <FontAwesomeIcon icon={faReply} />
+                        </button>
+                        <button 
+                            onClick={() => prepareReply('replyAll')} 
+                            className="p-2 text-gray-600 hover:bg-gray-100 border-r border-gray-200" 
+                            title="Responder a Todos"
+                        >
+                            <FontAwesomeIcon icon={faReplyAll} />
+                        </button>
+                        <button 
+                            onClick={() => prepareReply('forward')} 
+                            className="p-2 text-gray-600 hover:bg-gray-100" 
+                            title="Encaminhar"
+                        >
+                            <FontAwesomeIcon icon={faShare} />
+                        </button>
+                    </div>
+
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-200 p-2 rounded-lg transition-colors ml-2">
+                        <FontAwesomeIcon icon={faTimes} className="text-lg" />
+                    </button>
+                </div>
             </div>
 
             {/* Corpo */}
@@ -144,7 +209,6 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
                     </div>
                 ) : fullEmail ? (
                     <div className="animate-fade-in">
-                        {/* Conteúdo HTML Seguro */}
                         <div className="prose prose-sm max-w-none text-gray-800 break-words font-sans">
                             {safeHtml ? (
                                 <div dangerouslySetInnerHTML={{ __html: safeHtml }} />
@@ -153,7 +217,6 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
                             )}
                         </div>
 
-                        {/* Anexos */}
                         {fullEmail.attachments?.length > 0 && (
                             <div className="mt-10 pt-6 border-t border-gray-100">
                                 <h4 className="text-xs font-bold text-gray-500 uppercase mb-4 flex items-center gap-2">

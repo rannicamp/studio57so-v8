@@ -5,10 +5,14 @@ import { useQuery } from '@tanstack/react-query';
 import EmailConfigModal from '@/components/email/EmailConfigModal';
 import EmailListPanel from '@/components/email/EmailListPanel';
 import EmailViewPanel from '@/components/email/EmailViewPanel';
+import EmailComposeModal from '@/components/email/EmailComposeModal'; // <--- IMPORT
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faEnvelope, faInbox, faCog, faFolder, faSpinner, faExclamationTriangle, faPaperPlane, faTrash, faBan } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faEnvelope, faInbox, faCog, faFolder, faSpinner, faExclamationTriangle, faPaperPlane, faTrash, faBan, faPlus } from '@fortawesome/free-solid-svg-icons'; // <--- faPlus
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { useDebounce } from 'use-debounce';
+
+// ... (MANTENHA CÓDIGO CACHE/FUNÇÕES getEmailFolders/getFolderIcon IGUAIS) ...
+// (Para economizar espaço na resposta, vou focar nas mudanças, mas ao copiar, mantenha o resto do arquivo igual)
 
 // CHAVE DE CACHE ESPECÍFICA DO EMAIL
 const EMAIL_UI_STATE_KEY = 'emailUiState';
@@ -43,7 +47,6 @@ const getFolderIcon = (name) => {
 };
 
 export default function EmailInbox({ onChangeTab }) {
-    // 1. Restauração Inicial
     const cachedState = getCachedData();
 
     // Estados E-mail
@@ -51,15 +54,15 @@ export default function EmailInbox({ onChangeTab }) {
     const [selectedEmailFolder, setSelectedEmailFolder] = useState(cachedState?.selectedEmailFolder || null); 
     const [selectedEmail, setSelectedEmail] = useState(cachedState?.selectedEmail || null);
     const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false);
+    
+    // ESTADO DO MODAL DE COMPOSIÇÃO
+    const [isComposeOpen, setIsComposeOpen] = useState(false); // <--- NOVO
 
-    // Debounce APENAS para a busca (passado para o componente filho)
-    // Espera 600ms após parar de digitar para buscar
     const [debouncedSearchTerm] = useDebounce(searchTerm, 600);
 
     const hasRestoredUiState = useRef(false);
     useEffect(() => { hasRestoredUiState.current = true; }, []);
 
-    // Persistência
     const uiStateToSave = { selectedEmailFolder, searchTerm, selectedEmail };
     const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
 
@@ -102,8 +105,11 @@ export default function EmailInbox({ onChangeTab }) {
     const showEmailReadingPane = selectedEmail;
 
     return (
-        <div className="flex h-full w-full">
+        <div className="flex h-full w-full relative">
             <EmailConfigModal isOpen={isEmailConfigOpen} onClose={() => setIsEmailConfigOpen(false)} />
+            
+            {/* MODAL DE NOVO EMAIL */}
+            <EmailComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} />
 
             {/* --- COLUNA 1: NAVEGAÇÃO E PASTAS --- */}
             <div className={`${hasSelection ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 lg:w-1/4 flex-col border-r bg-white h-full overflow-hidden min-h-0`}>
@@ -118,12 +124,22 @@ export default function EmailInbox({ onChangeTab }) {
                     </button>
                 </div>
 
+                {/* BOTÃO FLUTUANTE DE NOVO E-MAIL (OU NO CABEÇALHO) */}
+                <div className="p-4 pb-0">
+                    <button 
+                        onClick={() => setIsComposeOpen(true)}
+                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md flex items-center justify-center gap-2 text-sm font-bold transition-transform active:scale-95"
+                    >
+                        <FontAwesomeIcon icon={faPlus} /> Escrever E-mail
+                    </button>
+                </div>
+
                 {/* Busca Específica do E-mail */}
                 <div className="h-16 border-b flex flex-col justify-center px-4 bg-white shrink-0 z-10">
                     <div className="relative">
                         <input 
                             type="text" 
-                            placeholder="Buscar (Assunto ou Remetente)..." 
+                            placeholder="Buscar..." 
                             value={searchTerm} 
                             onChange={(e) => setSearchTerm(e.target.value)} 
                             className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all" 
@@ -134,6 +150,7 @@ export default function EmailInbox({ onChangeTab }) {
 
                 {/* Lista de Pastas */}
                 <div className="flex-grow overflow-y-auto custom-scrollbar bg-white">
+                    {/* ... (CONTEÚDO DA LISTA DE PASTAS IDÊNTICO AO ANTERIOR) ... */}
                     {isLoadingEmail ? (
                         <div className="flex flex-col items-center justify-center h-40 text-gray-400"><FontAwesomeIcon icon={faSpinner} spin className="text-2xl mb-2 text-blue-500" /><p className="text-xs">Conectando...</p></div>
                     ) : isEmailError ? (
@@ -156,7 +173,7 @@ export default function EmailInbox({ onChangeTab }) {
                 </div>
             </div>
 
-            {/* --- COLUNA 2: LISTA DE EMAILS --- */}
+            {/* ... (RESTO DO LAYOUT IDÊNTICO - COLUNA 2 E 3) ... */}
             <div className={`
                 ${hasSelection ? 'flex' : 'hidden md:flex'} 
                 ${showEmailReadingPane ? 'hidden lg:flex lg:w-[350px] xl:w-[400px] border-r shrink-0' : 'flex-grow'} 
@@ -168,7 +185,7 @@ export default function EmailInbox({ onChangeTab }) {
                         onBack={handleBackToList} 
                         onSelectEmail={handleSelectEmail}
                         selectedEmailId={selectedEmail?.id}
-                        searchTerm={debouncedSearchTerm} // <--- PASSANDO O TERMO DEBOUNCED
+                        searchTerm={debouncedSearchTerm}
                     />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500 p-8 text-center">
@@ -181,7 +198,6 @@ export default function EmailInbox({ onChangeTab }) {
                 )}
             </div>
 
-            {/* --- COLUNA 3: LEITURA DE E-MAIL --- */}
             {showEmailReadingPane && (
                 <div className="flex-grow w-full lg:w-auto bg-white flex-col h-full overflow-hidden min-h-0">
                     <EmailViewPanel 
