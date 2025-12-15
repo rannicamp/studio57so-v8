@@ -1,24 +1,35 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faSpinner, faSync, faBoxOpen, faExclamationCircle } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faSpinner, faSync, faBoxOpen, faExclamationCircle, faSearch } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// Função de busca separada (Boas Práticas)
+// Função de busca que aceita searchTerm
 const fetchMessages = async ({ queryKey }) => {
-    const [_key, folderName, page] = queryKey;
-    const res = await fetch(`/api/email/messages?folder=${encodeURIComponent(folderName)}&page=${page}`);
+    const [_key, folderName, page, searchTerm] = queryKey;
+    
+    // Constrói a URL com ou sem busca
+    let url = `/api/email/messages?folder=${encodeURIComponent(folderName)}&page=${page}`;
+    if (searchTerm) {
+        url += `&search=${encodeURIComponent(searchTerm)}`;
+    }
+
+    const res = await fetch(url);
     if (!res.ok) throw new Error('Erro ao buscar e-mails');
     return res.json();
 };
 
-export default function EmailListPanel({ folder, onBack, onSelectEmail, selectedEmailId }) {
+export default function EmailListPanel({ folder, onBack, onSelectEmail, selectedEmailId, searchTerm }) {
     const [page, setPage] = useState(1);
 
-    // --- MAGIA DO TANSTACK QUERY ---
+    // Reseta a página quando a busca muda (para não ficar na página 2 de uma busca nova)
+    useEffect(() => {
+        setPage(1);
+    }, [searchTerm, folder.name]);
+
     const { 
         data, 
         isLoading, 
@@ -27,24 +38,15 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
         isFetching, 
         refetch 
     } = useQuery({
-        queryKey: ['emailMessages', folder.name, page],
+        queryKey: ['emailMessages', folder.name, page, searchTerm], // Termo incluído na chave!
         queryFn: fetchMessages,
-        placeholderData: keepPreviousData, // Mantém os dados antigos enquanto carrega a px página
-        staleTime: 1000 * 60 * 1, // 1 minuto de cache fresco
-        refetchOnWindowFocus: false, // Não recarregar só de trocar de janela (economiza dados)
+        placeholderData: keepPreviousData,
+        staleTime: 1000 * 60 * 1, 
+        refetchOnWindowFocus: false, 
     });
 
     const emails = data?.messages || [];
     const hasMore = data?.hasMore || false;
-
-    // Resetar página ao trocar de pasta
-    // (O useQuery lida com a chave da pasta, mas o estado 'page' precisa voltar a 1)
-    if (data && folder.name !== data.messages?.[0]?.folderName && page !== 1 && !isFetching) {
-        // Pequeno trick: verificamos se a query mudou drasticamente, 
-        // mas idealmente controlamos isso via useEffect se necessário.
-        // Por simplicidade com useQuery, deixaremos o usuário controlar a página,
-        // mas vamos garantir que se a folder mudar no pai, a chave da query muda e reseta a lista.
-    }
 
     return (
         <div className="flex flex-col h-full bg-white border-r border-gray-200">
@@ -58,9 +60,16 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                         <h2 className="text-base font-bold text-gray-800 truncate" title={folder.name}>
                             {folder.name}
                         </h2>
-                        <p className="text-xs text-gray-500 flex items-center gap-1">
-                            {isLoading ? 'Carregando...' : `${data?.total || 0} mensagens`}
-                        </p>
+                        {searchTerm ? (
+                            <p className="text-xs text-blue-600 font-medium truncate flex items-center gap-1">
+                                <FontAwesomeIcon icon={faSearch} className="text-[10px]" />
+                                Buscando: "{searchTerm}"
+                            </p>
+                        ) : (
+                            <p className="text-xs text-gray-500 flex items-center gap-1">
+                                {isLoading ? 'Carregando...' : `${data?.total || 0} mensagens`}
+                            </p>
+                        )}
                     </div>
                 </div>
                 <button 
@@ -87,9 +96,14 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                         <button onClick={() => refetch()} className="mt-4 text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-md font-bold">Tentar Novamente</button>
                     </div>
                 ) : emails.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+                    <div className="flex flex-col items-center justify-center h-64 text-gray-400 p-6 text-center">
                         <FontAwesomeIcon icon={faBoxOpen} size="2x" />
-                        <p className="mt-2 text-sm">Nenhum e-mail aqui.</p>
+                        <p className="mt-2 text-sm">
+                            {searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Nenhum e-mail aqui.'}
+                        </p>
+                        {searchTerm && (
+                            <p className="text-xs mt-1 opacity-60">Tente termos mais simples ou verifique a pasta.</p>
+                        )}
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100 pb-4">

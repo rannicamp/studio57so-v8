@@ -43,38 +43,32 @@ const getFolderIcon = (name) => {
 };
 
 export default function EmailInbox({ onChangeTab }) {
-    // 1. Restauração Inicial (Executa apenas uma vez)
+    // 1. Restauração Inicial
     const cachedState = getCachedData();
 
     // Estados E-mail
     const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '');
     const [selectedEmailFolder, setSelectedEmailFolder] = useState(cachedState?.selectedEmailFolder || null); 
-    const [selectedEmail, setSelectedEmail] = useState(cachedState?.selectedEmail || null); // <--- AGORA RECUPERAMOS O E-MAIL
+    const [selectedEmail, setSelectedEmail] = useState(cachedState?.selectedEmail || null);
     const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false);
 
-    // Controle para só salvar DEPOIS de carregar
-    const hasRestoredUiState = useRef(false);
-    useEffect(() => {
-        hasRestoredUiState.current = true;
-    }, []);
+    // Debounce APENAS para a busca (passado para o componente filho)
+    // Espera 600ms após parar de digitar para buscar
+    const [debouncedSearchTerm] = useDebounce(searchTerm, 600);
 
-    // 2. O que vamos salvar no Cache?
-    const uiStateToSave = { 
-        selectedEmailFolder, 
-        searchTerm,
-        selectedEmail // <--- ADICIONADO NA PERSISTÊNCIA
-    };
-    
-    // Debounce para não fritar o localStorage a cada letra digitada
+    const hasRestoredUiState = useRef(false);
+    useEffect(() => { hasRestoredUiState.current = true; }, []);
+
+    // Persistência
+    const uiStateToSave = { selectedEmailFolder, searchTerm, selectedEmail };
     const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
 
-    // 3. Efeito de Salvamento
     useEffect(() => {
         if (typeof window !== 'undefined' && hasRestoredUiState.current) {
             try {
                 localStorage.setItem(EMAIL_UI_STATE_KEY, JSON.stringify(debouncedUiState));
             } catch (error) {
-                console.error("Falha ao salvar estado da UI do Email:", error);
+                console.error("Falha ao salvar UI:", error);
             }
         }
     }, [debouncedUiState]);
@@ -86,7 +80,7 @@ export default function EmailInbox({ onChangeTab }) {
         queryFn: getEmailFolders,
         retry: false, 
         refetchOnWindowFocus: false, 
-        staleTime: 1000 * 60 * 5 // Cache de 5 minutos para pastas
+        staleTime: 1000 * 60 * 5
     });
 
     const handleSelectEmail = (email) => {
@@ -127,7 +121,13 @@ export default function EmailInbox({ onChangeTab }) {
                 {/* Busca Específica do E-mail */}
                 <div className="h-16 border-b flex flex-col justify-center px-4 bg-white shrink-0 z-10">
                     <div className="relative">
-                        <input type="text" placeholder="Pesquisar e-mails..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all" />
+                        <input 
+                            type="text" 
+                            placeholder="Buscar (Assunto ou Remetente)..." 
+                            value={searchTerm} 
+                            onChange={(e) => setSearchTerm(e.target.value)} 
+                            className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all" 
+                        />
                         <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                     </div>
                 </div>
@@ -168,6 +168,7 @@ export default function EmailInbox({ onChangeTab }) {
                         onBack={handleBackToList} 
                         onSelectEmail={handleSelectEmail}
                         selectedEmailId={selectedEmail?.id}
+                        searchTerm={debouncedSearchTerm} // <--- PASSANDO O TERMO DEBOUNCED
                     />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500 p-8 text-center">

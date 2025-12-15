@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import imapSimple from 'imap-simple';
 
-// --- DECODIFICADOR ROBUSTO (MANTIDO) ---
+// --- DECODIFICADOR ROBUSTO ---
 const decodeHeaderValue = (str) => {
     if (!str) return '';
     const unfolded = str.replace(/\r\n\s+/g, ' ');
@@ -67,18 +67,12 @@ export async function GET(request) {
   const supabase = createClient();
   const { searchParams } = new URL(request.url);
   
-  // Tratamento especial para nomes de pastas com espaços ou caracteres especiais
   const folderParam = searchParams.get('folder');
   let folderName = folderParam ? decodeURIComponent(folderParam) : 'INBOX';
-
-  // Correção comum: Hostinger as vezes usa INBOX.Trash ou INBOX.Sent
-  // Se der erro, o log vai nos avisar, mas mantemos o padrão enviado pelo front
-  
   const pageParam = searchParams.get('page');
   const page = parseInt(pageParam || '1');
+  const searchParam = searchParams.get('search'); // <--- NOVO PARÂMETRO
   
-  // ESTRATÉGIA ANTI-BLOQUEIO:
-  // Reduzimos para 20 e-mails por vez. É melhor carregar 20 rápido do que tentar 50 e travar.
   const pageSize = 20; 
 
   let connection = null;
@@ -102,36 +96,72 @@ export async function GET(request) {
         host: config.imap_host,
         port: config.imap_port || 993,
         tls: true,
-        authTimeout: 30000, // 30 segundos de paciência
+        authTimeout: 30000,
         tlsOptions: { rejectUnauthorized: false }
       },
     };
 
     connection = await imapSimple.connect(imapConfig);
-    
-    // --- O SEGREDO DO SUCESSO ---
-    // readOnly: true -> Diz ao servidor: "Não vou deletar nem mover nada, só olhar".
-    // Isso faz o servidor liberar o acesso muito mais rápido e sem travas de 'lock'.
     const box = await connection.openBox(folderName, { readOnly: true });
     
-    const totalMessages = box.messages.total;
+    // --- LÓGICA DE BUSCA VS LÓGICA SEQUENCIAL ---
+    let messageIdsToFetch = [];
+    let totalMessages = box.messages.total;
+    let hasMore = false;
 
-    if (totalMessages === 0) {
-        return NextResponse.json({ messages: [], hasMore: false, total: 0 });
+    if (searchParam && searchParam.trim().length > 0) {
+        // --- MODO BUSCA (IMAP SEARCH) ---
+        // Busca por Assunto OU Remetente
+        // Nota: A busca IMAP padrão é case-insensitive para strings ASCII
+        const searchCriteria = [
+            ['OR', 
+                ['HEADER', 'SUBJECT', searchParam], 
+                ['HEADER', 'FROM', searchParam]
+            ]
+        ];
+        
+        // Retorna apenas os UIDs (leve)
+        const searchResults = await connection.search(searchCriteria, { results: 'results' });
+        
+        // Ordena do mais recente (UID maior) para o mais antigo
+        // Como 'searchResults' é array de mensagens, pegamos attributes.uid
+        searchResults.sort((a, b) => b.attributes.uid - a.attributes.uid);
+        
+        totalMessages = searchResults.length;
+        
+        // Paginação manual no array de UIDs
+        const startIndex = (page - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const slicedResults = searchResults.slice(startIndex, endIndex);
+        
+        messageIdsToFetch = slicedResults.map(m => m.attributes.uid); // Usaremos UID FETCH
+        hasMore = endIndex < totalMessages;
+
+        if (messageIdsToFetch.length === 0) {
+             return NextResponse.json({ messages: [], hasMore: false, total: 0, page });
+        }
+
+    } else {
+        // --- MODO SEQUENCIAL (Navegação Padrão - Mais Rápido) ---
+        // (Mantém a lógica antiga de calcular sequência)
+        if (totalMessages === 0) {
+            return NextResponse.json({ messages: [], hasMore: false, total: 0 });
+        }
+
+        const endSeq = totalMessages - ((page - 1) * pageSize);
+        const startSeq = Math.max(1, endSeq - pageSize + 1);
+
+        if (endSeq < 1) {
+            return NextResponse.json({ messages: [], hasMore: false, total: totalMessages });
+        }
+        
+        // Gera array de números sequenciais para usar na mesma lógica de promise abaixo
+        // mas aqui usamos SEQ FETCH, lá embaixo adaptamos
+        messageIdsToFetch = `${startSeq}:${endSeq}`; 
+        hasMore = startSeq > 1;
     }
 
-    // Matemática de Paginação pelo ID Sequencial (O mais leve possível)
-    // Se temos 100 mensagens, pag 1 pega 100 a 81. Pag 2 pega 80 a 61.
-    const endSeq = totalMessages - ((page - 1) * pageSize);
-    const startSeq = Math.max(1, endSeq - pageSize + 1);
-
-    if (endSeq < 1) {
-        return NextResponse.json({ messages: [], hasMore: false, total: totalMessages });
-    }
-
-    const sequence = `${startSeq}:${endSeq}`;
-
-    // Pedimos APENAS o cabeçalho. Não baixamos o corpo do email agora.
+    // --- FETCH DOS CABEÇALHOS ---
     const fetchOptions = {
       bodies: 'HEADER.FIELDS (FROM SUBJECT DATE)', 
       struct: true
@@ -139,8 +169,18 @@ export async function GET(request) {
 
     const emailList = await new Promise((resolve, reject) => {
         const fetched = [];
-        // fetch direto por sequência numéria - ZERO processamento do servidor
-        const f = connection.imap.seq.fetch(sequence, fetchOptions);
+        
+        // Se for string (ex: "100:81"), usa seq.fetch. Se for array de UIDs, usa search (uid fetch)
+        // imap-simple não tem uidFetch direto exposto fácil, usamos a lib subjacente (node-imap)
+        // Mas connection.search retorna objetos message que podemos iterar? Não, precisamos do body.
+        
+        let f;
+        if (typeof messageIdsToFetch === 'string') {
+             f = connection.imap.seq.fetch(messageIdsToFetch, fetchOptions);
+        } else {
+             // Fetch por lista de UIDs
+             f = connection.imap.fetch(messageIdsToFetch, fetchOptions);
+        }
         
         f.on('message', (msg, seqno) => {
             let headerRaw = '';
@@ -169,28 +209,25 @@ export async function GET(request) {
         f.once('end', () => resolve(fetched));
     });
 
-    // Ordenamos no Javascript (cliente), para não gastar CPU do servidor Hostinger
+    // Ordenação final
     emailList.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     return NextResponse.json({ 
         messages: emailList,
-        hasMore: startSeq > 1,
+        hasMore: hasMore,
         total: totalMessages,
         page: page 
     });
 
   } catch (error) {
     console.error(`Erro Pasta ${folderName}:`, error);
-    // Retorna mensagem amigável se for problema de pasta não existente
     if (error.message.includes('Mailsbox not found') || error.message.includes('doesn\'t exist')) {
-        return NextResponse.json({ error: `A pasta "${folderName}" não está acessível ou tem um nome diferente no servidor.` }, { status: 404 });
+        return NextResponse.json({ error: `Pasta indisponível.` }, { status: 404 });
     }
-    return NextResponse.json({ error: 'Erro de conexão: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Erro de conexão.' }, { status: 500 });
   } finally {
     if (connection) {
-        try {
-            connection.end();
-        } catch (e) {}
+        try { connection.end(); } catch (e) {}
     }
   }
 }
