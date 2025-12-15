@@ -7,6 +7,7 @@ import CorretorHeader from '@/components/CorretorHeader'
 import { useLayout, LayoutProvider } from '@/contexts/LayoutContext'
 import { Toaster } from 'sonner'
 import { EmpreendimentoProvider } from '@/contexts/EmpreendimentoContext'
+import TermsUpdateEnforcer from '@/components/TermsUpdateEnforcer' // <--- Importação Nova
 
 function CorretorLayoutInner({ children }) {
   const { user, isUserLoading } = useLayout()
@@ -22,6 +23,9 @@ function CorretorLayoutInner({ children }) {
 
   return (
     <EmpreendimentoProvider>
+      {/* O GUARDIÃO DOS TERMOS (Verifica atualizações automaticamente) */}
+      <TermsUpdateEnforcer />
+
       <Toaster position="top-right" richColors />
       
       {/* Container Principal: Flex Row (Lado a Lado) e Altura Total */}
