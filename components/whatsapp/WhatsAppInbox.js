@@ -121,9 +121,14 @@ export default function WhatsAppInbox({ onChangeTab }) {
             <Toaster position="top-right" richColors />
 
             {/* --- COLUNA 1: NAVEGAÇÃO E LISTAS --- */}
-            <div className={`${hasSelection ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 lg:w-1/4 flex-col border-r bg-white h-full overflow-hidden min-h-0`}>
+            {/* CORREÇÃO: Largura fixa de 350px e shrink-0 para não espremer */}
+            <div className={`
+                ${hasSelection ? 'hidden md:flex' : 'flex'} 
+                w-full md:w-[350px] shrink-0
+                flex-col border-r bg-white h-full overflow-hidden min-h-0
+            `}>
                 
-                {/* Abas (Agora controladas localmente, mas chamam a função do pai para trocar) */}
+                {/* Abas */}
                 <div className="flex border-b bg-gray-50 shrink-0">
                     <button className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-[#00a884] text-[#00a884] bg-white">
                         <FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp
@@ -156,9 +161,10 @@ export default function WhatsAppInbox({ onChangeTab }) {
             </div>
 
             {/* --- COLUNA 2: LISTA CENTRAL (CHAT) --- */}
+            {/* CORREÇÃO: Removemos 'transition-all' para evitar a dança */}
             <div className={`
                 ${hasSelection ? 'flex' : 'hidden md:flex'} 
-                flex-grow flex-col bg-[#efeae2] h-full overflow-hidden relative min-h-0 transition-all duration-300
+                flex-grow flex-col bg-[#efeae2] h-full overflow-hidden relative min-h-0
             `}>
                 {selectedContact ? <MessagePanel contact={selectedContact} onBack={handleBackToList} /> :
                 selectedList ? <BroadcastPanel list={selectedList} onBack={handleBackToList} /> :
@@ -167,8 +173,9 @@ export default function WhatsAppInbox({ onChangeTab }) {
             </div>
             
             {/* --- COLUNA 3: DIREITA (PERFIL WHATSAPP) --- */}
+            {/* CORREÇÃO: Largura fixa de 350px */}
             {selectedContact && (
-                <div className="hidden lg:flex w-1/4 border-l bg-white flex-col h-full overflow-hidden min-h-0">
+                <div className="hidden lg:flex w-[350px] shrink-0 border-l bg-white flex-col h-full overflow-hidden min-h-0">
                     <div className="h-16 border-b flex items-center px-4 bg-[#f0f2f5] shrink-0"><h2 className="text-base font-semibold text-gray-700">Dados do Contato</h2></div>
                     <div className="flex-grow overflow-y-auto custom-scrollbar"><ContactProfile contact={selectedContact} /></div>
                 </div>
