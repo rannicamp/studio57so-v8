@@ -71,7 +71,8 @@ export async function GET(request) {
   let folderName = folderParam ? decodeURIComponent(folderParam) : 'INBOX';
   const pageParam = searchParams.get('page');
   const page = parseInt(pageParam || '1');
-  const searchParam = searchParams.get('search'); // <--- NOVO PARÂMETRO
+  const searchParam = searchParams.get('search'); 
+  const statusParam = searchParams.get('status'); // 'all', 'read', 'unread'
   
   const pageSize = 20; 
 
@@ -104,37 +105,52 @@ export async function GET(request) {
     connection = await imapSimple.connect(imapConfig);
     const box = await connection.openBox(folderName, { readOnly: true });
     
-    // --- LÓGICA DE BUSCA VS LÓGICA SEQUENCIAL ---
     let messageIdsToFetch = [];
     let totalMessages = box.messages.total;
     let hasMore = false;
 
-    if (searchParam && searchParam.trim().length > 0) {
+    // Verifica se precisamos usar o modo de BUSCA (mais lento, mas filtrado)
+    // Usamos busca se tiver termo de pesquisa OU se o status não for 'all'
+    const useSearchMode = (searchParam && searchParam.trim().length > 0) || (statusParam && statusParam !== 'all');
+
+    if (useSearchMode) {
         // --- MODO BUSCA (IMAP SEARCH) ---
-        // Busca por Assunto OU Remetente
-        // Nota: A busca IMAP padrão é case-insensitive para strings ASCII
-        const searchCriteria = [
-            ['OR', 
+        let searchCriteria = [];
+
+        // Filtro de Texto
+        if (searchParam && searchParam.trim().length > 0) {
+            searchCriteria.push(['OR', 
                 ['HEADER', 'SUBJECT', searchParam], 
                 ['HEADER', 'FROM', searchParam]
-            ]
-        ];
+            ]);
+        }
+
+        // Filtro de Status (Lido/Não Lido)
+        if (statusParam === 'unread') {
+            searchCriteria.push('UNSEEN');
+        } else if (statusParam === 'read') {
+            searchCriteria.push('SEEN');
+        }
+
+        // Se não tiver critério nenhum (ex: status='all' e sem busca, mas caiu aqui por erro), busca tudo
+        if (searchCriteria.length === 0) {
+            searchCriteria = ['ALL'];
+        }
         
-        // Retorna apenas os UIDs (leve)
+        // Busca apenas os UIDs
         const searchResults = await connection.search(searchCriteria, { results: 'results' });
         
-        // Ordena do mais recente (UID maior) para o mais antigo
-        // Como 'searchResults' é array de mensagens, pegamos attributes.uid
+        // Ordena do mais recente para o antigo
         searchResults.sort((a, b) => b.attributes.uid - a.attributes.uid);
         
         totalMessages = searchResults.length;
         
-        // Paginação manual no array de UIDs
+        // Paginação
         const startIndex = (page - 1) * pageSize;
         const endIndex = startIndex + pageSize;
         const slicedResults = searchResults.slice(startIndex, endIndex);
         
-        messageIdsToFetch = slicedResults.map(m => m.attributes.uid); // Usaremos UID FETCH
+        messageIdsToFetch = slicedResults.map(m => m.attributes.uid);
         hasMore = endIndex < totalMessages;
 
         if (messageIdsToFetch.length === 0) {
@@ -142,8 +158,7 @@ export async function GET(request) {
         }
 
     } else {
-        // --- MODO SEQUENCIAL (Navegação Padrão - Mais Rápido) ---
-        // (Mantém a lógica antiga de calcular sequência)
+        // --- MODO SEQUENCIAL (Padrão Rápido para 'Todas') ---
         if (totalMessages === 0) {
             return NextResponse.json({ messages: [], hasMore: false, total: 0 });
         }
@@ -155,8 +170,6 @@ export async function GET(request) {
             return NextResponse.json({ messages: [], hasMore: false, total: totalMessages });
         }
         
-        // Gera array de números sequenciais para usar na mesma lógica de promise abaixo
-        // mas aqui usamos SEQ FETCH, lá embaixo adaptamos
         messageIdsToFetch = `${startSeq}:${endSeq}`; 
         hasMore = startSeq > 1;
     }
@@ -169,16 +182,12 @@ export async function GET(request) {
 
     const emailList = await new Promise((resolve, reject) => {
         const fetched = [];
-        
-        // Se for string (ex: "100:81"), usa seq.fetch. Se for array de UIDs, usa search (uid fetch)
-        // imap-simple não tem uidFetch direto exposto fácil, usamos a lib subjacente (node-imap)
-        // Mas connection.search retorna objetos message que podemos iterar? Não, precisamos do body.
-        
         let f;
+        
+        // Diferença técnica: fetch sequencial (string) vs fetch por UID (array)
         if (typeof messageIdsToFetch === 'string') {
              f = connection.imap.seq.fetch(messageIdsToFetch, fetchOptions);
         } else {
-             // Fetch por lista de UIDs
              f = connection.imap.fetch(messageIdsToFetch, fetchOptions);
         }
         
@@ -209,7 +218,6 @@ export async function GET(request) {
         f.once('end', () => resolve(fetched));
     });
 
-    // Ordenação final
     emailList.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     return NextResponse.json({ 

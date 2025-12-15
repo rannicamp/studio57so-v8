@@ -3,18 +3,24 @@
 import { useState, useEffect } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faSpinner, faSync, faBoxOpen, faExclamationCircle, faSearch } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faSpinner, faSync, faBoxOpen, faExclamationCircle, faSearch, faEnvelopeOpen, faEnvelope } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// Função de busca que aceita searchTerm
+// Função de busca atualizada para aceitar status
 const fetchMessages = async ({ queryKey }) => {
-    const [_key, folderName, page, searchTerm] = queryKey;
+    const [_key, folderName, page, searchTerm, status] = queryKey;
     
-    // Constrói a URL com ou sem busca
     let url = `/api/email/messages?folder=${encodeURIComponent(folderName)}&page=${page}`;
+    
+    // Adiciona busca se houver
     if (searchTerm) {
         url += `&search=${encodeURIComponent(searchTerm)}`;
+    }
+    
+    // Adiciona status se diferente de 'all'
+    if (status && status !== 'all') {
+        url += `&status=${status}`;
     }
 
     const res = await fetch(url);
@@ -24,11 +30,12 @@ const fetchMessages = async ({ queryKey }) => {
 
 export default function EmailListPanel({ folder, onBack, onSelectEmail, selectedEmailId, searchTerm }) {
     const [page, setPage] = useState(1);
+    const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'unread', 'read'
 
-    // Reseta a página quando a busca muda (para não ficar na página 2 de uma busca nova)
+    // Reseta página se mudar busca, pasta ou filtro
     useEffect(() => {
         setPage(1);
-    }, [searchTerm, folder.name]);
+    }, [searchTerm, folder.name, filterStatus]);
 
     const { 
         data, 
@@ -38,7 +45,8 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
         isFetching, 
         refetch 
     } = useQuery({
-        queryKey: ['emailMessages', folder.name, page, searchTerm], // Termo incluído na chave!
+        // Adicionamos filterStatus na chave para o cache diferenciar as abas
+        queryKey: ['emailMessages', folder.name, page, searchTerm, filterStatus],
         queryFn: fetchMessages,
         placeholderData: keepPreviousData,
         staleTime: 1000 * 60 * 1, 
@@ -51,35 +59,59 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
     return (
         <div className="flex flex-col h-full bg-white border-r border-gray-200">
             {/* Header da Lista */}
-            <div className="flex items-center gap-3 p-4 border-b bg-white shrink-0 h-16 justify-between">
-                <div className="flex items-center gap-3 overflow-hidden">
-                    <button onClick={onBack} className="md:hidden text-gray-500 hover:bg-gray-100 p-2 rounded-full">
-                        <FontAwesomeIcon icon={faArrowLeft} />
-                    </button>
-                    <div className="overflow-hidden">
-                        <h2 className="text-base font-bold text-gray-800 truncate" title={folder.name}>
-                            {folder.name}
-                        </h2>
-                        {searchTerm ? (
-                            <p className="text-xs text-blue-600 font-medium truncate flex items-center gap-1">
-                                <FontAwesomeIcon icon={faSearch} className="text-[10px]" />
-                                Buscando: "{searchTerm}"
-                            </p>
-                        ) : (
-                            <p className="text-xs text-gray-500 flex items-center gap-1">
-                                {isLoading ? 'Carregando...' : `${data?.total || 0} mensagens`}
-                            </p>
-                        )}
+            <div className="flex flex-col border-b bg-white shrink-0">
+                <div className="flex items-center gap-3 p-4 pb-2 justify-between">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        <button onClick={onBack} className="md:hidden text-gray-500 hover:bg-gray-100 p-2 rounded-full">
+                            <FontAwesomeIcon icon={faArrowLeft} />
+                        </button>
+                        <div className="overflow-hidden">
+                            <h2 className="text-base font-bold text-gray-800 truncate" title={folder.name}>
+                                {folder.name}
+                            </h2>
+                            {searchTerm ? (
+                                <p className="text-xs text-blue-600 font-medium truncate flex items-center gap-1">
+                                    <FontAwesomeIcon icon={faSearch} className="text-[10px]" />
+                                    "{searchTerm}"
+                                </p>
+                            ) : (
+                                <p className="text-xs text-gray-500">
+                                    {isLoading ? '...' : `${data?.total || 0} mensagens`}
+                                </p>
+                            )}
+                        </div>
                     </div>
+                    <button 
+                        onClick={() => refetch()} 
+                        disabled={isFetching}
+                        className={`text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-all ${isFetching ? 'opacity-50' : ''}`}
+                        title="Atualizar lista"
+                    >
+                        <FontAwesomeIcon icon={faSync} spin={isFetching} />
+                    </button>
                 </div>
-                <button 
-                    onClick={() => refetch()} 
-                    disabled={isFetching}
-                    className={`text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-all ${isFetching ? 'opacity-50' : ''}`}
-                    title="Atualizar lista"
-                >
-                    <FontAwesomeIcon icon={faSync} spin={isFetching} />
-                </button>
+
+                {/* Abas de Filtro (Lidos / Não Lidos) */}
+                <div className="flex px-4 gap-4 mt-1">
+                    <button 
+                        onClick={() => setFilterStatus('all')}
+                        className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex-1 text-center ${filterStatus === 'all' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    >
+                        Todas
+                    </button>
+                    <button 
+                        onClick={() => setFilterStatus('unread')}
+                        className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex-1 text-center ${filterStatus === 'unread' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    >
+                        Não Lidas
+                    </button>
+                    <button 
+                        onClick={() => setFilterStatus('read')}
+                        className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex-1 text-center ${filterStatus === 'read' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    >
+                        Lidas
+                    </button>
+                </div>
             </div>
 
             {/* Lista */}
@@ -97,13 +129,14 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                     </div>
                 ) : emails.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 text-gray-400 p-6 text-center">
-                        <FontAwesomeIcon icon={faBoxOpen} size="2x" />
+                        <FontAwesomeIcon icon={filterStatus === 'unread' ? faEnvelopeOpen : faBoxOpen} size="2x" />
                         <p className="mt-2 text-sm">
-                            {searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Nenhum e-mail aqui.'}
+                            {searchTerm 
+                                ? `Nenhum resultado para "${searchTerm}"` 
+                                : filterStatus === 'unread' 
+                                    ? 'Tudo lido por aqui!' 
+                                    : 'Nenhum e-mail encontrado.'}
                         </p>
-                        {searchTerm && (
-                            <p className="text-xs mt-1 opacity-60">Tente termos mais simples ou verifique a pasta.</p>
-                        )}
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100 pb-4">
