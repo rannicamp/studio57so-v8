@@ -109,7 +109,12 @@ export default function EmailInbox({ onChangeTab }) {
             <EmailComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} />
 
             {/* --- COLUNA 1: NAVEGAÇÃO E PASTAS --- */}
-            <div className={`${hasSelection ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 lg:w-1/4 flex-col border-r bg-white h-full overflow-hidden min-h-0`}>
+            {/* CORREÇÃO: Largura fixa (w-[280px]) e shrink-0 para não esmagar */}
+            <div className={`
+                ${hasSelection ? 'hidden md:flex' : 'flex'} 
+                w-full md:w-[280px] shrink-0
+                flex-col border-r bg-white h-full overflow-hidden min-h-0
+            `}>
                 
                 {/* Abas */}
                 <div className="flex border-b bg-gray-50 shrink-0">
@@ -166,7 +171,7 @@ export default function EmailInbox({ onChangeTab }) {
                                         w-full text-left py-3 hover:bg-gray-50 flex items-center gap-3 text-sm transition-colors
                                         ${selectedEmailFolder?.path === folder.path ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}
                                     `}
-                                    // APLICANDO A INDENTAÇÃO AQUI (padding left base + nivel * 12px)
+                                    // Indentação visual
                                     style={{ paddingLeft: `${16 + ((folder.level || 0) * 16)}px`, paddingRight: '16px' }}
                                 >
                                     <FontAwesomeIcon 
@@ -187,10 +192,11 @@ export default function EmailInbox({ onChangeTab }) {
             </div>
 
             {/* --- COLUNA 2: LISTA DE EMAILS --- */}
+            {/* CORREÇÃO: Sem 'transition-all' e com larguras fixas quando e-mail aberto */}
             <div className={`
                 ${hasSelection ? 'flex' : 'hidden md:flex'} 
-                ${showEmailReadingPane ? 'hidden lg:flex lg:w-[350px] xl:w-[400px] border-r shrink-0' : 'flex-grow'} 
-                flex-col bg-[#efeae2] h-full overflow-hidden relative min-h-0 transition-all duration-300
+                ${showEmailReadingPane ? 'hidden lg:flex lg:w-[350px] border-r shrink-0' : 'flex-grow'} 
+                flex-col bg-[#efeae2] h-full overflow-hidden relative min-h-0
             `}>
                 {selectedEmailFolder ? (
                     <EmailListPanel 
