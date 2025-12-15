@@ -1,30 +1,18 @@
 // app/(corretor)/portal-contratos/actions.js
-
 'use server';
 
-// --- CORREÇÃO: Ajustado o caminho da importação ---
 import { createClient } from '@/utils/supabase/server';
-import { redirect } from 'next/navigation'; 
+import { revalidatePath } from 'next/cache';
 
-// --- MUDANÇA 1: Recebe 'empreendimentoId' E 'tipoDocumento' ---
+// --- FUNÇÃO 1: CRIAR NOVO CONTRATO (Mantida) ---
 export async function createNewContrato(empreendimentoId, tipoDocumento) { 
     const supabase = createClient();
 
-    // Validação de entrada
-    if (!empreendimentoId) {
-        return { error: "O Empreendimento é obrigatório." };
-    }
-    // --- MUDANÇA 2: Validação do tipo de documento ---
-    if (!tipoDocumento) {
-        return { error: "O Tipo de Documento é obrigatório." };
-    }
+    if (!empreendimentoId) return { error: "O Empreendimento é obrigatório." };
+    if (!tipoDocumento) return { error: "O Tipo de Documento é obrigatório." };
 
-
-    // Busca usuário e organização (como antes)
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        return { error: "Usuário não autenticado." };
-    }
+    if (!user) return { error: "Usuário não autenticado." };
 
     const { data: userProfile, error: profileError } = await supabase
         .from('usuarios')
@@ -33,37 +21,86 @@ export async function createNewContrato(empreendimentoId, tipoDocumento) {
         .single();
 
     if (profileError || !userProfile) {
-        console.error("Erro ao buscar perfil do usuário:", profileError);
-        return { error: "Não foi possível encontrar o perfil do usuário." };
+        console.error("Erro perfil:", profileError);
+        return { error: "Perfil não encontrado." };
     }
 
     const organizacaoId = userProfile.organizacao_id;
 
-    // --- MUDANÇA 3: Insere o 'tipo_documento' no banco ---
+    // Cria o contrato garantindo que lixeira é false
     const { data: newContrato, error: insertError } = await supabase
         .from('contratos')
         .insert({
             empreendimento_id: empreendimentoId,
-            tipo_documento: tipoDocumento,       // <-- CAMPO ADICIONADO!
+            tipo_documento: tipoDocumento,
             organizacao_id: organizacaoId,
             status_contrato: 'Rascunho',
             valor_final_venda: 0, 
             data_venda: new Date().toISOString().split('T')[0],
-            criado_por_usuario_id: user.id // <-- O "carimbo" de dono!
+            criado_por_usuario_id: user.id,
+            lixeira: false // <--- Nasce visível
         })
         .select('id')
         .single();
 
     if (insertError) {
-        console.error("Erro ao criar novo contrato:", insertError);
-        return { error: "Falha ao criar o documento no banco de dados." }; 
+        console.error("Erro ao criar:", insertError);
+        return { error: "Falha ao criar o documento." }; 
     }
 
     if (newContrato) {
+        revalidatePath('/portal-contratos');
         return { success: true, newContractId: newContrato.id }; 
     }
 
-    return { error: "Ocorreu um erro inesperado ao criar o documento." }; 
+    return { error: "Erro inesperado na criação." }; 
 }
 
-// Manter outras actions se houver...
+// --- FUNÇÃO 2: LISTAR CONTRATOS (Com filtro de lixeira) ---
+export async function getMeusContratos() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('contratos')
+    .select(`
+      *,
+      empreendimentos ( nome ),
+      contatos ( nome ),
+      produtos_empreendimento ( unidade )
+    `)
+    .eq('criado_por_usuario_id', user.id)
+    .eq('lixeira', false) // <--- Só traz o que NÃO foi excluído
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Erro ao buscar contratos:', error)
+    return []
+  }
+
+  return data
+}
+
+// --- FUNÇÃO 3: EXCLUSÃO SUAVE (A CORREÇÃO ESTÁ AQUI) ---
+export async function softDeleteContrato(contratoId) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) return { error: 'Não autorizado' }
+
+  // ATENÇÃO: Usamos UPDATE, não DELETE!
+  const { error } = await supabase
+    .from('contratos')
+    .update({ lixeira: true }) // <--- O SEGREDO: Marca como lixo, não apaga
+    .eq('id', contratoId)
+    .eq('criado_por_usuario_id', user.id) // Segurança: só apaga o que é dele
+
+  if (error) {
+      console.error('Erro ao mover para lixeira:', error)
+      return { error: error.message }
+  }
+
+  revalidatePath('/portal-contratos')
+  return { success: true }
+}

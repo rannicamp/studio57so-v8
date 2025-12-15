@@ -15,13 +15,14 @@ import ContratoList from '@/components/contratos/ContratoList';
 import KpiCard from '@/components/KpiCard';
 import FiltroContratos from '@/components/contratos/FiltroContratos';
 import { useDebounce } from 'use-debounce';
-import { createNewContrato } from './actions'; // <-- Importa a action que corrigimos
+// --- IMPORTAÇÃO ATUALIZADA: Incluindo softDeleteContrato ---
+import { createNewContrato, softDeleteContrato } from './actions'; 
 import { formatDistanceToNow, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
-// (As funções fetchFilterData e formatUltimaVenda continuam iguais...)
+// (Funções auxiliares mantidas...)
 const fetchFilterData = async (organizacaoId) => {
     if (!organizacaoId) {
         return { clientes: [], produtos: [], empreendimentos: [] };
@@ -44,7 +45,6 @@ const formatUltimaVenda = (dateString) => {
     return formatDistanceToNow(date, { addSuffix: true, locale: ptBR });
 };
 
-
 export default function ContratosPage() {
     const supabase = createClient();
     const queryClient = useQueryClient();
@@ -53,7 +53,6 @@ export default function ContratosPage() {
     const userId = user?.id; 
     const router = useRouter();
 
-    // (O resto dos 'useState' e 'useQuery' continuam iguais...)
     const [filters, setFilters] = useState({
         searchTerm: '', clienteId: [], produtoId: [], empreendimentoId: [],
         status: [], startDate: '', endDate: ''
@@ -62,10 +61,9 @@ export default function ContratosPage() {
     const [sortConfig, setSortConfig] = useState({ key: 'numero_contrato', direction: 'descending' });
     const [isModalOpen, setIsModalOpen] = useState(false);
     
-    // --- MUDANÇA 1: Estados para o modal (igual ao painel principal) ---
+    // Estados do Modal
     const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState('');
-    const [selectedTipoDocumento, setSelectedTipoDocumento] = useState('CONTRATO'); // <-- NOVO ESTADO
-    // --- FIM DA MUDANÇA ---
+    const [selectedTipoDocumento, setSelectedTipoDocumento] = useState('CONTRATO');
 
     const [isCreating, setIsCreating] = useState(false);
 
@@ -95,7 +93,6 @@ export default function ContratosPage() {
                 .order('nome');
             if (error) {
                 toast.error("Erro ao buscar empreendimentos para venda.");
-                console.error(error);
                 return [];
             }
             return data;
@@ -119,9 +116,10 @@ export default function ContratosPage() {
                     )
                 `)
                 .eq('organizacao_id', organizacaoId)
-                .eq('criado_por_usuario_id', userId); // <-- Filtro chave do corretor
+                .eq('criado_por_usuario_id', userId)
+                .eq('lixeira', false); // <--- FILTRO DA LIXEIRA ADICIONADO AQUI
 
-            // (Filtros e Ordenação - Sem mudança)
+            // Filtros Dinâmicos
             if (debouncedFilters.searchTerm) {
                 query = query.or(`contato.nome.ilike.%${debouncedFilters.searchTerm}%,contato.razao_social.ilike.%${debouncedFilters.searchTerm}%,numero_contrato.ilike.%${debouncedFilters.searchTerm}%`);
             }
@@ -141,17 +139,14 @@ export default function ContratosPage() {
     });
 
     const kpiData = useMemo(() => {
-        // (lógica inalterada)
-        if (!contratos) {
-            return { totalVendido: 0, contratosAssinados: 0, ticketMedio: 0, mediaVendasPorMes: 0, ultimaVenda: null };
-        }
+        if (!contratos) return { totalVendido: 0, contratosAssinados: 0, ticketMedio: 0, mediaVendasPorMes: 0, ultimaVenda: null };
         const dataParaKpis = contratos.filter(c => c.status_contrato === 'Assinado');
-        if (dataParaKpis.length === 0) {
-            return { totalVendido: 0, contratosAssinados: 0, ticketMedio: 0, mediaVendasPorMes: 0, ultimaVenda: null };
-        }
+        if (dataParaKpis.length === 0) return { totalVendido: 0, contratosAssinados: 0, ticketMedio: 0, mediaVendasPorMes: 0, ultimaVenda: null };
+        
         const totalVendido = dataParaKpis.reduce((acc, contrato) => acc + (parseFloat(contrato.valor_final_venda) || 0), 0);
         const contratosAssinados = dataParaKpis.length;
         const ticketMedio = contratosAssinados > 0 ? totalVendido / contratosAssinados : 0;
+        
         const datasVenda = dataParaKpis.map(c => new Date(c.data_venda));
         const dataMin = new Date(Math.min.apply(null, datasVenda));
         const dataMax = new Date(Math.max.apply(null, datasVenda));
@@ -164,6 +159,23 @@ export default function ContratosPage() {
         return { totalVendido, contratosAssinados, ticketMedio, mediaVendasPorMes, ultimaVenda };
     }, [contratos]);
 
+    // Função para deletar contrato
+    const handleDelete = async (id) => {
+        if (!confirm('Tem certeza que deseja excluir este contrato? Ele será movido para a lixeira.')) return;
+
+        const toastId = toast.loading('Excluindo...');
+        
+        const result = await softDeleteContrato(id);
+        
+        if (result?.success) {
+            toast.success('Contrato excluído!', { id: toastId });
+            // Atualiza a lista removendo o item visualmente ou invalidando a query
+            queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId] });
+        } else {
+            toast.error('Erro ao excluir: ' + (result?.error || 'Erro desconhecido'), { id: toastId });
+        }
+    };
+
     if (isLoading || isUserLoading) {
         return <div className="flex justify-center items-center h-screen"><FontAwesomeIcon icon={faSpinner} spin size="3x" /></div>;
     }
@@ -171,44 +183,38 @@ export default function ContratosPage() {
         return <div className="text-center py-10 text-red-500">Erro ao carregar contratos: {error.message}</div>;
     }
 
-    // --- MUDANÇA 2: Função para fechar e limpar o modal ---
     const handleCloseModal = () => {
         setIsModalOpen(false); 
         setSelectedEmpreendimentoId(''); 
-        setSelectedTipoDocumento('CONTRATO'); // <-- Limpa o estado
+        setSelectedTipoDocumento('CONTRATO');
     };
 
-    // --- MUDANÇA 3: Atualiza a criação do contrato ---
     const handleCreateContrato = async () => {
-        // Valida os dois campos
         if (!selectedEmpreendimentoId || !selectedTipoDocumento) {
             toast.error("Selecione o tipo de documento e o empreendimento.");
             return;
         }
         setIsCreating(true);
         try {
-            // Passa os dois parâmetros para a action
             const result = await createNewContrato(selectedEmpreendimentoId, selectedTipoDocumento); 
             
             if (result?.success && result?.newContractId) {
                 toast.success("Documento criado! Redirecionando...");
-                handleCloseModal(); // <-- Usa a nova função de fechar
-                router.push(`/portal-contratos/${result.newContractId}`); // Rota correta do corretor
+                handleCloseModal();
+                router.push(`/portal-contratos/${result.newContractId}`);
                 queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId] });
             } else if (result?.error) {
                 toast.error(`Erro ao criar documento: ${result.error}`);
             } else {
-                console.error("Resposta inesperada da action:", result);
-                toast.error("Ocorreu um erro inesperado ao criar o documento.");
+                toast.error("Ocorreu um erro inesperado.");
             }
         } catch (err) {
-            console.error("Erro ao chamar createNewContrato:", err);
-            toast.error(`Erro: ${err.message || "Falha na comunicação com o servidor."}`);
+            console.error("Erro:", err);
+            toast.error(`Erro: ${err.message}`);
         } finally {
             setIsCreating(false);
         }
     };
-    // --- FIM DA MUDANÇA ---
 
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-6">
@@ -227,35 +233,34 @@ export default function ContratosPage() {
                 filters={filters}
                 setFilters={setFilters}
                 clientes={filterData?.clientes || []}
-                corretores={[]} // Corretor não filtra ele mesmo
+                corretores={[]} 
                 produtos={filterData?.produtos || []}
                 empreendimentos={filterData?.empreendimentos || []}
             />
 
-            {/* KPIs (sem mudanças) */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 <KpiCard title="Total Vendido" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalVendido)} icon={faFileInvoiceDollar} />
                 <KpiCard title="Contratos Assinados" value={kpiData.contratosAssinados} icon={faHandshake} />
                 <KpiCard title="Ticket Médio" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.ticketMedio)} icon={faArrowUpRightDots} />
-                <KpiCard title="Média de Vendas/Mês" value={kpiData.mediaVendasPorMes.toFixed(2).replace('.', ',')} icon={faChartPie} tooltip="Média de contratos assinados por mês." />
+                <KpiCard title="Média de Vendas/Mês" value={kpiData.mediaVendasPorMes.toFixed(2).replace('.', ',')} icon={faChartPie} />
                 <KpiCard title="Última Venda" value={formatUltimaVenda(kpiData.ultimaVenda)} icon={faCalendarCheck} />
             </div>
 
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                {/* Correção que já estava no arquivo (mantida) */}
                 <ContratoList
                     contratos={contratos || []}
                     sortConfig={sortConfig}
                     requestSort={requestSort}
                     onUpdate={() => {
-                        queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId, debouncedFilters, sortConfig] });
+                        queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId] });
                     }}
-                    basePath="/portal-contratos" // <-- Prop para a rota correta
-                    organizacaoId={organizacaoId}    // <-- Prop para as mutações
+                    basePath="/portal-contratos"
+                    organizacaoId={organizacaoId}
+                    // --- PASSANDO A FUNÇÃO DE DELETE PARA A LISTA ---
+                    onDelete={handleDelete} 
                 />
             </div>
 
-            {/* --- MODAL (COM MUDANÇAS) --- */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
                     <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md space-y-4">
@@ -266,7 +271,6 @@ export default function ContratosPage() {
                              </button>
                         </div>
                         
-                        {/* --- MUDANÇA 4: CAMPO NOVO ADICIONADO --- */}
                         <div>
                             <label htmlFor="tipoDocumento" className="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento</label>
                             <select
@@ -279,16 +283,15 @@ export default function ContratosPage() {
                                 <option value="TERMO_DE_INTERESSE">Termo de Interesse</option>
                             </select>
                         </div>
-                        {/* --- FIM DO CAMPO NOVO --- */}
 
                         <div>
                             <label htmlFor="empreendimento" className="block text-sm font-medium text-gray-700 mb-1">Empreendimento</label>
                             {isLoadingEmpreendimentosModal ? (
                                 <div className="text-center py-4">
-                                    <FontAwesomeIcon icon={faSpinner} spin /> Carregando empreendimentos...
+                                    <FontAwesomeIcon icon={faSpinner} spin /> Carregando...
                                 </div>
                             ) : empreendimentosParaVenda.length === 0 ? (
-                                 <p className="text-center text-red-500 py-4">Nenhum empreendimento listado para venda encontrado.</p>
+                                 <p className="text-center text-red-500 py-4">Nenhum empreendimento disponível.</p>
                             ) : (
                                 <select
                                     id="empreendimento"
@@ -296,7 +299,7 @@ export default function ContratosPage() {
                                     onChange={(e) => setSelectedEmpreendimentoId(e.target.value)}
                                     className="w-full p-2 border rounded-md"
                                 >
-                                    <option value="">-- Selecione o Empreendimento --</option>
+                                    <option value="">-- Selecione --</option>
                                     {empreendimentosParaVenda.map(emp => (
                                         <option key={emp.id} value={emp.id}>{emp.nome}</option>
                                     ))}
@@ -305,17 +308,9 @@ export default function ContratosPage() {
                         </div>
 
                         <div className="flex justify-end gap-3 pt-4">
+                            <button onClick={handleCloseModal} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>
                             <button
-                                type="button"
-                                onClick={handleCloseModal}
-                                className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
                                 onClick={handleCreateContrato}
-                                // --- MUDANÇA 5: Atualiza a validação do disabled ---
                                 disabled={!selectedEmpreendimentoId || !selectedTipoDocumento || isLoadingEmpreendimentosModal || isCreating}
                                 className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center min-w-[150px]"
                             >
@@ -325,8 +320,6 @@ export default function ContratosPage() {
                     </div>
                 </div>
             )}
-             {/* --- FIM DO MODAL --- */}
-
         </div>
     );
 }

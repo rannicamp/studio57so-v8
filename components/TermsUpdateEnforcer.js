@@ -35,7 +35,8 @@ export default function TermsUpdateEnforcer() {
         })
         setShowModal(false)
     } else {
-        toast.error('Erro ao salvar aceite. Tente novamente.')
+        // MUDANÇA AQUI: Mostra o erro real que veio do servidor
+        toast.error(result?.error || 'Erro ao salvar aceite. Tente novamente.')
     }
     setIsLoading(false)
   }

@@ -5,9 +5,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEye, faTrash, faCopy, faSort, faSortUp, faSortDown, faCheck, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faEye, faTrash, faCopy, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
 import { useMutation } from '@tanstack/react-query';
-// Importamos a nova Server Action
 import { updateContratoStatus } from '../../app/(main)/contratos/actions'; 
 import { createClient } from '../../utils/supabase/client';
 
@@ -25,16 +24,15 @@ export default function ContratoList({
     requestSort, 
     onUpdate, 
     basePath = "/contratos", 
-    organizacaoId 
+    organizacaoId,
+    onDelete // <--- 1. RECEBENDO A FUNÇÃO MÁGICA DA LIXEIRA
 }) {
     const router = useRouter();
     const supabase = createClient();
     const [editingStatusId, setEditingStatusId] = useState(null);
 
-    // Mutation atualizada para usar a Server Action
     const updateStatusMutation = useMutation({
         mutationFn: async ({ id, newStatus }) => {
-            // Chama a função do servidor que criamos no actions.js
             const result = await updateContratoStatus(id, newStatus);
             if (result.error) throw new Error(result.error);
             return result;
@@ -46,7 +44,7 @@ export default function ContratoList({
             }
             setEditingStatusId(null);
             if (onUpdate) onUpdate();
-            router.refresh(); // Força atualização da página para refletir mudanças no produto
+            router.refresh(); 
         },
         onError: (error) => {
             toast.error(`Erro: ${error.message}`);
@@ -59,11 +57,25 @@ export default function ContratoList({
 
     const handleDelete = async (e, contrato) => {
         e.stopPropagation();
+
+        // --- 2. VERIFICAÇÃO PRIORITÁRIA ---
+        // Se a página passou uma função de deletar (como a do Corretor), usa ela!
+        if (onDelete) {
+            onDelete(contrato.id);
+            return;
+        }
+
+        // --- 3. FALLBACK DE SEGURANÇA (Se não tiver função, faz Soft Delete padrão) ---
+        // Antes era .delete(), agora é .update() para lixeira
         if (confirm('Tem certeza que deseja excluir este contrato?')) {
-            const { error } = await supabase.from('contratos').delete().eq('id', contrato.id);
+            const { error } = await supabase
+                .from('contratos')
+                .update({ lixeira: true }) // <--- AGORA É LIXEIRA, NÃO DELETE
+                .eq('id', contrato.id);
+                
             if (error) toast.error("Erro ao excluir");
             else {
-                toast.success("Contrato excluído");
+                toast.success("Contrato movido para a lixeira");
                 if(onUpdate) onUpdate();
                 router.refresh();
             }
@@ -72,13 +84,13 @@ export default function ContratoList({
 
     const handleDuplicate = async (e, contrato) => {
         e.stopPropagation();
-        // Lógica simplificada de duplicação (rascunho)
         const { id, created_at, ...dados } = contrato;
         const novoContrato = {
             ...dados,
             status_contrato: 'Rascunho',
-            numero_contrato: null, // Limpa número para gerar novo
-            data_venda: new Date().toISOString().split('T')[0]
+            numero_contrato: null, 
+            data_venda: new Date().toISOString().split('T')[0],
+            lixeira: false // <--- Garante que a cópia não nasce no lixo
         };
         
         const { error } = await supabase.from('contratos').insert(novoContrato);
@@ -130,7 +142,11 @@ export default function ContratoList({
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                     {contrato.empreendimento?.nome}
-                                    {contrato.produto?.unidade && <span className="ml-1 text-xs bg-gray-100 px-1 rounded">Unid. {contrato.produto.unidade}</span>}
+                                    {contrato.contrato_produtos?.[0]?.produtos_empreendimento?.unidade && (
+                                        <span className="ml-1 text-xs bg-gray-100 px-1 rounded">
+                                            Unid. {contrato.contrato_produtos[0].produtos_empreendimento.unidade}
+                                        </span>
+                                    )}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                     {editingStatusId === contrato.id ? (

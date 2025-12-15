@@ -1,7 +1,7 @@
-// app/(corretor)/actions.js
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
+// Importamos o AdminClient (A chave mestra que ignora bloqueios)
+import { createClient, createAdminClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 const ORGANIZACAO_ID = 2
@@ -10,11 +10,10 @@ const ORGANIZACAO_ID = 2
 export async function checkTermsStatus() {
   const supabase = createClient()
   
-  // 1. Pegar usuário logado
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { mustAccept: false } // Se não tá logado, o middleware resolve
+  if (!user) return { mustAccept: false } 
 
-  // 2. Pegar a versão MAIS RECENTE e ATIVA do termo
+  // Busca o termo ativo mais recente
   const { data: latestTerm, error: termError } = await supabase
     .from('termos_uso')
     .select('id, versao, conteudo')
@@ -27,51 +26,67 @@ export async function checkTermsStatus() {
 
   if (termError || !latestTerm) return { mustAccept: false }
 
-  // 3. Verificar se o usuário JÁ ACEITOU essa versão específica
+  // Verifica se já aceitou ESTA versão específica
   const { data: acceptance } = await supabase
     .from('termos_aceite')
     .select('id')
     .eq('user_id', user.id)
-    .eq('termo_id', latestTerm.id) // <--- O pulo do gato: tem que ser o ID do termo ATUAL
+    .eq('termo_id', latestTerm.id)
     .single()
 
-  // Se tem aceite, retorna falso. Se não tem (undefined), retorna que PRECISA aceitar
-  if (acceptance) {
-    return { mustAccept: false }
-  } else {
+  // Se NÃO tem aceite, retorna true (precisa aceitar)
+  if (!acceptance) {
     return { 
         mustAccept: true, 
         termContent: latestTerm.conteudo,
         termId: latestTerm.id 
     }
   }
+  
+  return { mustAccept: false }
 }
 
-// Salvar o aceite do novo termo
+// Salvar o aceite do novo termo (USANDO ADMIN)
 export async function acceptUpdatedTerms(termId) {
+    console.log('[ACTION] Tentando aceitar termo ID:', termId);
+    
     const supabase = createClient()
+    // Aqui está o segredo: Usamos o AdminClient para gravar sem restrição
+    const supabaseAdmin = createAdminClient() 
+    
     const { data: { user } } = await supabase.auth.getUser()
     
-    if (!user) return { error: 'Usuário não identificado' }
-
-    // Salvar na tabela de aceites
-    const { error } = await supabase.from('termos_aceite').insert({
-        user_id: user.id,
-        termo_id: termId,
-        organizacao_id: ORGANIZACAO_ID
-    })
-
-    if (error) {
-        console.error('Erro ao aceitar termo:', error)
-        return { error: 'Erro ao processar aceite.' }
+    if (!user) {
+        console.error('[ACTION] Erro: Usuário não logado.');
+        return { error: 'Sessão expirada. Faça login novamente.' }
     }
 
-    // Atualizar tabela de usuarios (opcional, mas bom pra redundância)
-    await supabase.from('usuarios').update({
-        aceitou_termos: true,
-        data_aceite_termos: new Date().toISOString()
-    }).eq('id', user.id)
+    try {
+        // Tenta inserir
+        const { error: insertError } = await supabaseAdmin.from('termos_aceite').insert({
+            user_id: user.id,
+            termo_id: termId,
+            organizacao_id: ORGANIZACAO_ID
+        })
 
-    revalidatePath('/(corretor)', 'layout')
-    return { success: true }
+        if (insertError) {
+            // Se der erro, joga pro catch para ver no console
+            throw new Error(insertError.message);
+        }
+
+        // Atualiza flag no usuário (Opcional, mas bom ter)
+        await supabaseAdmin.from('usuarios').update({
+            aceitou_termos: true,
+            data_aceite_termos: new Date().toISOString()
+        }).eq('id', user.id)
+
+        console.log('[ACTION] Aceite registrado com sucesso para:', user.email);
+        
+        revalidatePath('/(corretor)', 'layout')
+        return { success: true }
+
+    } catch (error) {
+        console.error('[ACTION] ERRO CRÍTICO AO SALVAR ACEITE:', error.message);
+        return { error: `Erro no banco de dados: ${error.message}` }
+    }
 }
