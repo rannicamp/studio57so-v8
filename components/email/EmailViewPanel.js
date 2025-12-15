@@ -1,11 +1,12 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faUserCircle, faPaperclip, faTimes, faFileAlt, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faUserCircle, faPaperclip, faTimes, faFileAlt, faExclamationTriangle, faDownload } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import DOMPurify from 'isomorphic-dompurify'; // Segurança
+import DOMPurify from 'isomorphic-dompurify';
 
 // Função de busca
 const fetchEmailContent = async ({ queryKey }) => {
@@ -16,9 +17,21 @@ const fetchEmailContent = async ({ queryKey }) => {
     return res.json();
 };
 
+// Função de ação (Marcar como lido)
+const performEmailAction = async ({ action, folder, uid }) => {
+    const res = await fetch('/api/email/actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, folder, uid })
+    });
+    if (!res.ok) throw new Error('Falha na ação');
+    return res.json();
+};
+
 export default function EmailViewPanel({ emailSummary, folder, onClose }) {
+    const queryClient = useQueryClient();
     
-    // --- QUERY ---
+    // --- QUERY: Buscar Conteúdo ---
     const { 
         data: fullEmail, 
         isLoading, 
@@ -27,21 +40,71 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
         queryKey: ['emailContent', folder?.name, emailSummary?.id],
         queryFn: fetchEmailContent,
         enabled: !!emailSummary?.id && !!folder?.name,
-        staleTime: 1000 * 60 * 30, // Cache de 30 min (conteúdo de email não muda)
+        staleTime: 1000 * 60 * 30, // 30 min cache
         refetchOnWindowFocus: false,
     });
 
+    // --- MUTATION: Marcar como Lido ---
+    const markReadMutation = useMutation({
+        mutationFn: performEmailAction,
+        onSuccess: () => {
+            // Atualiza a lista de e-mails para remover o negrito
+            queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
+            // Atualiza a contagem de pastas (opcional, pois é pesado)
+            // queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
+        }
+    });
+
+    // Efeito para marcar como lido ao carregar
+    useEffect(() => {
+        if (fullEmail && !emailSummary?.flags?.includes('\\Seen')) {
+            // Pequeno delay para garantir que o usuário viu
+            const timer = setTimeout(() => {
+                markReadMutation.mutate({ 
+                    action: 'markAsRead', 
+                    folder: folder.name, 
+                    uid: emailSummary.id 
+                });
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [fullEmail, emailSummary, folder]);
+
+    // --- FUNÇÃO: Baixar Anexo ---
+    const handleDownloadAttachment = (att) => {
+        if (!att || !att.content || !att.content.data) return;
+
+        try {
+            // O Buffer vem do servidor como um array de bytes { type: 'Buffer', data: [...] }
+            const byteArray = new Uint8Array(att.content.data);
+            const blob = new Blob([byteArray], { type: att.contentType });
+            const url = window.URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = att.filename || 'anexo_download';
+            document.body.appendChild(link);
+            link.click();
+            
+            // Limpeza
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error("Erro ao baixar anexo:", err);
+            alert("Erro ao processar o arquivo do anexo.");
+        }
+    };
+
     if (!emailSummary) return null;
 
-    // Sanitização de Segurança (Impede XSS)
     const safeHtml = fullEmail?.html ? DOMPurify.sanitize(fullEmail.html, {
-        USE_PROFILES: { html: true }, // Permite formatação segura
-        ADD_ATTR: ['target'], // Permite links abrirem em nova aba
+        USE_PROFILES: { html: true },
+        ADD_ATTR: ['target'], 
     }) : null;
 
     return (
         <div className="h-full flex flex-col bg-white border-l border-gray-200 w-full relative">
-            {/* Header do E-mail */}
+            {/* Header */}
             <div className="p-5 border-b bg-gray-50 flex justify-between items-start shrink-0">
                 <div className="flex-1 overflow-hidden mr-4">
                     <h2 className="text-lg font-bold text-gray-800 break-words mb-3 leading-snug">
@@ -67,7 +130,7 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
                 </button>
             </div>
 
-            {/* Corpo do E-mail */}
+            {/* Corpo */}
             <div className="flex-grow overflow-y-auto custom-scrollbar p-6 bg-white relative">
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center h-40 text-gray-400">
@@ -81,6 +144,7 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
                     </div>
                 ) : fullEmail ? (
                     <div className="animate-fade-in">
+                        {/* Conteúdo HTML Seguro */}
                         <div className="prose prose-sm max-w-none text-gray-800 break-words font-sans">
                             {safeHtml ? (
                                 <div dangerouslySetInnerHTML={{ __html: safeHtml }} />
@@ -89,7 +153,7 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
                             )}
                         </div>
 
-                        {/* Área de Anexos Melhorada */}
+                        {/* Anexos */}
                         {fullEmail.attachments?.length > 0 && (
                             <div className="mt-10 pt-6 border-t border-gray-100">
                                 <h4 className="text-xs font-bold text-gray-500 uppercase mb-4 flex items-center gap-2">
@@ -98,17 +162,25 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
                                 </h4>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {fullEmail.attachments.map((att, i) => (
-                                        <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-blue-50 hover:border-blue-100 transition-colors group cursor-pointer" title="Visualizar não implementado ainda">
-                                            <div className="bg-white p-2 rounded border border-gray-200 text-blue-500">
+                                        <div 
+                                            key={i} 
+                                            onClick={() => handleDownloadAttachment(att)}
+                                            className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-blue-50 hover:border-blue-200 transition-all cursor-pointer group"
+                                            title="Clique para baixar"
+                                        >
+                                            <div className="bg-white p-2.5 rounded border border-gray-200 text-blue-500 group-hover:text-blue-600 shadow-sm">
                                                 <FontAwesomeIcon icon={faFileAlt} />
                                             </div>
-                                            <div className="min-w-0">
+                                            <div className="min-w-0 flex-1">
                                                 <p className="text-sm font-medium text-gray-700 truncate group-hover:text-blue-700">
                                                     {att.filename || 'Sem nome'}
                                                 </p>
                                                 <p className="text-[10px] text-gray-400">
-                                                    {att.size ? (att.size / 1024).toFixed(0) + ' KB' : 'Anexo'}
+                                                    {att.size ? (att.size / 1024).toFixed(0) + ' KB' : 'Arquivo'}
                                                 </p>
+                                            </div>
+                                            <div className="text-gray-300 group-hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <FontAwesomeIcon icon={faDownload} />
                                             </div>
                                         </div>
                                     ))}
