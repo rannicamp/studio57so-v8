@@ -7,13 +7,14 @@ import { faSpinner, faUserCircle, faPaperclip, faTimes, faFileAlt, faExclamation
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DOMPurify from 'isomorphic-dompurify';
-import EmailComposeModal from './EmailComposeModal'; // <--- Importar Modal
+import EmailComposeModal from './EmailComposeModal';
 
-// Função de busca
+// Função de busca atualizada para usar folderPath
 const fetchEmailContent = async ({ queryKey }) => {
-    const [_key, folderName, uid] = queryKey;
+    const [_key, folderPath, uid] = queryKey;
     if (!uid) return null;
-    const res = await fetch(`/api/email/content?folder=${encodeURIComponent(folderName)}&uid=${uid}`);
+    // Usa o caminho completo da pasta
+    const res = await fetch(`/api/email/content?folder=${encodeURIComponent(folderPath)}&uid=${uid}`);
     if (!res.ok) throw new Error('Erro ao carregar conteúdo');
     return res.json();
 };
@@ -22,7 +23,7 @@ const performEmailAction = async ({ action, folder, uid }) => {
     const res = await fetch('/api/email/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, folder, uid })
+        body: JSON.stringify({ action, folder, uid }) // Backend espera 'folder' como path
     });
     if (!res.ok) throw new Error('Falha na ação');
     return res.json();
@@ -30,19 +31,21 @@ const performEmailAction = async ({ action, folder, uid }) => {
 
 export default function EmailViewPanel({ emailSummary, folder, onClose }) {
     const queryClient = useQueryClient();
-    
-    // Controle do Modal de Composição
     const [isComposeOpen, setIsComposeOpen] = useState(false);
     const [composeData, setComposeData] = useState(null);
+
+    // Identificador da pasta (Path)
+    const folderIdentifier = folder?.path || folder?.name;
 
     const { 
         data: fullEmail, 
         isLoading, 
         isError 
     } = useQuery({
-        queryKey: ['emailContent', folder?.name, emailSummary?.id],
+        // IMPORTANTE: Mudamos de folder.name para folderIdentifier (path)
+        queryKey: ['emailContent', folderIdentifier, emailSummary?.id],
         queryFn: fetchEmailContent,
-        enabled: !!emailSummary?.id && !!folder?.name,
+        enabled: !!emailSummary?.id && !!folderIdentifier,
         staleTime: 1000 * 60 * 30, 
         refetchOnWindowFocus: false,
     });
@@ -59,36 +62,29 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
             const timer = setTimeout(() => {
                 markReadMutation.mutate({ 
                     action: 'markAsRead', 
-                    folder: folder.name, 
+                    folder: folderIdentifier, // Manda o path correto para a ação
                     uid: emailSummary.id 
                 });
             }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [fullEmail, emailSummary, folder]);
+    }, [fullEmail, emailSummary, folderIdentifier]);
 
-    // --- FUNÇÕES DE RESPOSTA ---
     const prepareReply = (type) => {
         if (!fullEmail) return;
 
-        let to = fullEmail.from; // Quem enviou
+        let to = fullEmail.from; 
         let cc = '';
         let subject = fullEmail.subject;
         
-        // Ajuste de Assunto
         if (!subject.toLowerCase().startsWith('re:')) {
             subject = `Re: ${subject}`;
         }
 
-        // Se for Reply All, adiciona os CCs originais
         if (type === 'replyAll' && fullEmail.to) {
-            // Lógica simples: adiciona quem estava no TO original (exceto eu mesmo, idealmente)
-            // Aqui vamos apenas concatenar por enquanto
-           // Nota: O 'fullEmail.to' geralmente vem como string ou array na API, ajuste conforme retorno real
            if (typeof fullEmail.to === 'string') cc = fullEmail.to;
         }
 
-        // Citação (Quote)
         const dateStr = format(new Date(fullEmail.date), "dd/MM/yyyy HH:mm", { locale: ptBR });
         const quote = `
             <br><br><br>
@@ -104,7 +100,7 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
             cc: type === 'replyAll' ? cc : '',
             subject: type === 'forward' ? `Fwd: ${fullEmail.subject}` : subject,
             body: quote,
-            messageId: fullEmail.id // ID original para threading
+            messageId: fullEmail.id 
         });
         setIsComposeOpen(true);
     };
@@ -164,31 +160,17 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
                     </div>
                 </div>
                 <div className="flex gap-2">
-                     {/* BOTÕES DE AÇÃO: RESPONDER / ENCAMINHAR */}
                     <div className="flex bg-white rounded-lg border border-gray-300 shadow-sm overflow-hidden">
-                        <button 
-                            onClick={() => prepareReply('reply')} 
-                            className="p-2 text-gray-600 hover:bg-gray-100 border-r border-gray-200" 
-                            title="Responder"
-                        >
+                        <button onClick={() => prepareReply('reply')} className="p-2 text-gray-600 hover:bg-gray-100 border-r border-gray-200" title="Responder">
                             <FontAwesomeIcon icon={faReply} />
                         </button>
-                        <button 
-                            onClick={() => prepareReply('replyAll')} 
-                            className="p-2 text-gray-600 hover:bg-gray-100 border-r border-gray-200" 
-                            title="Responder a Todos"
-                        >
+                        <button onClick={() => prepareReply('replyAll')} className="p-2 text-gray-600 hover:bg-gray-100 border-r border-gray-200" title="Responder a Todos">
                             <FontAwesomeIcon icon={faReplyAll} />
                         </button>
-                        <button 
-                            onClick={() => prepareReply('forward')} 
-                            className="p-2 text-gray-600 hover:bg-gray-100" 
-                            title="Encaminhar"
-                        >
+                        <button onClick={() => prepareReply('forward')} className="p-2 text-gray-600 hover:bg-gray-100" title="Encaminhar">
                             <FontAwesomeIcon icon={faShare} />
                         </button>
                     </div>
-
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-200 p-2 rounded-lg transition-colors ml-2">
                         <FontAwesomeIcon icon={faTimes} className="text-lg" />
                     </button>

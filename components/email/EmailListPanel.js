@@ -7,18 +7,17 @@ import { faArrowLeft, faSpinner, faSync, faBoxOpen, faExclamationCircle, faSearc
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// Função de busca atualizada para aceitar status
+// Função de busca atualizada para usar o PATH (Caminho Completo)
 const fetchMessages = async ({ queryKey }) => {
-    const [_key, folderName, page, searchTerm, status] = queryKey;
+    const [_key, folderPath, page, searchTerm, status] = queryKey;
     
-    let url = `/api/email/messages?folder=${encodeURIComponent(folderName)}&page=${page}`;
+    // ATENÇÃO: Usamos folderPath aqui, que é o caminho completo (ex: INBOX.Trabalho)
+    let url = `/api/email/messages?folder=${encodeURIComponent(folderPath)}&page=${page}`;
     
-    // Adiciona busca se houver
     if (searchTerm) {
         url += `&search=${encodeURIComponent(searchTerm)}`;
     }
     
-    // Adiciona status se diferente de 'all'
     if (status && status !== 'all') {
         url += `&status=${status}`;
     }
@@ -30,12 +29,15 @@ const fetchMessages = async ({ queryKey }) => {
 
 export default function EmailListPanel({ folder, onBack, onSelectEmail, selectedEmailId, searchTerm }) {
     const [page, setPage] = useState(1);
-    const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'unread', 'read'
+    const [filterStatus, setFilterStatus] = useState('all');
 
     // Reseta página se mudar busca, pasta ou filtro
     useEffect(() => {
         setPage(1);
-    }, [searchTerm, folder.name, filterStatus]);
+    }, [searchTerm, folder.path, filterStatus]); // Monitora folder.path agora
+
+    // Define o ID da pasta (prioriza o path completo, fallback para nome)
+    const folderIdentifier = folder.path || folder.name;
 
     const { 
         data, 
@@ -45,8 +47,8 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
         isFetching, 
         refetch 
     } = useQuery({
-        // Adicionamos filterStatus na chave para o cache diferenciar as abas
-        queryKey: ['emailMessages', folder.name, page, searchTerm, filterStatus],
+        // IMPORTANTE: Mudamos de folder.name para folderIdentifier (path)
+        queryKey: ['emailMessages', folderIdentifier, page, searchTerm, filterStatus],
         queryFn: fetchMessages,
         placeholderData: keepPreviousData,
         staleTime: 1000 * 60 * 1, 
@@ -66,8 +68,9 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                             <FontAwesomeIcon icon={faArrowLeft} />
                         </button>
                         <div className="overflow-hidden">
-                            <h2 className="text-base font-bold text-gray-800 truncate" title={folder.name}>
-                                {folder.name}
+                            {/* Visualmente mostramos o nome bonito (displayName ou name) */}
+                            <h2 className="text-base font-bold text-gray-800 truncate" title={folderIdentifier}>
+                                {folder.displayName || folder.name}
                             </h2>
                             {searchTerm ? (
                                 <p className="text-xs text-blue-600 font-medium truncate flex items-center gap-1">
@@ -91,7 +94,7 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                     </button>
                 </div>
 
-                {/* Abas de Filtro (Lidos / Não Lidos) */}
+                {/* Abas de Filtro */}
                 <div className="flex px-4 gap-4 mt-1">
                     <button 
                         onClick={() => setFilterStatus('all')}
@@ -140,7 +143,6 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100 pb-4">
-                        {/* Indicador de atualização em background */}
                         {isFetching && !isLoading && (
                             <div className="absolute top-0 inset-x-0 bg-blue-50 text-blue-600 text-[10px] font-bold text-center py-1 z-10 opacity-90">
                                 Atualizando...
@@ -171,7 +173,6 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                             </div>
                         ))}
                         
-                        {/* Paginação */}
                         <div className="p-4 flex justify-between items-center bg-gray-50 border-t mt-2">
                             <button 
                                 onClick={() => setPage(old => Math.max(old - 1, 1))} 

@@ -5,14 +5,11 @@ import { useQuery } from '@tanstack/react-query';
 import EmailConfigModal from '@/components/email/EmailConfigModal';
 import EmailListPanel from '@/components/email/EmailListPanel';
 import EmailViewPanel from '@/components/email/EmailViewPanel';
-import EmailComposeModal from '@/components/email/EmailComposeModal'; // <--- IMPORT
+import EmailComposeModal from '@/components/email/EmailComposeModal'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faEnvelope, faInbox, faCog, faFolder, faSpinner, faExclamationTriangle, faPaperPlane, faTrash, faBan, faPlus } from '@fortawesome/free-solid-svg-icons'; // <--- faPlus
+import { faSearch, faEnvelope, faInbox, faCog, faFolder, faSpinner, faExclamationTriangle, faPaperPlane, faTrash, faBan, faPlus } from '@fortawesome/free-solid-svg-icons'; 
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { useDebounce } from 'use-debounce';
-
-// ... (MANTENHA CÓDIGO CACHE/FUNÇÕES getEmailFolders/getFolderIcon IGUAIS) ...
-// (Para economizar espaço na resposta, vou focar nas mudanças, mas ao copiar, mantenha o resto do arquivo igual)
 
 // CHAVE DE CACHE ESPECÍFICA DO EMAIL
 const EMAIL_UI_STATE_KEY = 'emailUiState';
@@ -56,7 +53,7 @@ export default function EmailInbox({ onChangeTab }) {
     const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false);
     
     // ESTADO DO MODAL DE COMPOSIÇÃO
-    const [isComposeOpen, setIsComposeOpen] = useState(false); // <--- NOVO
+    const [isComposeOpen, setIsComposeOpen] = useState(false);
 
     const [debouncedSearchTerm] = useDebounce(searchTerm, 600);
 
@@ -124,7 +121,7 @@ export default function EmailInbox({ onChangeTab }) {
                     </button>
                 </div>
 
-                {/* BOTÃO FLUTUANTE DE NOVO E-MAIL (OU NO CABEÇALHO) */}
+                {/* BOTÃO FLUTUANTE DE NOVO E-MAIL */}
                 <div className="p-4 pb-0">
                     <button 
                         onClick={() => setIsComposeOpen(true)}
@@ -150,7 +147,6 @@ export default function EmailInbox({ onChangeTab }) {
 
                 {/* Lista de Pastas */}
                 <div className="flex-grow overflow-y-auto custom-scrollbar bg-white">
-                    {/* ... (CONTEÚDO DA LISTA DE PASTAS IDÊNTICO AO ANTERIOR) ... */}
                     {isLoadingEmail ? (
                         <div className="flex flex-col items-center justify-center h-40 text-gray-400"><FontAwesomeIcon icon={faSpinner} spin className="text-2xl mb-2 text-blue-500" /><p className="text-xs">Conectando...</p></div>
                     ) : isEmailError ? (
@@ -163,9 +159,26 @@ export default function EmailInbox({ onChangeTab }) {
                         <div className="divide-y divide-gray-100">
                             <div className="p-3 bg-blue-50/50 text-xs font-bold text-blue-800 flex justify-between items-center tracking-wide"><span>SUAS PASTAS</span><button onClick={() => setIsEmailConfigOpen(true)} title="Ajustes"><FontAwesomeIcon icon={faCog} /></button></div>
                             {emailData?.folders?.map((folder, idx) => (
-                                <button key={idx} onClick={() => setSelectedEmailFolder(folder)} className={`w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 text-sm transition-colors ${selectedEmailFolder?.name === folder.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}>
-                                    <FontAwesomeIcon icon={getFolderIcon(folder.name)} className={`${selectedEmailFolder?.name === folder.name ? 'text-blue-500' : 'text-gray-400'}`} />
-                                    <span className="truncate">{folder.name}</span>
+                                <button 
+                                    key={idx} 
+                                    onClick={() => setSelectedEmailFolder(folder)} 
+                                    className={`
+                                        w-full text-left py-3 hover:bg-gray-50 flex items-center gap-3 text-sm transition-colors
+                                        ${selectedEmailFolder?.path === folder.path ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}
+                                    `}
+                                    // APLICANDO A INDENTAÇÃO AQUI (padding left base + nivel * 12px)
+                                    style={{ paddingLeft: `${16 + ((folder.level || 0) * 16)}px`, paddingRight: '16px' }}
+                                >
+                                    <FontAwesomeIcon 
+                                        icon={getFolderIcon(folder.name)} 
+                                        className={`
+                                            ${selectedEmailFolder?.path === folder.path ? 'text-blue-500' : 'text-gray-400'}
+                                            ${(folder.level || 0) > 0 ? 'text-xs opacity-75' : ''} 
+                                        `} 
+                                    />
+                                    <span className="truncate">
+                                        {folder.displayName || folder.name}
+                                    </span>
                                 </button>
                             ))}
                         </div>
@@ -173,7 +186,7 @@ export default function EmailInbox({ onChangeTab }) {
                 </div>
             </div>
 
-            {/* ... (RESTO DO LAYOUT IDÊNTICO - COLUNA 2 E 3) ... */}
+            {/* --- COLUNA 2: LISTA DE EMAILS --- */}
             <div className={`
                 ${hasSelection ? 'flex' : 'hidden md:flex'} 
                 ${showEmailReadingPane ? 'hidden lg:flex lg:w-[350px] xl:w-[400px] border-r shrink-0' : 'flex-grow'} 
@@ -198,6 +211,7 @@ export default function EmailInbox({ onChangeTab }) {
                 )}
             </div>
 
+            {/* --- COLUNA 3: LEITURA DE E-MAIL --- */}
             {showEmailReadingPane && (
                 <div className="flex-grow w-full lg:w-auto bg-white flex-col h-full overflow-hidden min-h-0">
                     <EmailViewPanel 

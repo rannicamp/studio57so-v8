@@ -6,11 +6,11 @@ export async function GET() {
   const supabase = createClient();
 
   try {
-    // 1. Verificar quem é o usuário logado
+    // 1. Verificar Autenticação
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-    // 2. Buscar as configurações de e-mail dele no banco
+    // 2. Buscar Configurações
     const { data: config, error } = await supabase
       .from('email_configuracoes')
       .select('*')
@@ -21,60 +21,111 @@ export async function GET() {
       return NextResponse.json({ error: 'E-mail não configurado' }, { status: 404 });
     }
 
-    // 3. Configurar a conexão IMAP (Hostinger/Titan/Gmail)
+    // 3. Conexão IMAP
     const imapConfig = {
       imap: {
         user: config.imap_user || config.email,
-        password: config.senha_app, // A senha que você salvou no modal
+        password: config.senha_app,
         host: config.imap_host,
         port: config.imap_port || 993,
         tls: true,
-        authTimeout: 10000,
-        tlsOptions: { rejectUnauthorized: false } // Importante para compatibilidade
+        authTimeout: 15000,
+        tlsOptions: { rejectUnauthorized: false }
       },
     };
 
-    // 4. Conectar e buscar a lista de caixas (pastas)
     const connection = await imapSimple.connect(imapConfig);
     const boxes = await connection.getBoxes();
-    
-    connection.end(); // Fecha a conexão rapidinho
+    connection.end();
 
-    // 5. Organizar os dados para mostrar na tela
+    // 4. Mapeamento de Nomes (Tradução e ícones)
+    const folderTranslations = {
+      'INBOX': 'Caixa de Entrada',
+      'SENT': 'Enviados',
+      'DRAFTS': 'Rascunhos',
+      'TRASH': 'Lixeira',
+      'JUNK': 'Spam',
+      'SPAM': 'Spam',
+      'ARCHIVE': 'Arquivados'
+    };
+
     const folderList = [];
-    
-    // Função recursiva para pegar subpastas se houver
-    const processBoxes = (boxList, parent = null) => {
+
+    // 5. Função Recursiva Poderosa (Corrige o Path e adiciona Nível)
+    // parentPath: O caminho completo acumulado até aqui
+    // level: Nível de indentação (0 = raiz, 1 = filho, 2 = neto)
+    const processBoxes = (boxList, parentPath = '', level = 0) => {
         for (const [key, value] of Object.entries(boxList)) {
-            // Filtra pastas de sistema ocultas se necessário
+            const delimiter = value.delimiter || '/';
+            
+            // CORREÇÃO CRÍTICA: Construir o caminho completo baseado no pai acumulado
+            // Se tiver parentPath, soma. Se não, é o próprio key.
+            const fullPath = parentPath ? `${parentPath}${delimiter}${key}` : key;
+
+            // Tratamento do Nome de Exibição
+            let displayName = key;
+            const upperKey = key.toUpperCase();
+            
+            // Se for pasta padrão, usa a tradução. Senão, mantém o nome original.
+            if (folderTranslations[upperKey]) {
+                displayName = folderTranslations[upperKey];
+            } else if (key.toUpperCase().includes('SEND') || key.toUpperCase().includes('SENT')) {
+                // Captura variações como "Sent Items"
+                 displayName = 'Enviados';
+            }
+
+            // Ignorar pastas de sistema estranhas ou desnecessárias (Opcional)
+            if (key.startsWith('[Gmail]')) {
+                // No Gmail, as pastas reais estão DENTRO dessa, então só processamos os filhos
+                if (value.children) processBoxes(value.children, fullPath, level);
+                continue; 
+            }
+
             folderList.push({
-                name: key, // Ex: "INBOX", "Sent"
-                path: parent ? `${parent}${value.delimiter}${key}` : key,
-                delimiter: value.delimiter,
-                attribs: value.attribs
+                name: key,             // Nome técnico curto (ex: "Work")
+                displayName: displayName, // Nome bonito (ex: "Trabalho")
+                path: fullPath,        // O CAMINHO CORRETO PARA ABRIR A PASTA (ex: "INBOX.Trabalho")
+                delimiter: delimiter,
+                attribs: value.attribs,
+                level: level,          // Para indentação visual no front
+                special: !!folderTranslations[upperKey] // Flag para ícones especiais
             });
             
+            // Recursão: Passa o fullPath atual como pai para os filhos
             if (value.children) {
-                processBoxes(value.children, key);
+                processBoxes(value.children, fullPath, level + 1);
             }
         }
     };
 
     processBoxes(boxes);
 
-    // Ordena para INBOX ficar sempre em primeiro
+    // 6. Ordenação Inteligente
+    // Coloca Caixa de Entrada no topo, depois as especiais, depois as pastas normais alfabeticamente
+    const specialOrder = ['Caixa de Entrada', 'Enviados', 'Rascunhos', 'Spam', 'Lixeira', 'Arquivados'];
+
     folderList.sort((a, b) => {
-        if (a.name.toUpperCase() === 'INBOX') return -1;
-        if (b.name.toUpperCase() === 'INBOX') return 1;
-        return a.name.localeCompare(b.name);
+        const indexA = specialOrder.indexOf(a.displayName);
+        const indexB = specialOrder.indexOf(b.displayName);
+
+        // Se ambos são especiais, ordena pela lista fixa
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        // Se só A é especial, ele sobe
+        if (indexA !== -1) return -1;
+        // Se só B é especial, ele sobe
+        if (indexB !== -1) return 1;
+
+        // Se nenhum é especial, ordena alfabeticamente, mas respeitando grupos de hierarquia se possível
+        // (Aqui mantemos simples por path para agrupar pai/filho visualmente na lista plana)
+        return a.path.localeCompare(b.path);
     });
 
     return NextResponse.json({ folders: folderList });
 
   } catch (error) {
-    console.error('Erro IMAP:', error);
+    console.error('Erro IMAP Folders:', error);
     return NextResponse.json({ 
-      error: 'Falha ao conectar. Verifique servidor e senha.', 
+      error: 'Falha ao buscar pastas.', 
       details: error.message 
     }, { status: 500 });
   }
