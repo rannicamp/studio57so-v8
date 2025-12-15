@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query'; // <--- Importante
+import { useQuery } from '@tanstack/react-query';
 
 export default function EmailComposeModal({ isOpen, onClose, initialData = null }) {
     const supabase = createClient();
@@ -33,8 +33,8 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
                 .single();
             return data;
         },
-        enabled: !!user && isOpen, // Só busca quando o modal abre
-        staleTime: 1000 * 60 * 5 // Cache de 5 min
+        enabled: !!user && isOpen, 
+        staleTime: 1000 * 60 * 5 
     });
 
     // --- 2. FUNÇÃO PARA MONTAR HTML DA ASSINATURA ---
@@ -43,13 +43,15 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
 
         const textoAssinatura = emailConfig.assinatura_texto;
         const incluirFoto = emailConfig.assinatura_incluir_foto;
-        const fotoUrl = user?.user_metadata?.avatar_url;
+        
+        // CORREÇÃO AQUI: Pegamos a foto direto do perfil do usuário (igual no Header)
+        const fotoUrl = user?.avatar_url; 
 
         // Se tiver foto e a opção estiver marcada
         if (incluirFoto && fotoUrl) {
             return `
                 <br><br>
-                <div style="display: flex; align-items: center; gap: 16px; font-family: sans-serif; border-top: 1px solid #eee; padding-top: 16px; margin-top: 16px;">
+                <div style="display: flex; align-items: flex-start; gap: 16px; font-family: sans-serif; border-top: 1px solid #eee; padding-top: 16px; margin-top: 16px;">
                     <img src="${fotoUrl}" alt="Foto" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" />
                     <div>${textoAssinatura}</div>
                 </div>
@@ -65,7 +67,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
         `;
     };
 
-    // --- AUTOCOMPLETE (Mantido Igual) ---
+    // --- AUTOCOMPLETE ---
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
@@ -79,6 +81,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
     const searchTerm = getLastTerm(formData.to);
     const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
 
+    // BUSCA DUPLA INTELIGENTE (Contatos + Emails)
     useEffect(() => {
         const fetchContacts = async () => {
             if (!debouncedSearchTerm || debouncedSearchTerm.length < 2) {
@@ -96,6 +99,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
             setIsSearching(true);
 
             try {
+                // 1. Busca por NOME do Contato (Traz os emails associados)
                 const queryNome = supabase
                     .from('contatos')
                     .select('id, nome, razao_social, nome_fantasia, emails(email)')
@@ -103,6 +107,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
                     .or(`nome.ilike.%${debouncedSearchTerm}%,razao_social.ilike.%${debouncedSearchTerm}%,nome_fantasia.ilike.%${debouncedSearchTerm}%`)
                     .limit(5);
 
+                // 2. Busca por E-MAIL na tabela de emails (Traz o contato dono)
                 const queryEmail = supabase
                     .from('emails')
                     .select('email, contatos(id, nome, razao_social, nome_fantasia)')
@@ -113,15 +118,22 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
                 const [resNome, resEmail] = await Promise.all([queryNome, queryEmail]);
 
                 const combinedResults = [];
-                const seenEmails = new Set();
+                const seenEmails = new Set(); // Para evitar duplicatas
 
+                // Processa resultados por NOME
                 if (resNome.data) {
                     resNome.data.forEach(contato => {
                         const nomeDisplay = contato.nome || contato.razao_social || contato.nome_fantasia;
+                        // Se o contato tem emails cadastrados na tabela filha
                         if (contato.emails && contato.emails.length > 0) {
                             contato.emails.forEach(emailObj => {
                                 if (!seenEmails.has(emailObj.email)) {
-                                    combinedResults.push({ id: contato.id, nome: nomeDisplay, email: emailObj.email, isCompany: !!contato.razao_social });
+                                    combinedResults.push({
+                                        id: contato.id,
+                                        nome: nomeDisplay,
+                                        email: emailObj.email,
+                                        isCompany: !!contato.razao_social
+                                    });
                                     seenEmails.add(emailObj.email);
                                 }
                             });
@@ -129,23 +141,38 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
                     });
                 }
 
+                // Processa resultados por EMAIL
                 if (resEmail.data) {
                     resEmail.data.forEach(item => {
                         if (item.contatos && !seenEmails.has(item.email)) {
                             const contato = item.contatos;
                             const nomeDisplay = contato.nome || contato.razao_social || contato.nome_fantasia;
-                            combinedResults.push({ id: contato.id, nome: nomeDisplay, email: item.email, isCompany: !!contato.razao_social });
+                            combinedResults.push({
+                                id: contato.id,
+                                nome: nomeDisplay,
+                                email: item.email,
+                                isCompany: !!contato.razao_social
+                            });
                             seenEmails.add(item.email);
                         }
                     });
                 }
 
-                if (combinedResults.length > 0) { setSuggestions(combinedResults); setShowSuggestions(true); } 
-                else { setSuggestions([]); setShowSuggestions(false); }
+                if (combinedResults.length > 0) {
+                    setSuggestions(combinedResults);
+                    setShowSuggestions(true);
+                } else {
+                    setSuggestions([]);
+                    setShowSuggestions(false);
+                }
 
-            } catch (err) { console.error("Erro na busca dupla:", err); } 
-            finally { setIsSearching(false); }
+            } catch (err) {
+                console.error("Erro na busca dupla:", err);
+            } finally {
+                setIsSearching(false);
+            }
         };
+
         fetchContacts();
     }, [debouncedSearchTerm, supabase, organizacaoId]);
 
@@ -167,17 +194,13 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
 
     // --- 3. POPULAR FORMULÁRIO (Com Assinatura) ---
     useEffect(() => {
-        if (isOpen && emailConfig !== undefined) { // Espera config carregar
+        if (isOpen && emailConfig !== undefined) { 
             const signature = buildSignature();
             let initialBody = '';
 
             if (initialData) {
-                // Modo Resposta/Encaminhamento
-                // Verifica se deve usar assinatura em respostas
-                const shouldUseSig = emailConfig?.assinatura_usar_respostas !== false; // Default true
-                const sigHtml = shouldUseSig ? `<p></p>${signature}` : ''; // Espaço para digitar antes
-                
-                // Concatena: Espaço + Assinatura + Citação Original
+                const shouldUseSig = emailConfig?.assinatura_usar_respostas !== false; 
+                const sigHtml = shouldUseSig ? `<p></p>${signature}` : ''; 
                 initialBody = `${sigHtml}${initialData.body || ''}`;
 
                 setFormData({
@@ -190,8 +213,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
                     attachments: []
                 });
             } else {
-                // Modo Novo E-mail
-                const shouldUseSig = emailConfig?.assinatura_usar_novos !== false; // Default true
+                const shouldUseSig = emailConfig?.assinatura_usar_novos !== false;
                 initialBody = shouldUseSig ? `<p></p>${signature}` : '';
 
                 setFormData({ 
@@ -203,7 +225,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
             }
             setSuggestions([]);
         }
-    }, [isOpen, initialData, emailConfig]); // Recalcula quando config carrega
+    }, [isOpen, initialData, emailConfig]); 
 
     const handleAttachmentClick = () => fileInputRef.current?.click();
 
@@ -272,7 +294,15 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
                             <div className="flex items-center gap-2 border-b border-gray-100 pb-2 relative">
                                 <label className="w-16 text-sm font-semibold text-gray-500 text-right">Para:</label>
                                 <div className="flex-grow relative">
-                                    <input type="text" required value={formData.to} onChange={e => setFormData({...formData, to: e.target.value})} className="w-full outline-none text-sm text-gray-800 placeholder-gray-300 bg-transparent" placeholder="Nome ou e-mail..." autoComplete="off" />
+                                    <input 
+                                        type="text" 
+                                        required
+                                        value={formData.to}
+                                        onChange={e => setFormData({...formData, to: e.target.value})}
+                                        className="w-full outline-none text-sm text-gray-800 placeholder-gray-300 bg-transparent"
+                                        placeholder="Nome ou e-mail..."
+                                        autoComplete="off"
+                                    />
                                     {isSearching && <div className="absolute right-0 top-0 bottom-0 flex items-center pr-2 text-gray-400"><FontAwesomeIcon icon={faSpinner} spin className="text-xs" /></div>}
                                 </div>
                                 {showSuggestions && suggestions.length > 0 && (
