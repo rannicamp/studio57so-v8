@@ -31,6 +31,7 @@
     "googleapis": "^155.0.0",
     "html2pdf.js": "^0.12.1",
     "imap-simple": "^5.1.0",
+    "isomorphic-dompurify": "^2.34.0",
     "jszip": "^3.10.1",
     "lamejs": "^1.2.1",
     "mailparser": "^3.9.1",

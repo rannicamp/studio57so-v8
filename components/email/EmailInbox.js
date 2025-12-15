@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import EmailConfigModal from '@/components/email/EmailConfigModal';
 import EmailListPanel from '@/components/email/EmailListPanel';
@@ -43,19 +43,34 @@ const getFolderIcon = (name) => {
 };
 
 export default function EmailInbox({ onChangeTab }) {
+    // 1. Restauração Inicial (Executa apenas uma vez)
     const cachedState = getCachedData();
 
     // Estados E-mail
     const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '');
     const [selectedEmailFolder, setSelectedEmailFolder] = useState(cachedState?.selectedEmailFolder || null); 
-    const [selectedEmail, setSelectedEmail] = useState(null); // E-mail específico não persistimos por padrão pra evitar erros de sync por enquanto
+    const [selectedEmail, setSelectedEmail] = useState(cachedState?.selectedEmail || null); // <--- AGORA RECUPERAMOS O E-MAIL
     const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false);
 
-    const uiStateToSave = { selectedEmailFolder, searchTerm };
+    // Controle para só salvar DEPOIS de carregar
+    const hasRestoredUiState = useRef(false);
+    useEffect(() => {
+        hasRestoredUiState.current = true;
+    }, []);
+
+    // 2. O que vamos salvar no Cache?
+    const uiStateToSave = { 
+        selectedEmailFolder, 
+        searchTerm,
+        selectedEmail // <--- ADICIONADO NA PERSISTÊNCIA
+    };
+    
+    // Debounce para não fritar o localStorage a cada letra digitada
     const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
 
+    // 3. Efeito de Salvamento
     useEffect(() => {
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && hasRestoredUiState.current) {
             try {
                 localStorage.setItem(EMAIL_UI_STATE_KEY, JSON.stringify(debouncedUiState));
             } catch (error) {
@@ -71,6 +86,7 @@ export default function EmailInbox({ onChangeTab }) {
         queryFn: getEmailFolders,
         retry: false, 
         refetchOnWindowFocus: false, 
+        staleTime: 1000 * 60 * 5 // Cache de 5 minutos para pastas
     });
 
     const handleSelectEmail = (email) => {
@@ -152,7 +168,6 @@ export default function EmailInbox({ onChangeTab }) {
                         onBack={handleBackToList} 
                         onSelectEmail={handleSelectEmail}
                         selectedEmailId={selectedEmail?.id}
-                        // Passaremos o searchTerm aqui no futuro quando integrarmos a busca
                     />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500 p-8 text-center">
