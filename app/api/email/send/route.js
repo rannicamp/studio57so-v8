@@ -10,14 +10,14 @@ export async function POST(request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-    // 2. Receber dados do corpo
-    const { to, cc, bcc, subject, html, replyToMessageId } = await request.json();
+    // 2. Receber dados do corpo (incluindo anexos)
+    const { to, cc, bcc, subject, html, replyToMessageId, attachments } = await request.json();
 
     if (!to || !subject || !html) {
-      return NextResponse.json({ error: 'Campos obrigatórios faltando (Para, Assunto, Mensagem)' }, { status: 400 });
+      return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 });
     }
 
-    // 3. Buscar Configurações SMTP do Usuário
+    // 3. Buscar Configurações SMTP
     const { data: config } = await supabase
       .from('email_configuracoes')
       .select('*')
@@ -26,18 +26,16 @@ export async function POST(request) {
 
     if (!config) return NextResponse.json({ error: 'Configure seu SMTP primeiro.' }, { status: 404 });
 
-    // 4. Configurar o Transporter (Nodemailer)
+    // 4. Configurar o Transporter
     const transporter = nodemailer.createTransport({
       host: config.smtp_host,
-      port: config.smtp_port || 587, // Padrão 587 ou 465
-      secure: config.smtp_port === 465, // True para 465, false para outros
+      port: config.smtp_port || 587,
+      secure: config.smtp_port === 465,
       auth: {
         user: config.smtp_user || config.email,
         pass: config.senha_app,
       },
-      tls: {
-        rejectUnauthorized: false // Ajuda a evitar erros de certificado em alguns provedores
-      }
+      tls: { rejectUnauthorized: false }
     });
 
     // 5. Montar o E-mail
@@ -47,21 +45,19 @@ export async function POST(request) {
       cc,
       bcc,
       subject,
-      html, // Corpo HTML do Tiptap
+      html,
+      // Se houver resposta, adiciona headers
+      ...(replyToMessageId && {
+          inReplyTo: replyToMessageId,
+          references: [replyToMessageId]
+      }),
+      // Se houver anexos, adiciona ao objeto
+      attachments: attachments || []
     };
-
-    // Se for resposta, adiciona headers de threading para agrupar conversas
-    if (replyToMessageId) {
-        mailOptions.inReplyTo = replyToMessageId;
-        mailOptions.references = [replyToMessageId];
-    }
 
     // 6. Enviar
     const info = await transporter.sendMail(mailOptions);
     console.log("E-mail enviado:", info.messageId);
-
-    // Opcional: Salvar na tabela 'sent' ou similar se desejar logar no banco
-    // Por padrão, via SMTP, o e-mail já vai para a pasta "Enviados" do provedor (Gmail/Outlook fazem isso auto)
 
     return NextResponse.json({ success: true, messageId: info.messageId });
 
