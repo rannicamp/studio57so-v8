@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import imapSimple from 'imap-simple';
 
-// Função auxiliar de verificação (mesma do motor principal)
 const checkCondition = (email, condition) => {
     const fieldMap = {
         'from': email.parts[0].body.from ? email.parts[0].body.from[0] : '',
@@ -26,7 +25,11 @@ const checkCondition = (email, condition) => {
 export async function POST(request) {
     const supabase = createClient();
     const body = await request.json();
-    const { ruleId } = body;
+    
+    // Parâmetros novos para paginação
+    // cursor: O número sequencial mais alto para ler (se null, começa do topo)
+    // limit: Quantos ler por vez (padrão 50)
+    const { ruleId, cursor, limit = 50 } = body; 
 
     if (!ruleId) return NextResponse.json({ error: 'ID da regra obrigatório' }, { status: 400 });
 
@@ -36,25 +39,14 @@ export async function POST(request) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-        // 1. Buscar Configuração
-        const { data: config } = await supabase
-            .from('email_configuracoes')
-            .select('*')
-            .eq('user_id', user.id)
-            .single();
-
+        // 1. Configs e Regra
+        const { data: config } = await supabase.from('email_configuracoes').select('*').eq('user_id', user.id).single();
         if (!config) return NextResponse.json({ error: 'Configuração não encontrada' }, { status: 404 });
 
-        // 2. Buscar A REGRA ESPECÍFICA
-        const { data: regra } = await supabase
-            .from('email_regras')
-            .select('*')
-            .eq('id', ruleId)
-            .single();
-
+        const { data: regra } = await supabase.from('email_regras').select('*').eq('id', ruleId).single();
         if (!regra) return NextResponse.json({ error: 'Regra não encontrada' }, { status: 404 });
 
-        // 3. Conectar IMAP
+        // 2. Conectar
         const imapConfig = {
             imap: {
                 user: config.imap_user || config.email,
@@ -70,57 +62,78 @@ export async function POST(request) {
         connection = await imapSimple.connect(imapConfig);
         await connection.openBox('INBOX', { readOnly: false });
 
-        // 4. Buscar e-mails (Busca mais profunda: Últimos 100)
-        const searchCriteria = ['ALL'];
+        // 3. Calcular Faixa de Busca (Paginação Reversa)
+        // Pega o total de mensagens na caixa agora
+        const boxStatus = await connection.status('INBOX', { messages: true });
+        const totalMessages = boxStatus.messages.total;
+
+        if (totalMessages === 0) {
+            return NextResponse.json({ success: true, processed: 0, moved: 0, done: true, totalMessages: 0 });
+        }
+
+        // Se não veio cursor, começa do total (mais recente)
+        // Se veio cursor, garante que não seja maior que o total atual (caso e-mails tenham sido deletados externamente)
+        let high = cursor ? Math.min(cursor, totalMessages) : totalMessages;
+        let low = Math.max(1, high - limit + 1); // Garante que não desça abaixo de 1
+
+        // Se high < 1, acabou
+        if (high < 1) {
+             return NextResponse.json({ success: true, processed: 0, moved: 0, done: true, totalMessages });
+        }
+
+        const range = `${low}:${high}`; // Ex: "4951:5000"
+        
+        // 4. Buscar Lote Específico
         const fetchOptions = {
             bodies: ['HEADER.FIELDS (FROM TO SUBJECT DATE)'],
             struct: true,
             markSeen: false
         };
         
-        let messages = await connection.search(searchCriteria, fetchOptions);
+        const messages = await connection.search([range], fetchOptions);
         
-        // Ordena e pega os últimos 100 para garantir que pega e-mails recentes e um pouco mais antigos
+        // Processar do mais novo para o mais antigo dentro do lote também
         messages.sort((a, b) => b.attributes.uid - a.attributes.uid);
-        messages = messages.slice(0, 100);
 
         let processedCount = 0;
         let movedCount = 0;
 
-        // 5. Aplicar APENAS a regra selecionada
         for (const message of messages) {
             const allConditionsMet = regra.condicoes.every(cond => checkCondition(message, cond));
 
             if (allConditionsMet) {
                 for (const acao of regra.acoes) {
                     const uid = message.attributes.uid;
-
-                    if (acao.tipo === 'move' && acao.pasta) {
-                        try {
+                    try {
+                        if (acao.tipo === 'move' && acao.pasta) {
                             await connection.moveMessage(uid, acao.pasta);
                             movedCount++;
-                        } catch (e) { console.error(e); }
-                    } 
-                    else if (acao.tipo === 'markRead') {
-                        await connection.addFlags(uid, '\\Seen');
-                    }
-                    else if (acao.tipo === 'delete' || acao.tipo === 'trash') {
-                        await connection.addFlags(uid, '\\Deleted');
-                    }
+                        } 
+                        else if (acao.tipo === 'markRead') await connection.addFlags(uid, '\\Seen');
+                        else if (acao.tipo === 'delete' || acao.tipo === 'trash') await connection.addFlags(uid, '\\Deleted');
+                    } catch (e) { console.error(`Erro ação msg ${uid}:`, e); }
                 }
-                processedCount++;
             }
+            processedCount++;
         }
+
+        // 5. Retornar Estado para o Próximo Loop
+        // O próximo cursor será um número abaixo do 'low' atual
+        const nextCursor = low - 1;
+        const done = nextCursor < 1;
 
         return NextResponse.json({ 
             success: true, 
             matched: processedCount, 
             moved: movedCount,
-            message: `Regra executada. ${processedCount} e-mails afetados.` 
+            nextCursor: nextCursor,
+            totalMessages: totalMessages,
+            done: done,
+            currentRange: range
         });
 
     } catch (error) {
-        console.error('Erro ao executar regra:', error);
+        console.error('Erro Deep Scan:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     } finally {
         if (connection) try { connection.end(); } catch (e) {}
