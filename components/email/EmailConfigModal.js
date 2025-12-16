@@ -4,15 +4,16 @@ import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faPlug, faSignature } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faPlug, faSignature, faRobot } from '@fortawesome/free-solid-svg-icons'; // <--- Novo Ícone
 import { useQuery } from '@tanstack/react-query';
 import EmailConnectionConfig from './EmailConnectionConfig';
 import EmailSignatureConfig from './EmailSignatureConfig';
+import EmailRulesConfig from './EmailRulesConfig'; // <--- Import Novo
 
 export default function EmailConfigModal({ isOpen, onClose }) {
     const supabase = createClient();
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState('connection'); // 'connection' | 'signature'
+    const [activeTab, setActiveTab] = useState('connection'); 
 
     const { data: existingConfig, isLoading } = useQuery({
         queryKey: ['emailConfig', user?.id],
@@ -32,7 +33,7 @@ export default function EmailConfigModal({ isOpen, onClose }) {
 
     return (
         <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden flex flex-col h-[80vh] md:h-auto md:max-h-[90vh]">
+            <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden flex flex-col h-[85vh] md:h-auto md:max-h-[90vh]">
                 
                 {/* Header e Abas */}
                 <div className="border-b bg-gray-50 flex flex-col">
@@ -43,32 +44,39 @@ export default function EmailConfigModal({ isOpen, onClose }) {
                         </button>
                     </div>
                     
-                    <div className="flex px-6 gap-6">
+                    <div className="flex px-6 gap-6 overflow-x-auto">
                         <button 
                             onClick={() => setActiveTab('connection')}
-                            className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'connection' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                            className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'connection' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                         >
-                            <FontAwesomeIcon icon={faPlug} /> Conexão (SMTP/IMAP)
+                            <FontAwesomeIcon icon={faPlug} /> Conexão
                         </button>
                         <button 
                             onClick={() => setActiveTab('signature')}
-                            className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'signature' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                            className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'signature' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                         >
-                            <FontAwesomeIcon icon={faSignature} /> Assinatura Profissional
+                            <FontAwesomeIcon icon={faSignature} /> Assinatura
+                        </button>
+                        {/* Nova Aba */}
+                        <button 
+                            onClick={() => setActiveTab('rules')}
+                            className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'rules' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <FontAwesomeIcon icon={faRobot} /> Regras & Automação
                         </button>
                     </div>
                 </div>
 
                 {/* Conteúdo Dinâmico */}
-                <div className="p-6 overflow-y-auto custom-scrollbar flex-grow bg-white">
+                <div className="p-6 overflow-y-auto custom-scrollbar flex-grow bg-white h-[500px]">
                     {isLoading ? (
                         <div className="flex justify-center items-center h-40 text-gray-400">Carregando...</div>
                     ) : (
-                        activeTab === 'connection' ? (
-                            <EmailConnectionConfig initialData={existingConfig} onClose={onClose} />
-                        ) : (
-                            <EmailSignatureConfig initialData={existingConfig} onClose={onClose} />
-                        )
+                        <>
+                            {activeTab === 'connection' && <EmailConnectionConfig initialData={existingConfig} onClose={onClose} />}
+                            {activeTab === 'signature' && <EmailSignatureConfig initialData={existingConfig} onClose={onClose} />}
+                            {activeTab === 'rules' && <EmailRulesConfig />} 
+                        </>
                     )}
                 </div>
             </div>
