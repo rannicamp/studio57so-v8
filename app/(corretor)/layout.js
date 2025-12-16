@@ -1,16 +1,18 @@
 // app/(corretor)/layout.js
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react' // Adicionado useEffect
 import CorretorSidebar from '@/components/CorretorSidebar'
 import CorretorHeader from '@/components/CorretorHeader'
 import { useLayout, LayoutProvider } from '@/contexts/LayoutContext'
 import { Toaster } from 'sonner'
 import { EmpreendimentoProvider } from '@/contexts/EmpreendimentoContext'
-import TermsUpdateEnforcer from '@/components/TermsUpdateEnforcer' // <--- Importação Nova
+import TermsUpdateEnforcer from '@/components/TermsUpdateEnforcer'
+import { createClient } from '@/utils/supabase/client' // Importação do Supabase
 
 function CorretorLayoutInner({ children }) {
   const { user, isUserLoading } = useLayout()
+  const supabase = createClient() // Cliente para o rastreador
   
   const [isSidebarOpen, setSidebarOpen] = useState(false); // Mobile
 
@@ -20,6 +22,32 @@ function CorretorLayoutInner({ children }) {
 
   const toggleSidebarMobile = () => setSidebarOpen(!isSidebarOpen);
   const toggleSidebarDesktop = () => setIsCollapsed(!isCollapsed);
+
+  // --- RASTREADOR DE PRESENÇA (NOVO) ---
+  // Mantém o status "Online" atualizado enquanto o corretor navega nesta área
+  useEffect(() => {
+      if (!user?.id) return;
+
+      const updateOnlineStatus = async () => {
+          try {
+              await supabase
+                  .from('usuarios')
+                  .update({ ultimo_acesso: new Date().toISOString() })
+                  .eq('id', user.id);
+          } catch (error) {
+              console.error("Erro ao atualizar status online (Corretor):", error);
+          }
+      };
+
+      // Atualiza assim que entra
+      updateOnlineStatus();
+
+      // Atualiza a cada 2 minutos para manter o status "Online"
+      const interval = setInterval(updateOnlineStatus, 2 * 60 * 1000);
+
+      return () => clearInterval(interval);
+  }, [user?.id, supabase]);
+  // -------------------------------------
 
   return (
     <EmpreendimentoProvider>
