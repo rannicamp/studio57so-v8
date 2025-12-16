@@ -13,7 +13,7 @@ import DOMPurify from 'isomorphic-dompurify';
 import EmailComposeModal from './EmailComposeModal';
 import AtividadeModal from '@/components/atividades/AtividadeModal'; 
 import { toast } from 'sonner';
-import EmailActionMenu from './EmailActionMenu'; // <--- IMPORTAÇÃO NOVA
+import EmailActionMenu from './EmailActionMenu'; // <--- IMPORTANTE
 
 const fetchEmailContent = async ({ queryKey }) => {
     const [_key, folderPath, uid] = queryKey;
@@ -23,7 +23,7 @@ const fetchEmailContent = async ({ queryKey }) => {
     return res.json();
 };
 
-const performEmailAction = async ({ action, folder, uid, destination }) => { // <--- Atualizado para suportar destination
+const performEmailAction = async ({ action, folder, uid, destination }) => { 
     const body = { action, folder, uid };
     if (destination) body.targetFolder = destination;
 
@@ -36,7 +36,7 @@ const performEmailAction = async ({ action, folder, uid, destination }) => { // 
     return res.json();
 };
 
-export default function EmailViewPanel({ emailSummary, folder, onClose }) {
+export default function EmailViewPanel({ emailSummary, folder, onClose, onCreateRule }) {
     const queryClient = useQueryClient();
     
     // Estados dos Modais
@@ -91,19 +91,6 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
         };
     }, [emailSummary?.id, folderIdentifier, emailSummary?.flags, queryClient]); 
 
-    // --- AÇÃO UNIFICADA DO MENU ---
-    const handleMenuAction = (action, value) => {
-        if (action === 'createActivity') {
-            handleCreateActivity();
-        } else if (action === 'createRule') {
-            toast.info("Criar Regra: Em breve!"); 
-        } else if (action === 'move') {
-             actionMutation.mutate({ action: 'move', folder: folderIdentifier, uid: emailSummary.id, destination: value });
-        } else {
-             actionMutation.mutate({ action, folder: folderIdentifier, uid: emailSummary.id });
-        }
-    };
-
     const handleCreateActivity = () => {
         if (!fullEmail) return;
         const cleanBody = fullEmail.text || fullEmail.html?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || '';
@@ -116,6 +103,18 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
             contato_id: emailSummary.contato_id || null
         });
         setIsActivityOpen(true);
+    };
+
+    const handleMenuAction = (action, value) => {
+        if (action === 'createActivity') {
+            handleCreateActivity();
+        } else if (action === 'createRule') {
+            if (onCreateRule) onCreateRule(emailSummary); 
+        } else if (action === 'move') {
+             actionMutation.mutate({ action: 'move', folder: folderIdentifier, uid: emailSummary.id, destination: value });
+        } else {
+             actionMutation.mutate({ action, folder: folderIdentifier, uid: emailSummary.id });
+        }
     };
 
     const prepareReply = (type) => {
@@ -176,12 +175,12 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
                         <button onClick={() => prepareReply('forward')} className="px-3 text-gray-600 hover:bg-gray-100" title="Encaminhar"><FontAwesomeIcon icon={faShare} /></button>
                     </div>
                     
-                    {/* USANDO O NOVO COMPONENTE AQUI */}
+                    {/* MENU NOVO */}
                     <div className="z-50">
                         <EmailActionMenu 
                             email={emailSummary}
                             onAction={handleMenuAction}
-                            showCreateActivity={true} // Ativa o botão de atividade extra
+                            showCreateActivity={true} 
                         />
                     </div>
 

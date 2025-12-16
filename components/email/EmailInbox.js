@@ -52,11 +52,12 @@ export default function EmailInbox({ onChangeTab }) {
     const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '');
     const [selectedEmailFolder, setSelectedEmailFolder] = useState(cachedState?.selectedEmailFolder || null); 
     const [selectedEmail, setSelectedEmail] = useState(cachedState?.selectedEmail || null);
-    const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false);
     
-    // ESTADO DO MODAL DE COMPOSIÇÃO
-    const [isComposeOpen, setIsComposeOpen] = useState(false);
+    // Configuração do Modal
+    const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false);
+    const [configInitialTab, setConfigInitialTab] = useState('connection'); // Novo estado para controlar a aba inicial
 
+    const [isComposeOpen, setIsComposeOpen] = useState(false);
     const [debouncedSearchTerm] = useDebounce(searchTerm, 600);
 
     const hasRestoredUiState = useRef(false);
@@ -85,71 +86,63 @@ export default function EmailInbox({ onChangeTab }) {
         staleTime: 1000 * 60 * 5
     });
 
-    // --- GATILHO AUTOMÁTICO DE REGRAS (SIMULAÇÃO DE BACKGROUND) ---
+    // --- GATILHO AUTOMÁTICO DE REGRAS ---
     useEffect(() => {
         const isInbox = selectedEmailFolder?.name?.toUpperCase() === 'INBOX' || 
                         selectedEmailFolder?.displayName === 'Caixa de Entrada';
 
-        // Só roda se estiver na Inbox ou se não tiver nenhuma pasta selecionada (estado inicial)
         if (!selectedEmailFolder || isInbox) {
-            
             const runRules = async () => {
                 try {
-                    // Chama a rota 'apply'
                     const res = await fetch('/api/email/rules/apply', { method: 'POST' });
                     const data = await res.json();
-                    
                     if (data.moved > 0) {
                         toast.success(`Automação: ${data.moved} e-mails movidos.`);
-                        
-                        // CORREÇÃO: Delay para dar tempo do IMAP processar antes de recarregar a tela
                         setTimeout(() => {
-                            // "ResetQueries" é mais agressivo que "Invalidate", ele força limpar o cache da lista
                             queryClient.resetQueries({ queryKey: ['emailMessages'] });
-                            // Também atualiza a contagem das pastas se possível
                             queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
-                        }, 1500); // 1.5 segundos de espera técnica
+                        }, 1500); 
                     }
                 } catch (err) {
                     console.error("Erro silencioso ao rodar regras:", err);
                 }
             };
-
-            // 1. Roda imediatamente ao montar
             runRules();
-
-            // 2. Cria um intervalo de 30 segundos
             const intervalId = setInterval(runRules, 30000);
-
-            // Limpa o intervalo se mudar de pasta ou sair da tela
             return () => clearInterval(intervalId);
         }
     }, [selectedEmailFolder, queryClient]);
-    // -------------------------------------
 
-    const handleSelectEmail = (email) => {
-        setSelectedEmail(email);
-    };
-
+    const handleSelectEmail = (email) => { setSelectedEmail(email); };
+    
     const handleBackToList = () => {
-        if (selectedEmail) {
-            setSelectedEmail(null);
-            return;
-        }
-        if (selectedEmailFolder) {
-            setSelectedEmailFolder(null);
-            return;
-        }
+        if (selectedEmail) { setSelectedEmail(null); return; }
+        if (selectedEmailFolder) { setSelectedEmailFolder(null); return; }
     };
 
     const hasSelection = selectedEmailFolder;
     const showEmailReadingPane = selectedEmail;
 
+    // --- FUNÇÃO PARA ABRIR O MODAL DE REGRAS ---
+    const handleOpenRules = () => {
+        setConfigInitialTab('rules');
+        setIsEmailConfigOpen(true);
+    };
+
+    // Função auxiliar para abrir configs normal
+    const handleOpenConfig = () => {
+        setConfigInitialTab('connection');
+        setIsEmailConfigOpen(true);
+    };
+
     return (
         <div className="flex h-full w-full relative">
-            <EmailConfigModal isOpen={isEmailConfigOpen} onClose={() => setIsEmailConfigOpen(false)} />
+            <EmailConfigModal 
+                isOpen={isEmailConfigOpen} 
+                onClose={() => setIsEmailConfigOpen(false)} 
+                initialTab={configInitialTab} 
+            />
             
-            {/* MODAL DE NOVO EMAIL */}
             <EmailComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} />
 
             {/* --- COLUNA 1: NAVEGAÇÃO E PASTAS --- */}
@@ -158,8 +151,6 @@ export default function EmailInbox({ onChangeTab }) {
                 w-full md:w-[280px] shrink-0
                 flex-col border-r bg-white h-full overflow-hidden min-h-0
             `}>
-                
-                {/* Abas */}
                 <div className="flex border-b bg-gray-50 shrink-0">
                     <button onClick={() => onChangeTab('whatsapp')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
                         <FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp
@@ -169,31 +160,19 @@ export default function EmailInbox({ onChangeTab }) {
                     </button>
                 </div>
 
-                {/* BOTÃO FLUTUANTE DE NOVO E-MAIL */}
                 <div className="p-4 pb-0">
-                    <button 
-                        onClick={() => setIsComposeOpen(true)}
-                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md flex items-center justify-center gap-2 text-sm font-bold transition-transform active:scale-95"
-                    >
+                    <button onClick={() => setIsComposeOpen(true)} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md flex items-center justify-center gap-2 text-sm font-bold transition-transform active:scale-95">
                         <FontAwesomeIcon icon={faPlus} /> Escrever E-mail
                     </button>
                 </div>
 
-                {/* Busca Específica do E-mail */}
                 <div className="h-16 border-b flex flex-col justify-center px-4 bg-white shrink-0 z-10">
                     <div className="relative">
-                        <input 
-                            type="text" 
-                            placeholder="Buscar..." 
-                            value={searchTerm} 
-                            onChange={(e) => setSearchTerm(e.target.value)} 
-                            className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all" 
-                        />
+                        <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all" />
                         <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                     </div>
                 </div>
 
-                {/* Lista de Pastas */}
                 <div className="flex-grow overflow-y-auto custom-scrollbar bg-white">
                     {isLoadingEmail ? (
                         <div className="flex flex-col items-center justify-center h-40 text-gray-400"><FontAwesomeIcon icon={faSpinner} spin className="text-2xl mb-2 text-blue-500" /><p className="text-xs">Conectando...</p></div>
@@ -201,32 +180,15 @@ export default function EmailInbox({ onChangeTab }) {
                         <div className="p-6 text-center text-gray-500">
                             <div className="bg-red-50 p-4 rounded-full mb-3 inline-block"><FontAwesomeIcon icon={faExclamationTriangle} className="text-2xl text-red-400" /></div>
                             <p className="text-sm font-medium text-gray-700 mb-1">Ops! Falha na conexão</p>
-                            <button onClick={() => setIsEmailConfigOpen(true)} className="text-xs bg-blue-600 text-white px-4 py-2 rounded-md mt-2">Configurar E-mail</button>
+                            <button onClick={handleOpenConfig} className="text-xs bg-blue-600 text-white px-4 py-2 rounded-md mt-2">Configurar E-mail</button>
                         </div>
                     ) : (
                         <div className="divide-y divide-gray-100">
-                            <div className="p-3 bg-blue-50/50 text-xs font-bold text-blue-800 flex justify-between items-center tracking-wide"><span>SUAS PASTAS</span><button onClick={() => setIsEmailConfigOpen(true)} title="Ajustes"><FontAwesomeIcon icon={faCog} /></button></div>
+                            <div className="p-3 bg-blue-50/50 text-xs font-bold text-blue-800 flex justify-between items-center tracking-wide"><span>SUAS PASTAS</span><button onClick={handleOpenConfig} title="Ajustes"><FontAwesomeIcon icon={faCog} /></button></div>
                             {emailData?.folders?.map((folder, idx) => (
-                                <button 
-                                    key={idx} 
-                                    onClick={() => setSelectedEmailFolder(folder)} 
-                                    className={`
-                                        w-full text-left py-3 hover:bg-gray-50 flex items-center gap-3 text-sm transition-colors
-                                        ${selectedEmailFolder?.path === folder.path ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}
-                                    `}
-                                    // Indentação visual
-                                    style={{ paddingLeft: `${16 + ((folder.level || 0) * 16)}px`, paddingRight: '16px' }}
-                                >
-                                    <FontAwesomeIcon 
-                                        icon={getFolderIcon(folder.name)} 
-                                        className={`
-                                            ${selectedEmailFolder?.path === folder.path ? 'text-blue-500' : 'text-gray-400'}
-                                            ${(folder.level || 0) > 0 ? 'text-xs opacity-75' : ''} 
-                                        `} 
-                                    />
-                                    <span className="truncate">
-                                        {folder.displayName || folder.name}
-                                    </span>
+                                <button key={idx} onClick={() => setSelectedEmailFolder(folder)} className={`w-full text-left py-3 hover:bg-gray-50 flex items-center gap-3 text-sm transition-colors ${selectedEmailFolder?.path === folder.path ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`} style={{ paddingLeft: `${16 + ((folder.level || 0) * 16)}px`, paddingRight: '16px' }}>
+                                    <FontAwesomeIcon icon={getFolderIcon(folder.name)} className={`${selectedEmailFolder?.path === folder.path ? 'text-blue-500' : 'text-gray-400'} ${(folder.level || 0) > 0 ? 'text-xs opacity-75' : ''}`} />
+                                    <span className="truncate">{folder.displayName || folder.name}</span>
                                 </button>
                             ))}
                         </div>
@@ -235,11 +197,7 @@ export default function EmailInbox({ onChangeTab }) {
             </div>
 
             {/* --- COLUNA 2: LISTA DE EMAILS --- */}
-            <div className={`
-                ${hasSelection ? 'flex' : 'hidden md:flex'} 
-                ${showEmailReadingPane ? 'hidden lg:flex lg:w-[350px] border-r shrink-0' : 'flex-grow'} 
-                flex-col bg-[#efeae2] h-full overflow-hidden relative min-h-0
-            `}>
+            <div className={`${hasSelection ? 'flex' : 'hidden md:flex'} ${showEmailReadingPane ? 'hidden lg:flex lg:w-[350px] border-r shrink-0' : 'flex-grow'} flex-col bg-[#efeae2] h-full overflow-hidden relative min-h-0`}>
                 {selectedEmailFolder ? (
                     <EmailListPanel 
                         folder={selectedEmailFolder} 
@@ -247,6 +205,7 @@ export default function EmailInbox({ onChangeTab }) {
                         onSelectEmail={handleSelectEmail}
                         selectedEmailId={selectedEmail?.id}
                         searchTerm={debouncedSearchTerm}
+                        onCreateRule={handleOpenRules} // <--- Passando a função
                     />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500 p-8 text-center">
@@ -266,6 +225,7 @@ export default function EmailInbox({ onChangeTab }) {
                         emailSummary={selectedEmail} 
                         folder={selectedEmailFolder} 
                         onClose={() => setSelectedEmail(null)} 
+                        onCreateRule={handleOpenRules} // <--- Passando a função
                     />
                 </div>
             )}

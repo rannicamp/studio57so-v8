@@ -10,7 +10,7 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
-import EmailActionMenu from './EmailActionMenu'; // <--- IMPORTAÇÃO NOVA
+import EmailActionMenu from './EmailActionMenu'; // <--- IMPORTANTE: Certifique-se que o arquivo existe
 
 // Busca de mensagens
 const fetchMessages = async ({ queryKey, pageParam = 1 }) => {
@@ -25,21 +25,9 @@ const fetchMessages = async ({ queryKey, pageParam = 1 }) => {
     return res.json();
 };
 
-const performBulkAction = async ({ action, folder, uids, destination }) => { // <--- Adicionado 'destination'
-    // Se for 'move', precisamos mandar 'trash' ou 'archive' para a API? 
-    // Não, a API precisa saber que é um movimento customizado ou os atalhos.
-    // Vamos adaptar a API ou fazer uma lógica aqui.
-    
-    // A API atual /actions aceita { action: 'trash' | 'archive' | 'markAsRead'... }
-    // Para mover para pasta específica, podemos usar action='move' se a API suportar, ou passar a pasta no body.
-    // Vou assumir que a API precisa de ajuste ou suporta custom folder. 
-    // Como no código anterior /actions suportava apenas trash/archive automáticos, vou mandar um fetch direto pro IMAP move se for custom.
-    // MAS, para simplificar, vamos usar a API existente e torcer para ela ser esperta, ou melhorar ela.
-    // Melhor: No passo anterior vimos actions/route.js, ela tem lógica fixa para trash/archive.
-    // Vou usar a mesma rota, mas passando "action: 'move', targetFolder: destination".
-    
+const performBulkAction = async ({ action, folder, uids, destination }) => { 
     const body = { action, folder, uids };
-    if (destination) body.targetFolder = destination; // Enviamos a pasta destino
+    if (destination) body.targetFolder = destination; // Adiciona pasta destino se houver
 
     const res = await fetch('/api/email/actions', {
         method: 'POST',
@@ -50,7 +38,7 @@ const performBulkAction = async ({ action, folder, uids, destination }) => { // 
     return res.json();
 };
 
-export default function EmailListPanel({ folder, onBack, onSelectEmail, selectedEmailId, searchTerm }) {
+export default function EmailListPanel({ folder, onBack, onSelectEmail, selectedEmailId, searchTerm, onCreateRule }) {
     const [filterStatus, setFilterStatus] = useState('unread');
     const [selectedIds, setSelectedIds] = useState(new Set()); 
     const [lastSelectedId, setLastSelectedId] = useState(null); 
@@ -98,6 +86,7 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
             else if (variables.action === 'move') toast.success(`${count} e-mails movidos.`);
             else if (variables.action === 'archive') toast.success(`${count} e-mails arquivados.`);
             else if (variables.action === 'markAsRead') toast.success(`${count} marcados como lidos.`);
+            else if (variables.action === 'markAsUnread') toast.success(`${count} marcados como não lidos.`);
         },
         onError: () => toast.error('Erro ao processar ação.')
     });
@@ -117,7 +106,8 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
     };
 
     const handleEmailClick = (email, e) => {
-        if (e.target.closest('.action-menu-container')) return; // Proteção extra
+        // Ignora clique se for no container do menu (para evitar abrir o email ao clicar no menu)
+        if (e.target.closest('.action-menu-container')) return;
 
         if (e.target.closest('.checkbox-area') || e.ctrlKey || e.metaKey) {
             e.preventDefault(); e.stopPropagation();
@@ -155,21 +145,19 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
         bulkActionMutation.mutate({ action, folder: folderIdentifier, uids: Array.from(selectedIds) });
     };
 
-    // --- FUNÇÃO CENTRALIZADA DE AÇÕES DO MENU ---
+    // --- MANIPULADOR UNIFICADO DE AÇÕES DO MENU ---
     const handleMenuAction = (email, action, value) => {
         if (action === 'createRule') {
-            toast.info(`Criar regra para: ${email.from} (Em breve!)`);
-            // Aqui você conectaria com o modal de regras
+            // Chama a função passada pelo EmailInbox
+            if (onCreateRule) onCreateRule(email); 
         } else if (action === 'move') {
-            // Ação de Mover personalizada
             bulkActionMutation.mutate({
                 action: 'move',
                 folder: folderIdentifier,
                 uids: [email.id],
-                destination: value // Passa a pasta escolhida
+                destination: value 
             });
         } else {
-            // Ações padrão (trash, archive, read, unread)
             bulkActionMutation.mutate({
                 action,
                 folder: folderIdentifier,
@@ -246,7 +234,7 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                                         </div>
                                     </div>
                                     
-                                    {/* USANDO O NOVO COMPONENTE AQUI */}
+                                    {/* USANDO O NOVO COMPONENTE COM Z-INDEX AJUSTADO */}
                                     <div className="absolute right-2 top-3 z-30 action-menu-container">
                                         <EmailActionMenu 
                                             email={email}

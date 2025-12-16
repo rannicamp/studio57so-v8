@@ -13,7 +13,7 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
     const [showMoveSubmenu, setShowMoveSubmenu] = useState(false);
     const menuRef = useRef(null);
 
-    // Busca as pastas para o menu "Mover para"
+    // Busca as pastas
     const { data: folderData, isLoading: isLoadingFolders } = useQuery({
         queryKey: ['emailFolders'],
         queryFn: async () => {
@@ -21,10 +21,9 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
             if (!res.ok) throw new Error('Erro ao buscar pastas');
             return res.json();
         },
-        staleTime: 1000 * 60 * 5 // Cache de 5 min
+        staleTime: 1000 * 60 * 5 
     });
 
-    // Fecha ao clicar fora
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -52,11 +51,11 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
                 <FontAwesomeIcon icon={faEllipsisV} className="text-xs" />
             </button>
 
+            {/* MAIN MENU */}
             {isOpen && (
-                <div className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-2xl border border-gray-100 z-[999] animate-fade-in ring-1 ring-black/5 text-left">
+                <div className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-2xl border border-gray-100 z-[900] animate-fade-in ring-1 ring-black/5 text-left overflow-visible">
                     <div className="py-1 flex flex-col">
                         
-                        {/* Ações Básicas */}
                         <button onClick={() => handleClick('markAsRead')} className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-3">
                             <FontAwesomeIcon icon={faEnvelopeOpen} className="w-3" /> Marcar como lido
                         </button>
@@ -64,7 +63,6 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
                             <FontAwesomeIcon icon={faEnvelope} className="w-3" /> Marcar como não lido
                         </button>
                         
-                        {/* Específico do ViewPanel */}
                         {showCreateActivity && (
                             <button onClick={() => handleClick('createActivity')} className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-3">
                                 <FontAwesomeIcon icon={faCalendarPlus} className="w-3" /> Criar Atividade
@@ -73,12 +71,12 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
 
                         <div className="h-px bg-gray-100 my-1"></div>
 
-                        {/* Criar Regra */}
+                        {/* CRIAR REGRA (Agora funciona!) */}
                         <button onClick={() => handleClick('createRule')} className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 flex items-center gap-3">
                             <FontAwesomeIcon icon={faRobot} className="w-3" /> Criar Regra
                         </button>
 
-                        {/* Mover Para (Com Submenu) */}
+                        {/* MOVER PARA - SUBMENU (Z-Index + Layout Fix) */}
                         <div 
                             className="relative"
                             onMouseEnter={() => setShowMoveSubmenu(true)}
@@ -93,15 +91,16 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
                             </button>
 
                             {showMoveSubmenu && (
-                                <div className="absolute right-full top-0 mr-1 w-48 bg-white rounded-lg shadow-xl border border-gray-100 max-h-60 overflow-y-auto custom-scrollbar">
+                                // AQUI ESTÁ A CORREÇÃO VISUAL: z-[1000], right-full (para esquerda), e margem para não colar
+                                <div className="absolute right-full top-0 mr-1 w-48 bg-white rounded-lg shadow-xl border border-gray-100 z-[1000] max-h-60 overflow-y-auto custom-scrollbar animate-fade-in-left">
                                     {isLoadingFolders ? (
                                         <div className="p-3 text-center text-xs text-gray-400"><FontAwesomeIcon icon={faSpinner} spin /></div>
                                     ) : (
                                         folderData?.folders?.filter(f => !['INBOX', 'ENTRADA'].some(n => f.name.toUpperCase().includes(n))).map((folder) => (
                                             <button 
                                                 key={folder.path} 
-                                                onClick={() => handleClick('move', folder.path)}
-                                                className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 truncate"
+                                                onClick={(e) => { e.stopPropagation(); handleClick('move', folder.path); }}
+                                                className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 truncate block border-b border-gray-50 last:border-0"
                                                 style={{ paddingLeft: `${16 + ((folder.level || 0) * 8)}px` }}
                                             >
                                                 {folder.displayName || folder.name}
@@ -114,7 +113,6 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
 
                         <div className="h-px bg-gray-100 my-1"></div>
 
-                        {/* Exclusão */}
                         <button onClick={() => handleClick('archive')} className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-3">
                             <FontAwesomeIcon icon={faArchive} className="w-3" /> Arquivar
                         </button>
