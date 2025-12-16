@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faTrash, faSave, faSpinner, faArrowRight, faCheckCircle, faTimesCircle, faEdit } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faTrash, faSave, faSpinner, faArrowRight, faCheckCircle, faTimesCircle, faEdit, faPlay } from '@fortawesome/free-solid-svg-icons'; // Adicionei faPlay
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -23,7 +23,7 @@ export default function EmailRulesConfig() {
         acoes: [{ tipo: 'move', pasta: 'INBOX' }]
     });
 
-    // 1. Buscar Pastas (para o dropdown de ações)
+    // Buscar Pastas
     const { data: foldersData } = useQuery({
         queryKey: ['emailFolders'],
         queryFn: async () => {
@@ -34,7 +34,7 @@ export default function EmailRulesConfig() {
         staleTime: 1000 * 60 * 5
     });
 
-    // 2. Buscar Regras Existentes
+    // Buscar Regras
     const { data: regras, isLoading } = useQuery({
         queryKey: ['emailRules', user?.id],
         queryFn: async () => {
@@ -49,35 +49,36 @@ export default function EmailRulesConfig() {
         enabled: !!user
     });
 
-    // 3. Salvar Regra
+    // Salvar Regra
     const mutation = useMutation({
         mutationFn: async (data) => {
+            const orgId = organizacao_id ? parseInt(organizacao_id) : null;
             const payload = {
                 user_id: user.id,
-                organizacao_id: organizacao_id,
-                ...data
+                organizacao_id: orgId,
+                nome: data.nome,
+                condicoes: data.condicoes,
+                acoes: data.acoes,
+                ...(editingId ? {} : { ordem: (regras?.length || 0) + 1 })
             };
             
+            let result;
             if (editingId) {
-                const { error } = await supabase.from('email_regras').update(payload).eq('id', editingId);
-                if (error) throw error;
+                result = await supabase.from('email_regras').update(payload).eq('id', editingId);
             } else {
-                // Define ordem (último + 1)
-                const lastOrder = regras?.length > 0 ? regras[regras.length - 1].ordem : 0;
-                payload.ordem = lastOrder + 1;
-                const { error } = await supabase.from('email_regras').insert(payload);
-                if (error) throw error;
+                result = await supabase.from('email_regras').insert(payload);
             }
+            if (result.error) throw new Error(result.error.message);
         },
         onSuccess: () => {
             toast.success(editingId ? "Regra atualizada!" : "Regra criada com sucesso!");
             queryClient.invalidateQueries(['emailRules']);
             resetForm();
         },
-        onError: (err) => toast.error("Erro: " + err.message)
+        onError: (err) => toast.error(`Erro: ${err.message}`)
     });
 
-    // 4. Excluir Regra
+    // Excluir Regra
     const deleteMutation = useMutation({
         mutationFn: async (id) => {
             const { error } = await supabase.from('email_regras').delete().eq('id', id);
@@ -87,6 +88,28 @@ export default function EmailRulesConfig() {
             toast.success("Regra excluída.");
             queryClient.invalidateQueries(['emailRules']);
         }
+    });
+
+    // --- NOVA FUNÇÃO: Executar Regra Agora ---
+    const runRuleMutation = useMutation({
+        mutationFn: async (ruleId) => {
+            const res = await fetch('/api/email/rules/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ruleId })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Erro ao executar regra');
+            return data;
+        },
+        onSuccess: (data) => {
+            if (data.matched > 0) {
+                toast.success(`Sucesso! ${data.matched} e-mails processados.`);
+            } else {
+                toast.info("Regra executada, mas nenhum e-mail recente correspondeu.");
+            }
+        },
+        onError: (err) => toast.error(err.message)
     });
 
     const resetForm = () => {
@@ -109,7 +132,6 @@ export default function EmailRulesConfig() {
         setIsEditing(true);
     };
 
-    // --- Lógica do Formulário ---
     const updateCondition = (index, field, value) => {
         const newCond = [...formData.condicoes];
         newCond[index][field] = value;
@@ -128,7 +150,6 @@ export default function EmailRulesConfig() {
         setFormData({ ...formData, acoes: newActs });
     };
 
-    // Renderização da Lista de Regras
     if (!isEditing) {
         return (
             <div className="space-y-4 animate-fade-in h-full flex flex-col">
@@ -155,10 +176,25 @@ export default function EmailRulesConfig() {
                                         <h4 className="font-bold text-gray-800 text-sm">{regra.nome}</h4>
                                     </div>
                                     <p className="text-xs text-gray-500 mt-1">
-                                        Se <strong className="text-blue-600">{regra.condicoes.length}</strong> condições, então <strong className="text-orange-600">{regra.acoes.length}</strong> ações.
+                                        {regra.condicoes.length} condições &#8594; {regra.acoes.length} ações
                                     </p>
                                 </div>
-                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex gap-2 items-center">
+                                    {/* Botão EXECUTAR AGORA */}
+                                    <button 
+                                        onClick={() => runRuleMutation.mutate(regra.id)} 
+                                        disabled={runRuleMutation.isPending}
+                                        className="text-gray-400 hover:text-green-600 p-2 border border-transparent hover:border-green-100 rounded transition-all"
+                                        title="Executar regra agora nos e-mails recentes"
+                                    >
+                                        {runRuleMutation.isPending && runRuleMutation.variables === regra.id ? 
+                                            <FontAwesomeIcon icon={faSpinner} spin className="text-green-600" /> : 
+                                            <FontAwesomeIcon icon={faPlay} />
+                                        }
+                                    </button>
+                                    
+                                    <div className="h-4 w-px bg-gray-200 mx-1"></div>
+
                                     <button onClick={() => handleEdit(regra)} className="text-gray-400 hover:text-blue-600 p-2"><FontAwesomeIcon icon={faEdit} /></button>
                                     <button onClick={() => deleteMutation.mutate(regra.id)} className="text-gray-400 hover:text-red-600 p-2"><FontAwesomeIcon icon={faTrash} /></button>
                                 </div>
@@ -170,7 +206,7 @@ export default function EmailRulesConfig() {
         );
     }
 
-    // Renderização do Formulário de Edição
+    // Formulário de Edição (Mantém o mesmo código de antes)
     return (
         <div className="space-y-6 animate-fade-in pb-4">
             <div className="flex items-center justify-between border-b pb-2">
@@ -192,7 +228,6 @@ export default function EmailRulesConfig() {
                             <select value={cond.campo} onChange={e => updateCondition(idx, 'campo', e.target.value)} className="w-1/4 text-xs p-2 border rounded">
                                 <option value="from">Remetente</option>
                                 <option value="subject">Assunto</option>
-                                <option value="body">Conteúdo</option>
                             </select>
                             <select value={cond.operador} onChange={e => updateCondition(idx, 'operador', e.target.value)} className="w-1/4 text-xs p-2 border rounded">
                                 <option value="contains">Contém</option>

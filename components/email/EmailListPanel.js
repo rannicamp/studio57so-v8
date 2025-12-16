@@ -1,28 +1,29 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react';
-import { useQuery, keepPreviousData, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Alterado para useInfiniteQuery
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-    faArrowLeft, faSpinner, faSync, faBoxOpen, faExclamationCircle, faSearch, 
+    faArrowLeft, faSpinner, faSync, faBoxOpen, faExclamationCircle, 
     faEnvelopeOpen, faCheckSquare, faSquare, faTrash, faArchive, faEnvelope 
 } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 
-// Busca de mensagens
-const fetchMessages = async ({ queryKey }) => {
-    const [_key, folderPath, page, searchTerm, status] = queryKey;
-    let url = `/api/email/messages?folder=${encodeURIComponent(folderPath)}&page=${page}`;
+// Busca de mensagens adaptada para Cursor/Página Infinita
+const fetchMessages = async ({ queryKey, pageParam = 1 }) => {
+    const [_key, folderPath, searchTerm, status] = queryKey;
+    
+    let url = `/api/email/messages?folder=${encodeURIComponent(folderPath)}&page=${pageParam}`;
     if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
     if (status && status !== 'all') url += `&status=${status}`;
+    
     const res = await fetch(url);
     if (!res.ok) throw new Error('Erro ao buscar e-mails');
     return res.json();
 };
 
-// Ação em massa
 const performBulkAction = async ({ action, folder, uids }) => {
     const res = await fetch('/api/email/actions', {
         method: 'POST',
@@ -34,32 +35,68 @@ const performBulkAction = async ({ action, folder, uids }) => {
 };
 
 export default function EmailListPanel({ folder, onBack, onSelectEmail, selectedEmailId, searchTerm }) {
-    const [page, setPage] = useState(1);
     const [filterStatus, setFilterStatus] = useState('all');
     const [selectedIds, setSelectedIds] = useState(new Set()); 
     const [lastSelectedId, setLastSelectedId] = useState(null); 
+    
+    // Referência para o sensor de rolagem infinita
+    const loadMoreRef = useRef(null);
 
     const queryClient = useQueryClient();
     const folderIdentifier = folder.path || folder.name;
 
+    // Reseta seleção ao mudar filtros
     useEffect(() => {
-        setPage(1);
         setSelectedIds(new Set());
         setLastSelectedId(null);
     }, [searchTerm, folder.path, filterStatus]);
 
+    // --- QUERY INFINITA ---
     const { 
-        data, isLoading, isError, error, isFetching, refetch 
-    } = useQuery({
-        queryKey: ['emailMessages', folderIdentifier, page, searchTerm, filterStatus],
+        data, 
+        isLoading, 
+        isError, 
+        fetchNextPage, 
+        hasNextPage, 
+        isFetchingNextPage,
+        refetch,
+        isFetching
+    } = useInfiniteQuery({
+        queryKey: ['emailMessages', folderIdentifier, searchTerm, filterStatus],
         queryFn: fetchMessages,
-        placeholderData: keepPreviousData,
-        staleTime: 1000 * 60 * 1, 
-        refetchOnWindowFocus: false, 
+        getNextPageParam: (lastPage, allPages) => {
+            // Se a API diz que tem mais, a próxima página é o tamanho atual + 1
+            return lastPage.hasMore ? allPages.length + 1 : undefined;
+        },
+        staleTime: 1000 * 60 * 1, // 1 minuto de cache
+        refetchOnWindowFocus: false,
     });
 
-    const emails = data?.messages || [];
-    const hasMore = data?.hasMore || false;
+    // Combina todas as páginas em uma única lista de e-mails
+    const allEmails = data?.pages.flatMap(page => page.messages) || [];
+    const totalEmails = data?.pages[0]?.total || 0;
+
+    // --- SENSOR DE ROLAGEM (Intersection Observer) ---
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+                    fetchNextPage();
+                }
+            },
+            { threshold: 1.0 }
+        );
+
+        if (loadMoreRef.current) {
+            observer.observe(loadMoreRef.current);
+        }
+
+        return () => {
+            if (loadMoreRef.current) {
+                observer.unobserve(loadMoreRef.current);
+            }
+        };
+    }, [loadMoreRef, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     // Mutation para ações em massa
     const bulkActionMutation = useMutation({
@@ -78,7 +115,7 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
         onError: () => toast.error('Erro ao processar seleção.')
     });
 
-    // --- NOVA LÓGICA: Aplicação de Regras no Refresh ---
+    // Mutation para aplicar regras
     const applyRulesMutation = useMutation({
         mutationFn: async () => {
             const res = await fetch('/api/email/rules/apply', { method: 'POST' });
@@ -88,27 +125,21 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
         onSuccess: (data) => {
             if (data.moved > 0) {
                 toast.success(`${data.moved} e-mails movidos por regras.`);
-                // O refetch acontece no handleRefresh
             }
         },
         onError: (err) => {
             console.error("Erro silencioso ao aplicar regras:", err);
-            // Não exibimos toast de erro para não poluir a UI se for algo de conexão momentânea
         }
     });
 
     const handleRefresh = async () => {
-        // 1. Tenta aplicar as regras primeiro
         try {
             await applyRulesMutation.mutateAsync();
-        } catch (e) {
-            // Ignora erro para não impedir o refresh visual
-        }
-        // 2. Busca os emails atualizados
+        } catch (e) {}
         refetch();
     };
 
-    // --- LÓGICA DE SELEÇÃO ---
+    // --- LÓGICA DE SELEÇÃO (Inalterada) ---
     const handleEmailClick = (email, e) => {
         if (e.target.closest('.checkbox-area') || e.ctrlKey || e.metaKey) {
             e.preventDefault();
@@ -127,8 +158,8 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
             e.preventDefault();
             e.stopPropagation();
             
-            const lastIndex = emails.findIndex(em => em.id === lastSelectedId);
-            const currentIndex = emails.findIndex(em => em.id === email.id);
+            const lastIndex = allEmails.findIndex(em => em.id === lastSelectedId);
+            const currentIndex = allEmails.findIndex(em => em.id === email.id);
             
             if (lastIndex !== -1 && currentIndex !== -1) {
                 const start = Math.min(lastIndex, currentIndex);
@@ -136,7 +167,7 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                 
                 const newSet = new Set(selectedIds);
                 for (let i = start; i <= end; i++) {
-                    newSet.add(emails[i].id);
+                    newSet.add(allEmails[i].id);
                 }
                 setSelectedIds(newSet);
             }
@@ -196,7 +227,7 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                 </div>
             )}
 
-            {/* Header Normal */}
+            {/* Header */}
             <div className="flex flex-col border-b bg-white shrink-0">
                 <div className="flex items-center gap-3 p-4 pb-2 justify-between">
                     <div className="flex items-center gap-3 overflow-hidden">
@@ -208,12 +239,11 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                                 {folder.displayName || folder.name}
                             </h2>
                             <p className="text-xs text-gray-500">
-                                {isLoading ? '...' : `${data?.total || 0} mensagens`}
+                                {isLoading ? '...' : `${totalEmails} mensagens`}
                             </p>
                         </div>
                     </div>
                     
-                    {/* Botão Atualizar INTEGRADADO com Regras */}
                     <button 
                         onClick={handleRefresh} 
                         disabled={isFetching || applyRulesMutation.isPending} 
@@ -224,7 +254,6 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                     </button>
                 </div>
 
-                {/* Filtros */}
                 <div className="flex px-4 gap-4 mt-1">
                     <button onClick={() => setFilterStatus('all')} className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex-1 text-center ${filterStatus === 'all' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Todas</button>
                     <button onClick={() => setFilterStatus('unread')} className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex-1 text-center ${filterStatus === 'unread' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Não Lidas</button>
@@ -232,18 +261,18 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                 </div>
             </div>
 
-            {/* Lista */}
+            {/* Lista Infinita */}
             <div className="flex-grow overflow-y-auto custom-scrollbar relative">
                 {isLoading ? (
                     <div className="flex justify-center items-center h-40 text-blue-500"><FontAwesomeIcon icon={faSpinner} spin size="lg" /></div>
                 ) : isError ? (
                     <div className="flex flex-col items-center justify-center h-64 text-red-400 p-4 text-center"><FontAwesomeIcon icon={faExclamationCircle} size="2x" className="mb-2" /><p className="text-sm font-medium">Erro ao carregar.</p><button onClick={() => refetch()} className="mt-4 text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-md font-bold">Tentar Novamente</button></div>
-                ) : emails.length === 0 ? (
+                ) : allEmails.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 text-gray-400 p-6 text-center"><FontAwesomeIcon icon={filterStatus === 'unread' ? faEnvelopeOpen : faBoxOpen} size="2x" /><p className="mt-2 text-sm">{searchTerm ? `Sem resultados para "${searchTerm}"` : 'Tudo limpo por aqui!'}</p></div>
                 ) : (
                     <div className="divide-y divide-gray-100 pb-4">
                         
-                        {emails.map((email) => {
+                        {allEmails.map((email) => {
                             const isSelected = selectedIds.has(email.id);
                             const isActive = selectedEmailId === email.id;
                             
@@ -283,10 +312,17 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                             );
                         })}
                         
-                        <div className="p-4 flex justify-between items-center bg-gray-50 border-t mt-2">
-                            <button onClick={() => setPage(old => Math.max(old - 1, 1))} disabled={page === 1 || isFetching} className="px-3 py-1.5 bg-white border rounded text-xs text-gray-600 disabled:opacity-50 hover:bg-gray-100 font-medium">Anterior</button>
-                            <span className="text-xs font-bold text-gray-500">Pág {page}</span>
-                            <button onClick={() => setPage(old => (hasMore ? old + 1 : old))} disabled={!hasMore || isFetching} className="px-3 py-1.5 bg-white border rounded text-xs text-gray-600 disabled:opacity-50 hover:bg-gray-100 font-medium">Próxima</button>
+                        {/* Elemento Sentinela para Carregamento Infinito */}
+                        <div ref={loadMoreRef} className="py-4 text-center">
+                            {isFetchingNextPage ? (
+                                <div className="text-blue-500 text-xs flex items-center justify-center gap-2">
+                                    <FontAwesomeIcon icon={faSpinner} spin /> Carregando mais...
+                                </div>
+                            ) : hasNextPage ? (
+                                <span className="text-transparent text-[1px]">.</span> // Invisível mas presente para o observer
+                            ) : (
+                                <span className="text-gray-300 text-[10px] uppercase font-bold tracking-widest">Fim da lista</span>
+                            )}
                         </div>
                     </div>
                 )}
