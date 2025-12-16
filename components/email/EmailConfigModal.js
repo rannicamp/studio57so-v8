@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react'; // Adicionado useEffect
+import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -10,7 +10,7 @@ import EmailConnectionConfig from './EmailConnectionConfig';
 import EmailSignatureConfig from './EmailSignatureConfig';
 import EmailRulesConfig from './EmailRulesConfig';
 
-export default function EmailConfigModal({ isOpen, onClose, initialTab = 'connection' }) { // Recebe initialTab
+export default function EmailConfigModal({ isOpen, onClose, initialTab = 'connection', rulePrefill }) {
     const supabase = createClient();
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState(initialTab); 
@@ -39,7 +39,7 @@ export default function EmailConfigModal({ isOpen, onClose, initialTab = 'connec
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden flex flex-col h-[85vh] md:h-auto md:max-h-[90vh] animate-fade-in-up">
                 
                 {/* Header e Abas */}
@@ -81,7 +81,8 @@ export default function EmailConfigModal({ isOpen, onClose, initialTab = 'connec
                         <>
                             {activeTab === 'connection' && <EmailConnectionConfig initialData={existingConfig} onClose={onClose} />}
                             {activeTab === 'signature' && <EmailSignatureConfig initialData={existingConfig} onClose={onClose} />}
-                            {activeTab === 'rules' && <EmailRulesConfig />} 
+                            {/* Repassa o dado inteligente para o componente de regras */}
+                            {activeTab === 'rules' && <EmailRulesConfig prefillData={rulePrefill} />} 
                         </>
                     )}
                 </div>

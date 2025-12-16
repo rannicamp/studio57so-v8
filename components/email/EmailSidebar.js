@@ -1,9 +1,15 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faEnvelope, faInbox, faPaperPlane, faTrash, faBan, faFolder, faPlus, faCog, faSpinner, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faSearch, faEnvelope, faInbox, faPaperPlane, faTrash, faBan, 
+    faFolder, faPlus, faCog, faSpinner, faExclamationTriangle, 
+    faChevronRight, faChevronDown 
+} from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+import { toast } from 'sonner';
 
 const getEmailFolders = async () => {
     const res = await fetch('/api/email/folders');
@@ -33,6 +39,14 @@ export default function EmailSidebar({
     onSearchChange,
     className = '' 
 }) {
+    const queryClient = useQueryClient();
+    
+    // Estados
+    const [expandedPaths, setExpandedPaths] = useState(new Set()); 
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [newFolderName, setNewFolderName] = useState('');
+    const [parentFolder, setParentFolder] = useState(''); 
+
     const { 
         data: emailData, isLoading, isError 
     } = useQuery({
@@ -43,86 +57,213 @@ export default function EmailSidebar({
         staleTime: 1000 * 60 * 5
     });
 
+    const createFolderMutation = useMutation({
+        mutationFn: async ({ folderName, parentPath }) => {
+            const res = await fetch('/api/email/folders/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ folderName, parentPath })
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Falha ao criar pasta');
+            }
+            return res.json();
+        },
+        onSuccess: () => {
+            toast.success('Pasta criada com sucesso!');
+            setIsCreateModalOpen(false);
+            setNewFolderName('');
+            setParentFolder('');
+            queryClient.invalidateQueries(['emailFolders']);
+        },
+        onError: (err) => toast.error(err.message)
+    });
+
+    // --- LÓGICA DE ÁRVORE HIERÁRQUICA ---
+    const processedFolders = useMemo(() => {
+        if (!emailData?.folders) return [];
+        
+        const allFolders = emailData.folders;
+        const childrenMap = {}; 
+        const roots = [];       
+
+        // 1. Organizar Famílias
+        allFolders.forEach(folder => {
+            if (folder.level === 0) {
+                roots.push(folder);
+            } else {
+                const separator = folder.delimiter || '/';
+                const lastIndex = folder.path.lastIndexOf(separator);
+                const parentPath = lastIndex > -1 ? folder.path.substring(0, lastIndex) : '';
+                
+                if (!childrenMap[parentPath]) childrenMap[parentPath] = [];
+                childrenMap[parentPath].push(folder);
+            }
+        });
+
+        // 2. Ordenação (Especiais primeiro)
+        const specialOrder = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'JUNK', 'SPAM', 'ARCHIVE'];
+        
+        const sortList = (list) => {
+            return list.sort((a, b) => {
+                const indexA = specialOrder.findIndex(key => a.name.toUpperCase() === key);
+                const indexB = specialOrder.findIndex(key => b.name.toUpperCase() === key);
+
+                if (indexA === -1 && indexB === -1) return a.displayName.localeCompare(b.displayName);
+                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                if (indexA !== -1) return -1;
+                return 1;
+            });
+        };
+
+        // 3. Achatamento Recursivo
+        const flattenTree = (list) => {
+            let result = [];
+            const sortedList = sortList(list);
+
+            sortedList.forEach(folder => {
+                const children = childrenMap[folder.path] || [];
+                const hasChildren = children.length > 0;
+                
+                result.push({ ...folder, hasChildren });
+
+                if (hasChildren && expandedPaths.has(folder.path)) {
+                    result = result.concat(flattenTree(children));
+                }
+            });
+            return result;
+        };
+
+        return flattenTree(roots);
+
+    }, [emailData, expandedPaths]);
+
+    const toggleExpand = (e, path) => {
+        e.stopPropagation();
+        const newSet = new Set(expandedPaths);
+        if (newSet.has(path)) newSet.delete(path);
+        else newSet.add(path);
+        setExpandedPaths(newSet);
+    };
+
+    const handleCreateSubmit = () => {
+        if (!newFolderName.trim()) return toast.warning('Digite um nome para a pasta');
+        createFolderMutation.mutate({ 
+            folderName: newFolderName, 
+            parentPath: parentFolder 
+        });
+    };
+
     return (
-        <div className={`flex flex-col border-r bg-white h-full overflow-hidden min-h-0 ${className}`}>
+        <div className={`flex flex-col border-r bg-white h-full overflow-hidden min-h-0 ${className} relative`}>
             
-            {/* Abas */}
+            {/* MODAL DE CRIAÇÃO */}
+            {isCreateModalOpen && (
+                <div className="absolute inset-0 z-50 bg-black/10 backdrop-blur-sm flex items-start justify-center pt-20 px-4">
+                    <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-full animate-slide-down">
+                        <h4 className="text-sm font-bold text-gray-800 mb-3">Nova Pasta</h4>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs text-gray-500 block mb-1">Nome</label>
+                                <input autoFocus type="text" className="w-full text-sm border rounded p-2 outline-none focus:ring-1 focus:ring-blue-500" placeholder="Ex: Projetos" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 block mb-1">Local (Pai)</label>
+                                <select className="w-full text-xs border rounded p-2 bg-gray-50" value={parentFolder} onChange={(e) => setParentFolder(e.target.value)}>
+                                    <option value="">Raiz (Pasta Principal)</option>
+                                    {emailData?.folders?.map(f => <option key={f.path} value={f.path}>{'-'.repeat(f.level)} {f.displayName}</option>)}
+                                </select>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                                <button onClick={() => setIsCreateModalOpen(false)} className="text-xs px-3 py-2 text-gray-500 hover:bg-gray-100 rounded">Cancelar</button>
+                                <button onClick={handleCreateSubmit} disabled={createFolderMutation.isPending} className="text-xs px-3 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 flex items-center gap-2">
+                                    {createFolderMutation.isPending && <FontAwesomeIcon icon={faSpinner} spin />} Criar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Cabeçalhos */}
             <div className="flex border-b bg-gray-50 shrink-0">
-                <button onClick={() => onChangeTab('whatsapp')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
-                    <FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp
-                </button>
-                <button className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-blue-600 text-blue-600 bg-white">
-                    <FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail
-                </button>
+                <button onClick={() => onChangeTab('whatsapp')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100"><FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp</button>
+                <button className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-blue-600 text-blue-600 bg-white"><FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail</button>
             </div>
-
-            {/* Botão Escrever */}
             <div className="p-4 pb-0">
-                <button 
-                    onClick={onCompose}
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md flex items-center justify-center gap-2 text-sm font-bold transition-transform active:scale-95"
-                >
-                    <FontAwesomeIcon icon={faPlus} /> Escrever E-mail
-                </button>
+                <button onClick={onCompose} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md flex items-center justify-center gap-2 text-sm font-bold transition-transform active:scale-95"><FontAwesomeIcon icon={faPlus} /> Escrever E-mail</button>
             </div>
-
-            {/* Busca */}
             <div className="h-16 border-b flex flex-col justify-center px-4 bg-white shrink-0 z-10">
                 <div className="relative">
-                    <input 
-                        type="text" 
-                        placeholder="Buscar..." 
-                        value={searchTerm} 
-                        onChange={(e) => onSearchChange(e.target.value)} 
-                        className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all" 
-                    />
+                    <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => onSearchChange(e.target.value)} className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all" />
                     <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                 </div>
             </div>
 
-            {/* Lista de Pastas */}
+            {/* LISTA DE PASTAS */}
             <div className="flex-grow overflow-y-auto custom-scrollbar bg-white">
                 {isLoading ? (
-                    <div className="flex flex-col items-center justify-center h-40 text-gray-400">
-                        <FontAwesomeIcon icon={faSpinner} spin className="text-2xl mb-2 text-blue-500" />
-                        <p className="text-xs">Conectando...</p>
-                    </div>
+                    <div className="flex flex-col items-center justify-center h-40 text-gray-400"><FontAwesomeIcon icon={faSpinner} spin className="text-2xl mb-2 text-blue-500" /><p className="text-xs">Conectando...</p></div>
                 ) : isError ? (
-                    <div className="p-6 text-center text-gray-500">
-                        <div className="bg-red-50 p-4 rounded-full mb-3 inline-block">
-                            <FontAwesomeIcon icon={faExclamationTriangle} className="text-2xl text-red-400" />
-                        </div>
-                        <p className="text-sm font-medium text-gray-700 mb-1">Ops! Falha na conexão</p>
-                        <button onClick={onConfig} className="text-xs bg-blue-600 text-white px-4 py-2 rounded-md mt-2">Configurar E-mail</button>
-                    </div>
+                    <div className="p-6 text-center text-gray-500"><div className="bg-red-50 p-4 rounded-full mb-3 inline-block"><FontAwesomeIcon icon={faExclamationTriangle} className="text-2xl text-red-400" /></div><p className="text-sm font-medium text-gray-700 mb-1">Ops! Falha na conexão</p><button onClick={onConfig} className="text-xs bg-blue-600 text-white px-4 py-2 rounded-md mt-2">Configurar E-mail</button></div>
                 ) : (
                     <div className="divide-y divide-gray-100">
                         <div className="p-3 bg-blue-50/50 text-xs font-bold text-blue-800 flex justify-between items-center tracking-wide">
-                            <span>SUAS PASTAS</span>
-                            <button onClick={onConfig} title="Ajustes"><FontAwesomeIcon icon={faCog} /></button>
+                            <span>PASTAS</span>
+                            <div className="flex gap-2">
+                                <button onClick={() => setIsCreateModalOpen(true)} title="Nova Pasta" className="hover:text-blue-600 transition-colors"><FontAwesomeIcon icon={faPlus} /></button>
+                                <button onClick={onConfig} title="Ajustes" className="hover:text-blue-600 transition-colors"><FontAwesomeIcon icon={faCog} /></button>
+                            </div>
                         </div>
-                        {emailData?.folders?.map((folder, idx) => (
-                            <button 
-                                key={idx} 
-                                onClick={() => onSelectFolder(folder)} 
-                                className={`
-                                    w-full text-left py-3 hover:bg-gray-50 flex items-center gap-3 text-sm transition-colors
-                                    ${selectedFolder?.path === folder.path ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}
-                                `}
-                                style={{ paddingLeft: `${16 + ((folder.level || 0) * 16)}px`, paddingRight: '16px' }}
-                            >
-                                <FontAwesomeIcon 
-                                    icon={getFolderIcon(folder.name)} 
+                        
+                        {processedFolders.map((folder) => {
+                            const isExpanded = expandedPaths.has(folder.path);
+                            const isSelected = selectedFolder?.path === folder.path;
+
+                            return (
+                                <div 
+                                    key={folder.path}
                                     className={`
-                                        ${selectedFolder?.path === folder.path ? 'text-blue-500' : 'text-gray-400'}
-                                        ${(folder.level || 0) > 0 ? 'text-xs opacity-75' : ''} 
-                                    `} 
-                                />
-                                <span className="truncate">
-                                    {folder.displayName || folder.name}
-                                </span>
-                            </button>
-                        ))}
+                                        w-full text-left hover:bg-gray-50 flex items-center text-sm transition-colors cursor-pointer group select-none relative
+                                        ${isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}
+                                    `}
+                                    onClick={() => onSelectFolder(folder)}
+                                    // AQUI ESTÁ A CORREÇÃO DE INDENTAÇÃO:
+                                    // Padding base (16px) + (Nível * 16px)
+                                    style={{ paddingLeft: `${16 + (folder.level * 16)}px` }} 
+                                >
+                                    {/* Indicador de Seleção Visual (opcional, linha azul na esquerda) */}
+                                    {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></div>}
+
+                                    {/* Botão de Expandir */}
+                                    <div 
+                                        className="h-10 w-6 flex items-center justify-center shrink-0 hover:text-blue-600 text-gray-400 mr-1"
+                                        onClick={(e) => folder.hasChildren && toggleExpand(e, folder.path)}
+                                    >
+                                        {folder.hasChildren && (
+                                            <FontAwesomeIcon 
+                                                icon={isExpanded ? faChevronDown : faChevronRight} 
+                                                className="text-[10px]" 
+                                            />
+                                        )}
+                                    </div>
+
+                                    {/* Nome e Ícone */}
+                                    <div className="flex items-center gap-3 flex-grow py-3 pr-4 overflow-hidden">
+                                        <FontAwesomeIcon 
+                                            icon={getFolderIcon(folder.name)} 
+                                            className={`
+                                                ${isSelected ? 'text-blue-500' : 'text-gray-400'}
+                                            `} 
+                                        />
+                                        <span className="truncate">
+                                            {folder.displayName || folder.name}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>
