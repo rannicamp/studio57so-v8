@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, faUserCircle, faPaperclip, faTimes, faFileAlt, faExclamationTriangle, 
-    faDownload, faReply, faReplyAll, faShare, faEllipsisV, faTrash, faArchive, faEnvelope,
-    faCalendarPlus, faCopy // Ícone de copiar
+    faDownload, faReply, faReplyAll, faShare, faCopy 
 } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -14,6 +13,7 @@ import DOMPurify from 'isomorphic-dompurify';
 import EmailComposeModal from './EmailComposeModal';
 import AtividadeModal from '@/components/atividades/AtividadeModal'; 
 import { toast } from 'sonner';
+import EmailActionMenu from './EmailActionMenu'; // <--- IMPORTAÇÃO NOVA
 
 const fetchEmailContent = async ({ queryKey }) => {
     const [_key, folderPath, uid] = queryKey;
@@ -23,11 +23,14 @@ const fetchEmailContent = async ({ queryKey }) => {
     return res.json();
 };
 
-const performEmailAction = async ({ action, folder, uid }) => {
+const performEmailAction = async ({ action, folder, uid, destination }) => { // <--- Atualizado para suportar destination
+    const body = { action, folder, uid };
+    if (destination) body.targetFolder = destination;
+
     const res = await fetch('/api/email/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, folder, uid })
+        body: JSON.stringify(body)
     });
     if (!res.ok) throw new Error('Falha na ação');
     return res.json();
@@ -42,8 +45,6 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
     const [isActivityOpen, setIsActivityOpen] = useState(false);
     const [activityData, setActivityData] = useState(null);
 
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const menuRef = useRef(null);
     const folderIdentifier = folder?.path || folder?.name;
 
     const { data: fullEmail, isLoading, isError } = useQuery({
@@ -54,30 +55,12 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
         refetchOnWindowFocus: false,
     });
 
-    // --- LÓGICA DE EXTRAÇÃO DE REMETENTE ---
-    // Usamos useMemo para recalcular sempre que fullEmail ou emailSummary mudar
     const senderInfo = useMemo(() => {
-        // Prioriza o fullEmail (que tem o cabeçalho completo), senão usa o resumo da lista
         const rawFrom = fullEmail?.from || emailSummary?.from || '';
-        
         if (!rawFrom) return { name: 'Desconhecido', email: '' };
-
-        // Regex para capturar: "Nome <email@dominio.com>"
         const match = rawFrom.match(/(.*?)\s*<(.+?)>/);
-        
-        if (match) {
-            return { 
-                name: match[1].replace(/['"]/g, '').trim() || match[2], // Remove aspas do nome
-                email: match[2].trim() 
-            };
-        }
-        
-        // Se não tiver < >, verifica se o que sobrou parece um e-mail (tem @)
-        if (rawFrom.includes('@')) {
-            return { name: rawFrom, email: rawFrom };
-        }
-
-        // Se não tem e-mail visível ainda (apenas nome)
+        if (match) return { name: match[1].replace(/['"]/g, '').trim() || match[2], email: match[2].trim() };
+        if (rawFrom.includes('@')) return { name: rawFrom, email: rawFrom };
         return { name: rawFrom, email: '' };
     }, [fullEmail, emailSummary]);
 
@@ -87,6 +70,7 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
             queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
             if (variables.action === 'trash') { toast.success('E-mail excluído.'); onClose(); }
             else if (variables.action === 'archive') { toast.success('E-mail arquivado.'); onClose(); }
+            else if (variables.action === 'move') { toast.success('E-mail movido.'); onClose(); }
             else if (variables.action === 'markAsUnread') { toast.success('Marcado como não lido.'); onClose(); }
         },
         onError: () => toast.error('Erro ao realizar ação.')
@@ -96,40 +80,34 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
         const currentEmailId = emailSummary?.id;
         const currentFolder = folderIdentifier;
         const isAlreadyRead = emailSummary?.flags?.includes('\\Seen');
-
         return () => {
             if (currentEmailId && !isAlreadyRead) {
                 fetch('/api/email/actions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'markAsRead', folder: currentFolder, uid: currentEmailId })
-                }).then(() => {
-                    queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
-                });
+                }).then(() => { queryClient.invalidateQueries({ queryKey: ['emailMessages'] }); });
             }
         };
     }, [emailSummary?.id, folderIdentifier, emailSummary?.flags, queryClient]); 
 
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (menuRef.current && !menuRef.current.contains(event.target)) {
-                setIsMenuOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const handleAction = (action) => {
-        setIsMenuOpen(false);
-        actionMutation.mutate({ action, folder: folderIdentifier, uid: emailSummary.id });
+    // --- AÇÃO UNIFICADA DO MENU ---
+    const handleMenuAction = (action, value) => {
+        if (action === 'createActivity') {
+            handleCreateActivity();
+        } else if (action === 'createRule') {
+            toast.info("Criar Regra: Em breve!"); 
+        } else if (action === 'move') {
+             actionMutation.mutate({ action: 'move', folder: folderIdentifier, uid: emailSummary.id, destination: value });
+        } else {
+             actionMutation.mutate({ action, folder: folderIdentifier, uid: emailSummary.id });
+        }
     };
 
     const handleCreateActivity = () => {
         if (!fullEmail) return;
         const cleanBody = fullEmail.text || fullEmail.html?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || '';
         const description = `E-mail de: ${senderInfo.name} (${senderInfo.email})\nEnviado em: ${format(new Date(fullEmail.date), "dd/MM/yyyy HH:mm")}\n\n${cleanBody.substring(0, 2000)}`;
-
         setActivityData({
             nome: fullEmail.subject,
             descricao: description,
@@ -137,43 +115,25 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
             status: 'Não Iniciado',
             contato_id: emailSummary.contato_id || null
         });
-        
-        setIsMenuOpen(false);
         setIsActivityOpen(true);
     };
 
     const prepareReply = (type) => {
         if (!fullEmail) return;
-        
-        // Garante que o 'to' da resposta seja o email extraído, não o nome
         let to = senderInfo.email || fullEmail.from; 
-        
         let cc = ''; 
         let subject = fullEmail.subject;
         if (!subject.toLowerCase().startsWith('re:')) subject = `Re: ${subject}`;
         if (type === 'replyAll' && fullEmail.to) { if (typeof fullEmail.to === 'string') cc = fullEmail.to; }
-        
         const dateStr = format(new Date(fullEmail.date), "dd/MM/yyyy HH:mm", { locale: ptBR });
         const quote = `<br><br><br><div style="border-left: 2px solid #ccc; padding-left: 10px; color: #555;">Em ${dateStr}, <strong>${senderInfo.name}</strong> escreveu:<br><br>${fullEmail.html || fullEmail.text}</div>`;
-        
-        setComposeData({ 
-            type: type === 'forward' ? 'forward' : 'reply', 
-            to: type === 'forward' ? '' : to, 
-            cc: type === 'replyAll' ? cc : '', 
-            subject: type === 'forward' ? `Fwd: ${fullEmail.subject}` : subject, 
-            body: quote, 
-            messageId: fullEmail.id 
-        });
+        setComposeData({ type: type === 'forward' ? 'forward' : 'reply', to: type === 'forward' ? '' : to, cc: type === 'replyAll' ? cc : '', subject: type === 'forward' ? `Fwd: ${fullEmail.subject}` : subject, body: quote, messageId: fullEmail.id });
         setIsComposeOpen(true);
     };
 
     const handleCopyEmail = () => {
-        if (senderInfo.email) {
-            navigator.clipboard.writeText(senderInfo.email);
-            toast.success('E-mail copiado: ' + senderInfo.email);
-        } else {
-            toast.error('Endereço de e-mail não encontrado.');
-        }
+        if (senderInfo.email) { navigator.clipboard.writeText(senderInfo.email); toast.success('E-mail copiado: ' + senderInfo.email); } 
+        else { toast.error('Endereço de e-mail não encontrado.'); }
     };
 
     const handleDownloadAttachment = (att) => {
@@ -183,12 +143,8 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
             const blob = new Blob([byteArray], { type: att.contentType });
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = url;
-            link.download = att.filename || 'anexo_download';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
+            link.href = url; link.download = att.filename || 'anexo_download';
+            document.body.appendChild(link); link.click(); document.body.removeChild(link); window.URL.revokeObjectURL(url);
         } catch (err) { console.error(err); alert("Erro ao processar anexo."); }
     };
 
@@ -198,75 +154,37 @@ export default function EmailViewPanel({ emailSummary, folder, onClose }) {
     return (
         <div className="h-full flex flex-col bg-white border-l border-gray-200 w-full relative">
             <EmailComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} initialData={composeData} />
-            
-            {isActivityOpen && (
-                <AtividadeModal isOpen={isActivityOpen} onClose={() => setIsActivityOpen(false)} initialData={activityData} />
-            )}
+            {isActivityOpen && <AtividadeModal isOpen={isActivityOpen} onClose={() => setIsActivityOpen(false)} initialData={activityData} />}
 
             <div className="p-5 border-b bg-gray-50 flex justify-between items-start shrink-0">
                 <div className="flex-1 overflow-hidden mr-4">
                     <h2 className="text-lg font-bold text-gray-800 break-words mb-3 leading-snug">{emailSummary.subject}</h2>
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0"><FontAwesomeIcon icon={faUserCircle} className="text-xl" /></div>
-                        
                         <div className="min-w-0 flex flex-col">
-                            {/* Nome do Remetente */}
-                            <p className="text-sm font-bold text-gray-900 truncate">
-                                {senderInfo.name}
-                            </p>
-                            
-                            {/* E-mail com botão de copiar (Só aparece se tiver e-mail detectado) */}
-                            {senderInfo.email ? (
-                                <button 
-                                    onClick={handleCopyEmail}
-                                    className="text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 px-1 -ml-1 rounded transition-all flex items-center gap-1.5 w-fit mt-0.5"
-                                    title="Clique para copiar o e-mail"
-                                >
-                                    {senderInfo.email}
-                                    <FontAwesomeIcon icon={faCopy} className="text-[10px] opacity-70" />
-                                </button>
-                            ) : (
-                                // Placeholder enquanto carrega o fullEmail
-                                isLoading && <span className="text-[10px] text-gray-400 animate-pulse">Carregando e-mail...</span>
-                            )}
-
-                            <p className="text-[10px] text-gray-400 mt-1">
-                                {format(new Date(emailSummary.date), "dd 'de' MMM 'às' HH:mm", { locale: ptBR })}
-                            </p>
+                            <p className="text-sm font-bold text-gray-900 truncate">{senderInfo.name}</p>
+                            {senderInfo.email ? ( <button onClick={handleCopyEmail} className="text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 px-1 -ml-1 rounded transition-all flex items-center gap-1.5 w-fit mt-0.5" title="Clique para copiar o e-mail">{senderInfo.email}<FontAwesomeIcon icon={faCopy} className="text-[10px] opacity-70" /></button> ) : ( isLoading && <span className="text-[10px] text-gray-400 animate-pulse">Carregando e-mail...</span> )}
+                            <p className="text-[10px] text-gray-400 mt-1">{format(new Date(emailSummary.date), "dd 'de' MMM 'às' HH:mm", { locale: ptBR })}</p>
                         </div>
                     </div>
                 </div>
                 
-                {/* Botões de Ação */}
                 <div className="flex gap-2 items-center">
                     <div className="flex bg-white rounded-lg border border-gray-300 shadow-sm overflow-hidden h-[34px]">
                         <button onClick={() => prepareReply('reply')} className="px-3 text-gray-600 hover:bg-gray-100 border-r border-gray-200" title="Responder"><FontAwesomeIcon icon={faReply} /></button>
                         <button onClick={() => prepareReply('replyAll')} className="px-3 text-gray-600 hover:bg-gray-100 border-r border-gray-200" title="Responder a Todos"><FontAwesomeIcon icon={faReplyAll} /></button>
                         <button onClick={() => prepareReply('forward')} className="px-3 text-gray-600 hover:bg-gray-100" title="Encaminhar"><FontAwesomeIcon icon={faShare} /></button>
                     </div>
-                    <div className="relative" ref={menuRef}>
-                        <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="w-[34px] h-[34px] flex items-center justify-center bg-white border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors shadow-sm">
-                            {actionMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faEllipsisV} />}
-                        </button>
-                        {isMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-xl border border-gray-200 z-50 animate-fade-in">
-                                <div className="py-1">
-                                    <button onClick={handleCreateActivity} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-2 border-b border-gray-100">
-                                        <FontAwesomeIcon icon={faCalendarPlus} className="w-3" /> Criar Atividade
-                                    </button>
-                                    <button onClick={() => handleAction('markAsUnread')} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2">
-                                        <FontAwesomeIcon icon={faEnvelope} className="w-3" /> Marcar como não lido
-                                    </button>
-                                    <button onClick={() => handleAction('archive')} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-2">
-                                        <FontAwesomeIcon icon={faArchive} className="w-3" /> Arquivar
-                                    </button>
-                                    <button onClick={() => handleAction('trash')} className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 font-medium">
-                                        <FontAwesomeIcon icon={faTrash} className="w-3" /> Excluir
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                    
+                    {/* USANDO O NOVO COMPONENTE AQUI */}
+                    <div className="z-50">
+                        <EmailActionMenu 
+                            email={emailSummary}
+                            onAction={handleMenuAction}
+                            showCreateActivity={true} // Ativa o botão de atividade extra
+                        />
                     </div>
+
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-200 w-[34px] h-[34px] rounded-lg transition-colors ml-1"><FontAwesomeIcon icon={faTimes} className="text-lg" /></button>
                 </div>
             </div>
