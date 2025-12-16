@@ -7,6 +7,7 @@ import EmailListPanel from '@/components/email/EmailListPanel';
 import EmailViewPanel from '@/components/email/EmailViewPanel';
 import EmailComposeModal from '@/components/email/EmailComposeModal'; 
 import EmailSidebar from '@/components/email/EmailSidebar'; 
+import EmailCreateFolderModal from '@/components/email/EmailCreateFolderModal'; // <--- NOVO IMPORT
 import { faInbox } from '@fortawesome/free-solid-svg-icons'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useDebounce } from 'use-debounce';
@@ -33,14 +34,16 @@ export default function EmailInbox({ onChangeTab }) {
     const [selectedEmailFolder, setSelectedEmailFolder] = useState(cachedState?.selectedEmailFolder || null); 
     const [selectedEmail, setSelectedEmail] = useState(cachedState?.selectedEmail || null);
     
-    // Configuração do Modal
+    // Configuração dos Modais
     const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false);
     const [configInitialTab, setConfigInitialTab] = useState('connection'); 
-    
-    // NOVO: Estado para preenchimento inteligente de regras
-    const [rulePrefill, setRulePrefill] = useState(null);
-
     const [isComposeOpen, setIsComposeOpen] = useState(false);
+    
+    // NOVO: Estado para o Modal de Criar Pasta Centralizado
+    const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
+
+    // Estado para preenchimento inteligente de regras
+    const [rulePrefill, setRulePrefill] = useState(null);
     
     const [debouncedSearchTerm] = useDebounce(searchTerm, 600);
 
@@ -95,33 +98,24 @@ export default function EmailInbox({ onChangeTab }) {
     // --- CRIAÇÃO INTELIGENTE DE REGRA ---
     const handleOpenRules = (email = null) => {
         if (email) {
-            // Lógica para extrair nome limpo ou termo relevante do remetente
             let term = email.from || '';
-            
-            // Tenta extrair o nome ou e-mail limpo (ex: "Nome <email@dominio.com>")
             const match = term.match(/(.*?)\s*<(.+?)>/);
-            
             if (match) {
-                 // Prioriza o nome se existir, senão o e-mail
                  let namePart = match[1].replace(/['"]/g, '').trim(); 
                  let emailPart = match[2].trim();
                  term = namePart || emailPart;
             } else if (term.includes('@')) {
-                // Se for só email@dominio.com, usa ele
                 term = term.trim();
             }
 
-            // Prepara o objeto de preenchimento
             setRulePrefill({
                  nome: `Mover e-mails de ${term}`,
                  condicoes: [{ campo: 'from', operador: 'contains', valor: term }],
-                 // Deixa a ação 'move' vazia para o usuário escolher a pasta destino
                  acoes: [{ tipo: 'move', pasta: '' }] 
             });
         } else {
-            setRulePrefill(null); // Abre vazio se não vier de um e-mail
+            setRulePrefill(null); 
         }
-
         setConfigInitialTab('rules');
         setIsEmailConfigOpen(true);
     };
@@ -129,6 +123,11 @@ export default function EmailInbox({ onChangeTab }) {
     const handleOpenConfig = () => {
         setConfigInitialTab('connection');
         setIsEmailConfigOpen(true);
+    };
+
+    // --- FUNÇÃO CENTRALIZADA PARA ABRIR O MODAL DE CRIAR PASTA ---
+    const handleOpenCreateFolder = () => {
+        setIsCreateFolderOpen(true);
     };
 
     const hasSelection = selectedEmailFolder;
@@ -140,10 +139,16 @@ export default function EmailInbox({ onChangeTab }) {
                 isOpen={isEmailConfigOpen} 
                 onClose={() => setIsEmailConfigOpen(false)} 
                 initialTab={configInitialTab}
-                rulePrefill={rulePrefill} // Passando o dado inteligente
+                rulePrefill={rulePrefill} 
             />
             
             <EmailComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} />
+
+            {/* MODAL DE CRIAR PASTA CENTRALIZADO */}
+            <EmailCreateFolderModal 
+                isOpen={isCreateFolderOpen} 
+                onClose={() => setIsCreateFolderOpen(false)} 
+            />
 
             {/* --- COMPONENTE 1: SIDEBAR --- */}
             <EmailSidebar 
@@ -155,6 +160,7 @@ export default function EmailInbox({ onChangeTab }) {
                 onChangeTab={onChangeTab}
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
+                onCreateFolder={handleOpenCreateFolder} // <--- Passando a função
             />
 
             {/* --- COMPONENTE 2: LISTA DE E-MAILS --- */}
@@ -170,7 +176,8 @@ export default function EmailInbox({ onChangeTab }) {
                         onSelectEmail={handleSelectEmail}
                         selectedEmailId={selectedEmail?.id}
                         searchTerm={debouncedSearchTerm}
-                        onCreateRule={handleOpenRules} // Passa a função inteligente
+                        onCreateRule={handleOpenRules}
+                        onCreateFolder={handleOpenCreateFolder} // <--- Passando a função
                     />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500 p-8 text-center">
@@ -190,7 +197,8 @@ export default function EmailInbox({ onChangeTab }) {
                         emailSummary={selectedEmail} 
                         folder={selectedEmailFolder} 
                         onClose={() => setSelectedEmail(null)} 
-                        onCreateRule={handleOpenRules} // Passa a função inteligente
+                        onCreateRule={handleOpenRules}
+                        onCreateFolder={handleOpenCreateFolder} // <--- Passando a função
                     />
                 </div>
             )}

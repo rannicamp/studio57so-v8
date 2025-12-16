@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSearch, faEnvelope, faInbox, faPaperPlane, faTrash, faBan, 
@@ -9,7 +9,6 @@ import {
     faChevronRight, faChevronDown 
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
-import { toast } from 'sonner';
 
 const getEmailFolders = async () => {
     const res = await fetch('/api/email/folders');
@@ -37,15 +36,13 @@ export default function EmailSidebar({
     onChangeTab, 
     searchTerm, 
     onSearchChange,
+    onCreateFolder, // <--- Prop recebida do Inbox
     className = '' 
 }) {
     const queryClient = useQueryClient();
     
     // Estados
     const [expandedPaths, setExpandedPaths] = useState(new Set()); 
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [newFolderName, setNewFolderName] = useState('');
-    const [parentFolder, setParentFolder] = useState(''); 
 
     const { 
         data: emailData, isLoading, isError 
@@ -57,30 +54,7 @@ export default function EmailSidebar({
         staleTime: 1000 * 60 * 5
     });
 
-    const createFolderMutation = useMutation({
-        mutationFn: async ({ folderName, parentPath }) => {
-            const res = await fetch('/api/email/folders/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ folderName, parentPath })
-            });
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || 'Falha ao criar pasta');
-            }
-            return res.json();
-        },
-        onSuccess: () => {
-            toast.success('Pasta criada com sucesso!');
-            setIsCreateModalOpen(false);
-            setNewFolderName('');
-            setParentFolder('');
-            queryClient.invalidateQueries(['emailFolders']);
-        },
-        onError: (err) => toast.error(err.message)
-    });
-
-    // --- LÓGICA DE ÁRVORE HIERÁRQUICA ---
+    // --- LÓGICA DE ÁRVORE HIERÁRQUICA (Mantida Integralmente) ---
     const processedFolders = useMemo(() => {
         if (!emailData?.folders) return [];
         
@@ -147,73 +121,69 @@ export default function EmailSidebar({
         setExpandedPaths(newSet);
     };
 
-    const handleCreateSubmit = () => {
-        if (!newFolderName.trim()) return toast.warning('Digite um nome para a pasta');
-        createFolderMutation.mutate({ 
-            folderName: newFolderName, 
-            parentPath: parentFolder 
-        });
-    };
-
     return (
         <div className={`flex flex-col border-r bg-white h-full overflow-hidden min-h-0 ${className} relative`}>
             
-            {/* MODAL DE CRIAÇÃO */}
-            {isCreateModalOpen && (
-                <div className="absolute inset-0 z-50 bg-black/10 backdrop-blur-sm flex items-start justify-center pt-20 px-4">
-                    <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-full animate-slide-down">
-                        <h4 className="text-sm font-bold text-gray-800 mb-3">Nova Pasta</h4>
-                        <div className="space-y-3">
-                            <div>
-                                <label className="text-xs text-gray-500 block mb-1">Nome</label>
-                                <input autoFocus type="text" className="w-full text-sm border rounded p-2 outline-none focus:ring-1 focus:ring-blue-500" placeholder="Ex: Projetos" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="text-xs text-gray-500 block mb-1">Local (Pai)</label>
-                                <select className="w-full text-xs border rounded p-2 bg-gray-50" value={parentFolder} onChange={(e) => setParentFolder(e.target.value)}>
-                                    <option value="">Raiz (Pasta Principal)</option>
-                                    {emailData?.folders?.map(f => <option key={f.path} value={f.path}>{'-'.repeat(f.level)} {f.displayName}</option>)}
-                                </select>
-                            </div>
-                            <div className="flex justify-end gap-2 pt-2">
-                                <button onClick={() => setIsCreateModalOpen(false)} className="text-xs px-3 py-2 text-gray-500 hover:bg-gray-100 rounded">Cancelar</button>
-                                <button onClick={handleCreateSubmit} disabled={createFolderMutation.isPending} className="text-xs px-3 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 flex items-center gap-2">
-                                    {createFolderMutation.isPending && <FontAwesomeIcon icon={faSpinner} spin />} Criar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Cabeçalhos */}
+            {/* Abas */}
             <div className="flex border-b bg-gray-50 shrink-0">
-                <button onClick={() => onChangeTab('whatsapp')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100"><FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp</button>
-                <button className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-blue-600 text-blue-600 bg-white"><FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail</button>
+                <button onClick={() => onChangeTab('whatsapp')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
+                    <FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp
+                </button>
+                <button className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-blue-600 text-blue-600 bg-white">
+                    <FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail
+                </button>
             </div>
+
+            {/* Botão Escrever */}
             <div className="p-4 pb-0">
-                <button onClick={onCompose} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md flex items-center justify-center gap-2 text-sm font-bold transition-transform active:scale-95"><FontAwesomeIcon icon={faPlus} /> Escrever E-mail</button>
+                <button 
+                    onClick={onCompose}
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md flex items-center justify-center gap-2 text-sm font-bold transition-transform active:scale-95"
+                >
+                    <FontAwesomeIcon icon={faPlus} /> Escrever E-mail
+                </button>
             </div>
+
+            {/* Busca */}
             <div className="h-16 border-b flex flex-col justify-center px-4 bg-white shrink-0 z-10">
                 <div className="relative">
-                    <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => onSearchChange(e.target.value)} className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all" />
+                    <input 
+                        type="text" 
+                        placeholder="Buscar..." 
+                        value={searchTerm} 
+                        onChange={(e) => onSearchChange(e.target.value)} 
+                        className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all" 
+                    />
                     <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                 </div>
             </div>
 
-            {/* LISTA DE PASTAS */}
+            {/* Lista de Pastas */}
             <div className="flex-grow overflow-y-auto custom-scrollbar bg-white">
                 {isLoading ? (
-                    <div className="flex flex-col items-center justify-center h-40 text-gray-400"><FontAwesomeIcon icon={faSpinner} spin className="text-2xl mb-2 text-blue-500" /><p className="text-xs">Conectando...</p></div>
+                    <div className="flex flex-col items-center justify-center h-40 text-gray-400">
+                        <FontAwesomeIcon icon={faSpinner} spin className="text-2xl mb-2 text-blue-500" />
+                        <p className="text-xs">Conectando...</p>
+                    </div>
                 ) : isError ? (
-                    <div className="p-6 text-center text-gray-500"><div className="bg-red-50 p-4 rounded-full mb-3 inline-block"><FontAwesomeIcon icon={faExclamationTriangle} className="text-2xl text-red-400" /></div><p className="text-sm font-medium text-gray-700 mb-1">Ops! Falha na conexão</p><button onClick={onConfig} className="text-xs bg-blue-600 text-white px-4 py-2 rounded-md mt-2">Configurar E-mail</button></div>
+                    <div className="p-6 text-center text-gray-500">
+                        <div className="bg-red-50 p-4 rounded-full mb-3 inline-block">
+                            <FontAwesomeIcon icon={faExclamationTriangle} className="text-2xl text-red-400" />
+                        </div>
+                        <p className="text-sm font-medium text-gray-700 mb-1">Ops! Falha na conexão</p>
+                        <button onClick={onConfig} className="text-xs bg-blue-600 text-white px-4 py-2 rounded-md mt-2">Configurar E-mail</button>
+                    </div>
                 ) : (
                     <div className="divide-y divide-gray-100">
                         <div className="p-3 bg-blue-50/50 text-xs font-bold text-blue-800 flex justify-between items-center tracking-wide">
                             <span>PASTAS</span>
                             <div className="flex gap-2">
-                                <button onClick={() => setIsCreateModalOpen(true)} title="Nova Pasta" className="hover:text-blue-600 transition-colors"><FontAwesomeIcon icon={faPlus} /></button>
-                                <button onClick={onConfig} title="Ajustes" className="hover:text-blue-600 transition-colors"><FontAwesomeIcon icon={faCog} /></button>
+                                <button onClick={onCreateFolder} title="Nova Pasta" className="hover:text-blue-600 transition-colors">
+                                    <FontAwesomeIcon icon={faPlus} />
+                                </button>
+                                <button onClick={onConfig} title="Ajustes" className="hover:text-blue-600 transition-colors">
+                                    <FontAwesomeIcon icon={faCog} />
+                                </button>
                             </div>
                         </div>
                         
@@ -229,11 +199,10 @@ export default function EmailSidebar({
                                         ${isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}
                                     `}
                                     onClick={() => onSelectFolder(folder)}
-                                    // AQUI ESTÁ A CORREÇÃO DE INDENTAÇÃO:
-                                    // Padding base (16px) + (Nível * 16px)
-                                    style={{ paddingLeft: `${16 + (folder.level * 16)}px` }} 
+                                    // MANTIDA INDENTAÇÃO CORRETA
+                                    style={{ paddingLeft: `${16 + (folder.level * 16)}px`, paddingRight: '12px' }} 
                                 >
-                                    {/* Indicador de Seleção Visual (opcional, linha azul na esquerda) */}
+                                    {/* Indicador de Seleção */}
                                     {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></div>}
 
                                     {/* Botão de Expandir */}
@@ -250,16 +219,27 @@ export default function EmailSidebar({
                                     </div>
 
                                     {/* Nome e Ícone */}
-                                    <div className="flex items-center gap-3 flex-grow py-3 pr-4 overflow-hidden">
+                                    <div className="flex items-center gap-3 flex-grow py-3 overflow-hidden">
                                         <FontAwesomeIcon 
                                             icon={getFolderIcon(folder.name)} 
                                             className={`
                                                 ${isSelected ? 'text-blue-500' : 'text-gray-400'}
                                             `} 
                                         />
-                                        <span className="truncate">
+                                        <span className="truncate flex-grow">
                                             {folder.displayName || folder.name}
                                         </span>
+                                        
+                                        {/* NOVO: CONTADOR DE NÃO LIDOS */}
+                                        {folder.unseen > 0 && (
+                                            <span className={`
+                                                text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 shrink-0
+                                                ${isSelected ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}
+                                                ${folder.displayName === 'Caixa de Entrada' ? 'bg-red-500 text-white' : ''}
+                                            `}>
+                                                {folder.unseen}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             );

@@ -14,11 +14,8 @@ import { toast } from 'sonner';
 export default function EmailActionMenu({ email, onAction, showCreateActivity = false, isOpen: controlledIsOpen, onToggle }) {
     const [internalIsOpen, setInternalIsOpen] = useState(false);
     const [showMoveSubmenu, setShowMoveSubmenu] = useState(false);
-    
-    // Estados para criação rápida de pasta
     const [isCreatingFolder, setIsCreatingFolder] = useState(false);
     const [newFolderName, setNewFolderName] = useState('');
-
     const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
     const buttonRef = useRef(null);
     const queryClient = useQueryClient();
@@ -26,15 +23,16 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
     const isControlled = controlledIsOpen !== undefined;
     const isOpen = isControlled ? controlledIsOpen : internalIsOpen;
 
-    // Calcula a posição fixa
     useEffect(() => {
         if (isOpen && buttonRef.current) {
             const rect = buttonRef.current.getBoundingClientRect();
-            const top = rect.top + window.scrollY;
-            const left = rect.left + window.scrollX - 224; 
+            // Ajuste fino para não sair da tela
+            let top = rect.top + window.scrollY;
+            let left = rect.left + window.scrollX - 224; 
+            
+            // Se estiver muito embaixo, abre pra cima (opcional, mantendo simples por enquanto)
             setMenuPos({ top, left });
         } else {
-            // Reseta estados internos ao fechar
             setIsCreatingFolder(false);
             setNewFolderName('');
             setShowMoveSubmenu(false);
@@ -71,34 +69,29 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
             const res = await fetch('/api/email/folders/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ folderName, parentPath: '' }) // Cria na raiz por padrão neste menu rápido
+                body: JSON.stringify({ folderName, parentPath: '' }) 
             });
             if (!res.ok) throw new Error('Falha ao criar pasta');
             return res.json();
         },
-        onSuccess: (data) => {
+        onSuccess: () => {
             toast.success('Pasta criada!');
             queryClient.invalidateQueries(['emailFolders']);
             setIsCreatingFolder(false);
             setNewFolderName('');
-            // Opcional: já mover para a nova pasta automaticamente?
-            // Por enquanto, apenas atualiza a lista para o usuário clicar.
         },
         onError: () => toast.error('Erro ao criar pasta.')
     });
 
-    // --- LÓGICA DE ÁRVORE (Igual ao Sidebar para garantir ordem correta) ---
     const processedFolders = useMemo(() => {
         if (!folderData?.folders) return [];
-        
         const allFolders = folderData.folders;
         const childrenMap = {}; 
         const roots = [];       
 
         allFolders.forEach(folder => {
-            if (folder.level === 0) {
-                roots.push(folder);
-            } else {
+            if (folder.level === 0) roots.push(folder);
+            else {
                 const separator = folder.delimiter || '/';
                 const lastIndex = folder.path.lastIndexOf(separator);
                 const parentPath = lastIndex > -1 ? folder.path.substring(0, lastIndex) : '';
@@ -128,8 +121,6 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
             return result;
         };
 
-        // Filtra para não mostrar pastas de sistema (opcional) no menu de mover
-        // Mantemos INBOX visível pois às vezes queremos tirar da subpasta e voltar pra caixa de entrada
         return flattenTree(roots);
     }, [folderData]);
 
@@ -146,14 +137,14 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
 
     const MenuContent = (
         <div 
-            className="fixed z-[9999] bg-white rounded-lg shadow-2xl border border-gray-100 w-56 animate-fade-in ring-1 ring-black/5 text-left"
+            className="fixed z-[99999] bg-white rounded-lg shadow-2xl border border-gray-100 w-56 animate-fade-in ring-1 ring-black/5 text-left"
             style={{ top: menuPos.top, left: menuPos.left }}
             onClick={(e) => e.stopPropagation()}
         >
-            <div className="fixed inset-0 -z-10" onClick={handleClose}></div>
+            {/* BACKDROP: Cobre a tela atrás do menu para fechar ao clicar fora */}
+            <div className="fixed inset-0 -z-10 cursor-default" onClick={handleClose}></div>
 
-            <div className="py-1 flex flex-col relative">
-                
+            <div className="py-1 flex flex-col relative bg-white rounded-lg">
                 <button onClick={() => handleClick('markAsRead')} className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-3">
                     <FontAwesomeIcon icon={faEnvelopeOpen} className="w-3" /> Marcar como lido
                 </button>
@@ -177,7 +168,7 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
                 <div 
                     className="relative"
                     onMouseEnter={() => setShowMoveSubmenu(true)}
-                    onMouseLeave={() => !isCreatingFolder && setShowMoveSubmenu(false)} // Não fecha se estiver digitando
+                    onMouseLeave={() => !isCreatingFolder && setShowMoveSubmenu(false)}
                 >
                     <button className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-100 flex items-center justify-between gap-3 group">
                         <div className="flex items-center gap-3">
@@ -190,7 +181,7 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
                     {showMoveSubmenu && (
                         <div className="absolute right-full top-0 w-56 bg-white rounded-lg shadow-xl border border-gray-100 z-[1000] max-h-80 overflow-y-auto custom-scrollbar animate-fade-in-left mr-1 flex flex-col">
                             
-                            {/* ITEM 1: CRIAR NOVA PASTA */}
+                            {/* CRIAR NOVA PASTA */}
                             <div className="sticky top-0 bg-white border-b border-gray-100 z-10 p-2">
                                 {isCreatingFolder ? (
                                     <div className="flex items-center gap-1 animate-fade-in">
@@ -198,10 +189,10 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
                                             autoFocus
                                             type="text" 
                                             className="w-full text-xs border rounded px-2 py-1 outline-none focus:border-blue-500"
-                                            placeholder="Nome da pasta..."
+                                            placeholder="Nome..."
                                             value={newFolderName}
                                             onChange={(e) => setNewFolderName(e.target.value)}
-                                            onClick={(e) => e.stopPropagation()}
+                                            onClick={(e) => e.stopPropagation()} // Impede fechar ao clicar
                                             onKeyDown={(e) => e.key === 'Enter' && handleCreateSubmit(e)}
                                         />
                                         <button onClick={handleCreateSubmit} disabled={createFolderMutation.isPending} className="text-green-600 hover:bg-green-50 p-1 rounded">
@@ -222,7 +213,6 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
                                 )}
                             </div>
 
-                            {/* LISTA DE PASTAS COM INDENTAÇÃO */}
                             {isLoadingFolders ? (
                                 <div className="p-3 text-center text-xs text-gray-400"><FontAwesomeIcon icon={faSpinner} spin /></div>
                             ) : (
@@ -232,7 +222,6 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
                                             key={folder.path} 
                                             onClick={(e) => { e.stopPropagation(); handleClick('move', folder.path); }}
                                             className="w-full text-left py-2 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 truncate flex items-center gap-2"
-                                            // Indentação visual usando padding-left
                                             style={{ paddingLeft: `${12 + (folder.level * 12)}px`, paddingRight: '12px' }}
                                         >
                                             <FontAwesomeIcon icon={faFolder} className={`text-gray-400 ${folder.level > 0 ? 'text-[10px]' : ''}`} />
@@ -257,11 +246,8 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
         </div>
     );
 
-    const renderMenu = () => {
-        if (typeof document === 'undefined') return null;
-        return createPortal(MenuContent, document.body);
-    };
-
+    // Renderiza direto no body
+    if (typeof document === 'undefined') return null;
     return (
         <>
             <button 
@@ -272,7 +258,7 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
             >
                 <FontAwesomeIcon icon={faEllipsisV} className="text-xs" />
             </button>
-            {isOpen && renderMenu()}
+            {isOpen && createPortal(MenuContent, document.body)}
         </>
     );
 }
