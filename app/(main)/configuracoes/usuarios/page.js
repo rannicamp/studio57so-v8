@@ -1,8 +1,8 @@
-//app/(main)/configuracoes/usuarios/page.js
-import { createClient } from '../../../../utils/supabase/server';
+import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import UserManagementForm from '@/components/UserManagementForm';
 
+// Funções de busca de dados iniciais (Server Side)
 async function getUsers(organizacaoId) {
     const supabase = createClient();
     const { data, error } = await supabase
@@ -13,10 +13,14 @@ async function getUsers(organizacaoId) {
             sobrenome,
             email,
             is_active,
+            created_at,
+            avatar_url,
             funcao:funcoes ( id, nome_funcao ),
             funcionario:funcionarios ( id, full_name, cpf )
         `)
-        .eq('organizacao_id', organizacaoId);
+        .eq('organizacao_id', organizacaoId)
+        .order('nome', { ascending: true });
+    
     if (error) {
         console.error('Erro ao buscar usuários:', error);
         return [];
@@ -31,10 +35,8 @@ async function getEmployees(organizacaoId) {
         .select('id, full_name, cpf')
         .eq('organizacao_id', organizacaoId)
         .order('full_name', { ascending: true });
-    if (error) {
-        console.error('Erro ao buscar funcionários:', error);
-        return [];
-    }
+    
+    if (error) return [];
     return data;
 }
 
@@ -45,10 +47,8 @@ async function getRoles(organizacaoId) {
         .select('id, nome_funcao')
         .eq('organizacao_id', organizacaoId)
         .order('nome_funcao', { ascending: true });
-    if (error) {
-        console.error('Erro ao buscar funções:', error);
-        return [];
-    }
+    
+    if (error) return [];
     return data;
 }
 
@@ -56,9 +56,7 @@ export default async function UserManagementPage() {
     const supabase = createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        redirect('/login');
-    }
+    if (!user) redirect('/login');
 
     const { data: userProfile, error: userProfileError } = await supabase
         .from('usuarios')
@@ -66,12 +64,13 @@ export default async function UserManagementPage() {
         .eq('id', user.id)
         .single();
 
-    if (userProfileError || userProfile?.funcao?.nome_funcao !== 'Proprietário') {
+    if (userProfileError || !userProfile?.organizacao_id) {
         redirect('/');
     }
 
     const organizacaoId = userProfile.organizacao_id;
 
+    // Busca paralela para performance
     const [users, employees, roles] = await Promise.all([
         getUsers(organizacaoId),
         getEmployees(organizacaoId),
@@ -79,16 +78,22 @@ export default async function UserManagementPage() {
     ]);
 
     return (
-        <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-gray-900">Gestão de Usuários</h1>
-            <p className="text-gray-600 mt-1">Gerencie os usuários e suas permissões no sistema.</p>
+        <div className="space-y-6 p-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Gestão de Usuários</h1>
+                    <p className="text-gray-600 dark:text-gray-400 mt-1">
+                        Controle total sobre quem acessa o Studio 57.
+                    </p>
+                </div>
+            </div>
 
-            <div className="bg-white rounded-lg shadow p-6 mt-8">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
                 <UserManagementForm
                     initialUsers={users}
                     allEmployees={employees}
                     allRoles={roles}
-                    organizationId={organizacaoId} // Passando o ID da organização para o formulário
+                    organizationId={organizacaoId}
                 />
             </div>
         </div>

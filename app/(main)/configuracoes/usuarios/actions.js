@@ -1,9 +1,19 @@
-// app/(main)/configuracoes/usuarios/actions.js
 'use server'
 
-// Importamos o criador de cliente padrão do Supabase
 import { createClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+
+// Criamos um cliente ADMIN para realizar operações privilegiadas
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
 
 export async function createUser(prevState, formData) {
   const data = {
@@ -16,31 +26,15 @@ export async function createUser(prevState, formData) {
     organizationId: formData.get('organizationId'),
   }
 
-  // Validação simples dos dados recebidos
   if (!data.email || !data.password || !data.nome || !data.organizationId) {
-    return { message: 'Campos essenciais (nome, email, senha, organização) são obrigatórios.' }
+    return { success: false, message: 'Campos essenciais (nome, email, senha, organização) são obrigatórios.' }
   }
 
-  // Criamos um cliente Supabase ADMIN aqui dentro.
-  // Este cliente usa a Chave de Serviço (Service Role Key) e não tenta mexer nos cookies.
-  // Certifique-se que as variáveis de ambiente estão no seu ficheiro .env.local
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    {
-      auth: {
-        // Estas opções garantem que este cliente não tentará gerir sessões ou cookies.
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    }
-  );
-
-  // 1. Criar o utilizador na autenticação do Supabase (como administrador)
+  // 1. Criar na Autenticação (Auth)
   const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email: data.email,
     password: data.password,
-    email_confirm: true, // O utilizador não precisará de confirmar o email
+    email_confirm: true,
     user_metadata: {
       nome: data.nome,
       sobrenome: data.sobrenome,
@@ -49,18 +43,14 @@ export async function createUser(prevState, formData) {
 
   if (authError) {
     console.error('Erro Supabase Auth:', authError);
-    return {
-      message: `Erro ao criar utilizador na autenticação: ${authError.message}`,
-    }
+    return { success: false, message: `Erro ao criar login: ${authError.message}` }
   }
 
   if (!authUser.user) {
-    return {
-        message: 'Não foi possível criar o utilizador. O email pode já estar em uso ou ser inválido.'
-    }
+    return { success: false, message: 'Não foi possível criar o usuário. Email pode ser inválido.' }
   }
 
-  // 2. Inserir os dados do utilizador na nossa tabela 'usuarios'
+  // 2. Criar no Banco de Dados (Tabela usuarios)
   const { error: profileError } = await supabaseAdmin
     .from('usuarios')
     .insert({
@@ -75,15 +65,58 @@ export async function createUser(prevState, formData) {
     })
 
   if (profileError) {
-    console.error('Erro Supabase Profile:', profileError);
-    // Se der erro aqui, apagamos o utilizador criado na autenticação para não deixar dados inconsistentes
+    console.error('Erro Profile:', profileError);
+    // Remove o login criado se falhar ao criar o perfil para não ficar "lixo" no sistema
     await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
-    return {
-      message: `Erro ao guardar perfil do utilizador: ${profileError.message}`,
-    }
+    return { success: false, message: `Erro ao salvar dados do usuário: ${profileError.message}` }
   }
 
-  // Se tudo correu bem, atualizamos os dados na página e retornamos sucesso
   revalidatePath('/configuracoes/usuarios')
-  return { success: true }
+  return { success: true, message: 'Usuário criado com sucesso!' }
+}
+
+export async function toggleUserStatus(userId, currentStatus) {
+  try {
+    const newStatus = !currentStatus;
+
+    // 1. Atualiza na tabela visual 'usuarios'
+    const { error: dbError } = await supabaseAdmin
+      .from('usuarios')
+      .update({ is_active: newStatus })
+      .eq('id', userId);
+
+    if (dbError) throw new Error(dbError.message);
+
+    // 2. Opcional: Banir/Desbanir no Auth do Supabase (impede login real)
+    if (newStatus === false) {
+       await supabaseAdmin.auth.admin.updateUserById(userId, { ban_duration: '876000h' }); // Banir por 100 anos
+    } else {
+       await supabaseAdmin.auth.admin.updateUserById(userId, { ban_duration: 'none' }); // Remover banimento
+    }
+
+    revalidatePath('/configuracoes/usuarios');
+    return { success: true, message: `Usuário ${newStatus ? 'ativado' : 'desativado'} com sucesso.` };
+  } catch (error) {
+    console.error('Erro ao alterar status:', error);
+    return { success: false, message: 'Erro ao alterar status do usuário.' };
+  }
+}
+
+export async function resetUserPassword(userId, newPassword) {
+    try {
+        if (!newPassword || newPassword.length < 6) {
+            return { success: false, message: 'A senha deve ter pelo menos 6 caracteres.' };
+        }
+
+        const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+            password: newPassword
+        });
+
+        if (error) throw error;
+
+        return { success: true, message: 'Senha redefinida com sucesso!' };
+    } catch (error) {
+        console.error('Erro ao resetar senha:', error);
+        return { success: false, message: 'Erro ao redefinir a senha.' };
+    }
 }
