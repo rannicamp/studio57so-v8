@@ -1,5 +1,3 @@
-// components/atividades/AtividadeModal.js
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -12,7 +10,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSitemap, faSpinner, faTimes, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
 // 1. IMPORTAÇÃO DO CARTEIRO
 import { enviarNotificacao } from '@/utils/notificacoes';
-import { useMutation, useQueryClient } from '@tanstack/react-query'; // Garantindo importação do useMutation
+import { useMutation, useQueryClient } from '@tanstack/react-query'; 
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) {
@@ -51,7 +49,8 @@ function addBusinessDays(startDate, days) {
     return currentDate.toISOString().split('T')[0];
 }
 
-export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activityToEdit, selectedEmpreendimento, funcionarios, allEmpresas, initialContatoId }) {
+// CORREÇÃO: Adicionei 'initialData' nas props recebidas
+export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activityToEdit, initialData, selectedEmpreendimento, funcionarios, allEmpresas, initialContatoId }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
     const { user } = useAuth();
@@ -72,7 +71,6 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
     const [isSubetapaDropdownOpen, setIsSubetapaDropdownOpen] = useState(false);
     const [filteredSubetapas, setFilteredSubetapas] = useState([]);
     const [isCreatingSubetapa, setIsCreatingSubetapa] = useState(false);
-
 
     const getInitialState = useCallback(() => ({
         nome: '',
@@ -96,29 +94,53 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         recorrencia_fim: null,
         contato_id: null,
         atividade_pai_id: null,
+        tipo_atividade: 'Tarefa', // Valor padrão
     }), [selectedEmpreendimento]);
 
     const [formData, setFormData] = useState(getInitialState());
 
+    // CORREÇÃO PRINCIPAL: Efeito para preencher o formulário
     useEffect(() => {
         if (isOpen) {
+            // Reseta estados auxiliares
             setParentActivitySearch('');
             setParentActivityOptions([]);
             setSelectedParent(null);
             setSubetapaSearch(''); 
+
             if (isEditing) {
+                // MODO EDIÇÃO (Prioridade máxima)
                 const initialFormData = { ...getInitialState(), ...activityToEdit };
                 setFormData(initialFormData);
+                
                 if (activityToEdit.atividade_pai) {
                     setSelectedParent(activityToEdit.atividade_pai);
                     setParentActivitySearch(activityToEdit.atividade_pai.nome);
                 }
+                
                 if (activityToEdit.hora_inicio || activityToEdit.duracao_horas > 0) {
                     setType('evento');
                 } else {
                     setType('atividade');
                 }
+
+            } else if (initialData) {
+                // MODO CRIAÇÃO COM DADOS INICIAIS (Vindo do E-mail, por exemplo)
+                // Aqui fazemos o merge dos dados iniciais com o estado padrão
+                setFormData({
+                    ...getInitialState(),
+                    ...initialData,
+                    // Garante mapeamento correto caso venha com nomes diferentes
+                    nome: initialData.nome || initialData.titulo || '', 
+                    descricao: initialData.descricao || '',
+                    tipo_atividade: initialData.tipo_atividade || 'Tarefa',
+                    status: initialData.status || 'Não Iniciado',
+                    contato_id: initialData.contato_id || initialContatoId || null
+                });
+                setType(initialData.tipo_atividade === 'Evento' ? 'evento' : 'atividade');
+
             } else {
+                // MODO CRIAÇÃO LIMPA
                 const initialState = getInitialState();
                 if (initialContatoId) {
                     initialState.contato_id = initialContatoId;
@@ -127,7 +149,9 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 setType('atividade');
             }
         }
-    }, [isOpen, isEditing, activityToEdit, getInitialState, initialContatoId]);
+    }, [isOpen, isEditing, activityToEdit, initialData, getInitialState, initialContatoId]);
+    
+    // ... (RESTO DO CÓDIGO PERMANECE IDÊNTICO PARA ETAPAS, SUBETAPAS, ETC.) ...
     
     useEffect(() => {
         const fetchEtapas = async () => {
@@ -313,14 +337,12 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
 
     const syncWithGoogleCalendar = async (activityData) => { /* ... */ };
 
-    // --- MUTAÇÃO DE EXCLUIR (Que faltava no código original) ---
     const deleteMutation = useMutation({
         mutationFn: async () => {
             const { error } = await supabase.from('activities').delete().eq('id', activityToEdit.id);
             if (error) throw error;
         },
         onSuccess: async () => {
-            // 2. NOTIFICAÇÃO DE EXCLUSÃO 🔔
             await enviarNotificacao({
                 userId: user.id,
                 titulo: "🗑️ Atividade Excluída",
@@ -364,7 +386,7 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 funcionario_id: formData.funcionario_id || null,
                 etapa_id: formData.etapa_id || null,
                 subetapa_id: formData.subetapa_id || null,
-                tipo_atividade: etapaSelecionada ? etapaSelecionada.nome_etapa : 'Atividade Interna',
+                tipo_atividade: etapaSelecionada ? etapaSelecionada.nome_etapa : (formData.tipo_atividade || 'Atividade Interna'),
                 empreendimento_id: formData.empreendimento_id || null,
                 contato_id: formData.contato_id,
                 atividade_pai_id: formData.atividade_pai_id || null,
@@ -418,7 +440,6 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
                 if (!isEditing && type === 'atividade' && dadosParaSalvar.data_inicio_prevista && dadosParaSalvar.data_fim_prevista) {
                     await syncWithGoogleCalendar(dadosParaSalvar);
                 }
-                // Resolvemos a promessa passando os dados para usar no 'success'
                 resolve({ action: isEditing ? 'update' : 'create', data: dadosParaSalvar });
             }
         });
@@ -426,10 +447,9 @@ export default function AtividadeModal({ isOpen, onClose, onActivityAdded, activ
         toast.promise(promise, {
             loading: 'Salvando atividade...',
             success: async (result) => {
-                // 3. NOTIFICAÇÃO DE CRIAÇÃO 🔔
                 if (result.action === 'create') {
                     await enviarNotificacao({
-                        userId: user.id, // Envia para quem criou (feedback) ou gestor
+                        userId: user.id,
                         titulo: "🏗️ Nova Atividade Criada",
                         mensagem: `Atividade "${result.data.nome}" foi adicionada em ${result.data.status}.`,
                         link: '/atividades',
