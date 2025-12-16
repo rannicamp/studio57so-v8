@@ -1,11 +1,12 @@
 // components/crm/FiltroCrm.js
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faCalendarDay, faCalendarWeek, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faCalendarDay, faCalendarWeek, faCalendarAlt, faSyncAlt } from '@fortawesome/free-solid-svg-icons';
 import MultiSelectDropdown from '../financeiro/MultiSelectDropdown';
 
+// Estado padrão agora inclui a flag "isDynamicEndDate"
 const getDefaultFilterState = () => ({
     // searchTerm é gerenciado fora agora, mas mantemos a estrutura limpa
     corretorIds: [],
@@ -15,6 +16,7 @@ const getDefaultFilterState = () => ({
     adIds: [],
     startDate: '',
     endDate: new Date().toISOString().split('T')[0],
+    isDynamicEndDate: true, // Padrão: Inteligência ligada (sempre até hoje)
 });
 
 export default function FiltroCrm({ 
@@ -22,33 +24,90 @@ export default function FiltroCrm({
 }) {
     const [activePeriodFilter, setActivePeriodFilter] = useState('');
 
-    const handleFilterChange = (name, value) => {
-        setFilters(prev => ({ ...prev, [name]: value }));
-        if (name === 'startDate' || name === 'endDate') {
-            setActivePeriodFilter('');
+    // --- 🧠 O CÉREBRO DA DATA DINÂMICA ---
+    // Assim que o componente aparece, se o modo "Dinâmico" estiver ligado, 
+    // ele força a data final para ser o "Hoje" real, ignorando o que estava salvo velho no cache.
+    useEffect(() => {
+        if (filters.isDynamicEndDate) {
+            const hojeReal = new Date().toISOString().split('T')[0];
+            
+            // Só atualiza se a data estiver diferente para não ficar num loop infinito
+            if (filters.endDate !== hojeReal) {
+                console.log("🔄 Filtro Inteligente: Atualizando 'Até' para a data de hoje:", hojeReal);
+                setFilters(prev => ({ ...prev, endDate: hojeReal }));
+            }
         }
+    }, [filters.isDynamicEndDate, setFilters]); // Roda quando a flag muda ou o componente monta
+
+    const handleFilterChange = (name, value) => {
+        setFilters(prev => {
+            const newState = { ...prev, [name]: value };
+            
+            // Se o usuário mexer manualmente na data final, desligamos a inteligência
+            if (name === 'endDate') {
+                newState.isDynamicEndDate = false;
+                setActivePeriodFilter('');
+            }
+            // Se mexer na data inicial, desliga os botões rápidos, mas mantém o "Até Hoje" se estiver marcado
+            if (name === 'startDate') {
+                setActivePeriodFilter('');
+            }
+            
+            return newState;
+        });
+    };
+
+    // Toggle para a caixinha "Sempre até Hoje"
+    const toggleDynamicDate = () => {
+        setFilters(prev => {
+            const isTurningOn = !prev.isDynamicEndDate;
+            const hoje = new Date().toISOString().split('T')[0];
+            return {
+                ...prev,
+                isDynamicEndDate: isTurningOn,
+                endDate: isTurningOn ? hoje : prev.endDate // Se ligou, já bota hoje
+            };
+        });
     };
 
     const setDateRange = (period) => {
         const today = new Date();
         let startDate, endDate;
-        if (period === 'today') { startDate = endDate = today; } 
-        else if (period === 'week') {
+        let dynamic = true; // Botões rápidos geralmente implicam "contexto atual"
+
+        if (period === 'today') { 
+            startDate = endDate = today; 
+        } else if (period === 'week') {
             const firstDayOfWeek = new Date(today);
-            firstDayOfWeek.setDate(today.getDate() - today.getDay());
+            firstDayOfWeek.setDate(today.getDate() - today.getDay()); // Domingo
             startDate = firstDayOfWeek;
-            endDate = new Date(firstDayOfWeek);
-            endDate.setDate(endDate.getDate() + 6);
+            // Final da semana (sábado)
+            const lastDayOfWeek = new Date(firstDayOfWeek);
+            lastDayOfWeek.setDate(lastDayOfWeek.getDate() + 6);
+            endDate = lastDayOfWeek;
+            
+            // Se o usuário escolheu "Essa Semana", faz sentido manter dinâmico? 
+            // Vamos deixar false para respeitar o intervalo fixo da semana visualizada, 
+            // ou true se quiser que "semana" sempre seja a "semana atual" quando recarregar.
+            // Para simplificar, botões rápidos resetam para datas fixas, 
+            // mas o usuário pode marcar "Sempre até hoje" depois se quiser.
+            dynamic = false; 
         } else if (period === 'month') {
             startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Último dia do mês
+            dynamic = false;
         }
-        setFilters(prev => ({ ...prev, startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0] }));
+
+        setFilters(prev => ({ 
+            ...prev, 
+            startDate: startDate.toISOString().split('T')[0], 
+            endDate: endDate.toISOString().split('T')[0],
+            isDynamicEndDate: period === 'today' // Só "Hoje" liga o modo dinâmico automático
+        }));
         setActivePeriodFilter(period);
     };
     
     const clearFilters = () => {
-        // Mantém o termo de busca atual, limpa apenas os filtros avançados
         setFilters(prev => ({ ...getDefaultFilterState(), searchTerm: prev.searchTerm }));
         setActivePeriodFilter('');
     };
@@ -87,15 +146,47 @@ export default function FiltroCrm({
                    <MultiSelectDropdown label="Anúncio" options={ads || []} selectedIds={filters.adIds} onChange={(selected) => handleFilterChange('adIds', selected)} placeholder="Todos os Anúncios" />
                 </div>
 
-                {/* Datas */}
+                {/* Datas Inteligentes */}
                 <div className="grid grid-cols-2 gap-2">
                     <div>
                         <label className="text-xs uppercase font-medium text-gray-600">Criado De:</label>
-                        <input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+                        <input 
+                            type="date" 
+                            name="startDate" 
+                            value={filters.startDate} 
+                            onChange={(e) => handleFilterChange('startDate', e.target.value)} 
+                            className="w-full mt-1 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" 
+                        />
                     </div>
-                    <div>
-                        <label className="text-xs uppercase font-medium text-gray-600">Criado Até:</label>
-                        <input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+                    
+                    <div className="relative">
+                        <label className="text-xs uppercase font-medium text-gray-600 flex justify-between items-center">
+                            Criado Até:
+                            {/* Checkbox Mágico */}
+                            <div className="flex items-center gap-1 cursor-pointer group" onClick={toggleDynamicDate} title="Se marcado, a data final será sempre atualizada para o dia atual automaticamente.">
+                                <div className={`w-3 h-3 rounded-sm border ${filters.isDynamicEndDate ? 'bg-blue-600 border-blue-600' : 'border-gray-400 bg-white'} flex items-center justify-center transition-colors`}>
+                                    {filters.isDynamicEndDate && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                </div>
+                                <span className={`text-[10px] normal-case ${filters.isDynamicEndDate ? 'text-blue-600 font-bold' : 'text-gray-400 group-hover:text-gray-600'}`}>
+                                    Sempre Hoje
+                                </span>
+                            </div>
+                        </label>
+                        <div className="relative mt-1">
+                            <input 
+                                type="date" 
+                                name="endDate" 
+                                value={filters.endDate} 
+                                onChange={(e) => handleFilterChange('endDate', e.target.value)} 
+                                disabled={filters.isDynamicEndDate} // Desabilita se for automático
+                                className={`w-full p-2 border rounded-md shadow-sm text-sm ${filters.isDynamicEndDate ? 'bg-blue-50 text-blue-800 border-blue-200 cursor-not-allowed font-medium' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'}`} 
+                            />
+                            {filters.isDynamicEndDate && (
+                                <div className="absolute right-8 top-1/2 -translate-y-1/2 text-blue-400">
+                                    <FontAwesomeIcon icon={faSyncAlt} className="animate-spin-slow text-xs" />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
