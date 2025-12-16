@@ -1,7 +1,7 @@
-'use client'
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import EmailConfigModal from '@/components/email/EmailConfigModal';
 import EmailListPanel from '@/components/email/EmailListPanel';
 import EmailViewPanel from '@/components/email/EmailViewPanel';
@@ -10,6 +10,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch, faEnvelope, faInbox, faCog, faFolder, faSpinner, faExclamationTriangle, faPaperPlane, faTrash, faBan, faPlus } from '@fortawesome/free-solid-svg-icons'; 
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { useDebounce } from 'use-debounce';
+import { toast } from 'sonner';
 
 // CHAVE DE CACHE ESPECÍFICA DO EMAIL
 const EMAIL_UI_STATE_KEY = 'emailUiState';
@@ -45,6 +46,7 @@ const getFolderIcon = (name) => {
 
 export default function EmailInbox({ onChangeTab }) {
     const cachedState = getCachedData();
+    const queryClient = useQueryClient();
 
     // Estados E-mail
     const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '');
@@ -74,7 +76,7 @@ export default function EmailInbox({ onChangeTab }) {
     }, [debouncedUiState]);
 
     const { 
-        data: emailData, isLoading: isLoadingEmail, isError: isEmailError, error: emailError 
+        data: emailData, isLoading: isLoadingEmail, isError: isEmailError 
     } = useQuery({
         queryKey: ['emailFolders'],
         queryFn: getEmailFolders,
@@ -82,6 +84,48 @@ export default function EmailInbox({ onChangeTab }) {
         refetchOnWindowFocus: false, 
         staleTime: 1000 * 60 * 5
     });
+
+    // --- GATILHO AUTOMÁTICO DE REGRAS (SIMULAÇÃO DE BACKGROUND) ---
+    useEffect(() => {
+        const isInbox = selectedEmailFolder?.name?.toUpperCase() === 'INBOX' || 
+                        selectedEmailFolder?.displayName === 'Caixa de Entrada';
+
+        // Só roda se estiver na Inbox ou se não tiver nenhuma pasta selecionada (estado inicial)
+        if (!selectedEmailFolder || isInbox) {
+            
+            const runRules = async () => {
+                try {
+                    // Chama a rota 'apply'
+                    const res = await fetch('/api/email/rules/apply', { method: 'POST' });
+                    const data = await res.json();
+                    
+                    if (data.moved > 0) {
+                        toast.success(`Automação: ${data.moved} e-mails movidos.`);
+                        
+                        // CORREÇÃO: Delay para dar tempo do IMAP processar antes de recarregar a tela
+                        setTimeout(() => {
+                            // "ResetQueries" é mais agressivo que "Invalidate", ele força limpar o cache da lista
+                            queryClient.resetQueries({ queryKey: ['emailMessages'] });
+                            // Também atualiza a contagem das pastas se possível
+                            queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
+                        }, 1500); // 1.5 segundos de espera técnica
+                    }
+                } catch (err) {
+                    console.error("Erro silencioso ao rodar regras:", err);
+                }
+            };
+
+            // 1. Roda imediatamente ao montar
+            runRules();
+
+            // 2. Cria um intervalo de 30 segundos
+            const intervalId = setInterval(runRules, 30000);
+
+            // Limpa o intervalo se mudar de pasta ou sair da tela
+            return () => clearInterval(intervalId);
+        }
+    }, [selectedEmailFolder, queryClient]);
+    // -------------------------------------
 
     const handleSelectEmail = (email) => {
         setSelectedEmail(email);
@@ -109,7 +153,6 @@ export default function EmailInbox({ onChangeTab }) {
             <EmailComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} />
 
             {/* --- COLUNA 1: NAVEGAÇÃO E PASTAS --- */}
-            {/* CORREÇÃO: Largura fixa (w-[280px]) e shrink-0 para não esmagar */}
             <div className={`
                 ${hasSelection ? 'hidden md:flex' : 'flex'} 
                 w-full md:w-[280px] shrink-0
@@ -192,7 +235,6 @@ export default function EmailInbox({ onChangeTab }) {
             </div>
 
             {/* --- COLUNA 2: LISTA DE EMAILS --- */}
-            {/* CORREÇÃO: Sem 'transition-all' e com larguras fixas quando e-mail aberto */}
             <div className={`
                 ${hasSelection ? 'flex' : 'hidden md:flex'} 
                 ${showEmailReadingPane ? 'hidden lg:flex lg:w-[350px] border-r shrink-0' : 'flex-grow'} 
