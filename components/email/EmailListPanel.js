@@ -1,17 +1,17 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Alterado para useInfiniteQuery
+import { useState, useEffect, useRef } from 'react';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faArrowLeft, faSpinner, faSync, faBoxOpen, faExclamationCircle, 
-    faEnvelopeOpen, faCheckSquare, faSquare, faTrash, faArchive, faEnvelope 
+    faEnvelopeOpen, faCheckSquare, faSquare, faTrash, faArchive, faEnvelope, faEllipsisV 
 } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 
-// Busca de mensagens adaptada para Cursor/Página Infinita
+// Busca de mensagens
 const fetchMessages = async ({ queryKey, pageParam = 1 }) => {
     const [_key, folderPath, searchTerm, status] = queryKey;
     
@@ -35,23 +35,34 @@ const performBulkAction = async ({ action, folder, uids }) => {
 };
 
 export default function EmailListPanel({ folder, onBack, onSelectEmail, selectedEmailId, searchTerm }) {
-    const [filterStatus, setFilterStatus] = useState('all');
+    const [filterStatus, setFilterStatus] = useState('unread');
     const [selectedIds, setSelectedIds] = useState(new Set()); 
     const [lastSelectedId, setLastSelectedId] = useState(null); 
     
-    // Referência para o sensor de rolagem infinita
+    const [menuOpenId, setMenuOpenId] = useState(null);
+    const menuRef = useRef(null);
+    
     const loadMoreRef = useRef(null);
-
     const queryClient = useQueryClient();
     const folderIdentifier = folder.path || folder.name;
 
-    // Reseta seleção ao mudar filtros
     useEffect(() => {
         setSelectedIds(new Set());
         setLastSelectedId(null);
+        setMenuOpenId(null); 
     }, [searchTerm, folder.path, filterStatus]);
 
-    // --- QUERY INFINITA ---
+    // Fecha o menu se clicar fora
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setMenuOpenId(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     const { 
         data, 
         isLoading, 
@@ -65,18 +76,15 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
         queryKey: ['emailMessages', folderIdentifier, searchTerm, filterStatus],
         queryFn: fetchMessages,
         getNextPageParam: (lastPage, allPages) => {
-            // Se a API diz que tem mais, a próxima página é o tamanho atual + 1
             return lastPage.hasMore ? allPages.length + 1 : undefined;
         },
-        staleTime: 1000 * 60 * 1, // 1 minuto de cache
+        staleTime: 1000 * 60 * 1, 
         refetchOnWindowFocus: false,
     });
 
-    // Combina todas as páginas em uma única lista de e-mails
     const allEmails = data?.pages.flatMap(page => page.messages) || [];
     const totalEmails = data?.pages[0]?.total || 0;
 
-    // --- SENSOR DE ROLAGEM (Intersection Observer) ---
     useEffect(() => {
         const observer = new IntersectionObserver(
             (entries) => {
@@ -98,13 +106,13 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
         };
     }, [loadMoreRef, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-    // Mutation para ações em massa
     const bulkActionMutation = useMutation({
         mutationFn: performBulkAction,
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
             setSelectedIds(new Set());
             setLastSelectedId(null);
+            setMenuOpenId(null);
             
             const count = variables.uids.length;
             if (variables.action === 'trash') toast.success(`${count} e-mails excluídos.`);
@@ -115,7 +123,6 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
         onError: () => toast.error('Erro ao processar seleção.')
     });
 
-    // Mutation para aplicar regras
     const applyRulesMutation = useMutation({
         mutationFn: async () => {
             const res = await fetch('/api/email/rules/apply', { method: 'POST' });
@@ -139,8 +146,9 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
         refetch();
     };
 
-    // --- LÓGICA DE SELEÇÃO (Inalterada) ---
     const handleEmailClick = (email, e) => {
+        if (e.target.closest('.action-menu-btn') || e.target.closest('.action-menu-dropdown')) return;
+
         if (e.target.closest('.checkbox-area') || e.ctrlKey || e.metaKey) {
             e.preventDefault();
             e.stopPropagation();
@@ -157,14 +165,11 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
         if (e.shiftKey && lastSelectedId) {
             e.preventDefault();
             e.stopPropagation();
-            
             const lastIndex = allEmails.findIndex(em => em.id === lastSelectedId);
             const currentIndex = allEmails.findIndex(em => em.id === email.id);
-            
             if (lastIndex !== -1 && currentIndex !== -1) {
                 const start = Math.min(lastIndex, currentIndex);
                 const end = Math.max(lastIndex, currentIndex);
-                
                 const newSet = new Set(selectedIds);
                 for (let i = start; i <= end; i++) {
                     newSet.add(allEmails[i].id);
@@ -174,9 +179,7 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
             return;
         }
 
-        if (selectedIds.size > 0) {
-             setSelectedIds(new Set()); 
-        }
+        if (selectedIds.size > 0) setSelectedIds(new Set()); 
         onSelectEmail(email);
     };
 
@@ -196,6 +199,21 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
             folder: folderIdentifier, 
             uids: Array.from(selectedIds) 
         });
+    };
+
+    const handleIndividualAction = (e, action, emailId) => {
+        e.stopPropagation();
+        setMenuOpenId(null);
+        bulkActionMutation.mutate({
+            action,
+            folder: folderIdentifier,
+            uids: [emailId]
+        });
+    };
+
+    const toggleMenu = (e, emailId) => {
+        e.stopPropagation(); // Impede que o clique abra o email
+        setMenuOpenId(menuOpenId === emailId ? null : emailId);
     };
 
     useEffect(() => {
@@ -255,9 +273,8 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                 </div>
 
                 <div className="flex px-4 gap-4 mt-1">
-                    <button onClick={() => setFilterStatus('all')} className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex-1 text-center ${filterStatus === 'all' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Todas</button>
                     <button onClick={() => setFilterStatus('unread')} className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex-1 text-center ${filterStatus === 'unread' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Não Lidas</button>
-                    <button onClick={() => setFilterStatus('read')} className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex-1 text-center ${filterStatus === 'read' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Lidas</button>
+                    <button onClick={() => setFilterStatus('all')} className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex-1 text-center ${filterStatus === 'all' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Todas</button>
                 </div>
             </div>
 
@@ -275,18 +292,21 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                         {allEmails.map((email) => {
                             const isSelected = selectedIds.has(email.id);
                             const isActive = selectedEmailId === email.id;
+                            const isMenuOpen = menuOpenId === email.id;
+                            const isRead = email.flags?.includes('\\Seen');
                             
                             return (
                                 <div 
                                     key={email.id}
                                     onClick={(e) => handleEmailClick(email, e)}
+                                    // REMOVIDO: opacity-75 daqui de cima. Agora é só no conteúdo interno.
                                     className={`
                                         p-3 cursor-pointer hover:bg-gray-50 border-l-4 transition-all relative group
                                         ${isSelected ? 'bg-blue-50 border-l-blue-600' : isActive ? 'bg-blue-50/50 border-l-blue-400' : 'bg-white border-l-transparent'}
-                                        ${email.flags?.includes('\\Seen') ? 'opacity-75' : 'font-semibold'}
                                     `}
                                 >
-                                    <div className="flex items-start gap-3">
+                                    {/* CONTEÚDO DO EMAIL (Aqui aplicamos a opacidade se lido) */}
+                                    <div className={`flex items-start gap-3 transition-opacity ${isRead ? 'opacity-60' : ''}`}>
                                         <div 
                                             className="checkbox-area pt-1 text-gray-300 hover:text-blue-500 cursor-pointer z-10"
                                             onClick={(e) => toggleSelection(email.id, e)}
@@ -294,32 +314,62 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                                             <FontAwesomeIcon icon={isSelected ? faCheckSquare : faSquare} className={`text-sm ${isSelected ? 'text-blue-600' : ''}`} />
                                         </div>
 
-                                        <div className="flex-grow min-w-0">
+                                        <div className="flex-grow min-w-0 pr-6"> 
                                             <div className="flex justify-between items-start mb-0.5 gap-2">
-                                                <h4 className={`text-sm truncate flex-1 ${isSelected || isActive ? 'text-blue-900' : 'text-gray-800'}`}>
+                                                <h4 className={`text-sm truncate flex-1 ${isSelected || isActive ? 'text-blue-900' : 'text-gray-800'} ${!isRead ? 'font-bold' : ''}`}>
                                                     {email.from}
                                                 </h4>
                                                 <span className="text-[10px] text-gray-400 whitespace-nowrap shrink-0">
                                                     {format(new Date(email.date), "dd/MM HH:mm", { locale: ptBR })}
                                                 </span>
                                             </div>
-                                            <h3 className={`text-xs truncate mb-0.5 ${isSelected || isActive ? 'text-blue-800' : 'text-gray-600'}`}>
+                                            <h3 className={`text-xs truncate mb-0.5 ${isSelected || isActive ? 'text-blue-800' : 'text-gray-600'} ${!isRead ? 'font-semibold' : ''}`}>
                                                 {email.subject}
                                             </h3>
                                         </div>
+                                    </div>
+
+                                    {/* BOTÃO DE AÇÕES (Fora da div de opacidade, para ficar sempre vivo) */}
+                                    <div className={`absolute right-2 top-3 ${isMenuOpen ? 'opacity-100 z-[100]' : 'opacity-0 md:group-hover:opacity-100 z-20'} transition-all action-menu-btn`}>
+                                        <button 
+                                            onClick={(e) => toggleMenu(e, email.id)}
+                                            className={`w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-500 transition-colors ${isMenuOpen ? 'bg-gray-200 text-gray-800 shadow-sm' : ''}`}
+                                        >
+                                            <FontAwesomeIcon icon={faEllipsisV} className="text-xs" />
+                                        </button>
+                                        
+                                        {/* Dropdown Menu - Corrigido: bg-white, shadow-xl, z-index altissimo */}
+                                        {isMenuOpen && (
+                                            <div ref={menuRef} className="absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-2xl border border-gray-100 z-[999] animate-fade-in action-menu-dropdown ring-1 ring-black/5">
+                                                <div className="py-1">
+                                                    <button onClick={(e) => handleIndividualAction(e, 'markAsRead', email.id)} className="block w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-3 transition-colors">
+                                                        <FontAwesomeIcon icon={faEnvelopeOpen} className="w-3" /> Marcar como lido
+                                                    </button>
+                                                    <button onClick={(e) => handleIndividualAction(e, 'markAsUnread', email.id)} className="block w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-3 transition-colors">
+                                                        <FontAwesomeIcon icon={faEnvelope} className="w-3" /> Marcar como não lido
+                                                    </button>
+                                                    <button onClick={(e) => handleIndividualAction(e, 'archive', email.id)} className="block w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-3 transition-colors">
+                                                        <FontAwesomeIcon icon={faArchive} className="w-3" /> Arquivar
+                                                    </button>
+                                                    <div className="h-px bg-gray-100 my-1"></div>
+                                                    <button onClick={(e) => handleIndividualAction(e, 'trash', email.id)} className="block w-full text-left px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-3 font-medium transition-colors">
+                                                        <FontAwesomeIcon icon={faTrash} className="w-3" /> Excluir
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             );
                         })}
                         
-                        {/* Elemento Sentinela para Carregamento Infinito */}
                         <div ref={loadMoreRef} className="py-4 text-center">
                             {isFetchingNextPage ? (
                                 <div className="text-blue-500 text-xs flex items-center justify-center gap-2">
                                     <FontAwesomeIcon icon={faSpinner} spin /> Carregando mais...
                                 </div>
                             ) : hasNextPage ? (
-                                <span className="text-transparent text-[1px]">.</span> // Invisível mas presente para o observer
+                                <span className="text-transparent text-[1px]">.</span> 
                             ) : (
                                 <span className="text-gray-300 text-[10px] uppercase font-bold tracking-widest">Fim da lista</span>
                             )}
