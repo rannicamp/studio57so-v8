@@ -61,6 +61,7 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
     const emails = data?.messages || [];
     const hasMore = data?.hasMore || false;
 
+    // Mutation para ações em massa
     const bulkActionMutation = useMutation({
         mutationFn: performBulkAction,
         onSuccess: (_, variables) => {
@@ -76,6 +77,36 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
         },
         onError: () => toast.error('Erro ao processar seleção.')
     });
+
+    // --- NOVA LÓGICA: Aplicação de Regras no Refresh ---
+    const applyRulesMutation = useMutation({
+        mutationFn: async () => {
+            const res = await fetch('/api/email/rules/apply', { method: 'POST' });
+            if (!res.ok) throw new Error('Falha ao processar regras');
+            return res.json();
+        },
+        onSuccess: (data) => {
+            if (data.moved > 0) {
+                toast.success(`${data.moved} e-mails movidos por regras.`);
+                // O refetch acontece no handleRefresh
+            }
+        },
+        onError: (err) => {
+            console.error("Erro silencioso ao aplicar regras:", err);
+            // Não exibimos toast de erro para não poluir a UI se for algo de conexão momentânea
+        }
+    });
+
+    const handleRefresh = async () => {
+        // 1. Tenta aplicar as regras primeiro
+        try {
+            await applyRulesMutation.mutateAsync();
+        } catch (e) {
+            // Ignora erro para não impedir o refresh visual
+        }
+        // 2. Busca os emails atualizados
+        refetch();
+    };
 
     // --- LÓGICA DE SELEÇÃO ---
     const handleEmailClick = (email, e) => {
@@ -181,9 +212,15 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                             </p>
                         </div>
                     </div>
-                    {/* O ícone de atualizar continua aqui, discreto e rodando se precisar */}
-                    <button onClick={() => refetch()} disabled={isFetching} className={`text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-all ${isFetching ? 'opacity-50' : ''}`} title="Atualizar">
-                        <FontAwesomeIcon icon={faSync} spin={isFetching} />
+                    
+                    {/* Botão Atualizar INTEGRADADO com Regras */}
+                    <button 
+                        onClick={handleRefresh} 
+                        disabled={isFetching || applyRulesMutation.isPending} 
+                        className={`text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-all ${isFetching ? 'opacity-50' : ''}`} 
+                        title="Aplicar regras e atualizar"
+                    >
+                        <FontAwesomeIcon icon={faSync} spin={isFetching || applyRulesMutation.isPending} />
                     </button>
                 </div>
 
@@ -205,7 +242,6 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                     <div className="flex flex-col items-center justify-center h-64 text-gray-400 p-6 text-center"><FontAwesomeIcon icon={filterStatus === 'unread' ? faEnvelopeOpen : faBoxOpen} size="2x" /><p className="mt-2 text-sm">{searchTerm ? `Sem resultados para "${searchTerm}"` : 'Tudo limpo por aqui!'}</p></div>
                 ) : (
                     <div className="divide-y divide-gray-100 pb-4">
-                        {/* Removido o banner de 'Atualizando...' daqui */}
                         
                         {emails.map((email) => {
                             const isSelected = selectedIds.has(email.id);
