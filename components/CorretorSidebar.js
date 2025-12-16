@@ -11,7 +11,8 @@ import {
   faFileContract, 
   faFolderOpen, 
   faChartLine,
-  faBuilding
+  faBuilding,
+  faCalculator // Importei o ícone de calculadora
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function CorretorSidebar({ user, onMobileItemClick }) {
@@ -25,7 +26,8 @@ export default function CorretorSidebar({ user, onMobileItemClick }) {
     { name: 'Painel Geral', href: '/portal-painel', icon: faHome },
     { name: 'Meus Clientes', href: '/clientes', icon: faUsers },
     { name: 'Tabela de Vendas', href: '/tabela-de-vendas', icon: faChartLine },
-    { name: 'Empreendimentos', href: '/empreendimentosstudio', icon: faBuilding }, // Link público ou interno se tiver
+    { name: 'Simulador', href: '/simulador-financiamento', icon: faCalculator }, // Adicionei o botão do Simulador aqui
+    { name: 'Empreendimentos', href: '/empreendimentosstudio', icon: faBuilding },
     { name: 'Contratos', href: '/portal-contratos', icon: faFileContract },
     { name: 'Arquivos', href: '/portal-arquivos', icon: faFolderOpen },
   ];
