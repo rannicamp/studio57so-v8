@@ -6,13 +6,15 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faPlus, faTimes, faSpinner, faSearch, faFilter, 
     faUserShield, faKey, faSort, faSortUp, faSortDown, 
-    faCalendarAlt, faUsers, faUserCheck, faUserSlash 
+    faCalendarAlt, faUsers, faUserCheck, faUserSlash, faClock 
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
-// --- Função Helper para Persistência de UI ---
+// --- Função Helper para Persistência de UI (Mantida Intacta) ---
 const UI_STATE_KEY = 'STUDIO57_USERS_UI_STATE';
 
 const usePersistentUiState = (initialState) => {
@@ -40,13 +42,13 @@ const usePersistentUiState = (initialState) => {
     return [state, setState];
 };
 
-// --- Função fetchUsers (Client Side) ---
+// --- Função fetchUsers (Atualizada com ultimo_acesso) ---
 const fetchUsers = async (organizationId) => {
     const supabase = createClient();
     const { data, error } = await supabase
         .from('usuarios')
         .select(`
-            id, nome, sobrenome, email, is_active, created_at, avatar_url,
+            id, nome, sobrenome, email, is_active, created_at, avatar_url, ultimo_acesso,
             funcao:funcoes ( id, nome_funcao ),
             funcionario:funcionarios ( id, full_name, cpf )
         `)
@@ -73,6 +75,37 @@ const UserAvatar = ({ nome, sobrenome, url }) => {
     );
 };
 
+// --- Badge de Status Online (Novo) ---
+const UserStatusBadge = ({ lastSeenDate }) => {
+    if (!lastSeenDate) return <span className="text-xs text-gray-400">Nunca acessou</span>;
+
+    const lastSeen = new Date(lastSeenDate);
+    const now = new Date();
+    const diffInMinutes = (now - lastSeen) / 1000 / 60;
+    
+    // Consideramos "Online" se visto nos últimos 5 minutos
+    const isOnline = diffInMinutes < 5;
+
+    if (isOnline) {
+        return (
+            <div className="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100 w-fit">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                Online agora
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex items-center gap-1 text-xs text-gray-500" title={`Último acesso: ${lastSeen.toLocaleString()}`}>
+            <FontAwesomeIcon icon={faClock} className="text-gray-300" />
+            {formatDistanceToNow(lastSeen, { addSuffix: true, locale: ptBR }).replace('cerca de ', '')}
+        </div>
+    );
+};
+
 const StatCard = ({ title, value, icon, colorClass, bgColorClass }) => (
     <div className={`flex items-center p-4 rounded-lg border ${bgColorClass} ${colorClass.replace('text-', 'border-').replace('500', '200')}`}>
         <div className={`p-3 rounded-full ${colorClass.replace('text-', 'bg-').replace('600', '100').replace('500', '100')} mr-4`}>
@@ -85,7 +118,7 @@ const StatCard = ({ title, value, icon, colorClass, bgColorClass }) => (
     </div>
 );
 
-// --- Modal de Novo Usuário (Simplificado para o exemplo, mas funcional) ---
+// --- Modal de Novo Usuário ---
 const AddUserModal = ({ isOpen, onClose, allRoles, allEmployees, organizationId }) => {
     const queryClient = useQueryClient();
     const formRef = useRef(null);
@@ -199,13 +232,13 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
     const [isAddUserModalOpen, setAddUserModalOpen] = useState(false);
     const [passwordModalUser, setPasswordModalUser] = useState(null);
     
-    // Estado de UI com ordenação
+    // Estado de UI (Mantendo ultimo_acesso como padrão para ver quem está on)
     const [uiState, setUiState] = usePersistentUiState({
         search: '',
         filterRole: 'all',
         filterStatus: 'all',
-        sortKey: 'created_at', // Padrão: data de cadastro
-        sortDirection: 'desc'  // Padrão: mais recentes primeiro
+        sortKey: 'ultimo_acesso', 
+        sortDirection: 'desc'
     });
 
     const { data: users } = useQuery({
@@ -213,6 +246,7 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
         queryFn: () => fetchUsers(organizationId),
         initialData: initialUsers,
         refetchOnWindowFocus: true,
+        refetchInterval: 30000, // Atualiza a cada 30s para mostrar status online
     });
 
     const toggleStatusMutation = useMutation({
@@ -257,7 +291,6 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
         result.sort((a, b) => {
             let valA, valB;
 
-            // Selecionar o valor baseado na chave
             switch (uiState.sortKey) {
                 case 'nome':
                     valA = `${a.nome} ${a.sobrenome}`.toLowerCase();
@@ -270,6 +303,10 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
                 case 'created_at':
                     valA = new Date(a.created_at || 0).getTime();
                     valB = new Date(b.created_at || 0).getTime();
+                    break;
+                case 'ultimo_acesso': // Adicionada ordenação por acesso
+                    valA = new Date(a.ultimo_acesso || 0).getTime();
+                    valB = new Date(b.ultimo_acesso || 0).getTime();
                     break;
                 case 'status':
                     valA = a.is_active ? 1 : 0;
@@ -288,7 +325,6 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
         return result;
     }, [users, uiState]);
 
-    // Handler de Ordenação
     const handleSort = (key) => {
         setUiState(prev => ({
             ...prev,
@@ -297,7 +333,6 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
         }));
     };
 
-    // Componente de Cabeçalho Sortável
     const SortHeader = ({ label, sortKey, align = 'left' }) => (
         <th 
             className={`px-6 py-3 text-${align} text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none group`}
@@ -332,7 +367,6 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
 
             {/* --- BARRA DE FERRAMENTAS --- */}
             <div className="p-4 flex flex-col xl:flex-row gap-4 justify-between items-center bg-white dark:bg-gray-800">
-                {/* Busca */}
                 <div className="relative w-full xl:w-96 group">
                     <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-3 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                     <input 
@@ -344,9 +378,7 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
                     />
                 </div>
 
-                {/* Filtros e Ações */}
                 <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto items-center">
-                    {/* Filtro Função */}
                     <div className="relative w-full sm:w-auto">
                         <select 
                             value={uiState.filterRole}
@@ -361,7 +393,6 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
                         <FontAwesomeIcon icon={faFilter} className="absolute right-3 top-3 text-gray-400 text-xs pointer-events-none" />
                     </div>
 
-                    {/* Filtro Status */}
                     <div className="relative w-full sm:w-auto">
                         <select 
                             value={uiState.filterStatus}
@@ -382,12 +413,13 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
             </div>
 
             {/* --- TABELA --- */}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto min-h-[400px]">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-900/50">
                         <tr>
                             <SortHeader label="Usuário" sortKey="nome" />
                             <SortHeader label="Função" sortKey="funcao" />
+                            <SortHeader label="Visto por Último" sortKey="ultimo_acesso" />
                             <SortHeader label="Data Cadastro" sortKey="created_at" />
                             <SortHeader label="Status" sortKey="status" />
                             <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Ações</th>
@@ -396,7 +428,7 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
                         {processedUsers.length === 0 ? (
                             <tr>
-                                <td colSpan="5" className="px-6 py-12 text-center text-gray-400">
+                                <td colSpan="6" className="px-6 py-12 text-center text-gray-400">
                                     Nenhum usuário encontrado.
                                 </td>
                             </tr>
@@ -428,12 +460,11 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
                                                     : 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300'}`}>
                                             {user.funcao?.nome_funcao || 'Sem Função'}
                                         </span>
-                                        {user.funcionario && (
-                                            <div className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                                                <FontAwesomeIcon icon={faUserShield} className="w-3" />
-                                                {user.funcionario.full_name.split(' ')[0]}
-                                            </div>
-                                        )}
+                                    </td>
+
+                                    {/* Último Acesso (NOVO) */}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <UserStatusBadge lastSeenDate={user.ultimo_acesso} />
                                     </td>
 
                                     {/* Data de Cadastro */}

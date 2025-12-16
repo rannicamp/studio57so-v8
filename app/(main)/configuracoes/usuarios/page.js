@@ -14,6 +14,7 @@ async function getUsers(organizacaoId) {
             email,
             is_active,
             created_at,
+            ultimo_acesso,
             avatar_url,
             funcao:funcoes ( id, nome_funcao ),
             funcionario:funcionarios ( id, full_name, cpf )

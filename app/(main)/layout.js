@@ -36,6 +36,31 @@ function MainLayout({ children }) {
     
     const isCotacoesBarVisible = user?.mostrar_barra_cotacoes && user?.cotacoes_visiveis?.length > 0;
 
+    // --- RASTREADOR DE PRESENÇA (NOVO) ---
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const updateOnlineStatus = async () => {
+            try {
+                await supabase
+                    .from('usuarios')
+                    .update({ ultimo_acesso: new Date().toISOString() })
+                    .eq('id', user.id);
+            } catch (error) {
+                console.error("Erro ao atualizar status online:", error);
+            }
+        };
+
+        // Atualiza assim que entra
+        updateOnlineStatus();
+
+        // Atualiza a cada 2 minutos para manter o status "Online"
+        const interval = setInterval(updateOnlineStatus, 2 * 60 * 1000);
+
+        return () => clearInterval(interval);
+    }, [user?.id, supabase]);
+    // -------------------------------------
+
     useEffect(() => {
         if (!authLoading && !user) {
             console.error("Sessão fantasma detectada no layout! Forçando logout.");
@@ -97,10 +122,6 @@ function MainLayout({ children }) {
                 <div className="flex-shrink-0 print:hidden">
                     <Header />
                 </div>
-                {/* CORREÇÃO DO LAYOUT:
-                    - mt-... : Empurra o topo para baixo (Header)
-                    - mb-[65px] : Empurra a base para cima (Menu/Rodapé)
-                */}
                 <main className={`flex-grow min-h-0 print:overflow-visible print:h-auto ${isCotacoesBarVisible ? 'mt-[89px]' : 'mt-[65px]'} mb-[65px]`}> 
                     {children}
                 </main>
