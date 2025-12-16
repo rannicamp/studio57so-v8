@@ -13,7 +13,7 @@ import DOMPurify from 'isomorphic-dompurify';
 import EmailComposeModal from './EmailComposeModal';
 import AtividadeModal from '@/components/atividades/AtividadeModal'; 
 import { toast } from 'sonner';
-import EmailActionMenu from './EmailActionMenu'; // <--- IMPORTANTE
+import EmailActionMenu from './EmailActionMenu';
 
 const fetchEmailContent = async ({ queryKey }) => {
     const [_key, folderPath, uid] = queryKey;
@@ -26,7 +26,6 @@ const fetchEmailContent = async ({ queryKey }) => {
 const performEmailAction = async ({ action, folder, uid, destination }) => { 
     const body = { action, folder, uid };
     if (destination) body.targetFolder = destination;
-
     const res = await fetch('/api/email/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -175,7 +174,6 @@ export default function EmailViewPanel({ emailSummary, folder, onClose, onCreate
                         <button onClick={() => prepareReply('forward')} className="px-3 text-gray-600 hover:bg-gray-100" title="Encaminhar"><FontAwesomeIcon icon={faShare} /></button>
                     </div>
                     
-                    {/* MENU NOVO */}
                     <div className="z-50">
                         <EmailActionMenu 
                             email={emailSummary}

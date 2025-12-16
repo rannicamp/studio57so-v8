@@ -10,16 +10,13 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
-import EmailActionMenu from './EmailActionMenu'; // <--- IMPORTANTE: Certifique-se que o arquivo existe
+import EmailActionMenu from './EmailActionMenu';
 
-// Busca de mensagens
 const fetchMessages = async ({ queryKey, pageParam = 1 }) => {
     const [_key, folderPath, searchTerm, status] = queryKey;
-    
     let url = `/api/email/messages?folder=${encodeURIComponent(folderPath)}&page=${pageParam}`;
     if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
     if (status && status !== 'all') url += `&status=${status}`;
-    
     const res = await fetch(url);
     if (!res.ok) throw new Error('Erro ao buscar e-mails');
     return res.json();
@@ -27,8 +24,7 @@ const fetchMessages = async ({ queryKey, pageParam = 1 }) => {
 
 const performBulkAction = async ({ action, folder, uids, destination }) => { 
     const body = { action, folder, uids };
-    if (destination) body.targetFolder = destination; // Adiciona pasta destino se houver
-
+    if (destination) body.targetFolder = destination;
     const res = await fetch('/api/email/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -43,6 +39,9 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
     const [selectedIds, setSelectedIds] = useState(new Set()); 
     const [lastSelectedId, setLastSelectedId] = useState(null); 
     
+    // --- ESTADO PARA CONTROLAR QUAL MENU ESTÁ ABERTO (Z-Index Fix) ---
+    const [openMenuId, setOpenMenuId] = useState(null); 
+    
     const loadMoreRef = useRef(null);
     const queryClient = useQueryClient();
     const folderIdentifier = folder.path || folder.name;
@@ -50,6 +49,7 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
     useEffect(() => {
         setSelectedIds(new Set());
         setLastSelectedId(null);
+        setOpenMenuId(null); // Reseta menu ao mudar filtros
     }, [searchTerm, folder.path, filterStatus]);
 
     const { 
@@ -80,13 +80,13 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
             queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
             setSelectedIds(new Set());
             setLastSelectedId(null);
+            setOpenMenuId(null);
             
             const count = variables.uids.length;
             if (variables.action === 'trash') toast.success(`${count} e-mails excluídos.`);
             else if (variables.action === 'move') toast.success(`${count} e-mails movidos.`);
             else if (variables.action === 'archive') toast.success(`${count} e-mails arquivados.`);
             else if (variables.action === 'markAsRead') toast.success(`${count} marcados como lidos.`);
-            else if (variables.action === 'markAsUnread') toast.success(`${count} marcados como não lidos.`);
         },
         onError: () => toast.error('Erro ao processar ação.')
     });
@@ -106,7 +106,6 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
     };
 
     const handleEmailClick = (email, e) => {
-        // Ignora clique se for no container do menu (para evitar abrir o email ao clicar no menu)
         if (e.target.closest('.action-menu-container')) return;
 
         if (e.target.closest('.checkbox-area') || e.ctrlKey || e.metaKey) {
@@ -145,10 +144,8 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
         bulkActionMutation.mutate({ action, folder: folderIdentifier, uids: Array.from(selectedIds) });
     };
 
-    // --- MANIPULADOR UNIFICADO DE AÇÕES DO MENU ---
     const handleMenuAction = (email, action, value) => {
         if (action === 'createRule') {
-            // Chama a função passada pelo EmailInbox
             if (onCreateRule) onCreateRule(email); 
         } else if (action === 'move') {
             bulkActionMutation.mutate({
@@ -164,6 +161,8 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                 uids: [email.id]
             });
         }
+        // Fecha o menu após ação
+        setOpenMenuId(null);
     };
 
     useEffect(() => {
@@ -218,9 +217,20 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                             const isSelected = selectedIds.has(email.id);
                             const isActive = selectedEmailId === email.id;
                             const isRead = email.flags?.includes('\\Seen');
+                            const isOpen = openMenuId === email.id;
                             
                             return (
-                                <div key={email.id} onClick={(e) => handleEmailClick(email, e)} className={`p-3 cursor-pointer hover:bg-gray-50 border-l-4 transition-all relative group ${isSelected ? 'bg-blue-50 border-l-blue-600' : isActive ? 'bg-blue-50/50 border-l-blue-400' : 'bg-white border-l-transparent'}`}>
+                                <div 
+                                    key={email.id} 
+                                    onClick={(e) => handleEmailClick(email, e)} 
+                                    // AQUI ESTÁ A CORREÇÃO DE Z-INDEX: 
+                                    // Se o menu estiver aberto (isOpen), aplicamos z-50. Se não, z-0.
+                                    className={`
+                                        p-3 cursor-pointer hover:bg-gray-50 border-l-4 transition-all relative group
+                                        ${isSelected ? 'bg-blue-50 border-l-blue-600' : isActive ? 'bg-blue-50/50 border-l-blue-400' : 'bg-white border-l-transparent'}
+                                        ${isOpen ? 'z-50' : 'z-0'} 
+                                    `}
+                                >
                                     <div className={`flex items-start gap-3 transition-opacity ${isRead ? 'opacity-60' : ''}`}>
                                         <div className="checkbox-area pt-1 text-gray-300 hover:text-blue-500 cursor-pointer z-10" onClick={(e) => toggleSelection(email.id, e)}>
                                             <FontAwesomeIcon icon={isSelected ? faCheckSquare : faSquare} className={`text-sm ${isSelected ? 'text-blue-600' : ''}`} />
@@ -234,11 +244,13 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                                         </div>
                                     </div>
                                     
-                                    {/* USANDO O NOVO COMPONENTE COM Z-INDEX AJUSTADO */}
                                     <div className="absolute right-2 top-3 z-30 action-menu-container">
                                         <EmailActionMenu 
                                             email={email}
                                             onAction={(action, value) => handleMenuAction(email, action, value)}
+                                            // CONTROLE TOTAL DO MENU PELA LISTA:
+                                            isOpen={isOpen}
+                                            onToggle={() => setOpenMenuId(isOpen ? null : email.id)}
                                         />
                                     </div>
                                 </div>
