@@ -7,7 +7,7 @@ import EmailListPanel from '@/components/email/EmailListPanel';
 import EmailViewPanel from '@/components/email/EmailViewPanel';
 import EmailComposeModal from '@/components/email/EmailComposeModal'; 
 import EmailSidebar from '@/components/email/EmailSidebar'; 
-import EmailCreateFolderModal from '@/components/email/EmailCreateFolderModal'; // <--- NOVO IMPORT
+import EmailCreateFolderModal from '@/components/email/EmailCreateFolderModal'; 
 import { faInbox } from '@fortawesome/free-solid-svg-icons'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useDebounce } from 'use-debounce';
@@ -25,7 +25,8 @@ const getCachedData = () => {
     }
 };
 
-export default function EmailInbox({ onChangeTab }) {
+// RECEBENDO A PROP canViewWhatsapp
+export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
     const cachedState = getCachedData();
     const queryClient = useQueryClient();
 
@@ -160,7 +161,9 @@ export default function EmailInbox({ onChangeTab }) {
                 onChangeTab={onChangeTab}
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
-                onCreateFolder={handleOpenCreateFolder} // <--- Passando a função
+                onCreateFolder={handleOpenCreateFolder}
+                // PASSANDO A PROP ADIANTE
+                canViewWhatsapp={canViewWhatsapp}
             />
 
             {/* --- COMPONENTE 2: LISTA DE E-MAILS --- */}
@@ -177,7 +180,7 @@ export default function EmailInbox({ onChangeTab }) {
                         selectedEmailId={selectedEmail?.id}
                         searchTerm={debouncedSearchTerm}
                         onCreateRule={handleOpenRules}
-                        onCreateFolder={handleOpenCreateFolder} // <--- Passando a função
+                        onCreateFolder={handleOpenCreateFolder} 
                     />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500 p-8 text-center">
@@ -198,7 +201,7 @@ export default function EmailInbox({ onChangeTab }) {
                         folder={selectedEmailFolder} 
                         onClose={() => setSelectedEmail(null)} 
                         onCreateRule={handleOpenRules}
-                        onCreateFolder={handleOpenCreateFolder} // <--- Passando a função
+                        onCreateFolder={handleOpenCreateFolder} 
                     />
                 </div>
             )}

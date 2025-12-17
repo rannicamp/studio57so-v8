@@ -1,5 +1,5 @@
 // components/sidebar.js
-// CÓDIGO ATUALIZADO E CORRIGIDO
+// CÓDIGO ATUALIZADO E CORRIGIDO - LIBERAÇÃO DA CAIXA DE ENTRADA
 
 "use client";
 
@@ -106,11 +106,12 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2">
                     {allItems.map((item) => {
                         // =================================================================
-                        // INÍCIO DA CORREÇÃO (Mantida da última vez)
-                        // O PORQUÊ: Removemos 'caixa_de_entrada' e 'anuncios' da lista de exceções.
+                        // INÍCIO DA CORREÇÃO DE VISIBILIDADE
+                        // O PORQUÊ: Adicionamos 'caixa_de_entrada' na lista de itens que SEMPRE aparecem.
+                        // Assim, o acesso ao e-mail fica garantido para todos, enquanto o WhatsApp será bloqueado na página.
                         // =================================================================
-                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil'].includes(item.recurso);
-                        // FIM DA CORREÇÃO (Mantida da última vez)
+                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
+                        // FIM DA CORREÇÃO DE VISIBILIDADE
                         // =================================================================
                         if (!item || !canViewItem) return null;
                         return (
@@ -150,13 +151,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                         const sectionItems = section.items || [];
                         
                         // =================================================================
-                        // INÍCIO DA CORREÇÃO (Mantida da última vez)
-                        // O PORQUÊ: Também precisamos corrigir a lista de exceções aqui.
+                        // INÍCIO DA CORREÇÃO DE VISIBILIDADE (Para o menu vertical)
+                        // O PORQUÊ: Adicionamos 'caixa_de_entrada' na lista de itens sempre visíveis aqui também.
                         // =================================================================
                         const hasVisibleItems = sectionItems.some(item => 
-                            hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil'].includes(item.recurso)
+                            hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso)
                         );
-                        // FIM DA CORREÇÃO (Mantida da última vez)
+                        // FIM DA CORREÇÃO DE VISIBILIDADE
                         // =================================================================
 
                         if (!hasVisibleItems) return null;
@@ -169,11 +170,11 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                                 <ul>
                                     {sectionItems.map((item) => {
                                         // =================================================================
-                                        // INÍCIO DA CORREÇÃO (Mantida da última vez)
-                                        // O PORQUÊ: E corrigimos a lista de exceções aqui pela última vez.
+                                        // INÍCIO DA CORREÇÃO DE VISIBILIDADE (Loop dos itens)
+                                        // O PORQUÊ: Garante que o item individual seja renderizado para todos.
                                         // =================================================================
-                                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil'].includes(item.recurso);
-                                        // FIM DA CORREÇÃO (Mantida da última vez)
+                                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
+                                        // FIM DA CORREÇÃO DE VISIBILIDADE
                                         // =================================================================
                                         if (!canViewItem) return null;
 

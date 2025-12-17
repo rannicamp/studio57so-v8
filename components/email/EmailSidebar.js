@@ -36,7 +36,9 @@ export default function EmailSidebar({
     onChangeTab, 
     searchTerm, 
     onSearchChange,
-    onCreateFolder, // <--- Prop recebida do Inbox
+    onCreateFolder,
+    // NOVA PROP
+    canViewWhatsapp = true,
     className = '' 
 }) {
     const queryClient = useQueryClient();
@@ -126,9 +128,13 @@ export default function EmailSidebar({
             
             {/* Abas */}
             <div className="flex border-b bg-gray-50 shrink-0">
-                <button onClick={() => onChangeTab('whatsapp')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
-                    <FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp
-                </button>
+                {/* O BOTÃO SÓ APARECE SE TIVER PERMISSÃO */}
+                {canViewWhatsapp && (
+                    <button onClick={() => onChangeTab('whatsapp')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
+                        <FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp
+                    </button>
+                )}
+                {/* Se não tiver permissão para Whats, o botão de Email ocupa tudo (flex-1 fará isso naturalmente se for o único filho) */}
                 <button className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-blue-600 text-blue-600 bg-white">
                     <FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail
                 </button>
