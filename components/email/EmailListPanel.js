@@ -12,18 +12,23 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import EmailActionMenu from './EmailActionMenu';
 
+// --- ATUALIZADO: Recebe accountId na queryKey ---
 const fetchMessages = async ({ queryKey, pageParam = 1 }) => {
-    const [_key, folderPath, searchTerm, status] = queryKey;
+    const [_key, folderPath, searchTerm, status, accountId] = queryKey; // <--- accountId adicionado aqui
+    
     let url = `/api/email/messages?folder=${encodeURIComponent(folderPath)}&page=${pageParam}`;
     if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
     if (status && status !== 'all') url += `&status=${status}`;
+    // Passa o ID da conta para a API saber de quem buscar
+    if (accountId) url += `&accountId=${accountId}`; 
+    
     const res = await fetch(url);
     if (!res.ok) throw new Error('Erro ao buscar e-mails');
     return res.json();
 };
 
-const performBulkAction = async ({ action, folder, uids, destination }) => { 
-    const body = { action, folder, uids };
+const performBulkAction = async ({ action, folder, uids, destination, accountId }) => { 
+    const body = { action, folder, uids, accountId }; // Passa accountId na ação também
     if (destination) body.targetFolder = destination;
     const res = await fetch('/api/email/actions', {
         method: 'POST',
@@ -38,24 +43,26 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
     const [filterStatus, setFilterStatus] = useState('unread');
     const [selectedIds, setSelectedIds] = useState(new Set()); 
     const [lastSelectedId, setLastSelectedId] = useState(null); 
-    
-    // --- ESTADO PARA CONTROLAR QUAL MENU ESTÁ ABERTO (Z-Index Fix) ---
     const [openMenuId, setOpenMenuId] = useState(null); 
     
     const loadMoreRef = useRef(null);
     const queryClient = useQueryClient();
+    
     const folderIdentifier = folder.path || folder.name;
+    // --- PEGA O ID DA CONTA DA PASTA SELECIONADA ---
+    const accountId = folder.accountId; 
 
     useEffect(() => {
         setSelectedIds(new Set());
         setLastSelectedId(null);
-        setOpenMenuId(null); // Reseta menu ao mudar filtros
-    }, [searchTerm, folder.path, filterStatus]);
+        setOpenMenuId(null);
+    }, [searchTerm, folder.path, filterStatus, accountId]); // Adicionado accountId nas dependências
 
     const { 
         data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage, refetch, isFetching
     } = useInfiniteQuery({
-        queryKey: ['emailMessages', folderIdentifier, searchTerm, filterStatus],
+        // AQUI É O PULO DO GATO: Adicionamos accountId na chave única
+        queryKey: ['emailMessages', folderIdentifier, searchTerm, filterStatus, accountId],
         queryFn: fetchMessages,
         getNextPageParam: (lastPage, allPages) => (lastPage.hasMore ? allPages.length + 1 : undefined),
         staleTime: 1000 * 60 * 1, 
@@ -75,9 +82,10 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
     }, [loadMoreRef, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     const bulkActionMutation = useMutation({
-        mutationFn: performBulkAction,
+        mutationFn: (vars) => performBulkAction({ ...vars, accountId }), // Injeta accountId
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
+            queryClient.invalidateQueries({ queryKey: ['emailFolders'] }); // Atualiza contadores
             setSelectedIds(new Set());
             setLastSelectedId(null);
             setOpenMenuId(null);
@@ -161,7 +169,6 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                 uids: [email.id]
             });
         }
-        // Fecha o menu após ação
         setOpenMenuId(null);
     };
 
@@ -223,8 +230,6 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                                 <div 
                                     key={email.id} 
                                     onClick={(e) => handleEmailClick(email, e)} 
-                                    // AQUI ESTÁ A CORREÇÃO DE Z-INDEX: 
-                                    // Se o menu estiver aberto (isOpen), aplicamos z-50. Se não, z-0.
                                     className={`
                                         p-3 cursor-pointer hover:bg-gray-50 border-l-4 transition-all relative group
                                         ${isSelected ? 'bg-blue-50 border-l-blue-600' : isActive ? 'bg-blue-50/50 border-l-blue-400' : 'bg-white border-l-transparent'}
@@ -248,7 +253,6 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
                                         <EmailActionMenu 
                                             email={email}
                                             onAction={(action, value) => handleMenuAction(email, action, value)}
-                                            // CONTROLE TOTAL DO MENU PELA LISTA:
                                             isOpen={isOpen}
                                             onToggle={() => setOpenMenuId(isOpen ? null : email.id)}
                                         />
