@@ -1,26 +1,22 @@
-//components\financeiro\CategoriasManager.js
+// components/financeiro/CategoriasManager.js
 "use client";
 
 import { useState, useMemo } from 'react';
 import { createClient } from '../../utils/supabase/client';
-import { useAuth } from '../../contexts/AuthContext'; // 1. Importar o useAuth
+import { useAuth } from '../../contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSpinner, faPenToSquare, faTrash } from '@fortawesome/free-solid-svg-icons';
 import CategoriaFormModal from './CategoriaFormModal';
 
-// =================================================================================
-// ATUALIZAÇÃO DE SEGURANÇA (organizacao_id)
-// O PORQUÊ: A função de busca agora é filtrada pela organização, garantindo
-// que apenas as categorias da empresa correta sejam exibidas.
-// =================================================================================
+// Função de busca filtrada por organização
 const fetchCategorias = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
     const { data, error } = await supabase
         .from('categorias_financeiras')
         .select('*')
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId)
         .order('nome');
     
     if (error) {
@@ -32,7 +28,7 @@ const fetchCategorias = async (supabase, organizacaoId) => {
 export default function CategoriasManager() {
     const queryClient = useQueryClient();
     const supabase = createClient();
-    const { user } = useAuth(); // 2. Obter o usuário para o organizacaoId
+    const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,27 +36,37 @@ export default function CategoriasManager() {
     const [defaultModalType, setDefaultModalType] = useState('Despesa');
 
     const { data: categorias = [], isLoading, error: fetchError } = useQuery({
-        // A queryKey agora inclui o organizacaoId para um cache seguro
         queryKey: ['categorias_financeiras', organizacaoId],
         queryFn: () => fetchCategorias(supabase, organizacaoId),
-        enabled: !!organizacaoId, // A busca só é ativada se tivermos o ID da organização
+        enabled: !!organizacaoId,
     });
 
     const saveMutation = useMutation({
         mutationFn: async (formData) => {
             if (!organizacaoId) throw new Error("Organização não identificada.");
-            const isEditing = Boolean(formData.id);
+            
+            // =====================================================================
+            // A MÁGICA DA LIMPEZA ACONTECE AQUI ✨
+            // Retiramos 'id' e 'children' (que é apenas visual) antes de salvar
+            // =====================================================================
+            const { id, children, ...dadosParaSalvar } = formData;
+            
+            const isEditing = Boolean(id);
             let error;
 
             if (isEditing) {
-                const { id, ...updateData } = formData;
-                // Adiciona o filtro de segurança no update
-                const { error: updateError } = await supabase.from('categorias_financeiras').update(updateData).eq('id', id).eq('organizacao_id', organizacaoId);
+                // Atualização: Usa os dados limpos + filtro de segurança
+                const { error: updateError } = await supabase
+                    .from('categorias_financeiras')
+                    .update(dadosParaSalvar)
+                    .eq('id', id)
+                    .eq('organizacao_id', organizacaoId);
                 error = updateError;
             } else {
-                delete formData.id;
-                // Adiciona a "etiqueta de segurança" na criação
-                const { error: insertError } = await supabase.from('categorias_financeiras').insert({ ...formData, organizacao_id: organizacaoId });
+                // Criação: Usa os dados limpos + adiciona o ID da organização
+                const { error: insertError } = await supabase
+                    .from('categorias_financeiras')
+                    .insert({ ...dadosParaSalvar, organizacao_id: organizacaoId });
                 error = insertError;
             }
 
@@ -75,6 +81,7 @@ export default function CategoriasManager() {
             setIsModalOpen(false);
         },
         onError: (error) => {
+            console.error(error);
             toast.error(`Erro ao salvar: ${error.message}`);
         }
     });
@@ -82,10 +89,10 @@ export default function CategoriasManager() {
     const deleteMutation = useMutation({
         mutationFn: async (id) => {
             if (!organizacaoId) throw new Error("Organização não identificada.");
-            // Passamos o organizacaoId para a função do banco de dados
+            
             const { error } = await supabase.rpc('delete_category_and_children', { 
                 p_category_id: id,
-                p_organizacao_id: organizacaoId // <-- "Chave mestra" de segurança
+                p_organizacao_id: organizacaoId
             });
             if (error) {
                 throw new Error(error.message);
@@ -105,10 +112,6 @@ export default function CategoriasManager() {
         return true;
     };
     
-    // =================================================================================
-    // ATUALIZAÇÃO DE UX (troca de window.confirm por toast)
-    // O PORQUÊ: Substituímos o alerta nativo por uma notificação mais elegante.
-    // =================================================================================
     const handleDeleteCategoria = (id) => {
         toast("Confirmar Exclusão", {
             description: "Atenção! Excluir uma categoria principal também excluirá todas as suas subcategorias. Deseja continuar?",
@@ -121,19 +124,22 @@ export default function CategoriasManager() {
         });
     };
 
+    // Constrói a árvore visual
     const categoryTree = useMemo(() => {
         const tree = [];
         const map = {};
         
+        // 1. Cria um mapa de todos os itens com uma propriedade children vazia
         categorias.forEach(cat => {
             map[cat.id] = { ...cat, children: [] };
         });
 
+        // 2. Conecta os filhos aos pais
         categorias.forEach(cat => {
             if (cat.parent_id && map[cat.parent_id]) {
                 map[cat.parent_id].children.push(map[cat.id]);
             } else {
-                tree.push(map[cat.id]);
+                tree.push(map[cat.id]); // Se não tem pai, é raiz
             }
         });
 
@@ -151,22 +157,38 @@ export default function CategoriasManager() {
         setIsModalOpen(true);
     };
 
+    // Componente Recursivo para Listagem
     const CategoryList = ({ categories, level = 0 }) => (
         <ul className="divide-y border rounded-md">
             {categories.length === 0 && <li className="px-4 py-3 text-sm text-gray-500">Nenhuma categoria encontrada.</li>}
             {categories.map(cat => (
                 <li key={cat.id}>
-                    <div className={`px-4 py-3 flex justify-between items-center hover:bg-gray-50`} style={{ paddingLeft: `${1 + level * 2}rem` }}>
-                        <span className="font-semibold">{cat.nome}</span>
-                        <div className="space-x-3">
-                            <button onClick={() => handleOpenEditModal(cat)} className="text-blue-500 hover:text-blue-700"><FontAwesomeIcon icon={faPenToSquare} /></button>
-                            <button onClick={() => handleDeleteCategoria(cat.id)} disabled={deleteMutation.isPending} className="text-red-500 hover:text-red-700 disabled:text-gray-300"><FontAwesomeIcon icon={faTrash} /></button>
+                    <div className={`px-4 py-3 flex justify-between items-center hover:bg-gray-50 transition-colors duration-150`} style={{ paddingLeft: `${1 + level * 2}rem` }}>
+                        <div className="flex items-center gap-2">
+                            <span className={`font-semibold ${level === 0 ? 'text-gray-800' : 'text-gray-600'}`}>{cat.nome}</span>
+                        </div>
+                        <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                            <button 
+                                onClick={() => handleOpenEditModal(cat)} 
+                                className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+                                title="Editar"
+                            >
+                                <FontAwesomeIcon icon={faPenToSquare} />
+                            </button>
+                            <button 
+                                onClick={() => handleDeleteCategoria(cat.id)} 
+                                disabled={deleteMutation.isPending} 
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors disabled:text-gray-300"
+                                title="Excluir"
+                            >
+                                <FontAwesomeIcon icon={faTrash} />
+                            </button>
                         </div>
                     </div>
                     {cat.children && cat.children.length > 0 && (
-                        <ul className="bg-gray-50">
+                        <div className="border-t border-gray-100 bg-gray-50/50">
                             <CategoryList categories={cat.children} level={level + 1} />
-                        </ul>
+                        </div>
                     )}
                 </li>
             ))}
@@ -174,7 +196,7 @@ export default function CategoriasManager() {
     );
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 group">
             <CategoriaFormModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
@@ -185,23 +207,46 @@ export default function CategoriasManager() {
             />
 
             {isLoading ? (
-                <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
+                <div className="text-center p-10 text-gray-500">
+                    <FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-2" />
+                    <p>Carregando plano de contas...</p>
+                </div>
             ) : fetchError ? (
-                <p className="text-center text-sm font-medium p-2 bg-red-50 text-red-800 rounded-md">{fetchError.message}</p>
+                <div className="text-center p-4 bg-red-50 border border-red-200 text-red-700 rounded-md">
+                    <p className="font-bold">Erro ao carregar dados</p>
+                    <p className="text-sm">{fetchError.message}</p>
+                </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <div className="flex justify-between items-center mb-2">
-                             <h3 className="font-semibold text-lg text-green-700">Receitas</h3>
-                             <button onClick={() => handleOpenAddModal('Receita')} className="bg-green-600 text-white px-3 py-1 text-xs rounded-md hover:bg-green-700 flex items-center gap-1"><FontAwesomeIcon icon={faPlus}/> Nova Receita</button>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Coluna Receitas */}
+                    <div className="bg-white rounded-lg">
+                        <div className="flex justify-between items-center mb-4 pb-2 border-b border-green-100">
+                             <h3 className="font-bold text-lg text-green-700 flex items-center gap-2">
+                                Receitas
+                             </h3>
+                             <button 
+                                onClick={() => handleOpenAddModal('Receita')} 
+                                className="bg-green-600 text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full hover:bg-green-700 transition-colors shadow-sm flex items-center gap-1"
+                            >
+                                <FontAwesomeIcon icon={faPlus}/> Nova Receita
+                            </button>
                         </div>
                         <CategoryList categories={categoryTree.filter(c => c.tipo === 'Receita')} />
                     </div>
-                    <div>
-                         <div className="flex justify-between items-center mb-2">
-                             <h3 className="font-semibold text-lg text-red-700">Despesas</h3>
-                              <button onClick={() => handleOpenAddModal('Despesa')} className="bg-red-600 text-white px-3 py-1 text-xs rounded-md hover:bg-red-700 flex items-center gap-1"><FontAwesomeIcon icon={faPlus}/> Nova Despesa</button>
-                         </div>
+
+                    {/* Coluna Despesas */}
+                    <div className="bg-white rounded-lg">
+                          <div className="flex justify-between items-center mb-4 pb-2 border-b border-red-100">
+                             <h3 className="font-bold text-lg text-red-700 flex items-center gap-2">
+                                Despesas
+                             </h3>
+                              <button 
+                                onClick={() => handleOpenAddModal('Despesa')} 
+                                className="bg-red-600 text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full hover:bg-red-700 transition-colors shadow-sm flex items-center gap-1"
+                            >
+                                <FontAwesomeIcon icon={faPlus}/> Nova Despesa
+                            </button>
+                          </div>
                         <CategoryList categories={categoryTree.filter(c => c.tipo === 'Despesa')} />
                     </div>
                 </div>
