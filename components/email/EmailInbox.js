@@ -34,7 +34,7 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
     const [selectedEmailFolder, setSelectedEmailFolder] = useState(cachedState?.selectedEmailFolder || null); 
     const [selectedEmail, setSelectedEmail] = useState(cachedState?.selectedEmail || null);
     
-    // Configuração dos Modais (Com memória!)
+    // Configuração dos Modais
     const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(cachedState?.isEmailConfigOpen || false);
     const [configInitialTab, setConfigInitialTab] = useState(cachedState?.configInitialTab || 'connection'); 
     
@@ -49,7 +49,6 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
     // --- Persistência UI ---
     const hasRestoredUiState = useRef(false);
     
-    // Objeto que será salvo no Cache
     const uiStateToSave = { 
         selectedEmailFolder, 
         searchTerm, 
@@ -70,7 +69,35 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
         }
     }, [debouncedUiState]);
 
-    // --- Gatilho de Regras ---
+    // --- NOVO: VIGIA DE SINCRONIZAÇÃO (POLLER) ---
+    useEffect(() => {
+        const syncEmails = async () => {
+            try {
+                // Chama a API que verifica e-mails novos e manda notificação
+                const res = await fetch('/api/email/sync', { method: 'POST' });
+                const data = await res.json();
+                
+                // Se encontrou novos e-mails, atualiza a lista na tela
+                if (data.newEmails > 0) {
+                    // toast.info(`${data.newEmails} novos e-mails!`); // Opcional: toast visual
+                    queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
+                    queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
+                }
+            } catch (error) {
+                console.error("Erro silencioso no sync:", error);
+            }
+        };
+
+        // Roda ao montar
+        syncEmails();
+
+        // Roda a cada 60 segundos
+        const intervalId = setInterval(syncEmails, 60000);
+        return () => clearInterval(intervalId);
+    }, [queryClient]);
+    // ----------------------------------------------
+
+    // --- Gatilho de Regras (Mantido) ---
     useEffect(() => {
         const isInbox = selectedEmailFolder?.name?.toUpperCase() === 'INBOX' || 
                         selectedEmailFolder?.displayName === 'Caixa de Entrada';
@@ -138,7 +165,7 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
         setIsCreateFolderOpen(true);
     };
 
-    // --- NOVO: Handler para atualizar listas após envio (Faltava isso!) ---
+    // Callback para envio
     const handleEmailSent = () => {
         queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
         queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
@@ -156,7 +183,6 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                 rulePrefill={rulePrefill} 
             />
             
-            {/* AQUI ESTAVA FALTANDO A PROPRIEDADE onEmailSent */}
             <EmailComposeModal 
                 isOpen={isComposeOpen} 
                 onClose={() => setIsComposeOpen(false)} 

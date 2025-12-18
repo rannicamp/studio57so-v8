@@ -1,17 +1,56 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { createPortal } from 'react-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSearch, faEnvelope, faInbox, faPaperPlane, faTrash, faBan, 
     faFolder, faPlus, faCog, faSpinner, faExclamationTriangle, 
-    faChevronRight, faChevronDown, faUserCircle 
+    faChevronRight, faChevronDown, faUserCircle, faEllipsisV, 
+    faCheckDouble, faEraser
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+import { toast } from 'sonner';
 
-// --- SUB-COMPONENTE: Bloco de Pastas de uma Conta ---
-const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPaths, toggleExpand, onConfig, onCreateFolder }) => {
+// Chave para salvar no localStorage
+const FOLDER_EXPANSION_KEY = 'email_expanded_folders_v1';
+
+// --- MENU FLUTUANTE ---
+const FolderContextMenu = ({ position, folder, onClose, onAction, isSystemFolder }) => {
+    if (!position) return null;
+    return createPortal(
+        <>
+            <div className="fixed inset-0 z-[99990] cursor-default" onClick={onClose}></div>
+            <div 
+                className="fixed z-[99999] bg-white rounded-lg shadow-xl border border-gray-100 w-48 py-1 animate-fade-in text-gray-700"
+                style={{ top: position.top, left: position.left }}
+            >
+                <button onClick={(e) => onAction(e, 'markAllRead', folder.path)} className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50 flex items-center gap-2">
+                    <FontAwesomeIcon icon={faCheckDouble} className="text-blue-500 w-3" /> Marcar lidos
+                </button>
+                <button onClick={(e) => onAction(e, 'empty', folder.path)} className="w-full text-left px-4 py-2 text-xs hover:bg-gray-50 flex items-center gap-2">
+                    <FontAwesomeIcon icon={faEraser} className="text-orange-500 w-3" /> Esvaziar pasta
+                </button>
+                {!isSystemFolder && (
+                    <>
+                        <div className="h-px bg-gray-100 my-1"></div>
+                        <button onClick={(e) => onAction(e, 'delete', folder.path)} className="w-full text-left px-4 py-2 text-xs hover:bg-red-50 text-red-600 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faTrash} className="w-3" /> Excluir pasta
+                        </button>
+                    </>
+                )}
+            </div>
+        </>,
+        document.body
+    );
+};
+
+// --- ÁRVORE DE PASTAS ---
+const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPaths, toggleExpand, onCreateFolder }) => {
+    const queryClient = useQueryClient();
+    const [menuState, setMenuState] = useState({ isOpen: false, position: null, folder: null });
+
     const { data: folderData, isLoading, isError } = useQuery({
         queryKey: ['emailFolders', account.id],
         queryFn: async () => {
@@ -19,8 +58,48 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             if (!res.ok) throw new Error('Erro ao buscar pastas');
             return res.json();
         },
-        staleTime: 1000 * 60 * 5
+        staleTime: 1000 * 60 * 2
     });
+
+    const folderActionMutation = useMutation({
+        mutationFn: async ({ action, folderPath }) => {
+            const res = await fetch('/api/email/folders/actions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, folderPath, accountId: account.id })
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Erro na ação');
+            }
+            return res.json();
+        },
+        onSuccess: (_, vars) => {
+            const msg = { delete: 'Pasta excluída!', empty: 'Pasta esvaziada!', markAllRead: 'Tudo lido!' };
+            toast.success(msg[vars.action]);
+            queryClient.invalidateQueries(['emailFolders', account.id]);
+            queryClient.invalidateQueries(['emailMessages']);
+            setMenuState({ isOpen: false, position: null, folder: null });
+        },
+        onError: (err) => toast.error(err.message)
+    });
+
+    const openMenu = (e, folder) => {
+        e.stopPropagation();
+        const rect = e.currentTarget.getBoundingClientRect();
+        setMenuState({
+            isOpen: true,
+            folder: folder,
+            position: { top: rect.bottom + 5, left: rect.left }
+        });
+    };
+
+    const handleAction = (e, action, folderPath) => {
+        setMenuState({ ...menuState, isOpen: false });
+        if (action === 'delete' && !confirm('Excluir pasta permanentemente?')) return;
+        if (action === 'empty' && !confirm('Apagar TODAS as mensagens desta pasta?')) return;
+        folderActionMutation.mutate({ action, folderPath });
+    };
 
     const processedFolders = useMemo(() => {
         if (!folderData?.folders) return [];
@@ -39,15 +118,26 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             }
         });
 
-        // Ordenação
-        const specialOrder = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'JUNK', 'SPAM', 'ARCHIVE'];
+        // Ordem fixa para pastas especiais
+        const specialOrder = ['INBOX', 'ENTRADA', 'SENT', 'ENVIADOS', 'DRAFTS', 'RASCUNHOS', 'TRASH', 'LIXEIRA', 'JUNK', 'SPAM'];
+        
         const sortList = (list) => list.sort((a, b) => {
-            const indexA = specialOrder.findIndex(key => a.name.toUpperCase() === key);
-            const indexB = specialOrder.findIndex(key => b.name.toUpperCase() === key);
-            if (indexA === -1 && indexB === -1) return a.displayName.localeCompare(b.displayName);
+            // Tenta achar a posição da pasta A e B na lista especial
+            // Verificamos tanto o nome interno (name) quanto o visual (displayName)
+            const getPriority = (f) => {
+                const byName = specialOrder.findIndex(key => f.name.toUpperCase().includes(key));
+                if (byName !== -1) return byName;
+                return specialOrder.findIndex(key => f.displayName.toUpperCase().includes(key));
+            };
+
+            const indexA = getPriority(a);
+            const indexB = getPriority(b);
+
             if (indexA !== -1 && indexB !== -1) return indexA - indexB;
             if (indexA !== -1) return -1;
-            return 1;
+            if (indexB !== -1) return 1;
+            
+            return a.displayName.localeCompare(b.displayName);
         });
 
         const flattenTree = (list) => {
@@ -57,7 +147,7 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                 const children = childrenMap[folder.path] || [];
                 const hasChildren = children.length > 0;
                 result.push({ ...folder, hasChildren });
-                // Expansão controlada pela chave única: accountId + folderPath
+                // Usa a chave única composta (conta + path) para saber se expande
                 if (hasChildren && expandedPaths.has(`${account.id}-${folder.path}`)) {
                     result = result.concat(flattenTree(children));
                 }
@@ -76,58 +166,111 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
         return faFolder; 
     };
 
-    if (isLoading) return <div className="py-2 px-6 text-xs text-gray-400 flex items-center gap-2"><FontAwesomeIcon icon={faSpinner} spin /> Carregando...</div>;
+    if (isLoading) return <div className="py-2 px-6 text-xs text-gray-400 flex items-center gap-2"><FontAwesomeIcon icon={faSpinner} spin /> Carregando pastas...</div>;
     if (isError) return <div className="py-2 px-6 text-xs text-red-400 flex items-center gap-2"><FontAwesomeIcon icon={faExclamationTriangle} /> Erro de conexão</div>;
 
     return (
-        <div className="pb-2">
-            {processedFolders.map((folder) => {
-                const uniqueKey = `${account.id}-${folder.path}`;
-                const isExpanded = expandedPaths.has(uniqueKey);
-                // Verifica se a pasta selecionada é DESTA conta e DESTE path
-                const isSelected = selectedFolder?.path === folder.path && selectedFolder?.accountId === account.id;
-
-                return (
-                    <div 
-                        key={uniqueKey}
-                        className={`
-                            w-full text-left hover:bg-gray-50 flex items-center text-sm transition-colors cursor-pointer group select-none relative
-                            ${isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}
-                        `}
-                        onClick={() => onSelectFolder({ ...folder, accountId: account.id })} // Adicionamos o ID da conta ao selecionar
-                        style={{ paddingLeft: `${16 + (folder.level * 16)}px`, paddingRight: '12px' }} 
-                    >
-                        {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></div>}
+        <>
+            <div className="pb-2">
+                {processedFolders.map((folder) => {
+                    const uniqueKey = `${account.id}-${folder.path}`;
+                    const isExpanded = expandedPaths.has(uniqueKey);
+                    const isSelected = selectedFolder?.path === folder.path && selectedFolder?.accountId === account.id;
+                    
+                    return (
                         <div 
-                            className="h-9 w-6 flex items-center justify-center shrink-0 hover:text-blue-600 text-gray-400 mr-1"
-                            onClick={(e) => { e.stopPropagation(); if(folder.hasChildren) toggleExpand(uniqueKey); }}
+                            key={uniqueKey}
+                            className={`
+                                w-full text-left hover:bg-gray-50 flex items-center text-sm transition-colors cursor-pointer group select-none relative
+                                ${isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}
+                            `}
+                            onClick={() => onSelectFolder({ ...folder, accountId: account.id })}
+                            style={{ paddingLeft: `${16 + (folder.level * 16)}px`, paddingRight: '12px' }} 
                         >
-                            {folder.hasChildren && <FontAwesomeIcon icon={isExpanded ? faChevronDown : faChevronRight} className="text-[10px]" />}
+                            {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></div>}
+                            
+                            <div 
+                                className="h-9 w-6 flex items-center justify-center shrink-0 hover:text-blue-600 text-gray-400 mr-1"
+                                onClick={(e) => { e.stopPropagation(); if(folder.hasChildren) toggleExpand(uniqueKey); }}
+                            >
+                                {folder.hasChildren && <FontAwesomeIcon icon={isExpanded ? faChevronDown : faChevronRight} className="text-[10px]" />}
+                            </div>
+                            
+                            <div className="flex items-center gap-3 flex-grow py-2.5 overflow-hidden pr-2">
+                                <FontAwesomeIcon icon={getFolderIcon(folder.name)} className={`${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
+                                <span className="truncate flex-grow">{folder.displayName || folder.name}</span>
+                                
+                                {/* CONTADOR DE NÃO LIDOS */}
+                                {folder.unseen > 0 && (
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${isSelected ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'} ${folder.displayName === 'Caixa de Entrada' ? 'bg-red-500 text-white' : ''}`}>
+                                        {folder.unseen}
+                                    </span>
+                                )}
+
+                                {/* BOTÃO 3 PONTINHOS */}
+                                <button 
+                                    onClick={(e) => openMenu(e, folder)}
+                                    className="w-6 h-6 rounded-full hover:bg-gray-200 flex items-center justify-center text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                    <FontAwesomeIcon icon={faEllipsisV} className="text-[10px]" />
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-3 flex-grow py-2.5 overflow-hidden">
-                            <FontAwesomeIcon icon={getFolderIcon(folder.name)} className={`${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
-                            <span className="truncate flex-grow">{folder.displayName || folder.name}</span>
-                            {folder.unseen > 0 && (
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 shrink-0 ${isSelected ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'} ${folder.displayName === 'Caixa de Entrada' ? 'bg-red-500 text-white' : ''}`}>
-                                    {folder.unseen}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
+                    );
+                })}
+            </div>
+            {menuState.isOpen && (
+                <FolderContextMenu 
+                    position={menuState.position} 
+                    folder={menuState.folder} 
+                    onClose={() => setMenuState({ isOpen: false, position: null, folder: null })}
+                    onAction={handleAction}
+                    isSystemFolder={['INBOX', 'SENT', 'TRASH', 'JUNK', 'SPAM', 'DRAFTS'].some(s => menuState.folder.name.toUpperCase().includes(s))}
+                />
+            )}
+        </>
     );
 };
-
 
 export default function EmailSidebar({ 
     selectedFolder, onSelectFolder, onCompose, onConfig, onChangeTab, 
     searchTerm, onSearchChange, onCreateFolder, canViewWhatsapp = true, className = '' 
 }) {
-    const [expandedPaths, setExpandedPaths] = useState(new Set()); 
+    // --- LÓGICA DE PERSISTÊNCIA DAS PASTAS ---
+    const [expandedPaths, setExpandedPaths] = useState(new Set());
+    const [isHydrated, setIsHydrated] = useState(false);
 
-    // Busca Contas
+    // 1. Carregar do LocalStorage ao iniciar
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem(FOLDER_EXPANSION_KEY);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    // Converte array de volta para Set
+                    setExpandedPaths(new Set(parsed));
+                } catch (e) { console.error("Erro ao ler expansão de pastas", e); }
+            }
+            setIsHydrated(true);
+        }
+    }, []);
+
+    // 2. Salvar no LocalStorage sempre que mudar
+    useEffect(() => {
+        if (isHydrated && typeof window !== 'undefined') {
+            // Converte Set para Array para salvar em JSON
+            localStorage.setItem(FOLDER_EXPANSION_KEY, JSON.stringify(Array.from(expandedPaths)));
+        }
+    }, [expandedPaths, isHydrated]);
+
+    const toggleExpand = (uniqueKey) => {
+        const newSet = new Set(expandedPaths);
+        if (newSet.has(uniqueKey)) newSet.delete(uniqueKey);
+        else newSet.add(uniqueKey);
+        setExpandedPaths(newSet);
+    };
+    // ----------------------------------------
+
     const { data: accountsData, isLoading: loadingAccounts } = useQuery({
         queryKey: ['emailAccounts'],
         queryFn: async () => {
@@ -137,13 +280,6 @@ export default function EmailSidebar({
         },
         staleTime: 1000 * 60 * 10
     });
-
-    const toggleExpand = (uniqueKey) => {
-        const newSet = new Set(expandedPaths);
-        if (newSet.has(uniqueKey)) newSet.delete(uniqueKey);
-        else newSet.add(uniqueKey);
-        setExpandedPaths(newSet);
-    };
 
     const accounts = accountsData?.accounts || [];
 
@@ -180,9 +316,10 @@ export default function EmailSidebar({
             <div className="flex-grow overflow-y-auto custom-scrollbar bg-white">
                 <div className="p-3 bg-blue-50/50 text-xs font-bold text-blue-800 flex justify-between items-center tracking-wide border-b border-blue-100">
                     <span>MINHAS CONTAS</span>
-                    <button onClick={onConfig} title="Gerenciar Contas" className="hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-100">
-                        <FontAwesomeIcon icon={faCog} />
-                    </button>
+                    <div className="flex gap-1">
+                        <button onClick={onCreateFolder} title="Nova Pasta" className="hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-100"><FontAwesomeIcon icon={faPlus} /></button>
+                        <button onClick={onConfig} title="Gerenciar Contas" className="hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-100"><FontAwesomeIcon icon={faCog} /></button>
+                    </div>
                 </div>
 
                 {loadingAccounts ? (
@@ -199,12 +336,10 @@ export default function EmailSidebar({
                     <div className="divide-y divide-gray-100">
                         {accounts.map(acc => (
                             <div key={acc.id} className="pb-2">
-                                {/* Cabeçalho da Conta */}
                                 <div className="px-4 py-3 flex items-center gap-2 text-gray-800 font-bold text-xs uppercase bg-gray-50/50 sticky top-0 z-10 backdrop-blur-sm">
                                     <FontAwesomeIcon icon={faUserCircle} className="text-gray-400" />
                                     <span className="truncate">{acc.conta_apelido || acc.email}</span>
                                 </div>
-                                {/* Árvore de Pastas da Conta */}
                                 <AccountFolderTree 
                                     account={acc}
                                     selectedFolder={selectedFolder}
