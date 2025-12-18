@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom'; // <--- O SEGREDO DO PORTAL
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faPaperPlane, faSpinner, faPaperclip, faTrashAlt, faFile, faUser, faBuilding } from '@fortawesome/free-solid-svg-icons';
 import EmailEditor from './EmailEditor';
@@ -17,10 +18,17 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
 
     const [loading, setLoading] = useState(false);
     const fileInputRef = useRef(null);
+    const [mounted, setMounted] = useState(false); // Para evitar erros de hidratação com o Portal
     
     const [formData, setFormData] = useState({
         to: '', cc: '', bcc: '', subject: '', body: '', replyToMessageId: null, attachments: []
     });
+
+    // Garante que o componente está montado antes de usar o Portal
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
 
     // --- 1. BUSCAR CONFIGURAÇÃO DE ASSINATURA ---
     const { data: emailConfig } = useQuery({
@@ -44,7 +52,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
         const textoAssinatura = emailConfig.assinatura_texto;
         const incluirFoto = emailConfig.assinatura_incluir_foto;
         
-        // CORREÇÃO AQUI: Pegamos a foto direto do perfil do usuário (igual no Header)
+        // CORREÇÃO AQUI: Pegamos a foto direto do perfil do usuário
         const fotoUrl = user?.avatar_url; 
 
         // Se tiver foto e a opção estiver marcada
@@ -271,10 +279,11 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
         finally { setLoading(false); }
     };
 
-    if (!isOpen) return null;
+    if (!mounted || !isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+    // USANDO PORTAL E Z-INDEX 99999 PARA FICAR POR CIMA DE TUDO
+    return createPortal(
+        <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 backdrop-blur-sm" style={{ pointerEvents: 'auto' }}>
             <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl flex flex-col h-[85vh] animate-fade-in-up">
                 
                 <div className="flex justify-between items-center px-6 py-4 border-b bg-gray-50 rounded-t-xl shrink-0">
@@ -354,6 +363,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
                     </div>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body // <--- RENDERIZA NO CORPO DA PÁGINA
     );
 }
