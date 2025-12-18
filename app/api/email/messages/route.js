@@ -67,6 +67,9 @@ export async function GET(request) {
   const supabase = createClient();
   const { searchParams } = new URL(request.url);
   
+  // --- NOVO: PEGA O ID DA CONTA ---
+  const accountId = searchParams.get('accountId');
+  
   const folderParam = searchParams.get('folder');
   let folderName = folderParam ? decodeURIComponent(folderParam) : 'INBOX';
   const pageParam = searchParams.get('page');
@@ -82,11 +85,16 @@ export async function GET(request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-    const { data: config } = await supabase
-      .from('email_configuracoes')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
+    // --- BUSCA A CONFIGURAÇÃO CORRETA ---
+    let query = supabase.from('email_configuracoes').select('*').eq('user_id', user.id);
+    
+    // Se tiver ID, filtra por ele. Senão, vai trazer todas e pegamos a primeira ([0])
+    if (accountId) {
+        query = query.eq('id', accountId);
+    }
+    
+    const { data: configs } = await query;
+    const config = configs?.[0]; // Pega a configuração específica ou a padrão
 
     if (!config) return NextResponse.json({ error: 'Configuração não encontrada' }, { status: 404 });
 

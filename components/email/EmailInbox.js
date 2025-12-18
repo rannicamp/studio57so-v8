@@ -13,7 +13,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useDebounce } from 'use-debounce';
 import { toast } from 'sonner';
 
-const EMAIL_UI_STATE_KEY = 'emailUiState';
+const EMAIL_UI_STATE_KEY = 'emailUiState_v2'; // Mudei a chave para v2 para limpar caches antigos incompatíveis
 
 const getCachedData = () => {
     if (typeof window === 'undefined') return null;
@@ -25,22 +25,20 @@ const getCachedData = () => {
     }
 };
 
-// RECEBENDO A PROP canViewWhatsapp
 export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
     const cachedState = getCachedData();
     const queryClient = useQueryClient();
 
-    // --- Estados ---
+    // --- Estados com Restauração ---
     const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '');
     const [selectedEmailFolder, setSelectedEmailFolder] = useState(cachedState?.selectedEmailFolder || null); 
     const [selectedEmail, setSelectedEmail] = useState(cachedState?.selectedEmail || null);
     
-    // Configuração dos Modais
-    const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false);
-    const [configInitialTab, setConfigInitialTab] = useState('connection'); 
-    const [isComposeOpen, setIsComposeOpen] = useState(false);
+    // Configuração dos Modais (Agora com memória!)
+    const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(cachedState?.isEmailConfigOpen || false);
+    const [configInitialTab, setConfigInitialTab] = useState(cachedState?.configInitialTab || 'connection'); 
     
-    // NOVO: Estado para o Modal de Criar Pasta Centralizado
+    const [isComposeOpen, setIsComposeOpen] = useState(false);
     const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
 
     // Estado para preenchimento inteligente de regras
@@ -50,10 +48,21 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
 
     // --- Persistência UI ---
     const hasRestoredUiState = useRef(false);
-    useEffect(() => { hasRestoredUiState.current = true; }, []);
-
-    const uiStateToSave = { selectedEmailFolder, searchTerm, selectedEmail };
+    
+    // Objeto que será salvo no Cache
+    const uiStateToSave = { 
+        selectedEmailFolder, 
+        searchTerm, 
+        selectedEmail,
+        isEmailConfigOpen, // <--- Salvando se o modal está aberto
+        configInitialTab   // <--- Salvando em qual aba estava
+    };
+    
     const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
+
+    useEffect(() => {
+        hasRestoredUiState.current = true;
+    }, []);
 
     useEffect(() => {
         if (typeof window !== 'undefined' && hasRestoredUiState.current) {
@@ -96,7 +105,6 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
         if (selectedEmailFolder) { setSelectedEmailFolder(null); return; }
     };
 
-    // --- CRIAÇÃO INTELIGENTE DE REGRA ---
     const handleOpenRules = (email = null) => {
         if (email) {
             let term = email.from || '';
@@ -126,7 +134,6 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
         setIsEmailConfigOpen(true);
     };
 
-    // --- FUNÇÃO CENTRALIZADA PARA ABRIR O MODAL DE CRIAR PASTA ---
     const handleOpenCreateFolder = () => {
         setIsCreateFolderOpen(true);
     };
@@ -145,13 +152,12 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
             
             <EmailComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} />
 
-            {/* MODAL DE CRIAR PASTA CENTRALIZADO */}
             <EmailCreateFolderModal 
                 isOpen={isCreateFolderOpen} 
                 onClose={() => setIsCreateFolderOpen(false)} 
             />
 
-            {/* --- COMPONENTE 1: SIDEBAR --- */}
+            {/* --- SIDEBAR --- */}
             <EmailSidebar 
                 className={`w-full md:w-[280px] shrink-0 ${hasSelection ? 'hidden md:flex' : 'flex'}`}
                 selectedFolder={selectedEmailFolder}
@@ -162,11 +168,10 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
                 onCreateFolder={handleOpenCreateFolder}
-                // PASSANDO A PROP ADIANTE
                 canViewWhatsapp={canViewWhatsapp}
             />
 
-            {/* --- COMPONENTE 2: LISTA DE E-MAILS --- */}
+            {/* --- LISTA DE E-MAILS --- */}
             <div className={`
                 ${hasSelection ? 'flex' : 'hidden md:flex'} 
                 ${showEmailReadingPane ? 'hidden lg:flex lg:w-[350px] border-r shrink-0' : 'flex-grow'} 
@@ -193,7 +198,7 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                 )}
             </div>
 
-            {/* --- COMPONENTE 3: LEITURA --- */}
+            {/* --- LEITURA --- */}
             {showEmailReadingPane && (
                 <div className="flex-grow w-full lg:w-auto bg-white flex-col h-full overflow-hidden min-h-0 relative z-10">
                     <EmailViewPanel 
