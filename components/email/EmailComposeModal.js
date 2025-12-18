@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom'; // <--- O SEGREDO DO PORTAL
+import { createPortal } from 'react-dom'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faPaperPlane, faSpinner, faPaperclip, faTrashAlt, faFile, faUser, faBuilding } from '@fortawesome/free-solid-svg-icons';
 import EmailEditor from './EmailEditor';
@@ -11,7 +11,8 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 
-export default function EmailComposeModal({ isOpen, onClose, initialData = null }) {
+// Adicionei 'onEmailSent' nas props aqui embaixo
+export default function EmailComposeModal({ isOpen, onClose, initialData = null, onEmailSent }) {
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
@@ -52,7 +53,6 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
         const textoAssinatura = emailConfig.assinatura_texto;
         const incluirFoto = emailConfig.assinatura_incluir_foto;
         
-        // CORREÇÃO AQUI: Pegamos a foto direto do perfil do usuário
         const fotoUrl = user?.avatar_url; 
 
         // Se tiver foto e a opção estiver marcada
@@ -273,7 +273,16 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null 
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Erro ao enviar');
+            
             toast.success('E-mail enviado!');
+            
+            // --- AQUI ESTÁ A CORREÇÃO ---
+            // Avisa o componente pai (Inbox) que enviamos, para ele atualizar a lista
+            if (onEmailSent) {
+                onEmailSent();
+            }
+            // ---------------------------
+
             onClose();
         } catch (error) { toast.error(error.message); } 
         finally { setLoading(false); }

@@ -13,7 +13,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useDebounce } from 'use-debounce';
 import { toast } from 'sonner';
 
-const EMAIL_UI_STATE_KEY = 'emailUiState_v2'; // Mudei a chave para v2 para limpar caches antigos incompatíveis
+const EMAIL_UI_STATE_KEY = 'emailUiState_v2'; 
 
 const getCachedData = () => {
     if (typeof window === 'undefined') return null;
@@ -34,7 +34,7 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
     const [selectedEmailFolder, setSelectedEmailFolder] = useState(cachedState?.selectedEmailFolder || null); 
     const [selectedEmail, setSelectedEmail] = useState(cachedState?.selectedEmail || null);
     
-    // Configuração dos Modais (Agora com memória!)
+    // Configuração dos Modais (Com memória!)
     const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(cachedState?.isEmailConfigOpen || false);
     const [configInitialTab, setConfigInitialTab] = useState(cachedState?.configInitialTab || 'connection'); 
     
@@ -54,8 +54,8 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
         selectedEmailFolder, 
         searchTerm, 
         selectedEmail,
-        isEmailConfigOpen, // <--- Salvando se o modal está aberto
-        configInitialTab   // <--- Salvando em qual aba estava
+        isEmailConfigOpen, 
+        configInitialTab
     };
     
     const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
@@ -138,6 +138,12 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
         setIsCreateFolderOpen(true);
     };
 
+    // --- NOVO: Handler para atualizar listas após envio (Faltava isso!) ---
+    const handleEmailSent = () => {
+        queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
+        queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
+    };
+
     const hasSelection = selectedEmailFolder;
     const showEmailReadingPane = selectedEmail;
 
@@ -150,7 +156,12 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                 rulePrefill={rulePrefill} 
             />
             
-            <EmailComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} />
+            {/* AQUI ESTAVA FALTANDO A PROPRIEDADE onEmailSent */}
+            <EmailComposeModal 
+                isOpen={isComposeOpen} 
+                onClose={() => setIsComposeOpen(false)} 
+                onEmailSent={handleEmailSent}
+            />
 
             <EmailCreateFolderModal 
                 isOpen={isCreateFolderOpen} 

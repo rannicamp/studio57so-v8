@@ -16,15 +16,21 @@ import { toast } from 'sonner';
 import EmailActionMenu from './EmailActionMenu';
 
 const fetchEmailContent = async ({ queryKey }) => {
-    const [_key, folderPath, uid] = queryKey;
+    // Agora desestruturamos o accountId da chave da query
+    const [_key, folderPath, uid, accountId] = queryKey;
     if (!uid) return null;
-    const res = await fetch(`/api/email/content?folder=${encodeURIComponent(folderPath)}&uid=${uid}`);
+    
+    // Adicionamos accountId na URL
+    let url = `/api/email/content?folder=${encodeURIComponent(folderPath)}&uid=${uid}`;
+    if (accountId) url += `&accountId=${accountId}`;
+    
+    const res = await fetch(url);
     if (!res.ok) throw new Error('Erro ao carregar conteúdo');
     return res.json();
 };
 
-const performEmailAction = async ({ action, folder, uid, destination }) => { 
-    const body = { action, folder, uid };
+const performEmailAction = async ({ action, folder, uid, destination, accountId }) => { 
+    const body = { action, folder, uid, accountId }; // Passamos accountId nas ações também
     if (destination) body.targetFolder = destination;
     const res = await fetch('/api/email/actions', {
         method: 'POST',
@@ -38,16 +44,18 @@ const performEmailAction = async ({ action, folder, uid, destination }) => {
 export default function EmailViewPanel({ emailSummary, folder, onClose, onCreateRule }) {
     const queryClient = useQueryClient();
     
-    // Estados dos Modais
     const [isComposeOpen, setIsComposeOpen] = useState(false);
     const [composeData, setComposeData] = useState(null);
     const [isActivityOpen, setIsActivityOpen] = useState(false);
     const [activityData, setActivityData] = useState(null);
 
     const folderIdentifier = folder?.path || folder?.name;
+    // Pegamos o accountId que vem da pasta selecionada
+    const accountId = folder?.accountId;
 
     const { data: fullEmail, isLoading, isError } = useQuery({
-        queryKey: ['emailContent', folderIdentifier, emailSummary?.id],
+        // Adicionamos accountId na chave única do cache
+        queryKey: ['emailContent', folderIdentifier, emailSummary?.id, accountId],
         queryFn: fetchEmailContent,
         enabled: !!emailSummary?.id && !!folderIdentifier,
         staleTime: 1000 * 60 * 30, 
@@ -64,7 +72,7 @@ export default function EmailViewPanel({ emailSummary, folder, onClose, onCreate
     }, [fullEmail, emailSummary]);
 
     const actionMutation = useMutation({
-        mutationFn: performEmailAction,
+        mutationFn: (vars) => performEmailAction({ ...vars, accountId }), // Injeta accountId
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
             if (variables.action === 'trash') { toast.success('E-mail excluído.'); onClose(); }
@@ -79,16 +87,29 @@ export default function EmailViewPanel({ emailSummary, folder, onClose, onCreate
         const currentEmailId = emailSummary?.id;
         const currentFolder = folderIdentifier;
         const isAlreadyRead = emailSummary?.flags?.includes('\\Seen');
-        return () => {
-            if (currentEmailId && !isAlreadyRead) {
+        
+        // Marca como lido automaticamente ao abrir
+        if (currentEmailId && !isAlreadyRead) {
+            // Pequeno delay para não marcar se o usuário só passar rápido
+            const timer = setTimeout(() => {
                 fetch('/api/email/actions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'markAsRead', folder: currentFolder, uid: currentEmailId })
-                }).then(() => { queryClient.invalidateQueries({ queryKey: ['emailMessages'] }); });
-            }
-        };
-    }, [emailSummary?.id, folderIdentifier, emailSummary?.flags, queryClient]); 
+                    body: JSON.stringify({ 
+                        action: 'markAsRead', 
+                        folder: currentFolder, 
+                        uid: currentEmailId,
+                        accountId // Importante passar aqui também
+                    })
+                }).then(() => { 
+                    // Atualiza cache silenciosamente
+                    queryClient.invalidateQueries({ queryKey: ['emailMessages'] }); 
+                    queryClient.invalidateQueries({ queryKey: ['emailFolders'] }); 
+                });
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [emailSummary?.id, folderIdentifier, emailSummary?.flags, queryClient, accountId]); 
 
     const handleCreateActivity = () => {
         if (!fullEmail) return;
@@ -125,7 +146,17 @@ export default function EmailViewPanel({ emailSummary, folder, onClose, onCreate
         if (type === 'replyAll' && fullEmail.to) { if (typeof fullEmail.to === 'string') cc = fullEmail.to; }
         const dateStr = format(new Date(fullEmail.date), "dd/MM/yyyy HH:mm", { locale: ptBR });
         const quote = `<br><br><br><div style="border-left: 2px solid #ccc; padding-left: 10px; color: #555;">Em ${dateStr}, <strong>${senderInfo.name}</strong> escreveu:<br><br>${fullEmail.html || fullEmail.text}</div>`;
-        setComposeData({ type: type === 'forward' ? 'forward' : 'reply', to: type === 'forward' ? '' : to, cc: type === 'replyAll' ? cc : '', subject: type === 'forward' ? `Fwd: ${fullEmail.subject}` : subject, body: quote, messageId: fullEmail.id });
+        
+        // Passa accountId no initialData se quiser que o compose use a conta certa no futuro
+        setComposeData({ 
+            type: type === 'forward' ? 'forward' : 'reply', 
+            to: type === 'forward' ? '' : to, 
+            cc: type === 'replyAll' ? cc : '', 
+            subject: type === 'forward' ? `Fwd: ${fullEmail.subject}` : subject, 
+            body: quote, 
+            messageId: fullEmail.id,
+            accountId // Opcional, para uso futuro no Compose
+        });
         setIsComposeOpen(true);
     };
 

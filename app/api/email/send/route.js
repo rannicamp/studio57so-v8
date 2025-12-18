@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import nodemailer from 'nodemailer';
+import imapSimple from 'imap-simple';
+import MailComposer from 'nodemailer/lib/mail-composer';
 
 export async function POST(request) {
   const supabase = createClient();
@@ -9,29 +11,23 @@ export async function POST(request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-    const { to, cc, bcc, subject, html, replyToMessageId, attachments } = await request.json();
+    const { to, cc, bcc, subject, html, replyToMessageId, attachments, accountId } = await request.json();
 
-    // --- VALIDAÇÃO DETALHADA ---
-    const missingFields = [];
-    if (!to) missingFields.push("Para (Destinatário)");
-    if (!subject) missingFields.push("Assunto");
-    if (!html) missingFields.push("Mensagem (Corpo do e-mail)");
-
-    if (missingFields.length > 0) {
-      return NextResponse.json({ 
-          error: `Campos obrigatórios faltando: ${missingFields.join(', ')}` 
-      }, { status: 400 });
+    // --- VALIDAÇÃO ---
+    if (!to || !subject || !html) {
+      return NextResponse.json({ error: 'Campos obrigatórios faltando.' }, { status: 400 });
     }
-    // ---------------------------
 
-    const { data: config } = await supabase
-      .from('email_configuracoes')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
+    // --- BUSCA CONFIGURAÇÃO ---
+    let query = supabase.from('email_configuracoes').select('*').eq('user_id', user.id);
+    if (accountId) query = query.eq('id', accountId);
+    
+    const { data: configs } = await query;
+    const config = configs?.[0]; // Pega a primeira/única encontrada
 
     if (!config) return NextResponse.json({ error: 'Configure seu SMTP primeiro.' }, { status: 404 });
 
+    // 1. CONFIGURA O TRANSPORTE (ENVIO)
     const transporter = nodemailer.createTransport({
       host: config.smtp_host,
       port: config.smtp_port || 587,
@@ -45,20 +41,70 @@ export async function POST(request) {
 
     const mailOptions = {
       from: `"${config.nome_remetente || user.email}" <${config.email}>`,
-      to,
-      cc,
-      bcc,
-      subject,
-      html,
-      ...(replyToMessageId && {
-          inReplyTo: replyToMessageId,
-          references: [replyToMessageId]
-      }),
+      to, cc, bcc, subject, html,
+      ...(replyToMessageId && { inReplyTo: replyToMessageId, references: [replyToMessageId] }),
       attachments: attachments || []
     };
 
+    // 2. ENVIA O E-MAIL (SMTP)
     const info = await transporter.sendMail(mailOptions);
-    console.log("E-mail enviado:", info.messageId);
+    console.log("E-mail enviado via SMTP:", info.messageId);
+
+    // 3. SALVA NA PASTA ENVIADOS (IMAP APPEND)
+    // Esse passo é crucial para e-mails corporativos/cPanel
+    try {
+        const imapConfig = {
+            imap: {
+                user: config.imap_user || config.email,
+                password: config.senha_app,
+                host: config.imap_host,
+                port: config.imap_port || 993,
+                tls: true,
+                authTimeout: 10000,
+                tlsOptions: { rejectUnauthorized: false }
+            },
+        };
+
+        const connection = await imapSimple.connect(imapConfig);
+        const boxes = await connection.getBoxes();
+
+        // Tenta adivinhar a pasta de enviados
+        let sentFolder = 'Sent'; // Padrão
+        
+        // Função auxiliar para achar pasta
+        const findSentBox = (list, parent = '') => {
+            for (const [key, value] of Object.entries(list)) {
+                const fullPath = parent ? `${parent}${value.delimiter}${key}` : key;
+                if (key.toUpperCase() === 'SENT' || key.toUpperCase() === 'ENVIADOS' || key.toUpperCase().includes('SENT ITEMS')) {
+                    return fullPath;
+                }
+                if (value.children) {
+                    const found = findSentBox(value.children, fullPath);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+
+        const foundSent = findSentBox(boxes);
+        if (foundSent) sentFolder = foundSent;
+
+        // Compila o e-mail para o formato RAW (MIME)
+        const composer = new MailComposer(mailOptions);
+        const rawMessage = await composer.compile().build();
+
+        await connection.append(rawMessage, {
+            mailbox: sentFolder,
+            flags: ['\\Seen']
+        });
+        
+        console.log(`Cópia salva em: ${sentFolder}`);
+        connection.end();
+
+    } catch (saveError) {
+        console.error("Aviso: E-mail enviado, mas falha ao salvar na pasta Enviados:", saveError.message);
+        // Não lançamos erro aqui para não dizer ao usuário que o envio falhou, pois o envio em si funcionou.
+    }
 
     return NextResponse.json({ success: true, messageId: info.messageId });
 
