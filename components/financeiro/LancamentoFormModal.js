@@ -1,3 +1,4 @@
+// components/financeiro/LancamentoFormModal.js
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -72,7 +73,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         data_vencimento: new Date().toISOString().split('T')[0],
         conta_origem_id: null,
         conta_destino_id: null,
-        pedido_compra_id: null, // <-- MANTIDO: Vínculo com Pedido
+        pedido_compra_id: null,
     });
 
     const [formData, setFormData] = useState(getInitialState());
@@ -82,10 +83,16 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     const [searchAttempted, setSearchAttempted] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
 
+    // BUSCA DADOS AUXILIARES (Agora incluindo dados de Fatura do Cartão)
     const fetchDropdownData = async () => {
         if (!organizacaoId) return null;
 
-        const { data: contasData, error: contasError } = await supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', organizacaoId).order('nome');
+        // ATUALIZAÇÃO AQUI: Buscando campos extras da conta
+        const { data: contasData, error: contasError } = await supabase
+            .from('contas_financeiras')
+            .select('id, nome, tipo, dia_fechamento_fatura, dia_pagamento_fatura')
+            .eq('organizacao_id', organizacaoId)
+            .order('nome');
         if (contasError) throw new Error(contasError.message);
 
         const { data: categoriasData, error: categoriasError } = await supabase.from('categorias_financeiras').select('id, nome, tipo, parent_id').eq('organizacao_id', organizacaoId).order('nome');
@@ -110,6 +117,69 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         staleTime: 5 * 60 * 1000,
     });
     
+    // --- LÓGICA INTELIGENTE DE DATAS PARA CARTÃO ---
+    useEffect(() => {
+        // Só executa se não estiver editando (para não mudar dados históricos sem querer)
+        // E se tivermos os dados das contas carregados
+        if (isEditing || !dropdownData?.contas || !formData.conta_id || !formData.data_transacao) return;
+
+        const contaSelecionada = dropdownData.contas.find(c => c.id == formData.conta_id);
+
+        // Se for Cartão de Crédito e tiver as datas configuradas
+        if (contaSelecionada?.tipo === 'Cartão de Crédito' && contaSelecionada.dia_fechamento_fatura && contaSelecionada.dia_pagamento_fatura) {
+            
+            const dataCompra = new Date(formData.data_transacao + 'T12:00:00Z'); // T12 para evitar fuso horário
+            const diaCompra = dataCompra.getDate();
+            const diaFechamento = contaSelecionada.dia_fechamento_fatura;
+            const diaVencimento = contaSelecionada.dia_pagamento_fatura;
+
+            let dataVencimentoCalculada = new Date(dataCompra);
+            
+            // Se comprou ANTES ou NO DIA do fechamento, vence no mesmo mês (se o vencimento for depois) ou próximo
+            // Lógica Padrão de Cartão: 
+            // Fechamento dia 20. Compra dia 19 -> Entra na fatura atual.
+            // Fechamento dia 20. Compra dia 21 -> Entra na próxima fatura.
+            
+            // Definimos a data base da fatura
+            if (diaCompra >= diaFechamento) {
+                // Virou a fatura: Vencimento é no mês seguinte (ou dois meses depois dependendo da data de vencimento vs fechamento)
+                // Simplificação segura: Adiciona 1 mês
+                dataVencimentoCalculada.setMonth(dataVencimentoCalculada.getMonth() + 1);
+            }
+
+            // Ajusta o dia para o dia de vencimento da fatura
+            dataVencimentoCalculada.setDate(diaVencimento);
+
+            // Tratamento especial: Se o dia de vencimento é menor que o dia de fechamento (ex: fecha 25, vence 05),
+            // a data de vencimento "pula" mais um mês em relação à compra se já virou.
+            // Exemplo: Fecha 25/Jan, Vence 05/Fev.
+            // Compra 20/Jan -> Fatura Jan -> Vence 05/Fev.
+            // Compra 26/Jan -> Fatura Fev -> Vence 05/Mar.
+            if (diaVencimento < diaFechamento) {
+                 dataVencimentoCalculada.setMonth(dataVencimentoCalculada.getMonth() + 1);
+            }
+
+            // Formata para YYYY-MM-DD
+            const novaDataVencimento = dataVencimentoCalculada.toISOString().split('T')[0];
+
+            // Atualiza o estado apenas se for diferente para evitar loop
+            if (formData.data_vencimento !== novaDataVencimento) {
+                setFormData(prev => ({ ...prev, data_vencimento: novaDataVencimento }));
+                // Opcional: Feedback visual discreto (pode ser via toast se quiser)
+                // toast.info(`Vencimento ajustado para fatura de ${novaDataVencimento}`);
+            }
+        } else if (formData.form_type !== 'transferencia' && formData.form_type !== 'parcelado') {
+            // Se mudou para uma conta normal, por padrão, vencimento = transação (para facilitar lançamentos à vista)
+            // Mas só se o usuário não tiver alterado manualmente (difícil rastrear, então aplicamos se for igual)
+             if (formData.data_vencimento !== formData.data_transacao) {
+                 // Aqui optamos por NÃO forçar em contas normais para não atrapalhar edições manuais,
+                 // a menos que seja uma troca de conta explícita onde resetamos.
+                 // Mantemos o comportamento atual para contas normais.
+             }
+        }
+    }, [formData.conta_id, formData.data_transacao, dropdownData, isEditing, formData.form_type]);
+
+
     const sanitizeFileName = (fileName) => {
         const withoutAccents = fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         const sanitized = withoutAccents.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
@@ -145,7 +215,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 organizacao_id: organizacaoId,
                 conta_id: formData.conta_id,
                 tipo: formData.tipo,
-                pedido_compra_id: formData.pedido_compra_id, // <-- MANTIDO: Vínculo com Pedido
+                pedido_compra_id: formData.pedido_compra_id, 
             };
 
             let lancamentosSalvos = [];
@@ -511,7 +581,26 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                         
                         {formData.form_type === 'parcelado' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes do Parcelamento</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor Total *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleValorChange(unmaskedValue)} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Nº de Parcelas *</label> <input type="number" min="2" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">1º Vencimento *</label> <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
                         {formData.form_type === 'recorrente' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes da Recorrência</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor da Parcela *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleValorChange(unmaskedValue)} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Início *</label> <input type="date" name="recorrencia_data_inicio" value={formData.recorrencia_data_inicio} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Fim (Opcional)</label> <input type="date" name="recorrencia_data_fim" value={formData.recorrencia_data_fim || ''} onChange={handleChange} className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
-                        {(formData.form_type === 'simples' || formData.form_type === 'transferencia' || isEditing) && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div> <label className="block text-sm font-medium">Valor *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleValorChange(unmaskedValue)} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">{formData.form_type === 'transferencia' ? 'Data da Transferência *' : 'Data de Vencimento *'}</label> <input type="date" name="data_vencimento" value={formData.data_vencimento || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> )}
+                        {(formData.form_type === 'simples' || formData.form_type === 'transferencia' || isEditing) && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div> <label className="block text-sm font-medium">Valor *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleValorChange(unmaskedValue)} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">{formData.form_type === 'transferencia' ? 'Data da Transferência *' : 'Data de Transação *'}</label> <input type="date" name="data_transacao" value={formData.data_transacao || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> )}
+                        
+                        {/* CAMPO DE DATA DE VENCIMENTO EXIBIDO */}
+                        {(formData.form_type === 'simples' || isEditing) && (
+                            <div className="grid grid-cols-1">
+                                <div>
+                                    <label className="block text-sm font-medium">Data de Vencimento *</label>
+                                    <input 
+                                        type="date" 
+                                        name="data_vencimento" 
+                                        value={formData.data_vencimento || ''} 
+                                        onChange={handleChange} 
+                                        required 
+                                        className="w-full p-2 border rounded-md" 
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">Data prevista para o débito.</p>
+                                </div>
+                            </div>
+                        )}
+
                         {isEditing && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <div> <label className="block text-sm font-medium">Status</label> <select name="status" value={formData.status || 'Pendente'} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md"> <option value="Pendente">Pendente</option> <option value="Pago">Pago</option> </select> </div> {formData.status === 'Pago' && ( <div className="animate-fade-in"> <label className="block text-sm font-medium">Data do Pagamento</label> <input type="date" name="data_pagamento" value={formData.data_pagamento || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md bg-green-50" /> </div> )} </div> )}
 
                         {formData.form_type === 'transferencia' ? ( 

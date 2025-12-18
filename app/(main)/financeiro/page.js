@@ -12,7 +12,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faPlus, faCogs, faShieldAlt, faSpinner, faLock, faBalanceScale, 
     faSitemap, faHandshake, faLandmark, faBuilding, faFileInvoice, 
-    faFilter, faSearch, faTags 
+    faFilter, faSearch, faTags, faCreditCard 
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
@@ -24,7 +24,8 @@ import LancamentoFormModal from '../../../components/financeiro/LancamentoFormMo
 import ExtratoManager from '../../../components/financeiro/ExtratoManager';
 import LancamentoDetalhesSidebar from '../../../components/financeiro/LancamentoDetalhesSidebar';
 import FiltroFinanceiro from '../../../components/financeiro/FiltroFinanceiro';
-import FinanceiroStats from '../../../components/financeiro/FinanceiroStats'; // <--- IMPORT NOVO
+import FinanceiroStats from '../../../components/financeiro/FinanceiroStats';
+import GerenciadorFaturas from '../../../components/financeiro/GerenciadorFaturas'; // <--- IMPORT NOVO
 
 const supabase = createClient();
 
@@ -75,12 +76,11 @@ async function fetchLancamentos({ queryKey }) {
     return { data: data || [], count: count || 0 };
 }
 
-// === NOVA FUNÇÃO DE KPI (Usa a RPC de resumo) ===
+// Busca KPIs
 async function fetchFinanceiroStats({ queryKey }) {
     const [_key, { filters, organizacao_id }] = queryKey;
     if (!organizacao_id) return [];
 
-    // Chama a nova função SQL otimizada
     const { data, error } = await supabase.rpc('obter_resumo_financeiro', { 
         p_organizacao_id: organizacao_id, 
         p_filtros: filters 
@@ -158,6 +158,9 @@ export default function FinanceiroPage() {
 
     const { empresas = [], contas = [], categorias = [], empreendimentos = [], allContacts = [], funcionarios = [] } = initialData || {};
 
+    // Filtra apenas contas do tipo Cartão de Crédito para a nova aba
+    const contasCartao = contas.filter(c => c.tipo === 'Cartão de Crédito');
+
     const { data: lancamentosData, isLoading: isLoadingLancamentos, isSuccess, isPlaceholderData } = useQuery({
         queryKey: ['lancamentos', { filters, currentPage, itemsPerPage, sortConfig, organizacao_id }],
         queryFn: fetchLancamentos,
@@ -175,7 +178,6 @@ export default function FinanceiroPage() {
         }
     }, [lancamentosData, isSuccess, filters, isPlaceholderData]);
     
-    // === BUSCA OS DADOS DE RESUMO DO SERVIDOR ===
     const { data: financeiroStats = [], isLoading: isLoadingStats } = useQuery({
         queryKey: ['financeiroStats', { filters, organizacao_id }],
         queryFn: fetchFinanceiroStats,
@@ -189,8 +191,9 @@ export default function FinanceiroPage() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
-            queryClient.invalidateQueries({ queryKey: ['financeiroStats'] }); // Atualiza os KPIs
+            queryClient.invalidateQueries({ queryKey: ['financeiroStats'] });
             queryClient.invalidateQueries({ queryKey: ['saldosContasReais'] });
+            queryClient.invalidateQueries({ queryKey: ['lancamentosCartao'] }); // Atualiza faturas também
         }
     });
 
@@ -208,9 +211,10 @@ export default function FinanceiroPage() {
 
     const handleSuccessForm = () => {
         queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
-        queryClient.invalidateQueries({ queryKey: ['financeiroStats'] }); // Atualiza os KPIs
+        queryClient.invalidateQueries({ queryKey: ['financeiroStats'] });
         queryClient.invalidateQueries({ queryKey: ['saldosContasReais'] });
         queryClient.invalidateQueries({ queryKey: ['initialFinanceData'] });
+        queryClient.invalidateQueries({ queryKey: ['lancamentosCartao'] }); // Atualiza aba cartões
     };
 
     const handleOpenAddModal = () => { setEditingLancamento(null); setIsFormModalOpen(true); };
@@ -218,7 +222,6 @@ export default function FinanceiroPage() {
     const handleViewLancamentoDetails = (lancamento) => { setSelectedLancamento(lancamento); setIsDetailsSidebarOpen(true); };
     const handleCloseDetailsSidebar = () => { setIsDetailsSidebarOpen(false); setTimeout(() => setSelectedLancamento(null), 300); };
 
-    // Função de Extrato simplificada para exemplo
     const handleIrParaExtrato = (contaId) => {
         const filterState = { filters: { contaIds: [contaId], startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0] }, extratoItens: [], saldoAnterior: 0, autoExecutar: true };
         sessionStorage.setItem('lastExtratoState', JSON.stringify(filterState));
@@ -265,6 +268,8 @@ export default function FinanceiroPage() {
                     <nav className="-mb-px flex space-x-6" aria-label="Tabs">
                         <TabButton tabName="lancamentos" label="Lançamentos" icon={faBalanceScale} />
                         <TabButton tabName="extrato" label="Extrato" icon={faFileInvoice} />
+                        {/* NOVA ABA CARTÕES */}
+                        <TabButton tabName="cartoes" label="Cartões" icon={faCreditCard} />
                         <TabButton tabName="contas" label="Contas" icon={faBuilding} />
                         <TabButton tabName="ativos" label="Ativos" icon={faLandmark} />
                     </nav>
@@ -274,14 +279,15 @@ export default function FinanceiroPage() {
             <div className="mt-4">
                 {activeTab === 'extrato' && <ExtratoManager contas={contas} onEdit={handleOpenEditModal} />}
                 
+                {/* RENDERIZA O GERENCIADOR DE FATURAS */}
+                {activeTab === 'cartoes' && <GerenciadorFaturas contasCartao={contasCartao} />}
+
                 {activeTab === 'lancamentos' && (
                     <>
-                        {/* === NOVO COMPONENTE DE KPI AQUI === */}
                         <FinanceiroStats data={financeiroStats} isLoading={isLoadingStats} />
                         
                         <LancamentosManager 
                             lancamentos={lancamentos}
-                            // Removido allLancamentosKpi pois agora usamos o FinanceiroStats
                             loading={isLoadingLancamentos && !lancamentos.length}
                             contas={contas}
                             categorias={categorias}
