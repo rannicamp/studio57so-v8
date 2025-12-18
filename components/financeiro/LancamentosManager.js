@@ -12,11 +12,9 @@ import {
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import KpiCard from '../KpiCard';
-// FiltroFinanceiro removido daqui
 import ReciboModal from './ReciboModal';
 import { toast } from 'sonner';
 
-// ... (HighlightedText, AnalysisModal e SortableHeader permanecem iguais)
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
     const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -42,7 +40,6 @@ const SortableHeader = ({ label, sortKey, sortConfig, requestSort, className = '
     return ( <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${className}`}><button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 hover:text-gray-900"><span className="uppercase">{label}</span><FontAwesomeIcon icon={getIcon()} className="text-gray-400" /></button></th> );
 };
 
-// ... (BatchUpdateModal permanece igual)
 const BatchUpdateModal = ({ isOpen, onClose, onConfirm, fields, allData }) => {
     const [selectedField, setSelectedField] = useState(''); const [selectedValue, setSelectedValue] = useState(''); if (!isOpen) return null; const currentField = fields.find(f => f.key === selectedField);
     return ( <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"> <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg"> <h3 className="text-xl font-bold mb-4">Alterar Campo em Lote</h3> <div className="space-y-4"> <div> <label className="block text-sm font-medium">1. Campo para alterar</label> <select value={selectedField} onChange={(e) => { setSelectedField(e.target.value); setSelectedValue(''); }} className="mt-1 w-full p-2 border rounded-md"> <option value="">Selecione um campo...</option> {fields.map(f => <option key={f.key} value={f.key}>{f.label}</option>)} </select> </div> {selectedField && currentField && ( <div> <label className="block text-sm font-medium">2. Novo valor para &quot;{currentField.label}&quot;</label> {currentField.type === 'select' ? ( <select value={selectedValue} onChange={(e) => setSelectedValue(e.target.value)} className="mt-1 w-full p-2 border rounded-md"> <option value="">Selecione um valor...</option> {allData[currentField.optionsKey]?.map(opt => <option key={opt.id} value={opt.id}>{opt.nome || opt.razao_social || opt.nome_etapa || opt.full_name}</option>)} </select> ) : ( <input type={currentField.type || 'text'} value={selectedValue} onChange={(e) => setSelectedValue(e.target.value)} className="mt-1 w-full p-2 border rounded-md" /> )} </div> )} </div> <div className="flex justify-end gap-4 pt-6 mt-4 border-t"> <button onClick={onClose} className="bg-gray-200 px-4 py-2 rounded-md">Cancelar</button> <button onClick={() => onConfirm(selectedField, selectedValue)} disabled={!selectedField || !selectedValue} className="bg-blue-600 text-white px-4 py-2 rounded-md disabled:bg-gray-400">Confirmar Alteração</button> </div> </div> </div> );
@@ -72,7 +69,6 @@ export default function LancamentosManager({
 
     const onActionSuccess = () => { queryClient.invalidateQueries({queryKey: ['lancamentos']}); if (onUpdate) onUpdate(); };
 
-    // ... (Mantenha todas as mutations e handlers iguais: updateStatusMutation, duplicateMutation, deleteSingleMutation, deleteFutureMutation, DeletionToast, handleDelete, bulkDeleteMutation, bulkUpdateMutation, handleStatusUpdate, handleDuplicate, handleBulkDelete, handleBatchUpdateField)
     const updateStatusMutation = useMutation({ mutationFn: async ({ lancamentoId, newStatus }) => { const updateData = { status: newStatus }; if (newStatus === 'Pago') { updateData.data_pagamento = new Date().toISOString(); } const { error } = await supabase.from('lancamentos').update(updateData).eq('id', lancamentoId); if (error) throw new Error(error.message); }, onSuccess: onActionSuccess });
     const duplicateMutation = useMutation({ mutationFn: async (item) => { const { id, created_at, conta, categoria, empreendimento, empresa, favorecido, anexos, ...lancamentoParaDuplicar } = item; lancamentoParaDuplicar.descricao = `(Cópia) ${lancamentoParaDuplicar.descricao}`; lancamentoParaDuplicar.status = 'Pendente'; lancamentoParaDuplicar.data_pagamento = null; lancamentoParaDuplicar.conciliado = false; const { error } = await supabase.from('lancamentos').insert([lancamentoParaDuplicar]); if (error) throw new Error(error.message); }, onSuccess: onActionSuccess });
     const deleteSingleMutation = useMutation({ mutationFn: async (id) => { const { error } = await supabase.from('lancamentos').delete().eq('id', id); if (error) throw error; }, onSuccess: () => { onActionSuccess(); }, onError: (error) => toast.error(`Erro: ${error.message}`) });
@@ -87,6 +83,7 @@ export default function LancamentosManager({
     const handleBatchUpdateField = (field, value) => { setIsBatchUpdateModalOpen(false); if(!field || !value) { toast.warning("Por favor, selecione um campo e um valor."); return; } const updateObject = { [field]: value }; if(field === 'status' && value === 'Pago'){ updateObject.data_pagamento = new Date().toISOString(); } toast.promise( new Promise((resolve, reject) => { if (window.confirm(`Tem certeza que deseja aplicar esta alteração a ${selectedIds.size} lançamento(s)?`)) { bulkUpdateMutation.mutateAsync({ ids: Array.from(selectedIds), updateObject }).then(resolve).catch(reject); } else { reject('Ação cancelada pelo usuário.'); } }), { loading: 'Atualizando lançamentos em lote...', success: (count) => `${count} lançamento(s) atualizado(s) com sucesso!`, error: (err) => (err === 'Ação cancelada pelo usuário.' ? err : `Erro ao atualizar: ${err.message}`), }); };
     const handleOpenRecibo = (lancamento) => { setLancamentoParaRecibo(lancamento); setIsReciboModalOpen(true); };
 
+    // KPI Data (Mantido para compatibilidade, mas o Pai agora usa FinanceiroStats)
     const kpiData = useMemo(() => {
         let totalReceitas = 0, totalDespesas = 0;
         (allLancamentosKpi || []).forEach(l => {
@@ -136,14 +133,8 @@ export default function LancamentosManager({
             <BatchUpdateModal isOpen={isBatchUpdateModalOpen} onClose={() => setIsBatchUpdateModalOpen(false)} onConfirm={handleBatchUpdateField} fields={batchUpdateFields} allData={allDataForBatchModal} />
             <ReciboModal isOpen={isReciboModalOpen} onClose={() => setIsReciboModalOpen(false)} lancamento={lancamentoParaRecibo} />
             
-            {/* Filtro Financeiro removido daqui pois agora está na página pai */}
+            {/* Cards de KPI removidos visualmente daqui pois estão no componente pai, mas o código foi mantido seguro */}
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <KpiCard title="Total de Receitas (Filtro)" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalReceitas)} icon={faArrowUp} color="green" />
-                <KpiCard title="Total de Despesas (Filtro)" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalDespesas)} icon={faArrowDown} color="red" />
-                <KpiCard title="Resultado (Filtro)" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.resultado)} icon={faBalanceScale} color={kpiData.resultado >= 0 ? 'blue' : 'gray'} />
-            </div>
-
             <div className="flex justify-between items-center bg-white p-4 border rounded-lg shadow-sm">
                 <span className="text-sm text-gray-700"> Mostrando <strong>{lancamentos.length}</strong> de <strong>{totalCount}</strong> lançamentos </span>
                 <div className="flex items-center gap-2">
@@ -180,6 +171,8 @@ export default function LancamentosManager({
                                     <th className="p-4 w-4"><input type="checkbox" onChange={handleSelectAll} checked={lancamentos.length > 0 && selectedIds.size === lancamentos.length} /></th>
                                     <SortableHeader label="Data" sortKey="data_vencimento" sortConfig={sortConfig} requestSort={requestSort} />
                                     <th className="px-4 py-3 text-left text-xs font-bold uppercase w-1/3">Descrição</th>
+                                    {/* NOVA COLUNA FAVORECIDO */}
+                                    <th className="px-4 py-3 text-left text-xs font-bold uppercase">Favorecido</th>
                                     <th className="px-4 py-3 text-left text-xs font-bold uppercase">Conta</th>
                                     <th className="px-4 py-3 text-left text-xs font-bold uppercase">Empresa</th>
                                     <th className="px-4 py-3 text-left text-xs font-bold uppercase">Categoria</th>
@@ -195,6 +188,8 @@ export default function LancamentosManager({
                                     const isPending = item.status === 'Pendente' && !item.conciliado;
                                     const isTransfer = !!item.transferencia_id;
                                     const nomeEmpresa = item.conta?.empresa?.nome_fantasia || item.conta?.empresa?.razao_social || 'N/A';
+                                    const nomeFavorecido = item.favorecido?.nome || item.favorecido?.razao_social || '-';
+                                    
                                     let displayDate = item.data_transacao, dateLabel = 'Data da Transação', dateClass = '';
                                     if (statusInfo.text === 'Paga' && item.data_pagamento) {
                                         displayDate = item.data_pagamento; dateLabel = 'Data do Pagamento';
@@ -214,6 +209,8 @@ export default function LancamentosManager({
                                                 {item.transferencia_id && <FontAwesomeIcon icon={faExchangeAlt} className="text-gray-400" title="Transferência" />}
                                                 <span>{formattedDescription}</span>
                                              </td>
+                                             {/* DADO FAVORECIDO */}
+                                             <td className="px-4 py-2 text-gray-600 truncate max-w-[150px]" title={nomeFavorecido}>{nomeFavorecido}</td>
                                              <td className="px-4 py-2 text-gray-600">{item.conta?.nome || 'N/A'}</td>
                                              <td className="px-4 py-2 text-gray-600 uppercase">{nomeEmpresa}</td>
                                              <td className="px-4 py-2 text-gray-600">{item.categoria?.nome || 'N/A'}</td>
@@ -243,7 +240,7 @@ export default function LancamentosManager({
                                         </tr>
                                     );
                                 }) : (
-                                     <tr><td colSpan="10" className="text-center py-10 text-gray-500 uppercase">Nenhum lançamento encontrado. Tente limpar os filtros.</td></tr>
+                                     <tr><td colSpan="11" className="text-center py-10 text-gray-500 uppercase">Nenhum lançamento encontrado. Tente limpar os filtros.</td></tr>
                                 )}
                            </tbody>
                       </table>
