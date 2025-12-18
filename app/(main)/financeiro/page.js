@@ -73,6 +73,8 @@ async function fetchLancamentos({ queryKey }) {
 
     const selectString = `*, conta:contas_financeiras(nome), categoria:categorias_financeiras(nome), favorecido:contatos(nome, razao_social), empresa:cadastro_empresa!empresa_id(nome_fantasia, razao_social), empreendimento:empreendimentos(nome), anexos:lancamentos_anexos(*)`;
 
+    // O objeto filters agora já inclui o 'ignoreTransfers' vindo do estado do React
+    // A função RPC do Supabase receberá esse JSON e precisará tratar lá dentro.
     const { data, error, count } = await supabase.rpc('consultar_lancamentos_filtrados', { 
         p_organizacao_id: organizacao_id, 
         p_filtros: filters 
@@ -121,10 +123,14 @@ export default function FinanceiroPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(150);
     const [sortConfig, setSortConfig] = useState({ key: 'data_vencimento', direction: 'descending' });
+    
+    // === ATUALIZAÇÃO AQUI ===
+    // Adicionamos ignoreTransfers: false no estado inicial
     const [filters, setFilters] = useState({ 
         searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], 
         empreendimentoIds: [], etapaIds: [], status: [], tipo: [], 
-        startDate: '', endDate: '', month: '', year: '', favorecidoId: null 
+        startDate: '', endDate: '', month: '', year: '', favorecidoId: null,
+        ignoreTransfers: false 
     });
     
     const isInitialFetchCompleted = useRef(false);
@@ -139,7 +145,14 @@ export default function FinanceiroPage() {
                 const savedUiState = getCachedData(FINANCEIRO_UI_STATE_KEY);
                 if (savedUiState) {
                     setActiveTab(savedUiState.activeTab || 'lancamentos');
-                    setFilters(savedUiState.filters || {});
+                    
+                    // === ATUALIZAÇÃO AQUI ===
+                    // Garante que ignoreTransfers exista mesmo se o cache for antigo
+                    setFilters({
+                        ...savedUiState.filters,
+                        ignoreTransfers: savedUiState.filters?.ignoreTransfers ?? false
+                    } || {});
+
                     setCurrentPage(savedUiState.currentPage || 1);
                     setItemsPerPage(savedUiState.itemsPerPage || 150);
                     setSortConfig(savedUiState.sortConfig || { key: 'data_vencimento', direction: 'descending' });

@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faTimes, faSave, faStar as faStarSolid, faEllipsisV,
     faCalendarDay, faCalendarWeek, faCalendarAlt, faSyncAlt,
-    faArrowUp, faArrowDown, faTrash, faSpinner
+    faArrowUp, faArrowDown, faTrash, faSpinner, faBan, faExchangeAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '../../utils/supabase/client';
@@ -25,10 +25,12 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     return (<span>{parts.map((part, i) => regex.test(part) ? <mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark> : <span key={i}>{part}</span>)}</span>);
 };
 
+// Adicionei o ignoreTransfers no estado inicial para garantir
 const initialFilterState = {
     // searchTerm é gerenciado pelo pai agora
     empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [],
-    etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', favorecidoId: null,
+    etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', 
+    favorecidoId: null, ignoreTransfers: false // <--- NOVO CAMPO
 };
 
 const fetchEtapas = async (supabase, organizacaoId) => {
@@ -107,6 +109,12 @@ export default function FiltroFinanceiro({
     }, [categorias]);
     
     const handleFilterChange = (name, value) => { setFilters(prev => ({...prev, [name]: value})); if(name !== 'startDate' && name !== 'endDate') setActivePeriodFilter(''); };
+    
+    // Nova função para alternar o "Ignorar Transferências"
+    const toggleIgnoreTransfers = () => {
+        setFilters(prev => ({ ...prev, ignoreTransfers: !prev.ignoreTransfers }));
+    };
+
     const handleNatureFilterClick = (nature) => { setFilters(prev => { const currentTipo = prev.tipo || []; const newTipo = currentTipo.includes(nature) ? currentTipo.filter(t => t !== nature) : [...currentTipo, nature]; return { ...prev, tipo: newTipo }; }); };
     const setDateRange = (period) => { const today = new Date(); let startDate, endDate; if (period === 'today') { startDate = endDate = today; } else if (period === 'week') { const firstDayOfWeek = today.getDate() - today.getDay(); startDate = new Date(today.setDate(firstDayOfWeek)); endDate = new Date(startDate); endDate.setDate(endDate.getDate() + 6); } else if (period === 'month') { startDate = new Date(today.getFullYear(), today.getMonth(), 1); endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); } setFilters(prev => ({ ...prev, startDate: startDate.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0], month: '', year: '' })); setActivePeriodFilter(period); };
     
@@ -124,17 +132,33 @@ export default function FiltroFinanceiro({
     const handleDeleteFilter = (name) => { const updated = savedFilters.filter(f => f.name !== name); setSavedFilters(updated); localStorage.setItem('savedFinancialFilters', JSON.stringify(updated)); toast.success("Filtro excluído."); };
     
     const statusOptions = [{ id: 'Pago', text: 'Paga' }, { id: 'Pendente', text: 'A Pagar' }, { id: 'Atrasada', text: 'Atrasada' }].map(s => ({...s, nome: s.text}));
-    const months = [ {id: "01", nome: "Janeiro"}, {id: "02", nome: "Fevereiro"}, {id: "03", nome: "Março"}, {id: "04", nome: "Abril"}, {id: "05", nome: "Maio"}, {id: "06", nome: "Junho"}, {id: "07", nome: "Julho"}, {id: "08", nome: "Agosto"}, {id: "09", nome: "Setembro"}, {id: "10", nome: "Outubro"}, {id: "11", nome: "Novembro"}, {id: "12", nome: "Dezembro"} ];
-    const currentYear = new Date().getFullYear();
-    const years = Array.from({length: 10}, (_, i) => ({ id: (currentYear - 5 + i).toString(), nome: (currentYear - 5 + i).toString() }));
 
     return (
         <div className="bg-gray-50 border-b border-gray-200 p-4 animate-slide-down shadow-inner">
-            <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-4">
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Natureza:</span>
-                    <button onClick={() => handleNatureFilterClick('Receita')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${filters.tipo?.includes('Receita') ? 'bg-green-600 text-white border-green-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faArrowUp}/> Receitas </button>
-                    <button onClick={() => handleNatureFilterClick('Despesa')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${filters.tipo?.includes('Despesa') ? 'bg-red-600 text-white border-red-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faArrowDown}/> Despesas </button>
+            <div className="flex flex-col md:flex-row justify-between items-start mb-4 gap-4">
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Natureza:</span>
+                        <button onClick={() => handleNatureFilterClick('Receita')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${filters.tipo?.includes('Receita') ? 'bg-green-600 text-white border-green-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faArrowUp}/> Receitas </button>
+                        <button onClick={() => handleNatureFilterClick('Despesa')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${filters.tipo?.includes('Despesa') ? 'bg-red-600 text-white border-red-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faArrowDown}/> Despesas </button>
+                    </div>
+
+                    {/* --- NOVO BOTÃO DE IGNORAR TRANSFERÊNCIAS --- */}
+                    <div className="h-6 w-px bg-gray-300 mx-2 hidden md:block"></div>
+                    
+                    <button 
+                        onClick={toggleIgnoreTransfers} 
+                        className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors shadow-sm ${
+                            filters.ignoreTransfers 
+                                ? 'bg-purple-600 text-white border-purple-700 ring-2 ring-purple-200' 
+                                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                        }`}
+                        title="Quando ativo, não exibe lançamentos identificados como transferência interna."
+                    > 
+                        <FontAwesomeIcon icon={filters.ignoreTransfers ? faBan : faExchangeAlt} className={filters.ignoreTransfers ? "text-white" : "text-gray-400"} /> 
+                        {filters.ignoreTransfers ? "Transferências Ocultas" : "Ocultar Transferências"}
+                    </button>
+                    {/* ------------------------------------------- */}
                 </div>
 
                 <div className="relative" ref={filterMenuRef}>
