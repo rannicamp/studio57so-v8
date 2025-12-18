@@ -1,3 +1,4 @@
+// components/financeiro/ContasManager.js
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -57,7 +58,6 @@ const fetchSaldosReais = async (contas, organizacaoId) => {
     }, {});
 };
 
-// Adicionado prop: onVerExtrato
 export default function ContasManager({ initialContas, onUpdate, empresas, onVerExtrato }) {
     const supabase = createClient();
     const { user, hasPermission } = useAuth();
@@ -80,16 +80,24 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
         let saldoLiquido = 0;
         let limiteChequeTotal = 0;
         let limiteChequeUsado = 0;
-        let totalFaturasCartao = 0;
+        let poderCompra = 0;
 
         initialContas.forEach(conta => {
             const saldo = saldos[conta.id] || 0;
             const limite = conta.limite_cheque_especial || 0;
             
-            if (conta.tipo === 'Cartão de Crédito') {
-                totalFaturasCartao += Math.abs(saldo);
-            } else {
-                saldoLiquido += saldo;
+            // Ignora cartões no cálculo do saldo líquido e poder de compra
+            if (conta.tipo !== 'Cartão de Crédito') {
+                
+                // === LÓGICA ATUALIZADA AQUI ===
+                // Saldo Líquido (Caixa): Soma apenas contas Positivas (Dinheiro Real)
+                if (saldo > 0) {
+                    saldoLiquido += saldo;
+                }
+                
+                // Poder de Compra: (Saldo Atual + Limite) de todas as contas
+                poderCompra += (saldo + limite);
+
                 if (conta.tipo === 'Conta Corrente') {
                     limiteChequeTotal += limite;
                     if (saldo < 0) {
@@ -99,28 +107,27 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
             }
         });
 
-        const limiteChequeRestante = Math.max(0, limiteChequeTotal - limiteChequeUsado);
-        const poderCompra = saldoLiquido + limiteChequeRestante;
-
         return {
             saldoLiquido,
             limiteChequeTotal,
             limiteChequeUsado,
             percentualUsoCheque: limiteChequeTotal > 0 ? (limiteChequeUsado / limiteChequeTotal) * 100 : 0,
-            totalFaturasCartao,
             poderCompra
         };
     }, [initialContas, saldos]);
 
+    // Filtra os cartões para não aparecerem nesta lista
     const groupedContas = useMemo(() => {
         const groups = {
             'Conta Corrente': [],
             'Dinheiro': [],
             'Conta Investimento': [],
-            'Cartão de Crédito': []
         };
 
         initialContas.forEach(conta => {
+            // PULA se for cartão de crédito (já tem aba própria)
+            if (conta.tipo === 'Cartão de Crédito') return;
+
             const tipo = conta.tipo || 'Conta Corrente';
             if (groups[tipo]) {
                 groups[tipo].push(conta);
@@ -232,7 +239,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
             />
 
             {initialContas.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <KpiCard 
                         title="Saldo Líquido (Caixa)" 
                         value={isLoadingSaldos ? '...' : formatCurrency(kpis.saldoLiquido)} 
@@ -247,13 +254,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                         color="green" 
                         subtext="Caixa + Limites"
                     />
-                    <KpiCard 
-                        title="Faturas Cartão" 
-                        value={isLoadingSaldos ? '...' : formatCurrency(kpis.totalFaturasCartao)} 
-                        icon={faCreditCard} 
-                        color="orange" 
-                        subtext="Total a pagar"
-                    />
+                    
                     <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-red-500 flex flex-col justify-between">
                         <div className="flex justify-between items-start">
                             <div>
@@ -317,8 +318,6 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                                             const isCartao = conta.tipo === 'Cartão de Crédito';
                                             
                                             const valorDisplay = isCartao ? Math.abs(saldoReal) : saldoReal;
-                                            const isNegative = saldoReal < 0;
-
                                             let colorClass = 'text-gray-800';
                                             if (saldoReal < 0) {
                                                 colorClass = 'text-red-600';
