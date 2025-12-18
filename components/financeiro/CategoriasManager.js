@@ -9,8 +9,8 @@ import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSpinner, faPenToSquare, faTrash } from '@fortawesome/free-solid-svg-icons';
 import CategoriaFormModal from './CategoriaFormModal';
+import CategoriaDeleteModal from './CategoriaDeleteModal'; // <--- IMPORT NOVO
 
-// Função de busca filtrada por organização
 const fetchCategorias = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
     const { data, error } = await supabase
@@ -31,8 +31,12 @@ export default function CategoriasManager() {
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    // Estados para Modais
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false); // <--- NOVO
+    
     const [editingCategoria, setEditingCategoria] = useState(null);
+    const [deletingCategoria, setDeletingCategoria] = useState(null); // <--- NOVO
     const [defaultModalType, setDefaultModalType] = useState('Despesa');
 
     const { data: categorias = [], isLoading, error: fetchError } = useQuery({
@@ -41,21 +45,15 @@ export default function CategoriasManager() {
         enabled: !!organizacaoId,
     });
 
+    // Mutação de Salvamento (mantida igual a anterior)
     const saveMutation = useMutation({
         mutationFn: async (formData) => {
             if (!organizacaoId) throw new Error("Organização não identificada.");
-            
-            // =====================================================================
-            // A MÁGICA DA LIMPEZA ACONTECE AQUI ✨
-            // Retiramos 'id' e 'children' (que é apenas visual) antes de salvar
-            // =====================================================================
             const { id, children, ...dadosParaSalvar } = formData;
-            
             const isEditing = Boolean(id);
             let error;
 
             if (isEditing) {
-                // Atualização: Usa os dados limpos + filtro de segurança
                 const { error: updateError } = await supabase
                     .from('categorias_financeiras')
                     .update(dadosParaSalvar)
@@ -63,48 +61,48 @@ export default function CategoriasManager() {
                     .eq('organizacao_id', organizacaoId);
                 error = updateError;
             } else {
-                // Criação: Usa os dados limpos + adiciona o ID da organização
                 const { error: insertError } = await supabase
                     .from('categorias_financeiras')
                     .insert({ ...dadosParaSalvar, organizacao_id: organizacaoId });
                 error = insertError;
             }
 
-            if (error) {
-                throw new Error(error.message);
-            }
+            if (error) throw new Error(error.message);
             return isEditing;
         },
         onSuccess: (isEditing) => {
             queryClient.invalidateQueries({ queryKey: ['categorias_financeiras', organizacaoId] });
             toast.success(`Categoria ${isEditing ? 'atualizada' : 'criada'} com sucesso!`);
-            setIsModalOpen(false);
+            setIsFormModalOpen(false);
         },
-        onError: (error) => {
-            console.error(error);
-            toast.error(`Erro ao salvar: ${error.message}`);
-        }
+        onError: (error) => toast.error(`Erro ao salvar: ${error.message}`)
     });
 
+    // =========================================================================
+    // NOVA MUTAÇÃO DE EXCLUSÃO COM MIGRAÇÃO
+    // =========================================================================
     const deleteMutation = useMutation({
-        mutationFn: async (id) => {
+        mutationFn: async ({ id, newCategoryId }) => {
             if (!organizacaoId) throw new Error("Organização não identificada.");
             
-            const { error } = await supabase.rpc('delete_category_and_children', { 
-                p_category_id: id,
+            // Chama a RPC que criamos no Passo 1
+            const { error } = await supabase.rpc('excluir_categoria_e_migrar', { 
+                p_categoria_id: id,
+                p_nova_categoria_id: newCategoryId, // Pode ser null (órfão) ou UUID (migrar)
                 p_organizacao_id: organizacaoId
             });
-            if (error) {
-                throw new Error(error.message);
-            }
+
+            if (error) throw new Error(error.message);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['categorias_financeiras', organizacaoId] });
-            toast.success('Categoria e subcategorias excluídas com sucesso.');
+            // Atualiza também os lançamentos, pois eles mudaram
+            queryClient.invalidateQueries({ queryKey: ['lancamentos'] }); 
+            toast.success('Categoria excluída e lançamentos processados com sucesso.');
+            setIsDeleteModalOpen(false);
+            setDeletingCategoria(null);
         },
-        onError: (error) => {
-            toast.error(`Erro ao excluir: ${error.message}`);
-        }
+        onError: (error) => toast.error(`Erro ao excluir: ${error.message}`)
     });
 
     const handleSaveCategoria = async (formData) => {
@@ -112,52 +110,41 @@ export default function CategoriasManager() {
         return true;
     };
     
-    const handleDeleteCategoria = (id) => {
-        toast("Confirmar Exclusão", {
-            description: "Atenção! Excluir uma categoria principal também excluirá todas as suas subcategorias. Deseja continuar?",
-            action: {
-                label: "Excluir",
-                onClick: () => deleteMutation.mutate(id)
-            },
-            cancel: { label: "Cancelar" },
-            classNames: { actionButton: 'bg-red-600' }
-        });
+    // Agora apenas abre o modal, não deleta direto
+    const handleDeleteClick = (categoria) => {
+        setDeletingCategoria(categoria);
+        setIsDeleteModalOpen(true);
     };
 
-    // Constrói a árvore visual
+    const handleConfirmDelete = (id, newCategoryId) => {
+        deleteMutation.mutate({ id, newCategoryId });
+    };
+
     const categoryTree = useMemo(() => {
         const tree = [];
         const map = {};
-        
-        // 1. Cria um mapa de todos os itens com uma propriedade children vazia
-        categorias.forEach(cat => {
-            map[cat.id] = { ...cat, children: [] };
-        });
-
-        // 2. Conecta os filhos aos pais
+        categorias.forEach(cat => { map[cat.id] = { ...cat, children: [] }; });
         categorias.forEach(cat => {
             if (cat.parent_id && map[cat.parent_id]) {
                 map[cat.parent_id].children.push(map[cat.id]);
             } else {
-                tree.push(map[cat.id]); // Se não tem pai, é raiz
+                tree.push(map[cat.id]);
             }
         });
-
         return tree;
     }, [categorias]);
 
     const handleOpenAddModal = (type) => {
         setDefaultModalType(type);
         setEditingCategoria(null);
-        setIsModalOpen(true);
+        setIsFormModalOpen(true);
     };
 
     const handleOpenEditModal = (categoria) => {
         setEditingCategoria(categoria);
-        setIsModalOpen(true);
+        setIsFormModalOpen(true);
     };
 
-    // Componente Recursivo para Listagem
     const CategoryList = ({ categories, level = 0 }) => (
         <ul className="divide-y border rounded-md">
             {categories.length === 0 && <li className="px-4 py-3 text-sm text-gray-500">Nenhuma categoria encontrada.</li>}
@@ -176,7 +163,7 @@ export default function CategoriasManager() {
                                 <FontAwesomeIcon icon={faPenToSquare} />
                             </button>
                             <button 
-                                onClick={() => handleDeleteCategoria(cat.id)} 
+                                onClick={() => handleDeleteClick(cat)} // <--- Alterado aqui
                                 disabled={deleteMutation.isPending} 
                                 className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors disabled:text-gray-300"
                                 title="Excluir"
@@ -197,13 +184,23 @@ export default function CategoriasManager() {
 
     return (
         <div className="space-y-4 group">
+            {/* Modal de Criação/Edição */}
             <CategoriaFormModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                isOpen={isFormModalOpen}
+                onClose={() => setIsFormModalOpen(false)}
                 onSave={handleSaveCategoria}
                 initialData={editingCategoria}
                 allCategories={categorias}
                 defaultType={defaultModalType}
+            />
+
+            {/* Modal de Exclusão Inteligente */}
+            <CategoriaDeleteModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                categoria={deletingCategoria}
+                allCategories={categorias}
             />
 
             {isLoading ? (
@@ -221,13 +218,8 @@ export default function CategoriasManager() {
                     {/* Coluna Receitas */}
                     <div className="bg-white rounded-lg">
                         <div className="flex justify-between items-center mb-4 pb-2 border-b border-green-100">
-                             <h3 className="font-bold text-lg text-green-700 flex items-center gap-2">
-                                Receitas
-                             </h3>
-                             <button 
-                                onClick={() => handleOpenAddModal('Receita')} 
-                                className="bg-green-600 text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full hover:bg-green-700 transition-colors shadow-sm flex items-center gap-1"
-                            >
+                             <h3 className="font-bold text-lg text-green-700 flex items-center gap-2">Receitas</h3>
+                             <button onClick={() => handleOpenAddModal('Receita')} className="bg-green-600 text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full hover:bg-green-700 transition-colors shadow-sm flex items-center gap-1">
                                 <FontAwesomeIcon icon={faPlus}/> Nova Receita
                             </button>
                         </div>
@@ -237,13 +229,8 @@ export default function CategoriasManager() {
                     {/* Coluna Despesas */}
                     <div className="bg-white rounded-lg">
                           <div className="flex justify-between items-center mb-4 pb-2 border-b border-red-100">
-                             <h3 className="font-bold text-lg text-red-700 flex items-center gap-2">
-                                Despesas
-                             </h3>
-                              <button 
-                                onClick={() => handleOpenAddModal('Despesa')} 
-                                className="bg-red-600 text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full hover:bg-red-700 transition-colors shadow-sm flex items-center gap-1"
-                            >
+                             <h3 className="font-bold text-lg text-red-700 flex items-center gap-2">Despesas</h3>
+                              <button onClick={() => handleOpenAddModal('Despesa')} className="bg-red-600 text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full hover:bg-red-700 transition-colors shadow-sm flex items-center gap-1">
                                 <FontAwesomeIcon icon={faPlus}/> Nova Despesa
                             </button>
                           </div>
