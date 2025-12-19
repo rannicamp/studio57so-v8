@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faPaperPlane, faSpinner, faPaperclip, faTrashAlt, faFile, faUser, faBuilding, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
@@ -10,6 +10,16 @@ import { useDebounce } from 'use-debounce';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
+
+// Função auxiliar para formatar bytes (KB, MB)
+const formatBytes = (bytes, decimals = 2) => {
+    if (!+bytes) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+};
 
 export default function EmailComposeModal({ isOpen, onClose, initialData = null, onEmailSent }) {
     const supabase = createClient();
@@ -24,6 +34,22 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
     const [formData, setFormData] = useState({
         to: '', cc: '', bcc: '', subject: '', body: '', replyToMessageId: null, attachments: []
     });
+
+    // --- CÁLCULO DO TAMANHO TOTAL (EM TEMPO REAL) ---
+    const MAX_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
+    
+    const totalSize = useMemo(() => {
+        return formData.attachments.reduce((acc, curr) => acc + (curr.size || 0), 0);
+    }, [formData.attachments]);
+
+    const isOverLimit = totalSize > MAX_SIZE_BYTES;
+    const sizePercentage = Math.min((totalSize / MAX_SIZE_BYTES) * 100, 100);
+
+    // Define a cor da barra baseado no uso
+    let progressColor = 'bg-blue-500';
+    if (sizePercentage > 80) progressColor = 'bg-orange-500';
+    if (isOverLimit) progressColor = 'bg-red-600';
+    // ------------------------------------------------
 
     useEffect(() => {
         setMounted(true);
@@ -164,7 +190,6 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
 
     const handleAttachmentClick = () => fileInputRef.current?.click();
 
-    // --- CONTROLE DE ANEXOS (COM TRAVA DE 25MB TOTAL) ---
     const handleFileChange = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
@@ -172,22 +197,13 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
         setAttaching(true);
 
         const newAttachments = [];
-        const MAX_SIZE = 25 * 1024 * 1024; // 25MB em Bytes
-
-        // Calcula o peso atual dos anexos que já estão na lista
-        let currentTotalSize = formData.attachments.reduce((acc, att) => acc + (att.size || 0), 0);
+        let tempTotalSize = totalSize; // Começa com o tamanho que já tem
         
         for (const file of files) {
-            // 1. Verifica arquivo individual
-            if (file.size > MAX_SIZE) {
-                toast.error(`O arquivo ${file.name} excede o limite individual de 25MB.`);
-                continue; // Pula esse, mas tenta os outros
-            }
-
-            // 2. Verifica a soma total (Preventivo para não dar erro no servidor)
-            if (currentTotalSize + file.size > MAX_SIZE) {
-                toast.error(`Não foi possível adicionar ${file.name}. O total excederia 25MB.`);
-                continue;
+            // Verifica se a adição desse arquivo vai estourar o limite TOTAL
+            if (tempTotalSize + file.size > MAX_SIZE_BYTES) {
+                toast.error(`O arquivo "${file.name}" não cabe! O total passaria de 25MB.`);
+                continue; // Pula este arquivo, mas continua tentando os outros
             }
 
             try {
@@ -198,13 +214,10 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                     reader.onerror = error => reject(error);
                 });
                 
-                // Atualiza o peso total para considerar este novo arquivo na próxima iteração
-                currentTotalSize += file.size;
-
+                tempTotalSize += file.size; // Atualiza o contador temporário
                 newAttachments.push({ filename: file.name, content: base64.split(',')[1], encoding: 'base64', size: file.size });
             } catch (err) { 
                 console.error("Erro ao ler arquivo:", err); 
-                toast.error(`Erro ao anexar ${file.name}`);
             }
         }
         
@@ -219,6 +232,12 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        if (isOverLimit) {
+            toast.error("O tamanho total excede 25MB. Remova alguns anexos.");
+            return;
+        }
+
         setLoading(true);
         try {
             const finalTo = formData.to.trim().replace(/,$/, '');
@@ -295,10 +314,28 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                             </div>
                         </div>
 
-                        {/* LISTA DE ANEXOS */}
+                        {/* ÁREA DE ANEXOS E BARRA DE PROGRESSO */}
                         <div className="flex flex-col gap-2">
+                            {/* Barra de Progresso de Tamanho Total */}
+                            {totalSize > 0 && (
+                                <div className="flex flex-col gap-1 px-2 py-2 bg-gray-50 rounded-lg border border-gray-100">
+                                    <div className="flex justify-between items-center text-xs font-semibold mb-1">
+                                        <span className={isOverLimit ? "text-red-600" : "text-gray-600"}>
+                                            Tamanho Total: {formatBytes(totalSize)} / 25 MB
+                                        </span>
+                                        {isOverLimit && <span className="text-red-600 flex items-center gap-1"><FontAwesomeIcon icon={faExclamationTriangle} /> Limite excedido!</span>}
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                        <div 
+                                            className={`h-full transition-all duration-300 ${progressColor}`} 
+                                            style={{ width: `${sizePercentage}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            )}
+
                             {attaching && (
-                                <div className="text-xs text-blue-600 flex items-center gap-2 animate-pulse pl-16">
+                                <div className="text-xs text-blue-600 flex items-center gap-2 animate-pulse pl-2">
                                     <FontAwesomeIcon icon={faSpinner} spin /> Processando anexos...
                                 </div>
                             )}
@@ -306,11 +343,10 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                             {formData.attachments.length > 0 && (
                                 <div className="flex flex-wrap gap-2 py-2">
                                     {formData.attachments.map((att, index) => (
-                                        <div key={index} className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-100">
+                                        <div key={index} className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-100 shadow-sm">
                                             <FontAwesomeIcon icon={faFile} />
                                             <span className="max-w-[150px] truncate" title={att.filename}>{att.filename}</span>
-                                            {/* Mostra aviso visual se estiver perto do limite (acima de 20MB) */}
-                                            {att.size > 20 * 1024 * 1024 && <FontAwesomeIcon icon={faExclamationTriangle} className="text-orange-500" title="Arquivo grande" />}
+                                            <span className="text-blue-400 text-[10px]">({formatBytes(att.size)})</span>
                                             <button type="button" onClick={() => removeAttachment(index)} className="ml-1 text-blue-400 hover:text-red-500"><FontAwesomeIcon icon={faTimes} /></button>
                                         </div>
                                     ))}
@@ -325,10 +361,9 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
 
                     <div className="px-6 py-4 border-t bg-gray-50 rounded-b-xl flex justify-between items-center shrink-0">
                         <div className="flex gap-4">
-                            {/* Input sem restrições de tipo, mas o JS vai validar o tamanho */}
                             <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" />
                             
-                            <button type="button" onClick={handleAttachmentClick} disabled={attaching || loading} className="text-gray-500 hover:text-blue-600 text-sm flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100 disabled:opacity-50">
+                            <button type="button" onClick={handleAttachmentClick} disabled={attaching || loading || isOverLimit} className="text-gray-500 hover:text-blue-600 text-sm flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100 disabled:opacity-50">
                                 <FontAwesomeIcon icon={faPaperclip} /> <span className="hidden sm:inline">Anexar</span>
                             </button>
                             
@@ -336,7 +371,9 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                         </div>
                         <div className="flex gap-3">
                             <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 text-sm font-medium">Cancelar</button>
-                            <button type="submit" disabled={loading || attaching} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md flex items-center gap-2 text-sm font-bold transition-transform active:scale-95 disabled:opacity-70">
+                            
+                            {/* O BOTÃO FICA DESABILITADO SE ESTOURAR O LIMITE */}
+                            <button type="submit" disabled={loading || attaching || isOverLimit} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md flex items-center gap-2 text-sm font-bold transition-transform active:scale-95 disabled:opacity-70 disabled:bg-gray-400">
                                 {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperPlane} />} Enviar
                             </button>
                         </div>
