@@ -42,11 +42,29 @@ export async function POST(request) {
 
         try {
             if (action === 'delete') {
-                // Proteção: Não deletar pastas do sistema
-                const forbidden = ['INBOX', 'ENTRADA', 'TRASH', 'LIXEIRA', 'SENT', 'ENVIADOS', 'JUNK', 'SPAM'];
-                if (forbidden.some(f => folderPath.toUpperCase().includes(f))) {
-                    throw new Error('Não é possível excluir pastas do sistema.');
+                // --- PROTEÇÃO INTELIGENTE (CORRIGIDA) ---
+                // Só bloqueia se o nome for EXATAMENTE igual a uma pasta de sistema.
+                // Isso permite pastas como "Entrada de Projetos" ou "Lixeira Temporária".
+                const pathUpper = folderPath.toUpperCase();
+                
+                // Lista exata de nomes proibidos (padrão IMAP e Português)
+                const forbiddenExact = [
+                    'INBOX', 'CAIXA DE ENTRADA', 'ENTRADA', 
+                    'TRASH', 'LIXEIRA', 'ITENS EXCLUIDOS', 'BIN', 'DELETED',
+                    'SENT', 'ENVIADOS', 'ITENS ENVIADOS', 
+                    'JUNK', 'SPAM', 'LIXO ELETRONICO', 'QUARANTINE',
+                    'DRAFTS', 'RASCUNHOS'
+                ];
+
+                // Verifica se é exatamente igual OU se é uma subpasta direta do sistema (ex: INBOX/Algo proibido)
+                // Mas permite deletar subpastas criadas pelo usuário.
+                
+                // Na dúvida, vamos confiar mais no servidor, bloqueando apenas o óbvio.
+                if (forbiddenExact.includes(pathUpper)) {
+                    throw new Error(`A pasta "${folderPath}" é protegida pelo sistema.`);
                 }
+
+                // Tenta deletar. Se o servidor do e-mail não deixar (ex: pasta com filhos ou protegida lá), ele vai retornar erro e nós mostramos.
                 await connection.delBox(folderPath);
             } 
             else if (action === 'empty') {
@@ -57,8 +75,6 @@ export async function POST(request) {
                     const uids = messages.map(m => m.attributes.uid);
                     // Marca como deletado
                     await connection.addFlags(uids, '\\Deleted');
-                    // Tenta remover permanentemente (Expunge)
-                    // Nota: Alguns servidores fazem auto-expunge ao fechar
                     try { await connection.imap.expunge(uids); } catch (e) {}
                 }
                 await connection.closeBox(); 
@@ -79,7 +95,11 @@ export async function POST(request) {
 
         } catch (opError) {
             console.error(`Erro na operação ${action}:`, opError);
-            return NextResponse.json({ error: opError.message }, { status: 500 });
+            // Melhora a mensagem de erro para o usuário
+            const msg = opError.message.includes('NONEXISTENT') ? 'Pasta não encontrada.' : 
+                        opError.message.includes('CANNOT') ? 'O servidor bloqueou essa ação.' : 
+                        opError.message;
+            return NextResponse.json({ error: msg }, { status: 500 });
         } finally {
             connection.end();
         }
