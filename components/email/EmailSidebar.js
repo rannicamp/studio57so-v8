@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -13,9 +13,9 @@ import {
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { toast } from 'sonner';
 
-const FOLDER_EXPANSION_KEY = 'email_expanded_folders_v1';
+const FOLDER_EXPANSION_KEY = 'email_expanded_folders_vhostinger_fixed';
 
-// --- MENU FLUTUANTE ---
+// --- MENU CONTEXTUAL ---
 const FolderContextMenu = ({ position, folder, onClose, onAction, isSystemFolder }) => {
     if (!position) return null;
     return createPortal(
@@ -45,15 +45,13 @@ const FolderContextMenu = ({ position, folder, onClose, onAction, isSystemFolder
     );
 };
 
-// Componente Interno da Árvore
+// --- ÁRVORE DE PASTAS ---
 const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPaths, toggleExpand, onCreateFolder }) => {
     const queryClient = useQueryClient();
     const [menuState, setMenuState] = useState({ isOpen: false, position: null, folder: null });
-    
-    // Estado local para guardar os números que vamos buscando em segundo plano
     const [unreadCounts, setUnreadCounts] = useState({});
 
-    // 1. Busca a lista de pastas (Rápido - sem contagem)
+    // 1. ESTRUTURA (Cache Longo)
     const { data: folderData, isLoading, isError } = useQuery({
         queryKey: ['emailFolders', account.id],
         queryFn: async () => {
@@ -61,48 +59,30 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             if (!res.ok) throw new Error('Erro ao buscar pastas');
             return res.json();
         },
-        staleTime: 1000 * 60 * 5 // Cache de 5 minutos na lista
+        staleTime: 1000 * 60 * 10
     });
 
     const folderList = folderData?.folders || [];
 
-    // 2. EFEITO "ROBÔ": Percorre as pastas e busca a contagem uma por uma
+    // 2. CONTAGEM (Polling Suave - a cada 15s)
+    useQuery({
+        queryKey: ['emailFolderCounts', account.id],
+        queryFn: async () => {
+            const res = await fetch(`/api/email/folders?accountId=${account.id}&action=getAllCounts`);
+            if (!res.ok) return { counts: {} };
+            return res.json();
+        },
+        enabled: !!folderList.length,
+        refetchInterval: 15000, 
+        refetchOnWindowFocus: true
+    });
+
+    const countsData = queryClient.getQueryData(['emailFolderCounts', account.id]);
     useEffect(() => {
-        if (!folderList.length) return;
-
-        const fetchCountsOneByOne = async () => {
-            // Prioriza Caixa de Entrada, Spam e Lixeira
-            const sortedToFetch = [...folderList].sort((a, b) => {
-                const priority = (name) => {
-                    const n = name.toUpperCase();
-                    if (n.includes('INBOX') || n.includes('ENTRADA')) return 3;
-                    if (n.includes('SPAM') || n.includes('JUNK')) return 2;
-                    return 1;
-                };
-                return priority(b.displayName) - priority(a.displayName);
-            });
-
-            for (const folder of sortedToFetch) {
-                if (!folder.canSelect) continue;
-
-                try {
-                    // Chama a API pedindo SÓ a contagem dessa pasta
-                    const res = await fetch(`/api/email/folders?accountId=${account.id}&action=count&folderPath=${encodeURIComponent(folder.path)}`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        setUnreadCounts(prev => ({
-                            ...prev,
-                            [folder.path]: data.unseen || 0
-                        }));
-                    }
-                } catch (e) {
-                    console.error("Erro background count:", e);
-                }
-            }
-        };
-
-        fetchCountsOneByOne();
-    }, [folderList, account.id]);
+        if (countsData?.counts) {
+            setUnreadCounts(countsData.counts);
+        }
+    }, [countsData]);
 
 
     const folderActionMutation = useMutation({
@@ -112,19 +92,16 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action, folderPath, accountId: account.id })
             });
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || 'Erro na ação');
-            }
+            if (!res.ok) throw new Error('Erro na ação');
             return res.json();
         },
-        onSuccess: (_, vars) => {
-            toast.success("Ação concluída!");
+        onSuccess: () => {
+            toast.success("Sucesso!");
             queryClient.invalidateQueries(['emailFolders', account.id]);
-            queryClient.invalidateQueries(['emailMessages']);
+            queryClient.invalidateQueries(['emailFolderCounts', account.id]);
             setMenuState({ isOpen: false, position: null, folder: null });
         },
-        onError: (err) => toast.error(err.message)
+        onError: () => toast.error("Erro ao executar ação")
     });
 
     const openMenu = (e, folder) => {
@@ -139,8 +116,8 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
 
     const handleAction = (e, action, folderPath) => {
         setMenuState({ ...menuState, isOpen: false });
-        if (action === 'delete' && !confirm('Excluir pasta permanentemente?')) return;
-        if (action === 'empty' && !confirm('Apagar TODAS as mensagens desta pasta?')) return;
+        if (action === 'delete' && !confirm('Tem certeza?')) return;
+        if (action === 'empty' && !confirm('Apagar tudo desta pasta?')) return;
         folderActionMutation.mutate({ action, folderPath });
     };
 
@@ -152,7 +129,7 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
         folderList.forEach(folder => {
             if (folder.level === 0) roots.push(folder);
             else {
-                const separator = folder.delimiter || '/';
+                const separator = folder.delimiter || '.';
                 const lastIndex = folder.path.lastIndexOf(separator);
                 const parentPath = lastIndex > -1 ? folder.path.substring(0, lastIndex) : '';
                 if (!childrenMap[parentPath]) childrenMap[parentPath] = [];
@@ -201,8 +178,8 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
         return faFolder; 
     };
 
-    if (isLoading) return <div className="py-2 px-6 text-xs text-gray-400 flex items-center gap-2"><FontAwesomeIcon icon={faSpinner} spin /> Carregando pastas...</div>;
-    if (isError) return <div className="py-2 px-6 text-xs text-red-400 flex items-center gap-2"><FontAwesomeIcon icon={faExclamationTriangle} /> Erro de conexão</div>;
+    if (isLoading) return <div className="py-4 px-6 text-xs text-gray-400 flex justify-center"><FontAwesomeIcon icon={faSpinner} spin className="mr-2"/> Carregando...</div>;
+    if (isError) return <div className="py-2 px-6 text-xs text-red-400">Falha ao carregar</div>;
 
     return (
         <>
@@ -211,9 +188,8 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                     const uniqueKey = `${account.id}-${folder.path}`;
                     const isExpanded = expandedPaths.has(uniqueKey);
                     const isSelected = selectedFolder?.path === folder.path && selectedFolder?.accountId === account.id;
-                    const isInbox = folder.displayName === 'Caixa de Entrada';
+                    const isInbox = folder.displayName === 'Caixa de Entrada' || folder.name.toUpperCase() === 'INBOX';
                     
-                    // A MÁGICA: Usa o contador que buscamos em background
                     const unreadCount = unreadCounts[folder.path] || 0;
 
                     return (
@@ -224,7 +200,7 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                                 ${isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}
                             `}
                             onClick={() => onSelectFolder({ ...folder, accountId: account.id })}
-                            style={{ paddingLeft: `${16 + (folder.level * 16)}px`, paddingRight: '8px' }} 
+                            style={{ paddingLeft: `${16 + (folder.level * 12)}px`, paddingRight: '8px' }} 
                         >
                             {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></div>}
                             
@@ -236,23 +212,21 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                             </div>
                             
                             <div className="flex items-center gap-2 flex-grow py-2.5 overflow-hidden">
-                                <FontAwesomeIcon icon={getFolderIcon(folder.name)} className={`${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
-                                <span className="truncate flex-grow" title={folder.displayName}>{folder.displayName || folder.name}</span>
+                                <FontAwesomeIcon icon={getFolderIcon(folder.name)} className={`${isSelected ? 'text-blue-500' : 'text-gray-400'} w-4`} />
+                                <span className="truncate flex-grow" title={folder.displayName}>{folder.displayName}</span>
                                 
-                                {/* --- CONTADOR --- */}
                                 {unreadCount > 0 && (
                                     <span className={`
-                                        text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 min-w-[20px] text-center animate-fade-in
-                                        ${isInbox ? 'bg-red-500 text-white shadow-sm' : 'bg-blue-100 text-blue-700'}
+                                        text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 min-w-[20px] text-center ml-1 animate-fade-in
+                                        ${isInbox ? 'bg-red-500 text-white shadow-sm' : 'bg-gray-200 text-gray-600'}
                                     `}>
                                         {unreadCount}
                                     </span>
                                 )}
 
-                                {/* BOTÃO 3 PONTINHOS */}
                                 <button 
                                     onClick={(e) => openMenu(e, folder)}
-                                    className="w-6 h-6 rounded-full hover:bg-gray-200 flex items-center justify-center text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1"
+                                    className="w-6 h-6 rounded-full hover:bg-gray-200 flex items-center justify-center text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                                 >
                                     <FontAwesomeIcon icon={faEllipsisV} className="text-[10px]" />
                                 </button>
@@ -267,7 +241,7 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                     folder={menuState.folder} 
                     onClose={() => setMenuState({ isOpen: false, position: null, folder: null })}
                     onAction={handleAction}
-                    isSystemFolder={['INBOX', 'SENT', 'TRASH', 'JUNK', 'SPAM', 'DRAFTS'].some(s => menuState.folder.name.toUpperCase().includes(s))}
+                    isSystemFolder={['INBOX', 'SENT', 'TRASH', 'JUNK', 'SPAM'].some(s => menuState.folder.name.toUpperCase().includes(s))}
                 />
             )}
         </>
@@ -357,7 +331,7 @@ export default function EmailSidebar({
                 {loadingAccounts ? (
                     <div className="flex flex-col items-center justify-center h-40 text-gray-400">
                         <FontAwesomeIcon icon={faSpinner} spin className="text-2xl mb-2 text-blue-500" />
-                        <p className="text-xs">Carregando contas...</p>
+                        <p className="text-xs">Sincronizando...</p>
                     </div>
                 ) : accounts.length === 0 ? (
                     <div className="p-6 text-center text-gray-500">
