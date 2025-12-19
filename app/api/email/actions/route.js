@@ -5,10 +5,11 @@ import imapSimple from 'imap-simple';
 export async function POST(request) {
   const supabase = createClient();
   const body = await request.json();
-  // Aceita 'uid' (único) ou 'uids' (array)
-  const { action, folder, uid, uids } = body; 
+  
+  // --- ATUALIZAÇÃO: Extraindo accountId do corpo da requisição ---
+  const { action, folder, uid, uids, accountId } = body; 
 
-  // Normaliza para sempre trabalhar com array
+  // Normaliza para sempre trabalhar com array de UIDs
   const targetUids = uids || (uid ? [uid] : []);
 
   if (!action || !folder || targetUids.length === 0) {
@@ -21,13 +22,19 @@ export async function POST(request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-    const { data: config } = await supabase
-      .from('email_configuracoes')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
+    // --- CORREÇÃO MULTI-CONTAS ---
+    // Removemos o .single() e aplicamos o filtro de ID se existir
+    let query = supabase.from('email_configuracoes').select('*').eq('user_id', user.id);
+    
+    if (accountId) {
+        query = query.eq('id', accountId);
+    }
 
-    if (!config) return NextResponse.json({ error: 'Configuração não encontrada' }, { status: 404 });
+    const { data: configs } = await query;
+    // Pega a configuração específica ou a primeira encontrada como fallback
+    const config = configs?.[0];
+
+    if (!config) return NextResponse.json({ error: 'Configuração de e-mail não encontrada' }, { status: 404 });
 
     const imapConfig = {
       imap: {
@@ -36,15 +43,16 @@ export async function POST(request) {
         host: config.imap_host,
         port: config.imap_port || 993,
         tls: true,
-        authTimeout: 15000,
+        authTimeout: 25000, // Aumentei um pouco para garantir operações em lote
         tlsOptions: { rejectUnauthorized: false }
       },
     };
 
     connection = await imapSimple.connect(imapConfig);
+    // Abre a pasta com permissão de escrita (readOnly: false é essencial para ações)
     await connection.openBox(folder, { readOnly: false });
 
-    // --- LÓGICA DAS AÇÕES EM LOTE ---
+    // --- LÓGICA DAS AÇÕES ---
     if (action === 'markAsRead') {
         await connection.addFlags(targetUids, '\\Seen');
     } 
@@ -54,10 +62,12 @@ export async function POST(request) {
     else if (action === 'trash' || action === 'archive') {
         const boxes = await connection.getBoxes();
         
+        // Função auxiliar para encontrar pastas especiais (Lixeira, Arquivo, etc.)
         const findFolder = (keywords) => {
             const traverse = (list, parent = '') => {
                 for (const [key, value] of Object.entries(list)) {
                     const fullPath = parent ? `${parent}${value.delimiter}${key}` : key;
+                    // Verifica se o nome da pasta contém alguma das palavras-chave
                     if (keywords.some(k => key.toUpperCase().includes(k))) return fullPath;
                     if (value.children) {
                         const found = traverse(value.children, fullPath);
@@ -77,8 +87,10 @@ export async function POST(request) {
         }
 
         if (targetFolder) {
+            // Move para a pasta encontrada
             await connection.moveMessage(targetUids, targetFolder);
         } else {
+            // Fallback: Se for excluir e não achar lixeira, marca com flag de deletado
             if (action === 'trash') {
                 await connection.addFlags(targetUids, '\\Deleted');
             } else {
