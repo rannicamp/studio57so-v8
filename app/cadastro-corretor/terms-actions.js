@@ -2,15 +2,21 @@
 
 import { createClient } from '@/utils/supabase/server'
 
-export async function getLatestTerms() {
+export async function getLatestTerms(organizacaoId) {
   const supabase = createClient()
 
-  // Busca o termo ativo para corretores com a maior versão
+  if (!organizacaoId) {
+    console.error('ID da organização não fornecido para buscar termos.')
+    return null
+  }
+
+  // Busca o termo ativo para corretores DA ORGANIZAÇÃO ESPECÍFICA
   const { data, error } = await supabase
     .from('termos_uso')
     .select('*')
     .eq('tipo', 'CORRETOR')
     .eq('ativo', true)
+    .eq('organizacao_id', organizacaoId) // <--- Filtro crucial adicionado
     .order('versao', { ascending: false })
     .limit(1)
     .single()
@@ -21,15 +27,4 @@ export async function getLatestTerms() {
   }
 
   return data
-}
-
-export async function registerTermAcceptance(userId, termId) {
-    // Esta função será chamada internamente pelo server action de cadastro
-    // mas deixamos preparada aqui se precisar ser chamada via client
-    const supabase = createClient()
-    
-    await supabase.from('termos_aceite').insert({
-        user_id: userId,
-        termo_id: termId
-    })
 }

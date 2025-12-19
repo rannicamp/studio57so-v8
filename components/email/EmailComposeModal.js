@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faPaperPlane, faSpinner, faPaperclip, faTrashAlt, faFile, faUser, faBuilding } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faPaperPlane, faSpinner, faPaperclip, faTrashAlt, faFile, faUser, faBuilding, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import EmailEditor from './EmailEditor';
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
@@ -11,27 +11,26 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 
-// Adicionei 'onEmailSent' nas props aqui embaixo
 export default function EmailComposeModal({ isOpen, onClose, initialData = null, onEmailSent }) {
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
     const [loading, setLoading] = useState(false);
+    const [attaching, setAttaching] = useState(false); 
     const fileInputRef = useRef(null);
-    const [mounted, setMounted] = useState(false); // Para evitar erros de hidratação com o Portal
+    const [mounted, setMounted] = useState(false);
     
     const [formData, setFormData] = useState({
         to: '', cc: '', bcc: '', subject: '', body: '', replyToMessageId: null, attachments: []
     });
 
-    // Garante que o componente está montado antes de usar o Portal
     useEffect(() => {
         setMounted(true);
         return () => setMounted(false);
     }, []);
 
-    // --- 1. BUSCAR CONFIGURAÇÃO DE ASSINATURA ---
+    // --- 1. BUSCAR CONFIGURAÇÃO ---
     const { data: emailConfig } = useQuery({
         queryKey: ['emailConfig', user?.id],
         queryFn: async () => {
@@ -46,16 +45,13 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
         staleTime: 1000 * 60 * 5 
     });
 
-    // --- 2. FUNÇÃO PARA MONTAR HTML DA ASSINATURA ---
+    // --- 2. ASSINATURA ---
     const buildSignature = () => {
         if (!emailConfig || !emailConfig.assinatura_texto) return '';
-
         const textoAssinatura = emailConfig.assinatura_texto;
         const incluirFoto = emailConfig.assinatura_incluir_foto;
-        
         const fotoUrl = user?.avatar_url; 
 
-        // Se tiver foto e a opção estiver marcada
         if (incluirFoto && fotoUrl) {
             return `
                 <br><br>
@@ -65,8 +61,6 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                 </div>
             `;
         }
-
-        // Apenas texto
         return `
             <br><br>
             <div style="border-top: 1px solid #eee; padding-top: 16px; margin-top: 16px; font-family: sans-serif;">
@@ -89,109 +83,46 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
     const searchTerm = getLastTerm(formData.to);
     const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
 
-    // BUSCA DUPLA INTELIGENTE (Contatos + Emails)
     useEffect(() => {
         const fetchContacts = async () => {
             if (!debouncedSearchTerm || debouncedSearchTerm.length < 2) {
-                setSuggestions([]);
-                setShowSuggestions(false);
-                return;
+                setSuggestions([]); setShowSuggestions(false); return;
             }
             if (debouncedSearchTerm.includes('@') && debouncedSearchTerm.includes('.')) {
-                 setSuggestions([]);
-                 setShowSuggestions(false);
-                 return;
+                 setSuggestions([]); setShowSuggestions(false); return;
             }
             if (!organizacaoId) return;
 
             setIsSearching(true);
-
             try {
-                // 1. Busca por NOME do Contato (Traz os emails associados)
-                const queryNome = supabase
-                    .from('contatos')
-                    .select('id, nome, razao_social, nome_fantasia, emails(email)')
-                    .eq('organizacao_id', organizacaoId)
-                    .or(`nome.ilike.%${debouncedSearchTerm}%,razao_social.ilike.%${debouncedSearchTerm}%,nome_fantasia.ilike.%${debouncedSearchTerm}%`)
-                    .limit(5);
-
-                // 2. Busca por E-MAIL na tabela de emails (Traz o contato dono)
-                const queryEmail = supabase
-                    .from('emails')
-                    .select('email, contatos(id, nome, razao_social, nome_fantasia)')
-                    .eq('organizacao_id', organizacaoId)
-                    .ilike('email', `%${debouncedSearchTerm}%`)
-                    .limit(5);
-
+                const queryNome = supabase.from('contatos').select('id, nome, razao_social, nome_fantasia, emails(email)').eq('organizacao_id', organizacaoId).or(`nome.ilike.%${debouncedSearchTerm}%,razao_social.ilike.%${debouncedSearchTerm}%,nome_fantasia.ilike.%${debouncedSearchTerm}%`).limit(5);
+                const queryEmail = supabase.from('emails').select('email, contatos(id, nome, razao_social, nome_fantasia)').eq('organizacao_id', organizacaoId).ilike('email', `%${debouncedSearchTerm}%`).limit(5);
                 const [resNome, resEmail] = await Promise.all([queryNome, queryEmail]);
 
                 const combinedResults = [];
-                const seenEmails = new Set(); // Para evitar duplicatas
+                const seenEmails = new Set();
 
-                // Processa resultados por NOME
-                if (resNome.data) {
-                    resNome.data.forEach(contato => {
-                        const nomeDisplay = contato.nome || contato.razao_social || contato.nome_fantasia;
-                        // Se o contato tem emails cadastrados na tabela filha
-                        if (contato.emails && contato.emails.length > 0) {
-                            contato.emails.forEach(emailObj => {
-                                if (!seenEmails.has(emailObj.email)) {
-                                    combinedResults.push({
-                                        id: contato.id,
-                                        nome: nomeDisplay,
-                                        email: emailObj.email,
-                                        isCompany: !!contato.razao_social
-                                    });
-                                    seenEmails.add(emailObj.email);
-                                }
-                            });
-                        }
-                    });
-                }
+                const processItem = (id, nome, email, isCompany) => {
+                    if (!seenEmails.has(email)) {
+                        combinedResults.push({ id, nome, email, isCompany });
+                        seenEmails.add(email);
+                    }
+                };
 
-                // Processa resultados por EMAIL
-                if (resEmail.data) {
-                    resEmail.data.forEach(item => {
-                        if (item.contatos && !seenEmails.has(item.email)) {
-                            const contato = item.contatos;
-                            const nomeDisplay = contato.nome || contato.razao_social || contato.nome_fantasia;
-                            combinedResults.push({
-                                id: contato.id,
-                                nome: nomeDisplay,
-                                email: item.email,
-                                isCompany: !!contato.razao_social
-                            });
-                            seenEmails.add(item.email);
-                        }
-                    });
-                }
+                if (resNome.data) resNome.data.forEach(c => c.emails?.forEach(e => processItem(c.id, c.nome || c.razao_social || c.nome_fantasia, e.email, !!c.razao_social)));
+                if (resEmail.data) resEmail.data.forEach(e => e.contatos && processItem(e.contatos.id, e.contatos.nome || e.contatos.razao_social || e.contatos.nome_fantasia, e.email, !!e.contatos.razao_social));
 
-                if (combinedResults.length > 0) {
-                    setSuggestions(combinedResults);
-                    setShowSuggestions(true);
-                } else {
-                    setSuggestions([]);
-                    setShowSuggestions(false);
-                }
-
-            } catch (err) {
-                console.error("Erro na busca dupla:", err);
-            } finally {
-                setIsSearching(false);
-            }
+                if (combinedResults.length > 0) { setSuggestions(combinedResults); setShowSuggestions(true); } 
+                else { setSuggestions([]); setShowSuggestions(false); }
+            } catch (err) { console.error(err); } finally { setIsSearching(false); }
         };
-
         fetchContacts();
     }, [debouncedSearchTerm, supabase, organizacaoId]);
 
     const handleSelectContact = (item) => {
-        const parts = formData.to.split(',');
-        parts.pop(); 
-        parts.push(` ${item.email}`); 
-        const newValue = parts.join(',').replace(/^,/, '').trim() + ', '; 
-        setFormData(prev => ({ ...prev, to: newValue }));
-        setSuggestions([]);
-        setShowSuggestions(false);
+        const parts = formData.to.split(','); parts.pop(); parts.push(` ${item.email}`); 
+        setFormData(prev => ({ ...prev, to: parts.join(',').replace(/^,/, '').trim() + ', ' }));
+        setSuggestions([]); setShowSuggestions(false);
     };
 
     useEffect(() => {
@@ -200,7 +131,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
         return () => document.removeEventListener('click', handleClickOutside);
     }, [showSuggestions]);
 
-    // --- 3. POPULAR FORMULÁRIO (Com Assinatura) ---
+    // --- POPULAR DADOS ---
     useEffect(() => {
         if (isOpen && emailConfig !== undefined) { 
             const signature = buildSignature();
@@ -212,10 +143,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                 initialBody = `${sigHtml}${initialData.body || ''}`;
 
                 setFormData({
-                    to: initialData.to || '',
-                    cc: initialData.cc || '',
-                    bcc: '',
-                    subject: initialData.subject || '',
+                    to: initialData.to || '', cc: initialData.cc || '', bcc: '', subject: initialData.subject || '',
                     body: initialBody,
                     replyToMessageId: initialData.messageId || null,
                     attachments: []
@@ -227,8 +155,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                 setFormData({ 
                     to: '', cc: '', bcc: '', subject: '', 
                     body: initialBody, 
-                    replyToMessageId: null, 
-                    attachments: [] 
+                    replyToMessageId: null, attachments: [] 
                 });
             }
             setSuggestions([]);
@@ -237,12 +164,32 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
 
     const handleAttachmentClick = () => fileInputRef.current?.click();
 
+    // --- CONTROLE DE ANEXOS (COM TRAVA DE 25MB TOTAL) ---
     const handleFileChange = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
+        
+        setAttaching(true);
+
         const newAttachments = [];
+        const MAX_SIZE = 25 * 1024 * 1024; // 25MB em Bytes
+
+        // Calcula o peso atual dos anexos que já estão na lista
+        let currentTotalSize = formData.attachments.reduce((acc, att) => acc + (att.size || 0), 0);
+        
         for (const file of files) {
-            if (file.size > 10 * 1024 * 1024) { toast.error(`Arquivo ${file.name} muito grande (máx 10MB).`); continue; }
+            // 1. Verifica arquivo individual
+            if (file.size > MAX_SIZE) {
+                toast.error(`O arquivo ${file.name} excede o limite individual de 25MB.`);
+                continue; // Pula esse, mas tenta os outros
+            }
+
+            // 2. Verifica a soma total (Preventivo para não dar erro no servidor)
+            if (currentTotalSize + file.size > MAX_SIZE) {
+                toast.error(`Não foi possível adicionar ${file.name}. O total excederia 25MB.`);
+                continue;
+            }
+
             try {
                 const base64 = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
@@ -250,11 +197,20 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                     reader.onload = () => resolve(reader.result);
                     reader.onerror = error => reject(error);
                 });
-                newAttachments.push({ filename: file.name, content: base64.split(',')[1], encoding: 'base64' });
-            } catch (err) { console.error(err); }
+                
+                // Atualiza o peso total para considerar este novo arquivo na próxima iteração
+                currentTotalSize += file.size;
+
+                newAttachments.push({ filename: file.name, content: base64.split(',')[1], encoding: 'base64', size: file.size });
+            } catch (err) { 
+                console.error("Erro ao ler arquivo:", err); 
+                toast.error(`Erro ao anexar ${file.name}`);
+            }
         }
+        
         setFormData(prev => ({ ...prev, attachments: [...prev.attachments, ...newAttachments] }));
-        e.target.value = '';
+        e.target.value = ''; 
+        setAttaching(false);
     };
 
     const removeAttachment = (index) => {
@@ -275,22 +231,17 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
             if (!res.ok) throw new Error(data.error || 'Erro ao enviar');
             
             toast.success('E-mail enviado!');
-            
-            // --- AQUI ESTÁ A CORREÇÃO ---
-            // Avisa o componente pai (Inbox) que enviamos, para ele atualizar a lista
-            if (onEmailSent) {
-                onEmailSent();
-            }
-            // ---------------------------
-
+            if (onEmailSent) onEmailSent();
             onClose();
-        } catch (error) { toast.error(error.message); } 
+        } catch (error) { 
+            console.error(error);
+            toast.error(error.message);
+        } 
         finally { setLoading(false); }
     };
 
     if (!mounted || !isOpen) return null;
 
-    // USANDO PORTAL E Z-INDEX 99999 PARA FICAR POR CIMA DE TUDO
     return createPortal(
         <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 backdrop-blur-sm" style={{ pointerEvents: 'auto' }}>
             <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl flex flex-col h-[85vh] animate-fade-in-up">
@@ -344,15 +295,28 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                             </div>
                         </div>
 
-                        {formData.attachments.length > 0 && (
-                            <div className="flex flex-wrap gap-2 py-2">
-                                {formData.attachments.map((att, index) => (
-                                    <div key={index} className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-100">
-                                        <FontAwesomeIcon icon={faFile} /><span className="max-w-[150px] truncate">{att.filename}</span><button type="button" onClick={() => removeAttachment(index)} className="ml-1 text-blue-400 hover:text-red-500"><FontAwesomeIcon icon={faTimes} /></button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                        {/* LISTA DE ANEXOS */}
+                        <div className="flex flex-col gap-2">
+                            {attaching && (
+                                <div className="text-xs text-blue-600 flex items-center gap-2 animate-pulse pl-16">
+                                    <FontAwesomeIcon icon={faSpinner} spin /> Processando anexos...
+                                </div>
+                            )}
+                            
+                            {formData.attachments.length > 0 && (
+                                <div className="flex flex-wrap gap-2 py-2">
+                                    {formData.attachments.map((att, index) => (
+                                        <div key={index} className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-100">
+                                            <FontAwesomeIcon icon={faFile} />
+                                            <span className="max-w-[150px] truncate" title={att.filename}>{att.filename}</span>
+                                            {/* Mostra aviso visual se estiver perto do limite (acima de 20MB) */}
+                                            {att.size > 20 * 1024 * 1024 && <FontAwesomeIcon icon={faExclamationTriangle} className="text-orange-500" title="Arquivo grande" />}
+                                            <button type="button" onClick={() => removeAttachment(index)} className="ml-1 text-blue-400 hover:text-red-500"><FontAwesomeIcon icon={faTimes} /></button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
 
                         <div className="flex-grow min-h-[300px]">
                             <EmailEditor value={formData.body} onChange={(html) => setFormData({...formData, body: html})} />
@@ -361,18 +325,25 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
 
                     <div className="px-6 py-4 border-t bg-gray-50 rounded-b-xl flex justify-between items-center shrink-0">
                         <div className="flex gap-4">
+                            {/* Input sem restrições de tipo, mas o JS vai validar o tamanho */}
                             <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                            <button type="button" onClick={handleAttachmentClick} className="text-gray-500 hover:text-blue-600 text-sm flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100"><FontAwesomeIcon icon={faPaperclip} /> <span className="hidden sm:inline">Anexar</span></button>
+                            
+                            <button type="button" onClick={handleAttachmentClick} disabled={attaching || loading} className="text-gray-500 hover:text-blue-600 text-sm flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100 disabled:opacity-50">
+                                <FontAwesomeIcon icon={faPaperclip} /> <span className="hidden sm:inline">Anexar</span>
+                            </button>
+                            
                             <button type="button" onClick={() => setFormData({...formData, body: '', attachments: [], to: '', subject: ''})} className="text-gray-500 hover:text-red-500 text-sm px-2 py-1 rounded hover:bg-gray-100"><FontAwesomeIcon icon={faTrashAlt} className="mr-1" /> Descartar</button>
                         </div>
                         <div className="flex gap-3">
                             <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 text-sm font-medium">Cancelar</button>
-                            <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md flex items-center gap-2 text-sm font-bold transition-transform active:scale-95 disabled:opacity-70">{loading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperPlane} />} Enviar</button>
+                            <button type="submit" disabled={loading || attaching} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md flex items-center gap-2 text-sm font-bold transition-transform active:scale-95 disabled:opacity-70">
+                                {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperPlane} />} Enviar
+                            </button>
                         </div>
                     </div>
                 </form>
             </div>
         </div>,
-        document.body // <--- RENDERIZA NO CORPO DA PÁGINA
+        document.body
     );
 }
