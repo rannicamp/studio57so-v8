@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faPaperPlane, faSpinner, faPaperclip, faTrashAlt, faFile, faUser, faBuilding, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faPaperPlane, faSpinner, faPaperclip, faTrashAlt, faFile, faUser, faBuilding, faExclamationTriangle, faCheck } from '@fortawesome/free-solid-svg-icons';
 import EmailEditor from './EmailEditor';
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
@@ -27,15 +27,15 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
     const organizacaoId = user?.organizacao_id;
 
     const [loading, setLoading] = useState(false);
-    const [attaching, setAttaching] = useState(false); 
+    const [uploading, setUploading] = useState(false); 
     const fileInputRef = useRef(null);
     const [mounted, setMounted] = useState(false);
     
+    // Attachments agora guarda: { filename, size, path, publicUrl }
     const [formData, setFormData] = useState({
         to: '', cc: '', bcc: '', subject: '', body: '', replyToMessageId: null, attachments: []
     });
 
-    // --- CÁLCULO DO TAMANHO TOTAL (EM TEMPO REAL) ---
     const MAX_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
     
     const totalSize = useMemo(() => {
@@ -45,18 +45,15 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
     const isOverLimit = totalSize > MAX_SIZE_BYTES;
     const sizePercentage = Math.min((totalSize / MAX_SIZE_BYTES) * 100, 100);
 
-    // Define a cor da barra baseado no uso
     let progressColor = 'bg-blue-500';
     if (sizePercentage > 80) progressColor = 'bg-orange-500';
     if (isOverLimit) progressColor = 'bg-red-600';
-    // ------------------------------------------------
 
     useEffect(() => {
         setMounted(true);
         return () => setMounted(false);
     }, []);
 
-    // --- 1. BUSCAR CONFIGURAÇÃO ---
     const { data: emailConfig } = useQuery({
         queryKey: ['emailConfig', user?.id],
         queryFn: async () => {
@@ -71,7 +68,6 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
         staleTime: 1000 * 60 * 5 
     });
 
-    // --- 2. ASSINATURA ---
     const buildSignature = () => {
         if (!emailConfig || !emailConfig.assinatura_texto) return '';
         const textoAssinatura = emailConfig.assinatura_texto;
@@ -95,7 +91,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
         `;
     };
 
-    // --- AUTOCOMPLETE ---
+    // --- AUTOCOMPLETE (MANTIDO) ---
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
@@ -127,17 +123,14 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
 
                 const combinedResults = [];
                 const seenEmails = new Set();
-
                 const processItem = (id, nome, email, isCompany) => {
                     if (!seenEmails.has(email)) {
                         combinedResults.push({ id, nome, email, isCompany });
                         seenEmails.add(email);
                     }
                 };
-
                 if (resNome.data) resNome.data.forEach(c => c.emails?.forEach(e => processItem(c.id, c.nome || c.razao_social || c.nome_fantasia, e.email, !!c.razao_social)));
                 if (resEmail.data) resEmail.data.forEach(e => e.contatos && processItem(e.contatos.id, e.contatos.nome || e.contatos.razao_social || e.contatos.nome_fantasia, e.email, !!e.contatos.razao_social));
-
                 if (combinedResults.length > 0) { setSuggestions(combinedResults); setShowSuggestions(true); } 
                 else { setSuggestions([]); setShowSuggestions(false); }
             } catch (err) { console.error(err); } finally { setIsSearching(false); }
@@ -150,7 +143,6 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
         setFormData(prev => ({ ...prev, to: parts.join(',').replace(/^,/, '').trim() + ', ' }));
         setSuggestions([]); setShowSuggestions(false);
     };
-
     useEffect(() => {
         const handleClickOutside = () => setShowSuggestions(false);
         if (showSuggestions) document.addEventListener('click', handleClickOutside);
@@ -162,12 +154,10 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
         if (isOpen && emailConfig !== undefined) { 
             const signature = buildSignature();
             let initialBody = '';
-
             if (initialData) {
                 const shouldUseSig = emailConfig?.assinatura_usar_respostas !== false; 
                 const sigHtml = shouldUseSig ? `<p></p>${signature}` : ''; 
                 initialBody = `${sigHtml}${initialData.body || ''}`;
-
                 setFormData({
                     to: initialData.to || '', cc: initialData.cc || '', bcc: '', subject: initialData.subject || '',
                     body: initialBody,
@@ -177,10 +167,8 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
             } else {
                 const shouldUseSig = emailConfig?.assinatura_usar_novos !== false;
                 initialBody = shouldUseSig ? `<p></p>${signature}` : '';
-
                 setFormData({ 
-                    to: '', cc: '', bcc: '', subject: '', 
-                    body: initialBody, 
+                    to: '', cc: '', bcc: '', subject: '', body: initialBody, 
                     replyToMessageId: null, attachments: [] 
                 });
             }
@@ -190,62 +178,89 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
 
     const handleAttachmentClick = () => fileInputRef.current?.click();
 
+    // --- NOVA LÓGICA DE UPLOAD (SUPABASE STORAGE) ---
     const handleFileChange = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
         
-        setAttaching(true);
+        setUploading(true);
+        let tempTotalSize = totalSize;
+        const uploadedAttachments = [];
 
-        const newAttachments = [];
-        let tempTotalSize = totalSize; // Começa com o tamanho que já tem
-        
         for (const file of files) {
-            // Verifica se a adição desse arquivo vai estourar o limite TOTAL
             if (tempTotalSize + file.size > MAX_SIZE_BYTES) {
-                toast.error(`O arquivo "${file.name}" não cabe! O total passaria de 25MB.`);
-                continue; // Pula este arquivo, mas continua tentando os outros
+                toast.error(`"${file.name}" excede o limite restante.`);
+                continue;
             }
 
             try {
-                const base64 = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(file);
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = error => reject(error);
-                });
+                // Nome único para evitar conflito
+                const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
                 
-                tempTotalSize += file.size; // Atualiza o contador temporário
-                newAttachments.push({ filename: file.name, content: base64.split(',')[1], encoding: 'base64', size: file.size });
+                // Upload para o Bucket CORRETO: 'anexos-email'
+                const { data, error } = await supabase.storage
+                    .from('anexos-email') 
+                    .upload(fileName, file);
+
+                if (error) throw error;
+
+                // Pega URL pública
+                const { data: { publicUrl } } = supabase.storage
+                    .from('anexos-email')
+                    .getPublicUrl(fileName);
+
+                uploadedAttachments.push({ 
+                    filename: file.name, 
+                    path: publicUrl, // Mandaremos o link, não o arquivo base64
+                    size: file.size 
+                });
+
+                tempTotalSize += file.size;
+
             } catch (err) { 
-                console.error("Erro ao ler arquivo:", err); 
+                console.error("Erro upload:", err); 
+                toast.error(`Erro ao anexar ${file.name}: ${err.message}`);
             }
         }
         
-        setFormData(prev => ({ ...prev, attachments: [...prev.attachments, ...newAttachments] }));
+        setFormData(prev => ({ ...prev, attachments: [...prev.attachments, ...uploadedAttachments] }));
         e.target.value = ''; 
-        setAttaching(false);
+        setUploading(false);
     };
 
     const removeAttachment = (index) => {
         setFormData(prev => ({ ...prev, attachments: prev.attachments.filter((_, i) => i !== index) }));
+        // Opcional: Poderíamos deletar do bucket aqui também, mas melhor limpar via cron job depois
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         
         if (isOverLimit) {
-            toast.error("O tamanho total excede 25MB. Remova alguns anexos.");
+            toast.error("Limite de 25MB excedido.");
             return;
         }
 
         setLoading(true);
         try {
             const finalTo = formData.to.trim().replace(/,$/, '');
+            
+            // Envia apenas os metadados (Links) para o backend
             const res = await fetch('/api/email/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...formData, to: finalTo, html: formData.body })
+                body: JSON.stringify({ 
+                    ...formData, 
+                    to: finalTo, 
+                    html: formData.body,
+                    // Garante que enviamos apenas o necessário
+                    attachments: formData.attachments.map(a => ({
+                        filename: a.filename,
+                        path: a.path 
+                    }))
+                })
             });
+            
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Erro ao enviar');
             
@@ -282,15 +297,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                             <div className="flex items-center gap-2 border-b border-gray-100 pb-2 relative">
                                 <label className="w-16 text-sm font-semibold text-gray-500 text-right">Para:</label>
                                 <div className="flex-grow relative">
-                                    <input 
-                                        type="text" 
-                                        required
-                                        value={formData.to}
-                                        onChange={e => setFormData({...formData, to: e.target.value})}
-                                        className="w-full outline-none text-sm text-gray-800 placeholder-gray-300 bg-transparent"
-                                        placeholder="Nome ou e-mail..."
-                                        autoComplete="off"
-                                    />
+                                    <input type="text" required value={formData.to} onChange={e => setFormData({...formData, to: e.target.value})} className="w-full outline-none text-sm text-gray-800 placeholder-gray-300 bg-transparent" placeholder="Nome ou e-mail..." autoComplete="off"/>
                                     {isSearching && <div className="absolute right-0 top-0 bottom-0 flex items-center pr-2 text-gray-400"><FontAwesomeIcon icon={faSpinner} spin className="text-xs" /></div>}
                                 </div>
                                 {showSuggestions && suggestions.length > 0 && (
@@ -314,36 +321,33 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                             </div>
                         </div>
 
-                        {/* ÁREA DE ANEXOS E BARRA DE PROGRESSO */}
+                        {/* ÁREA DE ANEXOS */}
                         <div className="flex flex-col gap-2">
-                            {/* Barra de Progresso de Tamanho Total */}
                             {totalSize > 0 && (
                                 <div className="flex flex-col gap-1 px-2 py-2 bg-gray-50 rounded-lg border border-gray-100">
                                     <div className="flex justify-between items-center text-xs font-semibold mb-1">
                                         <span className={isOverLimit ? "text-red-600" : "text-gray-600"}>
-                                            Tamanho Total: {formatBytes(totalSize)} / 25 MB
+                                            Total: {formatBytes(totalSize)} / 25 MB
                                         </span>
                                         {isOverLimit && <span className="text-red-600 flex items-center gap-1"><FontAwesomeIcon icon={faExclamationTriangle} /> Limite excedido!</span>}
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                                        <div 
-                                            className={`h-full transition-all duration-300 ${progressColor}`} 
-                                            style={{ width: `${sizePercentage}%` }}
-                                        ></div>
+                                        <div className={`h-full transition-all duration-300 ${progressColor}`} style={{ width: `${sizePercentage}%` }}></div>
                                     </div>
                                 </div>
                             )}
 
-                            {attaching && (
+                            {uploading && (
                                 <div className="text-xs text-blue-600 flex items-center gap-2 animate-pulse pl-2">
-                                    <FontAwesomeIcon icon={faSpinner} spin /> Processando anexos...
+                                    <FontAwesomeIcon icon={faSpinner} spin /> Enviando arquivo para nuvem...
                                 </div>
                             )}
                             
                             {formData.attachments.length > 0 && (
                                 <div className="flex flex-wrap gap-2 py-2">
                                     {formData.attachments.map((att, index) => (
-                                        <div key={index} className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-100 shadow-sm">
+                                        <div key={index} className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-100 shadow-sm animate-fade-in">
+                                            <FontAwesomeIcon icon={faCheck} className="text-green-500" />
                                             <FontAwesomeIcon icon={faFile} />
                                             <span className="max-w-[150px] truncate" title={att.filename}>{att.filename}</span>
                                             <span className="text-blue-400 text-[10px]">({formatBytes(att.size)})</span>
@@ -363,7 +367,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                         <div className="flex gap-4">
                             <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" />
                             
-                            <button type="button" onClick={handleAttachmentClick} disabled={attaching || loading || isOverLimit} className="text-gray-500 hover:text-blue-600 text-sm flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100 disabled:opacity-50">
+                            <button type="button" onClick={handleAttachmentClick} disabled={uploading || loading || isOverLimit} className="text-gray-500 hover:text-blue-600 text-sm flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100 disabled:opacity-50">
                                 <FontAwesomeIcon icon={faPaperclip} /> <span className="hidden sm:inline">Anexar</span>
                             </button>
                             
@@ -372,8 +376,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                         <div className="flex gap-3">
                             <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 text-sm font-medium">Cancelar</button>
                             
-                            {/* O BOTÃO FICA DESABILITADO SE ESTOURAR O LIMITE */}
-                            <button type="submit" disabled={loading || attaching || isOverLimit} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md flex items-center gap-2 text-sm font-bold transition-transform active:scale-95 disabled:opacity-70 disabled:bg-gray-400">
+                            <button type="submit" disabled={loading || uploading || isOverLimit} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md flex items-center gap-2 text-sm font-bold transition-transform active:scale-95 disabled:opacity-70 disabled:bg-gray-400">
                                 {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperPlane} />} Enviar
                             </button>
                         </div>
