@@ -1,58 +1,38 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import imapSimple from 'imap-simple';
-import webPush from 'web-push';
+import { simpleParser } from 'mailparser';
 
-// Configuração do WebPush (Reutilizando suas chaves)
-if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-    webPush.setVapidDetails(
-        'mailto:suporte@studio57.arq.br',
-        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-        process.env.VAPID_PRIVATE_KEY
-    );
-}
-
-// Decodificador de Assunto (Para não chegar cheio de símbolos estranhos)
-const decodeHeaderValue = (str) => {
-    if (!str) return 'Sem assunto';
+// Função auxiliar para decodificar headers
+const decodeHeader = (str) => {
+    if (!str) return '';
     if (Array.isArray(str)) str = str[0];
-    const unfolded = str.replace(/\r\n\s+/g, ' ');
-    const encodedWordRegex = /=\?([\w-]+)\?([BbQq])\?([^\?]*)\?=/g;
-    if (!encodedWordRegex.test(unfolded)) return unfolded.replace(/^"|"$/g, '').trim();
-    return unfolded.replace(encodedWordRegex, (match, charset, encoding, content) => {
-        try {
+    try {
+        return str.replace(/=\?([\w-]+)\?([BbQq])\?([^\?]*)\?=/g, (match, charset, encoding, content) => {
             if (encoding.toUpperCase() === 'B') return Buffer.from(content, 'base64').toString('utf8');
             if (encoding.toUpperCase() === 'Q') return decodeURIComponent(escape(content.replace(/_/g, ' ')));
             return match;
-        } catch (e) { return match; }
-    });
+        });
+    } catch { return str; }
 };
 
 export async function POST(request) {
     const supabase = createClient();
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
     try {
-        // 1. Identificar Usuário
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-        // 2. Buscar Contas de E-mail
+        // Pega todas as contas
         const { data: accounts } = await supabase
             .from('email_configuracoes')
             .select('*')
             .eq('user_id', user.id);
 
-        if (!accounts || accounts.length === 0) return NextResponse.json({ message: 'Sem contas' });
+        let totalSynced = 0;
 
-        // 3. Buscar Dispositivos para Notificar
-        const { data: subscriptions } = await supabase
-            .from('notification_subscriptions')
-            .select('*')
-            .eq('user_id', user.id);
-
-        let totalNewEmails = 0;
-
-        // 4. Processar cada conta
         for (const config of accounts) {
             let connection = null;
             try {
@@ -63,88 +43,96 @@ export async function POST(request) {
                         host: config.imap_host,
                         port: config.imap_port || 993,
                         tls: true,
-                        authTimeout: 10000,
+                        authTimeout: 20000,
                         tlsOptions: { rejectUnauthorized: false }
                     },
                 };
 
                 connection = await imapSimple.connect(imapConfig);
-                const box = await connection.openBox('INBOX');
                 
-                // Pega o UID mais recente da caixa
-                const latestUid = box.messages.total > 0 ? (await connection.search(['ALL'], { headers: ['uid'] })).pop()?.attributes?.uid : 0;
-                
-                // Se for a primeira vez (last_sync_uid == 0 ou null), apenas salva o atual para não notificar tudo
-                if (!config.last_sync_uid || config.last_sync_uid === 0) {
-                    await supabase.from('email_configuracoes').update({ last_sync_uid: latestUid }).eq('id', config.id);
-                    connection.end();
-                    continue; 
-                }
+                // 1. SINCRONIZAR PASTAS E CONTADORES
+                const boxes = await connection.getBoxes();
+                const folderList = [];
 
-                // Se não tem nada novo, pula
-                if (latestUid <= config.last_sync_uid) {
-                    connection.end();
-                    continue;
-                }
-
-                // Busca as mensagens novas (UID maior que o último salvo)
-                const searchCriteria = [['UID', '>', config.last_sync_uid]];
-                const fetchOptions = { bodies: ['HEADER.FIELDS (FROM SUBJECT)'], struct: true };
-                const newMessages = await connection.search(searchCriteria, fetchOptions);
-
-                if (newMessages.length > 0) {
-                    totalNewEmails += newMessages.length;
-
-                    // Envia notificação para cada e-mail novo (Limitado a 3 para não spammar)
-                    const notificationsToSend = newMessages.slice(-3); // Pega os 3 mais recentes
-
-                    for (const msg of notificationsToSend) {
-                        const header = msg.parts[0].body;
-                        const subject = decodeHeaderValue(header.subject ? header.subject[0] : 'Novo E-mail');
-                        const from = decodeHeaderValue(header.from ? header.from[0] : 'Remetente Desconhecido');
-                        
-                        const title = `📧 Novo e-mail de ${from.split('<')[0].trim()}`;
-                        const messageBody = subject;
-                        const link = '/admin/email'; // Link para abrir o e-mail
-
-                        // A. Salva no Sininho (Banco)
-                        await supabase.from('notificacoes').insert({
-                            user_id: user.id,
-                            titulo: title,
-                            mensagem: messageBody,
-                            link: link,
-                            organizacao_id: config.organizacao_id,
-                            lida: false
-                        });
-
-                        // B. Envia Push (Celular/Browser)
-                        if (subscriptions?.length > 0) {
-                            const payload = JSON.stringify({ title, message: messageBody, url: link, icon: '/icons/icon-192x192.png' });
-                            subscriptions.forEach(sub => {
-                                webPush.sendNotification(sub.subscription_data, payload).catch(err => {
-                                    if (err.statusCode === 410) supabase.from('notification_subscriptions').delete().eq('id', sub.id);
-                                });
-                            });
-                        }
+                const processBoxes = (list, parent = '', level = 0) => {
+                    for (const [key, val] of Object.entries(list)) {
+                        const path = parent ? `${parent}${val.delimiter}${key}` : key;
+                        folderList.push({ name: key, path, delimiter: val.delimiter, level });
+                        if (val.children) processBoxes(val.children, path, level + 1);
                     }
+                };
+                processBoxes(boxes);
 
-                    // Atualiza o marcador no banco
-                    const newMaxUid = Math.max(...newMessages.map(m => m.attributes.uid));
-                    await supabase.from('email_configuracoes').update({ last_sync_uid: newMaxUid }).eq('id', config.id);
+                for (const folder of folderList) {
+                    try {
+                        const status = await connection.status(folder.path, { unseen: true, messages: true });
+                        
+                        // Upsert na tabela de cache de pastas
+                        await supabase.from('email_folders_cache').upsert({
+                            account_id: config.id,
+                            path: folder.path,
+                            name: folder.name,
+                            display_name: folder.name, // Pode melhorar tradução aqui depois
+                            unseen_count: status.unseen || 0,
+                            total_count: status.messages || 0,
+                            level: folder.level,
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'account_id, path' });
+
+                        // 2. SINCRONIZAR MENSAGENS (Apenas Inbox e Enviados para performance inicial)
+                        // Se quiser todas, remova o 'if'. Mas cuidado com timeouts.
+                        const isRelevant = ['INBOX', 'SENT', 'ENVIADOS', 'ENTRADA'].some(k => folder.path.toUpperCase().includes(k));
+                        
+                        if (isRelevant) {
+                            await connection.openBox(folder.path);
+                            // Busca mensagens desde 3 meses atrás
+                            const searchCriteria = [['SINCE', threeMonthsAgo]];
+                            const fetchOptions = { bodies: ['HEADER'], struct: true };
+                            const messages = await connection.search(searchCriteria, fetchOptions);
+
+                            const messagesToUpsert = messages.map(msg => {
+                                const header = msg.parts[0].body;
+                                return {
+                                    account_id: config.id,
+                                    uid: msg.attributes.uid,
+                                    folder_path: folder.path,
+                                    subject: decodeHeader(header.subject ? header.subject[0] : '(Sem Assunto)'),
+                                    from_text: decodeHeader(header.from ? header.from[0] : ''),
+                                    date: header.date ? new Date(header.date[0]) : new Date(),
+                                    is_read: !msg.attributes.flags.includes('\\Seen'),
+                                    updated_at: new Date().toISOString()
+                                    // Nota: Não baixamos o corpo aqui para não estourar a memória. 
+                                    // O corpo é baixado sob demanda no 'content/route.js' e salvo no cache.
+                                };
+                            });
+
+                            if (messagesToUpsert.length > 0) {
+                                // Upsert em lotes de 50 para não travar o banco
+                                for (let i = 0; i < messagesToUpsert.length; i += 50) {
+                                    const batch = messagesToUpsert.slice(i, i + 50);
+                                    await supabase.from('email_messages_cache').upsert(batch, { 
+                                        onConflict: 'account_id, folder_path, uid',
+                                        ignoreDuplicates: false // Atualiza flags (lido/não lido)
+                                    });
+                                }
+                                totalSynced += messagesToUpsert.length;
+                            }
+                        }
+
+                    } catch (folderErr) {
+                        console.error(`Erro sync pasta ${folder.path}:`, folderErr.message);
+                    }
                 }
-
                 connection.end();
 
-            } catch (err) {
-                console.error(`Erro sync conta ${config.email}:`, err);
-                if (connection) connection.end();
+            } catch (connErr) {
+                console.error(`Erro conexão ${config.email}:`, connErr);
             }
         }
 
-        return NextResponse.json({ success: true, newEmails: totalNewEmails });
+        return NextResponse.json({ success: true, synced: totalSynced });
 
     } catch (error) {
-        console.error('Erro geral sync:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

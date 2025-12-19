@@ -4,6 +4,10 @@ import nodemailer from 'nodemailer';
 import imapSimple from 'imap-simple';
 import MailComposer from 'nodemailer/lib/mail-composer';
 
+// --- CONFIGURAÇÕES PARA ARQUIVOS GRANDES ---
+export const dynamic = 'force-dynamic'; // Não faz cache
+export const maxDuration = 60; // Aumenta o tempo limite para 60 segundos
+
 export async function POST(request) {
   const supabase = createClient();
   
@@ -11,7 +15,15 @@ export async function POST(request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-    const { to, cc, bcc, subject, html, replyToMessageId, attachments, accountId } = await request.json();
+    // Tenta ler o JSON. Se falhar aqui, é porque o arquivo é GIGANTE demais para o servidor
+    let body;
+    try {
+        body = await request.json();
+    } catch (e) {
+        return NextResponse.json({ error: 'O arquivo é muito grande para o servidor processar.' }, { status: 413 });
+    }
+
+    const { to, cc, bcc, subject, html, replyToMessageId, attachments, accountId } = body;
 
     // --- VALIDAÇÃO ---
     if (!to || !subject || !html) {
@@ -23,7 +35,7 @@ export async function POST(request) {
     if (accountId) query = query.eq('id', accountId);
     
     const { data: configs } = await query;
-    const config = configs?.[0]; // Pega a primeira/única encontrada
+    const config = configs?.[0];
 
     if (!config) return NextResponse.json({ error: 'Configure seu SMTP primeiro.' }, { status: 404 });
 
@@ -60,7 +72,7 @@ export async function POST(request) {
                 host: config.imap_host,
                 port: config.imap_port || 993,
                 tls: true,
-                authTimeout: 10000,
+                authTimeout: 20000, // Tempo maior para salvar o anexo
                 tlsOptions: { rejectUnauthorized: false }
             },
         };
@@ -69,13 +81,12 @@ export async function POST(request) {
         const boxes = await connection.getBoxes();
 
         // Tenta adivinhar a pasta de enviados
-        let sentFolder = 'Sent'; // Padrão
+        let sentFolder = 'Sent'; 
         
-        // Função auxiliar para achar pasta
         const findSentBox = (list, parent = '') => {
             for (const [key, value] of Object.entries(list)) {
                 const fullPath = parent ? `${parent}${value.delimiter}${key}` : key;
-                if (key.toUpperCase() === 'SENT' || key.toUpperCase() === 'ENVIADOS' || key.toUpperCase().includes('SENT ITEMS')) {
+                if (['SENT', 'ENVIADOS', 'SENT ITEMS', 'ITENS ENVIADOS'].some(k => key.toUpperCase().includes(k))) {
                     return fullPath;
                 }
                 if (value.children) {
@@ -89,7 +100,7 @@ export async function POST(request) {
         const foundSent = findSentBox(boxes);
         if (foundSent) sentFolder = foundSent;
 
-        // Compila o e-mail para o formato RAW (MIME)
+        // Compila o e-mail para salvar
         const composer = new MailComposer(mailOptions);
         const rawMessage = await composer.compile().build();
 
@@ -98,12 +109,10 @@ export async function POST(request) {
             flags: ['\\Seen']
         });
         
-        console.log(`Cópia salva em: ${sentFolder}`);
         connection.end();
 
     } catch (saveError) {
-        console.error("Aviso: E-mail enviado, mas falha ao salvar na pasta Enviados:", saveError.message);
-        // Não lançamos erro aqui para não dizer ao usuário que o envio falhou, pois o envio em si funcionou.
+        console.error("Aviso: Falha ao salvar nos Enviados (mas o e-mail foi enviado):", saveError.message);
     }
 
     return NextResponse.json({ success: true, messageId: info.messageId });

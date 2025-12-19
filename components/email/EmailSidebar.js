@@ -13,7 +13,6 @@ import {
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { toast } from 'sonner';
 
-// Chave para salvar no localStorage
 const FOLDER_EXPANSION_KEY = 'email_expanded_folders_v1';
 
 // --- MENU FLUTUANTE ---
@@ -46,7 +45,6 @@ const FolderContextMenu = ({ position, folder, onClose, onAction, isSystemFolder
     );
 };
 
-// --- ÁRVORE DE PASTAS ---
 const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPaths, toggleExpand, onCreateFolder }) => {
     const queryClient = useQueryClient();
     const [menuState, setMenuState] = useState({ isOpen: false, position: null, folder: null });
@@ -75,8 +73,7 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             return res.json();
         },
         onSuccess: (_, vars) => {
-            const msg = { delete: 'Pasta excluída!', empty: 'Pasta esvaziada!', markAllRead: 'Tudo lido!' };
-            toast.success(msg[vars.action]);
+            toast.success("Ação concluída!");
             queryClient.invalidateQueries(['emailFolders', account.id]);
             queryClient.invalidateQueries(['emailMessages']);
             setMenuState({ isOpen: false, position: null, folder: null });
@@ -118,25 +115,19 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             }
         });
 
-        // Ordem fixa para pastas especiais
         const specialOrder = ['INBOX', 'ENTRADA', 'SENT', 'ENVIADOS', 'DRAFTS', 'RASCUNHOS', 'TRASH', 'LIXEIRA', 'JUNK', 'SPAM'];
         
         const sortList = (list) => list.sort((a, b) => {
-            // Tenta achar a posição da pasta A e B na lista especial
-            // Verificamos tanto o nome interno (name) quanto o visual (displayName)
             const getPriority = (f) => {
                 const byName = specialOrder.findIndex(key => f.name.toUpperCase().includes(key));
                 if (byName !== -1) return byName;
                 return specialOrder.findIndex(key => f.displayName.toUpperCase().includes(key));
             };
-
             const indexA = getPriority(a);
             const indexB = getPriority(b);
-
             if (indexA !== -1 && indexB !== -1) return indexA - indexB;
             if (indexA !== -1) return -1;
             if (indexB !== -1) return 1;
-            
             return a.displayName.localeCompare(b.displayName);
         });
 
@@ -147,7 +138,6 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                 const children = childrenMap[folder.path] || [];
                 const hasChildren = children.length > 0;
                 result.push({ ...folder, hasChildren });
-                // Usa a chave única composta (conta + path) para saber se expande
                 if (hasChildren && expandedPaths.has(`${account.id}-${folder.path}`)) {
                     result = result.concat(flattenTree(children));
                 }
@@ -176,7 +166,11 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                     const uniqueKey = `${account.id}-${folder.path}`;
                     const isExpanded = expandedPaths.has(uniqueKey);
                     const isSelected = selectedFolder?.path === folder.path && selectedFolder?.accountId === account.id;
+                    const isInbox = folder.displayName === 'Caixa de Entrada';
                     
+                    // Garante que é número para comparação
+                    const unreadCount = Number(folder.unseen) || 0;
+
                     return (
                         <div 
                             key={uniqueKey}
@@ -185,7 +179,7 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                                 ${isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}
                             `}
                             onClick={() => onSelectFolder({ ...folder, accountId: account.id })}
-                            style={{ paddingLeft: `${16 + (folder.level * 16)}px`, paddingRight: '12px' }} 
+                            style={{ paddingLeft: `${16 + (folder.level * 16)}px`, paddingRight: '8px' }} 
                         >
                             {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></div>}
                             
@@ -196,21 +190,24 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                                 {folder.hasChildren && <FontAwesomeIcon icon={isExpanded ? faChevronDown : faChevronRight} className="text-[10px]" />}
                             </div>
                             
-                            <div className="flex items-center gap-3 flex-grow py-2.5 overflow-hidden pr-2">
+                            <div className="flex items-center gap-2 flex-grow py-2.5 overflow-hidden">
                                 <FontAwesomeIcon icon={getFolderIcon(folder.name)} className={`${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
-                                <span className="truncate flex-grow">{folder.displayName || folder.name}</span>
+                                <span className="truncate flex-grow" title={folder.displayName}>{folder.displayName || folder.name}</span>
                                 
-                                {/* CONTADOR DE NÃO LIDOS */}
-                                {folder.unseen > 0 && (
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${isSelected ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'} ${folder.displayName === 'Caixa de Entrada' ? 'bg-red-500 text-white' : ''}`}>
-                                        {folder.unseen}
+                                {/* --- CONTADOR DE NÃO LIDOS (Visualmente Melhorado) --- */}
+                                {unreadCount > 0 && (
+                                    <span className={`
+                                        text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 min-w-[20px] text-center
+                                        ${isInbox ? 'bg-red-500 text-white shadow-sm' : 'bg-blue-100 text-blue-700'}
+                                    `}>
+                                        {unreadCount}
                                     </span>
                                 )}
 
                                 {/* BOTÃO 3 PONTINHOS */}
                                 <button 
                                     onClick={(e) => openMenu(e, folder)}
-                                    className="w-6 h-6 rounded-full hover:bg-gray-200 flex items-center justify-center text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="w-6 h-6 rounded-full hover:bg-gray-200 flex items-center justify-center text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1"
                                 >
                                     <FontAwesomeIcon icon={faEllipsisV} className="text-[10px]" />
                                 </button>
@@ -236,29 +233,24 @@ export default function EmailSidebar({
     selectedFolder, onSelectFolder, onCompose, onConfig, onChangeTab, 
     searchTerm, onSearchChange, onCreateFolder, canViewWhatsapp = true, className = '' 
 }) {
-    // --- LÓGICA DE PERSISTÊNCIA DAS PASTAS ---
     const [expandedPaths, setExpandedPaths] = useState(new Set());
     const [isHydrated, setIsHydrated] = useState(false);
 
-    // 1. Carregar do LocalStorage ao iniciar
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem(FOLDER_EXPANSION_KEY);
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
-                    // Converte array de volta para Set
                     setExpandedPaths(new Set(parsed));
-                } catch (e) { console.error("Erro ao ler expansão de pastas", e); }
+                } catch (e) { }
             }
             setIsHydrated(true);
         }
     }, []);
 
-    // 2. Salvar no LocalStorage sempre que mudar
     useEffect(() => {
         if (isHydrated && typeof window !== 'undefined') {
-            // Converte Set para Array para salvar em JSON
             localStorage.setItem(FOLDER_EXPANSION_KEY, JSON.stringify(Array.from(expandedPaths)));
         }
     }, [expandedPaths, isHydrated]);
@@ -269,7 +261,6 @@ export default function EmailSidebar({
         else newSet.add(uniqueKey);
         setExpandedPaths(newSet);
     };
-    // ----------------------------------------
 
     const { data: accountsData, isLoading: loadingAccounts } = useQuery({
         queryKey: ['emailAccounts'],
@@ -285,7 +276,6 @@ export default function EmailSidebar({
 
     return (
         <div className={`flex flex-col border-r bg-white h-full overflow-hidden min-h-0 ${className} relative`}>
-            {/* Abas Superiores */}
             <div className="flex border-b bg-gray-50 shrink-0">
                 {canViewWhatsapp && (
                     <button onClick={() => onChangeTab('whatsapp')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
@@ -297,14 +287,12 @@ export default function EmailSidebar({
                 </button>
             </div>
 
-            {/* Botão Escrever */}
             <div className="p-4 pb-0">
                 <button onClick={onCompose} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md flex items-center justify-center gap-2 text-sm font-bold transition-transform active:scale-95">
                     <FontAwesomeIcon icon={faPlus} /> Escrever E-mail
                 </button>
             </div>
 
-            {/* Busca */}
             <div className="h-16 border-b flex flex-col justify-center px-4 bg-white shrink-0 z-10">
                 <div className="relative">
                     <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => onSearchChange(e.target.value)} className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all" />
@@ -312,7 +300,6 @@ export default function EmailSidebar({
                 </div>
             </div>
 
-            {/* Lista de Contas e Pastas */}
             <div className="flex-grow overflow-y-auto custom-scrollbar bg-white">
                 <div className="p-3 bg-blue-50/50 text-xs font-bold text-blue-800 flex justify-between items-center tracking-wide border-b border-blue-100">
                     <span>MINHAS CONTAS</span>

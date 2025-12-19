@@ -16,7 +16,7 @@ export async function GET(request) {
 
     // 2. Buscar Configuração
     let query = supabase.from('email_configuracoes').select('*').eq('user_id', user.id);
-    if (accountId && accountId !== 'undefined') {
+    if (accountId && accountId !== 'undefined' && accountId !== 'null') {
         query = query.eq('id', accountId);
     }
     
@@ -24,7 +24,6 @@ export async function GET(request) {
     const config = configs?.[0]; 
 
     if (!config) {
-      // Retorna array vazio em vez de erro 404 para não quebrar a UI
       return NextResponse.json({ folders: [] });
     }
 
@@ -36,7 +35,7 @@ export async function GET(request) {
         host: config.imap_host,
         port: config.imap_port || 993,
         tls: true,
-        authTimeout: 20000,
+        authTimeout: 30000, // Aumentei para garantir tempo de contar
         tlsOptions: { rejectUnauthorized: false }
       },
     };
@@ -44,7 +43,7 @@ export async function GET(request) {
     connection = await imapSimple.connect(imapConfig);
     const boxes = await connection.getBoxes();
 
-    // 4. Mapeamento
+    // 4. Mapeamento de Nomes
     const folderTranslations = {
       'INBOX': 'Caixa de Entrada',
       'SENT': 'Enviados',
@@ -60,7 +59,6 @@ export async function GET(request) {
     const processBoxes = (boxList, parentPath = '', level = 0) => {
         for (const [key, value] of Object.entries(boxList)) {
             const delimiter = value.delimiter || '/';
-            // O caminho completo deve respeitar o delimitador do servidor
             const fullPath = parentPath ? `${parentPath}${delimiter}${key}` : key;
 
             let displayName = key;
@@ -74,11 +72,15 @@ export async function GET(request) {
                  displayName = 'Lixeira';
             }
 
-            // Ignora pastas "virtuais" do Gmail que não são clicáveis
-            if (key === '[Gmail]' && value.children) {
-                processBoxes(value.children, fullPath, level);
+            // Ignora container do Gmail
+            if (key === '[Gmail]' || key === '[Google Mail]') {
+                if (value.children) processBoxes(value.children, fullPath, level);
                 continue; 
             }
+
+            // Verifica se é selecionável
+            const attribs = value.attribs || [];
+            const canSelect = !attribs.some(a => typeof a === 'string' && a.toUpperCase().includes('NOSELECT'));
 
             folderList.push({
                 name: key,
@@ -87,6 +89,7 @@ export async function GET(request) {
                 delimiter: delimiter,
                 level: level,
                 unseen: 0,
+                canSelect: canSelect,
                 accountId: config.id
             });
             
@@ -98,30 +101,28 @@ export async function GET(request) {
 
     processBoxes(boxes);
 
-    // 6. BUSCA CONTADORES (STATUS)
-    // Fazemos isso em paralelo, mas com tratamento de erro individual
-    await Promise.all(folderList.map(async (folder) => {
-        try {
-            // Apenas buscamos contagem para pastas "reais" (não contêineres vazios)
-            // O comando STATUS retorna: messages, recent, unseen, uidnext, uidvalidity
-            const status = await connection.status(folder.path, { unseen: true });
-            folder.unseen = status.unseen || 0;
-        } catch (err) {
-            // Se falhar (ex: pasta não selecionável), assume 0 e segue a vida
-            // console.warn(`Não foi possível ler status da pasta ${folder.path}:`, err.message);
-            folder.unseen = 0;
+    // 6. BUSCA CONTADORES (O SEGREDO ESTÁ AQUI)
+    // Percorre cada pasta e pede o status de "UNSEEN" (não lidos)
+    for (const folder of folderList) {
+        if (folder.canSelect) {
+            try {
+                // O comando status é leve e pega apenas metadados
+                const status = await connection.status(folder.path, { unseen: true });
+                // Garante que seja um número
+                folder.unseen = Number(status.unseen) || 0;
+            } catch (err) {
+                console.error(`Erro ao contar pasta ${folder.path}:`, err.message);
+                folder.unseen = 0;
+            }
         }
-    }));
+    }
 
-    // 7. Ordenação Inteligente
+    // 7. Ordenação
     const specialOrder = ['Caixa de Entrada', 'Enviados', 'Rascunhos', 'Spam', 'Lixeira', 'Arquivados'];
-    
     folderList.sort((a, b) => {
-        // Verifica prioridade por DisplayName
         let indexA = specialOrder.indexOf(a.displayName);
         let indexB = specialOrder.indexOf(b.displayName);
         
-        // Se não achou pelo display name, tenta pelo nome original (caso de servidores em ingles)
         if (indexA === -1) indexA = specialOrder.findIndex(s => a.name.toUpperCase().includes(s.toUpperCase()));
         if (indexB === -1) indexB = specialOrder.findIndex(s => b.name.toUpperCase().includes(s.toUpperCase()));
 
