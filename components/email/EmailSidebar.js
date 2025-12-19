@@ -45,10 +45,15 @@ const FolderContextMenu = ({ position, folder, onClose, onAction, isSystemFolder
     );
 };
 
+// Componente Interno da Árvore
 const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPaths, toggleExpand, onCreateFolder }) => {
     const queryClient = useQueryClient();
     const [menuState, setMenuState] = useState({ isOpen: false, position: null, folder: null });
+    
+    // Estado local para guardar os números que vamos buscando em segundo plano
+    const [unreadCounts, setUnreadCounts] = useState({});
 
+    // 1. Busca a lista de pastas (Rápido - sem contagem)
     const { data: folderData, isLoading, isError } = useQuery({
         queryKey: ['emailFolders', account.id],
         queryFn: async () => {
@@ -56,8 +61,49 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             if (!res.ok) throw new Error('Erro ao buscar pastas');
             return res.json();
         },
-        staleTime: 1000 * 60 * 2
+        staleTime: 1000 * 60 * 5 // Cache de 5 minutos na lista
     });
+
+    const folderList = folderData?.folders || [];
+
+    // 2. EFEITO "ROBÔ": Percorre as pastas e busca a contagem uma por uma
+    useEffect(() => {
+        if (!folderList.length) return;
+
+        const fetchCountsOneByOne = async () => {
+            // Prioriza Caixa de Entrada, Spam e Lixeira
+            const sortedToFetch = [...folderList].sort((a, b) => {
+                const priority = (name) => {
+                    const n = name.toUpperCase();
+                    if (n.includes('INBOX') || n.includes('ENTRADA')) return 3;
+                    if (n.includes('SPAM') || n.includes('JUNK')) return 2;
+                    return 1;
+                };
+                return priority(b.displayName) - priority(a.displayName);
+            });
+
+            for (const folder of sortedToFetch) {
+                if (!folder.canSelect) continue;
+
+                try {
+                    // Chama a API pedindo SÓ a contagem dessa pasta
+                    const res = await fetch(`/api/email/folders?accountId=${account.id}&action=count&folderPath=${encodeURIComponent(folder.path)}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setUnreadCounts(prev => ({
+                            ...prev,
+                            [folder.path]: data.unseen || 0
+                        }));
+                    }
+                } catch (e) {
+                    console.error("Erro background count:", e);
+                }
+            }
+        };
+
+        fetchCountsOneByOne();
+    }, [folderList, account.id]);
+
 
     const folderActionMutation = useMutation({
         mutationFn: async ({ action, folderPath }) => {
@@ -99,12 +145,11 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
     };
 
     const processedFolders = useMemo(() => {
-        if (!folderData?.folders) return [];
-        const allFolders = folderData.folders;
+        if (!folderList) return [];
         const childrenMap = {}; 
         const roots = [];       
 
-        allFolders.forEach(folder => {
+        folderList.forEach(folder => {
             if (folder.level === 0) roots.push(folder);
             else {
                 const separator = folder.delimiter || '/';
@@ -145,7 +190,7 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             return result;
         };
         return flattenTree(roots);
-    }, [folderData, expandedPaths, account.id]);
+    }, [folderList, expandedPaths, account.id]);
 
     const getFolderIcon = (name) => {
         const n = name.toLowerCase();
@@ -168,8 +213,8 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                     const isSelected = selectedFolder?.path === folder.path && selectedFolder?.accountId === account.id;
                     const isInbox = folder.displayName === 'Caixa de Entrada';
                     
-                    // Garante que é número para comparação
-                    const unreadCount = Number(folder.unseen) || 0;
+                    // A MÁGICA: Usa o contador que buscamos em background
+                    const unreadCount = unreadCounts[folder.path] || 0;
 
                     return (
                         <div 
@@ -194,10 +239,10 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                                 <FontAwesomeIcon icon={getFolderIcon(folder.name)} className={`${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
                                 <span className="truncate flex-grow" title={folder.displayName}>{folder.displayName || folder.name}</span>
                                 
-                                {/* --- CONTADOR DE NÃO LIDOS (Visualmente Melhorado) --- */}
+                                {/* --- CONTADOR --- */}
                                 {unreadCount > 0 && (
                                     <span className={`
-                                        text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 min-w-[20px] text-center
+                                        text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 min-w-[20px] text-center animate-fade-in
                                         ${isInbox ? 'bg-red-500 text-white shadow-sm' : 'bg-blue-100 text-blue-700'}
                                     `}>
                                         {unreadCount}
