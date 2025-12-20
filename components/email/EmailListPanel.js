@@ -14,7 +14,7 @@ import EmailActionMenu from './EmailActionMenu';
 
 // --- ATUALIZADO: Recebe accountId na queryKey ---
 const fetchMessages = async ({ queryKey, pageParam = 1 }) => {
-    const [_key, folderPath, searchTerm, status, accountId] = queryKey; // <--- accountId adicionado aqui
+    const [_key, folderPath, searchTerm, status, accountId] = queryKey; 
     
     let url = `/api/email/messages?folder=${encodeURIComponent(folderPath)}&page=${pageParam}`;
     if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
@@ -28,7 +28,7 @@ const fetchMessages = async ({ queryKey, pageParam = 1 }) => {
 };
 
 const performBulkAction = async ({ action, folder, uids, destination, accountId }) => { 
-    const body = { action, folder, uids, accountId }; // Passa accountId na ação também
+    const body = { action, folder, uids, accountId }; 
     if (destination) body.targetFolder = destination;
     const res = await fetch('/api/email/actions', {
         method: 'POST',
@@ -39,7 +39,15 @@ const performBulkAction = async ({ action, folder, uids, destination, accountId 
     return res.json();
 };
 
-export default function EmailListPanel({ folder, onBack, onSelectEmail, selectedEmailId, searchTerm, onCreateRule }) {
+export default function EmailListPanel({ 
+    folder, 
+    onBack, 
+    onSelectEmail, 
+    selectedEmailId, 
+    searchTerm, 
+    onCreateRule,
+    onUnreadCountChange // <--- NOVO: Recebe a função de atualização
+}) {
     const [filterStatus, setFilterStatus] = useState('unread');
     const [selectedIds, setSelectedIds] = useState(new Set()); 
     const [lastSelectedId, setLastSelectedId] = useState(null); 
@@ -49,19 +57,17 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
     const queryClient = useQueryClient();
     
     const folderIdentifier = folder.path || folder.name;
-    // --- PEGA O ID DA CONTA DA PASTA SELECIONADA ---
     const accountId = folder.accountId; 
 
     useEffect(() => {
         setSelectedIds(new Set());
         setLastSelectedId(null);
         setOpenMenuId(null);
-    }, [searchTerm, folder.path, filterStatus, accountId]); // Adicionado accountId nas dependências
+    }, [searchTerm, folder.path, filterStatus, accountId]);
 
     const { 
         data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage, refetch, isFetching
     } = useInfiniteQuery({
-        // AQUI É O PULO DO GATO: Adicionamos accountId na chave única
         queryKey: ['emailMessages', folderIdentifier, searchTerm, filterStatus, accountId],
         queryFn: fetchMessages,
         getNextPageParam: (lastPage, allPages) => (lastPage.hasMore ? allPages.length + 1 : undefined),
@@ -71,6 +77,19 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
 
     const allEmails = data?.pages.flatMap(page => page.messages) || [];
     const totalEmails = data?.pages[0]?.total || 0;
+
+    // --- A MÁGICA: Sincronização em Tempo Real ---
+    useEffect(() => {
+        // Se estamos vendo a lista de "Não Lidos" e temos dados carregados
+        if (filterStatus === 'unread' && data?.pages?.[0] && onUnreadCountChange) {
+            // O total retornado pela API neste filtro É EXATAMENTE o número de não lidos
+            const currentUnreadCount = data.pages[0].total || 0;
+            
+            // Avisa o painel lateral imediatamente
+            onUnreadCountChange(accountId, folderIdentifier, currentUnreadCount);
+        }
+    }, [data, filterStatus, accountId, folderIdentifier, onUnreadCountChange]);
+    // ----------------------------------------------
 
     useEffect(() => {
         const observer = new IntersectionObserver(
@@ -82,10 +101,13 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
     }, [loadMoreRef, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
     const bulkActionMutation = useMutation({
-        mutationFn: (vars) => performBulkAction({ ...vars, accountId }), // Injeta accountId
+        mutationFn: (vars) => performBulkAction({ ...vars, accountId }), 
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
-            queryClient.invalidateQueries({ queryKey: ['emailFolders'] }); // Atualiza contadores
+            queryClient.invalidateQueries({ queryKey: ['emailFolders'] }); 
+            // Invalida a contagem para garantir que o servidor confirme depois
+            queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
+            
             setSelectedIds(new Set());
             setLastSelectedId(null);
             setOpenMenuId(null);
@@ -105,12 +127,19 @@ export default function EmailListPanel({ folder, onBack, onSelectEmail, selected
             if (!res.ok) throw new Error('Falha ao processar regras');
             return res.json();
         },
-        onSuccess: (data) => { if (data.moved > 0) toast.success(`${data.moved} e-mails movidos por regras.`); }
+        onSuccess: (data) => { 
+            if (data.moved > 0) {
+                toast.success(`${data.moved} e-mails movidos por regras.`);
+                queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
+            }
+        }
     });
 
     const handleRefresh = async () => {
         try { await applyRulesMutation.mutateAsync(); } catch (e) {}
         refetch();
+        // Força atualização dos contadores ao clicar em atualizar
+        queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
     };
 
     const handleEmailClick = (email, e) => {

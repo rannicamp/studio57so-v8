@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import EmailConfigModal from '@/components/email/EmailConfigModal';
 import EmailListPanel from '@/components/email/EmailListPanel';
@@ -69,35 +69,55 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
         }
     }, [debouncedUiState]);
 
+    // --- CORREÇÃO: Função de atualização Otimista (Sem Invalidação Imediata) ---
+    const handleUnreadUpdate = useCallback((accountId, folderPath, newCount) => {
+        // Apenas atualizamos o cache localmente. Confiamos na lista que acabou de carregar.
+        // Não chamamos invalidateQueries aqui para evitar que o servidor sobrescreva com erro/zero.
+        queryClient.setQueryData(['emailFolderCounts', accountId], (oldData) => {
+            if (!oldData) return { counts: { [folderPath]: newCount } };
+            return {
+                ...oldData,
+                counts: {
+                    ...oldData.counts,
+                    [folderPath]: newCount
+                }
+            };
+        });
+    }, [queryClient]);
+
+    // --- Gatilho: Atualizar contagens APENAS ao mudar de CONTA (não de pasta) ---
+    // Isso evita floodar o servidor toda vez que clica numa pasta
+    useEffect(() => {
+        if (selectedEmailFolder?.accountId) {
+            // Opcional: só invalida se fizer muito tempo, mas o staleTime já cuida disso.
+            // Deixamos o React Query gerenciar.
+        }
+    }, [selectedEmailFolder?.accountId]);
+
     // --- NOVO: VIGIA DE SINCRONIZAÇÃO (POLLER) ---
     useEffect(() => {
         const syncEmails = async () => {
             try {
-                // Chama a API que verifica e-mails novos e manda notificação
                 const res = await fetch('/api/email/sync', { method: 'POST' });
                 const data = await res.json();
                 
-                // Se encontrou novos e-mails, atualiza a lista na tela
                 if (data.newEmails > 0) {
-                    // toast.info(`${data.newEmails} novos e-mails!`); // Opcional: toast visual
                     queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
                     queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
+                    // Aqui sim, se tem email novo detectado pelo sync, pedimos atualização
+                    queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
                 }
             } catch (error) {
                 console.error("Erro silencioso no sync:", error);
             }
         };
 
-        // Roda ao montar
         syncEmails();
-
-        // Roda a cada 60 segundos
         const intervalId = setInterval(syncEmails, 60000);
         return () => clearInterval(intervalId);
     }, [queryClient]);
-    // ----------------------------------------------
 
-    // --- Gatilho de Regras (Mantido) ---
+    // --- Gatilho de Regras ---
     useEffect(() => {
         const isInbox = selectedEmailFolder?.name?.toUpperCase() === 'INBOX' || 
                         selectedEmailFolder?.displayName === 'Caixa de Entrada';
@@ -112,6 +132,7 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                         setTimeout(() => {
                             queryClient.resetQueries({ queryKey: ['emailMessages'] });
                             queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
+                            queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
                         }, 1500); 
                     }
                 } catch (err) {
@@ -165,10 +186,10 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
         setIsCreateFolderOpen(true);
     };
 
-    // Callback para envio
     const handleEmailSent = () => {
         queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
         queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
+        queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
     };
 
     const hasSelection = selectedEmailFolder;
@@ -222,7 +243,8 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                         selectedEmailId={selectedEmail?.id}
                         searchTerm={debouncedSearchTerm}
                         onCreateRule={handleOpenRules}
-                        onCreateFolder={handleOpenCreateFolder} 
+                        onCreateFolder={handleOpenCreateFolder}
+                        onUnreadCountChange={handleUnreadUpdate}
                     />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500 p-8 text-center">

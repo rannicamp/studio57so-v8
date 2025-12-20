@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import imapSimple from 'imap-simple';
 
-// Função auxiliar para traduzir nomes
 function getDisplayName(name, path) {
     const n = name.toUpperCase();
     const p = path.toUpperCase();
@@ -17,7 +16,6 @@ function getDisplayName(name, path) {
     return name;
 }
 
-// Verifica se é pasta de sistema
 function isSystemFolder(name) {
     const n = name.toUpperCase();
     return [
@@ -57,40 +55,31 @@ export async function GET(request) {
         host: config.imap_host,
         port: config.imap_port || 993,
         tls: true,
-        authTimeout: 20000,
+        authTimeout: 25000, 
         tlsOptions: { rejectUnauthorized: false }
       },
     };
 
     connection = await imapSimple.connect(imapConfig);
 
-    // --- AÇÃO: CONTAGEM ---
+    // --- AÇÃO: CONTAGEM DE NÃO LIDOS ---
     if (action === 'getAllCounts') {
         const boxes = await connection.getBoxes();
         const counts = {};
         const pathsToFetch = [];
-        
-        // --- NOVO: Set para evitar duplicatas na contagem também ---
         const seenPaths = new Set();
         
         const collect = (list, parentPath = '') => {
             for (const [key, value] of Object.entries(list)) {
-                if (key === '[Gmail]') { 
+                if (key === '[Gmail]' || key === '[Google Mail]') { 
                     if (value.children) collect(value.children, parentPath);
                     continue;
                 }
                 
-                if (parentPath && key.toUpperCase() === 'INBOX') {
-                    if (value.children) collect(value.children, parentPath);
-                    continue;
-                }
-
                 const delimiter = value.delimiter || '.';
                 const fullPath = parentPath ? parentPath + delimiter + key : key;
                 
-                // Só adiciona se não vimos esse caminho ainda
                 if (seenPaths.has(fullPath)) {
-                    // Mesmo duplicado, precisamos checar os filhos dele
                     if (value.children) collect(value.children, fullPath);
                     continue;
                 }
@@ -110,27 +99,31 @@ export async function GET(request) {
         };
         collect(boxes);
 
-        const batchSize = 5;
-        for (let i = 0; i < pathsToFetch.length; i += batchSize) {
-            const batch = pathsToFetch.slice(i, i + batchSize);
-            await Promise.all(batch.map(async (path) => {
-                try {
-                    const status = await connection.status(path, { unseen: true });
-                    counts[path] = status.unseen || 0;
-                } catch (e) {
-                    counts[path] = 0;
-                }
-            }));
-        }
+        const promises = pathsToFetch.map(async (path) => {
+            try {
+                const status = await connection.status(path, { unseen: true });
+                return { path, count: status.unseen || 0 };
+            } catch (e) {
+                // CORREÇÃO CRUCIAL: Retorna -1 em caso de erro, para não zerar o front
+                console.warn(`Erro ao contar pasta ${path}: ${e.message}`);
+                return { path, count: -1 };
+            }
+        });
+
+        const results = await Promise.allSettled(promises);
+        
+        results.forEach(result => {
+            if (result.status === 'fulfilled') {
+                counts[result.value.path] = result.value.count;
+            }
+        });
 
         return NextResponse.json({ counts });
     }
 
-    // --- LISTAGEM ESTRUTURAL (COM PROTEÇÃO ANTI-CLONE) ---
+    // --- LISTAGEM ESTRUTURAL ---
     const boxes = await connection.getBoxes();
     const folderList = [];
-    
-    // --- O PORTEIRO: Lista de caminhos já adicionados ---
     const seenPaths = new Set();
 
     const processBoxes = (boxList, parentPath = '', level = 0) => {
@@ -148,11 +141,7 @@ export async function GET(request) {
             const delimiter = value.delimiter || '.';
             const fullPath = parentPath ? parentPath + delimiter + key : key;
 
-            // --- BLOQUEIO DE DUPLICATAS ---
-            // Se já processamos esse caminho exato (vindo de outro lugar da árvore), pula.
             if (seenPaths.has(fullPath)) {
-                // Ainda processamos os filhos para garantir que nada se perca,
-                // mas não adicionamos ESTA pasta de novo na lista.
                 if (value.children) {
                     const nextLevel = (parentPath.toUpperCase() === 'INBOX' && isSystemFolder(key)) ? 1 : level + 1;
                     processBoxes(value.children, fullPath, nextLevel);
@@ -160,14 +149,10 @@ export async function GET(request) {
                 continue; 
             }
             seenPaths.add(fullPath);
-            // -----------------------------
 
             let visualLevel = level;
-            
-            if (parentPath.toUpperCase() === 'INBOX') {
-                if (isSystemFolder(key)) {
-                    visualLevel = 0; 
-                }
+            if (parentPath.toUpperCase() === 'INBOX' && isSystemFolder(key)) {
+                visualLevel = 0; 
             }
 
             const attribs = value.attribs || [];
@@ -194,18 +179,13 @@ export async function GET(request) {
     processBoxes(boxes);
 
     const specialOrder = ['Caixa de Entrada', 'Enviados', 'Rascunhos', 'Spam', 'Lixeira'];
-    
     folderList.sort((a, b) => {
         if (a.level !== b.level) return a.level - b.level;
-
         let indexA = specialOrder.indexOf(a.displayName);
         let indexB = specialOrder.indexOf(b.displayName);
-        
         if (indexA === -1) indexA = 999;
         if (indexB === -1) indexB = 999;
-
         if (indexA !== indexB) return indexA - indexB;
-        
         return a.displayName.localeCompare(b.displayName);
     });
 

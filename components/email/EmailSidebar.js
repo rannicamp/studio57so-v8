@@ -49,7 +49,9 @@ const FolderContextMenu = ({ position, folder, onClose, onAction, isSystemFolder
 const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPaths, toggleExpand, onCreateFolder }) => {
     const queryClient = useQueryClient();
     const [menuState, setMenuState] = useState({ isOpen: false, position: null, folder: null });
-    const [unreadCounts, setUnreadCounts] = useState({});
+    
+    // --- NOVO: Estado para fundir contagens (Memória Persistente) ---
+    const [mergedCounts, setMergedCounts] = useState({});
 
     // 1. ESTRUTURA (Cache Longo)
     const { data: folderData, isLoading, isError } = useQuery({
@@ -59,31 +61,42 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             if (!res.ok) throw new Error('Erro ao buscar pastas');
             return res.json();
         },
-        staleTime: 1000 * 60 * 10
+        staleTime: 1000 * 60 * 10 
     });
 
     const folderList = folderData?.folders || [];
 
     // 2. CONTAGEM (Polling Suave - a cada 15s)
-    useQuery({
+    const { data: countsData } = useQuery({
         queryKey: ['emailFolderCounts', account.id],
         queryFn: async () => {
             const res = await fetch(`/api/email/folders?accountId=${account.id}&action=getAllCounts`);
             if (!res.ok) return { counts: {} };
             return res.json();
         },
-        enabled: !!folderList.length,
+        enabled: !!folderList.length, 
         refetchInterval: 15000, 
-        refetchOnWindowFocus: true
+        refetchOnWindowFocus: true, 
+        staleTime: 0 
     });
 
-    const countsData = queryClient.getQueryData(['emailFolderCounts', account.id]);
+    // --- LÓGICA DE FUSÃO INTELIGENTE ---
     useEffect(() => {
         if (countsData?.counts) {
-            setUnreadCounts(countsData.counts);
+            setMergedCounts(prev => {
+                const next = { ...prev };
+                Object.entries(countsData.counts).forEach(([path, count]) => {
+                    // Se o servidor retornou -1 (erro) ou null, IGNORA e mantém o valor antigo.
+                    // Se o servidor retornou >= 0, atualiza.
+                    if (count !== null && count >= 0) {
+                        next[path] = count;
+                    }
+                });
+                return next;
+            });
         }
     }, [countsData]);
-
+    // ------------------------------------
 
     const folderActionMutation = useMutation({
         mutationFn: async ({ action, folderPath }) => {
@@ -190,7 +203,8 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                     const isSelected = selectedFolder?.path === folder.path && selectedFolder?.accountId === account.id;
                     const isInbox = folder.displayName === 'Caixa de Entrada' || folder.name.toUpperCase() === 'INBOX';
                     
-                    const unreadCount = unreadCounts[folder.path] || 0;
+                    // Usa o estado fundido e persistente
+                    const unreadCount = mergedCounts[folder.path] || 0;
 
                     return (
                         <div 
