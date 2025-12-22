@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from 'react';
-import Script from 'next/script'; // <--- O IMPORT MÁGICO DO NEXT.JS
+import { useState, useMemo, useEffect } from 'react';
+import Script from 'next/script';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -10,7 +10,7 @@ import {
     faPlus, faUniversity, faCreditCard, faMoneyBillWave, faChartLine, 
     faPenToSquare, faTrash, faExclamationTriangle, faSpinner, 
     faWallet, faHandHoldingDollar, faLayerGroup, faMoneyBillTransfer, faFileInvoice,
-    faLink, faCheckCircle, faBuildingColumns
+    faLink, faCheckCircle, faBuildingColumns, faSync
 } from '@fortawesome/free-solid-svg-icons';
 import ContaFormModal from './ContaFormModal';
 import PagamentoFaturaModal from './PagamentoFaturaModal';
@@ -72,11 +72,18 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
 
     // Estados Belvo (Conexão Bancária)
     const [isBelvoLoading, setIsBelvoLoading] = useState(false);
-    const [isWidgetReady, setIsWidgetReady] = useState(false); // Controla se o script carregou
+    const [isWidgetReady, setIsWidgetReady] = useState(false); 
     const [linkSelectionModalOpen, setLinkSelectionModalOpen] = useState(false);
     const [foundBelvoAccounts, setFoundBelvoAccounts] = useState([]);
     const [currentLinkingConta, setCurrentLinkingConta] = useState(null);
     const [currentBelvoLink, setCurrentBelvoLink] = useState(null);
+
+    // Verifica se a Belvo já existe no window ao montar o componente
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.belvo) {
+            setIsWidgetReady(true);
+        }
+    }, []);
 
     const { data: saldos = {}, isLoading: isLoadingSaldos } = useQuery({
         queryKey: ['saldosContasReais', initialContas.map(c => c.id), organizacaoId],
@@ -213,9 +220,13 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
     // --- LÓGICA BELVO ---
 
     const handleConnectBelvo = async (conta) => {
-        // Se ainda não carregou, tentamos recarregar ou avisamos
-        if (!isWidgetReady || typeof window.belvo === 'undefined') {
-            return toast.warning("Carregando sistema bancário... Tente novamente em 2 segundos.");
+        // Tenta detectar o objeto Belvo na hora do clique se ainda não estiver pronto
+        if (!isWidgetReady && typeof window !== 'undefined' && window.belvo) {
+            setIsWidgetReady(true);
+        }
+
+        if (typeof window.belvo === 'undefined') {
+            return toast.error("O sistema bancário não carregou. Recarregue a página e tente novamente.");
         }
 
         setIsBelvoLoading(true);
@@ -356,11 +367,11 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                         {!isConnected ? (
                             <button 
                                 onClick={() => handleConnectBelvo(conta)}
-                                disabled={isBelvoLoading || !isWidgetReady} 
-                                className={`flex-1 text-xs font-bold py-2 rounded flex items-center justify-center gap-2 transition-colors border ${!isWidgetReady ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-wait' : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'}`}
+                                disabled={isBelvoLoading} 
+                                className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold py-2 rounded flex items-center justify-center gap-2 transition-colors border border-blue-200"
                             >
-                                <FontAwesomeIcon icon={(isBelvoLoading || !isWidgetReady) ? faSpinner : faLink} spin={isBelvoLoading || !isWidgetReady} />
-                                {!isWidgetReady ? 'Carregando Widget...' : (isBelvoLoading ? 'Abrindo...' : 'Conectar Banco')}
+                                <FontAwesomeIcon icon={isBelvoLoading ? faSpinner : faLink} spin={isBelvoLoading} />
+                                {isBelvoLoading ? 'Abrindo...' : 'Conectar Banco'}
                             </button>
                         ) : (
                             <button 
@@ -382,14 +393,17 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
 
     return (
         <div className="space-y-6 animate-fade-in">
-            {/* --- CARREGAMENTO DO SCRIPT BELVO --- */}
-            {/* Este componente Script do Next.js gerencia o download de forma inteligente */}
+            {/* --- CARREGAMENTO DO SCRIPT BELVO (ESTRATÉGIA RÁPIDA) --- */}
             <Script 
                 src="https://cdn.belvo.io/belvo-widget-1-stable.js"
-                strategy="lazyOnload" 
+                strategy="afterInteractive" // MUDANÇA: Carrega assim que a página é interativa
                 onLoad={() => {
                     console.log("Widget da Belvo carregado e pronto!");
                     setIsWidgetReady(true);
+                }}
+                onError={(e) => {
+                    console.error("Erro ao carregar Widget Belvo", e);
+                    toast.error("Não foi possível carregar o sistema bancário.");
                 }}
             />
 
