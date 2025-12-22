@@ -15,19 +15,18 @@ import ContratoList from '@/components/contratos/ContratoList';
 import KpiCard from '@/components/KpiCard';
 import FiltroContratos from '@/components/contratos/FiltroContratos';
 import { useDebounce } from 'use-debounce';
-// --- IMPORTAÇÃO ATUALIZADA: Incluindo softDeleteContrato ---
 import { createNewContrato, softDeleteContrato } from './actions'; 
 import { formatDistanceToNow, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
-// (Funções auxiliares mantidas...)
 const fetchFilterData = async (organizacaoId) => {
     if (!organizacaoId) {
         return { clientes: [], produtos: [], empreendimentos: [] };
     }
-    const supabase = await createClient();
+    // CORREÇÃO: Removido 'await' do createClient
+    const supabase = createClient();
     const clientesPromise = supabase.from('contatos').select('id, nome, razao_social').eq('organizacao_id', organizacaoId);
     const produtosPromise = supabase.from('produtos_empreendimento').select('id, unidade, tipo').eq('organizacao_id', organizacaoId);
     const empreendimentosPromise = supabase.from('empreendimentos').select('id, nome').eq('organizacao_id', organizacaoId);
@@ -46,7 +45,8 @@ const formatUltimaVenda = (dateString) => {
 };
 
 export default function ContratosPage() {
-    const supabase = await createClient();
+    // CORREÇÃO: Removido 'await' (Componente de Cliente)
+    const supabase = createClient();
     const queryClient = useQueryClient();
     const { user, isUserLoading } = useLayout(); 
     const organizacaoId = user?.organizacao_id; 
@@ -117,9 +117,8 @@ export default function ContratosPage() {
                 `)
                 .eq('organizacao_id', organizacaoId)
                 .eq('criado_por_usuario_id', userId)
-                .eq('lixeira', false); // <--- FILTRO DA LIXEIRA ADICIONADO AQUI
+                .eq('lixeira', false);
 
-            // Filtros Dinâmicos
             if (debouncedFilters.searchTerm) {
                 query = query.or(`contato.nome.ilike.%${debouncedFilters.searchTerm}%,contato.razao_social.ilike.%${debouncedFilters.searchTerm}%,numero_contrato.ilike.%${debouncedFilters.searchTerm}%`);
             }
@@ -159,7 +158,6 @@ export default function ContratosPage() {
         return { totalVendido, contratosAssinados, ticketMedio, mediaVendasPorMes, ultimaVenda };
     }, [contratos]);
 
-    // Função para deletar contrato
     const handleDelete = async (id) => {
         if (!confirm('Tem certeza que deseja excluir este contrato? Ele será movido para a lixeira.')) return;
 
@@ -169,7 +167,6 @@ export default function ContratosPage() {
         
         if (result?.success) {
             toast.success('Contrato excluído!', { id: toastId });
-            // Atualiza a lista removendo o item visualmente ou invalidando a query
             queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId] });
         } else {
             toast.error('Erro ao excluir: ' + (result?.error || 'Erro desconhecido'), { id: toastId });
@@ -256,7 +253,6 @@ export default function ContratosPage() {
                     }}
                     basePath="/portal-contratos"
                     organizacaoId={organizacaoId}
-                    // --- PASSANDO A FUNÇÃO DE DELETE PARA A LISTA ---
                     onDelete={handleDelete} 
                 />
             </div>

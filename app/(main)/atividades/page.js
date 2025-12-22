@@ -1,11 +1,11 @@
+// app/(main)/atividades/page.js
 "use client";
 
-// --- 1. IMPORTAÇÕES DO SISTEMA ---
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useDebounce } from 'use-debounce'; // Importante para não salvar a cada letra digitada instantaneamente
+import { useDebounce } from 'use-debounce'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faExclamationTriangle, 
@@ -20,14 +20,12 @@ import {
   faPlus
 } from '@fortawesome/free-solid-svg-icons';
 
-// --- 2. IMPORTAÇÕES INTERNAS E CONTEXTOS ---
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLayout } from '@/contexts/LayoutContext';
 import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
 import { enviarNotificacao } from '@/utils/notificacoes';
 
-// --- 3. IMPORTAÇÕES DE COMPONENTES ---
 import AtividadeModal from '@/components/atividades/AtividadeModal';
 import ActivityList from '@/components/atividades/ActivityList';
 import GanttChart from '@/components/atividades/GanttChart';
@@ -37,7 +35,6 @@ import AtividadeFiltros from '@/components/atividades/AtividadeFiltros';
 import KpiCard from '@/components/KpiCard';
 import AtividadeDetalhesSidebar from '@/components/atividades/AtividadeDetalhesSidebar';
 
-// --- 4. CONFIGURAÇÃO DE PERSISTÊNCIA (PADRÃO OURO) ---
 const STORAGE_KEY = 'STUDIO57_ACTIVITIES_UI_V1';
 
 const getCachedUiState = () => {
@@ -51,7 +48,6 @@ const getCachedUiState = () => {
     }
 };
 
-// Funções de busca (Fetchers)
 const fetchAllActivities = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
     
@@ -93,8 +89,8 @@ const fetchAuxiliaryData = async (supabase, organizacaoId) => {
 };
 
 export default function AtividadesPage() {
-    // --- A. HOOKS E CONTEXTOS INICIAIS ---
-    const supabase = await createClient();
+    // CORREÇÃO: Removido 'await' (Componente de Cliente)
+    const supabase = createClient();
     const router = useRouter();
     const queryClient = useQueryClient();
     const { setPageTitle } = useLayout();
@@ -103,14 +99,11 @@ export default function AtividadesPage() {
     const { selectedEmpreendimento, empreendimentos } = useEmpreendimento();
     const organizacaoId = user?.organizacao_id;
 
-    // Permissões
     const canViewPage = hasPermission('atividades', 'pode_ver');
     const canCreate = hasPermission('atividades', 'pode_criar');
     const canEdit = hasPermission('atividades', 'pode_editar');
     const canDelete = hasPermission('atividades', 'pode_excluir');
 
-    // --- B. ESTADOS COM PERSISTÊNCIA ---
-    // Recupera o estado salvo ou usa o padrão
     const cachedState = getCachedUiState();
 
     const [activeTab, setActiveTab] = useState(cachedState?.activeTab || 'kanban');
@@ -128,42 +121,33 @@ export default function AtividadesPage() {
     };
     const [filters, setFilters] = useState(cachedState?.filters || defaultFilters);
 
-    // Estados locais (não persistidos)
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingActivity, setEditingActivity] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [selectedActivityForSidebar, setSelectedActivityForSidebar] = useState(null);
 
-    // Debounce para evitar salvar no localStorage a cada tecla digitada na busca
     const [debouncedFilters] = useDebounce(filters, 500);
 
-    // --- C. EFEITOS (USE EFFECT) ---
-    
-    // 1. Verificação de Segurança
     useEffect(() => {
         if (!authLoading && !canViewPage) router.push('/');
     }, [authLoading, canViewPage, router]);
 
-    // 2. Título da Página
     useEffect(() => {
         setPageTitle('Painel de Atividades');
     }, [setPageTitle]);
 
-    // 3. PERSISTÊNCIA AUTOMÁTICA (O Segredo do Padrão Ouro)
-    // Salva tudo sempre que algo importante mudar
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const stateToSave = {
                 activeTab,
                 showFilters,
                 sortConfig,
-                filters: debouncedFilters // Usa a versão com debounce para performance
+                filters: debouncedFilters
             };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
         }
     }, [activeTab, showFilters, sortConfig, debouncedFilters]);
 
-    // --- D. QUERIES (BUSCA DE DADOS) ---
     const { data: allActivities = [], isLoading: isLoadingActivities } = useQuery({
         queryKey: ['atividades', organizacaoId],
         queryFn: () => fetchAllActivities(supabase, organizacaoId),
@@ -179,7 +163,6 @@ export default function AtividadesPage() {
     
     const { funcionarios = [], allEmpresas = [] } = auxiliaryData || {};
 
-    // --- E. MUTAÇÕES ---
     const deleteMutation = useMutation({
         mutationFn: async (activityId) => {
             const { data: act } = await supabase.from('activities').select('nome').eq('id', activityId).single();
@@ -188,7 +171,6 @@ export default function AtividadesPage() {
             return { activityId, nome: act?.nome };
         },
         onSuccess: async (data) => {
-            // NOTIFICAÇÃO MANUAL MANTIDA PARA EXCLUSÃO (POIS O BANCO SÓ VIGIA UPDATE)
             await enviarNotificacao({
                 userId: user.id,
                 titulo: "🗑️ Atividade Excluída",
@@ -238,20 +220,16 @@ export default function AtividadesPage() {
             return { activity, newStatus };
         },
         onSuccess: async (data) => {
-            // REMOVIDO: enviarNotificacao() - O banco de dados já faz isso via Trigger agora!
             queryClient.invalidateQueries(['atividades', organizacaoId]);
         },
         onError: (error) => toast.error(`Erro ao atualizar status: ${error.message}`)
     });
 
-    // --- F. LÓGICA DE FILTRAGEM ---
     const filteredActivities = useMemo(() => {
         return allActivities
             .filter(act => {
-                // Filtro Global de Empreendimento
                 if (selectedEmpreendimento !== 'all' && act.empreendimento_id != selectedEmpreendimento) return false;
                 
-                // Filtros Locais (Usando o estado `filters` diretamente para resposta rápida na UI)
                 if (filters.searchTerm) {
                     const term = filters.searchTerm.toLowerCase();
                     const matchesName = act.nome?.toLowerCase().includes(term);
@@ -280,7 +258,6 @@ export default function AtividadesPage() {
             });
     }, [selectedEmpreendimento, allActivities, filters, sortConfig]);
 
-    // --- G. KPIs e Helpers ---
     const kpiData = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -381,7 +358,6 @@ export default function AtividadesPage() {
                 onEditActivity={handleEditClick}
             />
 
-            {/* --- 1. HEADER PADRÃO CRM --- */}
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white p-6 rounded-lg shadow-sm">
                 
                 <div className="flex items-center gap-3">
@@ -428,7 +404,6 @@ export default function AtividadesPage() {
                 </div>
             </div>
 
-            {/* --- 2. FILTROS AVANÇADOS (VISIBILIDADE PERSISTENTE) --- */}
             {showFilters && (
                 <AtividadeFiltros 
                     filters={filters} 
@@ -438,7 +413,6 @@ export default function AtividadesPage() {
                 />
             )}
 
-            {/* --- 3. KPIs --- */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 <KpiCard title="Atrasadas" value={kpiData.atrasadas} icon={faExclamationTriangle} color="red" />
                 <KpiCard title="Ativas" value={kpiData.ativas} icon={faTasks} color="blue" />
@@ -447,7 +421,6 @@ export default function AtividadesPage() {
                 <KpiCard title="Reprogramadas" value={kpiData.reprogramadas} icon={faHistory} color="purple" />
             </div>
 
-            {/* --- 4. ABAS E CONTEÚDO (ABA ATIVA PERSISTENTE) --- */}
             <div className="bg-white shadow-sm rounded-lg border border-gray-200">
                 <div className="border-b border-gray-200">
                     <nav className="-mb-px flex space-x-6 px-4" aria-label="Tabs">

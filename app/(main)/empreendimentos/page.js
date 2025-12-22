@@ -1,3 +1,4 @@
+// app/(main)/empreendimentos/page.js
 "use client";
 
 import { useEffect } from 'react';
@@ -37,7 +38,8 @@ const fetchEmpreendimentos = async (supabase, organizacaoId) => {
 // ======================= FIM DA CORREÇÃO =======================
 
 export default function GerenciamentoEmpreendimentosPage() {
-    const supabase = await createClient();
+    // CORREÇÃO: Removido 'await' aqui (Componente de Cliente)
+    const supabase = createClient();
     const router = useRouter();
     const queryClient = useQueryClient();
 
@@ -82,12 +84,10 @@ export default function GerenciamentoEmpreendimentosPage() {
         );
     }
 
-    // O erro que você viu acontecia ANTES daqui, na hora de buscar os dados.
     if (isError) {
         return <p className="p-4 text-center text-red-500">Erro ao carregar empreendimentos: {error.message}</p>
     }
 
-    // O layout ajustado continua aqui
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -111,7 +111,7 @@ export default function GerenciamentoEmpreendimentosPage() {
                             <EmpreendimentoCard
                                 key={empreendimento.id}
                                 empreendimento={empreendimento}
-                                organizacaoId={organizacaoId} // Passamos o ID para o card usar na mutation
+                                organizacaoId={organizacaoId}
                             />
                         ))}
                     </div>

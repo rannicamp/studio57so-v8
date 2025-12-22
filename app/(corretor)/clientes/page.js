@@ -23,20 +23,19 @@ import { useDebounce } from 'use-debounce'
 import Image from 'next/image'
 import ContatoForm from '@/components/contatos/ContatoForm'
 import { saveContactAction } from '@/components/contatos/actions';
-// --- MUDANÇA 1: Importamos a action nova (opcional, mas vamos fazer via client aqui para manter o padrão do seu arquivo) ---
-// Se preferir usar a action: import { softDeleteCliente } from './actions';
 
 // Função de busca (COM FILTRO DE LIXEIRA)
 async function fetchClientesCorretor(organizacaoId, userId, searchTerm) {
   if (!organizacaoId || !userId) return [];
   
-  const supabase = await createClient()
+  // CORREÇÃO: createClient aqui deve ser síncrono pois roda no cliente (via useQuery)
+  const supabase = createClient()
   
   let query = supabase.from('contatos')
     .select(`*, telefones(telefone), emails(email)`)
     .eq('organizacao_id', organizacaoId)
     .eq('criado_por_usuario_id', userId)
-    .eq('lixeira', false) // <--- O FILTRO DA LIXEIRA: Só traz o que não foi excluído
+    .eq('lixeira', false)
 
   if (searchTerm) { 
       query = query.or(`nome.ilike.%${searchTerm}%,razao_social.ilike.%${searchTerm}%`); 
@@ -66,7 +65,9 @@ export default function ClientesCorretor() {
   const { user, isUserLoading } = useLayout()
   const organizacaoId = user?.organizacao_id
   const userId = user?.id
-  const supabase = await createClient()
+  
+  // CORREÇÃO: Removido 'await' (Componente de Cliente)
+  const supabase = createClient()
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const isInitialMount = useRef(true)
@@ -82,15 +83,14 @@ export default function ClientesCorretor() {
     enabled: !!organizacaoId && !!userId,
   })
 
-  // --- MUDANÇA 2: Mutation para Excluir (SOFT DELETE) ---
+  // Mutation para Excluir (SOFT DELETE)
   const deleteMutation = useMutation({
       mutationFn: async (contatoId) => {
-          // Em vez de .delete(), usamos .update()
           const { error } = await supabase
               .from('contatos')
-              .update({ lixeira: true }) // <--- ENVIA PARA LIXEIRA
+              .update({ lixeira: true })
               .eq('id', contatoId)
-              .eq('criado_por_usuario_id', userId); // Garante segurança
+              .eq('criado_por_usuario_id', userId);
               
           if (error) throw new Error(error.message);
       },
@@ -104,7 +104,6 @@ export default function ClientesCorretor() {
       },
   });
 
-  // Mutation para Duplicar Contato (Mantida Original, só garantindo lixeira false)
   const duplicateMutation = useMutation({
       mutationFn: async (contatoOriginal) => {
           const { id, created_at, updated_at, foto_url, ...dadosParaDuplicar } = contatoOriginal;
@@ -120,7 +119,7 @@ export default function ClientesCorretor() {
               conjuge_id: null,
               criado_por_usuario_id: userId,
               organizacao_id: organizacaoId,
-              lixeira: false // <--- Garante que a cópia nasce visível
+              lixeira: false 
           };
 
           const result = await saveContactAction({ formData: formDataDuplicado, isEditing: false });
@@ -161,13 +160,11 @@ export default function ClientesCorretor() {
       },
   });
 
-  // Notificação
   useEffect(() => {
     if (!isInitialMount.current) { if (!isFetching && !isError) { if(prevIsFetchingRef.current && !isLoading) { toast.info('Lista atualizada.') } } } else { isInitialMount.current = false } prevIsFetchingRef.current = isFetching;
   }, [isFetching, isError, isLoading])
   const prevIsFetchingRef = useRef(isLoading);
 
-  // Ordenação
   const sortedClientes = useMemo(() => {
     let sortableItems = [...(clientes || [])]; if (sortConfig.key !== null) { sortableItems.sort((a, b) => { const valA = a[sortConfig.key]; const valB = b[sortConfig.key]; if (valA === null || valA === undefined) return sortConfig.direction === 'ascending' ? 1 : -1; if (valB === null || valB === undefined) return sortConfig.direction === 'ascending' ? -1 : 1; const compareResult = String(valA).toLowerCase().localeCompare(String(valB).toLowerCase()); return sortConfig.direction === 'ascending' ? compareResult : -compareResult; }); } return sortableItems;
    }, [clientes, sortConfig]);

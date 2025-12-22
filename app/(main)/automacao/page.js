@@ -8,9 +8,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSpinner, faToggleOn, faToggleOff, faTrash, faPen, faRobot } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-import AutomacaoModal from '@/components/crm/AutomacaoModal'; // <-- IMPORTAMOS O MODAL
+import AutomacaoModal from '@/components/crm/AutomacaoModal';
 
-// Função para buscar as automações existentes
 const fetchAutomations = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
     const { data, error } = await supabase
@@ -23,7 +22,8 @@ const fetchAutomations = async (supabase, organizacaoId) => {
 };
 
 export default function AutomacaoPage() {
-    const supabase = await createClient();
+    // CORREÇÃO: Removido 'await' (Componente de Cliente)
+    const supabase = createClient();
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
@@ -41,7 +41,7 @@ export default function AutomacaoPage() {
         onSuccess: (message) => {
             queryClient.invalidateQueries({ queryKey: ['automations', organizacaoId] });
             toast.success(message || "Operação realizada com sucesso!");
-            setIsModalOpen(false); // Fecha o modal após o sucesso
+            setIsModalOpen(false);
         },
         onError: (err) => toast.error(err.message),
     };
@@ -100,7 +100,6 @@ export default function AutomacaoPage() {
 
     return (
         <div className="p-6 bg-gray-100 h-full">
-            {/* O modal agora é renderizado e controlado pela página */}
             {isModalOpen && (
                 <AutomacaoModal
                     isOpen={isModalOpen}

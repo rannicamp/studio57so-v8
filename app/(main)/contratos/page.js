@@ -38,7 +38,7 @@ const fetchFilterData = async (organizacaoId) => {
     if (!organizacaoId) {
         return { clientes: [], corretores: [], produtos: [], empreendimentos: [] };
     }
-    const supabase = await createClient();
+    const supabase = createClient();
 
     const clientesPromise = supabase.from('contatos').select('id, nome, razao_social').eq('organizacao_id', organizacaoId);
     const corretoresPromise = supabase.from('contatos').select('id, nome, razao_social').eq('tipo_contato', 'Corretor').eq('organizacao_id', organizacaoId);
@@ -62,7 +62,7 @@ const formatUltimaVenda = (dateString) => {
 
 const fetchVgvPossivel = async (organizacaoId) => {
     if (!organizacaoId) return 0;
-    const supabase = await createClient();
+    const supabase = createClient();
     const { data, error } = await supabase.rpc('calcular_vgv_possivel', { p_organizacao_id: organizacaoId });
     if (error) {
         console.error("Erro ao calcular VGV Possível:", error);
@@ -72,7 +72,8 @@ const fetchVgvPossivel = async (organizacaoId) => {
 };
 
 export default function ContratosPage() {
-    const supabase = await createClient();
+    // CORREÇÃO: Removido 'await' aqui (Componente de Cliente)
+    const supabase = createClient();
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;

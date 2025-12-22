@@ -13,7 +13,7 @@ import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 const fetchEmpresaData = async (supabase, empresaId, organizacaoId) => {
     if (!empresaId || !organizacaoId) return null;
 
-    // 1. Busca a empresa (sem alterações aqui)
+    // 1. Busca a empresa
     const { data: empresa, error: empresaError } = await supabase
         .from('cadastro_empresa')
         .select('*')
@@ -28,30 +28,25 @@ const fetchEmpresaData = async (supabase, empresaId, organizacaoId) => {
         throw new Error(`Erro ao buscar empresa: ${empresaError.message}`);
     }
 
-    // =================================================================================
-    // CORREÇÃO APLICADA AQUI
-    // O PORQUÊ: Alteramos o nome da tabela de 'tipos_documento' para 'documento_tipos'
-    // e adicionamos o filtro de 'organizacao_id' para buscar apenas os tipos
-    // de documento que pertencem à sua organização, conforme a estrutura correta.
-    // =================================================================================
+    // 2. Busca os Tipos de Documento (com filtro de organização)
     const { data: documentoTipos, error: tiposError } = await supabase
         .from('documento_tipos')
         .select('*')
-        .eq('organizacao_id', organizacaoId) // Adicionado filtro de segurança
+        .eq('organizacao_id', organizacaoId)
         .order('descricao');
     
     if (tiposError) throw new Error(`Erro ao buscar tipos de documento: ${tiposError.message}`);
 
-    // 3. Busca os anexos (sem alterações aqui)
+    // 3. Busca os anexos
     const { data: anexosData, error: anexosError } = await supabase
         .from('empresa_anexos')
-        .select(`*, tipo:documento_tipos (descricao, sigla)`) // Corrigido o nome da relação
+        .select(`*, tipo:documento_tipos (descricao, sigla)`)
         .eq('empresa_id', empresaId)
         .eq('organizacao_id', organizacaoId);
 
     if (anexosError) throw new Error(`Erro ao buscar anexos: ${anexosError.message}`);
 
-    // 4. Gera as URLs públicas para os anexos (sem alterações aqui)
+    // 4. Gera as URLs públicas para os anexos
     const signedUrlPromises = (anexosData || []).map(anexo =>
         supabase.storage.from('empresa-anexos').createSignedUrl(anexo.caminho_arquivo, 3600)
     );
@@ -65,7 +60,9 @@ const fetchEmpresaData = async (supabase, empresaId, organizacaoId) => {
 };
 
 export default function EmpresaPage() {
-    const supabase = await createClient();
+    // CORREÇÃO: Removido 'await' (Componente de Cliente)
+    const supabase = createClient();
+    
     const params = useParams();
     const { id: empresaId } = params;
     const { user } = useAuth();
