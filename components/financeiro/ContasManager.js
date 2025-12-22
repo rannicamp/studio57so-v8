@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import Script from 'next/script';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -10,7 +9,7 @@ import {
     faPlus, faUniversity, faCreditCard, faMoneyBillWave, faChartLine, 
     faPenToSquare, faTrash, faExclamationTriangle, faSpinner, 
     faWallet, faHandHoldingDollar, faLayerGroup, faMoneyBillTransfer, faFileInvoice,
-    faLink, faCheckCircle, faBuildingColumns, faSync
+    faLink, faCheckCircle, faBuildingColumns, faShieldAlt
 } from '@fortawesome/free-solid-svg-icons';
 import ContaFormModal from './ContaFormModal';
 import PagamentoFaturaModal from './PagamentoFaturaModal';
@@ -77,10 +76,36 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
     const [foundBelvoAccounts, setFoundBelvoAccounts] = useState([]);
     const [currentLinkingConta, setCurrentLinkingConta] = useState(null);
     const [currentBelvoLink, setCurrentBelvoLink] = useState(null);
+    const [browserBlocked, setBrowserBlocked] = useState(false);
 
-    // Verifica se a Belvo já existe no window ao montar o componente
+    // --- CARREGAMENTO DO SCRIPT ---
     useEffect(() => {
-        if (typeof window !== 'undefined' && window.belvo) {
+        if (typeof window !== 'undefined' && !document.getElementById('belvo-script-manual')) {
+            const script = document.createElement('script');
+            script.id = 'belvo-script-manual';
+            script.src = 'https://cdn.belvo.io/belvo-widget-1-stable.js';
+            script.async = true;
+            
+            script.onload = () => {
+                setTimeout(() => {
+                    if (window.belvo) {
+                        console.log("Belvo Widget carregado com sucesso!");
+                        setIsWidgetReady(true);
+                        setBrowserBlocked(false);
+                    } else {
+                        console.error("Belvo script carregou mas window.belvo não existe.");
+                        // Isso geralmente não bloqueia o uso imediato, tentaremos novamente no clique
+                    }
+                }, 1000);
+            };
+
+            script.onerror = () => {
+                console.error("Erro ao baixar script da Belvo.");
+                setBrowserBlocked(true);
+            };
+
+            document.body.appendChild(script);
+        } else if (typeof window !== 'undefined' && window.belvo) {
             setIsWidgetReady(true);
         }
     }, []);
@@ -220,13 +245,18 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
     // --- LÓGICA BELVO ---
 
     const handleConnectBelvo = async (conta) => {
-        // Tenta detectar o objeto Belvo na hora do clique se ainda não estiver pronto
-        if (!isWidgetReady && typeof window !== 'undefined' && window.belvo) {
-            setIsWidgetReady(true);
+        if (browserBlocked) {
+            return toast.error("Navegador bloqueou o sistema bancário. Tente usar o Google Chrome ou verifique o ícone de escudo na barra de endereços.");
         }
 
         if (typeof window.belvo === 'undefined') {
-            return toast.error("O sistema bancário não carregou. Recarregue a página e tente novamente.");
+            // Tenta verificar se carregou agora
+            if (document.getElementById('belvo-script-manual')) {
+                 toast.loading("O sistema está inicializando, aguarde...", { duration: 2000 });
+                 // Tenta novamente em 2s se o usuário for impaciente
+                 return;
+            }
+            return toast.error("O sistema bancário não carregou. Verifique sua conexão ou bloqueadores de anúncio.");
         }
 
         setIsBelvoLoading(true);
@@ -367,11 +397,20 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                         {!isConnected ? (
                             <button 
                                 onClick={() => handleConnectBelvo(conta)}
-                                disabled={isBelvoLoading} 
-                                className="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold py-2 rounded flex items-center justify-center gap-2 transition-colors border border-blue-200"
+                                disabled={isBelvoLoading}
+                                className={`flex-1 text-xs font-bold py-2 rounded flex items-center justify-center gap-2 transition-colors border ${
+                                    browserBlocked ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
+                                    'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'
+                                }`}
                             >
-                                <FontAwesomeIcon icon={isBelvoLoading ? faSpinner : faLink} spin={isBelvoLoading} />
-                                {isBelvoLoading ? 'Abrindo...' : 'Conectar Banco'}
+                                {browserBlocked ? (
+                                    <> <FontAwesomeIcon icon={faShieldAlt} /> Bloqueado </>
+                                ) : (
+                                    <>
+                                        <FontAwesomeIcon icon={isBelvoLoading ? faSpinner : faLink} spin={isBelvoLoading} />
+                                        {isBelvoLoading ? 'Abrindo...' : 'Conectar Banco'}
+                                    </>
+                                )}
                             </button>
                         ) : (
                             <button 
@@ -393,19 +432,25 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
 
     return (
         <div className="space-y-6 animate-fade-in">
-            {/* --- CARREGAMENTO DO SCRIPT BELVO (ESTRATÉGIA RÁPIDA) --- */}
-            <Script 
-                src="https://cdn.belvo.io/belvo-widget-1-stable.js"
-                strategy="afterInteractive" // MUDANÇA: Carrega assim que a página é interativa
-                onLoad={() => {
-                    console.log("Widget da Belvo carregado e pronto!");
-                    setIsWidgetReady(true);
-                }}
-                onError={(e) => {
-                    console.error("Erro ao carregar Widget Belvo", e);
-                    toast.error("Não foi possível carregar o sistema bancário.");
-                }}
-            />
+            {/* ALERT BOX SE ESTIVER BLOQUEADO */}
+            {browserBlocked && (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded shadow-sm animate-pulse">
+                    <div className="flex">
+                        <div className="flex-shrink-0">
+                            <FontAwesomeIcon icon={faShieldAlt} className="text-red-500" />
+                        </div>
+                        <div className="ml-3">
+                            <p className="text-sm text-red-700 font-bold">
+                                Sistema bancário bloqueado pelo navegador
+                            </p>
+                            <p className="text-sm text-red-600 mt-1">
+                                O seu navegador (Edge/Chrome) bloqueou o script da Belvo por segurança.<br/>
+                                <strong>Recomendação:</strong> Tente acessar este sistema usando o <strong>Google Chrome</strong> ou desative a "Prevenção de Rastreamento" nas configurações do Edge.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* MODAIS */}
             <ContaFormModal 
