@@ -2,18 +2,17 @@
 
 import { createClient } from '@/utils/supabase/server';
 import SimuladorFinanceiroPublico from '@/components/SimuladorFinanceiroPublico';
-import BotaoVoltar from '@/components/BotaoVoltar';
-import { cookies } from 'next/headers';
+import BotaoVoltar from '@/components/BotaoVoltar'; 
 
 export const dynamic = 'force-dynamic';
 
 export default async function SimuladorPage() {
-    // CORREÇÃO AQUI: Adicionamos 'await' antes de cookies()
-    // No Next.js 15, cookies() é uma função assíncrona e precisa ser aguardada.
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // CORREÇÃO DEFINITIVA:
+    // 1. Não precisamos passar cookies() como argumento, sua função já faz isso.
+    // 2. Adicionamos 'await' aqui porque sua função createClient é async.
+    const supabase = await createClient();
 
-    // Mantemos a busca original pelos empreendimentos
+    // Agora o 'supabase' é o cliente real, então o .from() vai funcionar!
     const { data: empreendimentos, error } = await supabase
         .from('empreendimentos')
         .select('id, nome, status')
