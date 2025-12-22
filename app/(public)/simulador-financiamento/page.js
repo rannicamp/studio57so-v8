@@ -2,17 +2,18 @@
 
 import { createClient } from '@/utils/supabase/server';
 import SimuladorFinanceiroPublico from '@/components/SimuladorFinanceiroPublico';
-import BotaoVoltar from '@/components/BotaoVoltar'; // <-- 1. IMPORTAMOS O BOTÃO
+import BotaoVoltar from '@/components/BotaoVoltar';
 import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SimuladorPage() {
-    const cookieStore = cookies();
+    // CORREÇÃO AQUI: Adicionamos 'await' antes de cookies()
+    // No Next.js 15, cookies() é uma função assíncrona e precisa ser aguardada.
+    const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // ***** REVERTIDO: REMOVIDA A LÓGICA DE BUSCA DA EMPRESA *****
-    // Mantemos apenas a busca original pelos empreendimentos
+    // Mantemos a busca original pelos empreendimentos
     const { data: empreendimentos, error } = await supabase
         .from('empreendimentos')
         .select('id, nome, status')
@@ -29,7 +30,7 @@ export default async function SimuladorPage() {
         <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-5xl mx-auto">
                 
-                <BotaoVoltar /> {/* <-- 2. ADICIONAMOS O BOTÃO AQUI */}
+                <BotaoVoltar />
 
                 <div className="mb-8 flex justify-center">
                     <img src={logoUrl} alt="Logo Studio 57" className="h-16 w-auto" />
