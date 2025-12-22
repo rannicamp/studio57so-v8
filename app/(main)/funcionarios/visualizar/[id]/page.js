@@ -1,3 +1,4 @@
+// app/(main)/funcionarios/visualizar/[id]/page.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -10,6 +11,7 @@ import FichaCompletaFuncionario from '../../../../../components/FichaCompletaFun
 import LancamentoFormModal from '../../../../../components/financeiro/LancamentoFormModal';
 
 export default function VisualizarFuncionarioPage() {
+    // CORREÇÃO: createClient SEM await (Componente de Cliente)
     const supabase = createClient();
     const params = useParams();
     const router = useRouter();
@@ -27,10 +29,7 @@ export default function VisualizarFuncionarioPage() {
     const getEmployeeData = useCallback(async () => {
         setLoading(true);
         
-        // ***** INÍCIO DA ALTERAÇÃO INTELIGENTE *****
-        // A busca de 'cadastro_empresa' agora traz todas as colunas (*)
-        // em vez de apenas a razão social.
-        const { data: employeeData, error } = supabase
+        const { data: employeeData, error } = await supabase
             .from('funcionarios')
             .select(`
                 *, 
@@ -40,7 +39,6 @@ export default function VisualizarFuncionarioPage() {
             `)
             .eq('id', employeeId)
             .single();
-        // ***** FIM DA ALTERAÇÃO INTELIGENTE *****
 
         if (error || !employeeData) {
             setLoading(false);
@@ -90,7 +88,6 @@ export default function VisualizarFuncionarioPage() {
     };
     
     const handleSaveLancamento = async (formData) => {
-        // ... (código existente sem alterações)
         return true; 
     };
 

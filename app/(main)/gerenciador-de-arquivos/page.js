@@ -1,4 +1,4 @@
-// Caminho do arquivo: app/(main)/gerenciador-de-arquivos/page.js
+// app/(main)/gerenciador-de-arquivos/page.js
 'use client';
 
 import { useState } from 'react';
@@ -12,11 +12,10 @@ import AdicionarArquivoModal from '@/components/gerenciador-de-arquivos/Adiciona
 
 const PAGE_SIZE = 20;
 
-// O PORQUÊ DA MUDANÇA: A consulta agora busca o nome da empresa de duas formas:
-// 1. Através do empreendimento (empreendimentos(...empresas(...)))
-// 2. Diretamente através do novo campo 'empresa_id' (empresas:empresa_id(...))
+// Função de fetch (segura e isolada)
 const fetchFiles = async ({ pageParam = 0, queryKey }) => {
     const [, sortConfig] = queryKey;
+    // CORREÇÃO: createClient SEM await (Isso já estava certo no seu código)
     const supabase = createClient();
     const from = pageParam * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
@@ -37,7 +36,7 @@ const fetchFiles = async ({ pageParam = 0, queryKey }) => {
         query = query.order('created_at', { ascending: false });
     }
     
-    const { data, error, count } = query;
+    const { data, error, count } = await query; // Adicionado 'await' explícito aqui para clareza
     if (error) throw new Error(error.message);
 
     const filesWithUrls = data.map(file => {
@@ -49,7 +48,6 @@ const fetchFiles = async ({ pageParam = 0, queryKey }) => {
 };
 
 function FileThumbnail({ file }) {
-    // ... (código do thumbnail continua o mesmo)
     const fileExtension = file.nome_arquivo?.split('.').pop().toLowerCase() || '';
     if (file.thumbnail_url) return <img src={file.thumbnail_url} alt={`Thumbnail de ${file.nome_arquivo}`} className="w-16 h-16 object-contain rounded-md bg-gray-200" />;
     if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension)) return <img src={file.public_url} alt={file.nome_arquivo} className="w-16 h-16 object-contain rounded-md" />;
@@ -124,7 +122,6 @@ export default function GerenciadorDeArquivosPage() {
                             {status === 'pending' ? (<tr><td colSpan="6" className="p-8 text-center"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></td></tr>)
                             : status === 'error' ? (<tr><td colSpan="6" className="p-8 text-center text-red-500">Erro: {error.message}</td></tr>)
                             : (files.map((file) => {
-                                // Lógica para encontrar o nome da empresa
                                 const empresa = file.empresas || file.empreendimentos?.empresas;
                                 const nomeEmpresa = empresa?.nome_fantasia || empresa?.razao_social || 'N/A';
                                 return (

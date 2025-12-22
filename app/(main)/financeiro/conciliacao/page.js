@@ -3,24 +3,21 @@
 
 import Link from 'next/link';
 import { createClient } from '../../../../utils/supabase/client';
-import { useAuth } from '../../../../contexts/AuthContext'; // 1. Importar useAuth
-import { useQuery } from '@tanstack/react-query'; // 2. Importar useQuery
+import { useAuth } from '../../../../contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 import ConciliacaoManager from '../../../../components/financeiro/ConciliacaoManager';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
-// =================================================================================
-// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
-// O PORQUÊ: A busca foi isolada e agora exige o `organizacaoId` para filtrar as
-// contas, garantindo que cada usuário veja apenas as contas de sua empresa.
-// =================================================================================
+// Função de busca isolada e segura
 const fetchContas = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
 
-    const { data, error } = supabase
+    // CORREÇÃO: Adicionado 'await' aqui. Sem ele, a query não executa!
+    const { data, error } = await supabase
         .from('contas_financeiras')
         .select('id, nome')
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId)
         .order('nome');
     
     if (error) {
@@ -31,15 +28,11 @@ const fetchContas = async (supabase, organizacaoId) => {
 };
 
 export default function ConciliacaoPage() {
+    // CORREÇÃO: createClient SEM await (Componente de Cliente)
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE PADRÃO (useState + useEffect -> useQuery)
-    // O PORQUÊ: `useQuery` gerencia o estado de carregamento, erros e cache de
-    // forma mais eficiente e automática, simplificando o nosso código.
-    // =================================================================================
     const { data: contas = [], isLoading: loading, isError, error } = useQuery({
         queryKey: ['contasFinanceiras', organizacaoId],
         queryFn: () => fetchContas(supabase, organizacaoId),

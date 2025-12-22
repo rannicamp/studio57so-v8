@@ -1,32 +1,26 @@
-//app/(main)/empreendimentos/cadastro/page.js
+// app/(main)/empreendimentos/cadastro/page.js
 'use client';
 
 import { createClient } from '../../../../utils/supabase/client';
 import EmpreendimentoForm from '../../../../components/EmpreendimentoForm';
 import Link from 'next/link';
-import { useAuth } from '../../../../contexts/AuthContext'; // 1. Importar useAuth
-import { useQuery } from '@tanstack/react-query'; // 2. Importar useQuery
+import { useAuth } from '../../../../contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
-// =================================================================================
-// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
-// O PORQUÊ: A busca foi isolada e agora exige o `organizacaoId` para filtrar
-// as listas de opções do formulário, garantindo que o usuário só veja
-// as empresas e entidades da sua própria organização.
-// =================================================================================
 const fetchFormData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { corporateEntities: [], proprietariaOptions: [] };
 
-    // ATENÇÃO: A função 'get_corporate_entities' no banco PRECISA ser alterada para usar este parâmetro.
     const corporateEntitiesPromise = supabase.rpc('get_corporate_entities', { p_organizacao_id: organizacaoId });
     
     const proprietariaOptionsPromise = supabase
         .from('cadastro_empresa')
         .select('id, razao_social')
-        .eq('organizacao_id', organizacaoId); // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId);
 
-    const [entitiesRes, proprietariaRes] =  Promise.all([
+    // CORREÇÃO IMPORTANTE: Adicionado 'await' antes do Promise.all
+    const [entitiesRes, proprietariaRes] = await Promise.all([
         corporateEntitiesPromise,
         proprietariaOptionsPromise
     ]);
@@ -40,17 +34,12 @@ const fetchFormData = async (supabase, organizacaoId) => {
     };
 };
 
-
 export default function CadastroEmpreendimentoPage() {
+    // CORREÇÃO: createClient SEM await (Isso você já tinha feito, mantive correto)
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE PADRÃO (useEffect -> useQuery)
-    // O PORQUÊ: `useQuery` gerencia o estado de carregamento, erros e cache de
-    // forma mais eficiente e automática, simplificando o código.
-    // =================================================================================
     const { data: formData, isLoading: loading, isError, error } = useQuery({
         queryKey: ['empreendimentoFormData', organizacaoId],
         queryFn: () => fetchFormData(supabase, organizacaoId),
