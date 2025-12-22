@@ -1,12 +1,34 @@
-import belvo from 'belvo'; // <--- IMPORTAÇÃO CORRETA (Sem chaves)
 import { createClient } from './supabase/server';
 import { getOrganizationId } from './getOrganizationId';
 
-// Cache do cliente para não recriar a cada requisição (Singleton pattern)
-let belvoClientInstance = null;
+// NOTA: Removemos o 'import' estático do topo para evitar erro de build.
+// Vamos carregar a biblioteca dinamicamente dentro da função.
 
 export const getBelvoClient = async () => {
-    // 1. Busca organização e configurações no banco
+    // 1. CARREGAMENTO ROBUSTO DA BIBLIOTECA
+    // O Next.js as vezes empacota bibliotecas antigas de forma diferente.
+    // Aqui garantimos que vamos pegar a classe certa, não importa como ela venha.
+    const belvoModule = require('belvo');
+    
+    let BelvoClient;
+
+    // Tenta achar o construtor Client em diferentes lugares
+    if (typeof belvoModule.Client === 'function') {
+        BelvoClient = belvoModule.Client;
+    } else if (belvoModule.default && typeof belvoModule.default.Client === 'function') {
+        BelvoClient = belvoModule.default.Client;
+    } else {
+        // Se falhar, loga para debug e tenta usar o próprio módulo
+        console.error("Estrutura do módulo Belvo:", belvoModule);
+        BelvoClient = belvoModule; 
+    }
+
+    // Última verificação de segurança
+    if (typeof BelvoClient !== 'function') {
+        throw new Error("Falha crítica: A biblioteca 'belvo' não exportou um construtor Client válido.");
+    }
+
+    // 2. BUSCA CONFIGURAÇÕES NO BANCO
     const supabase = await createClient();
     const organizacaoId = await getOrganizationId();
 
@@ -21,31 +43,32 @@ export const getBelvoClient = async () => {
         .single();
 
     if (error || !config) {
-        throw new Error('Configurações da Belvo não encontradas. Vá em Configurações > Integrações.');
+        throw new Error('Configurações da Belvo não encontradas no banco de dados.');
     }
 
-    // 2. Define a URL base dependendo do ambiente
-    // Sandbox: https://sandbox.belvo.com
-    // Production: https://api.belvo.com
+    // 3. DEFINE URL
     const url = config.environment === 'production' 
         ? 'https://api.belvo.com' 
         : 'https://sandbox.belvo.com';
 
-    // 3. Inicializa o Cliente Belvo
-    // AQUI ESTAVA O ERRO: Usamos 'belvo.Client' vindo do import default
+    // 4. INSTANCIA O CLIENTE
     try {
-        const client = new belvo.Client(
+        const client = new BelvoClient(
             config.secret_id,
             config.secret_password,
             url
         );
 
-        // Opcional: Faz um login inicial para validar (a biblioteca faz isso auto, mas garante erro rápido se falhar)
+        // Faz um login inicial para validar as credenciais imediatamente
         await client.connect();
 
         return { client, organizacaoId };
     } catch (err) {
         console.error("Erro ao inicializar SDK da Belvo:", err);
+        // Retorna erro amigável se for credencial errada
+        if (err.statusCode === 401) {
+            throw new Error("Credenciais da Belvo inválidas (Erro 401). Verifique Secret ID e Password.");
+        }
         throw new Error(`Falha na conexão com Belvo: ${err.message}`);
     }
 };
