@@ -53,7 +53,7 @@ export async function salvarLead(formData) {
   const email = formData.get('email');
   const telefone = formData.get('telefone');
   const origem = formData.get('origem'); // Ex: "Modal - Book Refúgio Braúnas"
-  const supabase = createClient();
+  const supabase = await createClient();
 
   try {
     const { data: orgData, error: orgError } = await supabase

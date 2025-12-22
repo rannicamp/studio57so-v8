@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function EditarEmpreendimentoPage({ params }) {
     const { id } = params;
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // =================================================================================
     // CORREÇÃO DE SEGURANÇA (organização_id)

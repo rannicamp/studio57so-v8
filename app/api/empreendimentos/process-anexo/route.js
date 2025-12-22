@@ -21,7 +21,7 @@ function chunkText(text, chunkSize = 500, overlap = 50) {
 
 // --- FUNÇÃO PRINCIPAL DA ROTA ---
 export async function POST(request) {
-    const supabase = createClient();
+    const supabase = await createClient();
     try {
         const { anexoId } = await request.json();
         if (!anexoId) {

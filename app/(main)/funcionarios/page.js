@@ -11,7 +11,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faLock } from '@fortawesome/free-solid-svg-icons';
 
 export default function GerenciamentoFuncionariosPage() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const router = useRouter();
     
     const { hasPermission, loading: authLoading } = useAuth();

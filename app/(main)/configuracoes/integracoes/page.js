@@ -7,7 +7,7 @@ import IntegrationsManager from '../../../../components/IntegrationsManager';
 import { getOrganizationId } from '@/utils/getOrganizationId'; // Helper para buscar a organização
 
 export default async function IntegracoesPage() {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // 1. Proteção de Rota - Verifica se o usuário está logado
     const { data: { user } } = await supabase.auth.getUser();

@@ -4,7 +4,7 @@ import PermissionManager from '../../../../components/PermissionManager';
 import { redirect } from 'next/navigation';
 
 export default async function PermissoesPage() {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // 1. Verifica se o usuário tem permissão para acessar esta página
     const { data: { user } } = await supabase.auth.getUser();

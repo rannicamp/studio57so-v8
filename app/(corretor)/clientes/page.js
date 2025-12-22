@@ -30,7 +30,7 @@ import { saveContactAction } from '@/components/contatos/actions';
 async function fetchClientesCorretor(organizacaoId, userId, searchTerm) {
   if (!organizacaoId || !userId) return [];
   
-  const supabase = createClient()
+  const supabase = await createClient()
   
   let query = supabase.from('contatos')
     .select(`*, telefones(telefone), emails(email)`)
@@ -66,7 +66,7 @@ export default function ClientesCorretor() {
   const { user, isUserLoading } = useLayout()
   const organizacaoId = user?.organizacao_id
   const userId = user?.id
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const isInitialMount = useRef(true)

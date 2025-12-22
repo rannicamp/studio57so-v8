@@ -18,7 +18,7 @@ export async function POST(req) {
     return new Response(JSON.stringify({ message: 'Não é um PDF, ignorando.' }), { status: 200 });
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   let tempDir; // Declarar aqui para usar no finally
 
   try {

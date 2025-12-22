@@ -80,7 +80,7 @@ const checkCondition = (email, condition) => {
 };
 
 export async function POST(request) {
-    const supabase = createClient();
+    const supabase = await createClient();
     let connection = null;
 
     try {

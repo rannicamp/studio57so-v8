@@ -7,7 +7,7 @@ export const revalidate = 0;
 
 // Função para buscar todos os dados necessários para o simulador
 async function getInitialData(id) {
-    const supabase = createClient();
+    const supabase = await createClient();
     
     // 1. Busca a simulação pelo ID
     const { data: simulacao, error: simError } = await supabase

@@ -37,7 +37,7 @@ const fetchEmpreendimentos = async (supabase, organizacaoId) => {
 // ======================= FIM DA CORREÇÃO =======================
 
 export default function GerenciamentoEmpreendimentosPage() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const router = useRouter();
     const queryClient = useQueryClient();
 

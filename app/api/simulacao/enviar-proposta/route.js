@@ -67,7 +67,7 @@ async function getOrCreateContato(supabase, contatoInfo, tipo) {
 
 
 export async function POST(request) {
-    const supabase = createClient();
+    const supabase = await createClient();
     try {
         const body = await request.json();
         const { simulacaoData } = body;

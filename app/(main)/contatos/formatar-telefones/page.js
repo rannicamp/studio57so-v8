@@ -75,7 +75,7 @@ const fetchFixableData = async (supabase, organizacaoId) => {
 
 export default function PadronizacaoPage() {
     const { setPageTitle } = useLayout();
-    const supabase = createClient();
+    const supabase = await createClient();
     const queryClient = useQueryClient();
     const { user } = useAuth(); // Pegamos o usuário
     const organizacaoId = user?.organizacao_id; // E sua organização

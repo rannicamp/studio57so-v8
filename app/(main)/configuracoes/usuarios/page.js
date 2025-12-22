@@ -4,7 +4,7 @@ import UserManagementForm from '@/components/UserManagementForm';
 
 // Funções de busca de dados iniciais (Server Side)
 async function getUsers(organizacaoId) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
         .from('usuarios')
         .select(`
@@ -30,7 +30,7 @@ async function getUsers(organizacaoId) {
 }
 
 async function getEmployees(organizacaoId) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
         .from('funcionarios')
         .select('id, full_name, cpf')
@@ -42,7 +42,7 @@ async function getEmployees(organizacaoId) {
 }
 
 async function getRoles(organizacaoId) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data, error } = await supabase
         .from('funcoes')
         .select('id, nome_funcao')
@@ -54,7 +54,7 @@ async function getRoles(organizacaoId) {
 }
 
 export default async function UserManagementPage() {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) redirect('/login');

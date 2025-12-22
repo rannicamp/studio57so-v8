@@ -48,7 +48,7 @@ export default function EditarContatoPage() {
     const { setPageTitle } = useLayout();
     const router = useRouter();
     const { id } = useParams();
-    const supabase = createClient();
+    const supabase = await createClient();
     
     // Pegamos o usuário e também status de carregamento do Auth, se disponível
     const { user } = useAuth();

@@ -3,7 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import imapSimple from 'imap-simple';
 
 export async function POST(request) {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     try {
         const body = await request.json();

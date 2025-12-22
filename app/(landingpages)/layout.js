@@ -1,9 +1,8 @@
-// Caminho: app/(landingpages)/layout.js
+// app/(landingpages)/layout.js
 
-// PARTES ADICIONADAS: Importamos o Script do Next.js e o Toaster para notificações.
+// Importamos o Script do Next.js e o Toaster para notificações.
 import Script from 'next/script';
 import { Toaster } from 'sonner';
-// PARTES ORIGINAIS MANTIDAS:
 import MenuPublico from './components/MenuPublico';
 import { Roboto } from 'next/font/google';
 import { config } from '@fortawesome/fontawesome-svg-core';
@@ -16,39 +15,33 @@ const roboto = Roboto({
   display: 'swap',
 });
 
-// PARTE ADICIONADA: Definimos o ID do seu Pixel aqui.
+// ID do Pixel
 const PIXEL_ID = '625880956813084';
 
-// =========================================================================
-// NOVO CÓDIGO: SEU ID DO GOOGLE ANALYTICS
+// ID do Google Analytics
 const GA_MEASUREMENT_ID = 'G-JSGHN2BHQN'; 
-// =========================================================================
 
-// PARTE ORIGINAL MANTIDA: Seu título e descrição para o Google.
 export const metadata = {
   title: 'Studio 57 - Arquitetura e Incorporação',
   description: 'Arquitetura Inteligente e Empreendimentos Reais. A solução completa para o mercado imobiliário.',
 };
 
 export default function PublicLayout({ children }) {
+  // Nota: Este layout é público e não conecta ao banco de dados, 
+  // portanto não precisa do 'await createClient()'.
+
   return (
-    // PARTE ORIGINAL MANTIDA: A fonte Roboto continua sendo aplicada em todo o site.
     <html lang="pt-br" className={roboto.className}>
       <head>
-        {/* PARTE ORIGINAL MANTIDA: O ícone da aba do navegador. */}
         <link rel="icon" href="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759092416467.png" sizes="any" />
       </head>
-      {/* PARTE ORIGINAL MANTIDA: As classes de estilo do corpo da página. */}
       <body className="bg-gray-50 text-gray-800">
 
-        {/* ================================================================= */}
-        {/* =================== INÍCIO DO CÓDIGO GOOGLE ANALYTICS =================== */}
-        {/* O PORQUÊ: Carregamos a biblioteca principal do GA. */}
+        {/* --- GOOGLE ANALYTICS --- */}
         <Script 
-            strategy="afterInteractive" 
-            src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`} 
+          strategy="afterInteractive" 
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`} 
         />
-        {/* O PORQUÊ: Este script de configuração inicializa o GA em todas as páginas. */}
         <Script id="google-analytics-config" strategy="afterInteractive">
           {`
             window.dataLayer = window.dataLayer || [];
@@ -57,11 +50,8 @@ export default function PublicLayout({ children }) {
             gtag('config', '${GA_MEASUREMENT_ID}');
           `}
         </Script>
-        {/* ==================== FIM DO CÓDIGO GOOGLE ANALYTICS ===================== */}
 
-
-        {/* ================================================================= */}
-        {/* =================== INÍCIO DO CÓDIGO META PIXEL (JÁ EXISTENTE) =================== */}
+        {/* --- META PIXEL --- */}
         <Script id="meta-pixel-base" strategy="afterInteractive">
           {`
             !function(f,b,e,v,n,t,s)
@@ -84,10 +74,16 @@ export default function PublicLayout({ children }) {
             src={`https://www.facebook.com/tr?id=${PIXEL_ID}&ev=PageView&noscript=1`}
           />
         </noscript>
-        <Toaster richColors position="top-right" />
-        {/* ==================== FIM DO CÓDIGO META PIXEL ===================== */}
         
-        {/* PARTES ORIGINAIS MANTIDAS: A estrutura do seu site. */}
+        {/* CORREÇÃO: Toaster com configuração para não sair na impressão */}
+        <Toaster 
+            richColors 
+            position="top-right" 
+            toastOptions={{
+                className: 'print:hidden'
+            }}
+        />
+        
         <MenuPublico />
         <main>
           {children}

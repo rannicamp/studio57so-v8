@@ -5,7 +5,7 @@ import MenuSettingsForm from '../../../../components/MenuSettingsForm';
 
 // Função para verificar a permissão e já buscar os dados do usuário
 async function checkPermissionsAndGetData() {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // 1. Verifica se há um usuário logado
   const { data: { user } } = await supabase.auth.getUser();

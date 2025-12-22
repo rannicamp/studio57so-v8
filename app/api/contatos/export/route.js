@@ -73,7 +73,7 @@ const formatDataForGoogle = (contacts) => {
 
 export async function GET() {
     try {
-        const supabase = createClient();
+        const supabase = await createClient();
 
         // 1. Busca todos os contatos e seus telefones/emails associados
         const { data: contacts, error } = await supabase

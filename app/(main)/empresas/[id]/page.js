@@ -65,7 +65,7 @@ const fetchEmpresaData = async (supabase, empresaId, organizacaoId) => {
 };
 
 export default function EmpresaPage() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const params = useParams();
     const { id: empresaId } = params;
     const { user } = useAuth();

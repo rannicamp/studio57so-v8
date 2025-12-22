@@ -6,7 +6,7 @@ import RdoForm from '../../../components/RdoForm';
 import Link from 'next/link';
 
 export default function RdoPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const [empreendimentos, setEmpreendimentos] = useState([]);
   const [selectedEmpreendimento, setSelectedEmpreendimento] = useState(null);
   const [loading, setLoading] = useState(true);

@@ -45,7 +45,7 @@ export async function salvarLeadBeta(formData) {
   const nome = formData.get('nome');
   const telefone = formData.get('telefone');
   const origem = 'Landing Page - Beta Suítes'; // Atualizado para o nome novo
-  const supabase = createClient();
+  const supabase = await createClient();
 
   try {
     const { data: orgData, error: orgError } = await supabase

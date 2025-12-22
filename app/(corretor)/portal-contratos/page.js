@@ -27,7 +27,7 @@ const fetchFilterData = async (organizacaoId) => {
     if (!organizacaoId) {
         return { clientes: [], produtos: [], empreendimentos: [] };
     }
-    const supabase = createClient();
+    const supabase = await createClient();
     const clientesPromise = supabase.from('contatos').select('id, nome, razao_social').eq('organizacao_id', organizacaoId);
     const produtosPromise = supabase.from('produtos_empreendimento').select('id, unidade, tipo').eq('organizacao_id', organizacaoId);
     const empreendimentosPromise = supabase.from('empreendimentos').select('id, nome').eq('organizacao_id', organizacaoId);
@@ -46,7 +46,7 @@ const formatUltimaVenda = (dateString) => {
 };
 
 export default function ContratosPage() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const queryClient = useQueryClient();
     const { user, isUserLoading } = useLayout(); 
     const organizacaoId = user?.organizacao_id; 

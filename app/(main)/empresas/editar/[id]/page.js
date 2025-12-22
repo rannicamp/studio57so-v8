@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
 export default async function EditarEmpresaPage({ params }) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { id } = params;
 
     // =================================================================================

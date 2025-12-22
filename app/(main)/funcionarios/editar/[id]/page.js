@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 
 export default async function EditarFuncionarioPage({ params }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const employeeId = params.id;
 
   // Busca os dados do funcionário que será editado

@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 
 // --- FUNÇÃO 1: CRIAR NOVO CONTRATO (Mantida) ---
 export async function createNewContrato(empreendimentoId, tipoDocumento) { 
-    const supabase = createClient();
+    const supabase = await createClient();
 
     if (!empreendimentoId) return { error: "O Empreendimento é obrigatório." };
     if (!tipoDocumento) return { error: "O Tipo de Documento é obrigatório." };
@@ -58,7 +58,7 @@ export async function createNewContrato(empreendimentoId, tipoDocumento) {
 
 // --- FUNÇÃO 2: LISTAR CONTRATOS (Com filtro de lixeira) ---
 export async function getMeusContratos() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
@@ -84,7 +84,7 @@ export async function getMeusContratos() {
 
 // --- FUNÇÃO 3: EXCLUSÃO SUAVE (A CORREÇÃO ESTÁ AQUI) ---
 export async function softDeleteContrato(contratoId) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   
   if (!user) return { error: 'Não autorizado' }

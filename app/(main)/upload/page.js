@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { createClient } from '../../../utils/supabase/client';
 
 export default function UploadPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const [file, setFile] = useState(null);
   const [description, setDescription] = useState('');

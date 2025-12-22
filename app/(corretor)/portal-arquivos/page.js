@@ -18,7 +18,7 @@ import { useDebounce } from 'use-debounce'
 // 1. Função de busca de dados (AGORA COM FILTRO DE LISTAGEM)
 async function fetchArquivosCorretor(organizacaoId, searchTerm, empreendimentoId) {
   if (!organizacaoId) return []
-  const supabase = createClient()
+  const supabase = await createClient()
 
   let query = supabase
     .from('empreendimento_anexos')
@@ -72,7 +72,7 @@ async function fetchArquivosCorretor(organizacaoId, searchTerm, empreendimentoId
 // Função para buscar empreendimentos do corretor (Para o Dropdown)
 async function fetchEmpreendimentosCorretor(organizacaoId) {
     if (!organizacaoId) return [];
-    const supabase = createClient();
+    const supabase = await createClient();
     // Nota: Mantivemos o RPC aqui pois ele provavelmente já filtra os que têm anexos.
     // Se quiser filtrar o dropdown também por 'listado_para_venda', o ideal seria ajustar o RPC no banco
     // ou filtrar o resultado aqui. Por enquanto, filtrar os arquivos (acima) já resolve o problema visual.

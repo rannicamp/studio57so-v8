@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server';
 export async function POST(request) {
   try {
     const { permissao, organizacaoId } = await request.json();
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // 1. Pega os IDs usando a lógica centralizada
     const ids = await buscarIdsPorPermissao(permissao, organizacaoId);

@@ -193,7 +193,7 @@ export default function CrmPage() {
     const { user, userData } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    const supabase = createClient();
+    const supabase = await createClient();
     const queryClient = useQueryClient();
 
     // Estado Persistente

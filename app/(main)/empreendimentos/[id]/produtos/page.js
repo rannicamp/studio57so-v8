@@ -48,7 +48,7 @@ const fetchComercializacaoData = async (supabase, empreendimentoId, organizacaoI
 
 
 export default function ProdutosPage() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const params = useParams();
     const { id: empreendimentoId } = params;
     const { user } = useAuth();

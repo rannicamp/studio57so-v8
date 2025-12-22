@@ -27,7 +27,7 @@ import FiltroFinanceiro from '../../../components/financeiro/FiltroFinanceiro';
 import FinanceiroStats from '../../../components/financeiro/FinanceiroStats';
 import GerenciadorFaturas from '../../../components/financeiro/GerenciadorFaturas'; // <--- IMPORT NOVO
 
-const supabase = createClient();
+const supabase = await createClient();
 
 const LANCAMENTOS_CACHE_KEY = 'financeiroLancamentosData';
 const FINANCEIRO_UI_STATE_KEY = 'financeiroUiState';

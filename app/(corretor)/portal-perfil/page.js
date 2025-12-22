@@ -6,7 +6,7 @@ import { createClient } from '@/utils/supabase/server'; // Ajustado o caminho re
 import { redirect } from 'next/navigation';
 
 export default async function PortalPerfilPage() { // Renomeado para clareza
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // 1. Busca o usuário autenticado (igual à página /perfil original)
   const { data: { user } } = await supabase.auth.getUser();

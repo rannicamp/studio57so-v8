@@ -12,7 +12,7 @@ export const revalidate = 0;
 
 export default async function ContratoPageCorretor({ params }) {
 
-    const supabase = createClient();
+    const supabase = await createClient();
     const { id } = params;
 
     const { data: { user } } = await supabase.auth.getUser();

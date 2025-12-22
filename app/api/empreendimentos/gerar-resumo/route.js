@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 // --- FUNÇÃO PRINCIPAL DA ROTA ---
 export async function POST(request) {
     try {
-        const supabase = createClient();
+        const supabase = await createClient();
 
         // ***** ATUALIZAÇÃO DO MODELO DE IA *****
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);

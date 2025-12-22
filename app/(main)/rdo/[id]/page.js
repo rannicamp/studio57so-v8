@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 export default async function RdoEditPage({ params }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { id } = params;
 
   // Busca o RDO específico pelo ID, junto com todos os seus dados relacionados

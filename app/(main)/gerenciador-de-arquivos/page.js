@@ -17,7 +17,7 @@ const PAGE_SIZE = 20;
 // 2. Diretamente através do novo campo 'empresa_id' (empresas:empresa_id(...))
 const fetchFiles = async ({ pageParam = 0, queryKey }) => {
     const [, sortConfig] = queryKey;
-    const supabase = createClient();
+    const supabase = await createClient();
     const from = pageParam * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
@@ -60,7 +60,7 @@ function FileThumbnail({ file }) {
 
 export default function GerenciadorDeArquivosPage() {
     const queryClient = useQueryClient();
-    const supabase = createClient();
+    const supabase = await createClient();
     const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'descending' });
     const [isModalOpen, setIsModalOpen] = useState(false);
 

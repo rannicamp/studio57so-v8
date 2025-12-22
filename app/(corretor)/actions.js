@@ -8,7 +8,7 @@ const ORGANIZACAO_ID = 2
 
 // Verifica se o usuário precisa aceitar um novo termo
 export async function checkTermsStatus() {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { mustAccept: false } 
@@ -50,7 +50,7 @@ export async function checkTermsStatus() {
 export async function acceptUpdatedTerms(termId) {
     console.log('[ACTION] Tentando aceitar termo ID:', termId);
     
-    const supabase = createClient()
+    const supabase = await createClient()
     // Aqui está o segredo: Usamos o AdminClient para gravar sem restrição
     const supabaseAdmin = createAdminClient() 
     

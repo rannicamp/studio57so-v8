@@ -7,7 +7,7 @@ import { enviarNotificacao } from '@/utils/notificacoes'; // <--- IMPORTAMOS O C
 
 // --- FUNÇÃO 1: CRIAR CONTRATO ---
 export async function createNewContrato(empreendimentoId, tipoDocumento) {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     if (!empreendimentoId) return { error: "O Empreendimento é obrigatório." };
     if (!tipoDocumento) return { error: "O Tipo de Documento é obrigatório." };
@@ -53,7 +53,7 @@ export async function createNewContrato(empreendimentoId, tipoDocumento) {
 
 // --- FUNÇÃO 2: ATUALIZAR STATUS ---
 export async function updateContratoStatus(contratoId, newStatus) {
-    const supabase = createClient();
+    const supabase = await createClient();
     
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: "Não autorizado." };

@@ -33,7 +33,7 @@ const fetchMaterials = async (supabase, organizacaoId) => {
 };
 
 export default function GestaoMateriaisPage() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const router = useRouter();
     // Pegamos o usuário completo para ter acesso ao organizacao_id
     const { user, hasPermission, loading: authLoading } = useAuth();

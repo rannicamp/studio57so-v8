@@ -5,7 +5,7 @@ import Link from 'next/link';
 import TipoDocumentoManager from '../../../../components/TipoDocumentoManager';
 
 export default async function TiposDocumentoPage() {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // 1. Verifica se há um usuário logado
     const { data: { user } } = await supabase.auth.getUser();

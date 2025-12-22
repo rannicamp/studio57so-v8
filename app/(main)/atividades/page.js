@@ -94,7 +94,7 @@ const fetchAuxiliaryData = async (supabase, organizacaoId) => {
 
 export default function AtividadesPage() {
     // --- A. HOOKS E CONTEXTOS INICIAIS ---
-    const supabase = createClient();
+    const supabase = await createClient();
     const router = useRouter();
     const queryClient = useQueryClient();
     const { setPageTitle } = useLayout();

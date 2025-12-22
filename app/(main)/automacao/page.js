@@ -23,7 +23,7 @@ const fetchAutomations = async (supabase, organizacaoId) => {
 };
 
 export default function AutomacaoPage() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;

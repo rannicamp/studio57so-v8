@@ -18,7 +18,7 @@ async function fetchTabelaVendas(organizacaoId) {
     return [];
   }
   
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('produtos_empreendimento')

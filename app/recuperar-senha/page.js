@@ -15,7 +15,7 @@ export default function RecuperarSenhaPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [countdown, setCountdown] = useState(0); 
   
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // --- NOVA LOGO ATUALIZADA ---
   const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/LOGO-P_1765565958716.PNG";

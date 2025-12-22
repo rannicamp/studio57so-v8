@@ -14,7 +14,7 @@ webPush.setVapidDetails(
 
 export async function POST(request) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { title, message, url, userId, organizacaoId } = await request.json();
 
     console.log(`🔔 API: Enviando Push para UserID: ${userId}`);

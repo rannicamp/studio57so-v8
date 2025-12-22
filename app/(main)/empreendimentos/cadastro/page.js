@@ -42,7 +42,7 @@ const fetchFormData = async (supabase, organizacaoId) => {
 
 
 export default function CadastroEmpreendimentoPage() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 

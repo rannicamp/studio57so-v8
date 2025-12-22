@@ -31,7 +31,7 @@ const fetchContas = async (supabase, organizacaoId) => {
 };
 
 export default function ConciliacaoPage() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 

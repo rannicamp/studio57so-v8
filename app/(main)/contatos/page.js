@@ -48,7 +48,7 @@ const getCachedUiState = () => {
 // --- BUSCA ADMIN TURBINADA (AGORA COM TELEFONE) ---
 async function fetchContatosMain(organizacaoId, searchTerm, typeFilter) {
   if (!organizacaoId) return [];
-  const supabase = createClient()
+  const supabase = await createClient()
   
   // Inicia a query base
   let query = supabase.from('contatos').select(`*, telefones(telefone), emails(email)`)
@@ -112,7 +112,7 @@ export default function ContatosMain() {
   const { user, isUserLoading, setPageTitle } = useLayout()
   const organizacaoId = user?.organizacao_id
   const userId = user?.id
-  const supabase = createClient()
+  const supabase = await createClient()
 
   useEffect(() => {
       if(setPageTitle) setPageTitle('Gestão de Contatos');

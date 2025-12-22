@@ -10,7 +10,7 @@ import FichaCompletaFuncionario from '../../../../../components/FichaCompletaFun
 import LancamentoFormModal from '../../../../../components/financeiro/LancamentoFormModal';
 
 export default function VisualizarFuncionarioPage() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const params = useParams();
     const router = useRouter();
     const employeeId = params.id;

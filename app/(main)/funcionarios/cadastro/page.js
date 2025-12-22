@@ -4,7 +4,7 @@ import FuncionarioForm from '../../../../components/FuncionarioForm';
 import Link from 'next/link';
 
 export default async function CadastroFuncionarioPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: companies } = await supabase.from('cadastro_empresa').select('id, razao_social').order('razao_social');
   const { data: empreendimentos } = await supabase.from('empreendimentos').select('id, nome').order('nome');

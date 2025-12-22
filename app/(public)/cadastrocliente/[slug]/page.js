@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 
 // Esta função busca os dados da organização ANTES da página carregar
 async function getOrganizacao(slug) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: organizacao, error } = await supabase
     .from('organizacoes')
     .select('id, nome, logo_url, public_form_slug')

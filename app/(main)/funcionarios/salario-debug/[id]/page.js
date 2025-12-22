@@ -16,7 +16,7 @@ const formatCurrency = (value) => {
 };
 
 export default async function SalarioDebugPage({ params }) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const employeeId = params.id;
 
     // Busca o nome do funcionário

@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 
 // 1. Buscar Clientes (Filtrando Lixeira)
 export async function getMeusClientes() {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
@@ -29,7 +29,7 @@ export async function getMeusClientes() {
 
 // 2. Soft Delete (Enviar para Lixeira)
 export async function softDeleteCliente(clienteId) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   
   if (!user) return { error: 'Não autorizado' }

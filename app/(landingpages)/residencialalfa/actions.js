@@ -67,7 +67,7 @@ export async function salvarLead(formData) {
   const email = formData.get('email');
   const telefone = formData.get('telefone');
   const origem = formData.get('origem');
-  const supabase = createClient();
+  const supabase = await createClient();
 
   try {
     // 1. Busca a organização padrão para associar o novo lead.

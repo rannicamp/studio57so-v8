@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 export async function createContact(prevState, formData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const rawData = Object.fromEntries(formData.entries());
   const organizacaoId = rawData.organizacao_id;
 

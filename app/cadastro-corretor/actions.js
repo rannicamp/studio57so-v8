@@ -12,7 +12,7 @@ export async function registerRealtor(formData) {
   console.log('[ACTION] Iniciando cadastro completo de corretor...');
   
   const cookieStore = cookies()
-  const supabase = createClient() 
+  const supabase = await createClient() 
   const supabaseAdmin = createAdminClient()
 
   const { 

@@ -8,7 +8,7 @@ const ORGANIZACAO_ID = 2; // Studio 57
 
 // Buscar o histórico de termos
 export async function getTermHistory() {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   const { data, error } = await supabase
     .from('termos_uso')
@@ -27,7 +27,7 @@ export async function getTermHistory() {
 
 // Salvar uma NOVA versão do termo
 export async function saveNewTermVersion(conteudoHtml) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   // 1. Descobrir qual é a última versão
   const { data: lastTerm } = await supabase
