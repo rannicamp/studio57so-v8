@@ -4,7 +4,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperPlane, faListCheck } from '@fortawesome/free-solid-svg-icons';
 
 export default async function FeedbackHubPage() {
-  const supabase = createClient();
+  // CORREÇÃO: Adicionado 'await' aqui
+  const supabase = await createClient();
   let isProprietario = false;
 
   const { data: { user } } = await supabase.auth.getUser();

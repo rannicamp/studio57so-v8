@@ -6,7 +6,8 @@ import TabelaVendasGeral from '../../../../components/comercial/TabelaVendasGera
 import Header from '../../../../components/Header';
 
 export default async function TabelaDeVendasPage() {
-    const supabase = createClient();
+    // CORREÇÃO: Adicionado 'await' aqui
+    const supabase = await createClient();
 
     // 1. Pega o usuário da sessão
     const { data: { user } } = await supabase.auth.getUser();
@@ -32,13 +33,8 @@ export default async function TabelaDeVendasPage() {
         );
     }
 
-    // =================================================================================
-    // AQUI ESTÁ A CORREÇÃO
-    // O PORQUÊ: Corrigimos o nome da tabela de 'produtos' para 'produtos_empreendimento',
-    // que é o nome correto conforme o esquema do banco de dados que você enviou.
-    // =================================================================================
     const { data: products, error } = await supabase
-        .from('produtos_empreendimento') // <-- NOME CORRIGIDO AQUI!
+        .from('produtos_empreendimento') 
         .select(`
             *,
             empreendimentos (

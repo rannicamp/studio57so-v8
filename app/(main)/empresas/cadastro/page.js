@@ -5,13 +5,9 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 export default async function CadastroEmpresaPage() {
-    const supabase = createClient();
+    // CORREÇÃO: Adicionado 'await' aqui
+    const supabase = await createClient();
 
-    // =================================================================================
-    // CORREÇÃO DE SEGURANÇA (organização_id)
-    // O PORQUÊ: Primeiro, identificamos o usuário e sua organização para usar como
-    // chave de segurança em todas as buscas de dados.
-    // =================================================================================
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         redirect('/login');
@@ -23,18 +19,18 @@ export default async function CadastroEmpresaPage() {
         return <p className="p-4 text-red-500">Erro: Organização do usuário não encontrada.</p>;
     }
 
-    // Busca a lista de empresas, AGORA COM FILTRO DE SEGURANÇA
+    // Busca a lista de empresas
     const { data: companies } = await supabase
         .from('cadastro_empresa')
         .select('id, razao_social')
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId) 
         .order('razao_social', { ascending: true });
 
-    // Busca a lista de empreendimentos, AGORA COM FILTRO DE SEGURANÇA
+    // Busca a lista de empreendimentos
     const { data: empreendimentos } = await supabase
         .from('empreendimentos')
         .select('id, nome')
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId) 
         .order('nome', { ascending: true });
 
     return (

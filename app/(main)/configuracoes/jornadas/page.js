@@ -4,10 +4,10 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import JornadaManager from '../../../../components/JornadaManager';
 import FeriadoManager from '../../../../components/FeriadoManager';
-import { getOrganizationId } from '@/utils/getOrganizationId';
 
 export default async function JornadasPage() {
-    const supabase = createClient();
+    // CORREÇÃO: Adicionado 'await' aqui
+    const supabase = await createClient();
 
     // 1. Verifica se há um usuário logado
     const { data: { user } } = await supabase.auth.getUser();
@@ -43,22 +43,16 @@ export default async function JornadasPage() {
         }
     }
     
-    // =================================================================================
-    // CORREÇÃO DE SEGURANÇA (organização_id)
-    // O PORQUÊ: Com o `organizacao_id` obtido acima, agora podemos filtrar
-    // todas as buscas de dados para garantir que apenas os itens da organização
-    // do usuário sejam carregados e exibidos na página.
-    // =================================================================================
     const [{ data: jornadas }, { data: feriados }] = await Promise.all([
         supabase
             .from('jornadas')
             .select(`*, detalhes:jornada_detalhes(*)`)
-            .eq('organizacao_id', organizacao_id) // <-- FILTRO DE SEGURANÇA!
+            .eq('organizacao_id', organizacao_id) 
             .order('nome_jornada'),
         supabase
             .from('feriados')
             .select('*')
-            .eq('organizacao_id', organizacao_id) // <-- FILTRO DE SEGURANÇA!
+            .eq('organizacao_id', organizacao_id) 
             .order('data_feriado')
     ]);
 
