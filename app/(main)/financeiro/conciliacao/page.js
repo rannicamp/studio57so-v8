@@ -17,7 +17,7 @@ import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 const fetchContas = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
 
-    const { data, error } = await supabase
+    const { data, error } = supabase
         .from('contas_financeiras')
         .select('id, nome')
         .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
@@ -31,7 +31,7 @@ const fetchContas = async (supabase, organizacaoId) => {
 };
 
 export default function ConciliacaoPage() {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 

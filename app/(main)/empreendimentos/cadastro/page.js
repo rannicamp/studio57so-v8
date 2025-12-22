@@ -26,7 +26,7 @@ const fetchFormData = async (supabase, organizacaoId) => {
         .select('id, razao_social')
         .eq('organizacao_id', organizacaoId); // <-- FILTRO DE SEGURANÇA!
 
-    const [entitiesRes, proprietariaRes] = await Promise.all([
+    const [entitiesRes, proprietariaRes] =  Promise.all([
         corporateEntitiesPromise,
         proprietariaOptionsPromise
     ]);
@@ -42,7 +42,7 @@ const fetchFormData = async (supabase, organizacaoId) => {
 
 
 export default function CadastroEmpreendimentoPage() {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 

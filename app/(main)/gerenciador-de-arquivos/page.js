@@ -17,7 +17,7 @@ const PAGE_SIZE = 20;
 // 2. Diretamente através do novo campo 'empresa_id' (empresas:empresa_id(...))
 const fetchFiles = async ({ pageParam = 0, queryKey }) => {
     const [, sortConfig] = queryKey;
-    const supabase = await createClient();
+    const supabase = createClient();
     const from = pageParam * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
@@ -37,7 +37,7 @@ const fetchFiles = async ({ pageParam = 0, queryKey }) => {
         query = query.order('created_at', { ascending: false });
     }
     
-    const { data, error, count } = await query;
+    const { data, error, count } = query;
     if (error) throw new Error(error.message);
 
     const filesWithUrls = data.map(file => {
@@ -60,7 +60,7 @@ function FileThumbnail({ file }) {
 
 export default function GerenciadorDeArquivosPage() {
     const queryClient = useQueryClient();
-    const supabase = await createClient();
+    const supabase = createClient();
     const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'descending' });
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -89,7 +89,7 @@ export default function GerenciadorDeArquivosPage() {
     const handleDelete = (file) => { if (window.confirm(`Tem certeza que deseja excluir "${file.nome_arquivo}"?`)) deleteMutation.mutate(file); };
     const handleCopyPublicLink = async (filePath) => {
         const { data } = supabase.storage.from('empreendimento-anexos').getPublicUrl(filePath);
-        if (data.publicUrl) { await navigator.clipboard.writeText(data.publicUrl); toast.success("Link público copiado!"); }
+        if (data.publicUrl) { navigator.clipboard.writeText(data.publicUrl); toast.success("Link público copiado!"); }
         else { toast.error("Não foi possível gerar o link."); }
     };
 

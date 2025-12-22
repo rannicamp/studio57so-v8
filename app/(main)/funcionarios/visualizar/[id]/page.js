@@ -10,7 +10,7 @@ import FichaCompletaFuncionario from '../../../../../components/FichaCompletaFun
 import LancamentoFormModal from '../../../../../components/financeiro/LancamentoFormModal';
 
 export default function VisualizarFuncionarioPage() {
-    const supabase = await createClient();
+    const supabase = createClient();
     const params = useParams();
     const router = useRouter();
     const employeeId = params.id;
@@ -30,7 +30,7 @@ export default function VisualizarFuncionarioPage() {
         // ***** INÍCIO DA ALTERAÇÃO INTELIGENTE *****
         // A busca de 'cadastro_empresa' agora traz todas as colunas (*)
         // em vez de apenas a razão social.
-        const { data: employeeData, error } = await supabase
+        const { data: employeeData, error } = supabase
             .from('funcionarios')
             .select(`
                 *, 
