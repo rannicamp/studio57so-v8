@@ -4,8 +4,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '../../../../utils/supabase/client';
 import { useLayout } from '../../../../contexts/LayoutContext';
-import { useAuth } from '../../../../contexts/AuthContext'; // 1. Importar para pegar a organização
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 2. Importar useQuery e useMutation
+import { useAuth } from '../../../../contexts/AuthContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faWandMagicSparkles, faObjectGroup, faSort, faSortUp, faSortDown, faBuilding, faUserTag, faPhone } from '@fortawesome/free-solid-svg-icons';
 import { formatPhoneNumber } from '../../../../utils/formatters';
@@ -33,19 +33,14 @@ const SortableHeader = ({ label, sortKey, sortConfig, requestSort }) => {
     );
 };
 
-// =================================================================================
-// ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
-// O PORQUÊ: A busca de dados foi isolada e agora usa o `organizacaoId` para
-// garantir que a ferramenta de padronização SÓ veja e altere dados da
-// organização do usuário logado.
-// =================================================================================
+// Função de busca isolada e segura
 const fetchFixableData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { phones: [], names: [], company_names: [], multi_phones: [] };
 
     const { data, error } = await supabase
         .from('contatos')
         .select('id, nome, razao_social, nome_fantasia, telefones ( id, telefone, country_code )')
-        .eq('organizacao_id', organizacaoId); // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId);
 
     if (error) {
         throw new Error(`Erro ao carregar dados para padronização: ${error.message}`);
@@ -72,13 +67,15 @@ const fetchFixableData = async (supabase, organizacaoId) => {
     };
 };
 
-
 export default function PadronizacaoPage() {
     const { setPageTitle } = useLayout();
-    const supabase = await createClient();
+    
+    // CORREÇÃO: createClient síncrono para Client Component
+    const supabase = createClient();
+    
     const queryClient = useQueryClient();
-    const { user } = useAuth(); // Pegamos o usuário
-    const organizacaoId = user?.organizacao_id; // E sua organização
+    const { user } = useAuth();
+    const organizacaoId = user?.organizacao_id;
 
     const [namesSortConfig, setNamesSortConfig] = useState({ key: 'nome', direction: 'ascending' });
     const [companyNamesSortConfig, setCompanyNamesSortConfig] = useState({ key: 'razao_social', direction: 'ascending' });
@@ -94,12 +91,6 @@ export default function PadronizacaoPage() {
     
     const { phones = [], names = [], company_names = [], multi_phones = [] } = dataToFix || {};
     
-    // =================================================================================
-    // ATUALIZAÇÃO DE PADRÃO E SEGURANÇA
-    // O PORQUÊ: Todas as operações de modificação (update, delete, insert) foram
-    // movidas para dentro de `useMutation` e agora incluem o filtro `organizacao_id`.
-    // Isso garante segurança e atualização automática da interface.
-    // =================================================================================
     const mutation = useMutation({
         mutationFn: async ({ logic }) => {
             const { error } = await logic();
@@ -207,6 +198,7 @@ export default function PadronizacaoPage() {
                 <div className="flex items-center gap-4"><FontAwesomeIcon icon={faPhone} className="text-2xl text-blue-500" /><div><h2 className="text-xl font-semibold">Telefones (Formato Inválido)</h2><p className="text-sm text-gray-500">{phones.length > 0 ? `${phones.length} telefones precisam de padronização.` : 'Todos os telefones já estão em formato padrão.'}</p></div></div>
                 {phones.length > 0 && (<div className="space-y-3"><div className="max-h-56 overflow-y-auto border rounded-lg"><table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr><th className="px-4 py-2"><SortableHeader label="Contato" sortKey="contato_nome" sortConfig={phonesSortConfig} requestSort={(k) => requestSort(k, setPhonesSortConfig)} /></th><th className="px-4 py-2"><SortableHeader label="Formato Atual" sortKey="telefone" sortConfig={phonesSortConfig} requestSort={(k) => requestSort(k, setPhonesSortConfig)} /></th><th className="px-4 py-2 text-left text-xs font-bold text-gray-600 uppercase">Como vai ficar</th></tr></thead><tbody className="bg-white divide-y divide-gray-200">{sortedPhones.map(p => {
                     let finalNumber = (p.telefone || '').replace(/\D/g, '');
+                    let countryCode = '+55';
                     if (finalNumber.length === 11 && finalNumber.startsWith('1')) {} 
                     else if (finalNumber.length === 10 || finalNumber.length === 11) finalNumber = `55${finalNumber}`;
                     return (<tr key={p.id}><td className="px-4 py-2">{p.contato_nome}</td><td className="px-4 py-2 text-red-600">{p.telefone}</td><td className="px-4 py-2 text-green-600">{formatPhoneNumber(finalNumber)}</td></tr>);

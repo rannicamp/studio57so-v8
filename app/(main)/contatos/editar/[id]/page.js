@@ -48,7 +48,9 @@ export default function EditarContatoPage() {
     const { setPageTitle } = useLayout();
     const router = useRouter();
     const { id } = useParams();
-    const supabase = await createClient();
+    
+    // CORREÇÃO: createClient no cliente não pode ter 'await'
+    const supabase = createClient();
     
     // Pegamos o usuário e também status de carregamento do Auth, se disponível
     const { user } = useAuth();
@@ -56,7 +58,7 @@ export default function EditarContatoPage() {
 
     // Título da página
     useEffect(() => {
-        setPageTitle('Editar Contato');
+        if (setPageTitle) setPageTitle('Editar Contato');
     }, [setPageTitle]);
 
     // Busca de dados com TanStack Query

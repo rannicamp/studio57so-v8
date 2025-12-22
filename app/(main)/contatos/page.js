@@ -1,3 +1,4 @@
+// app/(main)/contatos/page.js
 'use client'
 
 export const dynamic = 'force-dynamic'
@@ -18,7 +19,7 @@ import {
   faPen, faTrash, faCopy, faUserCircle, faBuilding,
   faFileImport, faFileExport, faLayerGroup, 
   faObjectGroup, faWandMagicSparkles, faFilter,
-  faSort, faSortUp, faSortDown, faAddressBook // <--- CORREÇÃO 1: Importação do ícone adicionada
+  faSort, faSortUp, faSortDown, faAddressBook
 } from '@fortawesome/free-solid-svg-icons'
 import { useDebounce } from 'use-debounce'
 import Image from 'next/image'
@@ -34,7 +35,7 @@ import { saveContactAction } from '@/components/contatos/actions';
 // CHAVE ÚNICA PARA O LOCALSTORAGE
 const CONTATOS_UI_STATE_KEY = 'STUDIO57_CONTATOS_UI_STATE_V1';
 
-// Helper para ler o cache inicial (evita flash de conteúdo)
+// Helper para ler o cache inicial
 const getCachedUiState = () => {
     if (typeof window === 'undefined') return null;
     try {
@@ -45,19 +46,16 @@ const getCachedUiState = () => {
     }
 };
 
-// --- BUSCA ADMIN TURBINADA (AGORA COM TELEFONE) ---
+// --- BUSCA ADMIN TURBINADA ---
 async function fetchContatosMain(organizacaoId, searchTerm, typeFilter) {
   if (!organizacaoId) return [];
-  const supabase = await createClient()
+  // CORREÇÃO: createClient síncrono para uso dentro de funções chamadas pelo cliente (useQuery)
+  const supabase = createClient()
   
-  // Inicia a query base
   let query = supabase.from('contatos').select(`*, telefones(telefone), emails(email)`)
     .eq('organizacao_id', organizacaoId)
   
-  // LÓGICA INTELIGENTE DE BUSCA
   if (searchTerm && searchTerm.trim().length > 0) {
-      // Se tem busca, usamos a RPC (Função SQL) para achar os IDs corretos
-      // Isso permite buscar no Nome, CPF, CNPJ e TELEFONE ao mesmo tempo
       const { data: idsEncontrados, error: rpcError } = await supabase.rpc('filtrar_ids_contatos', {
           p_organizacao_id: organizacaoId,
           p_search_term: searchTerm,
@@ -66,27 +64,21 @@ async function fetchContatosMain(organizacaoId, searchTerm, typeFilter) {
 
       if (rpcError) {
           console.error("Erro na Super Busca:", rpcError);
-          // Fallback: Se der erro na RPC, tenta busca simples por nome
           query = query.or(`nome.ilike.%${searchTerm}%,razao_social.ilike.%${searchTerm}%`);
           if (typeFilter && typeFilter !== 'Todos') {
              query = query.eq('tipo_contato', typeFilter);
           }
       } else {
-          // Se não achou nada na Super Busca, retorna vazio direto
           if (!idsEncontrados || idsEncontrados.length === 0) return [];
-          
-          // Filtra a query principal apenas pelos IDs encontrados
           const listaIds = idsEncontrados.map(item => item.id);
           query = query.in('id', listaIds);
       }
   } else {
-      // Se NÃO tem busca textual, aplicamos apenas o filtro de tipo se necessário
       if (typeFilter && typeFilter !== 'Todos') {
           query = query.eq('tipo_contato', typeFilter);
       }
   }
   
-  // Ordenação padrão
   query = query.order('nome', { ascending: true }).order('razao_social', { ascending: true });
   
   const { data, error } = await query
@@ -112,7 +104,9 @@ export default function ContatosMain() {
   const { user, isUserLoading, setPageTitle } = useLayout()
   const organizacaoId = user?.organizacao_id
   const userId = user?.id
-  const supabase = await createClient()
+  
+  // CORREÇÃO: Removido 'await' (Componente de Cliente)
+  const supabase = createClient()
 
   useEffect(() => {
       if(setPageTitle) setPageTitle('Gestão de Contatos');
@@ -127,7 +121,6 @@ export default function ContatosMain() {
   const [isExporting, setIsExporting] = useState(false)
   
   // --- ESTADOS COM PERSISTÊNCIA ---
-  // Inicializamos com o valor do cache (se existir) ou o padrão
   const cachedState = getCachedUiState();
   
   const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '')
@@ -136,15 +129,11 @@ export default function ContatosMain() {
   const [selectedContactIds, setSelectedContactIds] = useState(cachedState?.selectedContactIds || [])
 
   const [contatoParaEditar, setContatoParaEditar] = useState(null)
-  
-  // Debounce para a busca (apenas para a query, não para o input visual)
   const [debouncedSearchTerm] = useDebounce(searchTerm, 500)
 
-  // --- LÓGICA DE PERSISTÊNCIA (SALVAR NO LOCALSTORAGE) ---
   const hasRestoredUiState = useRef(true); 
   const isInitialMount = useRef(true);
 
-  // Monitora mudanças nos estados críticos e salva no localStorage
   useEffect(() => {
       if (typeof window !== 'undefined' && hasRestoredUiState.current) {
           const stateToSave = {
@@ -214,7 +203,6 @@ export default function ContatosMain() {
       }
   };
 
-  // Prepara dados para o Modal de Mesclar
   const contactsToMerge = useMemo(() => {
       if (!contatos || selectedContactIds.length < 2) return [];
       return contatos.filter(c => selectedContactIds.includes(c.id));
@@ -289,7 +277,6 @@ export default function ContatosMain() {
       onError: (err) => toast.error(`Erro ao duplicar: ${err.message}`),
   });
 
-  // Atualização Visual (Loading state)
   useEffect(() => {
     if (!isInitialMount.current) { 
         if (!isFetching && !isError && prevIsFetchingRef.current && !isLoading) { } 
@@ -349,7 +336,6 @@ export default function ContatosMain() {
             {selectedContactIds.length > 0 && (
                 <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-2">
                     {selectedContactIds.length} selecionado(s)
-                    {/* Botão para limpar seleção */}
                     <button onClick={() => setSelectedContactIds([])} className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none">
                         <FontAwesomeIcon icon={faTimes} />
                     </button>
@@ -357,9 +343,7 @@ export default function ContatosMain() {
             )}
         </div>
         
-        {/* BARRA DE FERRAMENTAS */}
         <div className="flex flex-wrap gap-2 items-center">
-            {/* DROPDOWN DE FILTRO DE TIPO */}
             <div className="relative">
                 <select
                     value={typeFilter}
@@ -371,7 +355,7 @@ export default function ContatosMain() {
                     <option value="Cliente">Clientes</option>
                     <option value="Fornecedor">Fornecedores</option>
                     <option value="Parceiro">Parceiros</option>
-                    <option value="Corretor">Corretores</option> {/* <--- CORREÇÃO 2: Filtro adicionado */}
+                    <option value="Corretor">Corretores</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
                     <FontAwesomeIcon icon={faFilter} className="w-3 h-3" />
@@ -404,14 +388,12 @@ export default function ContatosMain() {
         </div>
       </div>
 
-      {/* Busca */}
       <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><FontAwesomeIcon icon={faSearch} className="text-gray-400" /></div>
           <input type="text" placeholder="Buscar por nome, telefone, documento..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-2 pl-10 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"/>
           {searchTerm && (<button onClick={() => setSearchTerm('')} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-red-500" title="Limpar busca"><FontAwesomeIcon icon={faTimes} /></button> )}
       </div>
 
-      {/* Tabela */}
       {isPageLoading ? (
         <div className="text-center py-10"><FontAwesomeIcon icon={faSpinner} className="text-blue-500 text-4xl" spin /><p className="mt-2 text-gray-600">Carregando contatos...</p></div>
       ) : isError ? (
@@ -466,7 +448,7 @@ export default function ContatosMain() {
         <div className="text-center py-10 bg-gray-50 rounded-lg"><FontAwesomeIcon icon={searchTerm ? faSearch : faAddressBook} className="text-5xl text-gray-300 mb-4" /><h3 className="text-lg font-semibold text-gray-700">{searchTerm ? 'Nenhum resultado' : 'Nenhum contato'}</h3><p className="text-gray-500 text-sm mt-1">{searchTerm ? 'Ajuste sua busca.' : 'Cadastre um novo contato.'}</p></div>
       )}
 
-      {/* MODAL DE FORMULÁRIO */}
+      {/* MODAIS (Mantidos exatamente como no original) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
           <div className="bg-white p-0 rounded-lg shadow-2xl w-full max-w-5xl h-[95vh] flex flex-col">
@@ -481,7 +463,6 @@ export default function ContatosMain() {
         </div>
       )}
 
-      {/* MODAL DE IMPORTAÇÃO */}
       {isImportModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
           <div className="bg-white p-0 rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
@@ -496,7 +477,6 @@ export default function ContatosMain() {
         </div>
       )}
 
-      {/* MODAL DE DUPLICATAS */}
       {isDuplicatesModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
           <div className="bg-white p-0 rounded-lg shadow-2xl w-full max-w-5xl h-[95vh] flex flex-col">
@@ -511,7 +491,6 @@ export default function ContatosMain() {
         </div>
       )}
 
-      {/* MODAL DE PADRONIZAÇÃO */}
       {isStandardizeModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
           <div className="bg-white p-0 rounded-lg shadow-2xl w-full max-w-5xl h-[95vh] flex flex-col">
@@ -526,7 +505,6 @@ export default function ContatosMain() {
         </div>
       )}
 
-      {/* MODAL DE MESCLAGEM (UNIR MANUAL) */}
       <MergeModal isOpen={isMergeModalOpen} onClose={() => setIsMergeModalOpen(false)} contactsToMerge={contactsToMerge} onMergeComplete={handleMergeComplete} />
     </div>
   )

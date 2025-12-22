@@ -184,7 +184,7 @@ const fetchAvailableProducts = async (supabase, organizacaoId) => {
 const fetchActivityModalData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { funcionarios: [], empresas: [] };
     const { data: funcionarios } = await supabase.from('funcionarios').select('id, full_name').eq('organizacao_id', organizacaoId).order('full_name');
-    const { data: empresas } = await supabase.from('cadastro_empresa').select('id, razao_social').eq('organizacao_id', organizacao_id).order('razao_social');
+    const { data: empresas } = await supabase.from('cadastro_empresa').select('id, razao_social').eq('organizacao_id', organizacaoId).order('razao_social');
     return { funcionarios, empresas };
 };
 
@@ -193,7 +193,8 @@ export default function CrmPage() {
     const { user, userData } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    const supabase = await createClient();
+    // CORREÇÃO: createClient síncrono para Client Component
+    const supabase = createClient();
     const queryClient = useQueryClient();
 
     // Estado Persistente
@@ -225,7 +226,7 @@ export default function CrmPage() {
     const [activityToEdit, setActivityToEdit] = useState(null);
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
 
-    useEffect(() => { setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
+    useEffect(() => { if (setPageTitle) setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
 
     const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ 
         queryKey: ['funilData', organizacaoId, debouncedFilters], 

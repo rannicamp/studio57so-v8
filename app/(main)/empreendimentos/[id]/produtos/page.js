@@ -16,14 +16,12 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faChartLine, faTags, faTag, faBullseye, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 
 // =================================================================================
-// FUNÇÃO DE BUSCA DE DADOS (CORRIGIDA PARA BUSCAR A LOGO)
+// FUNÇÃO DE BUSCA DE DADOS
 // =================================================================================
 const fetchComercializacaoData = async (supabase, empreendimentoId, organizacaoId) => {
     if (!empreendimentoId || !organizacaoId) return null;
 
     const [empreendimentoRes, produtosRes, configRes] = await Promise.all([
-        // CORREÇÃO AQUI: Mudamos de .select('nome') para .select('*')
-        // O asterisco (*) significa "traga TUDO", inclusive a logo_url
         supabase.from('empreendimentos').select('*').eq('id', empreendimentoId).eq('organizacao_id', organizacaoId).single(),
         supabase.from('produtos_empreendimento').select('*').eq('empreendimento_id', empreendimentoId).eq('organizacao_id', organizacaoId).order('unidade'),
         supabase.from('configuracoes_venda').select('*, parcelas_adicionais(*)').eq('empreendimento_id', empreendimentoId).eq('organizacao_id', organizacaoId).maybeSingle()
@@ -48,7 +46,8 @@ const fetchComercializacaoData = async (supabase, empreendimentoId, organizacaoI
 
 
 export default function ProdutosPage() {
-    const supabase = await createClient();
+    // CORREÇÃO: Removido 'await' (Componente de Cliente)
+    const supabase = createClient();
     const params = useParams();
     const { id: empreendimentoId } = params;
     const { user } = useAuth();
@@ -137,7 +136,6 @@ export default function ProdutosPage() {
             </Accordion>
             
             <Accordion title="3. Tabela de Venda (Simulação)" startOpen={false}>
-                {/* Aqui passamos a logo e tudo mais para a tabela */}
                 <TabelaVenda 
                     produtos={produtos}
                     config={config}
