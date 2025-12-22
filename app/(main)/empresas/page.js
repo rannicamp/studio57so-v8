@@ -5,7 +5,8 @@ import EmpresaList from '../../../components/empresas/EmpresaList';
 import { redirect } from 'next/navigation';
 
 export default async function GerenciamentoEmpresasPage() {
-    const supabase = createClient();
+    // CORREÇÃO CRUCIAL: Adicionado 'await' aqui para Next.js 15
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -21,7 +22,7 @@ export default async function GerenciamentoEmpresasPage() {
     const organizacaoId = userProfile?.organizacao_id;
     const userRole = userProfile?.funcao?.nome_funcao;
 
-    // Apenas 'Proprietário' e 'Administrador' podem ver esta página (ajuste a regra se necessário)
+    // Apenas 'Proprietário' e 'Administrador' podem ver esta página
     if (!['Proprietário', 'Administrador'].includes(userRole)) {
         redirect('/');
     }
@@ -53,8 +54,6 @@ export default async function GerenciamentoEmpresasPage() {
             </div>
             
             <div className="bg-white rounded-lg shadow">
-                {/* O PORQUÊ: Passamos a lista de empresas (companies) e a permissão
-                    de exclusão (canDelete) para o componente de lista. */}
                 <EmpresaList initialEmpresas={companies || []} isAdmin={canDelete} />
             </div>
         </div>

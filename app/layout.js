@@ -21,6 +21,10 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+  // Nota: RootLayout é Server Component por padrão.
+  // Como não estamos buscando dados do banco aqui, NÃO precisamos
+  // chamar const supabase = await createClient();
+  
   return (
     <html lang="pt-br">
       <head>
@@ -58,9 +62,7 @@ export default function RootLayout({ children }) {
           </QueryProvider>
         </Providers>
 
-        {/* CORREÇÃO AQUI: Adicionado toastOptions com print:hidden 
-            Isso garante que NENHUM aviso (Sonner) saia na impressão do PDF.
-        */}
+        {/* CORREÇÃO: toastOptions com print:hidden para não sair na impressão */}
         <Toaster 
           richColors 
           position="top-right" 
