@@ -8,41 +8,37 @@ import { toast } from 'sonner';
 export default function BelvoWidget({ disabled }) {
     const [loading, setLoading] = useState(false);
 
-    const handleOpenHostedWidget = async () => {
+    const handleConnect = async () => {
         setLoading(true);
-        // Toast de carregamento que não some sozinho até a página mudar
-        toast.loading("Iniciando ambiente seguro do banco...", { duration: 10000 });
+        const toastId = toast.loading("A preparar conexão bancária segura...");
 
         try {
-            // 1. Pede o Token
             const response = await fetch('/api/belvo/token', { method: 'POST' });
             const data = await response.json();
 
-            if (!response.ok) throw new Error(data.error || 'Erro ao iniciar');
+            if (!response.ok) throw new Error(data.error || 'Falha ao gerar acesso');
 
-            // 2. Monta a URL Segura da Belvo
-            const belvoUrl = `https://widget.belvo.io/?access_token=${data.access}&locale=pt&institution_types=retail,business&integration_type=openfinance&institutions=ofmockbank_br_retail`;
+            // URL do Hosted Widget com parâmetros de inicialização
+            const belvoUrl = `https://widget.belvo.io/?access_token=${data.access}&locale=pt&integration_type=openfinance&country_codes=BR`;
 
-            // 3. Redirecionamento Completo (Navegação)
-            // Isso evita 100% dos bloqueios de navegador
+            // Redireciona para o ambiente seguro da Belvo
             window.location.href = belvoUrl;
 
         } catch (error) {
             console.error(error);
-            toast.dismiss(); // Remove o loading se der erro
-            toast.error(`Erro: ${error.message}`);
+            toast.error(`Erro: ${error.message}`, { id: toastId });
             setLoading(false);
         }
     };
 
     return (
         <button 
-            onClick={handleOpenHostedWidget}
+            onClick={handleConnect}
             disabled={disabled || loading}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 rounded flex items-center justify-center gap-2 transition-colors border border-blue-700 shadow-sm"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2 transition-all shadow-md"
         >
             {loading ? (
-                <> <FontAwesomeIcon icon={faSpinner} spin /> Redirecionando... </>
+                <> <FontAwesomeIcon icon={faSpinner} spin /> A Redirecionar... </>
             ) : (
                 <> <FontAwesomeIcon icon={faBuildingColumns} /> Conectar Banco </>
             )}
