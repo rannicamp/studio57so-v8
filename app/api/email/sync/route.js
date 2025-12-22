@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import imapSimple from 'imap-simple';
-import { simpleParser } from 'mailparser';
 
-// Função auxiliar para decodificar headers
 const decodeHeader = (str) => {
     if (!str) return '';
     if (Array.isArray(str)) str = str[0];
@@ -16,8 +14,19 @@ const decodeHeader = (str) => {
     } catch { return str; }
 };
 
+const getBoxStatus = (connection, boxName) => {
+    return new Promise((resolve) => {
+        connection.imap.status(boxName, (err, box) => {
+            if (err) resolve(null);
+            else resolve(box);
+        });
+    });
+};
+
 export async function POST(request) {
-    const supabase = createClient();
+    // Await obrigatório no Next 15
+    const supabase = await createClient();
+    
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
@@ -25,7 +34,6 @@ export async function POST(request) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-        // Pega todas as contas
         const { data: accounts } = await supabase
             .from('email_configuracoes')
             .select('*')
@@ -49,43 +57,51 @@ export async function POST(request) {
                 };
 
                 connection = await imapSimple.connect(imapConfig);
-                
-                // 1. SINCRONIZAR PASTAS E CONTADORES
                 const boxes = await connection.getBoxes();
                 const folderList = [];
 
-                const processBoxes = (list, parent = '', level = 0) => {
+                // Lógica de caminhos corrigida (Igual ao route.js de folders)
+                const processBoxes = (list, parentPath = '', level = 0) => {
                     for (const [key, val] of Object.entries(list)) {
-                        const path = parent ? `${parent}${val.delimiter}${key}` : key;
-                        folderList.push({ name: key, path, delimiter: val.delimiter, level });
-                        if (val.children) processBoxes(val.children, path, level + 1);
+                        const delimiter = val.delimiter || '/';
+                        const fullPath = parentPath ? parentPath + delimiter + key : key;
+
+                        // Se for [Gmail], passamos o caminho para os filhos mas não processamos este nó
+                        if (key === '[Gmail]' || key === '[Google Mail]') {
+                            if (val.children) processBoxes(val.children, fullPath, level);
+                            continue;
+                        }
+
+                        folderList.push({ name: key, path: fullPath, delimiter: val.delimiter, level });
+                        if (val.children) processBoxes(val.children, fullPath, level + 1);
                     }
                 };
                 processBoxes(boxes);
 
                 for (const folder of folderList) {
                     try {
-                        const status = await connection.status(folder.path, { unseen: true, messages: true });
-                        
-                        // Upsert na tabela de cache de pastas
+                        // Verifica status (se falhar, ignora pasta sem travar sync)
+                        const status = await getBoxStatus(connection, folder.path);
+                        if (!status) continue;
+
                         await supabase.from('email_folders_cache').upsert({
                             account_id: config.id,
                             path: folder.path,
                             name: folder.name,
-                            display_name: folder.name, // Pode melhorar tradução aqui depois
+                            display_name: folder.name, 
                             unseen_count: status.unseen || 0,
                             total_count: status.messages || 0,
                             level: folder.level,
                             updated_at: new Date().toISOString()
                         }, { onConflict: 'account_id, path' });
 
-                        // 2. SINCRONIZAR MENSAGENS (Apenas Inbox e Enviados para performance inicial)
-                        // Se quiser todas, remova o 'if'. Mas cuidado com timeouts.
-                        const isRelevant = ['INBOX', 'SENT', 'ENVIADOS', 'ENTRADA'].some(k => folder.path.toUpperCase().includes(k));
+                        // Sincroniza apenas pastas principais para performance
+                        const isRelevant = ['INBOX', 'SENT', 'ENVIADOS', 'ENTRADA', 'ITENS ENVIADOS'].some(k => folder.path.toUpperCase().includes(k));
                         
                         if (isRelevant) {
-                            await connection.openBox(folder.path);
-                            // Busca mensagens desde 3 meses atrás
+                            // Importante: readOnly true previne alterar flags acidentalmente durante sync
+                            await connection.openBox(folder.path, { readOnly: true });
+                            
                             const searchCriteria = [['SINCE', threeMonthsAgo]];
                             const fetchOptions = { bodies: ['HEADER'], struct: true };
                             const messages = await connection.search(searchCriteria, fetchOptions);
@@ -101,18 +117,16 @@ export async function POST(request) {
                                     date: header.date ? new Date(header.date[0]) : new Date(),
                                     is_read: !msg.attributes.flags.includes('\\Seen'),
                                     updated_at: new Date().toISOString()
-                                    // Nota: Não baixamos o corpo aqui para não estourar a memória. 
-                                    // O corpo é baixado sob demanda no 'content/route.js' e salvo no cache.
                                 };
                             });
 
                             if (messagesToUpsert.length > 0) {
-                                // Upsert em lotes de 50 para não travar o banco
+                                // Upsert em lotes
                                 for (let i = 0; i < messagesToUpsert.length; i += 50) {
                                     const batch = messagesToUpsert.slice(i, i + 50);
                                     await supabase.from('email_messages_cache').upsert(batch, { 
                                         onConflict: 'account_id, folder_path, uid',
-                                        ignoreDuplicates: false // Atualiza flags (lido/não lido)
+                                        ignoreDuplicates: false 
                                     });
                                 }
                                 totalSynced += messagesToUpsert.length;
@@ -120,19 +134,22 @@ export async function POST(request) {
                         }
 
                     } catch (folderErr) {
-                        console.error(`Erro sync pasta ${folder.path}:`, folderErr.message);
+                        console.warn(`Pulei pasta ${folder.path}:`, folderErr.message);
                     }
                 }
+                
                 connection.end();
 
             } catch (connErr) {
                 console.error(`Erro conexão ${config.email}:`, connErr);
+                if (connection) connection.end();
             }
         }
 
         return NextResponse.json({ success: true, synced: totalSynced });
 
     } catch (error) {
+        console.error("Erro geral na API Sync:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

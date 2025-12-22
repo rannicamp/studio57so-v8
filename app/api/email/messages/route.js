@@ -64,7 +64,9 @@ const parseHeader = (headerString) => {
 };
 
 export async function GET(request) {
-  const supabase = createClient();
+  // ADICIONADO: await aqui para esperar a conexão
+  const supabase = await createClient();
+  
   const { searchParams } = new URL(request.url);
   
   // --- NOVO: PEGA O ID DA CONTA ---

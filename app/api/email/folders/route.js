@@ -6,6 +6,7 @@ function getDisplayName(name, path) {
     const n = name.toUpperCase();
     const p = path.toUpperCase();
     
+    // Tratamento visual para nomes comuns
     if (n === 'INBOX') return 'Caixa de Entrada';
     if (n === 'DRAFTS' || p.includes('DRAFT') || p.includes('RASCUNHO')) return 'Rascunhos';
     if (n === 'SENT' || n === 'SENT ITEMS' || p.includes('SENT') || p.includes('ENVIAD')) return 'Enviados';
@@ -27,8 +28,20 @@ function isSystemFolder(name) {
     ].some(sys => n.includes(sys));
 }
 
+// Helper seguro para status
+const getBoxStatus = (connection, boxName) => {
+    return new Promise((resolve) => {
+        connection.imap.status(boxName, (err, box) => {
+            if (err) resolve(null);
+            else resolve(box);
+        });
+    });
+};
+
 export async function GET(request) {
-  const supabase = createClient();
+  // AWAIT OBRIGATÓRIO (Next.js 15)
+  const supabase = await createClient();
+  
   const { searchParams } = new URL(request.url);
   const accountId = searchParams.get('accountId');
   const action = searchParams.get('action'); 
@@ -62,22 +75,24 @@ export async function GET(request) {
 
     connection = await imapSimple.connect(imapConfig);
 
-    // --- AÇÃO: CONTAGEM DE NÃO LIDOS ---
+    // --- AÇÃO: CONTAGEM ---
     if (action === 'getAllCounts') {
         const boxes = await connection.getBoxes();
         const counts = {};
         const pathsToFetch = [];
         const seenPaths = new Set();
         
+        // Função recursiva para coletar caminhos válidos
         const collect = (list, parentPath = '') => {
             for (const [key, value] of Object.entries(list)) {
+                const delimiter = value.delimiter || '/'; // Default mais seguro que '.'
+                const fullPath = parentPath ? parentPath + delimiter + key : key;
+                
+                // CRUCIAL: Se for [Gmail], não adiciona à lista de busca, mas processa filhos COM o caminho correto
                 if (key === '[Gmail]' || key === '[Google Mail]') { 
-                    if (value.children) collect(value.children, parentPath);
+                    if (value.children) collect(value.children, fullPath);
                     continue;
                 }
-                
-                const delimiter = value.delimiter || '.';
-                const fullPath = parentPath ? parentPath + delimiter + key : key;
                 
                 if (seenPaths.has(fullPath)) {
                     if (value.children) collect(value.children, fullPath);
@@ -101,17 +116,14 @@ export async function GET(request) {
 
         const promises = pathsToFetch.map(async (path) => {
             try {
-                const status = await connection.status(path, { unseen: true });
-                return { path, count: status.unseen || 0 };
+                const status = await getBoxStatus(connection, path);
+                return { path, count: status ? (status.unseen || 0) : -1 };
             } catch (e) {
-                // CORREÇÃO CRUCIAL: Retorna -1 em caso de erro, para não zerar o front
-                console.warn(`Erro ao contar pasta ${path}: ${e.message}`);
                 return { path, count: -1 };
             }
         });
 
         const results = await Promise.allSettled(promises);
-        
         results.forEach(result => {
             if (result.status === 'fulfilled') {
                 counts[result.value.path] = result.value.count;
@@ -128,18 +140,21 @@ export async function GET(request) {
 
     const processBoxes = (boxList, parentPath = '', level = 0) => {
         for (const [key, value] of Object.entries(boxList)) {
+            const delimiter = value.delimiter || '/';
+            const fullPath = parentPath ? parentPath + delimiter + key : key;
+
+            // CORREÇÃO CRUCIAL PARA GMAIL E OUTROS
+            // Se for pasta de sistema invisível, passamos o fullPath para os filhos, mas não exibimos ela
             if (key === '[Gmail]' || key === '[Google Mail]') {
-                if (value.children) processBoxes(value.children, parentPath, level);
+                if (value.children) processBoxes(value.children, fullPath, level);
                 continue; 
             }
 
+            // Evita duplicação de INBOX aninhada se for apenas estrutura
             if (level > 0 && key.toUpperCase() === 'INBOX') {
-                if (value.children) processBoxes(value.children, parentPath, level);
+                if (value.children) processBoxes(value.children, fullPath, level);
                 continue;
             }
-
-            const delimiter = value.delimiter || '.';
-            const fullPath = parentPath ? parentPath + delimiter + key : key;
 
             if (seenPaths.has(fullPath)) {
                 if (value.children) {
@@ -151,6 +166,7 @@ export async function GET(request) {
             seenPaths.add(fullPath);
 
             let visualLevel = level;
+            // Se estiver dentro da INBOX logicamente, mas é pasta de sistema, sobe para nível 0 para destaque
             if (parentPath.toUpperCase() === 'INBOX' && isSystemFolder(key)) {
                 visualLevel = 0; 
             }
@@ -161,7 +177,7 @@ export async function GET(request) {
             folderList.push({
                 name: key,
                 displayName: getDisplayName(key, fullPath),
-                path: fullPath,
+                path: fullPath, // Caminho COMPLETO para o IMAP
                 delimiter: delimiter,
                 level: visualLevel,
                 unseen: 0,
@@ -178,6 +194,7 @@ export async function GET(request) {
 
     processBoxes(boxes);
 
+    // Ordenação visual
     const specialOrder = ['Caixa de Entrada', 'Enviados', 'Rascunhos', 'Spam', 'Lixeira'];
     folderList.sort((a, b) => {
         if (a.level !== b.level) return a.level - b.level;

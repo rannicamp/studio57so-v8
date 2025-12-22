@@ -18,6 +18,7 @@ const FOLDER_EXPANSION_KEY = 'email_expanded_folders_vhostinger_fixed';
 // --- MENU CONTEXTUAL ---
 const FolderContextMenu = ({ position, folder, onClose, onAction, isSystemFolder }) => {
     if (!position) return null;
+    
     return createPortal(
         <>
             <div className="fixed inset-0 z-[99990] cursor-default" onClick={onClose}></div>
@@ -49,11 +50,9 @@ const FolderContextMenu = ({ position, folder, onClose, onAction, isSystemFolder
 const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPaths, toggleExpand, onCreateFolder }) => {
     const queryClient = useQueryClient();
     const [menuState, setMenuState] = useState({ isOpen: false, position: null, folder: null });
-    
-    // --- NOVO: Estado para fundir contagens (Memória Persistente) ---
     const [mergedCounts, setMergedCounts] = useState({});
 
-    // 1. ESTRUTURA (Cache Longo)
+    // 1. ESTRUTURA
     const { data: folderData, isLoading, isError } = useQuery({
         queryKey: ['emailFolders', account.id],
         queryFn: async () => {
@@ -66,7 +65,7 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
 
     const folderList = folderData?.folders || [];
 
-    // 2. CONTAGEM (Polling Suave - a cada 15s)
+    // 2. CONTAGEM
     const { data: countsData } = useQuery({
         queryKey: ['emailFolderCounts', account.id],
         queryFn: async () => {
@@ -80,14 +79,11 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
         staleTime: 0 
     });
 
-    // --- LÓGICA DE FUSÃO INTELIGENTE ---
     useEffect(() => {
         if (countsData?.counts) {
             setMergedCounts(prev => {
                 const next = { ...prev };
                 Object.entries(countsData.counts).forEach(([path, count]) => {
-                    // Se o servidor retornou -1 (erro) ou null, IGNORA e mantém o valor antigo.
-                    // Se o servidor retornou >= 0, atualiza.
                     if (count !== null && count >= 0) {
                         next[path] = count;
                     }
@@ -96,7 +92,6 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             });
         }
     }, [countsData]);
-    // ------------------------------------
 
     const folderActionMutation = useMutation({
         mutationFn: async ({ action, folderPath }) => {
@@ -109,7 +104,7 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             return res.json();
         },
         onSuccess: () => {
-            toast.success("Sucesso!");
+            toast.success("Ação realizada!");
             queryClient.invalidateQueries(['emailFolders', account.id]);
             queryClient.invalidateQueries(['emailFolderCounts', account.id]);
             setMenuState({ isOpen: false, position: null, folder: null });
@@ -119,6 +114,7 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
 
     const openMenu = (e, folder) => {
         e.stopPropagation();
+        e.preventDefault();
         const rect = e.currentTarget.getBoundingClientRect();
         setMenuState({
             isOpen: true,
@@ -130,21 +126,34 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
     const handleAction = (e, action, folderPath) => {
         setMenuState({ ...menuState, isOpen: false });
         if (action === 'delete' && !confirm('Tem certeza?')) return;
-        if (action === 'empty' && !confirm('Apagar tudo desta pasta?')) return;
+        if (action === 'empty' && !confirm('Apagar tudo?')) return;
         folderActionMutation.mutate({ action, folderPath });
     };
 
+    // --- CORREÇÃO PRINCIPAL: Lógica de Processamento de Pastas ---
     const processedFolders = useMemo(() => {
-        if (!folderList) return [];
+        if (!folderList || folderList.length === 0) return [];
+        
         const childrenMap = {}; 
         const roots = [];       
+        
+        // Cria um mapa de existência para saber quem tem pai de verdade
+        const allPaths = new Set(folderList.map(f => f.path));
 
         folderList.forEach(folder => {
-            if (folder.level === 0) roots.push(folder);
-            else {
-                const separator = folder.delimiter || '.';
-                const lastIndex = folder.path.lastIndexOf(separator);
-                const parentPath = lastIndex > -1 ? folder.path.substring(0, lastIndex) : '';
+            const separator = folder.delimiter || '/';
+            // Tenta achar o caminho do pai removendo a última parte do caminho atual
+            // Ex: "INBOX.Clientes" -> "INBOX"
+            const lastIndex = folder.path.lastIndexOf(separator);
+            const parentPath = lastIndex > -1 ? folder.path.substring(0, lastIndex) : null;
+            
+            // Verifica se o pai existe na lista que baixamos.
+            // Se não existir (ex: [Gmail] que foi escondido), essa pasta vira Raiz.
+            const parentExists = parentPath && allPaths.has(parentPath);
+
+            if (folder.level === 0 || !parentExists) {
+                roots.push(folder);
+            } else {
                 if (!childrenMap[parentPath]) childrenMap[parentPath] = [];
                 childrenMap[parentPath].push(folder);
             }
@@ -166,28 +175,38 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             return a.displayName.localeCompare(b.displayName);
         });
 
-        const flattenTree = (list) => {
+        const flattenTree = (list, currentLevel = 0) => {
             let result = [];
             const sortedList = sortList(list);
+            
             sortedList.forEach(folder => {
+                // Força o nível visual correto baseado na recursão
+                const visualFolder = { ...folder, level: currentLevel };
+                
                 const children = childrenMap[folder.path] || [];
                 const hasChildren = children.length > 0;
-                result.push({ ...folder, hasChildren });
+                
+                result.push({ ...visualFolder, hasChildren });
+                
                 if (hasChildren && expandedPaths.has(`${account.id}-${folder.path}`)) {
-                    result = result.concat(flattenTree(children));
+                    result = result.concat(flattenTree(children, currentLevel + 1));
                 }
             });
             return result;
         };
+
         return flattenTree(roots);
     }, [folderList, expandedPaths, account.id]);
 
-    const getFolderIcon = (name) => {
-        const n = name.toLowerCase();
+    const getFolderIcon = (name, path) => {
+        const n = name?.toLowerCase() || '';
+        const p = path?.toLowerCase() || '';
+        
         if (n.includes('inbox') || n.includes('entrada')) return faInbox;
-        if (n.includes('sent') || n.includes('enviad')) return faPaperPlane;
-        if (n.includes('trash') || n.includes('lixeira')) return faTrash;
-        if (n.includes('spam') || n.includes('junk')) return faBan;
+        if (n.includes('sent') || p.includes('enviad') || p.includes('sent')) return faPaperPlane;
+        if (n.includes('trash') || p.includes('lixeira') || p.includes('trash') || p.includes('deleted')) return faTrash;
+        if (n.includes('spam') || p.includes('junk')) return faBan;
+        if (n.includes('draft') || p.includes('rascunho')) return faEnvelope;
         return faFolder; 
     };
 
@@ -203,7 +222,6 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                     const isSelected = selectedFolder?.path === folder.path && selectedFolder?.accountId === account.id;
                     const isInbox = folder.displayName === 'Caixa de Entrada' || folder.name.toUpperCase() === 'INBOX';
                     
-                    // Usa o estado fundido e persistente
                     const unreadCount = mergedCounts[folder.path] || 0;
 
                     return (
@@ -226,7 +244,7 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                             </div>
                             
                             <div className="flex items-center gap-2 flex-grow py-2.5 overflow-hidden">
-                                <FontAwesomeIcon icon={getFolderIcon(folder.name)} className={`${isSelected ? 'text-blue-500' : 'text-gray-400'} w-4`} />
+                                <FontAwesomeIcon icon={getFolderIcon(folder.name, folder.path)} className={`${isSelected ? 'text-blue-500' : 'text-gray-400'} w-4`} />
                                 <span className="truncate flex-grow" title={folder.displayName}>{folder.displayName}</span>
                                 
                                 {unreadCount > 0 && (

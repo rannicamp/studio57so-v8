@@ -12,29 +12,40 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import EmailActionMenu from './EmailActionMenu';
 
-// --- ATUALIZADO: Recebe accountId na queryKey ---
+// --- FETCHING FUNCTION ATUALIZADA ---
 const fetchMessages = async ({ queryKey, pageParam = 1 }) => {
     const [_key, folderPath, searchTerm, status, accountId] = queryKey; 
     
-    let url = `/api/email/messages?folder=${encodeURIComponent(folderPath)}&page=${pageParam}`;
-    if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
-    if (status && status !== 'all') url += `&status=${status}`;
-    // Passa o ID da conta para a API saber de quem buscar
-    if (accountId) url += `&accountId=${accountId}`; 
+    // Constrói a URL com todos os parâmetros que a API nova espera
+    const params = new URLSearchParams({
+        folder: folderPath || 'INBOX',
+        page: pageParam.toString(),
+    });
+
+    if (searchTerm) params.append('search', searchTerm);
+    if (status && status !== 'all') params.append('status', status);
+    if (accountId) params.append('accountId', accountId);
+
+    const res = await fetch(`/api/email/messages?${params.toString()}`);
     
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Erro ao buscar e-mails');
+    if (!res.ok) {
+        // Tenta ler o erro da API para exibir algo útil
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Erro ao buscar e-mails');
+    }
     return res.json();
 };
 
 const performBulkAction = async ({ action, folder, uids, destination, accountId }) => { 
     const body = { action, folder, uids, accountId }; 
     if (destination) body.targetFolder = destination;
+    
     const res = await fetch('/api/email/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
     });
+    
     if (!res.ok) throw new Error('Falha na ação');
     return res.json();
 };
@@ -46,7 +57,7 @@ export default function EmailListPanel({
     selectedEmailId, 
     searchTerm, 
     onCreateRule,
-    onUnreadCountChange // <--- NOVO: Recebe a função de atualização
+    onUnreadCountChange 
 }) {
     const [filterStatus, setFilterStatus] = useState('unread');
     const [selectedIds, setSelectedIds] = useState(new Set()); 
@@ -56,41 +67,40 @@ export default function EmailListPanel({
     const loadMoreRef = useRef(null);
     const queryClient = useQueryClient();
     
-    const folderIdentifier = folder.path || folder.name;
-    const accountId = folder.accountId; 
+    // Garante identificadores seguros
+    const folderIdentifier = folder?.path || folder?.name || 'INBOX';
+    const accountId = folder?.accountId; 
 
+    // Limpa seleções ao mudar de pasta/conta
     useEffect(() => {
         setSelectedIds(new Set());
         setLastSelectedId(null);
         setOpenMenuId(null);
-    }, [searchTerm, folder.path, filterStatus, accountId]);
+    }, [searchTerm, folderIdentifier, filterStatus, accountId]);
 
     const { 
         data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage, refetch, isFetching
     } = useInfiniteQuery({
         queryKey: ['emailMessages', folderIdentifier, searchTerm, filterStatus, accountId],
         queryFn: fetchMessages,
-        getNextPageParam: (lastPage, allPages) => (lastPage.hasMore ? allPages.length + 1 : undefined),
-        staleTime: 1000 * 60 * 1, 
+        getNextPageParam: (lastPage, allPages) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
+        staleTime: 1000 * 60 * 1, // 1 minuto de cache
         refetchOnWindowFocus: false,
+        enabled: !!accountId, // Só busca se tiver ID da conta
     });
 
     const allEmails = data?.pages.flatMap(page => page.messages) || [];
     const totalEmails = data?.pages[0]?.total || 0;
 
-    // --- A MÁGICA: Sincronização em Tempo Real ---
+    // --- Sincronização de Contagem (Atualiza Sidebar) ---
     useEffect(() => {
-        // Se estamos vendo a lista de "Não Lidos" e temos dados carregados
-        if (filterStatus === 'unread' && data?.pages?.[0] && onUnreadCountChange) {
-            // O total retornado pela API neste filtro É EXATAMENTE o número de não lidos
+        if (filterStatus === 'unread' && data?.pages?.[0] && onUnreadCountChange && accountId) {
             const currentUnreadCount = data.pages[0].total || 0;
-            
-            // Avisa o painel lateral imediatamente
             onUnreadCountChange(accountId, folderIdentifier, currentUnreadCount);
         }
     }, [data, filterStatus, accountId, folderIdentifier, onUnreadCountChange]);
-    // ----------------------------------------------
 
+    // Scroll Infinito
     useEffect(() => {
         const observer = new IntersectionObserver(
             (entries) => { if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) fetchNextPage(); },
@@ -100,12 +110,12 @@ export default function EmailListPanel({
         return () => { if (loadMoreRef.current) observer.unobserve(loadMoreRef.current); };
     }, [loadMoreRef, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+    // Mutation para Ações em Massa (Deletar, Mover, etc)
     const bulkActionMutation = useMutation({
         mutationFn: (vars) => performBulkAction({ ...vars, accountId }), 
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
             queryClient.invalidateQueries({ queryKey: ['emailFolders'] }); 
-            // Invalida a contagem para garantir que o servidor confirme depois
             queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
             
             setSelectedIds(new Set());
@@ -121,6 +131,7 @@ export default function EmailListPanel({
         onError: () => toast.error('Erro ao processar ação.')
     });
 
+    // Mutation para Aplicar Regras
     const applyRulesMutation = useMutation({
         mutationFn: async () => {
             const res = await fetch('/api/email/rules/apply', { method: 'POST' });
@@ -138,7 +149,6 @@ export default function EmailListPanel({
     const handleRefresh = async () => {
         try { await applyRulesMutation.mutateAsync(); } catch (e) {}
         refetch();
-        // Força atualização dos contadores ao clicar em atualizar
         queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
     };
 
@@ -209,6 +219,7 @@ export default function EmailListPanel({
 
     return (
         <div className="flex flex-col h-full bg-white border-r border-gray-200 relative">
+            {/* Barra de Ações em Massa (Aparece ao selecionar) */}
             {selectedIds.size > 0 && (
                 <div className="absolute top-0 inset-x-0 h-[60px] bg-blue-600 z-20 flex items-center justify-between px-4 text-white shadow-md animate-slide-down">
                     <div className="flex items-center gap-4">
@@ -224,12 +235,13 @@ export default function EmailListPanel({
                 </div>
             )}
 
+            {/* Cabeçalho da Lista */}
             <div className="flex flex-col border-b bg-white shrink-0">
                 <div className="flex items-center gap-3 p-4 pb-2 justify-between">
                     <div className="flex items-center gap-3 overflow-hidden">
                         <button onClick={onBack} className="md:hidden text-gray-500 hover:bg-gray-100 p-2 rounded-full"><FontAwesomeIcon icon={faArrowLeft} /></button>
                         <div className="overflow-hidden">
-                            <h2 className="text-base font-bold text-gray-800 truncate" title={folderIdentifier}>{folder.displayName || folder.name}</h2>
+                            <h2 className="text-base font-bold text-gray-800 truncate" title={folderIdentifier}>{folder?.displayName || folder?.name || 'Caixa'}</h2>
                             <p className="text-xs text-gray-500">{isLoading ? '...' : `${totalEmails} mensagens`}</p>
                         </div>
                     </div>
@@ -243,6 +255,7 @@ export default function EmailListPanel({
                 </div>
             </div>
 
+            {/* Lista de E-mails */}
             <div className="flex-grow overflow-y-auto custom-scrollbar relative">
                 {isLoading ? ( <div className="flex justify-center items-center h-40 text-blue-500"><FontAwesomeIcon icon={faSpinner} spin size="lg" /></div> ) 
                 : isError ? ( <div className="flex flex-col items-center justify-center h-64 text-red-400 p-4 text-center"><FontAwesomeIcon icon={faExclamationCircle} size="2x" className="mb-2" /><p className="text-sm font-medium">Erro ao carregar.</p><button onClick={() => refetch()} className="mt-4 text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-md font-bold">Tentar Novamente</button></div> ) 
@@ -252,7 +265,8 @@ export default function EmailListPanel({
                         {allEmails.map((email) => {
                             const isSelected = selectedIds.has(email.id);
                             const isActive = selectedEmailId === email.id;
-                            const isRead = email.flags?.includes('\\Seen');
+                            // Correção de flags para evitar erro se for null
+                            const isRead = email.is_read || (email.flags && email.flags.includes('\\Seen'));
                             const isOpen = openMenuId === email.id;
                             
                             return (
@@ -289,7 +303,9 @@ export default function EmailListPanel({
                                 </div>
                             );
                         })}
-                        <div ref={loadMoreRef} className="py-4 text-center">{isFetchingNextPage ? <div className="text-blue-500 text-xs flex gap-2 justify-center"><FontAwesomeIcon icon={faSpinner} spin /> Carregando...</div> : hasNextPage ? <span className="text-transparent text-[1px]">.</span> : <span className="text-gray-300 text-[10px] uppercase font-bold tracking-widest">Fim da lista</span>}</div>
+                        <div ref={loadMoreRef} className="py-4 text-center">
+                            {isFetchingNextPage ? <div className="text-blue-500 text-xs flex gap-2 justify-center"><FontAwesomeIcon icon={faSpinner} spin /> Carregando...</div> : hasNextPage ? <span className="text-transparent text-[1px]">.</span> : <span className="text-gray-300 text-[10px] uppercase font-bold tracking-widest">Fim da lista</span>}
+                        </div>
                     </div>
                 )}
             </div>
