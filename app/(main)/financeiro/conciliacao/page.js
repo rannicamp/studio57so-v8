@@ -9,14 +9,14 @@ import ConciliacaoManager from '../../../../components/financeiro/ConciliacaoMan
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
-// Função de busca isolada e segura
+// Função de busca atualizada para pegar dados da Belvo
 const fetchContas = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
 
-    // CORREÇÃO: Adicionado 'await' aqui. Sem ele, a query não executa!
     const { data, error } = await supabase
         .from('contas_financeiras')
-        .select('id, nome')
+        // ATUALIZAÇÃO: Buscando campos da Belvo
+        .select('id, nome, belvo_link_id, belvo_account_id, instituicao')
         .eq('organizacao_id', organizacaoId)
         .order('nome');
     
@@ -28,7 +28,6 @@ const fetchContas = async (supabase, organizacaoId) => {
 };
 
 export default function ConciliacaoPage() {
-    // CORREÇÃO: createClient SEM await (Componente de Cliente)
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
@@ -46,7 +45,7 @@ export default function ConciliacaoPage() {
             </Link>
             <h1 className="text-3xl font-bold text-gray-900 uppercase">Conciliação Bancária</h1>
             <p className="text-gray-600">
-                Importe seu extrato bancário em formato OFX e concilie automaticamente com os lançamentos do sistema.
+                Importe seu extrato bancário via OFX ou conecte-se via Open Finance (Belvo) para conciliação automática.
             </p>
             <div className="bg-white rounded-lg shadow-lg p-6 mt-4">
                 {loading ? (
