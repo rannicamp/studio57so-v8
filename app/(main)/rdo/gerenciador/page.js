@@ -23,7 +23,7 @@ import RdoAutoGenerator from '../../../../components/RdoAutoGenerator';
 import RdoPhotoGallery from '../../../../components/RdoPhotoGallery';
 
 export default function RdoGerenciadorPage() {
-  const supabase = await createClient();
+  const supabase =createClient();
   
   // Estados da Lista
   const [rdos, setRdos] = useState([]);
