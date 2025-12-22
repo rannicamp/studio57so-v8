@@ -93,15 +93,10 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
     };
 
     useEffect(() => {
-        // Tenta detectar imediatamente
         if (checkBelvoAvailability()) return;
-
-        // Se não achou, tenta a cada 1 segundo por 10 segundos
         belvoCheckInterval.current = setInterval(() => {
             checkBelvoAvailability();
         }, 1000);
-
-        // Limpeza
         return () => {
             if (belvoCheckInterval.current) clearInterval(belvoCheckInterval.current);
         };
@@ -258,6 +253,8 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
 
             if (!tokenRes.ok) throw new Error(tokenData.error || "Erro ao obter token");
 
+            // CORREÇÃO: Removemos o terceiro argumento 'belvo' (ID da div que não existe).
+            // Agora o widget vai abrir em modo padrão (overlay).
             const belvo = window.belvo.createWidget(
                 tokenData.access,
                 {
@@ -266,8 +263,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                     callback: (link, institution) => handleBelvoSuccess(link, institution),
                     onExit: () => setIsBelvoLoading(false),
                     onEvent: (event) => console.log('Belvo Event:', event)
-                },
-                'belvo' 
+                }
             );
             
             belvo.build();
@@ -383,7 +379,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                         {!isConnected ? (
                             <button 
                                 onClick={() => handleConnectBelvo(conta)}
-                                disabled={isBelvoLoading} 
+                                disabled={isBelvoLoading}
                                 className={`flex-1 text-xs font-bold py-2 rounded flex items-center justify-center gap-2 transition-colors border ${!isWidgetReady ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-wait' : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'}`}
                             >
                                 <FontAwesomeIcon icon={(isBelvoLoading || !isWidgetReady) ? faSpinner : faLink} spin={isBelvoLoading || !isWidgetReady} />
@@ -468,7 +464,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                 </div>
             )}
 
-            {/* KPI CARDS E LISTA DE CONTAS (Mantidos igual) */}
+            {/* KPI CARDS E LISTA DE CONTAS */}
             {initialContas.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <KpiCard title="Saldo Líquido (Caixa)" value={isLoadingSaldos ? '...' : formatCurrency(kpis.saldoLiquido)} icon={faWallet} color={kpis.saldoLiquido >= 0 ? "blue" : "red"} subtext="Dinheiro real disponível" />
