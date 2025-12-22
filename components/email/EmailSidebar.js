@@ -6,19 +6,19 @@ import { createPortal } from 'react-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSearch, faEnvelope, faInbox, faPaperPlane, faTrash, faBan, 
-    faFolder, faPlus, faCog, faSpinner, faExclamationTriangle, 
+    faFolder, faPlus, faCog, faSpinner, 
     faChevronRight, faChevronDown, faUserCircle, faEllipsisV, 
     faCheckDouble, faEraser
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { toast } from 'sonner';
+import EmailAutoSync from './EmailAutoSync'; // Importando o Robô
 
 const FOLDER_EXPANSION_KEY = 'email_expanded_folders_vhostinger_fixed';
 
 // --- MENU CONTEXTUAL ---
 const FolderContextMenu = ({ position, folder, onClose, onAction, isSystemFolder }) => {
     if (!position) return null;
-    
     return createPortal(
         <>
             <div className="fixed inset-0 z-[99990] cursor-default" onClick={onClose}></div>
@@ -60,12 +60,12 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             if (!res.ok) throw new Error('Erro ao buscar pastas');
             return res.json();
         },
-        staleTime: 1000 * 60 * 10 
+        staleTime: 1000 * 60 * 60 // Cache de estrutura longo (1h), só muda se criar pasta
     });
 
     const folderList = folderData?.folders || [];
 
-    // 2. CONTAGEM
+    // 2. CONTAGEM (O Robô força a atualização disso aqui)
     const { data: countsData } = useQuery({
         queryKey: ['emailFolderCounts', account.id],
         queryFn: async () => {
@@ -74,9 +74,9 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             return res.json();
         },
         enabled: !!folderList.length, 
-        refetchInterval: 15000, 
-        refetchOnWindowFocus: true, 
-        staleTime: 0 
+        // Polling curto para reagir rápido ao Robô
+        refetchInterval: 5000, 
+        refetchOnWindowFocus: true
     });
 
     useEffect(() => {
@@ -130,25 +130,16 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
         folderActionMutation.mutate({ action, folderPath });
     };
 
-    // --- CORREÇÃO PRINCIPAL: Lógica de Processamento de Pastas ---
     const processedFolders = useMemo(() => {
         if (!folderList || folderList.length === 0) return [];
-        
         const childrenMap = {}; 
         const roots = [];       
-        
-        // Cria um mapa de existência para saber quem tem pai de verdade
         const allPaths = new Set(folderList.map(f => f.path));
 
         folderList.forEach(folder => {
             const separator = folder.delimiter || '/';
-            // Tenta achar o caminho do pai removendo a última parte do caminho atual
-            // Ex: "INBOX.Clientes" -> "INBOX"
             const lastIndex = folder.path.lastIndexOf(separator);
             const parentPath = lastIndex > -1 ? folder.path.substring(0, lastIndex) : null;
-            
-            // Verifica se o pai existe na lista que baixamos.
-            // Se não existir (ex: [Gmail] que foi escondido), essa pasta vira Raiz.
             const parentExists = parentPath && allPaths.has(parentPath);
 
             if (folder.level === 0 || !parentExists) {
@@ -180,14 +171,10 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             const sortedList = sortList(list);
             
             sortedList.forEach(folder => {
-                // Força o nível visual correto baseado na recursão
                 const visualFolder = { ...folder, level: currentLevel };
-                
                 const children = childrenMap[folder.path] || [];
                 const hasChildren = children.length > 0;
-                
                 result.push({ ...visualFolder, hasChildren });
-                
                 if (hasChildren && expandedPaths.has(`${account.id}-${folder.path}`)) {
                     result = result.concat(flattenTree(children, currentLevel + 1));
                 }
@@ -391,6 +378,10 @@ export default function EmailSidebar({
                     </div>
                 )}
             </div>
+
+            {/* --- ROBÔ VISUALIZÁVEL --- */}
+            {/* Agora ele fica fixo no rodapé da barra lateral */}
+            <EmailAutoSync intervalMinutes={1} />
         </div>
     );
 }
