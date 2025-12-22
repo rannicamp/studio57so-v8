@@ -9,12 +9,12 @@ import {
     faPlus, faUniversity, faCreditCard, faMoneyBillWave, faChartLine, 
     faPenToSquare, faTrash, faExclamationTriangle, faSpinner, 
     faWallet, faHandHoldingDollar, faLayerGroup, faMoneyBillTransfer, faFileInvoice,
-    faCheckCircle, faBuildingColumns, faLink
+    faCheckCircle, faBuildingColumns
 } from '@fortawesome/free-solid-svg-icons';
 import ContaFormModal from './ContaFormModal';
 import PagamentoFaturaModal from './PagamentoFaturaModal';
 import KpiCard from '../KpiCard';
-import BelvoWidget from './BelvoWidget'; // <--- NOSSO NOVO COMPONENTE
+import BelvoWidget from './BelvoWidget';
 import { toast } from 'sonner';
 
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -65,6 +65,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
     const [foundBelvoAccounts, setFoundBelvoAccounts] = useState([]);
     const [currentLinkingConta, setCurrentLinkingConta] = useState(null);
     const [currentBelvoLink, setCurrentBelvoLink] = useState(null);
+    const [isSearchingAccounts, setIsSearchingAccounts] = useState(false); // Novo estado local de loading
 
     const { data: saldos = {}, isLoading: isLoadingSaldos } = useQuery({
         queryKey: ['saldosContasReais', initialContas.map(c => c.id), organizacaoId],
@@ -77,25 +78,33 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
         setCurrentBelvoLink({ id: linkId, institution });
         setCurrentLinkingConta(contaDoSistema);
         
-        toast.info("Conexão realizada! Buscando contas disponíveis...");
+        // Ativa o loading global ou local (pode usar um toast loading também)
+        const toastId = toast.loading("Conexão realizada! Buscando contas...");
+        setIsSearchingAccounts(true);
 
         try {
             // Busca as contas dentro desse Link bancário
             const accountsRes = await fetch(`/api/belvo/accounts?link_id=${linkId}`);
             const accountsData = await accountsRes.json();
 
-            if (!accountsRes.ok) throw new Error(accountsData.error);
+            if (!accountsRes.ok) throw new Error(accountsData.error || "Erro ao buscar contas");
 
-            if (accountsData.length === 0) {
-                return toast.warning("Nenhuma conta encontrada neste banco.");
+            if (!accountsData || accountsData.length === 0) {
+                toast.warning("Nenhuma conta encontrada neste banco.", { id: toastId });
+                return; // Sai da função
             }
 
             // Abre modal para o usuário escolher qual conta vincular
             setFoundBelvoAccounts(accountsData);
             setLinkSelectionModalOpen(true);
+            toast.dismiss(toastId);
 
         } catch (error) {
-            toast.error("Erro ao listar contas: " + error.message);
+            console.error(error);
+            toast.error("Erro ao listar contas: " + error.message, { id: toastId });
+        } finally {
+            // OBRIGATÓRIO: Desativa o loading aconteça o que acontecer
+            setIsSearchingAccounts(false);
         }
     };
 
@@ -134,7 +143,6 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
 
     const saveMutation = useMutation({
         mutationFn: async (formData) => {
-            // ... (mesma lógica de salvar anterior)
             const isEditing = !!formData.id;
             let dataToSave;
             const { saldo_atual, fatura_atual, ...restOfData } = formData;
@@ -196,7 +204,6 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
 
     const renderContaCard = (conta) => {
         const saldoReal = saldos[conta.id] ?? 0;
-        const limite = conta.limite_cheque_especial || 0;
         const isCartao = conta.tipo === 'Cartão de Crédito';
         const isConnected = !!conta.belvo_account_id;
         const colorClass = saldoReal < 0 ? 'text-red-600' : (isCartao && saldoReal > 0 ? 'text-green-600' : 'text-gray-800');
@@ -224,7 +231,6 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                             </div>
                         )}
                     </div>
-                    {/* Infos extras ... */}
                 </div>
                 
                 <div className="text-right mt-4 pt-3 border-t border-gray-100">
@@ -233,9 +239,9 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                     
                     <div className="flex gap-2 mt-3">
                         {!isConnected ? (
-                            // AQUI ESTÁ O NOVO COMPONENTE WIDGET
                             <BelvoWidget 
                                 onSuccess={(link, institution) => handleBelvoSuccess(link, institution, conta)}
+                                disabled={isSearchingAccounts} // Desabilita enquanto busca contas
                             />
                         ) : (
                             <button onClick={() => onVerExtrato(conta.id)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-2 rounded flex items-center justify-center gap-2">
@@ -278,11 +284,11 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                 </div>
             )}
 
+            {/* Resto dos KPIs e Listas */}
             {initialContas.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <KpiCard title="Saldo Líquido" value={isLoadingSaldos ? '...' : formatCurrency(kpis.saldoLiquido)} icon={faWallet} color={kpis.saldoLiquido >= 0 ? "blue" : "red"} />
                     <KpiCard title="Poder de Compra" value={isLoadingSaldos ? '...' : formatCurrency(kpis.poderCompra)} icon={faHandHoldingDollar} color="green" />
-                    {/* ... KPI Cheque Especial ... */}
                 </div>
             )}
 
