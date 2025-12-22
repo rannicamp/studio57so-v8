@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Script from 'next/script';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faLink, faSpinner, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faLink, faSpinner, faCheck, faBuildingColumns } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
 export default function BelvoWidget({ onSuccess, onExit, disabled }) {
@@ -13,13 +13,11 @@ export default function BelvoWidget({ onSuccess, onExit, disabled }) {
 
     // Radar para detectar a Belvo
     useEffect(() => {
-        // Se já existe, marca como pronto
         if (typeof window !== 'undefined' && window.belvo) {
             setReady(true);
             return;
         }
 
-        // Se não, verifica a cada 500ms
         intervalRef.current = setInterval(() => {
             if (window.belvo) {
                 console.log("✅ Belvo detectada pelo Radar!");
@@ -28,7 +26,6 @@ export default function BelvoWidget({ onSuccess, onExit, disabled }) {
             }
         }, 500);
 
-        // Limpeza (para não deixar o radar rodando pra sempre)
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current);
         };
@@ -36,7 +33,6 @@ export default function BelvoWidget({ onSuccess, onExit, disabled }) {
 
     const handleLaunch = async () => {
         if (!ready) {
-            // Tenta forçar uma última verificação
             if (window.belvo) {
                 setReady(true);
             } else {
@@ -47,7 +43,7 @@ export default function BelvoWidget({ onSuccess, onExit, disabled }) {
         setLoading(true);
 
         try {
-            // 1. Busca o Token
+            // 1. Busca o Token no Backend
             const response = await fetch('/api/belvo/token', { method: 'POST' });
             const data = await response.json();
 
@@ -55,22 +51,32 @@ export default function BelvoWidget({ onSuccess, onExit, disabled }) {
                 throw new Error(data.error || 'Erro ao gerar token de acesso');
             }
 
-            // 2. Abre o Widget
+            // 2. Abre o Widget com as configurações OFDA (Baseado na documentação)
             const belvo = window.belvo.createWidget(
                 data.access,
                 {
-                    locale: 'pt',
-                    country_codes: ['BR'],
+                    // Configurações Visuais e de Comportamento
+                    locale: 'pt', // Força Português
+                    country_codes: ['BR'], // Apenas Brasil
+                    
+                    // --- O PULO DO GATO (Configurações OFDA) ---
+                    integration_type: 'openfinance', // Essencial para o token que geramos funcionar!
+                    institution_types: ['retail', 'business'], // Mostra bancos PF e PJ
+                    access_mode: 'recurrent', // Link recorrente (padrão)
+                    
+                    // Callbacks
                     callback: (link, institution) => {
                         setLoading(false);
+                        console.log('Sucesso Belvo:', link, institution);
                         if (onSuccess) onSuccess(link, institution);
                     },
                     onExit: (data) => {
                         setLoading(false);
+                        console.log('Saída Belvo:', data);
                         if (onExit) onExit(data);
                     },
                     onEvent: (data) => {
-                        console.log('Belvo Event:', data);
+                        console.log('Evento Belvo:', data);
                     }
                 }
             );
@@ -97,7 +103,7 @@ export default function BelvoWidget({ onSuccess, onExit, disabled }) {
                 className={`flex-1 text-xs font-bold py-2 rounded flex items-center justify-center gap-2 transition-colors border ${
                     !ready 
                         ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-wait' 
-                        : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white border-blue-700 shadow-sm'
                 }`}
             >
                 {loading ? (
@@ -105,7 +111,7 @@ export default function BelvoWidget({ onSuccess, onExit, disabled }) {
                 ) : !ready ? (
                     <> <FontAwesomeIcon icon={faSpinner} spin /> Carregando... </>
                 ) : (
-                    <> <FontAwesomeIcon icon={faLink} /> Conectar Banco </>
+                    <> <FontAwesomeIcon icon={faBuildingColumns} /> Conectar Banco </>
                 )}
             </button>
         </>
