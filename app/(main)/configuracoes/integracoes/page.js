@@ -15,41 +15,28 @@ export default async function IntegracoesPage() {
         redirect('/login');
     }
 
-    // =================================================================================
-    // CORREÇÃO DE SEGURANÇA (organização_id)
-    // O PORQUÊ: Precisamos saber a qual organização o usuário pertence para
-    // buscar apenas os dados relevantes e seguros para ele.
-    // =================================================================================
+    // 2. Busca a organização (Agora com o await corrigido na sua última atualização!)
     const organizacaoId = await getOrganizationId(user.id);
+    
     if (!organizacaoId) {
-        // Se não encontrar a organização, pode ser um erro ou um usuário novo
-        // Aqui, evitamos vazar dados mostrando uma página vazia ou de erro.
         return (
             <div className="p-4 text-center text-red-600">
-                Erro: Organização do usuário não encontrada.
+                Erro: Organização do usuário não encontrada. Contate o suporte.
             </div>
         );
     }
 
-    // =================================================================================
-    // CORREÇÃO DE SEGURANÇA (organização_id)
-    // O PORQUÊ: Adicionamos o filtro `.eq('organizacao_id', organizacaoId)`
-    // para garantir que estamos buscando APENAS as empresas da organização do usuário.
-    // =================================================================================
+    // 3. Busca as empresas da organização
     const { data: empresas } = await supabase
         .from('cadastro_empresa')
         .select('id, razao_social')
-        .eq('organizacao_id', organizacaoId); // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId);
     
-    // =================================================================================
-    // CORREÇÃO DE SEGURANÇA (organização_id)
-    // O PORQUÊ: O mesmo filtro é aplicado aqui para buscar APENAS as configurações
-    // de WhatsApp que pertencem à organização correta.
-    // =================================================================================
+    // 4. Busca configurações existentes do WhatsApp
     const { data: configs } = await supabase
         .from('configuracoes_whatsapp')
         .select('*')
-        .eq('organizacao_id', organizacaoId); // <-- FILTRO DE SEGURANÇA!
+        .eq('organizacao_id', organizacaoId);
 
     return (
         <div className="space-y-6">
@@ -58,12 +45,14 @@ export default async function IntegracoesPage() {
             </Link>
             <h1 className="text-3xl font-bold text-gray-900">Integrações</h1>
             <p className="text-gray-600">
-                Configure as credenciais para serviços externos, como a API do WhatsApp.
+                Configure as credenciais para serviços externos, como a API do WhatsApp e Open Finance.
             </p>
             <div className="bg-white rounded-lg shadow p-6">
+                {/* CORREÇÃO: Passamos o organizacaoId explicitamente aqui! */}
                 <IntegrationsManager 
                     empresas={empresas || []}
                     initialConfigs={configs || []}
+                    organizacaoId={organizacaoId}
                 />
             </div>
         </div>
