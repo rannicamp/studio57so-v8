@@ -1,0 +1,2859 @@
+Belvo API Docs (1.223.0)
+Copy
+
+Introduction
+Reach new audiences and convert more users by easily and safely connecting to their financial data, understanding their behavior and enabling instant payments with open finance. Through our API, you can access:
+
+Available Information and Payment Methods
+Belvo is an open banking API for Latin America that allows companies to access banking and fiscal information in a secure as well as agile way.
+
+Through our API, you can access:
+
+Banking Information in Brazil
+Employment Information in Brazil
+Employment Information in Mexico
+Fiscal Information in Mexico
+Fiscal Information in Chile
+You can also use our API to make payments in:
+
+Brazil
+Mexico
+Data Dictionaries
+If you woud like the response documentation in Excel or CSV form, please download them from our public GitHub Reposiitory: Belvo Open Finance Data Dictionaries.
+
+Our EXCEL and CSV files are additionally localized into Spanish and Portuguese (Brazil).
+
+Environments
+We currently offer two environments: sandbox and production.
+
+Sandbox
+Available for:
+
+🟢 Aggregation and Enrichment
+⚪️ Payment Initiation
+Use our Sandbox environment to build your integration. We offer dummy data that mimics that of real-world use cases, which means you can test out all the endpoints, use the widget, and implement webhooks - just as you would with real-world data!
+
+All you need to get started with the Sandbox environment is to get your API keys. We really recommend that you start creating your integration in this environment.
+
+Production
+Available for:
+
+🟢 Aggregation and Enrichment
+🟢 Payment Initiation
+After you have tested your integration in the Sandbox environment and are ready to go live, you'll need to request access to our Production environment. After you request access, our Sales Team will get in contact with you to schedule a meeting just to ensure your needs are met, and then you'll just need to go through a certification process with one of our engineers to make sure that your integration is running optimally. To prepare for the certification meeting, just follow our Integration checklist.
+
+Once your integration is certified, all you'll need to do is:
+
+ Request Production API keys (and change your Sandbox API keys in the code to these new ones).
+ Change the base URL that you make requests to from sandbox.belvo.com to api.belvo.com.
+ If you're using webhooks, make sure to set a Production URL for your webhooks.
+Response codes
+We use the following HTTP status code in the response depending on the success or failure:
+
+Status Code	Description
+200	✅ Success - The content is available in the response body.
+201	✅ Success - The content was created successfully on Belvo.
+204	✅ Success - No content to return.
+400	❌ Bad Request Error - Request returned an error, detail in the content.
+401	❌ Unauthorized - The Belvo credentials provided are not valid.
+404	❌ Not Found - The resource you try to access cannot be found.
+405	❌ Method Not Allowed - The HTTP method you are using is not accepted for this resource.
+408	❌ Request Timeout - The request timed out and was terminated by the server.
+428	❌ MFA Token Required - MFA token was required by the institution to connect.
+500	❌ Internal Server Error - The detail of the error is available in the response body.
+Error handling
+Belvo API errors are returned in JSON format. For example, an error might look like this:
+
+
+
+[
+    {
+      "request_id": "a6e1c493d7a29d91aed4338e6fcf077d",
+      "message": "This field is required.",
+      "code": "required",
+      "field": "link"
+    }
+]
+Typically, an error response will have the following parameters:
+
+request_id: a unique ID for the request, you should share it with the Belvo support team for investigations.
+message: human-readable description of the error.
+code: a unique code for the error. Check the table below to see how to handle each error code.
+field (optional): The specific field in the request body that has an issue.
+Request identifier
+When you need help with a specific error, include the request identifier (request_id) in your message to the Belvo support team. This will speed up investigations and get you back up and running in no time at all.
+
+Error codes and troubleshooting
+For a full list of errors and how to troubleshoot them, please see our dedicated Error Handling article.
+
+Retry policy
+50x errors
+Implement an automated exponential backoff of up to five retries. We recommend using a base interval of three seconds with a factor of two. For example, the first retry should be after three seconds, the second retry after six seconds (2 * 3), the third retry after 12 seconds (2 * 6), the fourth retry after 24 seconds (2 * 12), and the fifth retry after 48 seconds (2 * 24).
+
+40x errors
+You should not retry making requests if you receive a 40x response, as this is a client error.
+
+The only exception is the “Too Many Sessions” error, as it means that your end-user is accessing the account from another browser at the same time. In this case, please implement the same retry policy as with 50x errors.
+
+Deprecated fields
+In our schema, you may see that a field has been marked as deprecated. This means that this field is no longer maintained by the Belvo team. You may still receive data for this field depending on the institution, however, you should not rely on this field.
+
+OpenAPI: required and nullable fields
+In our API specification, you'll see that some response parameters will have a required annotation. According to the OpenAPI specification, when a response parameter is marked as required, this means that the response key must be returned. However, the value of that response parameter can be null.
+
+📘 Info
+
+In short, any response parameter marked as required will be returned by our API, but the value can be set to null.
+
+Download OpenAPI description
+BelvoOpenApiSpec.json
+
+BelvoOpenApiSpec.yaml
+
+Overview
+URL
+https://developers.belvo.com
+
+Need help?
+support@belvo.com
+
+
+Languages
+
+curl
+
+JavaScript
+
+Node.js
+
+Python
+
+Java
+
+C#
+
+PHP
+
+Go
+
+Servers
+Sandbox
+https://sandbox.belvo.com/
+
+Institutions
+Copy
+
+An institution is an entity that Belvo can access information from. It can be a:
+
+bank institution, such as Nubank Brazil.
+fiscal institution, such as the Servicio de Administración Tributaria (SAT) in Mexico.
+employment institutions, such as Instituto Mexicano del Seguro Social (IMSS) in Mexico or Instituto Nacional do Seguro Social (INSS) in Brazil.
+Schemas
+
+schema
+Institution Object
+Operations
+
+get
+/api/institutions/
+
+get
+/api/institutions/{id}/
++ Show
+Links
+Copy
+
+A Link is a set of credentials associated to an end-user's access to an institution. You will need to register a Link before accessing information from that specific end-user, such as account or transaction details.
+
+We recommend using the Belvo Hosted Widget to manage the connection process.
+
+Operations
+
+get
+/api/links/
+
+post
+/api/links/
+
+patch
+/api/links/
+
+get
+/api/links/{id}/
+
+patch
+/api/links/{id}/
+
+put
+/api/links/{id}/
+
+delete
+/api/links/{id}/
+
+post
+/api/links/{id}/refresh/
++ Show
+Widget Access Token
+Copy
+
+Operations
+
+post
+/api/token/
++ Show
+Consents
+Copy
+
+A consent is a permission given by the end user to access their financial data in the Open Finance Network in Brazil.
+
+Schemas
+
+schema
+Consents Object (Brazil)
+Operations
+
+get
+/api/consents/
+
+get
+/api/consents/{id}/
++ Show
+Owners
+Copy
+
+An owner represents the person who has access to a Link and is the owner of all the accounts inside the Link.
+
+You can use this endpoint in order to get useful information about your client, such as:
+
+their full name
+key contact information
+information about the ID document they used when opening the account
+Operations
+
+get
+/api/owners/
+
+post
+/api/owners/
+
+patch
+/api/owners/
+
+get
+/api/owners/{id}/
+
+delete
+/api/owners/{id}/
++ Show
+Accounts
+Copy
+
+An account is the representation of a bank account inside a financial institution. A user can have one or more accounts in an institution.
+
+For example, one user (or link) can have a checking account, several credit cards, and a loan account.
+
+Querying for a user's account information is useful as you can get information regarding:
+
+what types of accounts the user has.
+the balance for each account (savings, checking, credit card, loan, and so on).
+detailed information regarding their credit card spending.
+the current situation of any loans they may have.
+Schemas
+
+schema
+Account Object (OFDA Brazil)
+Operations
+
+get
+/api/accounts/
+
+post
+/api/accounts/
+
+patch
+/api/accounts/
+
+get
+/api/accounts/{id}/
+
+delete
+/api/accounts/{id}/
++ Show
+Balances
+Copy
+
+A balance is the amount of money available in a given bank account (checking or savings) at a given time.
+
+Schemas
+
+schema
+Balance Object (Brazil OFDA)
+Operations
+
+get
+/api/br/balances/
+
+post
+/api/br/balances/
+
+get
+/api/br/balances/{id}/
++ Show
+Exchanges
+Copy
+
+An exchange is a currency exchange operation in the Brazilian Open Finance Network. The resource contains details of foreign exchange operations, including exchange rates, amounts in local and foreign currencies, and settlement information. Each exchange operation can have associated history events that record any modifications to the original contract.
+
+Schemas
+
+schema
+Exchange Object (Brazil)
+
+schema
+Exchange History Object (Brazil)
+Operations
+
+get
+/api/br/exchanges/
+Coming Soon
+
+post
+/api/br/exchanges/
+Coming Soon
+
+get
+/api/br/exchanges/{id}/
+Coming Soon
+
+delete
+/api/br/exchanges/{id}/
+Coming Soon
+
+get
+/api/br/exchanges/{id}/history/
+Coming Soon
+Exchange Object (Brazil)
+Copy
+
+Details regarding an exchange operation in the Brazilian Open Finance Network.
+
+An Exchange represents a currency exchange operation contracted by the customer, including the main contract details, exchange rates, amounts in local and foreign currencies, and settlement information.
+
+id
+string
+(uuid)
+required
+Belvo's unique identifier for the current item.
+
+Example:
+"0d3ffb69-f83b-456e-ad8e-208d0998d71d"
+link
+string or null
+(uuid)
+required
+The link.id the data belongs to.
+
+Example:
+"30cb4806-6e00-48a4-91c9-ca55968576c8"
+created_at
+string
+(date-time)
+required
+The ISO-8601 timestamp of when the data point was created in Belvo's database.
+
+Example:
+"2022-02-09T08:45:50.406032Z"
+collected_at
+string
+(date-time)
+required
+The ISO-8601 timestamp when the data point was collected.
+
+Example:
+"2022-02-09T08:45:50.406032Z"
+operation_identifier
+string
+<= 100 characters
+^[a-zA-Z0-9][a-zA-Z0-9\-]{0,99}$
+required
+The network's unique identifier for the exchange operation.
+
+Example:
+"92792126019929240"
+operation_number
+string or null
+<= 12 characters
+^\d{12}$
+The 12-digit operation registration number from the Brazil Central Bank (Bacen). This can be null if the operation has not yet been registered.
+
+Example:
+"393874649456"
+operation_type
+string
+required
+The type of exchange operation.
+
+We return one of the following enum values:
+
+COMPRA - Buy (client is buying foreign currency)
+VENDA - Sell (client is selling foreign currency)
+Enum
+"COMPRA"
+"VENDA"
+Example:
+"COMPRA"
+operation_requested_at
+string
+(date-time)
+^(\d{4})-(1[0-2]|0?[1-9])-(3[01]|[12][0-9]|0?...
+Show pattern
+required
+The ISO-8601 timestamp when the exchange operation was contracted.
+
+Example:
+"2023-03-07T08:30:00Z"
+authorized_institution_identifier
+integer
+(int64)
+required
+The CNPJ of the institution authorized to conduct the operation.
+
+Example:
+11225860000140
+authorized_institution_name
+string
+<= 80 characters
+required
+The name of the authorized institution.
+
+Example:
+"AGENCIA CORRETORA"
+intermediary_institution_identifier
+integer or null
+(int64)
+The CNPJ of the intermediary institution, if one was used.
+
+Example:
+11225860000140
+intermediary_institution_name
+string or null
+<= 80 characters
+The name of the intermediary institution. Must be present if intermediary_institution_identifier is available.
+
+Example:
+"AGENCIA CORRETORA"
+operation_due_date
+string
+(date)
+= 10 characters
+^(\d{4})-(1[0-2]|0?[1-9])-(3[01]|[12][0-9]|0?...
+Show pattern
+required
+The currently scheduled settlement date for the operation, in YYYY-MM-DD format.
+
+Note: This field is updated if any changes are made to the exchange operation.
+
+Example:
+"2018-02-15"
+local_operation_tax_amount
+number
+(float)
+^\d{1,15}\.\d{1,15}$
+required
+The exchange rate applied to the operation.
+
+Example:
+1.3
+local_operation_tax_currency
+string
+= 3 characters
+^[A-Z]{3}$
+required
+The three-letter currency code (ISO-4217) for the exchange rate.
+
+Example:
+"BRL"
+local_operation_value_amount
+number
+(float)
+^\d{1,17}\.\d{2}$
+required
+The total value of the operation in local currency.
+
+Example:
+1000.04
+local_operation_value_currency
+string
+= 3 characters
+^[A-Z]{3}$
+required
+The three-letter currency code (ISO-4217) for the local currency.
+
+Example:
+"BRL"
+foreign_operation_value_amount
+number
+(float)
+^\d{1,17}\.\d{2}$
+required
+The total value of the operation in the foreign currency.
+
+Example:
+1000.04
+foreign_operation_value_currency
+string
+= 3 characters
+^[A-Z]{3}$
+required
+The three-letter currency code (ISO-4217) for the foreign currency.
+
+Example:
+"USD"
+operation_outstanding_balance_amount
+number or null
+(float)
+^\d{1,17}\.\d{2}$
+The outstanding balance to be settled, in the foreign currency. In the case that the exchange operation is scheduled to be settled within two days of the operation_requested_at, this value can be null.
+
+Example:
+1000.04
+operation_outstanding_balance_currency
+string or null
+= 3 characters
+^[A-Z]{3}$
+The currency of the outstanding balance. Required if operation_outstanding_balance_amount is not null.
+
+Example:
+"USD"
+tev_amount_amount
+number or null
+(float)
+^\d{1,15}\.\d{1,15}$
+The "All-in Rate" (Valor Efetivo Total/Total Effective Cost), representing the total cost of the operation. Required when the operation is scheduled to be settled within two days of the operation_requested_at and does not exceed $100,000 USD.
+
+Example:
+1000.000004
+tev_amount_currency
+string or null
+= 3 characters
+^[A-Z]{3}$
+The currency of the VET (always BRL). Required if tev_amount_amount is not null.
+
+Example:
+"BRL"
+local_currency_advance_percentage
+number or null
+(float)
+^\d{1}\.\d{1,6}$
+The percentage of the foreign currency value that was granted to the client in advance. In the case that the exchange operation is scheduled to be settled within two days of the operation_requested_at, this value can be null.
+
+Example:
+0.12
+settlement_method
+string or null
+required
+The method of delivery for the foreign currency.
+
+We return one of the following enum values:
+
+CARTA_CREDITO_A_VISTA (Code 10) - Sight letter of credit
+CARTA_CREDITO_A_PRAZO (Code 15) - Term letter of credit
+CONTA_DEPOSITO (Code 20) - Deposit account
+CONTA_DEPOSITO_MOEDA_ESTRANGEIRA_PAIS (Code 21) - Foreign currency deposit account in country
+CONTA_DEPOSITO_EXPORTADOR_MANTIDA_NO_EXTERIOR (Code 22) - Exporter's deposit account maintained abroad
+CONTA_DEPOSITO_OU_PAGAMENTO_EXPORTADOR_INSTITUICAO_EXTERIOR (Code 23) - Deposit account or payment to exporter at foreign institution
+CONVENIO_PAGAMENTOS_E_CREDITOS_RECIPROCOS (Code 25) - Reciprocal payments and credits agreement
+CHEQUE (Code 30) - Check
+ESPECIE_CHEQUES_VIAGEM (Code 50) - Cash or traveler's checks
+CARTAO_PREPAGO (Code 55) - Prepaid card
+TELETRANSMISSAO (Code 65) - Wire transfer
+TITULOS_VALORES (Code 75) - Securities/bonds
+SIMBOLICA (Code 90) - Symbolic
+SEM_MOVIMENTACAO_VALORES (Code 91) - No movement of funds
+DEMAIS (Code 99) - Others
+OUTRO_NAO_MAPEADO_OFB - Other not mapped by Open Finance Brazil
+null
+Enum
+"CONTA_DEPOSITO_MOEDA_ESTRANGEIRA_PAIS"
+"CONTA_DEPOSITO_OU_PAGAMENTO_EXPORTADOR_INSTITUICAO_EXTERIOR"
+"ESPECIE_CHEQUES_VIAGEM"
+"CARTAO_PREPAGO"
+"TELETRANSMISSAO"
+"SEM_MOVIMENTACAO_VALORES"
+"DEMAIS"
+"CARTA_CREDITO_A_VISTA"
+"CARTA_CREDITO_A_PRAZO"
+"CONTA_DEPOSITO"
++7 more
+Example:
+"CARTA_CREDITO_A_PRAZO"
+operation_category_code
+string
+<= 5 characters
+^\d{5}$
+required
+The 5-digit Central Bank code that classifies the "nature" of the operation.
+
+This code must comply with the nature codes referenced in Resolution 277 or Circular 3690, as applicable to the exchange contract.
+
+Example:
+"90302"
+
+
+{
+  "id": "0d3ffb69-f83b-456e-ad8e-208d0998d71d",
+  "link": "30cb4806-6e00-48a4-91c9-ca55968576c8",
+  "created_at": "2022-02-09T08:45:50.406032Z",
+  "collected_at": "2022-02-09T08:45:50.406032Z",
+  "operation_identifier": "92792126019929240",
+  "operation_number": "393874649456",
+  "operation_type": "COMPRA",
+  "operation_requested_at": "2023-03-07T08:30:00Z",
+  "authorized_institution_identifier": 11225860000140,
+  "authorized_institution_name": "AGENCIA CORRETORA",
+  "intermediary_institution_identifier": 11225860000140,
+  "intermediary_institution_name": "AGENCIA CORRETORA",
+  "operation_due_date": "2018-02-15",
+  "local_operation_tax_amount": 1.3,
+  "local_operation_tax_currency": "BRL",
+  "local_operation_value_amount": 1000.04,
+  "local_operation_value_currency": "BRL",
+  "foreign_operation_value_amount": 1000.04,
+  "foreign_operation_value_currency": "USD",
+  "operation_outstanding_balance_amount": 1000.04,
+  "operation_outstanding_balance_currency": "USD",
+  "tev_amount_amount": 1000.000004,
+  "tev_amount_currency": "BRL",
+  "local_currency_advance_percentage": 0.12,
+  "settlement_method": "CARTA_CREDITO_A_PRAZO",
+  "operation_category_code": "90302"
+}
+Exchange History Object (Brazil)
+Copy
+
+Details regarding modification events for an exchange operation in the Brazilian Open Finance Network.
+
+Each history entry represents a modification event (an audit trail) for an exchange operation. The Exchange object holds the original contract data, while any changes to the contract (alterations, changes to settlements, etc.) are recorded as history events.
+
+id
+string
+(uuid)
+required
+Belvo's unique identifier for the current item.
+
+Example:
+"0d3ffb69-f83b-456e-ad8e-208d0998d71d"
+link
+string or null
+(uuid)
+required
+The link.id the data belongs to.
+
+Example:
+"30cb4806-6e00-48a4-91c9-ca55968576c8"
+exchange_id
+string
+(uuid)
+required
+The Belvo-generated unique identifier for the original exchange operation.
+
+Example:
+"c4bfecf9-4eb6-4920-9f9f-e1f1e60ef321"
+created_at
+string
+(date-time)
+required
+The ISO-8601 timestamp of when the data point was created in Belvo's database.
+
+Example:
+"2022-02-09T08:45:50.406032Z"
+collected_at
+string
+(date-time)
+required
+The ISO-8601 timestamp when the data point was collected.
+
+Example:
+"2022-02-09T08:45:50.406032Z"
+operation_identifier
+string
+<= 100 characters
+^[a-zA-Z0-9][a-zA-Z0-9\-]{0,99}$
+required
+The network's unique identifier for the exchange operation.
+
+Example:
+"92792126019929240"
+event_sequence_number
+string
+<= 12 characters
+^\d{12}$
+required
+The sequence number of the event record at the Central Bank (Bacen).
+
+Example:
+"493874649457"
+event_type
+integer
+required
+The type of event that occurred for the exchange operation.
+
+We return one of the following enum values:
+
+1 - Contract in the primary market
+2 - Modification of exchange operation in the primary market
+3 - Cancellation of exchange operation in the primary market
+4 - Settlement of exchange operation in the primary market
+5 - Write-off of outstanding amount to be settled in the primary market
+6 - Reinstatement of written-off outstanding amount in the primary market
+9 - Nullification of exchange operation in the primary market (used, for example, in the nullification of a settlement/cancellation event)
+Note: Codes follow the messaging layout sent by institutions to the Central Bank of Brazil.
+
+Enum
+1
+2
+3
+4
+5
+6
+9
+Example:
+2
+event_created_at
+string
+(date-time)
+^(\d{4})-(1[0-2]|0?[1-9])-(3[01]|[12][0-9]|0?...
+Show pattern
+required
+The ISO-8601 timestamp when the event occurred.
+
+Example:
+"2023-03-10T14:00:00Z"
+operation_due_date
+string or null
+(date)
+= 10 characters
+^(\d{4})-(1[0-2]|0?[1-9])-(3[01]|[12][0-9]|0?...
+Show pattern
+The date when the operation (buy or sell), after the event, is scheduled to be settled, in YYYY-MM-DD format.
+
+Example:
+"2023-03-20"
+local_operation_tax_amount
+number or null
+(float)
+^\d{1,15}\.\d{1,15}$
+The exchange rate applied to the operation after the event.
+
+Example:
+1.4
+local_operation_tax_currency
+string or null
+= 3 characters
+^[A-Z]{3}$
+The three-letter currency code (ISO-4217) for the exchange rate.
+
+Example:
+"BRL"
+local_operation_value_amount
+number or null
+(float)
+^\d{1,17}\.\d{2}$
+The total value of the operation in local currency after the event.
+
+Example:
+950
+local_operation_value_currency
+string or null
+= 3 characters
+^[A-Z]{3}$
+The three-letter currency code (ISO-4217) for the local currency.
+
+Example:
+"BRL"
+foreign_operation_value_amount
+number or null
+(float)
+^\d{1,17}\.\d{2}$
+The total value of the operation in foreign currency after the event.
+
+Example:
+678.57
+foreign_operation_value_currency
+string or null
+= 3 characters
+^[A-Z]{3}$
+The three-letter currency code (ISO-4217) for the foreign currency.
+
+Example:
+"USD"
+operation_outstanding_balance_amount
+number or null
+(float)
+^\d{1,17}\.\d{2}$
+The outstanding balance to be settled in foreign currency after the event.
+
+This field is mandatory for events created (event_created_at) from April 15, 2024 onwards, in cases of exchange operations with future settlement.
+
+Example:
+678.57
+operation_outstanding_balance_currency
+string or null
+= 3 characters
+^[A-Z]{3}$
+The currency of the outstanding balance. Required if operation_outstanding_balance_amount is not null.
+
+Example:
+"USD"
+tev_amount_amount
+number or null
+(float)
+^\d{1,15}\.\d{1,15}$
+The "All-in Rate" (Valor Efetivo Total/Total Effective Cost), representing the total cost of the operation after the event.
+
+This field is required for spot exchange operations that reach up to the limit of $100,000 USD or equivalent in other currencies.
+
+Example:
+1002
+tev_amount_currency
+string or null
+= 3 characters
+^[A-Z]{3}$
+The currency of the VET (always BRL). Required if tev_amount_amount is not null.
+
+Example:
+"BRL"
+local_currency_advance_percentage
+number or null
+(float)
+^\d{1}\.\d{1,6}$
+The percentage of the foreign currency value that was granted to the client in advance after the event.
+
+This field is mandatory in cases of exchange operations with future settlement.
+
+Example:
+0.12
+settlement_method
+string or null
+The method of delivery for the foreign currency.
+
+We return one of the following enum values:
+
+CARTA_CREDITO_A_VISTA (Code 10) - Sight letter of credit
+CARTA_CREDITO_A_PRAZO (Code 15) - Term letter of credit
+CONTA_DEPOSITO (Code 20) - Deposit account
+CONTA_DEPOSITO_MOEDA_ESTRANGEIRA_PAIS (Code 21) - Foreign currency deposit account in country
+CONTA_DEPOSITO_EXPORTADOR_MANTIDA_NO_EXTERIOR (Code 22) - Exporter's deposit account maintained abroad
+CONTA_DEPOSITO_OU_PAGAMENTO_EXPORTADOR_INSTITUICAO_EXTERIOR (Code 23) - Deposit account or payment to exporter at foreign institution
+CONVENIO_PAGAMENTOS_E_CREDITOS_RECIPROCOS (Code 25) - Reciprocal payments and credits agreement
+CHEQUE (Code 30) - Check
+ESPECIE_CHEQUES_VIAGEM (Code 50) - Cash or traveler's checks
+CARTAO_PREPAGO (Code 55) - Prepaid card
+TELETRANSMISSAO (Code 65) - Wire transfer
+TITULOS_VALORES (Code 75) - Securities/bonds
+SIMBOLICA (Code 90) - Symbolic
+SEM_MOVIMENTACAO_VALORES (Code 91) - No movement of funds
+DEMAIS (Code 99) - Others
+OUTRO_NAO_MAPEADO_OFB - Other not mapped by Open Finance Brazil
+null
+Enum
+"CONTA_DEPOSITO_MOEDA_ESTRANGEIRA_PAIS"
+"CONTA_DEPOSITO_OU_PAGAMENTO_EXPORTADOR_INSTITUICAO_EXTERIOR"
+"ESPECIE_CHEQUES_VIAGEM"
+"CARTAO_PREPAGO"
+"TELETRANSMISSAO"
+"SEM_MOVIMENTACAO_VALORES"
+"DEMAIS"
+"CARTA_CREDITO_A_VISTA"
+"CARTA_CREDITO_A_PRAZO"
+"CONTA_DEPOSITO"
++7 more
+Example:
+"CARTA_CREDITO_A_PRAZO"
+operation_category_code
+string or null
+<= 5 characters
+^\d{5}$
+The 5-digit Central Bank code that classifies the "nature" of the operation.
+
+This code must comply with the nature codes referenced in Resolution 277 or Circular 3690, as applicable to the exchange contract.
+
+Example:
+"90302"
+foreign_partie_relationship_code
+string or null
+<= 2 characters
+^\d{2}$
+The code indicating the relationship between the customer and the foreign payer/receiver.
+
+This code must comply with the relationship codes referenced in Resolution 277 or Circular 3690, as applicable to the exchange contract.
+
+Note: This field is optional when:
+
+The settlement_method field is ESPECIE_CHEQUES_VIAGEM or CARTAO_PREPAGO.
+The event_type field is different from 4 (Settlement of exchange operation in the primary market).
+If the institution has this information, it is mandatory to send it. If the information is updated after contracting, it must be sent through events.
+
+Example:
+"50"
+foreign_partie_name
+string or null
+<= 80 characters
+[\w\W\s]*
+The name of the foreign payer or receiver.
+
+Note: This field is optional when:
+
+The settlement_method field is ESPECIE_CHEQUES_VIAGEM or CARTAO_PREPAGO.
+The event_type field is different from 4 (Settlement of exchange operation in the primary market).
+If the institution has this information, it is mandatory to send it. If the information is updated after contracting, it must be sent through events.
+
+Example:
+"Global Tech Imports LLC"
+foreign_partie_country_code
+string or null
+= 2 characters
+^[A-Z]{2}$
+The country code of the foreign payer or receiver, following the ISO 3166-1 standard.
+
+Note: This field is optional when:
+
+The settlement_method field is ESPECIE_CHEQUES_VIAGEM or CARTAO_PREPAGO.
+The event_type field is different from 4 (Settlement of exchange operation in the primary market).
+If the institution has this information, it is mandatory to send it. If the information is updated after contracting, it must be sent through events.
+
+Example:
+"US"
+
+
+{
+  "id": "0d3ffb69-f83b-456e-ad8e-208d0998d71d",
+  "link": "30cb4806-6e00-48a4-91c9-ca55968576c8",
+  "exchange_id": "c4bfecf9-4eb6-4920-9f9f-e1f1e60ef321",
+  "created_at": "2022-02-09T08:45:50.406032Z",
+  "collected_at": "2022-02-09T08:45:50.406032Z",
+  "operation_identifier": "92792126019929240",
+  "event_sequence_number": "493874649457",
+  "event_type": 2,
+  "event_created_at": "2023-03-10T14:00:00Z",
+  "operation_due_date": "2023-03-20",
+  "local_operation_tax_amount": 1.4,
+  "local_operation_tax_currency": "BRL",
+  "local_operation_value_amount": 950,
+  "local_operation_value_currency": "BRL",
+  "foreign_operation_value_amount": 678.57,
+  "foreign_operation_value_currency": "USD",
+  "operation_outstanding_balance_amount": 678.57,
+  "operation_outstanding_balance_currency": "USD",
+  "tev_amount_amount": 1002,
+  "tev_amount_currency": "BRL",
+  "local_currency_advance_percentage": 0.12,
+  "settlement_method": "CARTA_CREDITO_A_PRAZO",
+  "operation_category_code": "90302",
+  "foreign_partie_relationship_code": "50",
+  "foreign_partie_name": "Global Tech Imports LLC",
+  "foreign_partie_country_code": "US"
+}
+Coming Soon
+List exchanges
+Copy
+
+Request
+Coming Soon
+This endpoint is currently undergoing development. As such, minor changes or bugs may occur. If you encounter any issues, please contact your Belvo representative.
+
+▶️ Usage
+With the List Exchanges method, you can:
+
+[Required] List exchanges related to a specific link.id (using the link query parameter).
+Get the details of a specific exchange.id (using the id query parameter).
+🔦 Filtering Responses
+Please see the query list below for a list of fields that you can filter your responses by. For more information on how to use filters, see our Filtering responses article.
+
+📖 Pagination
+This method returns a paginated response (default: 100 items per page). You can use the page_size query parameter to increase the number of items returned to a maximum of 1000 items. You can use the page query parameter to navigate through the results. For more details on how to navigate Belvo's paginated responses, see our Pagination Tips article.
+
+Security
+View security details
+basicAuth
+Query
+link
+string
+(uuid)
+required
+The link.id you want to filter by.
+
+Example:
+link=8848bd0c-9c7e-4f53-a732-ec896b11d4c4
+id
+string
+(uuid)
+Return information only for this resource id.
+
+Example:
+id=24ccab1d-3a86-4136-a6eb-e04bf52b356f
+link__in
+Array of strings
+(uuid)
+Return results only for these link.ids.
+
+Example:
+link__in=5722d0ba-69d7-42dc-8ff5-33767b83c5d6
+id__in
+Array of strings
+(uuid)
+Return information for these resource ids.
+
+Example:
+id__in=6b3dea0f-be29-49d1-aabe-1a6d588642e6
+page_size
+integer
+(int32)
+[ 1 .. 1000 ]
+Indicates how many results to return per page. By default we return 100 results per page.
+
+ℹ️ The minimum number of results returned per page is 1 and the maximum is 1000. If you enter a value greater than 1000, our API will default to the maximum value (1000).
+
+Default
+100
+Example:
+page_size=100
+page
+integer
+(int32)
+>= 1
+A page number within the paginated result set.
+
+Example:
+page=1
+omit
+string
+Omit certain fields from being returned in the response. For more information, see our Filtering responses DevPortal article.
+
+fields
+string
+Return only the specified fields in the response. For more information, see our Filtering responses DevPortal article.
+
+collected_at
+string
+(date)
+Return items that were retrieved from the institution on this date (YYYY-MM-DD or full ISO-8601 timestamp).
+
+Example:
+collected_at=2022-05-01
+collected_at__gt
+string
+(date)
+Return items that were retrieved from the institution after this date (YYYY-MM-DD or full ISO-8601 timestamp).
+
+Example:
+collected_at__gt=2022-05-05
+collected_at__gte
+string
+(date)
+Return items that were retrieved from the institution after or on this date (YYYY-MM-DD or full ISO-8601 timestamp).
+
+Example:
+collected_at__gte=2022-05-04
+collected_at__lt
+string
+(date)
+Return items that were retrieved from the institution before this date (YYYY-MM-DD or full ISO-8601 timestamp).
+
+Example:
+collected_at__lt=2022-04-01
+collected_at__lte
+string
+(date)
+Return items that were retrieved from the institution before or on this date (YYYY-MM-DD or full ISO-8601 timestamp).
+
+Example:
+collected_at__lte=2022-03-30
+collected_at__range
+Array of strings
+(date)
+<= 2 items
+Return items that were retrieved from the institution between two dates (YYYY-MM-DD or full ISO-8601 timestamp). The first value indicates the start of the range and the second value indicates the end of the range.
+
+Example:
+collected_at__range=2022-01-01,2022-12-31
+created_at
+string
+(date)
+Return items that were last updated in Belvo's database on this date (in YYYY-MM-DD format).
+
+Example:
+created_at=2022-05-05
+created_at__gt
+string
+(date)
+Return items that were last updated in Belvo's database after this date (in YYYY-MM-DD format).
+
+Example:
+created_at__gt=2022-05-05
+created_at__gte
+string
+(date)
+Return items that were last updated in Belvo's database after or on this date (in YYYY-MM-DD format).
+
+Example:
+created_at__gte=2022-05-04
+created_at__lt
+string
+(date)
+Return items that were last updated in Belvo's database before this date (in YYYY-MM-DD format).
+
+Example:
+created_at__lt=2022-04-01
+created_at__lte
+string
+(date)
+Return items that were last updated in Belvo's database before or on this date (in YYYY-MM-DD format).
+
+Example:
+created_at__lte=2022-03-30
+created_at__range
+Array of strings
+(date)
+<= 2 items
+Return accounts that were last updated in Belvo's database between two dates (in YYYY-MM-DD format). The first value indicates the start of the range and the second value indicates the end of the range.
+
+Example:
+created_at__range=2022-01-01,2022-12-31
+
+get
+/api/br/exchanges/
+JavaScript
+
+
+const query = new URLSearchParams({
+  link: '8848bd0c-9c7e-4f53-a732-ec896b11d4c4',
+  id: '24ccab1d-3a86-4136-a6eb-e04bf52b356f',
+  link__in: '5722d0ba-69d7-42dc-8ff5-33767b83c5d6',
+  id__in: '6b3dea0f-be29-49d1-aabe-1a6d588642e6',
+  page_size: '100',
+  page: '1',
+  omit: 'string',
+  fields: 'string',
+  collected_at: '2022-05-01',
+  collected_at__gt: '2022-05-05',
+  collected_at__gte: '2022-05-04',
+  collected_at__lt: '2022-04-01',
+  collected_at__lte: '2022-03-30',
+  collected_at__range: '2022-01-01,2022-12-31',
+  created_at: '2022-05-05',
+  created_at__gt: '2022-05-05',
+  created_at__gte: '2022-05-04',
+  created_at__lt: '2022-04-01',
+  created_at__lte: '2022-03-30',
+  created_at__range: '2022-01-01,2022-12-31'
+}).toString();
+
+const resp = await fetch(
+  `https://sandbox.belvo.com/api/br/exchanges/?${query}`,
+  {
+    method: 'GET',
+    headers: {
+      Authorization: 'Basic ' + btoa('<username>:<password>')
+    }
+  }
+);
+
+const data = await resp.text();
+console.log(data);
+Try it
+Responses
+200
+401
+403
+408
+500
+Expand all
+OK - Exchanges Retrieved
+
+Body
+application/json
+count
+integer
+(int32)
+The total number of results in your Belvo account.
+
+Example:
+130
+next
+string or null
+(uri)
+The URL to next page of results. Each page consists of up to 100 items. If there are not enough results for an additional page, the value is null.
+
+In our documentation example, we use {endpoint} as a placeholder value. In production, this value will be replaced by the actual endpoint you are currently using (for example, accounts or owners).
+
+Example:
+"https://sandbox.belvo.com/api/{endpoint}/?link=1bd948f7-245d-4313-b604-34d1044cb908page=2"
+previous
+string or null
+(uri)
+The URL to the previous page of results. If there is no previous page, the value is null.
+
+Example:
+null
+results
+Array of objects
+An array of exchange objects.
+
+
++
+Show 26 array properties
+Response
+200
+401
+403
+408
+500
+application/json
+
+
+
+
+{
+  "count": 130,
+  "next": "https://sandbox.belvo.com/api/{endpoint}/?link=1bd948f7-245d-4313-b604-34d1044cb908page=2",
+  "previous": null,
+  "results": [
+    { … }
+  ]
+}
+Was this helpful?
+
+
+Coming Soon
+Retrieve exchanges for a link
+Copy
+
+Request
+Coming Soon
+This endpoint is currently undergoing development. As such, minor changes or bugs may occur. If you encounter any issues, please contact your Belvo representative.
+
+Retrieve exchange operations for an existing link. By default, we retrieve exchange data for the last 365 days.
+
+Note: When you retrieve exchanges, we automatically retrieve the exchange history for each exchange operation found.
+
+Security
+View security details
+basicAuth
+Query
+omit
+string
+Omit certain fields from being returned in the response. For more information, see our Filtering responses DevPortal article.
+
+fields
+string
+Return only the specified fields in the response. For more information, see our Filtering responses DevPortal article.
+
+Body
+application/json
+required
+link
+string
+(uuid)
+required
+The link.id you want to retrieve information for.
+
+Example:
+"c81a1dea-6dd6-4999-8b9f-541ee8197058"
+date_from
+string
+(date)
+The starting date for which you want to retrieve exchange data, in YYYY-MM-DD format. If not provided, we retrieve data for the last 365 days.
+
+Example:
+"2022-01-01"
+date_to
+string
+(date)
+The ending date for which you want to retrieve exchange data, in YYYY-MM-DD format. If not provided, we retrieve data up to today.
+
+Example:
+"2022-12-31"
+save_data
+boolean
+Indicates whether or not to persist the data in Belvo. By default, this is set to true and we return a 201 Created response.
+
+When set to false, the data won't be persisted and we return a 200 OK response.
+
+Default
+true
+Example:
+true
+
+post
+/api/br/exchanges/
+JavaScript
+
+
+const query = new URLSearchParams({
+  omit: 'string',
+  fields: 'string'
+}).toString();
+
+const resp = await fetch(
+  `https://sandbox.belvo.com/api/br/exchanges/?${query}`,
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Basic ' + btoa('<username>:<password>')
+    },
+    body: JSON.stringify({
+      link: 'c81a1dea-6dd6-4999-8b9f-541ee8197058',
+      date_from: '2022-01-01',
+      date_to: '2022-12-31',
+      save_data: true
+    })
+  }
+);
+
+const data = await resp.json();
+console.log(data);
+Try it
+Responses
+200
+201
+400
+401
+403
+408
+428
+500
+OK - Exchanges Retrieved (when save_data=false)
+
+Body
+application/json
+Array [
+id
+string
+(uuid)
+required
+Belvo's unique identifier for the current item.
+
+Example:
+"0d3ffb69-f83b-456e-ad8e-208d0998d71d"
+link
+string or null
+(uuid)
+required
+The link.id the data belongs to.
+
+Example:
+"30cb4806-6e00-48a4-91c9-ca55968576c8"
+created_at
+string
+(date-time)
+required
+The ISO-8601 timestamp of when the data point was created in Belvo's database.
+
+Example:
+"2022-02-09T08:45:50.406032Z"
+collected_at
+string
+(date-time)
+required
+The ISO-8601 timestamp when the data point was collected.
+
+Example:
+"2022-02-09T08:45:50.406032Z"
+operation_identifier
+string
+<= 100 characters
+^[a-zA-Z0-9][a-zA-Z0-9\-]{0,99}$
+required
+The network's unique identifier for the exchange operation.
+
+Example:
+"92792126019929240"
+operation_number
+string or null
+<= 12 characters
+^\d{12}$
+The 12-digit operation registration number from the Brazil Central Bank (Bacen). This can be null if the operation has not yet been registered.
+
+Example:
+"393874649456"
+operation_type
+string
+required
+The type of exchange operation.
+
+We return one of the following enum values:
+
+COMPRA - Buy (client is buying foreign currency)
+VENDA - Sell (client is selling foreign currency)
+Enum
+"COMPRA"
+"VENDA"
+Example:
+"COMPRA"
+operation_requested_at
+string
+(date-time)
+^(\d{4})-(1[0-2]|0?[1-9])-(3[01]|[12][0-9]|0?...
+Show pattern
+required
+The ISO-8601 timestamp when the exchange operation was contracted.
+
+Example:
+"2023-03-07T08:30:00Z"
+authorized_institution_identifier
+integer
+(int64)
+required
+The CNPJ of the institution authorized to conduct the operation.
+
+Example:
+11225860000140
+authorized_institution_name
+string
+<= 80 characters
+required
+The name of the authorized institution.
+
+Example:
+"AGENCIA CORRETORA"
+intermediary_institution_identifier
+integer or null
+(int64)
+The CNPJ of the intermediary institution, if one was used.
+
+Example:
+11225860000140
+intermediary_institution_name
+string or null
+<= 80 characters
+The name of the intermediary institution. Must be present if intermediary_institution_identifier is available.
+
+Example:
+"AGENCIA CORRETORA"
+operation_due_date
+string
+(date)
+= 10 characters
+^(\d{4})-(1[0-2]|0?[1-9])-(3[01]|[12][0-9]|0?...
+Show pattern
+required
+The currently scheduled settlement date for the operation, in YYYY-MM-DD format.
+
+Note: This field is updated if any changes are made to the exchange operation.
+
+Example:
+"2018-02-15"
+local_operation_tax_amount
+number
+(float)
+^\d{1,15}\.\d{1,15}$
+required
+The exchange rate applied to the operation.
+
+Example:
+1.3
+local_operation_tax_currency
+string
+= 3 characters
+^[A-Z]{3}$
+required
+The three-letter currency code (ISO-4217) for the exchange rate.
+
+Example:
+"BRL"
+local_operation_value_amount
+number
+(float)
+^\d{1,17}\.\d{2}$
+required
+The total value of the operation in local currency.
+
+Example:
+1000.04
+local_operation_value_currency
+string
+= 3 characters
+^[A-Z]{3}$
+required
+The three-letter currency code (ISO-4217) for the local currency.
+
+Example:
+"BRL"
+foreign_operation_value_amount
+number
+(float)
+^\d{1,17}\.\d{2}$
+required
+The total value of the operation in the foreign currency.
+
+Example:
+1000.04
+foreign_operation_value_currency
+string
+= 3 characters
+^[A-Z]{3}$
+required
+The three-letter currency code (ISO-4217) for the foreign currency.
+
+Example:
+"USD"
+operation_outstanding_balance_amount
+number or null
+(float)
+^\d{1,17}\.\d{2}$
+The outstanding balance to be settled, in the foreign currency. In the case that the exchange operation is scheduled to be settled within two days of the operation_requested_at, this value can be null.
+
+Example:
+1000.04
+operation_outstanding_balance_currency
+string or null
+= 3 characters
+^[A-Z]{3}$
+The currency of the outstanding balance. Required if operation_outstanding_balance_amount is not null.
+
+Example:
+"USD"
+tev_amount_amount
+number or null
+(float)
+^\d{1,15}\.\d{1,15}$
+The "All-in Rate" (Valor Efetivo Total/Total Effective Cost), representing the total cost of the operation. Required when the operation is scheduled to be settled within two days of the operation_requested_at and does not exceed $100,000 USD.
+
+Example:
+1000.000004
+tev_amount_currency
+string or null
+= 3 characters
+^[A-Z]{3}$
+The currency of the VET (always BRL). Required if tev_amount_amount is not null.
+
+Example:
+"BRL"
+local_currency_advance_percentage
+number or null
+(float)
+^\d{1}\.\d{1,6}$
+The percentage of the foreign currency value that was granted to the client in advance. In the case that the exchange operation is scheduled to be settled within two days of the operation_requested_at, this value can be null.
+
+Example:
+0.12
+settlement_method
+string or null
+required
+The method of delivery for the foreign currency.
+
+We return one of the following enum values:
+
+CARTA_CREDITO_A_VISTA (Code 10) - Sight letter of credit
+CARTA_CREDITO_A_PRAZO (Code 15) - Term letter of credit
+CONTA_DEPOSITO (Code 20) - Deposit account
+CONTA_DEPOSITO_MOEDA_ESTRANGEIRA_PAIS (Code 21) - Foreign currency deposit account in country
+CONTA_DEPOSITO_EXPORTADOR_MANTIDA_NO_EXTERIOR (Code 22) - Exporter's deposit account maintained abroad
+CONTA_DEPOSITO_OU_PAGAMENTO_EXPORTADOR_INSTITUICAO_EXTERIOR (Code 23) - Deposit account or payment to exporter at foreign institution
+CONVENIO_PAGAMENTOS_E_CREDITOS_RECIPROCOS (Code 25) - Reciprocal payments and credits agreement
+CHEQUE (Code 30) - Check
+ESPECIE_CHEQUES_VIAGEM (Code 50) - Cash or traveler's checks
+CARTAO_PREPAGO (Code 55) - Prepaid card
+TELETRANSMISSAO (Code 65) - Wire transfer
+TITULOS_VALORES (Code 75) - Securities/bonds
+SIMBOLICA (Code 90) - Symbolic
+SEM_MOVIMENTACAO_VALORES (Code 91) - No movement of funds
+DEMAIS (Code 99) - Others
+OUTRO_NAO_MAPEADO_OFB - Other not mapped by Open Finance Brazil
+null
+Enum
+"CONTA_DEPOSITO_MOEDA_ESTRANGEIRA_PAIS"
+"CONTA_DEPOSITO_OU_PAGAMENTO_EXPORTADOR_INSTITUICAO_EXTERIOR"
+"ESPECIE_CHEQUES_VIAGEM"
+"CARTAO_PREPAGO"
+"TELETRANSMISSAO"
+"SEM_MOVIMENTACAO_VALORES"
+"DEMAIS"
+"CARTA_CREDITO_A_VISTA"
+"CARTA_CREDITO_A_PRAZO"
+"CONTA_DEPOSITO"
++7 more
+Example:
+"CARTA_CREDITO_A_PRAZO"
+operation_category_code
+string
+<= 5 characters
+^\d{5}$
+required
+The 5-digit Central Bank code that classifies the "nature" of the operation.
+
+This code must comply with the nature codes referenced in Resolution 277 or Circular 3690, as applicable to the exchange contract.
+
+Example:
+"90302"
+]
+Response
+200
+201
+400
+401
+403
+408
+428
+500
+application/json
+
+
+
+
+[
+  {
+    "id": "0d3ffb69-f83b-456e-ad8e-208d0998d71d",
+    "link": "30cb4806-6e00-48a4-91c9-ca55968576c8",
+    "created_at": "2022-02-09T08:45:50.406032Z",
+    "collected_at": "2022-02-09T08:45:50.406032Z",
+    "operation_identifier": "92792126019929240",
+    "operation_number": "393874649456",
+    "operation_type": "COMPRA",
+    "operation_requested_at": "2023-03-07T08:30:00Z",
+    "authorized_institution_identifier": 11225860000140,
+    "authorized_institution_name": "AGENCIA CORRETORA",
+    "intermediary_institution_identifier": 11225860000140,
+    "intermediary_institution_name": "AGENCIA CORRETORA",
+    "operation_due_date": "2018-02-15",
+    "local_operation_tax_amount": 1.3,
+    "local_operation_tax_currency": "BRL",
+    "local_operation_value_amount": 1000.04,
+    "local_operation_value_currency": "BRL",
+    "foreign_operation_value_amount": 1000.04,
+    "foreign_operation_value_currency": "USD",
+    "operation_outstanding_balance_amount": 1000.04,
+    "operation_outstanding_balance_currency": "USD",
+    "tev_amount_amount": 1000.000004,
+    "tev_amount_currency": "BRL",
+    "local_currency_advance_percentage": 0.12,
+    "settlement_method": "CARTA_CREDITO_A_PRAZO",
+    "operation_category_code": "90302"
+  }
+]
+Was this helpful?
+
+
+Coming Soon
+Get an exchange's details
+Copy
+
+Request
+Coming Soon
+This endpoint is currently undergoing development. As such, minor changes or bugs may occur. If you encounter any issues, please contact your Belvo representative.
+
+Get the details of a specific exchange.
+
+Note: When you delete an exchange, all associated exchange history records are also deleted.
+
+Security
+View security details
+basicAuth
+Path
+id
+string
+(uuid)
+required
+The exchange.id you want to get detailed information about.
+
+Query
+omit
+string
+Omit certain fields from being returned in the response. For more information, see our Filtering responses DevPortal article.
+
+fields
+string
+Return only the specified fields in the response. For more information, see our Filtering responses DevPortal article.
+
+
+get
+/api/br/exchanges/{id}/
+JavaScript
+
+
+const query = new URLSearchParams({
+  omit: 'string',
+  fields: 'string'
+}).toString();
+
+const id = 'YOUR_id_PARAMETER';
+const resp = await fetch(
+  `https://sandbox.belvo.com/api/br/exchanges/${id}/?${query}`,
+  {
+    method: 'GET',
+    headers: {
+      Authorization: 'Basic ' + btoa('<username>:<password>')
+    }
+  }
+);
+
+const data = await resp.text();
+console.log(data);
+Try it
+Responses
+200
+401
+403
+404
+408
+500
+Ok
+
+Body
+application/json
+id
+string
+(uuid)
+required
+Belvo's unique identifier for the current item.
+
+Example:
+"0d3ffb69-f83b-456e-ad8e-208d0998d71d"
+link
+string or null
+(uuid)
+required
+The link.id the data belongs to.
+
+Example:
+"30cb4806-6e00-48a4-91c9-ca55968576c8"
+created_at
+string
+(date-time)
+required
+The ISO-8601 timestamp of when the data point was created in Belvo's database.
+
+Example:
+"2022-02-09T08:45:50.406032Z"
+collected_at
+string
+(date-time)
+required
+The ISO-8601 timestamp when the data point was collected.
+
+Example:
+"2022-02-09T08:45:50.406032Z"
+operation_identifier
+string
+<= 100 characters
+^[a-zA-Z0-9][a-zA-Z0-9\-]{0,99}$
+required
+The network's unique identifier for the exchange operation.
+
+Example:
+"92792126019929240"
+operation_number
+string or null
+<= 12 characters
+^\d{12}$
+The 12-digit operation registration number from the Brazil Central Bank (Bacen). This can be null if the operation has not yet been registered.
+
+Example:
+"393874649456"
+operation_type
+string
+required
+The type of exchange operation.
+
+We return one of the following enum values:
+
+COMPRA - Buy (client is buying foreign currency)
+VENDA - Sell (client is selling foreign currency)
+Enum
+"COMPRA"
+"VENDA"
+Example:
+"COMPRA"
+operation_requested_at
+string
+(date-time)
+^(\d{4})-(1[0-2]|0?[1-9])-(3[01]|[12][0-9]|0?...
+Show pattern
+required
+The ISO-8601 timestamp when the exchange operation was contracted.
+
+Example:
+"2023-03-07T08:30:00Z"
+authorized_institution_identifier
+integer
+(int64)
+required
+The CNPJ of the institution authorized to conduct the operation.
+
+Example:
+11225860000140
+authorized_institution_name
+string
+<= 80 characters
+required
+The name of the authorized institution.
+
+Example:
+"AGENCIA CORRETORA"
+intermediary_institution_identifier
+integer or null
+(int64)
+The CNPJ of the intermediary institution, if one was used.
+
+Example:
+11225860000140
+intermediary_institution_name
+string or null
+<= 80 characters
+The name of the intermediary institution. Must be present if intermediary_institution_identifier is available.
+
+Example:
+"AGENCIA CORRETORA"
+operation_due_date
+string
+(date)
+= 10 characters
+^(\d{4})-(1[0-2]|0?[1-9])-(3[01]|[12][0-9]|0?...
+Show pattern
+required
+The currently scheduled settlement date for the operation, in YYYY-MM-DD format.
+
+Note: This field is updated if any changes are made to the exchange operation.
+
+Example:
+"2018-02-15"
+local_operation_tax_amount
+number
+(float)
+^\d{1,15}\.\d{1,15}$
+required
+The exchange rate applied to the operation.
+
+Example:
+1.3
+local_operation_tax_currency
+string
+= 3 characters
+^[A-Z]{3}$
+required
+The three-letter currency code (ISO-4217) for the exchange rate.
+
+Example:
+"BRL"
+local_operation_value_amount
+number
+(float)
+^\d{1,17}\.\d{2}$
+required
+The total value of the operation in local currency.
+
+Example:
+1000.04
+local_operation_value_currency
+string
+= 3 characters
+^[A-Z]{3}$
+required
+The three-letter currency code (ISO-4217) for the local currency.
+
+Example:
+"BRL"
+foreign_operation_value_amount
+number
+(float)
+^\d{1,17}\.\d{2}$
+required
+The total value of the operation in the foreign currency.
+
+Example:
+1000.04
+foreign_operation_value_currency
+string
+= 3 characters
+^[A-Z]{3}$
+required
+The three-letter currency code (ISO-4217) for the foreign currency.
+
+Example:
+"USD"
+operation_outstanding_balance_amount
+number or null
+(float)
+^\d{1,17}\.\d{2}$
+The outstanding balance to be settled, in the foreign currency. In the case that the exchange operation is scheduled to be settled within two days of the operation_requested_at, this value can be null.
+
+Example:
+1000.04
+operation_outstanding_balance_currency
+string or null
+= 3 characters
+^[A-Z]{3}$
+The currency of the outstanding balance. Required if operation_outstanding_balance_amount is not null.
+
+Example:
+"USD"
+tev_amount_amount
+number or null
+(float)
+^\d{1,15}\.\d{1,15}$
+The "All-in Rate" (Valor Efetivo Total/Total Effective Cost), representing the total cost of the operation. Required when the operation is scheduled to be settled within two days of the operation_requested_at and does not exceed $100,000 USD.
+
+Example:
+1000.000004
+tev_amount_currency
+string or null
+= 3 characters
+^[A-Z]{3}$
+The currency of the VET (always BRL). Required if tev_amount_amount is not null.
+
+Example:
+"BRL"
+local_currency_advance_percentage
+number or null
+(float)
+^\d{1}\.\d{1,6}$
+The percentage of the foreign currency value that was granted to the client in advance. In the case that the exchange operation is scheduled to be settled within two days of the operation_requested_at, this value can be null.
+
+Example:
+0.12
+settlement_method
+string or null
+required
+The method of delivery for the foreign currency.
+
+We return one of the following enum values:
+
+CARTA_CREDITO_A_VISTA (Code 10) - Sight letter of credit
+CARTA_CREDITO_A_PRAZO (Code 15) - Term letter of credit
+CONTA_DEPOSITO (Code 20) - Deposit account
+CONTA_DEPOSITO_MOEDA_ESTRANGEIRA_PAIS (Code 21) - Foreign currency deposit account in country
+CONTA_DEPOSITO_EXPORTADOR_MANTIDA_NO_EXTERIOR (Code 22) - Exporter's deposit account maintained abroad
+CONTA_DEPOSITO_OU_PAGAMENTO_EXPORTADOR_INSTITUICAO_EXTERIOR (Code 23) - Deposit account or payment to exporter at foreign institution
+CONVENIO_PAGAMENTOS_E_CREDITOS_RECIPROCOS (Code 25) - Reciprocal payments and credits agreement
+CHEQUE (Code 30) - Check
+ESPECIE_CHEQUES_VIAGEM (Code 50) - Cash or traveler's checks
+CARTAO_PREPAGO (Code 55) - Prepaid card
+TELETRANSMISSAO (Code 65) - Wire transfer
+TITULOS_VALORES (Code 75) - Securities/bonds
+SIMBOLICA (Code 90) - Symbolic
+SEM_MOVIMENTACAO_VALORES (Code 91) - No movement of funds
+DEMAIS (Code 99) - Others
+OUTRO_NAO_MAPEADO_OFB - Other not mapped by Open Finance Brazil
+null
+Enum
+"CONTA_DEPOSITO_MOEDA_ESTRANGEIRA_PAIS"
+"CONTA_DEPOSITO_OU_PAGAMENTO_EXPORTADOR_INSTITUICAO_EXTERIOR"
+"ESPECIE_CHEQUES_VIAGEM"
+"CARTAO_PREPAGO"
+"TELETRANSMISSAO"
+"SEM_MOVIMENTACAO_VALORES"
+"DEMAIS"
+"CARTA_CREDITO_A_VISTA"
+"CARTA_CREDITO_A_PRAZO"
+"CONTA_DEPOSITO"
++7 more
+Example:
+"CARTA_CREDITO_A_PRAZO"
+operation_category_code
+string
+<= 5 characters
+^\d{5}$
+required
+The 5-digit Central Bank code that classifies the "nature" of the operation.
+
+This code must comply with the nature codes referenced in Resolution 277 or Circular 3690, as applicable to the exchange contract.
+
+Example:
+"90302"
+Response
+200
+401
+403
+404
+408
+500
+application/json
+
+
+{
+  "id": "0d3ffb69-f83b-456e-ad8e-208d0998d71d",
+  "link": "30cb4806-6e00-48a4-91c9-ca55968576c8",
+  "created_at": "2022-02-09T08:45:50.406032Z",
+  "collected_at": "2022-02-09T08:45:50.406032Z",
+  "operation_identifier": "92792126019929240",
+  "operation_number": "393874649456",
+  "operation_type": "COMPRA",
+  "operation_requested_at": "2023-03-07T08:30:00Z",
+  "authorized_institution_identifier": 11225860000140,
+  "authorized_institution_name": "AGENCIA CORRETORA",
+  "intermediary_institution_identifier": 11225860000140,
+  "intermediary_institution_name": "AGENCIA CORRETORA",
+  "operation_due_date": "2018-02-15",
+  "local_operation_tax_amount": 1.3,
+  "local_operation_tax_currency": "BRL",
+  "local_operation_value_amount": 1000.04,
+  "local_operation_value_currency": "BRL",
+  "foreign_operation_value_amount": 1000.04,
+  "foreign_operation_value_currency": "USD",
+  "operation_outstanding_balance_amount": 1000.04,
+  "operation_outstanding_balance_currency": "USD",
+  "tev_amount_amount": 1000.000004,
+  "tev_amount_currency": "BRL",
+  "local_currency_advance_percentage": 0.12,
+  "settlement_method": "CARTA_CREDITO_A_PRAZO",
+  "operation_category_code": "90302"
+}
+Was this helpful?
+
+
+Coming Soon
+Delete an exchange
+Copy
+
+Request
+Coming Soon
+This endpoint is currently undergoing development. As such, minor changes or bugs may occur. If you encounter any issues, please contact your Belvo representative.
+
+Delete a specific exchange from your Belvo account.
+
+Note: When you delete an exchange, all associated exchange history records are also deleted.
+
+Security
+View security details
+basicAuth
+Path
+id
+string
+(uuid)
+required
+The exchange.id you want to delete.
+
+
+delete
+/api/br/exchanges/{id}/
+JavaScript
+
+
+const id = 'YOUR_id_PARAMETER';
+const resp = await fetch(
+  `https://sandbox.belvo.com/api/br/exchanges/${id}/`,
+  {
+    method: 'DELETE',
+    headers: {
+      Authorization: 'Basic ' + btoa('<username>:<password>')
+    }
+  }
+);
+
+if (resp.status === 204) {
+  console.log('success');
+} else {
+  const data = await resp.text();
+  console.log(data);
+}
+Try it
+Responses
+204
+401
+403
+404
+408
+500
+No Content
+
+Response
+204
+401
+403
+404
+408
+500
+No content
+Was this helpful?
+
+
+Coming Soon
+List exchange history for a specific exchange
+Copy
+
+Request
+Coming Soon
+This endpoint is currently undergoing development. As such, minor changes or bugs may occur. If you encounter any issues, please contact your Belvo representative.
+
+Get the modification history (audit trail) for a specific exchange operation.
+
+📖 Pagination
+This method returns a paginated response (default: 100 items per page). You can use the page_size query parameter to increase the number of items returned to a maximum of 1000 items. You can use the page query parameter to navigate through the results. For more details on how to navigate Belvo's paginated responses, see our Pagination Tips article.
+
+Security
+View security details
+basicAuth
+Path
+id
+string
+(uuid)
+required
+The exchange.id you want to get the history for.
+
+Query
+page_size
+integer
+(int32)
+[ 1 .. 1000 ]
+Indicates how many results to return per page. By default we return 100 results per page.
+
+ℹ️ The minimum number of results returned per page is 1 and the maximum is 1000. If you enter a value greater than 1000, our API will default to the maximum value (1000).
+
+Default
+100
+Example:
+page_size=100
+page
+integer
+(int32)
+>= 1
+A page number within the paginated result set.
+
+Example:
+page=1
+omit
+string
+Omit certain fields from being returned in the response. For more information, see our Filtering responses DevPortal article.
+
+fields
+string
+Return only the specified fields in the response. For more information, see our Filtering responses DevPortal article.
+
+
+get
+/api/br/exchanges/{id}/history/
+JavaScript
+
+
+const query = new URLSearchParams({
+  page_size: '100',
+  page: '1',
+  omit: 'string',
+  fields: 'string'
+}).toString();
+
+const id = 'YOUR_id_PARAMETER';
+const resp = await fetch(
+  `https://sandbox.belvo.com/api/br/exchanges/${id}/history/?${query}`,
+  {
+    method: 'GET',
+    headers: {
+      Authorization: 'Basic ' + btoa('<username>:<password>')
+    }
+  }
+);
+
+const data = await resp.text();
+console.log(data);
+Try it
+Responses
+200
+401
+403
+404
+408
+500
+Expand all
+OK - Exchange History Retrieved
+
+Body
+application/json
+count
+integer
+(int32)
+The total number of results in your Belvo account.
+
+Example:
+130
+next
+string or null
+(uri)
+The URL to next page of results. Each page consists of up to 100 items. If there are not enough results for an additional page, the value is null.
+
+In our documentation example, we use {endpoint} as a placeholder value. In production, this value will be replaced by the actual endpoint you are currently using (for example, accounts or owners).
+
+Example:
+"https://sandbox.belvo.com/api/{endpoint}/?link=1bd948f7-245d-4313-b604-34d1044cb908page=2"
+previous
+string or null
+(uri)
+The URL to the previous page of results. If there is no previous page, the value is null.
+
+Example:
+null
+results
+Array of objects
+An array of exchange history objects.
+
+
++
+Show 26 array properties
+Response
+200
+401
+403
+404
+408
+500
+application/json
+
+
+
+
+{
+  "count": 130,
+  "next": "https://sandbox.belvo.com/api/{endpoint}/?link=1bd948f7-245d-4313-b604-34d1044cb908page=2",
+  "previous": null,
+  "results": [
+    { … }
+  ]
+}
+Was this helpful?
+
+
+Transactions
+Copy
+
+A transaction contains the detailed information of each movement inside an account. For example, a purchase at a store or a restaurant.
+
+Schemas
+
+schema
+Transaction Object (Brazil)
+Operations
+
+get
+/api/transactions/
+
+post
+/api/transactions/
+
+patch
+/api/transactions/
+
+get
+/api/transactions/{id}/
+
+delete
+/api/transactions/{id}/
++ Show
+Bills
+Copy
+
+A bill refers to the credit card bill a user receives for a given account.
+
+Schemas
+
+schema
+Bill Object (OFDA Brazil)
+Operations
+
+get
+/api/bills/
+
+post
+/api/bills/
+
+get
+/api/bills/{id}/
+
+delete
+/api/bills/{id}/
++ Show
+Investments Brazil
+Copy
+
+Schemas
+
+schema
+Investments Object (Brazil)
+Operations
+
+get
+/api/br/investments/
+
+post
+/api/br/investments/
+
+get
+/api/br/investments/{id}/
+
+delete
+/api/br/investments/{id}/
++ Show
+Investment Transactions Brazil
+Copy
+
+Schemas
+
+schema
+Investment Transaction Object (Brazil)
+Operations
+
+get
+/api/br/investment-transactions/
+
+post
+/api/br/investment-transactions/
+
+get
+/api/br/investment-transactions/{id}/
+
+delete
+/api/br/investment-transactions/{id}/
++ Show
+Employments Brazil
+Copy
+
+Our employments resource for Brazil lets you get a comprehensive view of your user's current employment history and salary information.
+
+For each user, we return the:
+
+work history (including occupations and employer data)
+historical and current salary information (per employer)
+At the moment, the employments resource is available for:
+
+🇧🇷 Brazil (INSS)
+Schemas
+
+schema
+Employments Object (Brazil)
+Operations
+
+get
+/api/br/employments/
+
+post
+/api/br/employments/
+
+get
+/api/br/employments/{id}/
+
+delete
+/api/br/employments/{id}/
++ Show
+Employment Records Mexico
+Copy
+
+Our employment records resource for Mexico lets you get a comprehensive view of your user’s current social security contributions and employment history.
+
+With Belvo's employment records resource for Mexico, you can access information about your user's current social security contributions and employment history. For the each user, we return the:
+
+personal data
+work history
+historical and current daily base salary
+and more!
+At the moment, the employment records resource is available for:
+
+🇲🇽 Mexico (IMSS)
+🇲🇽 Mexico (ISSSTE)
+Schemas
+
+schema
+Employment Record Object (Mexico)
+Operations
+
+get
+/api/employment-records/
+
+post
+/api/employment-records/
+
+get
+/api/employment-records/{id}/
+
+delete
+/api/employment-records/{id}/
++ Show
+Current Employments Mexico
+Copy
+
+The Current Employments resource provides real-time access to the current employment status of individuals in Mexico. This resource offers detailed information about whether an individual is currently employed or unemployed, along with their active employment records.
+
+Schemas
+
+schema
+Current Employment Object (Mexico)
+Operations
+
+get
+/api/mx/current-employments/
+
+post
+/api/mx/current-employments/
+
+get
+/api/mx/current-employments/{id}/
+
+delete
+/api/mx/current-employments/{id}/
++ Show
+Invoices
+Copy
+
+Schemas
+
+schema
+Invoices Object (Mexico)
+Operations
+
+get
+/api/invoices/
+
+post
+/api/invoices/
+
+patch
+/api/invoices/
+
+get
+/api/invoices/{id}/
+
+delete
+/api/invoices/{id}/
++ Show
+Tax compliance status
+Copy
+
+Schemas
+
+schema
+Tax Compliance Status Object (Mexico)
+Operations
+
+get
+/api/tax-compliance-status/
+
+post
+/api/tax-compliance-status/
+
+get
+/api/tax-compliance-status/{id}/
+
+delete
+/api/tax-compliance-status/{id}/
++ Show
+Tax returns
+Copy
+
+Operations
+
+get
+/api/tax-returns/
+
+post
+/api/tax-returns/
+
+get
+/api/tax-returns/{id}/
+
+delete
+/api/tax-returns/{id}/
++ Show
+Tax retentions
+Copy
+
+Schemas
+
+schema
+Tax Retentions Object (Mexico)
+Operations
+
+get
+/api/tax-retentions/
+
+post
+/api/tax-retentions/
+
+get
+/api/tax-retentions/{id}/
+
+delete
+/api/tax-retentions/{id}/
++ Show
+Tax status
+Copy
+
+Schemas
+
+schema
+Tax Status Object (Mexico)
+Operations
+
+get
+/api/tax-status/
+
+post
+/api/tax-status/
+
+get
+/api/tax-status/{id}/
+
+delete
+/api/tax-status/{id}/
++ Show
+Financial Statements
+Copy
+
+Schemas
+
+schema
+Financial Statement Object (Mexico)
+Operations
+
+get
+/api/financial-statements/
+
+post
+/api/financial-statements/
+
+get
+/api/financial-statements/{id}/
+
+delete
+/api/financial-statements/{id}/
++ Show
+Invoices Chile
+Copy
+
+Schemas
+
+schema
+Invoice Object (Chile)
+Operations
+
+get
+/api/cl/invoices/
+
+post
+/api/cl/invoices/
+
+get
+/api/cl/invoices/{id}/
+
+delete
+/api/cl/invoices/{id}/
++ Show
+Tax Status Chile
+Copy
+
+Schemas
+
+schema
+Tax Status Object (Chile)
+Operations
+
+get
+/api/cl/tax-status/
+
+post
+/api/cl/tax-status/
+
+get
+/api/cl/tax-status/{id}/
+
+delete
+/api/cl/tax-status/{id}/
++ Show
+Debt Reports Chile
+Copy
+
+Schemas
+
+schema
+Debt Report Object (Chile)
+Operations
+
+get
+/api/cl/debt-reports/
+
+post
+/api/cl/debt-reports/
+
+get
+/api/cl/debt-reports/{id}/
+
+delete
+/api/cl/debt-reports/{id}/
++ Show
+Incomes
+Copy
+
+Use the Incomes endpoint to gather insights on an account's income sources for the past 365 days. The endpoint is particularly useful when you want to verify a person's income.
+
+📘 Info
+
+The incomes resource is only available for Checking and Savings accounts associated with banking links.
+
+Schemas
+
+schema
+Income Object
+Operations
+
+get
+/api/incomes/
+
+post
+/api/incomes/
+
+patch
+/api/incomes/
+
+get
+/api/incomes/{id}/
+
+delete
+/api/incomes/{id}/
++ Show
+Recurring Expenses
+Copy
+
+Belvo's Recurring Expenses API allows you to identify a user's regular payments for subscription services, such as Netflix or gym memberships, as well as utility payments, such as electricity or phone bills. We return information for up to 365 days.
+
+📘 Info
+
+The recurring expenses resource is only available for Checking, Savings and Credit Card accounts associated with banking links.
+
+Schemas
+
+schema
+Recurring Expenses Object
+Operations
+
+get
+/api/recurring-expenses/
+
+post
+/api/recurring-expenses/
+
+patch
+/api/recurring-expenses/
+
+get
+/api/recurring-expenses/{id}/
+
+delete
+/api/recurring-expenses/{id}/
++ Show
+Risk Insights
+Copy
+
+Schemas
+
+schema
+Risk Insights Object
+Operations
+
+get
+/api/risk-insights/
+
+post
+/api/risk-insights/
+
+patch
+/api/risk-insights/
+
+get
+/api/risk-insights/{id}/
+
+delete
+/api/risk-insights/{id}/
++ Show
+Employment Metrics
+Copy
+
+Schemas
+
+schema
+Employment Metrics Object
+Operations
+
+get
+/api/employment-metrics/
+
+post
+/api/employment-metrics/
+
+get
+/api/employment-metrics/{id}/
+
+delete
+/api/employment-metrics/{id}/
++ Show
+Payment Institutions (Brazil)
+Copy
+
+A payment institution is an entity that Belvo can access information from. You can see a complete list of institutions available for payments by making a List request to this endpoint.
+
+Operations
+
+get
+/payments/br/institutions/
++ Show
+Customers (Brazil)
+Copy
+
+A customer is the payer that's going to push funds into your bank account. You need to create a customer in order to receive inflow payments to your organization's bank account.
+
+Resource Versioning
+This endpoint supports resource-level versioning. By including the header X-Belvo-API-Resource-Version: Payments-BR.V2, you can access the latest (V2) request and response formats. If the header is not provided, the default (V1) format will be used. See the API documentation for details on the differences between versions.
+
+Operations
+
+post
+/payments/br/customers/
+
+get
+/payments/br/customers/
+
+get
+/payments/br/customers/{id}/
++ Show
+Bank Accounts (Brazil)
+Copy
+
+To receive inflow payments to your organization's bank account, you must register the bank accounts (individual and business) using Belvo's Payments API.
+
+Individual bank accounts must be created for each payer (your customer).
+Business bank accounts need to be created for the beneficiary of the payment (your organization).
+Resource Versioning
+This endpoint supports resource-level versioning. By including the header X-Belvo-API-Resource-Version: Payments-BR.V2, you can access the latest (V2) request and response formats. If the header is not provided, the default (V1) format will be used. See the API documentation for details on the differences between versions.
+
+Operations
+
+post
+/payments/br/bank-accounts/
+
+get
+/payments/br/bank-accounts/
+
+get
+/payments/br/bank-accounts/{id}/
++ Show
+Payment Authorizations (Brazil)
+Copy
+
+A Payment Authorization is the consent that your user gives you to charge (debit money from) their accounts. You need to perform one Payment Authorization per ‘contract’ (for example, if your company does both electricity and water but they are billed separately, then you will create two separate Payment Authorizations).
+
+Once the user confirms the authorization, you will need to listen for a a PAYMENT_AUTHORIZATION webhook with the status set to AUTHORIZED. Once you receive this webhook, the authorization process is complete, and you will be able to charge your user.
+
+What is a charge?
+A charge represents the individual payment (debit) that your customer will make.
+
+Version Header
+The Payment Authorization resource requires that you send through the X-Belvo-API-Resource-Version header set to Payments-BR.V2.
+
+Operations
+
+post
+/payments/br/payment-authorizations/
+Coming Soon
+
+get
+/payments/br/payment-authorizations/
+Coming Soon
+
+get
+/payments/br/payment-authorizations/{payment_authorization_id}/
+Coming Soon
+
+post
+/payments/br/payment-authorizations/{payment_authorization_id}/cancel/
+Coming Soon
+
+get
+/payments/br/payment-authorizations/{payment_authorization_id}/charges/
+Coming Soon
+
+get
+/payments/br/payment-authorizations/{payment_authorization_id}/charges/{charge_id}/
+Coming Soon
+
+post
+/payments/br/payment-authorizations/{payment_authorization_id}/charges/{charge_id}/retry/
+Coming Soon
+
+post
+/payments/br/payment-authorizations/{payment_authorization_id}/charges/{charge_id}/cancel/
+Coming Soon
++ Show
+Charges (Brazil)
+Copy
+
+Operations
+
+get
+/payments/br/charges/
+
+get
+/payments/br/charges/{charge_id}/
++ Show
+Payment Intents (Brazil)
+Copy
+
+A payment intent is a single point of access to create payments using any payment method offered by Belvo.
+
+A payment intent captures all payment information (such as the amount to be charged, the description of the payment, the provider, and so on) and guides your customers through the payment flow.
+
+Operations
+
+post
+/payments/br/payment-intents/
+
+get
+/payments/br/payment-intents/
+
+patch
+/payments/br/payment-intents/{id}/
+
+get
+/payments/br/payment-intents/{id}/
+
+post
+/payments/br/payment-intents/{id}/cancel/
+
+get
+/payments/br/payment-intents/{payment_intent_id}/charges/
+
+get
+/payments/br/payment-intents/{payment_intent_id}/charges/{charge_id}/
+
+post
+/payments/br/payment-intents/{payment_intent_id}/charges/{charge_id}/cancel/
++ Show
+Biometric Pix Widget Access Token (Brazil)
+Copy
+
+Use the Biometric Pix Widget Token requests to create a access token for Biometric Payments.
+
+Operations
+
+post
+/payments/br/token/
++ Show
+Enrollments (Brazil)
+Copy
+
+Operations
+
+post
+/payments/br/enrollments/
+
+get
+/payments/br/enrollments/
+
+get
+/payments/br/enrollments/{enrollment_id}/
+
+post
+/payments/br/enrollments/complete-redirection/
++ Show
+Payment Transactions (Brazil)
+Copy
+
+Each time you receive an inflow payment from your customer, a transaction is created in the Belvo database.
+
+You can use the Payment Transactions resource in order to get useful information about a transaction as well as the specific charge associated with it.

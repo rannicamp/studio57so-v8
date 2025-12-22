@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -9,7 +10,7 @@ import {
     faPlus, faUniversity, faCreditCard, faMoneyBillWave, faChartLine, 
     faPenToSquare, faTrash, faExclamationTriangle, faSpinner, 
     faWallet, faHandHoldingDollar, faLayerGroup, faMoneyBillTransfer, faFileInvoice,
-    faCheckCircle, faBuildingColumns
+    faCheckCircle, faBuildingColumns, faLink
 } from '@fortawesome/free-solid-svg-icons';
 import ContaFormModal from './ContaFormModal';
 import PagamentoFaturaModal from './PagamentoFaturaModal';
@@ -54,18 +55,20 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
     const supabase = createClient();
     const { user, hasPermission } = useAuth();
     const organizacaoId = user?.organizacao_id;
+    
+    // Hooks para detectar retorno da Belvo
+    const searchParams = useSearchParams();
+    const router = useRouter();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingConta, setEditingConta] = useState(null);
     const [isPagamentoModalOpen, setIsPagamentoModalOpen] = useState(false);
     const [contaParaPagar, setContaParaPagar] = useState(null);
 
-    // Estados para vincular a conta depois que a Belvo conecta
+    // Estados para vincular a conta
     const [linkSelectionModalOpen, setLinkSelectionModalOpen] = useState(false);
     const [foundBelvoAccounts, setFoundBelvoAccounts] = useState([]);
-    const [currentLinkingConta, setCurrentLinkingConta] = useState(null);
     const [currentBelvoLink, setCurrentBelvoLink] = useState(null);
-    const [isSearchingAccounts, setIsSearchingAccounts] = useState(false); // Novo estado local de loading
 
     const { data: saldos = {}, isLoading: isLoadingSaldos } = useQuery({
         queryKey: ['saldosContasReais', initialContas.map(c => c.id), organizacaoId],
@@ -73,46 +76,89 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
         enabled: initialContas.length > 0 && !!organizacaoId,
     });
 
-    // --- LÓGICA APÓS O SUCESSO DO WIDGET ---
-    const handleBelvoSuccess = async (linkId, institution, contaDoSistema) => {
+    // --- CÁLCULO DOS KPIS (AQUI ESTAVA O ERRO, AGORA ESTÁ DE VOLTA!) ---
+    const kpis = useMemo(() => {
+        let saldoLiquido = 0;
+        let limiteChequeTotal = 0;
+        let limiteChequeUsado = 0;
+        let poderCompra = 0;
+
+        initialContas.forEach(conta => {
+            const saldo = saldos[conta.id] || 0;
+            const limite = conta.limite_cheque_especial || 0;
+            
+            if (conta.tipo !== 'Cartão de Crédito') {
+                if (saldo > 0) saldoLiquido += saldo;
+                poderCompra += (saldo + limite);
+
+                if (conta.tipo === 'Conta Corrente') {
+                    limiteChequeTotal += limite;
+                    if (saldo < 0) limiteChequeUsado += Math.min(Math.abs(saldo), limite);
+                }
+            }
+        });
+
+        return {
+            saldoLiquido,
+            limiteChequeTotal,
+            limiteChequeUsado,
+            percentualUsoCheque: limiteChequeTotal > 0 ? (limiteChequeUsado / limiteChequeTotal) * 100 : 0,
+            poderCompra
+        };
+    }, [initialContas, saldos]);
+
+    // --- DETECTOR DE RETORNO DA BELVO ---
+    useEffect(() => {
+        const status = searchParams.get('status');
+        const linkId = searchParams.get('link');
+        const institution = searchParams.get('institution');
+
+        if (status === 'success' && linkId) {
+            toast.success("Conexão bancária realizada! Processando...");
+            handleBelvoSuccess(linkId, institution);
+            // Limpa a URL para não processar de novo ao recarregar
+            router.replace('/financeiro/contas');
+        } else if (status === 'exit' || status === 'error') {
+            toast.info("Processo bancário cancelado ou falhou.");
+            router.replace('/financeiro/contas');
+        }
+    }, [searchParams]);
+
+    const handleBelvoSuccess = async (linkId, institution) => {
         setCurrentBelvoLink({ id: linkId, institution });
-        setCurrentLinkingConta(contaDoSistema);
-        
-        // Ativa o loading global ou local (pode usar um toast loading também)
-        const toastId = toast.loading("Conexão realizada! Buscando contas...");
-        setIsSearchingAccounts(true);
+        const toastId = toast.loading("Buscando contas disponíveis...");
 
         try {
-            // Busca as contas dentro desse Link bancário
             const accountsRes = await fetch(`/api/belvo/accounts?link_id=${linkId}`);
             const accountsData = await accountsRes.json();
 
-            if (!accountsRes.ok) throw new Error(accountsData.error || "Erro ao buscar contas");
+            if (!accountsRes.ok) throw new Error(accountsData.error);
 
-            if (!accountsData || accountsData.length === 0) {
+            if (accountsData.length === 0) {
                 toast.warning("Nenhuma conta encontrada neste banco.", { id: toastId });
-                return; // Sai da função
+                return;
             }
 
-            // Abre modal para o usuário escolher qual conta vincular
             setFoundBelvoAccounts(accountsData);
             setLinkSelectionModalOpen(true);
             toast.dismiss(toastId);
 
         } catch (error) {
-            console.error(error);
             toast.error("Erro ao listar contas: " + error.message, { id: toastId });
-        } finally {
-            // OBRIGATÓRIO: Desativa o loading aconteça o que acontecer
-            setIsSearchingAccounts(false);
         }
     };
 
+    const handleStartLink = (conta) => {
+        // Salva quem estamos editando para recuperar na volta do redirecionamento
+        localStorage.setItem('belvo_linking_conta_id', conta.id);
+    };
+
     const confirmLink = (belvoAccount) => {
-        if (!currentLinkingConta || !currentBelvoLink) return;
-        
+        const contaSistemaId = localStorage.getItem('belvo_linking_conta_id');
+        if (!contaSistemaId) return toast.error("Erro: Identificação da conta perdida. Tente novamente.");
+
         linkAccountMutation.mutate({
-            contaId: currentLinkingConta.id,
+            contaId: contaSistemaId,
             belvoLinkId: currentBelvoLink.id,
             belvoAccountId: belvoAccount.id,
             instituicao: belvoAccount.institution?.name || currentBelvoLink.institution
@@ -136,6 +182,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
             toast.success("Conta vinculada com sucesso!");
             setLinkSelectionModalOpen(false);
             setFoundBelvoAccounts([]);
+            localStorage.removeItem('belvo_linking_conta_id');
             onUpdate();
         },
         onError: (err) => toast.error("Erro ao vincular: " + err.message)
@@ -174,23 +221,6 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
         mutationFn: async (id) => { await supabase.from('contas_financeiras').delete().eq('id', id); },
         onSuccess: () => { toast.success("Excluído!"); onUpdate(); }
     });
-
-    const kpis = useMemo(() => {
-        let saldoLiquido = 0, limiteChequeTotal = 0, limiteChequeUsado = 0, poderCompra = 0;
-        initialContas.forEach(c => {
-            const saldo = saldos[c.id] || 0;
-            const limite = c.limite_cheque_especial || 0;
-            if (c.tipo !== 'Cartão de Crédito') {
-                if (saldo > 0) saldoLiquido += saldo;
-                poderCompra += (saldo + limite);
-                if (c.tipo === 'Conta Corrente') {
-                    limiteChequeTotal += limite;
-                    if (saldo < 0) limiteChequeUsado += Math.min(Math.abs(saldo), limite);
-                }
-            }
-        });
-        return { saldoLiquido, limiteChequeTotal, limiteChequeUsado, percentualUsoCheque: limiteChequeTotal > 0 ? (limiteChequeUsado / limiteChequeTotal) * 100 : 0, poderCompra };
-    }, [initialContas, saldos]);
 
     const groupedContas = useMemo(() => {
         const groups = { 'Conta Corrente': [], 'Dinheiro': [], 'Conta Investimento': [] };
@@ -239,10 +269,9 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                     
                     <div className="flex gap-2 mt-3">
                         {!isConnected ? (
-                            <BelvoWidget 
-                                onSuccess={(link, institution) => handleBelvoSuccess(link, institution, conta)}
-                                disabled={isSearchingAccounts} // Desabilita enquanto busca contas
-                            />
+                            <div onClick={() => handleStartLink(conta)} className="flex-1">
+                                <BelvoWidget />
+                            </div>
                         ) : (
                             <button onClick={() => onVerExtrato(conta.id)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-2 rounded flex items-center justify-center gap-2">
                                 <FontAwesomeIcon icon={faFileInvoice} /> Extrato
@@ -267,7 +296,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
                     <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
                         <h3 className="text-xl font-bold mb-2 flex items-center gap-2"><FontAwesomeIcon icon={faBuildingColumns} className="text-blue-600"/> Vincular Conta</h3>
-                        <p className="text-gray-600 text-sm mb-4">Selecione a conta do banco que corresponde a <strong>{currentLinkingConta?.nome}</strong>:</p>
+                        <p className="text-gray-600 text-sm mb-4">Selecione a conta do banco que deseja vincular:</p>
                         <div className="space-y-2 max-h-60 overflow-y-auto">
                             {foundBelvoAccounts.map(acc => (
                                 <button key={acc.id} onClick={() => confirmLink(acc)} className="w-full text-left p-3 border rounded hover:bg-blue-50 flex justify-between items-center">
@@ -284,7 +313,6 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                 </div>
             )}
 
-            {/* Resto dos KPIs e Listas */}
             {initialContas.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <KpiCard title="Saldo Líquido" value={isLoadingSaldos ? '...' : formatCurrency(kpis.saldoLiquido)} icon={faWallet} color={kpis.saldoLiquido >= 0 ? "blue" : "red"} />
