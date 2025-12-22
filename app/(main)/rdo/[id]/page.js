@@ -1,13 +1,19 @@
-import { createClient } from '../../../../utils/supabase/server';
-import RdoForm from '../../../../components/RdoForm';
+import { createClient } from '@/utils/supabase/server'; // Ajuste o caminho se necessário (ex: ../../../../utils...)
+import RdoForm from '@/components/RdoForm'; // Ajuste o caminho se necessário
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 export default async function RdoEditPage({ params }) {
-  const supabase =createClient();
-  const { id } = params;
+  // CORREÇÃO 1: Next.js 15 exige 'await' nos params
+  const { id } = await params;
 
-  // Busca o RDO específico pelo ID, junto com todos os seus dados relacionados
+  // CORREÇÃO 2: createClient é async agora, precisa de 'await'
+  const supabase = await createClient();
+
+  // CORREÇÃO 3: Buscamos o usuário logado para passar para o formulário
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+  // Busca o RDO específico pelo ID
   const { data: rdo, error } = await supabase
     .from('diarios_obra')
     .select(`
@@ -26,9 +32,6 @@ export default async function RdoEditPage({ params }) {
 
   return (
     <div className="space-y-6">
-      {/* CORREÇÃO: Adicionado 'print:hidden' 
-          Assim, este botão desaparece quando você clicar em Imprimir 
-      */}
       <Link 
         href="/rdo/gerenciador" 
         className="text-blue-500 hover:underline mb-4 inline-block print:hidden"
@@ -36,8 +39,10 @@ export default async function RdoEditPage({ params }) {
           &larr; Voltar para o Gerenciador de RDOs
       </Link>
       
-      {/* O formulário do RDO */}
-      <RdoForm initialRdoData={rdo} />
+      {/* CORREÇÃO 4: Passamos o 'user' (que contém o ID e dados) para o RdoForm.
+         O RdoForm deverá repassar isso para o RdoAutoGenerator.
+      */}
+      <RdoForm initialRdoData={rdo} currentUser={user} />
     </div>
   );
 }
