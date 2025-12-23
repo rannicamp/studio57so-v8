@@ -5,9 +5,9 @@ export async function POST(request) {
     try {
         const { origin } = new URL(request.url);
 
-        // Configuração mestre para Open Finance Brasil (OFDA) no modo Sandbox
+        // Configuração mestre para Open Finance Brasil (OFDA)
+        // Adicionamos campos que o Sandbox exige para não dar "Field Required"
         const payload = {
-            // Adicionamos 'read_resources' para garantir a leitura pós-link
             scopes: "read_institutions,write_links,read_consents,write_consents,write_consent_callback,delete_consents,read_resources",
             stale_in: "300d",
             fetch_resources: ["ACCOUNTS", "TRANSACTIONS", "OWNERS", "BALANCES"],
@@ -20,23 +20,26 @@ export async function POST(request) {
                     event: `${origin}/financeiro/contas?status=event`
                 },
                 consent: {
+                    // Verifique se esta URL existe ou use uma válida da Studio 57
                     terms_and_conditions_url: "https://studio57.com.br/termos",
-                    // Permissões completas exigidas pelo Banco Central (Open Finance)
                     permissions: ["REGISTER", "ACCOUNTS", "CREDIT_CARDS", "CREDIT_OPERATIONS", "BALANCES", "TRANSACTIONS"],
                     identification_info: [
                         {
                             type: "CPF",
-                            number: "76109277673", // CPF oficial de teste da Belvo Sandbox
-                            name: "Ralph Bragg"    // Nome oficial de teste da Belvo Sandbox
+                            number: "76109277673", // CPF obrigatório para teste no Brasil
+                            name: "Ralph Bragg"    // Nome obrigatório para teste no Brasil
                         }
                     ]
                 }
             }
         };
 
-        // Chamada usando seu utilitário robusto belvo-http
+        // Importante: Para Open Finance Brasil, a Belvo exige a versão correta no header
         const data = await belvoRequest('/api/token/', {
             method: 'POST',
+            headers: {
+                'X-Belvo-API-Resource-Version': '2022-06-01' 
+            },
             body: payload
         });
 
