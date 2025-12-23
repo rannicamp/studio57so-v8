@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
 
+// Componentes
 import LancamentosManager from '../../../components/financeiro/LancamentosManager';
 import ContasManager from '../../../components/financeiro/ContasManager';
 import AtivosManager from '../../../components/financeiro/AtivosManager';
@@ -25,11 +26,11 @@ import ExtratoManager from '../../../components/financeiro/ExtratoManager';
 import LancamentoDetalhesSidebar from '../../../components/financeiro/LancamentoDetalhesSidebar';
 import FiltroFinanceiro from '../../../components/financeiro/FiltroFinanceiro';
 import FinanceiroStats from '../../../components/financeiro/FinanceiroStats';
-import GerenciadorFaturas from '../../../components/financeiro/GerenciadorFaturas'; // <--- IMPORT NOVO
+import GerenciadorFaturas from '../../../components/financeiro/GerenciadorFaturas';
 
-const supabase = await createClient();
+// Hook Novo de Filtragem no Servidor
+import { useLancamentos } from '@/hooks/financeiro/useLancamentos';
 
-const LANCAMENTOS_CACHE_KEY = 'financeiroLancamentosData';
 const FINANCEIRO_UI_STATE_KEY = 'financeiroUiState';
 
 const getCachedData = (key) => {
@@ -41,9 +42,11 @@ const getCachedData = (key) => {
     }
 };
 
-// Busca dados iniciais (Empresas, Contas, etc)
+// Busca dados iniciais (Empresas, Contas, etc) - Mantido
 async function fetchInitialData(organizacao_id) {
+    const supabase = createClient();
     if (!organizacao_id) return { empresas: [], contas: [], categorias: [], empreendimentos: [], allContacts: [], funcionarios: [] };
+    
     const [empresasRes, contasRes, categoriasRes, empreendimentosRes, contatosRes, funcionariosRes] = await Promise.all([
         supabase.from('cadastro_empresa').select('*').eq('organizacao_id', organizacao_id).order('nome_fantasia'),
         supabase.from('contas_financeiras').select('*, empresa:cadastro_empresa!empresa_id(id, nome_fantasia, razao_social), conta_debito_fatura:contas_financeiras!conta_debito_fatura_id(id, nome)').eq('organizacao_id', organizacao_id).order('nome'),
@@ -55,29 +58,9 @@ async function fetchInitialData(organizacao_id) {
     return { empresas: empresasRes.data || [], contas: contasRes.data || [], categorias: categoriasRes.data || [], empreendimentos: empreendimentosRes.data || [], allContacts: contatosRes.data || [], funcionarios: funcionariosRes.data || [] };
 }
 
-// Busca Lançamentos (Lista Paginada)
-async function fetchLancamentos({ queryKey }) {
-    const [_key, { filters, currentPage, itemsPerPage, sortConfig, organizacao_id }] = queryKey;
-    if (!organizacao_id) return { data: [], count: 0 };
-
-    const from = (currentPage - 1) * itemsPerPage;
-    const to = from + itemsPerPage - 1;
-    const selectString = `*, conta:contas_financeiras(nome), categoria:categorias_financeiras(nome), favorecido:contatos(nome, razao_social), empresa:cadastro_empresa!empresa_id(nome_fantasia, razao_social), empreendimento:empreendimentos(nome), anexos:lancamentos_anexos(*)`;
-
-    const { data, error, count } = await supabase.rpc('consultar_lancamentos_filtrados', { 
-        p_organizacao_id: organizacao_id, 
-        p_filtros: filters 
-    }, { count: 'exact' })
-    .select(selectString)
-    .order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' })
-    .range(from, to);
-
-    if (error) throw new Error(error.message);
-    return { data: data || [], count: count || 0 };
-}
-
-// Busca KPIs
+// Busca KPIs - Mantido
 async function fetchFinanceiroStats({ queryKey }) {
+    const supabase = createClient();
     const [_key, { filters, organizacao_id }] = queryKey;
     if (!organizacao_id) return [];
 
@@ -96,21 +79,23 @@ export default function FinanceiroPage() {
     const queryClient = useQueryClient();
     const { hasPermission, loading: authLoading, user } = useAuth();
     const organizacao_id = user?.organizacao_id;
+    const supabase = createClient();
     
     const canViewPage = hasPermission('financeiro', 'pode_ver');
     const canCreate = hasPermission('financeiro', 'pode_criar');
 
+    // UI State
     const [activeTab, setActiveTab] = useState('lancamentos');
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingLancamento, setEditingLancamento] = useState(null);
     const [isDetailsSidebarOpen, setIsDetailsSidebarOpen] = useState(false);
     const [selectedLancamento, setSelectedLancamento] = useState(null);
-    
     const [showFilters, setShowFilters] = useState(false);
+    
+    // Filtros e Paginação
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(150);
     const [sortConfig, setSortConfig] = useState({ key: 'data_vencimento', direction: 'descending' });
-    
     const [filters, setFilters] = useState({ 
         searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], 
         empreendimentoIds: [], etapaIds: [], status: [], tipo: [], 
@@ -118,9 +103,9 @@ export default function FinanceiroPage() {
         ignoreTransfers: false 
     });
     
-    const isInitialFetchCompleted = useRef(false);
     const hasRestoredUiState = useRef(false);
 
+    // Efeito de Título e Restauração de UI
     useEffect(() => {
         if (!authLoading && canViewPage) {
             setPageTitle('GESTÃO FINANCEIRA');
@@ -141,6 +126,7 @@ export default function FinanceiroPage() {
         }
     }, [authLoading, canViewPage, setPageTitle, router]);
 
+    // Salvar Estado da UI (Debounce)
     const uiStateToSave = { activeTab, filters, currentPage, itemsPerPage, sortConfig, showFilters };
     const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
     
@@ -149,6 +135,7 @@ export default function FinanceiroPage() {
         catch (error) { console.error("Falha ao salvar UI", error); }
     }, [debouncedUiState]);
 
+    // --- CARREGAMENTO DE DADOS INICIAIS ---
     const { data: initialData, isLoading: isLoadingInitialData } = useQuery({
         queryKey: ['initialFinanceData', organizacao_id],
         queryFn: () => fetchInitialData(organizacao_id),
@@ -157,44 +144,42 @@ export default function FinanceiroPage() {
     });
 
     const { empresas = [], contas = [], categorias = [], empreendimentos = [], allContacts = [], funcionarios = [] } = initialData || {};
-
-    // Filtra apenas contas do tipo Cartão de Crédito para a nova aba
     const contasCartao = contas.filter(c => c.tipo === 'Cartão de Crédito');
 
-    const { data: lancamentosData, isLoading: isLoadingLancamentos, isSuccess, isPlaceholderData } = useQuery({
-        queryKey: ['lancamentos', { filters, currentPage, itemsPerPage, sortConfig, organizacao_id }],
-        queryFn: fetchLancamentos,
-        enabled: canViewPage && activeTab === 'lancamentos' && !!organizacao_id,
-        placeholderData: () => getCachedData(LANCAMENTOS_CACHE_KEY), 
+    // --- CARREGAMENTO INTELIGENTE DE LANÇAMENTOS (HOOK NOVO) ---
+    // Substituímos o useQuery manual pelo hook que filtra no servidor
+    const { 
+        data: lancamentosQueryData, 
+        isLoading: isLoadingLancamentos, 
+        isFetching: isRefetching 
+    } = useLancamentos({
+        filters,
+        page: currentPage,
+        itemsPerPage,
+        sortConfig
     });
 
-    const { data: lancamentos = [], count: totalCount = 0 } = lancamentosData || {};
-    
-    useEffect(() => {
-        if (lancamentosData && isSuccess && !isPlaceholderData) {
-            const hasActiveFilters = Object.values(filters).some(val => Array.isArray(val) ? val.length > 0 : !!val);
-            if (!hasActiveFilters) localStorage.setItem(LANCAMENTOS_CACHE_KEY, JSON.stringify(lancamentosData));
-            if (!isInitialFetchCompleted.current) isInitialFetchCompleted.current = true;
-        }
-    }, [lancamentosData, isSuccess, filters, isPlaceholderData]);
-    
+    const lancamentos = lancamentosQueryData?.data || [];
+    const totalCount = lancamentosQueryData?.count || 0;
+
+    // --- KPIs FINANCEIROS ---
     const { data: financeiroStats = [], isLoading: isLoadingStats } = useQuery({
         queryKey: ['financeiroStats', { filters, organizacao_id }],
         queryFn: fetchFinanceiroStats,
         enabled: canViewPage && activeTab === 'lancamentos' && !!organizacao_id
     });
 
+    // --- MUTAÇÕES E AÇÕES ---
     const deleteLancamentoMutation = useMutation({
         mutationFn: async ({ id, organizacaoId }) => {
             const { error } = await supabase.from('lancamentos').delete().eq('id', id).eq('organizacao_id', organizacaoId);
             if (error) throw new Error(error.message);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
-            queryClient.invalidateQueries({ queryKey: ['financeiroStats'] });
-            queryClient.invalidateQueries({ queryKey: ['saldosContasReais'] });
-            queryClient.invalidateQueries({ queryKey: ['lancamentosCartao'] }); // Atualiza faturas também
-        }
+            handleSuccessForm(); // Invalida todas as queries necessárias
+            toast.success('Lançamento excluído!');
+        },
+        onError: (err) => toast.error(`Erro: ${err.message}`)
     });
 
     const handleDeleteLancamento = (id) => {
@@ -202,7 +187,7 @@ export default function FinanceiroPage() {
             description: "Tem certeza que deseja excluir este lançamento?",
             action: {
                 label: "Excluir",
-                onClick: () => toast.promise(deleteLancamentoMutation.mutateAsync({ id, organizacaoId: organizacao_id }), { loading: 'Excluindo...', success: 'Lançamento excluído!', error: (err) => `Erro: ${err.message}` })
+                onClick: () => deleteLancamentoMutation.mutate({ id, organizacaoId: organizacao_id })
             },
             cancel: { label: "Cancelar" },
             classNames: { actionButton: 'bg-red-600' }
@@ -210,11 +195,12 @@ export default function FinanceiroPage() {
     };
 
     const handleSuccessForm = () => {
+        // Invalidar queries para garantir dados frescos
         queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
         queryClient.invalidateQueries({ queryKey: ['financeiroStats'] });
         queryClient.invalidateQueries({ queryKey: ['saldosContasReais'] });
         queryClient.invalidateQueries({ queryKey: ['initialFinanceData'] });
-        queryClient.invalidateQueries({ queryKey: ['lancamentosCartao'] }); // Atualiza aba cartões
+        queryClient.invalidateQueries({ queryKey: ['lancamentosCartao'] });
     };
 
     const handleOpenAddModal = () => { setEditingLancamento(null); setIsFormModalOpen(true); };
@@ -268,7 +254,6 @@ export default function FinanceiroPage() {
                     <nav className="-mb-px flex space-x-6" aria-label="Tabs">
                         <TabButton tabName="lancamentos" label="Lançamentos" icon={faBalanceScale} />
                         <TabButton tabName="extrato" label="Extrato" icon={faFileInvoice} />
-                        {/* NOVA ABA CARTÕES */}
                         <TabButton tabName="cartoes" label="Cartões" icon={faCreditCard} />
                         <TabButton tabName="contas" label="Contas" icon={faBuilding} />
                         <TabButton tabName="ativos" label="Ativos" icon={faLandmark} />
@@ -279,7 +264,6 @@ export default function FinanceiroPage() {
             <div className="mt-4">
                 {activeTab === 'extrato' && <ExtratoManager contas={contas} onEdit={handleOpenEditModal} />}
                 
-                {/* RENDERIZA O GERENCIADOR DE FATURAS */}
                 {activeTab === 'cartoes' && <GerenciadorFaturas contasCartao={contasCartao} />}
 
                 {activeTab === 'lancamentos' && (
@@ -288,7 +272,7 @@ export default function FinanceiroPage() {
                         
                         <LancamentosManager 
                             lancamentos={lancamentos}
-                            loading={isLoadingLancamentos && !lancamentos.length}
+                            loading={isLoadingLancamentos || isRefetching}
                             contas={contas}
                             categorias={categorias}
                             empreendimentos={empreendimentos}
