@@ -11,6 +11,7 @@ export async function belvoRequest(endpoint, options = {}) {
     const supabase = await createClient();
     const organizacaoId = await getOrganizationId();
     
+    // 1. Busca as chaves no banco
     const { data: config, error } = await supabase
         .from('configuracoes_belvo')
         .select('*')
@@ -18,9 +19,10 @@ export async function belvoRequest(endpoint, options = {}) {
         .single();
 
     if (error || !config) {
-        throw new Error('Configurações da Belvo não encontradas no Supabase.');
+        throw new Error('Configurações da Belvo não encontradas no Supabase, seu lindo.');
     }
 
+    // 2. Define a URL base (Garante que não tenha barra sobrando)
     const baseUrl = config.environment === 'production' 
         ? 'https://api.belvo.com' 
         : 'https://sandbox.belvo.com';
@@ -30,8 +32,7 @@ export async function belvoRequest(endpoint, options = {}) {
     const headers = {
         'Content-Type': 'application/json',
         'Authorization': `Basic ${authString}`,
-        // Forçamos a versão para garantir compatibilidade com Open Finance Brasil
-        'X-Belvo-API-Resource-Version': '2022-06-01', 
+        'X-Belvo-API-Resource-Version': '2022-06-01',
         ...options.headers 
     };
 
@@ -47,15 +48,25 @@ export async function belvoRequest(endpoint, options = {}) {
                 body: options.body ? JSON.stringify(options.body) : undefined,
             });
 
+            // --- AQUI ESTÁ O PULO DO GATO ---
+            // Lemos como texto primeiro para evitar o erro do "token <"
             const responseText = await response.text();
             let responseData;
+
             try {
                 responseData = responseText ? JSON.parse(responseText) : {};
             } catch (e) {
-                throw new Error("A API retornou um formato inválido (HTML). Verifique se as credenciais estão corretas.");
+                // Se cair aqui, a Belvo devolveu um HTML (erro de servidor ou rota)
+                console.error("⚠️ Resposta não-JSON da Belvo:", responseText);
+                throw new Error("A Belvo devolveu um erro de servidor (HTML). Verifique se suas chaves no Supabase estão corretas.");
             }
 
             if (response.ok) return responseData;
+
+            // Tratamento de erros específicos da API
+            if (response.status === 401) {
+                throw new Error("Chaves da Belvo Inválidas! Verifique o Secret ID e Password no seu painel de configurações.");
+            }
 
             if (response.status === 428) throw new Error("MFA_REQUIRED");
 
@@ -75,7 +86,7 @@ export async function belvoRequest(endpoint, options = {}) {
             throw new Error(errorMessage);
 
         } catch (err) {
-            if (err.message === "MFA_REQUIRED" || attempt === MAX_RETRIES) throw err;
+            if (err.message.includes("MFA_REQUIRED") || attempt === MAX_RETRIES) throw err;
             const delay = RETRY_BASE_DELAY * Math.pow(RETRY_FACTOR, attempt);
             await sleep(delay);
             attempt++;
