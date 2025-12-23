@@ -11,8 +11,8 @@ import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faPlus, faCogs, faShieldAlt, faSpinner, faLock, faBalanceScale, 
-    faSitemap, faHandshake, faLandmark, faBuilding, faFileInvoice, 
-    faFilter, faSearch, faTags, faCreditCard 
+    faHandshake, faLandmark, faBuilding, faFileInvoice, 
+    faFilter, faSearch, faTags, faCreditCard, faFolderOpen // <--- Novo ícone
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
@@ -27,6 +27,7 @@ import LancamentoDetalhesSidebar from '../../../components/financeiro/Lancamento
 import FiltroFinanceiro from '../../../components/financeiro/FiltroFinanceiro';
 import FinanceiroStats from '../../../components/financeiro/FinanceiroStats';
 import GerenciadorFaturas from '../../../components/financeiro/GerenciadorFaturas';
+import DocumentosManager from '../../../components/financeiro/DocumentosManager'; // <--- IMPORT DA NOVA ABA
 
 // Hook Novo de Filtragem no Servidor
 import { useLancamentos } from '@/hooks/financeiro/useLancamentos';
@@ -42,7 +43,7 @@ const getCachedData = (key) => {
     }
 };
 
-// Busca dados iniciais (Empresas, Contas, etc) - Mantido
+// Busca dados iniciais
 async function fetchInitialData(organizacao_id) {
     const supabase = createClient();
     if (!organizacao_id) return { empresas: [], contas: [], categorias: [], empreendimentos: [], allContacts: [], funcionarios: [] };
@@ -58,7 +59,7 @@ async function fetchInitialData(organizacao_id) {
     return { empresas: empresasRes.data || [], contas: contasRes.data || [], categorias: categoriasRes.data || [], empreendimentos: empreendimentosRes.data || [], allContacts: contatosRes.data || [], funcionarios: funcionariosRes.data || [] };
 }
 
-// Busca KPIs - Mantido
+// KPIs
 async function fetchFinanceiroStats({ queryKey }) {
     const supabase = createClient();
     const [_key, { filters, organizacao_id }] = queryKey;
@@ -105,7 +106,6 @@ export default function FinanceiroPage() {
     
     const hasRestoredUiState = useRef(false);
 
-    // Efeito de Título e Restauração de UI
     useEffect(() => {
         if (!authLoading && canViewPage) {
             setPageTitle('GESTÃO FINANCEIRA');
@@ -126,7 +126,6 @@ export default function FinanceiroPage() {
         }
     }, [authLoading, canViewPage, setPageTitle, router]);
 
-    // Salvar Estado da UI (Debounce)
     const uiStateToSave = { activeTab, filters, currentPage, itemsPerPage, sortConfig, showFilters };
     const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
     
@@ -135,7 +134,6 @@ export default function FinanceiroPage() {
         catch (error) { console.error("Falha ao salvar UI", error); }
     }, [debouncedUiState]);
 
-    // --- CARREGAMENTO DE DADOS INICIAIS ---
     const { data: initialData, isLoading: isLoadingInitialData } = useQuery({
         queryKey: ['initialFinanceData', organizacao_id],
         queryFn: () => fetchInitialData(organizacao_id),
@@ -146,8 +144,6 @@ export default function FinanceiroPage() {
     const { empresas = [], contas = [], categorias = [], empreendimentos = [], allContacts = [], funcionarios = [] } = initialData || {};
     const contasCartao = contas.filter(c => c.tipo === 'Cartão de Crédito');
 
-    // --- CARREGAMENTO INTELIGENTE DE LANÇAMENTOS (HOOK NOVO) ---
-    // Substituímos o useQuery manual pelo hook que filtra no servidor
     const { 
         data: lancamentosQueryData, 
         isLoading: isLoadingLancamentos, 
@@ -162,21 +158,19 @@ export default function FinanceiroPage() {
     const lancamentos = lancamentosQueryData?.data || [];
     const totalCount = lancamentosQueryData?.count || 0;
 
-    // --- KPIs FINANCEIROS ---
     const { data: financeiroStats = [], isLoading: isLoadingStats } = useQuery({
         queryKey: ['financeiroStats', { filters, organizacao_id }],
         queryFn: fetchFinanceiroStats,
         enabled: canViewPage && activeTab === 'lancamentos' && !!organizacao_id
     });
 
-    // --- MUTAÇÕES E AÇÕES ---
     const deleteLancamentoMutation = useMutation({
         mutationFn: async ({ id, organizacaoId }) => {
             const { error } = await supabase.from('lancamentos').delete().eq('id', id).eq('organizacao_id', organizacaoId);
             if (error) throw new Error(error.message);
         },
         onSuccess: () => {
-            handleSuccessForm(); // Invalida todas as queries necessárias
+            handleSuccessForm();
             toast.success('Lançamento excluído!');
         },
         onError: (err) => toast.error(`Erro: ${err.message}`)
@@ -185,22 +179,19 @@ export default function FinanceiroPage() {
     const handleDeleteLancamento = (id) => {
         toast("Confirmar exclusão", {
             description: "Tem certeza que deseja excluir este lançamento?",
-            action: {
-                label: "Excluir",
-                onClick: () => deleteLancamentoMutation.mutate({ id, organizacaoId: organizacao_id })
-            },
+            action: { label: "Excluir", onClick: () => deleteLancamentoMutation.mutate({ id, organizacaoId: organizacao_id }) },
             cancel: { label: "Cancelar" },
             classNames: { actionButton: 'bg-red-600' }
         });
     };
 
     const handleSuccessForm = () => {
-        // Invalidar queries para garantir dados frescos
         queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
         queryClient.invalidateQueries({ queryKey: ['financeiroStats'] });
         queryClient.invalidateQueries({ queryKey: ['saldosContasReais'] });
         queryClient.invalidateQueries({ queryKey: ['initialFinanceData'] });
         queryClient.invalidateQueries({ queryKey: ['lancamentosCartao'] });
+        queryClient.invalidateQueries({ queryKey: ['documentosFinanceiros'] }); // Atualiza documentos também
     };
 
     const handleOpenAddModal = () => { setEditingLancamento(null); setIsFormModalOpen(true); };
@@ -227,7 +218,6 @@ export default function FinanceiroPage() {
             <LancamentoDetalhesSidebar open={isDetailsSidebarOpen} onClose={handleCloseDetailsSidebar} lancamento={selectedLancamento} />
             
             <div className="flex-shrink-0 bg-white shadow-sm p-6 space-y-6 rounded-lg">
-                {/* HEADLINE E FERRAMENTAS */}
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
                     <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full xl:w-auto">
                         <h1 className="text-3xl font-bold text-gray-800">Financeiro</h1>
@@ -239,22 +229,21 @@ export default function FinanceiroPage() {
                     <div className="flex flex-wrap gap-2 items-center w-full xl:w-auto justify-start xl:justify-end">
                         <Link href="/financeiro/conciliacao" className="flex-shrink-0 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200"><FontAwesomeIcon icon={faHandshake} className="text-green-600 mr-2" /> Conciliação</Link>
                         <Link href="/financeiro/auditoria" className="flex-shrink-0 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200"><FontAwesomeIcon icon={faShieldAlt} className="text-indigo-600 mr-2" /> Auditoria</Link>
-                        <Link href="/financeiro/categorias" className="flex-shrink-0 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center transition duration-200"><FontAwesomeIcon icon={faTags} className="mr-2" /> Categorias</Link>
                         <button onClick={() => setShowFilters(!showFilters)} className={`flex-shrink-0 border font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200 ${showFilters ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}><FontAwesomeIcon icon={faFilter} className={showFilters ? "text-blue-500 mr-2" : "text-gray-500 mr-2"} /> Filtros</button>
-                        <Link href="/configuracoes/financeiro/importar" className="flex-shrink-0 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200"><FontAwesomeIcon icon={faCogs} className="text-purple-500 mr-2" /> Assistente</Link>
                         {canCreate && <button onClick={handleOpenAddModal} className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow flex items-center transition duration-200"><FontAwesomeIcon icon={faPlus} className="mr-2" /> Novo</button>}
                     </div>
                 </div>
 
-                {showFilters && activeTab === 'lancamentos' && (
+                {showFilters && activeTab !== 'contas' && activeTab !== 'ativos' && (
                     <FiltroFinanceiro filters={filters} setFilters={setFilters} empresas={empresas} contas={contas} categorias={categorias} empreendimentos={empreendimentos} allContacts={allContacts} />
                 )}
 
                 <div className="border-b border-gray-200">
-                    <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+                    <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
                         <TabButton tabName="lancamentos" label="Lançamentos" icon={faBalanceScale} />
                         <TabButton tabName="extrato" label="Extrato" icon={faFileInvoice} />
                         <TabButton tabName="cartoes" label="Cartões" icon={faCreditCard} />
+                        <TabButton tabName="documentos" label="Documentos" icon={faFolderOpen} /> {/* NOVA ABA */}
                         <TabButton tabName="contas" label="Contas" icon={faBuilding} />
                         <TabButton tabName="ativos" label="Ativos" icon={faLandmark} />
                     </nav>
@@ -263,13 +252,13 @@ export default function FinanceiroPage() {
             
             <div className="mt-4">
                 {activeTab === 'extrato' && <ExtratoManager contas={contas} onEdit={handleOpenEditModal} />}
-                
                 {activeTab === 'cartoes' && <GerenciadorFaturas contasCartao={contasCartao} />}
+                
+                {activeTab === 'documentos' && <DocumentosManager filters={filters} />} {/* NOVO COMPONENTE */}
 
                 {activeTab === 'lancamentos' && (
                     <>
-                        <FinanceiroStats data={financeiroStats} isLoading={isLoadingStats} />
-                        
+                        <FinanceiroStats filters={filters} />
                         <LancamentosManager 
                             lancamentos={lancamentos}
                             loading={isLoadingLancamentos || isRefetching}
