@@ -1,7 +1,6 @@
 "use client";
 
-// Polyfill robusto para Promise.withResolvers
-// Necessário para pdfjs-dist v4+ rodar em ambientes Next.js/Browser mais antigos
+// Polyfill que roda imediatamente ao ser importado
 (function() {
   if (typeof Promise.withResolvers === "undefined") {
     const withResolvers = function () {
@@ -13,19 +12,21 @@
       return { promise, resolve, reject };
     };
     
-    // Aplica diretamente no objeto Promise global
-    Object.defineProperty(Promise, "withResolvers", {
-      value: withResolvers,
-      writable: true,
-      configurable: true,
-    });
-    
-    // Garante no window/globalThis também por segurança
-    if (typeof window !== "undefined") {
-      window.Promise.withResolvers = withResolvers;
+    // Tenta aplicar no Promise global
+    try {
+        Object.defineProperty(Promise, "withResolvers", {
+          value: withResolvers,
+          writable: true,
+          configurable: true,
+        });
+    } catch (e) {
+        // Fallback caso defineProperty falhe (muito raro)
+        Promise.withResolvers = withResolvers;
     }
-    if (typeof globalThis !== "undefined") {
-      globalThis.Promise.withResolvers = withResolvers;
+    
+    // Garante no window também
+    if (typeof window !== "undefined" && !window.Promise.withResolvers) {
+      window.Promise.withResolvers = withResolvers;
     }
   }
 })();

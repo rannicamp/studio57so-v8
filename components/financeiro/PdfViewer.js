@@ -1,21 +1,21 @@
 'use client';
 
-// IMPORTANTE: Importamos do nosso "Porteiro" (PdfClient) em vez do 'react-pdf' direto
-import { Document, Page, pdfjs } from './PdfClient';
+// 1. A VACINA (Essencial): Importamos aqui também para garantir que
+// este chunk dinâmico tenha o ambiente corrigido antes de carregar o react-pdf.
+import './pdfPolyfill';
 
+import { Document, Page, pdfjs } from 'react-pdf';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faFilePdf, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 
-// Estilos
+// Estilos necessários
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// Configuração do Worker com verificação de segurança
-if (pdfjs && pdfjs.GlobalWorkerOptions) {
-    pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
-}
+// Configuração do Worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-export default function PdfThumbnail({ url, width = 250 }) {
+export default function PdfViewer({ url, width }) {
     return (
         <div className="w-full h-full flex items-center justify-center bg-gray-100 overflow-hidden relative">
             <Document

@@ -1,12 +1,14 @@
-﻿// app/layout.js
-
-import { Inter } from 'next/font/google';
+﻿import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'sonner';
 import Script from 'next/script';
 import { Providers } from './providers';
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
 import QueryProvider from './QueryProvider';
+
+// 1. CORREÇÃO DE PDF (A Vacina 💉):
+// Importamos o polyfill aqui para garantir que ele carregue antes de qualquer biblioteca de PDF
+import '../components/financeiro/pdfPolyfill';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -22,8 +24,6 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   // Nota: RootLayout é Server Component por padrão.
-  // Como não estamos buscando dados do banco aqui, NÃO precisamos
-  // chamar const supabase = await createClient();
   
   return (
     <html lang="pt-br">

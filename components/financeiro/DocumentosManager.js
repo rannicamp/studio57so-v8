@@ -1,8 +1,7 @@
-// components/financeiro/DocumentosManager.js
 "use client";
 
 import { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic'; // <--- Importante para o Lazy Loading
+// REMOVIDO: dynamic não é mais necessário aqui para o PdfThumbnail
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faFileImage, faFileAlt, faDownload, faEye, 
@@ -12,16 +11,8 @@ import { useDocumentos } from '@/hooks/financeiro/useDocumentos';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 
-// Importa o componente de PDF de forma dinâmica e desativa o SSR para ele
-const PdfThumbnail = dynamic(() => import('./PdfThumbnail'), { 
-    ssr: false,
-    loading: () => (
-        <div className="flex flex-col items-center justify-center text-red-300 h-full">
-            <FontAwesomeIcon icon={faSpinner} spin />
-            <span className="text-[10px] mt-1">Iniciando PDF...</span>
-        </div>
-    )
-});
+// CORREÇÃO: Importação direta. O PdfThumbnail já cuida do lazy loading internamente agora.
+import PdfThumbnail from './PdfThumbnail';
 
 const supabase = createClient();
 
@@ -53,7 +44,6 @@ const FileThumbnail = ({ caminhoArquivo, nomeArquivo }) => {
     }
 
     if (isPdf) {
-        // Usa o componente dinâmico aqui
         return <PdfThumbnail url={publicUrl} />;
     }
 
