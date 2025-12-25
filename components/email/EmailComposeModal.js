@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faPaperPlane, faSpinner, faPaperclip, faTrashAlt, faFile, faUser, faBuilding, faExclamationTriangle, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faPaperPlane, faSpinner, faPaperclip, faTrashAlt, faFile, faUser, faBuilding, faExclamationTriangle, faCheck, faChevronDown } from '@fortawesome/free-solid-svg-icons';
 import EmailEditor from './EmailEditor';
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
+import { usePersistentState } from '@/hooks/usePersistentState'; // Importando nosso hook mágico
 
 // Função auxiliar para formatar bytes (KB, MB)
 const formatBytes = (bytes, decimals = 2) => {
@@ -31,9 +32,11 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
     const fileInputRef = useRef(null);
     const [mounted, setMounted] = useState(false);
     
-    // Attachments agora guarda: { filename, size, path, publicUrl }
-    const [formData, setFormData] = useState({
-        to: '', cc: '', bcc: '', subject: '', body: '', replyToMessageId: null, attachments: []
+    // --- PERSISTÊNCIA: Substituímos useState por usePersistentState ---
+    // A chave 'studio57_email_draft_temp' garante que recuperamos o rascunho
+    const [formData, setFormData] = usePersistentState('studio57_email_draft_temp', {
+        to: '', cc: '', bcc: '', subject: '', body: '', 
+        replyToMessageId: null, attachments: [], accountId: '' 
     });
 
     const MAX_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
@@ -54,24 +57,36 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
         return () => setMounted(false);
     }, []);
 
-    const { data: emailConfig } = useQuery({
-        queryKey: ['emailConfig', user?.id],
+    // --- BUSCAR TODAS AS CONTAS DE E-MAIL ---
+    const { data: emailAccounts, isLoading: isLoadingAccounts } = useQuery({
+        queryKey: ['emailConfigList', user?.id],
         queryFn: async () => {
             const { data } = await supabase
                 .from('email_configuracoes')
-                .select('*')
-                .eq('user_id', user.id)
-                .single();
-            return data;
+                .select('*') // Busca TODAS as contas, não só uma
+                .eq('user_id', user.id);
+            return data || [];
         },
         enabled: !!user && isOpen, 
         staleTime: 1000 * 60 * 5 
     });
 
-    const buildSignature = () => {
-        if (!emailConfig || !emailConfig.assinatura_texto) return '';
-        const textoAssinatura = emailConfig.assinatura_texto;
-        const incluirFoto = emailConfig.assinatura_incluir_foto;
+    // Seleciona a conta padrão se não houver nenhuma selecionada no rascunho
+    useEffect(() => {
+        if (emailAccounts && emailAccounts.length > 0 && !formData.accountId) {
+            setFormData(prev => ({ ...prev, accountId: emailAccounts[0].id }));
+        }
+    }, [emailAccounts, formData.accountId, setFormData]);
+
+    // Encontra a configuração da conta selecionada atualmente para pegar a assinatura correta
+    const selectedAccountConfig = useMemo(() => {
+        return emailAccounts?.find(acc => acc.id === formData.accountId);
+    }, [emailAccounts, formData.accountId]);
+
+    const buildSignature = (config) => {
+        if (!config || !config.assinatura_texto) return '';
+        const textoAssinatura = config.assinatura_texto;
+        const incluirFoto = config.assinatura_incluir_foto;
         const fotoUrl = user?.avatar_url; 
 
         if (incluirFoto && fotoUrl) {
@@ -149,36 +164,40 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
         return () => document.removeEventListener('click', handleClickOutside);
     }, [showSuggestions]);
 
-    // --- POPULAR DADOS ---
+    // --- POPULAR DADOS (Inicialização) ---
+    // Executa apenas quando initialData muda (ex: clicar em Responder). 
+    // Se abrir vazio, o usePersistentState já cuida de manter o rascunho.
     useEffect(() => {
-        if (isOpen && emailConfig !== undefined) { 
-            const signature = buildSignature();
-            let initialBody = '';
-            if (initialData) {
-                const shouldUseSig = emailConfig?.assinatura_usar_respostas !== false; 
-                const sigHtml = shouldUseSig ? `<p></p>${signature}` : ''; 
-                initialBody = `${sigHtml}${initialData.body || ''}`;
-                setFormData({
-                    to: initialData.to || '', cc: initialData.cc || '', bcc: '', subject: initialData.subject || '',
-                    body: initialBody,
-                    replyToMessageId: initialData.messageId || null,
-                    attachments: []
-                });
-            } else {
-                const shouldUseSig = emailConfig?.assinatura_usar_novos !== false;
-                initialBody = shouldUseSig ? `<p></p>${signature}` : '';
-                setFormData({ 
-                    to: '', cc: '', bcc: '', subject: '', body: initialBody, 
-                    replyToMessageId: null, attachments: [] 
-                });
-            }
+        if (isOpen && initialData && selectedAccountConfig) {
+            // Só sobrescrevemos se for uma ação explícita de Responder/Encaminhar
+            // Se for apenas abrir o modal 'Nova Mensagem', respeitamos o rascunho salvo
+            const signature = buildSignature(selectedAccountConfig);
+            const shouldUseSig = selectedAccountConfig?.assinatura_usar_respostas !== false; 
+            const sigHtml = shouldUseSig ? `<p></p>${signature}` : ''; 
+            const initialBody = `${sigHtml}${initialData.body || ''}`;
+            
+            setFormData({
+                to: initialData.to || '', cc: initialData.cc || '', bcc: '', subject: initialData.subject || '',
+                body: initialBody,
+                replyToMessageId: initialData.messageId || null,
+                attachments: [],
+                accountId: formData.accountId // Mantém a conta que já estava ou a padrão
+            });
             setSuggestions([]);
+        } 
+        // Lógica para adicionar assinatura no rascunho vazio se ainda não tiver
+        else if (isOpen && selectedAccountConfig && !formData.body && !initialData) {
+             const signature = buildSignature(selectedAccountConfig);
+             const shouldUseSig = selectedAccountConfig?.assinatura_usar_novos !== false;
+             if (shouldUseSig) {
+                 setFormData(prev => ({ ...prev, body: `<p></p>${signature}` }));
+             }
         }
-    }, [isOpen, initialData, emailConfig]); 
+    }, [isOpen, initialData, selectedAccountConfig]); // Removemos setFormData das dependências para evitar loop
 
     const handleAttachmentClick = () => fileInputRef.current?.click();
 
-    // --- NOVA LÓGICA DE UPLOAD (SUPABASE STORAGE) ---
+    // --- UPLOAD (SUPABASE STORAGE) ---
     const handleFileChange = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
@@ -194,24 +213,21 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
             }
 
             try {
-                // Nome único para evitar conflito
                 const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
                 
-                // Upload para o Bucket CORRETO: 'anexos-email'
                 const { data, error } = await supabase.storage
                     .from('anexos-email') 
                     .upload(fileName, file);
 
                 if (error) throw error;
 
-                // Pega URL pública
                 const { data: { publicUrl } } = supabase.storage
                     .from('anexos-email')
                     .getPublicUrl(fileName);
 
                 uploadedAttachments.push({ 
                     filename: file.name, 
-                    path: publicUrl, // Mandaremos o link, não o arquivo base64
+                    path: publicUrl, 
                     size: file.size 
                 });
 
@@ -230,7 +246,17 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
 
     const removeAttachment = (index) => {
         setFormData(prev => ({ ...prev, attachments: prev.attachments.filter((_, i) => i !== index) }));
-        // Opcional: Poderíamos deletar do bucket aqui também, mas melhor limpar via cron job depois
+    };
+
+    // --- LIMPAR RASCUNHO (Descartar) ---
+    const handleDiscard = () => {
+        if (confirm('Tem certeza que deseja descartar este rascunho?')) {
+            setFormData({
+                to: '', cc: '', bcc: '', subject: '', body: '', 
+                replyToMessageId: null, attachments: [], accountId: formData.accountId
+            });
+            onClose();
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -241,11 +267,15 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
             return;
         }
 
+        if (!formData.accountId) {
+            toast.error("Selecione uma conta para enviar.");
+            return;
+        }
+
         setLoading(true);
         try {
             const finalTo = formData.to.trim().replace(/,$/, '');
             
-            // Envia apenas os metadados (Links) para o backend
             const res = await fetch('/api/email/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -265,6 +295,13 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
             if (!res.ok) throw new Error(data.error || 'Erro ao enviar');
             
             toast.success('E-mail enviado!');
+            
+            // LIMPA O RASCUNHO APÓS SUCESSO
+            setFormData({
+                to: '', cc: '', bcc: '', subject: '', body: '', 
+                replyToMessageId: null, attachments: [], accountId: formData.accountId
+            });
+
             if (onEmailSent) onEmailSent();
             onClose();
         } catch (error) { 
@@ -285,7 +322,8 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                         {initialData?.type === 'reply' ? 'Responder' : 
                          initialData?.type === 'forward' ? 'Encaminhar' : 'Nova Mensagem'}
                     </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+                    {/* Botão de Fechar apenas fecha o modal, mas MANTÉM os dados salvos */}
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors" title="Fechar e manter rascunho">
                         <FontAwesomeIcon icon={faTimes} className="text-xl" />
                     </button>
                 </div>
@@ -294,6 +332,31 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                     <div className="p-6 flex flex-col h-full gap-4 overflow-y-auto custom-scrollbar">
                         
                         <div className="grid gap-4 relative">
+                            {/* --- SELEÇÃO DE CONTA (DE:) --- */}
+                            <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+                                <label className="w-16 text-sm font-semibold text-gray-500 text-right">De:</label>
+                                <div className="flex-grow relative">
+                                    {isLoadingAccounts ? (
+                                        <div className="text-xs text-gray-400">Carregando contas...</div>
+                                    ) : (
+                                        <div className="relative w-full md:w-1/2">
+                                            <select 
+                                                value={formData.accountId} 
+                                                onChange={e => setFormData({...formData, accountId: e.target.value})}
+                                                className="w-full outline-none text-sm text-gray-800 bg-transparent py-1 pr-8 appearance-none font-medium cursor-pointer hover:bg-gray-50 rounded"
+                                            >
+                                                {emailAccounts?.map(acc => (
+                                                    <option key={acc.id} value={acc.id}>
+                                                        {acc.nome_remetente ? `${acc.nome_remetente} <${acc.email}>` : acc.email}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <FontAwesomeIcon icon={faChevronDown} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none" />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
                             <div className="flex items-center gap-2 border-b border-gray-100 pb-2 relative">
                                 <label className="w-16 text-sm font-semibold text-gray-500 text-right">Para:</label>
                                 <div className="flex-grow relative">
@@ -371,10 +434,12 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                                 <FontAwesomeIcon icon={faPaperclip} /> <span className="hidden sm:inline">Anexar</span>
                             </button>
                             
-                            <button type="button" onClick={() => setFormData({...formData, body: '', attachments: [], to: '', subject: ''})} className="text-gray-500 hover:text-red-500 text-sm px-2 py-1 rounded hover:bg-gray-100"><FontAwesomeIcon icon={faTrashAlt} className="mr-1" /> Descartar</button>
+                            {/* Descartar agora limpa o rascunho explicitamente */}
+                            <button type="button" onClick={handleDiscard} className="text-gray-500 hover:text-red-500 text-sm px-2 py-1 rounded hover:bg-gray-100"><FontAwesomeIcon icon={faTrashAlt} className="mr-1" /> Descartar</button>
                         </div>
                         <div className="flex gap-3">
-                            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 text-sm font-medium">Cancelar</button>
+                            {/* Cancelar agora é um "Fechar" seguro */}
+                            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 text-sm font-medium">Cancelar (Salvar Rascunho)</button>
                             
                             <button type="submit" disabled={loading || uploading || isOverLimit} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md flex items-center gap-2 text-sm font-bold transition-transform active:scale-95 disabled:opacity-70 disabled:bg-gray-400">
                                 {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperPlane} />} Enviar

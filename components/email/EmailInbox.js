@@ -38,7 +38,9 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
     const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(cachedState?.isEmailConfigOpen || false);
     const [configInitialTab, setConfigInitialTab] = useState(cachedState?.configInitialTab || 'connection'); 
     
-    const [isComposeOpen, setIsComposeOpen] = useState(false);
+    // MUDANÇA AQUI: Agora restauramos se o modal de escrever estava aberto!
+    const [isComposeOpen, setIsComposeOpen] = useState(cachedState?.isComposeOpen || false);
+    
     const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
 
     // Estado para preenchimento inteligente de regras
@@ -49,12 +51,14 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
     // --- Persistência UI ---
     const hasRestoredUiState = useRef(false);
     
+    // MUDANÇA AQUI: Adicionamos 'isComposeOpen' para ser salvo
     const uiStateToSave = { 
         selectedEmailFolder, 
         searchTerm, 
         selectedEmail,
         isEmailConfigOpen, 
-        configInitialTab
+        configInitialTab,
+        isComposeOpen 
     };
     
     const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
@@ -71,8 +75,6 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
 
     // --- CORREÇÃO: Função de atualização Otimista (Sem Invalidação Imediata) ---
     const handleUnreadUpdate = useCallback((accountId, folderPath, newCount) => {
-        // Apenas atualizamos o cache localmente. Confiamos na lista que acabou de carregar.
-        // Não chamamos invalidateQueries aqui para evitar que o servidor sobrescreva com erro/zero.
         queryClient.setQueryData(['emailFolderCounts', accountId], (oldData) => {
             if (!oldData) return { counts: { [folderPath]: newCount } };
             return {
@@ -86,11 +88,9 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
     }, [queryClient]);
 
     // --- Gatilho: Atualizar contagens APENAS ao mudar de CONTA (não de pasta) ---
-    // Isso evita floodar o servidor toda vez que clica numa pasta
     useEffect(() => {
         if (selectedEmailFolder?.accountId) {
-            // Opcional: só invalida se fizer muito tempo, mas o staleTime já cuida disso.
-            // Deixamos o React Query gerenciar.
+             // Lógica de invalidação controlada pelo React Query
         }
     }, [selectedEmailFolder?.accountId]);
 
@@ -104,7 +104,6 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                 if (data.newEmails > 0) {
                     queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
                     queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
-                    // Aqui sim, se tem email novo detectado pelo sync, pedimos atualização
                     queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
                 }
             } catch (error) {
@@ -204,6 +203,7 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                 rulePrefill={rulePrefill} 
             />
             
+            {/* O modal agora é controlado pelo estado persistente isComposeOpen */}
             <EmailComposeModal 
                 isOpen={isComposeOpen} 
                 onClose={() => setIsComposeOpen(false)} 
