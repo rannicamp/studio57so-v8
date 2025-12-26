@@ -9,7 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faSpinner, faFileInvoiceDollar, faArrowUpRightDots,
     faCalendarCheck, faChartPie, faHandshake, faChartLine,
-    faPlus, faTimes, faSearch, faFilter
+    faPlus, faTimes, faSearch, faFilter, faFileSignature
 } from '@fortawesome/free-solid-svg-icons';
 import ContratoList from '@/components/contratos/ContratoList';
 import KpiCard from '@/components/KpiCard';
@@ -199,36 +199,49 @@ export default function ContratosPage() {
     });
 
     const kpiData = useMemo(() => {
-        if (!contratos) return { totalVendido: 0, contratosAssinados: 0, ticketMedio: 0, mediaVendasPorMes: 0, ultimaVenda: null };
+        const kpiDefault = { totalVendido: 0, contratosAssinados: 0, ticketMedio: 0, mediaVendasPorMes: 0, ultimaVenda: null, totalTermos: 0, countTermos: 0 };
+        if (!contratos) return kpiDefault;
         
-        // --- DEVONILDO KPI FIX ---
-        // Filtra apenas o que é "Assinado" E que NÃO seja Termo de Interesse/Reserva
-        const dataParaKpis = contratos.filter(c => {
+        // 1. KPI Vendas Efetivas (Contratos Assinados e NÃO Termos)
+        const dataVendasEfetivas = contratos.filter(c => {
             const isAssinado = c.status_contrato === 'Assinado';
             const tipoDoc = c.tipo_documento ? c.tipo_documento.toUpperCase() : '';
-            // Se tiver TERMO no nome (ex: TERMO_DE_INTERESSE), não consideramos venda efetiva para KPI
-            const isVendaEfetiva = !tipoDoc.includes('TERMO');
-            
-            return isAssinado && isVendaEfetiva;
+            return isAssinado && !tipoDoc.includes('TERMO');
         });
 
-        if (dataParaKpis.length === 0) return { totalVendido: 0, contratosAssinados: 0, ticketMedio: 0, mediaVendasPorMes: 0, ultimaVenda: null };
-        
-        const totalVendido = dataParaKpis.reduce((acc, contrato) => acc + (parseFloat(contrato.valor_final_venda) || 0), 0);
-        const contratosAssinados = dataParaKpis.length;
+        // 2. KPI Termos de Interesse (Assinados/Reservados) - Novo!
+        const dataTermos = contratos.filter(c => {
+            const isAssinado = c.status_contrato === 'Assinado';
+            const tipoDoc = c.tipo_documento ? c.tipo_documento.toUpperCase() : '';
+            return isAssinado && tipoDoc.includes('TERMO');
+        });
+
+        // Cálculos Venda
+        const totalVendido = dataVendasEfetivas.reduce((acc, contrato) => acc + (parseFloat(contrato.valor_final_venda) || 0), 0);
+        const contratosAssinados = dataVendasEfetivas.length;
         const ticketMedio = contratosAssinados > 0 ? totalVendido / contratosAssinados : 0;
         
-        const datasVenda = dataParaKpis.map(c => new Date(c.data_venda));
-        const dataMin = new Date(Math.min.apply(null, datasVenda));
-        const dataMax = new Date(Math.max.apply(null, datasVenda));
-        const diffAnos = dataMax.getFullYear() - dataMin.getFullYear();
-        const diffMeses = dataMax.getMonth() - dataMin.getMonth();
-        const totalMesesNoPeriodo = (diffAnos * 12) + diffMeses + 1;
-        const mediaVendasPorMes = totalMesesNoPeriodo > 0 ? contratosAssinados / totalMesesNoPeriodo : 0;
+        // Cálculos Termos (Novo)
+        const totalTermos = dataTermos.reduce((acc, contrato) => acc + (parseFloat(contrato.valor_final_venda) || 0), 0);
+        const countTermos = dataTermos.length;
+
+        // Cálculos Temporais (baseado nas vendas efetivas)
+        let mediaVendasPorMes = 0;
+        let ultimaVenda = null;
+
+        if (contratosAssinados > 0) {
+            const datasVenda = dataVendasEfetivas.map(c => new Date(c.data_venda));
+            const dataMin = new Date(Math.min.apply(null, datasVenda));
+            const dataMax = new Date(Math.max.apply(null, datasVenda));
+            const diffAnos = dataMax.getFullYear() - dataMin.getFullYear();
+            const diffMeses = dataMax.getMonth() - dataMin.getMonth();
+            const totalMesesNoPeriodo = (diffAnos * 12) + diffMeses + 1;
+            mediaVendasPorMes = totalMesesNoPeriodo > 0 ? contratosAssinados / totalMesesNoPeriodo : 0;
+            
+            ultimaVenda = dataVendasEfetivas.reduce((latest, current) => new Date(current.data_venda) > new Date(latest.data_venda) ? current : latest).data_venda;
+        }
         
-        const ultimaVenda = dataParaKpis.reduce((latest, current) => new Date(current.data_venda) > new Date(latest.data_venda) ? current : latest).data_venda;
-        
-        return { totalVendido, contratosAssinados, ticketMedio, mediaVendasPorMes, ultimaVenda };
+        return { totalVendido, contratosAssinados, ticketMedio, mediaVendasPorMes, ultimaVenda, totalTermos, countTermos };
     }, [contratos]);
 
     const handleCreateContrato = async () => {
@@ -323,13 +336,19 @@ export default function ContratosPage() {
                     />
                 )}
 
-                {/* KPIs */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                {/* KPIs - Ajustado para 7 itens com grid responsivo */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
                     <KpiCard
                         title="VGV Possível"
                         value={isLoadingVgv ? '...' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(vgvPossivel || 0)}
                         icon={faChartLine}
                         tooltip="Soma dos contratos assinados e unidades disponíveis para empreendimentos listados."
+                    />
+                    <KpiCard 
+                        title="Potencial (Termos)" 
+                        value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalTermos)} 
+                        icon={faFileSignature} 
+                        tooltip={`${kpiData.countTermos} termos assinados aguardando conversão.`}
                     />
                     <KpiCard title="Total Vendido" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpiData.totalVendido)} icon={faFileInvoiceDollar} />
                     <KpiCard title="Assinados" value={kpiData.contratosAssinados} icon={faHandshake} />
