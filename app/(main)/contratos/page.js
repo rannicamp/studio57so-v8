@@ -72,7 +72,6 @@ const fetchVgvPossivel = async (organizacaoId) => {
 };
 
 export default function ContratosPage() {
-    // CORREÇÃO: Removido 'await' aqui (Componente de Cliente)
     const supabase = createClient();
     const queryClient = useQueryClient();
     const { user } = useAuth();
@@ -154,14 +153,15 @@ export default function ContratosPage() {
             let query = supabase
                 .from('contratos')
                 .select(`
-                    id, data_venda, status_contrato, valor_final_venda, numero_contrato, tipo_documento,
+                    id, data_venda, status_contrato, valor_final_venda, numero_contrato, tipo_documento, lixeira,
                     contato:contato_id (id, nome, razao_social, cpf, cnpj),
                     empreendimento:empreendimento_id (id, nome),
                     produto:contrato_produtos (
                         produtos_empreendimento (unidade)
                     )
                 `)
-                .eq('organizacao_id', organizacaoId);
+                .eq('organizacao_id', organizacaoId)
+                .eq('lixeira', false); // Filtrando Lixeira
 
             if (debouncedFilters.searchTerm) {
                 const isNumeric = /^\d+$/.test(debouncedFilters.searchTerm);
@@ -179,13 +179,7 @@ export default function ContratosPage() {
             if (debouncedFilters.endDate) query = query.lte('data_venda', debouncedFilters.endDate);
             
             if (sortConfig.key) {
-                // Ajuste para ordenar colunas relacionadas se necessário, ou usar campos planos
                 if (sortConfig.key === 'contato_nome') {
-                     // Ordenação por relação complexa é difícil direto no supabase simples,
-                     // geralmente ordena-se no cliente ou usa uma RPC.
-                     // Fallback para numero_contrato se for complexo, ou manter como está se a view permitir.
-                     // Por segurança, ordenamos por created_at se for complexo, ou implementamos sort no cliente.
-                     // Mantendo padrão do supabase:
                      query = query.order('created_at', { ascending: false });
                 } else {
                      query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' });
@@ -195,7 +189,7 @@ export default function ContratosPage() {
             const { data, error } = await query;
             if (error) throw error;
             
-            // Ajuste dos dados para a tabela (flattening produtos)
+            // Ajuste dos dados para a tabela
             return data.map(c => ({
                 ...c,
                 produto: c.produto?.[0]?.produtos_empreendimento || null
@@ -206,7 +200,18 @@ export default function ContratosPage() {
 
     const kpiData = useMemo(() => {
         if (!contratos) return { totalVendido: 0, contratosAssinados: 0, ticketMedio: 0, mediaVendasPorMes: 0, ultimaVenda: null };
-        const dataParaKpis = contratos.filter(c => c.status_contrato === 'Assinado');
+        
+        // --- DEVONILDO KPI FIX ---
+        // Filtra apenas o que é "Assinado" E que NÃO seja Termo de Interesse/Reserva
+        const dataParaKpis = contratos.filter(c => {
+            const isAssinado = c.status_contrato === 'Assinado';
+            const tipoDoc = c.tipo_documento ? c.tipo_documento.toUpperCase() : '';
+            // Se tiver TERMO no nome (ex: TERMO_DE_INTERESSE), não consideramos venda efetiva para KPI
+            const isVendaEfetiva = !tipoDoc.includes('TERMO');
+            
+            return isAssinado && isVendaEfetiva;
+        });
+
         if (dataParaKpis.length === 0) return { totalVendido: 0, contratosAssinados: 0, ticketMedio: 0, mediaVendasPorMes: 0, ultimaVenda: null };
         
         const totalVendido = dataParaKpis.reduce((acc, contrato) => acc + (parseFloat(contrato.valor_final_venda) || 0), 0);
