@@ -1,7 +1,18 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import imapSimple from 'imap-simple';
+import webPush from 'web-push';
 
+// --- CONFIGURAÇÃO WEB PUSH ---
+if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    webPush.setVapidDetails(
+        'mailto:suporte@studio57.arq.br',
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        process.env.VAPID_PRIVATE_KEY
+    );
+}
+
+// --- FUNÇÕES AUXILIARES ---
 const decodeHeader = (str) => {
     if (!str) return '';
     if (Array.isArray(str)) str = str[0];
@@ -23,10 +34,64 @@ const getBoxStatus = (connection, boxName) => {
     });
 };
 
+// --- FUNÇÃO DE NOTIFICAÇÃO HÍBRIDA (SISTEMA + MOBILE) ---
+async function sendHybridNotification(supabase, userId, title, message) {
+    try {
+        console.log(`🔔 Disparando notificação para UserID: ${userId}`);
+
+        // 1. GARANTIA DE SISTEMA: Salva no banco (Sininho) SEMPRE
+        // Isso garante que apareça no painel web mesmo sem celular vinculado
+        const { error: dbError } = await supabase.from('notificacoes').insert({
+            user_id: userId,
+            titulo: title,
+            mensagem: message,
+            link: '/email',
+            lida: false,
+            tipo: 'sistema' // Usa o ícone azul de sino (sistema) que já existe no seu frontend
+        });
+
+        if (dbError) console.error("Erro ao salvar notificação no sistema:", dbError);
+
+        // 2. TENTATIVA MOBILE: Busca dispositivos para Push
+        const { data: subscriptions } = await supabase
+            .from('notification_subscriptions')
+            .select('*')
+            .eq('user_id', userId);
+
+        // Se tiver celular cadastrado, manda o Push
+        if (subscriptions && subscriptions.length > 0) {
+            const payload = JSON.stringify({
+                title: title,
+                message: message,
+                url: '/email', // Ao clicar na notificação do celular, abre o email
+                icon: '/icons/icon-192x192.png'
+            });
+
+            const promises = subscriptions.map(sub => 
+                webPush.sendNotification(sub.subscription_data, payload).catch(async err => {
+                    // Limpeza automática de inscrições mortas
+                    if (err.statusCode === 410 || err.statusCode === 404) {
+                        console.log(`🗑️ Removendo dispositivo inativo: ${sub.id}`);
+                        await supabase.from('notification_subscriptions').delete().eq('id', sub.id);
+                    }
+                })
+            );
+
+            await Promise.all(promises);
+            console.log(`📱 Push enviado para ${subscriptions.length} dispositivo(s).`);
+        } else {
+            console.log("ℹ️ Nenhum dispositivo móvel cadastrado para push. Notificação salva apenas no sistema.");
+        }
+
+    } catch (e) {
+        console.error("Erro geral no envio de notificação:", e);
+    }
+}
+
 export async function POST(request) {
-    // Await obrigatório no Next 15
     const supabase = await createClient();
     
+    // Busca e-mails dos últimos 3 meses (janela de sincronização)
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
@@ -40,6 +105,7 @@ export async function POST(request) {
             .eq('user_id', user.id);
 
         let totalSynced = 0;
+        let newEmailsCountTotal = 0; 
 
         for (const config of accounts) {
             let connection = null;
@@ -60,13 +126,12 @@ export async function POST(request) {
                 const boxes = await connection.getBoxes();
                 const folderList = [];
 
-                // Lógica de caminhos corrigida (Igual ao route.js de folders)
+                // Mapeia estrutura de pastas
                 const processBoxes = (list, parentPath = '', level = 0) => {
                     for (const [key, val] of Object.entries(list)) {
                         const delimiter = val.delimiter || '/';
                         const fullPath = parentPath ? parentPath + delimiter + key : key;
 
-                        // Se for [Gmail], passamos o caminho para os filhos mas não processamos este nó
                         if (key === '[Gmail]' || key === '[Google Mail]') {
                             if (val.children) processBoxes(val.children, fullPath, level);
                             continue;
@@ -80,10 +145,10 @@ export async function POST(request) {
 
                 for (const folder of folderList) {
                     try {
-                        // Verifica status (se falhar, ignora pasta sem travar sync)
                         const status = await getBoxStatus(connection, folder.path);
                         if (!status) continue;
 
+                        // Atualiza cache de contagem da pasta
                         await supabase.from('email_folders_cache').upsert({
                             account_id: config.id,
                             path: folder.path,
@@ -95,41 +160,69 @@ export async function POST(request) {
                             updated_at: new Date().toISOString()
                         }, { onConflict: 'account_id, path' });
 
-                        // Sincroniza apenas pastas principais para performance
-                        const isRelevant = ['INBOX', 'SENT', 'ENVIADOS', 'ENTRADA', 'ITENS ENVIADOS'].some(k => folder.path.toUpperCase().includes(k));
+                        // Para notificações, focamos principalmente na Caixa de Entrada
+                        const isInbox = ['INBOX', 'CAIXA DE ENTRADA', 'ENTRADA'].some(k => folder.path.toUpperCase() === k);
+                        
+                        // Sincroniza conteúdo apenas de pastas relevantes (Entrada e Enviados)
+                        const isRelevant = isInbox || ['SENT', 'ENVIADOS', 'ITENS ENVIADOS'].some(k => folder.path.toUpperCase().includes(k));
                         
                         if (isRelevant) {
-                            // Importante: readOnly true previne alterar flags acidentalmente durante sync
                             await connection.openBox(folder.path, { readOnly: true });
                             
                             const searchCriteria = [['SINCE', threeMonthsAgo]];
                             const fetchOptions = { bodies: ['HEADER'], struct: true };
                             const messages = await connection.search(searchCriteria, fetchOptions);
 
-                            const messagesToUpsert = messages.map(msg => {
-                                const header = msg.parts[0].body;
-                                return {
-                                    account_id: config.id,
-                                    uid: msg.attributes.uid,
-                                    folder_path: folder.path,
-                                    subject: decodeHeader(header.subject ? header.subject[0] : '(Sem Assunto)'),
-                                    from_text: decodeHeader(header.from ? header.from[0] : ''),
-                                    date: header.date ? new Date(header.date[0]) : new Date(),
-                                    is_read: !msg.attributes.flags.includes('\\Seen'),
-                                    updated_at: new Date().toISOString()
-                                };
-                            });
+                            if (messages.length > 0) {
+                                // Verifica quais mensagens já temos no banco para saber se são novas
+                                const uids = messages.map(m => m.attributes.uid);
+                                const { data: existingMessages } = await supabase
+                                    .from('email_messages_cache')
+                                    .select('uid')
+                                    .eq('account_id', config.id)
+                                    .eq('folder_path', folder.path)
+                                    .in('uid', uids);
 
-                            if (messagesToUpsert.length > 0) {
-                                // Upsert em lotes
-                                for (let i = 0; i < messagesToUpsert.length; i += 50) {
-                                    const batch = messagesToUpsert.slice(i, i + 50);
-                                    await supabase.from('email_messages_cache').upsert(batch, { 
-                                        onConflict: 'account_id, folder_path, uid',
-                                        ignoreDuplicates: false 
+                                const existingSet = new Set(existingMessages?.map(m => m.uid) || []);
+                                const messagesToUpsert = [];
+                                let newUnreadInThisFolder = 0;
+
+                                messages.forEach(msg => {
+                                    const uid = msg.attributes.uid;
+                                    const header = msg.parts[0].body;
+                                    const isRead = msg.attributes.flags.includes('\\Seen');
+                                    
+                                    // Se não está no banco E não foi lido E é na Inbox -> Conta como novidade
+                                    if (!existingSet.has(uid) && !isRead && isInbox) {
+                                        newUnreadInThisFolder++;
+                                    }
+
+                                    messagesToUpsert.push({
+                                        account_id: config.id,
+                                        uid: uid,
+                                        folder_path: folder.path,
+                                        subject: decodeHeader(header.subject ? header.subject[0] : '(Sem Assunto)'),
+                                        from_text: decodeHeader(header.from ? header.from[0] : ''),
+                                        to_text: decodeHeader(header.to ? header.to[0] : ''),
+                                        date: header.date ? new Date(header.date[0]) : new Date(),
+                                        is_read: !isRead, // Inverte a lógica (banco is_read vs imap unseen)
+                                        updated_at: new Date().toISOString()
                                     });
+                                });
+
+                                // Upsert em lotes
+                                if (messagesToUpsert.length > 0) {
+                                    for (let i = 0; i < messagesToUpsert.length; i += 50) {
+                                        const batch = messagesToUpsert.slice(i, i + 50);
+                                        await supabase.from('email_messages_cache').upsert(batch, { 
+                                            onConflict: 'account_id, folder_path, uid',
+                                            ignoreDuplicates: false 
+                                        });
+                                    }
+                                    totalSynced += messagesToUpsert.length;
                                 }
-                                totalSynced += messagesToUpsert.length;
+
+                                newEmailsCountTotal += newUnreadInThisFolder;
                             }
                         }
 
@@ -137,16 +230,25 @@ export async function POST(request) {
                         console.warn(`Pulei pasta ${folder.path}:`, folderErr.message);
                     }
                 }
-                
                 connection.end();
-
             } catch (connErr) {
                 console.error(`Erro conexão ${config.email}:`, connErr);
                 if (connection) connection.end();
             }
         }
 
-        return NextResponse.json({ success: true, synced: totalSynced });
+        // --- DISPARO DE NOTIFICAÇÃO INTELIGENTE ---
+        if (newEmailsCountTotal > 0) {
+            const title = newEmailsCountTotal === 1 ? 'Novo E-mail Recebido 📧' : `${newEmailsCountTotal} Novos E-mails 📬`;
+            const msg = newEmailsCountTotal === 1 
+                ? 'Você recebeu uma nova mensagem na sua caixa de entrada.'
+                : `Sua caixa de entrada tem ${newEmailsCountTotal} novas mensagens não lidas.`;
+            
+            // Chama a nova função híbrida
+            await sendHybridNotification(supabase, user.id, title, msg);
+        }
+
+        return NextResponse.json({ success: true, synced: totalSynced, newEmails: newEmailsCountTotal });
 
     } catch (error) {
         console.error("Erro geral na API Sync:", error);
