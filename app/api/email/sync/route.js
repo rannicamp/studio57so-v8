@@ -20,14 +20,19 @@ if (publicKey && privateKey) {
 }
 
 // --- FUNÇÃO DE DISPARO ---
-async function dispatchEmailNotification(supabase, userId, title, message, organizacaoId) {
+async function dispatchEmailNotification(supabase, userId, title, message, organizacaoId, specificEmailId = null) {
     try {
+        // Link inteligente: Se tiver ID específico, aponta pra ele. Se não, vai pra Inbox geral.
+        const targetUrl = specificEmailId 
+            ? `/caixa-de-entrada?email_id=${specificEmailId}` 
+            : '/caixa-de-entrada';
+
         // 1. Salva no Sininho
         await supabase.from('notificacoes').insert({
             user_id: userId,
             titulo: title,
             mensagem: message,
-            link: '/caixa-de-entrada',
+            link: targetUrl,
             lida: false,
             tipo: 'sistema',
             organizacao_id: organizacaoId,
@@ -44,9 +49,9 @@ async function dispatchEmailNotification(supabase, userId, title, message, organ
             const payload = JSON.stringify({
                 title: title,
                 body: message,
-                url: '/caixa-de-entrada',
+                url: targetUrl, // O Service Worker vai ler isso aqui
                 icon: '/icons/icon-192x192.png',
-                tag: 'email-update' // Tag específica para E-mail
+                tag: 'email-update'
             });
 
             const promises = subscriptions.map(sub => 
@@ -63,18 +68,11 @@ async function dispatchEmailNotification(supabase, userId, title, message, organ
     }
 }
 
-// --- LÓGICA PRINCIPAL DO SYNC ---
 async function runEmailSync() {
     const supabase = await createClient();
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-    // Precisamos de acesso "admin" para rodar para todos os usuários se for via Cron
-    // Mas aqui vamos usar a sessão atual se for chamado via frontend, ou buscar todos se for cron.
-    // Simplificação: Vamos focar no usuário logado ou varrer configurações ativas.
-    
-    // NOTA: Para CRON real, precisaríamos usar 'supabaseAdmin' (service_role), 
-    // mas por segurança vamos manter via user session por enquanto para o teste manual funcionar.
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Sem usuário na sessão (Cron requer Service Role)' };
 
@@ -82,6 +80,7 @@ async function runEmailSync() {
     if (!accounts?.length) return { message: 'Sem contas configuradas' };
 
     let totalNew = 0;
+    let singleNewMessageData = null; // Vamos guardar os dados do "único" novo e-mail aqui
 
     for (const config of accounts) {
         let connection = null;
@@ -98,7 +97,22 @@ async function runEmailSync() {
                 }
             });
 
-            await connection.openBox('INBOX');
+            const boxes = await connection.getBoxes();
+            
+            // Função auxiliar para achar a Inbox
+            const findInbox = (list) => {
+                for (const key in list) {
+                    if (key.toUpperCase() === 'INBOX' || key.toUpperCase().includes('CAIXA DE ENTRADA')) return key;
+                    if (list[key].children) {
+                        const found = findInbox(list[key].children);
+                        if (found) return found;
+                    }
+                }
+                return 'INBOX';
+            };
+            const inboxName = findInbox(boxes);
+
+            await connection.openBox(inboxName);
             const searchCriteria = [['UNSEEN'], ['SINCE', threeMonthsAgo]];
             const fetchOptions = { bodies: ['HEADER'], struct: true };
             const messages = await connection.search(searchCriteria, fetchOptions);
@@ -117,11 +131,10 @@ async function runEmailSync() {
                 const reallyNewMessages = messages.filter(m => !existingSet.has(m.attributes.uid));
 
                 if (reallyNewMessages.length > 0) {
-                    // Salva no cache
                     const toInsert = reallyNewMessages.map(msg => ({
                         account_id: config.id,
                         uid: msg.attributes.uid,
-                        folder_path: 'INBOX',
+                        folder_path: inboxName,
                         subject: msg.parts[0].body.subject?.[0] || '(Sem Assunto)',
                         from_text: msg.parts[0].body.from?.[0] || '',
                         to_text: msg.parts[0].body.to?.[0] || '',
@@ -130,9 +143,18 @@ async function runEmailSync() {
                         updated_at: new Date().toISOString()
                     }));
                     
-                    // Upsert seguro
+                    // Salva e recupera os IDs gerados
                     for (let i = 0; i < toInsert.length; i += 50) {
-                        await supabase.from('email_messages_cache').upsert(toInsert.slice(i, i + 50), { onConflict: 'account_id, folder_path, uid' });
+                        const batch = toInsert.slice(i, i + 50);
+                        const { data: insertedRows } = await supabase
+                            .from('email_messages_cache')
+                            .upsert(batch, { onConflict: 'account_id, folder_path, uid' })
+                            .select('id, uid, account_id'); // Recupera o ID do banco
+                        
+                        // Se for apenas 1 mensagem nova no total, guarda ela para usar no link
+                        if (reallyNewMessages.length === 1 && insertedRows && insertedRows.length > 0) {
+                            singleNewMessageData = insertedRows[0];
+                        }
                     }
 
                     totalNew += reallyNewMessages.length;
@@ -146,19 +168,27 @@ async function runEmailSync() {
     }
 
     if (totalNew > 0) {
-        await dispatchEmailNotification(supabase, user.id, '📧 Novo E-mail!', `Você tem ${totalNew} novas mensagens.`, accounts[0].organizacao_id);
+        let title = '📧 Novo E-mail!';
+        let msg = `Você tem ${totalNew} novas mensagens.`;
+        let linkId = null;
+
+        // Se for só UM e-mail novo, o link vai direto pra ele
+        if (totalNew === 1 && singleNewMessageData) {
+             linkId = singleNewMessageData.id;
+             msg = 'Toque para ler agora.';
+        }
+
+        await dispatchEmailNotification(supabase, user.id, title, msg, accounts[0].organizacao_id, linkId);
     }
 
     return { success: true, newEmails: totalNew };
 }
 
-// Rota GET (Para Cron Jobs ou teste rápido no navegador)
 export async function GET(request) {
     const result = await runEmailSync();
     return NextResponse.json(result);
 }
 
-// Rota POST (Para o Frontend chamar)
 export async function POST(request) {
     const result = await runEmailSync();
     return NextResponse.json(result);

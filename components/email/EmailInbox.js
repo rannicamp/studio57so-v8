@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSearchParams, useRouter } from 'next/navigation'; // Importações novas
+import { createClient } from '@/utils/supabase/client'; // Para buscar o email direto
 import EmailConfigModal from '@/components/email/EmailConfigModal';
 import EmailListPanel from '@/components/email/EmailListPanel';
 import EmailViewPanel from '@/components/email/EmailViewPanel';
@@ -25,9 +27,13 @@ const getCachedData = () => {
     }
 };
 
-export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
+// Componente interno que usa useSearchParams (Para evitar erros de Suspense no Next.js)
+function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
     const cachedState = getCachedData();
     const queryClient = useQueryClient();
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const supabase = createClient();
 
     const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '');
     const [selectedEmailFolder, setSelectedEmailFolder] = useState(cachedState?.selectedEmailFolder || null); 
@@ -35,15 +41,45 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
     
     const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(cachedState?.isEmailConfigOpen || false);
     const [configInitialTab, setConfigInitialTab] = useState(cachedState?.configInitialTab || 'connection'); 
-    
     const [isComposeOpen, setIsComposeOpen] = useState(cachedState?.isComposeOpen || false);
-    
     const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
     const [rulePrefill, setRulePrefill] = useState(null);
     
     const [debouncedSearchTerm] = useDebounce(searchTerm, 600);
     const hasRestoredUiState = useRef(false);
     
+    // --- LÓGICA DE DEEP LINK (ABRIR E-MAIL DIRETO) ---
+    useEffect(() => {
+        const emailId = searchParams.get('email_id');
+        if (emailId) {
+            console.log("🔗 Deep Link detectado para e-mail:", emailId);
+            
+            // Busca o e-mail no banco
+            const fetchEmail = async () => {
+                const { data, error } = await supabase
+                    .from('email_messages_cache')
+                    .select('*')
+                    .eq('id', emailId)
+                    .single();
+
+                if (data && !error) {
+                    // Seleciona o e-mail
+                    setSelectedEmail(data);
+                    // Seleciona a pasta correta para manter o contexto
+                    setSelectedEmailFolder({ 
+                        path: data.folder_path, 
+                        name: data.folder_path.split('/').pop(), // Nome simplificado
+                        display_name: data.folder_path // Fallback
+                    });
+                    
+                    // Limpa a URL para não ficar "preso" nesse e-mail se der F5
+                    router.replace('/caixa-de-entrada', { scroll: false });
+                }
+            };
+            fetchEmail();
+        }
+    }, [searchParams, supabase, router]);
+
     const uiStateToSave = { 
         selectedEmailFolder, 
         searchTerm, 
@@ -78,34 +114,26 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
         });
     }, [queryClient]);
 
-    // --- SINCRONIZAÇÃO E ATUALIZAÇÃO DO SININHO ---
+    // Sync Periódico
     useEffect(() => {
         const syncEmails = async () => {
             try {
                 const res = await fetch('/api/email/sync', { method: 'POST' });
                 const data = await res.json();
-                
                 if (data.newEmails > 0) {
-                    // Atualiza a lista de e-mails
                     queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
                     queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
                     queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
-                    
-                    // --- O PULO DO GATO ---
-                    // Força o componente do sininho (NotificationBell) a buscar dados novos AGORA
                     queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
                 }
-            } catch (error) {
-                console.error("Erro silencioso no sync:", error);
-            }
+            } catch (error) { console.error("Erro silencioso no sync:", error); }
         };
-
         syncEmails();
-        const intervalId = setInterval(syncEmails, 60000); // Roda a cada minuto
+        const intervalId = setInterval(syncEmails, 60000);
         return () => clearInterval(intervalId);
     }, [queryClient]);
 
-    // --- Automação de Regras ---
+    // Automação de Regras
     useEffect(() => {
         const isInbox = selectedEmailFolder?.name?.toUpperCase() === 'INBOX' || 
                         selectedEmailFolder?.displayName === 'Caixa de Entrada';
@@ -123,9 +151,7 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                             queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
                         }, 1500); 
                     }
-                } catch (err) {
-                    console.error("Erro silencioso ao rodar regras:", err);
-                }
+                } catch (err) { console.error("Erro silencioso regras:", err); }
             };
             runRules();
             const intervalId = setInterval(runRules, 30000);
@@ -151,28 +177,18 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
             } else if (term.includes('@')) {
                 term = term.trim();
             }
-
             setRulePrefill({
                  nome: `Mover e-mails de ${term}`,
                  condicoes: [{ campo: 'from', operador: 'contains', valor: term }],
                  acoes: [{ tipo: 'move', pasta: '' }] 
             });
-        } else {
-            setRulePrefill(null); 
-        }
+        } else { setRulePrefill(null); }
         setConfigInitialTab('rules');
         setIsEmailConfigOpen(true);
     };
 
-    const handleOpenConfig = () => {
-        setConfigInitialTab('connection');
-        setIsEmailConfigOpen(true);
-    };
-
-    const handleOpenCreateFolder = () => {
-        setIsCreateFolderOpen(true);
-    };
-
+    const handleOpenConfig = () => { setConfigInitialTab('connection'); setIsEmailConfigOpen(true); };
+    const handleOpenCreateFolder = () => { setIsCreateFolderOpen(true); };
     const handleEmailSent = () => {
         queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
         queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
@@ -190,13 +206,11 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                 initialTab={configInitialTab}
                 rulePrefill={rulePrefill} 
             />
-            
             <EmailComposeModal 
                 isOpen={isComposeOpen} 
                 onClose={() => setIsComposeOpen(false)} 
                 onEmailSent={handleEmailSent}
             />
-
             <EmailCreateFolderModal 
                 isOpen={isCreateFolderOpen} 
                 onClose={() => setIsCreateFolderOpen(false)} 
@@ -254,5 +268,14 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                 </div>
             )}
         </div>
+    );
+}
+
+// Wrapper principal com Suspense (Regra do Next.js)
+export default function EmailInbox(props) {
+    return (
+        <Suspense fallback={<div className="p-4 text-center">Carregando Inbox...</div>}>
+            <EmailInboxContent {...props} />
+        </Suspense>
     );
 }
