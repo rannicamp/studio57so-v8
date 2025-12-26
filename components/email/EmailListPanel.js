@@ -12,11 +12,9 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import EmailActionMenu from './EmailActionMenu';
 
-// --- FETCHING FUNCTION ATUALIZADA ---
 const fetchMessages = async ({ queryKey, pageParam = 1 }) => {
     const [_key, folderPath, searchTerm, status, accountId] = queryKey; 
     
-    // Constrói a URL com todos os parâmetros que a API nova espera
     const params = new URLSearchParams({
         folder: folderPath || 'INBOX',
         page: pageParam.toString(),
@@ -29,7 +27,6 @@ const fetchMessages = async ({ queryKey, pageParam = 1 }) => {
     const res = await fetch(`/api/email/messages?${params.toString()}`);
     
     if (!res.ok) {
-        // Tenta ler o erro da API para exibir algo útil
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.error || 'Erro ao buscar e-mails');
     }
@@ -67,11 +64,9 @@ export default function EmailListPanel({
     const loadMoreRef = useRef(null);
     const queryClient = useQueryClient();
     
-    // Garante identificadores seguros
     const folderIdentifier = folder?.path || folder?.name || 'INBOX';
     const accountId = folder?.accountId; 
 
-    // Limpa seleções ao mudar de pasta/conta
     useEffect(() => {
         setSelectedIds(new Set());
         setLastSelectedId(null);
@@ -84,15 +79,14 @@ export default function EmailListPanel({
         queryKey: ['emailMessages', folderIdentifier, searchTerm, filterStatus, accountId],
         queryFn: fetchMessages,
         getNextPageParam: (lastPage, allPages) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
-        staleTime: 1000 * 60 * 1, // 1 minuto de cache
+        staleTime: 1000 * 60 * 1,
         refetchOnWindowFocus: false,
-        enabled: !!accountId, // Só busca se tiver ID da conta
+        enabled: !!accountId,
     });
 
     const allEmails = data?.pages.flatMap(page => page.messages) || [];
     const totalEmails = data?.pages[0]?.total || 0;
 
-    // --- Sincronização de Contagem (Atualiza Sidebar) ---
     useEffect(() => {
         if (filterStatus === 'unread' && data?.pages?.[0] && onUnreadCountChange && accountId) {
             const currentUnreadCount = data.pages[0].total || 0;
@@ -100,7 +94,6 @@ export default function EmailListPanel({
         }
     }, [data, filterStatus, accountId, folderIdentifier, onUnreadCountChange]);
 
-    // Scroll Infinito
     useEffect(() => {
         const observer = new IntersectionObserver(
             (entries) => { if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) fetchNextPage(); },
@@ -110,7 +103,6 @@ export default function EmailListPanel({
         return () => { if (loadMoreRef.current) observer.unobserve(loadMoreRef.current); };
     }, [loadMoreRef, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-    // Mutation para Ações em Massa (Deletar, Mover, etc)
     const bulkActionMutation = useMutation({
         mutationFn: (vars) => performBulkAction({ ...vars, accountId }), 
         onSuccess: (_, variables) => {
@@ -131,7 +123,6 @@ export default function EmailListPanel({
         onError: () => toast.error('Erro ao processar ação.')
     });
 
-    // Mutation para Aplicar Regras
     const applyRulesMutation = useMutation({
         mutationFn: async () => {
             const res = await fetch('/api/email/rules/apply', { method: 'POST' });
@@ -219,7 +210,6 @@ export default function EmailListPanel({
 
     return (
         <div className="flex flex-col h-full bg-white border-r border-gray-200 relative">
-            {/* Barra de Ações em Massa (Aparece ao selecionar) */}
             {selectedIds.size > 0 && (
                 <div className="absolute top-0 inset-x-0 h-[60px] bg-blue-600 z-20 flex items-center justify-between px-4 text-white shadow-md animate-slide-down">
                     <div className="flex items-center gap-4">
@@ -235,7 +225,6 @@ export default function EmailListPanel({
                 </div>
             )}
 
-            {/* Cabeçalho da Lista */}
             <div className="flex flex-col border-b bg-white shrink-0">
                 <div className="flex items-center gap-3 p-4 pb-2 justify-between">
                     <div className="flex items-center gap-3 overflow-hidden">
@@ -255,7 +244,6 @@ export default function EmailListPanel({
                 </div>
             </div>
 
-            {/* Lista de E-mails */}
             <div className="flex-grow overflow-y-auto custom-scrollbar relative">
                 {isLoading ? ( <div className="flex justify-center items-center h-40 text-blue-500"><FontAwesomeIcon icon={faSpinner} spin size="lg" /></div> ) 
                 : isError ? ( <div className="flex flex-col items-center justify-center h-64 text-red-400 p-4 text-center"><FontAwesomeIcon icon={faExclamationCircle} size="2x" className="mb-2" /><p className="text-sm font-medium">Erro ao carregar.</p><button onClick={() => refetch()} className="mt-4 text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-md font-bold">Tentar Novamente</button></div> ) 
@@ -265,7 +253,6 @@ export default function EmailListPanel({
                         {allEmails.map((email) => {
                             const isSelected = selectedIds.has(email.id);
                             const isActive = selectedEmailId === email.id;
-                            // Correção de flags para evitar erro se for null
                             const isRead = email.is_read || (email.flags && email.flags.includes('\\Seen'));
                             const isOpen = openMenuId === email.id;
                             
@@ -293,8 +280,10 @@ export default function EmailListPanel({
                                     </div>
                                     
                                     <div className="absolute right-2 top-3 z-30 action-menu-container">
+                                        {/* AQUI ESTAVA O PROBLEMA! Agora passamos o ID da conta explicitamente */}
                                         <EmailActionMenu 
                                             email={email}
+                                            accountId={accountId} 
                                             onAction={(action, value) => handleMenuAction(email, action, value)}
                                             isOpen={isOpen}
                                             onToggle={() => setOpenMenuId(isOpen ? null : email.id)}

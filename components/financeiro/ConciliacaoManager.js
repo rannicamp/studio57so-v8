@@ -6,10 +6,9 @@ import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-    faSpinner, faLink, faCheckCircle, faMagic, faPlus, 
-    faEraser, faCalendarDay, faCalendarWeek, faCalendarAlt, 
-    faUndo, faEye, faEyeSlash, faPenToSquare, faTrash, faCalculator, 
-    faTimes, faPaste, faFileCode, faExclamationCircle, faRobot, faExternalLinkAlt
+    faSpinner, faUpload, faLink, faFileImport, faCheckCircle, faMagic, faPlus, 
+    faExclamationTriangle, faEraser, faCalendarDay, faCalendarWeek, faCalendarAlt, 
+    faUndo, faEye, faEyeSlash, faPenToSquare, faTrash, faCalculator, faTimes, faPaste, faFileCode
 } from '@fortawesome/free-solid-svg-icons';
 import LancamentoFormModal from './LancamentoFormModal';
 import { useDebouncedCallback } from 'use-debounce';
@@ -35,6 +34,8 @@ const getColorForPair = (pairId) => {
 const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, startDate, endDate) => {
     if (!contaId || !organizacaoId || !startDate || !endDate) return [];
     
+    // Filtro: Lançamentos na data exata (Pagamento ou Vencimento) E que não estejam conciliados (ou conciliados mas buscamos tudo para filtrar no front se necessário)
+    // Aqui trazemos tudo e filtramos no front o status 'conciliado' para a lógica de sugestão
     const filterQuery = `and(data_pagamento.gte.${startDate},data_pagamento.lte.${endDate}),and(data_pagamento.is.null,data_vencimento.gte.${startDate},data_vencimento.lte.${endDate})`;
 
     const { data, error } = await supabase
@@ -94,7 +95,7 @@ export default function ConciliacaoManager({ contas }) {
     const [selectedContaId, setSelectedContaId] = useState(() => (typeof window !== 'undefined' ? sessionStorage.getItem('lastSelectedConciliationAccountId') || '' : ''));
     
     // Estados de Input (Arquivo ou Texto)
-    const [inputMode, setInputMode] = useState('csv'); 
+    const [inputMode, setInputMode] = useState('ofx'); // 'ofx' ou 'csv'
     const [file, setFile] = useState(null);
     const [pastedText, setPastedText] = useState('');
 
@@ -156,6 +157,10 @@ export default function ConciliacaoManager({ contas }) {
         }
     });
     
+    const onActionSuccess = () => {
+        queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
+    };
+
     const deleteSingleMutation = useMutation({
         mutationFn: async (id) => {
             const { error } = await supabase.from('lancamentos').delete().eq('id', id);
@@ -163,7 +168,7 @@ export default function ConciliacaoManager({ contas }) {
         },
         onSuccess: () => {
             toast.success('Lançamento excluído!');
-            queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
+            onActionSuccess();
         },
         onError: (error) => toast.error(`Erro: ${error.message}`),
     });
@@ -180,7 +185,7 @@ export default function ConciliacaoManager({ contas }) {
         },
         onSuccess: () => {
             toast.success('Lançamentos futuros excluídos!');
-            queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
+            onActionSuccess();
         },
         onError: (error) => toast.error(`Erro ao excluir futuros: ${error.message}`),
     });
@@ -219,17 +224,21 @@ export default function ConciliacaoManager({ contas }) {
         ), { duration: 10000 });
     };
 
+
     // --- Efeitos e Lógica de Negócio ---
 
+    // 1. Sugestão Automática de Pares
     useEffect(() => {
         if (isLoadingLancamentos || !lancamentosSistema) return;
         const availableSistema = lancamentosSistema.filter(l => !l.conciliado);
         const newMatches = [];
         let pairCounter = 0;
         
+        // Clona para não mutar o estado diretamente durante a iteração
         const sistemaPool = [...availableSistema];
 
         conciliationState.extrato.forEach(extratoItem => {
+            // Se já tiver match manual na sessão, pula
             const isAlreadyMatchedInSession = conciliationState.matches.some(m => m.extratoId === extratoItem.id);
             if (isAlreadyMatchedInSession) return;
 
@@ -237,6 +246,8 @@ export default function ConciliacaoManager({ contas }) {
                 const dataSistema = sistemaItem.data_pagamento || sistemaItem.data_vencimento;
                 const valorSistema = Math.abs(sistemaItem.valor);
                 const valorExtrato = Math.abs(extratoItem.valor);
+                
+                // Regra: Mesma data e mesmo valor (tolerância 1 centavo)
                 const isValorSimilar = Math.abs(valorSistema - valorExtrato) < 0.01;
                 return dataSistema === extratoItem.data && isValorSimilar;
             });
@@ -261,6 +272,7 @@ export default function ConciliacaoManager({ contas }) {
         setIsProcessing(false);
     }, [lancamentosSistema]);
 
+    // 2. Desenhar Linhas (Debounced)
     const calculateLines = useDebouncedCallback(() => {
         if (!containerRef.current) return;
         if (selectedSistemaIds.size > 0) {
@@ -277,10 +289,13 @@ export default function ConciliacaoManager({ contas }) {
             if (sistemaNode && extratoNode) {
                 const sistemaRect = sistemaNode.getBoundingClientRect();
                 const extratoRect = extratoNode.getBoundingClientRect();
+                
+                // Calcula coordenadas relativas ao container
                 const startX = sistemaRect.right - containerRect.left;
                 const startY = sistemaRect.top - containerRect.top + sistemaRect.height / 2;
                 const endX = extratoRect.left - containerRect.left;
                 const endY = extratoRect.top - containerRect.top + extratoRect.height / 2;
+                
                 newLines.push({ startX, startY, endX, endY, pairId: match.pairId });
             }
         });
@@ -293,6 +308,7 @@ export default function ConciliacaoManager({ contas }) {
         return () => window.removeEventListener('resize', calculateLines);
     }, [conciliationState, calculateLines, selectedSistemaIds]);
     
+    // 3. Persistência de Estado (Session Storage)
     useEffect(() => {
         if (selectedContaId) sessionStorage.setItem('lastSelectedConciliationAccountId', selectedContaId);
         else sessionStorage.removeItem('lastSelectedConciliationAccountId');
@@ -318,6 +334,7 @@ export default function ConciliacaoManager({ contas }) {
                         const dataInicio = new Date(Math.min.apply(null, datasDoExtrato)).toISOString().split('T')[0];
                         const dataFim = new Date(Math.max.apply(null, datasDoExtrato)).toISOString().split('T')[0];
                         setExtratoPeriodo({ startDate: dataInicio, endDate: dataFim });
+                        
                         if (!savedState.dateFilter.startDate) {
                             setConciliationState(prev => ({ ...prev, dateFilter: { startDate: dataInicio, endDate: dataFim } }));
                         }
@@ -346,36 +363,47 @@ export default function ConciliacaoManager({ contas }) {
         }
     };
     
+    // Parser de OFX (Mantido)
     const parseOfxFile = (fileContent) => {
         try {
             const transacoesManuais = [];
             const transacoesRegex = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/g;
             let match;
             const idMap = new Set(); 
+
             let index = 0;
             while ((match = transacoesRegex.exec(fileContent)) !== null) {
                 const transacaoBlock = match[1];
+                
                 const getValue = (tag) => { 
                     const regex = new RegExp(`<${tag}>([^<]*)`); 
                     const result = regex.exec(transacaoBlock); 
                     return result ? result[1].trim() : null; 
                 };
+
                 const valorRaw = getValue('TRNAMT');
                 const valor = parseFloat(valorRaw);
                 const dataStr = getValue('DTPOSTED')?.substring(0, 8);
+                
                 if (!dataStr || isNaN(valor)) continue;
+                
                 const formattedDate = `${dataStr.substring(0, 4)}-${dataStr.substring(4, 6)}-${dataStr.substring(6, 8)}`;
+                
                 let fitId = getValue('FITID');
+                
                 if (!fitId || fitId === '000000' || fitId === '0' || idMap.has(fitId)) {
                     fitId = `GEN_${dataStr}_${valorRaw.replace('.', '')}_${index}`;
                 }
+                
                 idMap.add(fitId);
+                
                 transacoesManuais.push({ 
                     id: fitId, 
                     data: formattedDate, 
                     valor: valor, 
                     descricao: getValue('MEMO') || getValue('NAME') || 'Sem descrição' 
                 });
+                
                 index++;
             }
             return transacoesManuais;
@@ -385,37 +413,85 @@ export default function ConciliacaoManager({ contas }) {
         }
     };
     
-    // Parser Melhorado para Texto/CSV
+    // Novo Parser de Texto/CSV
     const parseCsvContent = (content) => {
         if (!content) return [];
+        
         const lines = content.split(/\r?\n/).filter(line => line.trim() !== '');
         const transacoes = [];
         let index = 0;
 
+        // Tenta detectar o separador (vírgula ou ponto e vírgula)
+        const sampleLine = lines.find(l => l.includes(';') || l.includes(','));
+        const separator = sampleLine && sampleLine.includes(';') ? ';' : ',';
+        
         lines.forEach(line => {
-            const parts = line.split(/[\t;,]/).map(p => p.trim()).filter(p => p !== "");
-            let data = null; let valor = null; let descricao = '';
+            // Ignora linhas que parecem cabeçalho (opcional, melhoria simples)
+            if (line.toLowerCase().includes('data') && line.toLowerCase().includes('valor')) return;
+
+            const parts = line.split(separator).map(p => p.trim());
+            
+            // Heurística simples: Tentar achar Data, Valor e Descrição
+            let data = null;
+            let valor = null;
+            let descricao = '';
 
             for (const part of parts) {
-                if (!data && /^\d{2}\/\d{2}\/\d{4}$/.test(part)) { const [d, m, y] = part.split('/'); data = `${y}-${m}-${d}`; } 
-                else if (!data && /^\d{4}-\d{2}-\d{2}$/.test(part)) { data = part; }
-                else if (valor === null && /^-?[\d\.]+,\d{2}$/.test(part)) { valor = parseFloat(part.replace(/\./g, '').replace(',', '.')); } 
-                else if (valor === null && /^-?R\$\s?[\d\.]+,\d{2}$/.test(part)) { valor = parseFloat(part.replace('R$', '').trim().replace(/\./g, '').replace(',', '.')); } 
-                else if (valor === null && /^-?[\d]+(\.\d{1,2})?$/.test(part)) { valor = parseFloat(part); } 
-                else { descricao += (descricao ? ' ' : '') + part; }
+                // Tenta achar data (DD/MM/AAAA ou AAAA-MM-DD)
+                if (!data && /^\d{2}\/\d{2}\/\d{4}$/.test(part)) {
+                    const [d, m, y] = part.split('/');
+                    data = `${y}-${m}-${d}`;
+                } else if (!data && /^\d{4}-\d{2}-\d{2}$/.test(part)) {
+                    data = part;
+                }
+                // Tenta achar valor (número com , ou .)
+                // Regex: Pode começar com -, dígitos, pontos opcionais, vírgula ou ponto obrigatório, dígitos
+                else if (valor === null && /^-?[\d\.]+,\d{2}$/.test(part)) {
+                    // Formato Brasileiro: 1.000,00 -> remove ponto, troca virgula por ponto
+                    valor = parseFloat(part.replace(/\./g, '').replace(',', '.'));
+                } else if (valor === null && /^-?[\d]+(\.\d{1,2})?$/.test(part)) {
+                    // Formato Americano simples: 1000.00
+                    valor = parseFloat(part);
+                } 
+                // Se não é data nem valor, joga para descrição
+                else {
+                    descricao += (descricao ? ' ' : '') + part;
+                }
             }
 
             if (data && valor !== null) {
-                const fitId = `TXT_${data}_${valor}_${index}_${Date.now()}`;
-                transacoes.push({ id: fitId, data: data, valor: valor, descricao: descricao || 'Importado via Texto' });
+                // Gera um ID único baseado nos dados para evitar duplicidade na visualização
+                const fitId = `CSV_${data}_${valor}_${index}_${Date.now()}`;
+                
+                transacoes.push({
+                    id: fitId,
+                    data: data,
+                    valor: valor,
+                    descricao: descricao || 'Importado via Texto'
+                });
                 index++;
             }
         });
+        
         return transacoes;
     };
 
     const handleProcessFile = async () => {
-        if (!selectedContaId) { toast.warning('Selecione uma conta!'); return; }
+        if (!selectedContaId) { 
+            toast.warning('Por favor, selecione uma conta primeiro.'); 
+            return; 
+        }
+        
+        if (inputMode === 'ofx' && !file) {
+            toast.warning('Por favor, selecione um arquivo OFX.');
+            return;
+        }
+
+        if (inputMode === 'csv' && !pastedText.trim()) {
+            toast.warning('Por favor, cole o conteúdo do CSV ou texto.');
+            return;
+        }
+
         const toastId = toast.loading('Processando dados...');
         setIsProcessing(true);
         setConciliationState(prev => ({ ...prev, matches: [] })); 
@@ -423,34 +499,47 @@ export default function ConciliacaoManager({ contas }) {
         let transacoesDoExtrato = [];
 
         if (inputMode === 'ofx') {
-            if (!file) { toast.error("Selecione um arquivo!", {id: toastId}); setIsProcessing(false); return; }
             const fileContent = await file.text();
             transacoesDoExtrato = parseOfxFile(fileContent);
         } else {
-            if (!pastedText.trim()) { toast.error("O texto está vazio!", {id: toastId}); setIsProcessing(false); return; }
             transacoesDoExtrato = parseCsvContent(pastedText);
         }
         
         if (!transacoesDoExtrato || transacoesDoExtrato.length === 0) { 
-            toast.error('Não entendi as linhas. Verifique Data e Valor.', { id: toastId }); 
+            toast.error('Nenhuma transação válida encontrada.', { id: toastId }); 
             setIsProcessing(false); 
             return; 
         }
         
         toast.dismiss(toastId);
-        toast.info(`Lido com sucesso: ${transacoesDoExtrato.length} transações.`);
+        toast.info(`Lido com sucesso: ${transacoesDoExtrato.length} transações. Buscando correspondências...`);
+        
         const datasDoExtrato = transacoesDoExtrato.map(t => new Date(t.data));
         const dataInicio = new Date(Math.min.apply(null, datasDoExtrato)).toISOString().split('T')[0];
         const dataFim = new Date(Math.max.apply(null, datasDoExtrato)).toISOString().split('T')[0];
+        
         setConciliationState({ extrato: transacoesDoExtrato, sistema: [], matches: [], dateFilter: { startDate: dataInicio, endDate: dataFim } });
         setExtratoPeriodo({ startDate: dataInicio, endDate: dataFim });
     };
     
+    // --- Lógica N:1 e Calculadora ---
+
     const proceedWithMatch = () => {
         if (!selectedExtratoId || selectedSistemaIds.size === 0) return;
+        
         const newPairId = (conciliationState.matches[conciliationState.matches.length - 1]?.pairId || -1) + 1;
-        const newMatches = Array.from(selectedSistemaIds).map(sisId => ({ extratoId: selectedExtratoId, sistemaId: sisId, pairId: newPairId }));
-        setConciliationState(prev => ({ ...prev, matches: [...prev.matches, ...newMatches] }));
+        
+        const newMatches = Array.from(selectedSistemaIds).map(sisId => ({
+            extratoId: selectedExtratoId,
+            sistemaId: sisId,
+            pairId: newPairId
+        }));
+
+        setConciliationState(prev => ({ 
+            ...prev, 
+            matches: [...prev.matches, ...newMatches] 
+        }));
+        
         setSelectedExtratoId(null);
         setSelectedSistemaIds(new Set());
     };
@@ -459,62 +548,107 @@ export default function ConciliacaoManager({ contas }) {
         if (!selectedExtratoId) return null;
         const extratoItem = conciliationState.extrato.find(e => e.id === selectedExtratoId);
         if (!extratoItem) return null;
+
         const totalSistema = Array.from(selectedSistemaIds).reduce((acc, id) => {
             const item = conciliationState.sistema.find(s => s.id === id);
             return acc + (item ? Math.abs(item.valor) : 0);
         }, 0);
+
         const target = Math.abs(extratoItem.valor);
         const diff = target - totalSistema;
         const isMatch = Math.abs(diff) < 0.01;
+
         return { target, totalSistema, diff, isMatch, count: selectedSistemaIds.size };
     }, [selectedExtratoId, selectedSistemaIds, conciliationState]);
 
+    // --- Confirmação e Salvamento ---
+
     const handleConfirmMatches = async () => {
-        if (!user || !user.id || !organizacaoId) { toast.error("Erro de autenticação."); return; }
+        if (!user || !user.id || !organizacaoId) {
+            toast.error("Erro de autenticação. Recarregue a página.");
+            return;
+        }
+
         if (conciliationState.matches.length === 0) return;
 
-        const toastId = toast.loading('Confirmando conciliação...');
+        const toastId = toast.loading('Iniciando conciliação...');
         setIsProcessing(true);
 
         try {
+            // Se for arquivo, salva. Se for texto colado, cria um arquivo .txt com o conteúdo
             let filePath = null;
+            const dataAtual = new Date();
+            const ano = dataAtual.getFullYear();
+            const mes = String(dataAtual.getMonth() + 1).padStart(2, '0');
             const timestamp = Date.now();
-            const ano = new Date().getFullYear();
-            const mes = String(new Date().getMonth() + 1).padStart(2, '0');
 
-            if (inputMode === 'csv' && pastedText) {
-                const blob = new Blob([pastedText], { type: 'text/plain' });
-                filePath = `${organizacaoId}/${selectedContaId}/${ano}/${mes}/${timestamp}-importacao-txt.txt`;
-                await supabase.storage.from('extratos-bancarios').upload(filePath, blob);
-            } else if (inputMode === 'ofx' && file) {
+            if (inputMode === 'ofx' && file) {
+                toast.loading('Salvando arquivo OFX...', { id: toastId });
                 filePath = `${organizacaoId}/${selectedContaId}/${ano}/${mes}/${timestamp}-${file.name}`;
-                await supabase.storage.from('extratos-bancarios').upload(filePath, file);
+                const { error: uploadError } = await supabase.storage.from('extratos-bancarios').upload(filePath, file);
+                if (uploadError) throw new Error(`Upload falhou: ${uploadError.message}`);
+            } else if (inputMode === 'csv' && pastedText) {
+                toast.loading('Arquivando texto colado...', { id: toastId });
+                const blob = new Blob([pastedText], { type: 'text/plain' });
+                filePath = `${organizacaoId}/${selectedContaId}/${ano}/${mes}/${timestamp}-importacao-direta.txt`;
+                const { error: uploadError } = await supabase.storage.from('extratos-bancarios').upload(filePath, blob);
+                if (uploadError) throw new Error(`Upload falhou: ${uploadError.message}`);
             }
+
+            toast.loading('Confirmando conciliações...', { id: toastId });
 
             const updates = conciliationState.matches.map(match => {
                 const extratoItem = conciliationState.extrato.find(e => e.id === match.extratoId);
                 return {
                     id: match.sistemaId,
                     updates: { 
-                        conciliado: true, status: 'Pago', data_pagamento: extratoItem.data, id_transacao_externa: match.extratoId,
+                        conciliado: true, 
+                        status: 'Pago', 
+                        data_pagamento: extratoItem.data,
+                        id_transacao_externa: match.extratoId,
                         valor: conciliationState.sistema.find(s => s.id === match.sistemaId)?.valor
                     }
                 };
             });
+
+            const uniqueExtratoIds = new Set(conciliationState.matches.map(m => m.extratoId));
+            const totalConciliado = Array.from(uniqueExtratoIds).reduce((sum, id) => {
+                const item = conciliationState.extrato.find(e => e.id === id);
+                return sum + (item ? Math.abs(item.valor) : 0);
+            }, 0);
+
+            const lancamentosConciliadosJSON = conciliationState.matches.map(match => {
+                const sistemaItem = conciliationState.sistema.find(s => s.id === match.sistemaId);
+                const extratoItem = conciliationState.extrato.find(e => e.id === match.extratoId);
+                return {
+                    lancamento_id: sistemaItem.id,
+                    descricao_sistema: sistemaItem.descricao,
+                    valor_sistema: sistemaItem.valor,
+                    id_transacao_extrato: extratoItem.id,
+                    descricao_extrato: extratoItem.descricao,
+                    valor_extrato: extratoItem.valor
+                };
+            });
             
             for (const item of updates) {
-                await supabase.from('lancamentos').update(item.updates).eq('id', item.id).eq('organizacao_id', organizacaoId);
+                const { error } = await supabase.from('lancamentos').update(item.updates).eq('id', item.id).eq('organizacao_id', organizacaoId);
+                if (error) throw error;
             }
             
-            const uniqueExtratoIds = new Set(conciliationState.matches.map(m => m.extratoId));
-            const totalConciliado = Array.from(uniqueExtratoIds).reduce((sum, id) => sum + Math.abs(conciliationState.extrato.find(e => e.id === id)?.valor || 0), 0);
-            
-            await supabase.from('conciliacao_historico').insert([{
-                usuario_id: user.id, conta_financeira_id: selectedContaId, organizacao_id: organizacaoId,
-                caminho_arquivo_ofx: filePath || 'texto-colado',
-                periodo_inicio_extrato: extratoPeriodo.startDate, periodo_fim_extrato: extratoPeriodo.endDate,
-                lancamentos_conciliados: conciliationState.matches, total_conciliado: totalConciliado, tipo_importacao: inputMode
-            }]);
+            const historicoRecord = {
+                usuario_id: user.id,
+                conta_financeira_id: selectedContaId,
+                organizacao_id: organizacaoId,
+                caminho_arquivo_ofx: filePath,
+                periodo_inicio_extrato: extratoPeriodo.startDate,
+                periodo_fim_extrato: extratoPeriodo.endDate,
+                lancamentos_conciliados: lancamentosConciliadosJSON,
+                total_conciliado: totalConciliado,
+                tipo_importacao: inputMode 
+            };
+
+            const { error: historicoError } = await supabase.from('conciliacao_historico').insert([historicoRecord]);
+            if (historicoError) throw historicoError;
 
             toast.success(`${updates.length} lançamentos conciliados!`, { id: toastId });
             queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
@@ -539,20 +673,37 @@ export default function ConciliacaoManager({ contas }) {
         toast.success('Lançamento criado e conciliado!');
         const extratoId = lancamentoParaCriar.id_transacao_externa;
         if (!extratoId || !createdLancamento) return;
-        setConciliationState(prev => ({ ...prev, sistema: [...prev.sistema, { ...createdLancamento, conciliado: true }] }));
+        
+        setConciliationState(prev => ({
+            ...prev, 
+            sistema: [...prev.sistema, { ...createdLancamento, conciliado: true }]
+        }));
+        
         queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
     };
 
-    const handleOpenEditModal = (lancamento) => { setLancamentoParaEditar(lancamento); setIsEditModalOpen(true); };
-    const handleSuccessEdit = () => { setIsEditModalOpen(false); setLancamentoParaEditar(null); queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] }); toast.success('Lançamento atualizado!'); };
+    const handleOpenEditModal = (lancamento) => {
+        setLancamentoParaEditar(lancamento);
+        setIsEditModalOpen(true);
+    };
+
+    const handleSuccessEdit = () => {
+        setIsEditModalOpen(false);
+        setLancamentoParaEditar(null);
+        queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
+        toast.success('Lançamento atualizado!');
+    };
 
     const resetState = () => {
         if (selectedContaId) sessionStorage.removeItem(`conciliationProgress_${selectedContaId}`);
-        setFile(null); setPastedText('');
+        setFile(null);
+        setPastedText('');
         setConciliationState({ extrato: [], sistema: [], matches: [], dateFilter: { startDate: '', endDate: '' } });
-        setSelectedExtratoId(null); setSelectedSistemaIds(new Set());
+        setSelectedExtratoId(null);
+        setSelectedSistemaIds(new Set());
         setExtratoPeriodo({ startDate: null, endDate: null });
-        const fileInput = document.getElementById('file-input'); if (fileInput) fileInput.value = '';
+        const fileInput = document.getElementById('file-input');
+        if (fileInput) fileInput.value = '';
     };
 
     const handleDateFilterChange = (name, value) => {
@@ -570,15 +721,78 @@ export default function ConciliacaoManager({ contas }) {
         setActivePeriodFilter(period);
     };
 
+    const processedLists = useMemo(() => {
+        const sessionMatchedSistemaIds = new Set(conciliationState.matches.map(m => m.sistemaId));
+        const sessionMatchedExtratoIds = new Set(conciliationState.matches.map(m => m.extratoId));
+        const dbConciliatedExtratoIds = new Set(conciliationState.sistema.filter(s => s.conciliado && s.id_transacao_externa).map(s => s.id_transacao_externa));
+
+        const filterByDate = (items, type) => {
+            const { startDate, endDate } = conciliationState.dateFilter;
+            if (!startDate || !endDate) return items;
+            return items.filter(item => {
+                const itemDate = type === 'sistema' ? (item.data_pagamento || item.data_vencimento) : item.data;
+                return itemDate >= startDate && itemDate <= endDate;
+            });
+        };
+
+        const classifyAndSort = (items, type) => {
+            return items.map(item => {
+                let status = 'pendente';
+                if ((type === 'sistema' && sessionMatchedSistemaIds.has(item.id)) || (type === 'extrato' && sessionMatchedExtratoIds.has(item.id))) {
+                    status = 'sessionMatch';
+                } else if ((type === 'sistema' && item.conciliado) || (type === 'extrato' && dbConciliatedExtratoIds.has(item.id))) {
+                    status = 'dbConciliated';
+                }
+                return { ...item, conciliationStatus: status };
+            }).sort((a, b) => {
+                const order = { sessionMatch: 1, pendente: 2, dbConciliated: 3 };
+                if (order[a.conciliationStatus] !== order[b.conciliationStatus]) return order[a.conciliationStatus] - order[b.conciliationStatus];
+                const dateA = new Date(type === 'sistema' ? (a.data_pagamento || a.data_vencimento) : a.data);
+                const dateB = new Date(type === 'sistema' ? (b.data_pagamento || b.data_vencimento) : b.data);
+                return dateA - dateB;
+            });
+        };
+        
+        const fullSortedSistema = classifyAndSort(filterByDate(conciliationState.sistema, 'sistema'), 'sistema');
+        const fullSortedExtrato = classifyAndSort(filterByDate(conciliationState.extrato, 'extrato'), 'extrato');
+        
+        if (!showConciliados) {
+            return {
+                sortedSistema: fullSortedSistema.filter(item => item.conciliationStatus !== 'dbConciliated'),
+                sortedExtrato: fullSortedExtrato.filter(item => item.conciliationStatus !== 'dbConciliated'),
+            };
+        }
+
+        return {
+            sortedSistema: fullSortedSistema,
+            sortedExtrato: fullSortedExtrato,
+        };
+    }, [conciliationState, showConciliados]); 
+
     // --- Renderização de Itens ---
+
     const handleItemClick = (item, listName) => {
         if (item.conciliationStatus === 'pendente') {
-            if (listName === 'extrato') { setSelectedExtratoId(prev => (prev === item.id ? null : item.id)); } 
-            else { setSelectedSistemaIds(prev => { const newSet = new Set(prev); if (newSet.has(item.id)) newSet.delete(item.id); else newSet.add(item.id); return newSet; }); }
-        } else if (item.conciliationStatus === 'sessionMatch') {
+            if (listName === 'extrato') {
+                setSelectedExtratoId(prev => (prev === item.id ? null : item.id));
+            } else {
+                setSelectedSistemaIds(prev => {
+                    const newSet = new Set(prev);
+                    if (newSet.has(item.id)) newSet.delete(item.id);
+                    else newSet.add(item.id);
+                    return newSet;
+                });
+            }
+        } 
+        else if (item.conciliationStatus === 'sessionMatch') {
             const matchToRemove = conciliationState.matches.find(m => m[`${listName}Id`] === item.id);
             if (!matchToRemove) return;
-            setConciliationState(prev => ({ ...prev, matches: prev.matches.filter(m => m.pairId !== matchToRemove.pairId) }));
+
+            setConciliationState(prev => ({
+                ...prev,
+                matches: prev.matches.filter(m => m.pairId !== matchToRemove.pairId)
+            }));
+            
             toast.info('Grupo de conciliação desfeito.');
         }
     };
@@ -586,57 +800,71 @@ export default function ConciliacaoManager({ contas }) {
     const renderItem = (item, type, listName) => {
         const isSelected = type === 'extrato' ? selectedExtratoId === item.id : selectedSistemaIds.has(item.id);
         const match = item.conciliationStatus === 'sessionMatch' ? conciliationState.matches.find(m => m[`${listName}Id`] === item.id) : null;
-        let rowClass = 'bg-white'; let interactionClass = 'cursor-pointer hover:bg-gray-100';
-        if (item.conciliationStatus === 'sessionMatch' && match) { rowClass = getColorForPair(match.pairId); interactionClass = 'cursor-pointer hover:opacity-80'; }
-        if (item.conciliationStatus === 'dbConciliated') { rowClass = 'bg-green-50 border-green-300'; interactionClass = 'opacity-60 cursor-default'; }
-        if (item.conciliationStatus === 'pendente' && isSelected) { rowClass = 'ring-2 ring-blue-500 bg-blue-50'; }
+        let rowClass = 'bg-white';
+        let interactionClass = 'cursor-pointer hover:bg-gray-100';
+        
+        if (item.conciliationStatus === 'sessionMatch' && match) {
+            rowClass = getColorForPair(match.pairId);
+            interactionClass = 'cursor-pointer hover:opacity-80';
+        }
+        
+        if (item.conciliationStatus === 'dbConciliated') {
+            rowClass = 'bg-green-50 border-green-300';
+            interactionClass = 'opacity-60 cursor-default';
+        }
+        
+        if (item.conciliationStatus === 'pendente' && isSelected) {
+            rowClass = 'ring-2 ring-blue-500 bg-blue-50';
+        }
+
         const isReceita = (type === 'sistema' && item.tipo === 'Receita') || (type === 'extrato' && item.valor > 0);
         const valorClass = isReceita ? 'text-green-600' : 'text-red-600';
         const dataExibicao = type === 'sistema' ? (item.data_pagamento || item.data_vencimento) : item.data;
         
         return (
-            <div key={item.id} ref={node => itemRefs.current.set(`${listName}-${item.id}`, node)} onClick={() => handleItemClick(item, listName)} className={`p-2 border grid grid-cols-12 gap-2 text-sm items-center rounded-md transition-all ${interactionClass} ${rowClass}`}>
+            <div 
+                key={item.id} 
+                ref={node => itemRefs.current.set(`${listName}-${item.id}`, node)} 
+                onClick={() => handleItemClick(item, listName)} 
+                className={`p-2 border grid grid-cols-12 gap-2 text-sm items-center rounded-md transition-all ${interactionClass} ${rowClass}`}
+            >
                 <div className="col-span-3">{formatDate(dataExibicao)}</div>
                 <div className="col-span-5 truncate" title={item.descricao}>{item.descricao}</div>
                 <div className={`col-span-2 text-right font-bold ${valorClass}`}>{formatCurrency(item.valor)}</div>
+                
                 <div className={`col-span-2 text-center h-8 flex items-center gap-2 ${type === 'sistema' ? 'justify-end' : 'justify-start'}`}>
-                    {type === 'extrato' && item.conciliationStatus === 'pendente' && (<button onClick={(e) => { e.stopPropagation(); handleCreateLancamento(item); }} className="bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold px-2 py-1 rounded-md"><FontAwesomeIcon icon={faPlus} /></button>)}
-                    {type === 'extrato' && item.conciliationStatus === 'dbConciliated' && (<FontAwesomeIcon icon={faCheckCircle} className="text-green-600" />)}
-                    {type === 'sistema' && ( <>
-                            <button onClick={(e) => { e.stopPropagation(); handleOpenEditModal(item); }} className="text-blue-600 hover:text-blue-800 text-xs px-1"><FontAwesomeIcon icon={faPenToSquare} /></button>
-                            {(item.conciliationStatus === 'pendente' || item.conciliationStatus === 'sessionMatch') && (<button onClick={(e) => { e.stopPropagation(); handleDelete(item); }} className="text-red-500 hover:text-red-700 text-xs px-1"><FontAwesomeIcon icon={faTrash} /></button>)}
-                            {item.conciliationStatus === 'dbConciliated' && (<button onClick={(e) => { e.stopPropagation(); undoConciliationMutation.mutate(item.id); }} disabled={undoConciliationMutation.isPending} className="text-gray-500 hover:text-gray-700 text-xs px-1"><FontAwesomeIcon icon={faUndo} spin={undoConciliationMutation.isPending} /></button>)}
-                    </>)}
+                    
+                    {type === 'extrato' && item.conciliationStatus === 'pendente' && (
+                        <button onClick={(e) => { e.stopPropagation(); handleCreateLancamento(item); }} className="bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold px-2 py-1 rounded-md">
+                            <FontAwesomeIcon icon={faPlus} />
+                        </button>
+                    )}
+                    
+                    {type === 'extrato' && item.conciliationStatus === 'dbConciliated' && (
+                        <FontAwesomeIcon icon={faCheckCircle} className="text-green-600" />
+                    )}
+
+                    {type === 'sistema' && (
+                        <>
+                            <button onClick={(e) => { e.stopPropagation(); handleOpenEditModal(item); }} className="text-blue-600 hover:text-blue-800 text-xs px-1">
+                                <FontAwesomeIcon icon={faPenToSquare} />
+                            </button>
+                            {(item.conciliationStatus === 'pendente' || item.conciliationStatus === 'sessionMatch') && (
+                                <button onClick={(e) => { e.stopPropagation(); handleDelete(item); }} className="text-red-500 hover:text-red-700 text-xs px-1">
+                                    <FontAwesomeIcon icon={faTrash} />
+                                </button>
+                            )}
+                            {item.conciliationStatus === 'dbConciliated' && (
+                                <button onClick={(e) => { e.stopPropagation(); undoConciliationMutation.mutate(item.id); }} disabled={undoConciliationMutation.isPending} className="text-gray-500 hover:text-gray-700 text-xs px-1">
+                                    <FontAwesomeIcon icon={faUndo} spin={undoConciliationMutation.isPending} />
+                                </button>
+                            )}
+                        </>
+                    )}
                 </div>
             </div>
         );
     };
-
-    const processedLists = useMemo(() => {
-        const sessionMatchedSistemaIds = new Set(conciliationState.matches.map(m => m.sistemaId));
-        const sessionMatchedExtratoIds = new Set(conciliationState.matches.map(m => m.extratoId));
-        const dbConciliatedExtratoIds = new Set(conciliationState.sistema.filter(s => s.conciliado && s.id_transacao_externa).map(s => s.id_transacao_externa));
-        const filterByDate = (items, type) => {
-            const { startDate, endDate } = conciliationState.dateFilter;
-            if (!startDate || !endDate) return items;
-            return items.filter(item => { const itemDate = type === 'sistema' ? (item.data_pagamento || item.data_vencimento) : item.data; return itemDate >= startDate && itemDate <= endDate; });
-        };
-        const classifyAndSort = (items, type) => items.map(item => {
-            let status = 'pendente';
-            if ((type === 'sistema' && sessionMatchedSistemaIds.has(item.id)) || (type === 'extrato' && sessionMatchedExtratoIds.has(item.id))) status = 'sessionMatch';
-            else if ((type === 'sistema' && item.conciliado) || (type === 'extrato' && dbConciliatedExtratoIds.has(item.id))) status = 'dbConciliated';
-            return { ...item, conciliationStatus: status };
-        }).sort((a, b) => {
-            const order = { sessionMatch: 1, pendente: 2, dbConciliated: 3 }; if (order[a.conciliationStatus] !== order[b.conciliationStatus]) return order[a.conciliationStatus] - order[b.conciliationStatus];
-            const dateA = new Date(type === 'sistema' ? (a.data_pagamento || a.data_vencimento) : a.data); const dateB = new Date(type === 'sistema' ? (b.data_pagamento || b.data_vencimento) : b.data); return dateA - dateB;
-        });
-        const fullSortedSistema = classifyAndSort(filterByDate(conciliationState.sistema, 'sistema'), 'sistema');
-        const fullSortedExtrato = classifyAndSort(filterByDate(conciliationState.extrato, 'extrato'), 'extrato');
-        return { sortedSistema: showConciliados ? fullSortedSistema : fullSortedSistema.filter(item => item.conciliationStatus !== 'dbConciliated'), sortedExtrato: showConciliados ? fullSortedExtrato : fullSortedExtrato.filter(item => item.conciliationStatus !== 'dbConciliated') };
-    }, [conciliationState, showConciliados]); 
-
-    // --- Validação do Botão ---
-    const isButtonDisabled = isProcessing || !selectedContaId || (inputMode === 'ofx' && !file) || (inputMode === 'csv' && pastedText.trim().length === 0);
 
     return (
         <div className="space-y-6 pb-24">
@@ -645,49 +873,43 @@ export default function ConciliacaoManager({ contas }) {
 
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Coluna 1: Conta */}
                     <div>
-                        <label className="block text-sm font-medium mb-1">1. Selecione a Conta <span className="text-red-500">*</span></label>
-                        <select value={selectedContaId} onChange={(e) => setSelectedContaId(e.target.value)} className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                        <label className="block text-sm font-medium mb-1">1. Selecione a Conta</label>
+                        <select value={selectedContaId} onChange={(e) => setSelectedContaId(e.target.value)} className="w-full p-2 border rounded-md">
                             <option value="">-- Escolha uma conta --</option>
                             {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                         </select>
-                        {!selectedContaId && <p className="text-xs text-red-500 mt-1">Obrigatório selecionar conta.</p>}
                     </div>
 
+                    {/* Coluna 2: Importação (Abas) */}
                     <div>
                         <label className="block text-sm font-medium mb-1">2. Importar Dados</label>
                         <div className="flex gap-2 mb-2">
-                            <button onClick={() => setInputMode('csv')} className={`flex-1 text-sm py-1 rounded-t-md font-semibold transition-colors ${inputMode === 'csv' ? 'bg-white border-t border-l border-r text-blue-700' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}>
-                                <FontAwesomeIcon icon={faPaste} className="mr-2"/> Colar Texto/CSV
-                            </button>
-                            <button onClick={() => setInputMode('ofx')} className={`flex-1 text-sm py-1 rounded-t-md font-semibold transition-colors ${inputMode === 'ofx' ? 'bg-white border-t border-l border-r text-blue-700' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}>
+                            <button 
+                                onClick={() => setInputMode('ofx')} 
+                                className={`flex-1 text-sm py-1 rounded-t-md font-semibold ${inputMode === 'ofx' ? 'bg-white border-t border-l border-r text-blue-700' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}
+                            >
                                 <FontAwesomeIcon icon={faFileCode} className="mr-2"/> Arquivo OFX
+                            </button>
+                            <button 
+                                onClick={() => setInputMode('csv')} 
+                                className={`flex-1 text-sm py-1 rounded-t-md font-semibold ${inputMode === 'csv' ? 'bg-white border-t border-l border-r text-blue-700' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}
+                            >
+                                <FontAwesomeIcon icon={faPaste} className="mr-2"/> Colar Texto/CSV
                             </button>
                         </div>
                         
-                        <div className={`border rounded-b-md p-3 bg-white ${inputMode === 'csv' ? 'rounded-tr-md' : ''} shadow-sm relative`}>
+                        <div className={`border rounded-b-md p-3 bg-white ${inputMode === 'csv' ? 'rounded-tr-md' : ''}`}>
                             {inputMode === 'ofx' ? (
                                 <input id="file-input" type="file" onChange={handleFileChange} accept=".ofx,.ofc" className="w-full text-sm" />
                             ) : (
-                                <>
-                                    <div className="mb-2 flex justify-end">
-                                        <a 
-                                            href="https://gemini.google.com/gem/1l3D8lZur9HX5lZlXubFFtqttaCoymbp_?usp=sharing" 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded-full border border-indigo-200 flex items-center gap-2 transition-all"
-                                            title="Clique para converter seu PDF do banco em texto"
-                                        >
-                                            <FontAwesomeIcon icon={faRobot} /> Converter PDF com IA
-                                        </a>
-                                    </div>
-                                    <textarea 
-                                        placeholder="Cole aqui as linhas do seu extrato... (Ex: 24/12/2025 Pagamento 150,00)" 
-                                        value={pastedText}
-                                        onChange={(e) => setPastedText(e.target.value)}
-                                        className="w-full h-24 p-2 text-xs border rounded-md font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                    />
-                                </>
+                                <textarea 
+                                    placeholder="Cole aqui as linhas do seu extrato (Data, Descrição, Valor)..." 
+                                    value={pastedText}
+                                    onChange={(e) => setPastedText(e.target.value)}
+                                    className="w-full h-24 p-2 text-xs border rounded-md font-mono"
+                                />
                             )}
                         </div>
                     </div>
@@ -697,45 +919,50 @@ export default function ConciliacaoManager({ contas }) {
                     <button onClick={resetState} className="text-sm text-gray-600 hover:text-red-600 font-semibold flex items-center gap-2">
                         <FontAwesomeIcon icon={faEraser} /> Limpar
                     </button>
-                    
-                    <div className="flex items-center gap-4">
-                        {isButtonDisabled && !isProcessing && (
-                            <span className="text-xs text-orange-600 font-medium animate-pulse">
-                                <FontAwesomeIcon icon={faExclamationCircle} /> {!selectedContaId ? "Selecione a conta" : "Cole o texto ou escolha arquivo"}
-                            </span>
-                        )}
-                        <button 
-                            onClick={handleProcessFile} 
-                            disabled={isButtonDisabled} 
-                            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-all"
-                        >
-                            <FontAwesomeIcon icon={isProcessing ? faSpinner : faMagic} spin={isProcessing} /> 
-                            {isProcessing ? 'Lendo...' : 'Processar'}
-                        </button>
-                    </div>
+                    <button 
+                        onClick={handleProcessFile} 
+                        disabled={isProcessing || !selectedContaId || (inputMode === 'ofx' && !file) || (inputMode === 'csv' && !pastedText)} 
+                        className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2 shadow-sm"
+                    >
+                        <FontAwesomeIcon icon={isProcessing ? faSpinner : faMagic} spin={isProcessing} /> 
+                        {isProcessing ? 'Lendo...' : 'Processar'}
+                    </button>
                 </div>
             </div>
             
+            {/* Filtros de Visualização */}
             {conciliationState.extrato.length > 0 &&
                 <div className="p-4 border rounded-lg bg-gray-50 space-y-3 animate-fade-in">
                     <div className="flex flex-wrap items-end gap-2">
                         <div><label className="block text-xs font-bold text-gray-500 uppercase">De</label><input type="date" value={conciliationState.dateFilter.startDate} onChange={(e) => handleDateFilterChange('startDate', e.target.value)} className="w-36 p-2 border rounded-md text-sm"/></div>
                         <div><label className="block text-xs font-bold text-gray-500 uppercase">Até</label><input type="date" value={conciliationState.dateFilter.endDate} onChange={(e) => handleDateFilterChange('endDate', e.target.value)} className="w-36 p-2 border rounded-md text-sm"/></div>
+                        
                         <div className="flex border rounded-md overflow-hidden ml-2">
-                            {['today', 'week', 'month'].map(period => (<button key={period} onClick={() => setDateRange(period)} className={`px-3 py-2 text-sm hover:bg-gray-100 ${activePeriodFilter === period ? 'bg-blue-100 text-blue-700 font-bold' : 'bg-white text-gray-600'}`}><FontAwesomeIcon icon={period === 'today' ? faCalendarDay : period === 'week' ? faCalendarWeek : faCalendarAlt} /></button>))}
+                            {['today', 'week', 'month'].map(period => (
+                                <button key={period} onClick={() => setDateRange(period)} className={`px-3 py-2 text-sm hover:bg-gray-100 ${activePeriodFilter === period ? 'bg-blue-100 text-blue-700 font-bold' : 'bg-white text-gray-600'}`}>
+                                    <FontAwesomeIcon icon={period === 'today' ? faCalendarDay : period === 'week' ? faCalendarWeek : faCalendarAlt} />
+                                </button>
+                            ))}
                         </div>
-                         <button onClick={() => setShowConciliados(!showConciliados)} className={`ml-auto text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${showConciliados ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'}`}><FontAwesomeIcon icon={showConciliados ? faEyeSlash : faEye} /> {showConciliados ? 'Ocultar Conciliados' : 'Ver Conciliados'}</button>
+
+                         <button onClick={() => setShowConciliados(!showConciliados)} className={`ml-auto text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${showConciliados ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'}`}>
+                            <FontAwesomeIcon icon={showConciliados ? faEyeSlash : faEye} /> {showConciliados ? 'Ocultar Conciliados' : 'Ver Conciliados'}
+                        </button>
                     </div>
                 </div>
             }
 
+            {/* Listas e Linhas */}
             <div ref={containerRef} className="relative pt-6 border-t min-h-[400px]">
                 <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-10">
                     {lines.map((line, index) => ( <path key={index} d={`M ${line.startX} ${line.startY} C ${line.startX + 50} ${line.startY}, ${line.endX - 50} ${line.endY}, ${line.endX} ${line.endY}`} stroke={getColorForPair(line.pairId).split(' ')[0].replace('border', 'stroke').replace('-400', '-500')} strokeWidth="2" fill="none" /> ))}
                 </svg>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <h3 className="font-semibold mb-2 text-gray-700 flex justify-between items-center"><span>Lançamentos (Sistema)</span>{selectedSistemaIds.size > 0 && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-bold">{selectedSistemaIds.size} selecionado(s)</span>}</h3>
+                        <h3 className="font-semibold mb-2 text-gray-700 flex justify-between items-center">
+                            <span>Lançamentos (Sistema)</span>
+                            {selectedSistemaIds.size > 0 && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-bold">{selectedSistemaIds.size} selecionado(s)</span>}
+                        </h3>
                         <div className="border rounded-lg max-h-[60vh] overflow-y-auto space-y-1 p-1 bg-gray-50 custom-scrollbar">
                             {isLoadingLancamentos && <div className="text-center p-8 text-gray-500"><FontAwesomeIcon icon={faSpinner} spin className="mr-2"/> Buscando...</div>}
                             {!isLoadingLancamentos && processedLists.sortedSistema.map(item => renderItem(item, 'sistema', 'sistema'))}
@@ -752,6 +979,7 @@ export default function ConciliacaoManager({ contas }) {
                 </div>
             </div>
 
+            {/* Calculadora Flutuante */}
             {(conciliationState.matches.length > 0 || (calculadora)) && (
                 <div className="fixed bottom-0 left-0 md:left-64 right-0 bg-white p-4 border-t shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-50 animate-slide-up">
                     <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
@@ -767,20 +995,31 @@ export default function ConciliacaoManager({ contas }) {
                                 </div>
                                 <div className="flex flex-col items-end">
                                     <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Diferença</span>
-                                    <span className={`font-mono font-bold text-lg ${calculadora.diff === 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(calculadora.diff)}</span>
+                                    <span className={`font-mono font-bold text-lg ${calculadora.diff === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {formatCurrency(calculadora.diff)}
+                                    </span>
                                 </div>
                                 {calculadora.isMatch ? (
-                                    <button onClick={proceedWithMatch} className="ml-4 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 font-bold flex items-center gap-2 animate-pulse shadow-md"><FontAwesomeIcon icon={faLink} /> Conciliar</button>
+                                    <button onClick={proceedWithMatch} className="ml-4 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 font-bold flex items-center gap-2 animate-pulse shadow-md">
+                                        <FontAwesomeIcon icon={faLink} /> Conciliar
+                                    </button>
                                 ) : (
                                     <div className="ml-4 text-red-500 text-xs font-bold max-w-[100px] text-center leading-tight">Diferença encontrada</div>
                                 )}
-                                <button onClick={() => { setSelectedExtratoId(null); setSelectedSistemaIds(new Set()); }} className="ml-2 text-gray-400 hover:text-gray-600 px-2"><FontAwesomeIcon icon={faTimes} /></button>
+                                <button onClick={() => { setSelectedExtratoId(null); setSelectedSistemaIds(new Set()); }} className="ml-2 text-gray-400 hover:text-gray-600 px-2">
+                                    <FontAwesomeIcon icon={faTimes} />
+                                </button>
                             </div>
                         ) : (
-                            <div className="text-gray-500 text-sm italic flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full"><FontAwesomeIcon icon={faCalculator} /> Selecione itens para conciliar manualmente.</div>
+                            <div className="text-gray-500 text-sm italic flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full">
+                                <FontAwesomeIcon icon={faCalculator} /> Selecione itens para conciliar manualmente.
+                            </div>
                         )}
+
                         {conciliationState.matches.length > 0 && (
-                            <button onClick={handleConfirmMatches} disabled={isProcessing} className="bg-blue-800 text-white font-bold px-8 py-3 rounded-lg text-lg hover:bg-blue-900 disabled:bg-gray-400 flex items-center gap-3 shadow-lg transform transition hover:-translate-y-1"><FontAwesomeIcon icon={faCheckCircle} /> Confirmar {conciliationState.matches.length} Conciliações</button>
+                            <button onClick={handleConfirmMatches} disabled={isProcessing} className="bg-blue-800 text-white font-bold px-8 py-3 rounded-lg text-lg hover:bg-blue-900 disabled:bg-gray-400 flex items-center gap-3 shadow-lg transform transition hover:-translate-y-1">
+                                <FontAwesomeIcon icon={faCheckCircle} /> Confirmar {conciliationState.matches.length} Conciliações
+                            </button>
                         )}
                     </div>
                 </div>

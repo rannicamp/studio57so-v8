@@ -15,13 +15,11 @@ import AtividadeModal from '@/components/atividades/AtividadeModal';
 import { toast } from 'sonner';
 import EmailActionMenu from './EmailActionMenu';
 
-// --- ATUALIZAÇÃO 1: Recebe e usa accountId para buscar o conteúdo correto ---
 const fetchEmailContent = async ({ queryKey }) => {
     const [_key, folderPath, uid, accountId] = queryKey;
     if (!uid) return null;
     
     let url = `/api/email/content?folder=${encodeURIComponent(folderPath)}&uid=${uid}`;
-    // Adiciona o ID da conta na URL se existir
     if (accountId) url += `&accountId=${accountId}`;
 
     const res = await fetch(url);
@@ -30,7 +28,7 @@ const fetchEmailContent = async ({ queryKey }) => {
 };
 
 const performEmailAction = async ({ action, folder, uid, destination, accountId }) => { 
-    const body = { action, folder, uid, accountId }; // Passa accountId aqui
+    const body = { action, folder, uid, accountId };
     if (destination) body.targetFolder = destination;
     const res = await fetch('/api/email/actions', {
         method: 'POST',
@@ -44,17 +42,14 @@ const performEmailAction = async ({ action, folder, uid, destination, accountId 
 export default function EmailViewPanel({ emailSummary, folder, onClose, onCreateRule }) {
     const queryClient = useQueryClient();
     
-    // Estados dos Modais
     const [isComposeOpen, setIsComposeOpen] = useState(false);
     const [composeData, setComposeData] = useState(null);
     const [isActivityOpen, setIsActivityOpen] = useState(false);
     const [activityData, setActivityData] = useState(null);
 
     const folderIdentifier = folder?.path || folder?.name;
-    // --- PEGA O ID DA CONTA DA PASTA ---
     const accountId = folder?.accountId; 
 
-    // --- ATUALIZAÇÃO 2: Adiciona accountId na chave do cache ---
     const { data: fullEmail, isLoading, isError } = useQuery({
         queryKey: ['emailContent', folderIdentifier, emailSummary?.id, accountId],
         queryFn: fetchEmailContent,
@@ -73,7 +68,7 @@ export default function EmailViewPanel({ emailSummary, folder, onClose, onCreate
     }, [fullEmail, emailSummary]);
 
     const actionMutation = useMutation({
-        mutationFn: (vars) => performEmailAction({ ...vars, accountId }), // Injeta accountId
+        mutationFn: (vars) => performEmailAction({ ...vars, accountId }), 
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
             if (variables.action === 'trash') { toast.success('E-mail excluído.'); onClose(); }
@@ -84,17 +79,13 @@ export default function EmailViewPanel({ emailSummary, folder, onClose, onCreate
         onError: () => toast.error('Erro ao realizar ação.')
     });
 
-    // --- ATUALIZAÇÃO 3: Lógica Robusta de Marcar como Lido ao Sair ---
     useEffect(() => {
         const currentEmailId = emailSummary?.id;
         const currentFolder = folderIdentifier;
         const isAlreadyRead = emailSummary?.flags?.includes('\\Seen');
 
-        // A mágica acontece no RETORNO (cleanup) do useEffect
         return () => {
             if (currentEmailId && !isAlreadyRead) {
-                // Usamos fetch direto com keepalive: true para garantir que o request 
-                // termine mesmo se o componente desmontar (navegar para outro e-mail)
                 fetch('/api/email/actions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -102,11 +93,10 @@ export default function EmailViewPanel({ emailSummary, folder, onClose, onCreate
                         action: 'markAsRead', 
                         folder: currentFolder, 
                         uid: currentEmailId,
-                        accountId: accountId // <--- CRUCIAL: Passa o ID da conta
+                        accountId: accountId
                     }),
-                    keepalive: true // <--- CRUCIAL: Mantém a conexão viva após desmontar
+                    keepalive: true 
                 }).then(() => { 
-                    // Atualiza as listas em segundo plano
                     queryClient.invalidateQueries({ queryKey: ['emailMessages'] }); 
                     queryClient.invalidateQueries({ queryKey: ['emailFolders'] }); 
                 }).catch(err => console.error('Erro ao marcar lido na saída:', err));
@@ -157,7 +147,7 @@ export default function EmailViewPanel({ emailSummary, folder, onClose, onCreate
             subject: type === 'forward' ? `Fwd: ${fullEmail.subject}` : subject, 
             body: quote, 
             messageId: fullEmail.id,
-            accountId // Garante que a resposta use a conta certa
+            accountId 
         });
         setIsComposeOpen(true);
     };
@@ -208,8 +198,10 @@ export default function EmailViewPanel({ emailSummary, folder, onClose, onCreate
                     </div>
                     
                     <div className="z-50">
+                        {/* AQUI TAMBÉM: Passamos o accountId explicitamente */}
                         <EmailActionMenu 
                             email={emailSummary}
+                            accountId={accountId} 
                             onAction={handleMenuAction}
                             showCreateActivity={true} 
                         />

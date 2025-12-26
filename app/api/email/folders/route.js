@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import imapSimple from 'imap-simple';
 
+// Função auxiliar para nomes amigáveis
 function getDisplayName(name, path) {
     const n = name.toUpperCase();
     const p = path.toUpperCase();
@@ -17,6 +18,7 @@ function getDisplayName(name, path) {
     return name;
 }
 
+// Identifica pastas de sistema para ordenação visual
 function isSystemFolder(name) {
     const n = name.toUpperCase();
     return [
@@ -28,7 +30,7 @@ function isSystemFolder(name) {
     ].some(sys => n.includes(sys));
 }
 
-// Helper seguro para status
+// Helper seguro para pegar status da caixa (contagem de não lidos)
 const getBoxStatus = (connection, boxName) => {
     return new Promise((resolve) => {
         connection.imap.status(boxName, (err, box) => {
@@ -52,6 +54,7 @@ export async function GET(request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
+    // Buscar configurações da conta de e-mail no Supabase
     let query = supabase.from('email_configuracoes').select('*').eq('user_id', user.id);
     if (accountId && accountId !== 'undefined' && accountId !== 'null') {
         query = query.eq('id', accountId);
@@ -61,6 +64,7 @@ export async function GET(request) {
 
     if (!config) return NextResponse.json({ folders: [], counts: {} });
 
+    // Configuração da conexão IMAP
     const imapConfig = {
       imap: {
         user: config.imap_user || config.email,
@@ -75,20 +79,20 @@ export async function GET(request) {
 
     connection = await imapSimple.connect(imapConfig);
 
-    // --- AÇÃO: CONTAGEM ---
+    // --- AÇÃO 1: APENAS CONTAGEM (usado para atualizar badges) ---
     if (action === 'getAllCounts') {
         const boxes = await connection.getBoxes();
         const counts = {};
         const pathsToFetch = [];
         const seenPaths = new Set();
         
-        // Função recursiva para coletar caminhos válidos
+        // Função recursiva para coletar caminhos válidos para contagem
         const collect = (list, parentPath = '') => {
             for (const [key, value] of Object.entries(list)) {
-                const delimiter = value.delimiter || '/'; // Default mais seguro que '.'
+                const delimiter = value.delimiter || '/'; 
                 const fullPath = parentPath ? parentPath + delimiter + key : key;
                 
-                // CRUCIAL: Se for [Gmail], não adiciona à lista de busca, mas processa filhos COM o caminho correto
+                // Se for pasta container do Google, processa filhos mas ignora o pai
                 if (key === '[Gmail]' || key === '[Google Mail]') { 
                     if (value.children) collect(value.children, fullPath);
                     continue;
@@ -103,6 +107,7 @@ export async function GET(request) {
                 const attribs = value.attribs || [];
                 const isNoselect = attribs.some(a => typeof a === 'string' && a.toUpperCase().includes('NOSELECT'));
                 
+                // Só conta mensagens em pastas selecionáveis
                 if (!isNoselect) {
                     pathsToFetch.push(fullPath);
                 }
@@ -114,6 +119,7 @@ export async function GET(request) {
         };
         collect(boxes);
 
+        // Busca status em paralelo para performance
         const promises = pathsToFetch.map(async (path) => {
             try {
                 const status = await getBoxStatus(connection, path);
@@ -133,7 +139,7 @@ export async function GET(request) {
         return NextResponse.json({ counts });
     }
 
-    // --- LISTAGEM ESTRUTURAL ---
+    // --- AÇÃO 2: LISTAGEM ESTRUTURAL COMPLETA (usado no Menu Mover e Sidebar) ---
     const boxes = await connection.getBoxes();
     const folderList = [];
     const seenPaths = new Set();
@@ -141,16 +147,16 @@ export async function GET(request) {
     const processBoxes = (boxList, parentPath = '', level = 0) => {
         for (const [key, value] of Object.entries(boxList)) {
             const delimiter = value.delimiter || '/';
+            // Monta o caminho completo usado pelo servidor IMAP
             const fullPath = parentPath ? parentPath + delimiter + key : key;
 
-            // CORREÇÃO CRUCIAL PARA GMAIL E OUTROS
-            // Se for pasta de sistema invisível, passamos o fullPath para os filhos, mas não exibimos ela
+            // Tratamento especial para containers do Gmail
             if (key === '[Gmail]' || key === '[Google Mail]') {
                 if (value.children) processBoxes(value.children, fullPath, level);
                 continue; 
             }
 
-            // Evita duplicação de INBOX aninhada se for apenas estrutura
+            // Evita duplicação visual de INBOX se ela vier aninhada incorretamente
             if (level > 0 && key.toUpperCase() === 'INBOX') {
                 if (value.children) processBoxes(value.children, fullPath, level);
                 continue;
@@ -166,18 +172,19 @@ export async function GET(request) {
             seenPaths.add(fullPath);
 
             let visualLevel = level;
-            // Se estiver dentro da INBOX logicamente, mas é pasta de sistema, sobe para nível 0 para destaque
+            // Ajuste visual: Se for pasta de sistema dentro da INBOX, sobe para nível raiz
             if (parentPath.toUpperCase() === 'INBOX' && isSystemFolder(key)) {
                 visualLevel = 0; 
             }
 
             const attribs = value.attribs || [];
+            // Flag crucial para o menu "Mover": diz se a pasta aceita mensagens
             const canSelect = !attribs.some(a => typeof a === 'string' && a.toUpperCase().includes('NOSELECT'));
 
             folderList.push({
                 name: key,
                 displayName: getDisplayName(key, fullPath),
-                path: fullPath, // Caminho COMPLETO para o IMAP
+                path: fullPath, // Esse é o ID real da pasta para o comando MOVE
                 delimiter: delimiter,
                 level: visualLevel,
                 unseen: 0,
@@ -194,15 +201,22 @@ export async function GET(request) {
 
     processBoxes(boxes);
 
-    // Ordenação visual
-    const specialOrder = ['Caixa de Entrada', 'Enviados', 'Rascunhos', 'Spam', 'Lixeira'];
+    // Ordenação visual: Pastas especiais primeiro, depois alfabético
+    const specialOrder = ['Caixa de Entrada', 'Rascunhos', 'Enviados', 'Spam', 'Lixeira', 'Arquivados'];
+    
     folderList.sort((a, b) => {
+        // Primeiro tenta ordenar por "peso" das pastas especiais
+        let indexA = specialOrder.findIndex(s => a.displayName === s || a.displayName.includes(s));
+        let indexB = specialOrder.findIndex(s => b.displayName === s || b.displayName.includes(s));
+        
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+
+        // Se não for especial, ordena por nível hierárquico
         if (a.level !== b.level) return a.level - b.level;
-        let indexA = specialOrder.indexOf(a.displayName);
-        let indexB = specialOrder.indexOf(b.displayName);
-        if (indexA === -1) indexA = 999;
-        if (indexB === -1) indexB = 999;
-        if (indexA !== indexB) return indexA - indexB;
+        
+        // Por último, ordem alfabética
         return a.displayName.localeCompare(b.displayName);
     });
 
