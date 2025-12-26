@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSearchParams, useRouter } from 'next/navigation'; // Importações novas
-import { createClient } from '@/utils/supabase/client'; // Para buscar o email direto
+import { useSearchParams, useRouter } from 'next/navigation'; 
+import { createClient } from '@/utils/supabase/client'; 
 import EmailConfigModal from '@/components/email/EmailConfigModal';
 import EmailListPanel from '@/components/email/EmailListPanel';
 import EmailViewPanel from '@/components/email/EmailViewPanel';
@@ -27,7 +27,6 @@ const getCachedData = () => {
     }
 };
 
-// Componente interno que usa useSearchParams (Para evitar erros de Suspense no Next.js)
 function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
     const cachedState = getCachedData();
     const queryClient = useQueryClient();
@@ -48,13 +47,12 @@ function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
     const [debouncedSearchTerm] = useDebounce(searchTerm, 600);
     const hasRestoredUiState = useRef(false);
     
-    // --- LÓGICA DE DEEP LINK (ABRIR E-MAIL DIRETO) ---
+    // --- LÓGICA DE DEEP LINK (CORRIGIDA) ---
     useEffect(() => {
         const emailId = searchParams.get('email_id');
         if (emailId) {
             console.log("🔗 Deep Link detectado para e-mail:", emailId);
             
-            // Busca o e-mail no banco
             const fetchEmail = async () => {
                 const { data, error } = await supabase
                     .from('email_messages_cache')
@@ -63,16 +61,18 @@ function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
                     .single();
 
                 if (data && !error) {
-                    // Seleciona o e-mail
+                    // 1. Define o e-mail selecionado
                     setSelectedEmail(data);
-                    // Seleciona a pasta correta para manter o contexto
+                    
+                    // 2. Define a pasta e O CONTEXTO DA CONTA (Isso que faltava!)
                     setSelectedEmailFolder({ 
                         path: data.folder_path, 
-                        name: data.folder_path.split('/').pop(), // Nome simplificado
-                        display_name: data.folder_path // Fallback
+                        name: data.folder_path.split('/').pop(), 
+                        display_name: data.folder_path,
+                        accountId: data.account_id // <--- A MÁGICA ESTÁ AQUI 🎩✨
                     });
                     
-                    // Limpa a URL para não ficar "preso" nesse e-mail se der F5
+                    // 3. Limpa a URL
                     router.replace('/caixa-de-entrada', { scroll: false });
                 }
             };
@@ -114,7 +114,6 @@ function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
         });
     }, [queryClient]);
 
-    // Sync Periódico
     useEffect(() => {
         const syncEmails = async () => {
             try {
@@ -133,7 +132,6 @@ function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
         return () => clearInterval(intervalId);
     }, [queryClient]);
 
-    // Automação de Regras
     useEffect(() => {
         const isInbox = selectedEmailFolder?.name?.toUpperCase() === 'INBOX' || 
                         selectedEmailFolder?.displayName === 'Caixa de Entrada';
@@ -271,7 +269,6 @@ function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
     );
 }
 
-// Wrapper principal com Suspense (Regra do Next.js)
 export default function EmailInbox(props) {
     return (
         <Suspense fallback={<div className="p-4 text-center">Carregando Inbox...</div>}>
