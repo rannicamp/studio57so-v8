@@ -10,40 +10,41 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
 });
 
-// 3. Recebimento do Push
+// 3. Recebimento do Push (Onde a mágica acontece)
 self.addEventListener("push", function (event) {
-  // Dados padrão
+  // Dados padrão de segurança
   let data = { 
     title: "Studio 57", 
     body: "Você tem uma nova notificação!", 
     url: "/painel",
-    icon: "/icons/icon-192x192.png" 
+    icon: "/icons/icon-192x192.png",
+    tag: "studio57-general" // Tag padrão se não vier nada
   };
 
   if (event.data) {
     try {
       const payload = event.data.json();
       
-      // Mapeamento Inteligente (Corrige o problema do texto sumir)
+      // Mapeamento Inteligente
       data.title = payload.title || data.title;
-      data.body = payload.body || payload.message || data.body; // Aceita 'body' OU 'message'
-      data.url = payload.url || payload.link || data.url;       // Aceita 'url' OU 'link'
+      data.body = payload.body || payload.message || data.body; 
+      data.url = payload.url || payload.link || data.url;       
       data.icon = payload.icon || data.icon;
+      // AQUI ESTÁ O TRUQUE: Respeita a tag que enviamos do servidor (whatsapp ou email)
+      data.tag = payload.tag || data.tag; 
 
     } catch (e) {
       data.body = event.data.text();
     }
   }
 
-  // ⚠️ O SEGREDO DO WINDOWS ESTÁ AQUI:
-  // Removemos 'vibrate' e 'badge' que quebram o Desktop.
   const options = {
     body: data.body,
     icon: data.icon,
-    data: { url: data.url },
-    tag: "studio57-notification",
-    renotify: true,
-    requireInteraction: true, // Mantém o aviso na tela do Windows até clicar
+    data: { url: data.url }, // Guarda o link para abrir depois
+    tag: data.tag,           // Usa a tag correta para não agrupar errado
+    renotify: true,          // Vibra de novo mesmo se tiver outra notificação igual
+    requireInteraction: true, 
     actions: [
       { action: "open", title: "Ver" }
     ]
@@ -54,7 +55,7 @@ self.addEventListener("push", function (event) {
   );
 });
 
-// 4. Clique na Notificação (Abre a janela)
+// 4. Clique na Notificação (Abre a janela certa)
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
 
@@ -62,7 +63,7 @@ self.addEventListener("notificationclick", function (event) {
     clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (clientList) {
       const urlToOpen = event.notification.data.url || "/";
 
-      // Tenta focar numa aba já aberta
+      // Tenta focar numa aba já aberta que tenha o mesmo URL
       for (let i = 0; i < clientList.length; i++) {
         const client = clientList[i];
         if (client.url.includes(urlToOpen) && "focus" in client) {
