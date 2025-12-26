@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import imapSimple from 'imap-simple';
-import webPush from 'web-push'; // Já existe no seu projeto!
+import webPush from 'web-push';
 
-// --- CONFIGURAÇÃO WEB PUSH (Igual do WhatsApp) ---
+// --- 1. CONFIGURAÇÃO DAS CHAVES VAPID (PUSH) ---
 const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const privateKey = process.env.VAPID_PRIVATE_KEY;
 
@@ -15,55 +15,63 @@ if (publicKey && privateKey) {
             privateKey
         );
     } catch (err) {
-        console.error("Erro config VAPID:", err);
+        console.error("❌ [Email Sync] Erro na configuração VAPID:", err);
     }
 }
 
-// --- FUNÇÃO DE NOTIFICAÇÃO (SISTEMA + MOBILE) ---
-async function sendHybridNotification(supabase, userId, title, message) {
+// --- 2. FUNÇÃO DE NOTIFICAÇÃO ROBUSTA (IGUAL AO WHATSAPP) ---
+async function dispatchEmailNotification(supabase, userId, title, message, organizationId) {
     try {
-        // 1. Salva no Sininho (Sistema)
+        // A. Salva no Sininho (Notificação interna do Sistema)
         await supabase.from('notificacoes').insert({
             user_id: userId,
             titulo: title,
             mensagem: message,
-            link: '/email', // Ao clicar no sininho, vai pro e-mail
+            link: '/caixa-de-entrada', // Link correto para o painel de e-mail
             lida: false,
             tipo: 'sistema',
+            organizacao_id: organizationId, // Importante para filtros
             created_at: new Date().toISOString()
         });
 
-        // 2. Busca Celulares para Push (Mesma tabela do WhatsApp)
+        // B. Envia o Push para Celular/Desktop (Web Push)
         const { data: subscriptions } = await supabase
             .from('notification_subscriptions')
             .select('*')
             .eq('user_id', userId);
 
         if (subscriptions && subscriptions.length > 0) {
-            console.log(`📱 Enviando Push para ${subscriptions.length} dispositivos.`);
+            console.log(`📱 [Email Sync] Disparando Push para ${subscriptions.length} dispositivos do usuário ${userId}.`);
             
             const payload = JSON.stringify({
                 title: title,
-                body: message, // 'body' é o padrão mobile
-                url: '/email',
-                icon: '/icons/icon-192x192.png'
+                body: message, 
+                url: '/caixa-de-entrada', // O Service Worker vai ler isso
+                icon: '/icons/icon-192x192.png',
+                tag: 'email-update' // Tag para agrupar notificações de e-mail separadas do WhatsApp
             });
 
+            // Dispara para todos os dispositivos em paralelo
             const promises = subscriptions.map(sub => 
                 webPush.sendNotification(sub.subscription_data, payload).catch(async err => {
-                    // Limpa inscrições mortas (410 = Gone)
+                    // Se der erro 410 ou 404, a inscrição é velha e deve ser removida
                     if (err.statusCode === 410 || err.statusCode === 404) {
+                        console.log(`🗑️ [Email Sync] Removendo inscrição inativa: ${sub.id}`);
                         await supabase.from('notification_subscriptions').delete().eq('id', sub.id);
+                    } else {
+                        console.error(`⚠️ [Email Sync] Erro ao enviar push:`, err);
                     }
                 })
             );
-            await Promise.all(promises);
+            
+            await Promise.allSettled(promises);
         }
     } catch (e) {
-        console.error("Erro enviando notificação:", e);
+        console.error("❌ [Email Sync] Erro fatal no envio de notificação:", e);
     }
 }
 
+// --- 3. UTILITÁRIOS IMAP ---
 const decodeHeader = (str) => {
     if (!str) return '';
     if (Array.isArray(str)) str = str[0];
@@ -85,26 +93,35 @@ const getBoxStatus = (connection, boxName) => {
     });
 };
 
+// --- 4. ROTA PRINCIPAL (POST) ---
 export async function POST(request) {
     const supabase = await createClient();
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
     try {
+        // Verifica autenticação
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
+        // Busca configurações de e-mail do usuário
         const { data: accounts } = await supabase
             .from('email_configuracoes')
             .select('*')
             .eq('user_id', user.id);
 
+        if (!accounts || accounts.length === 0) {
+            return NextResponse.json({ success: true, message: 'Nenhuma conta configurada.' });
+        }
+
         let totalSynced = 0;
-        let newEmailsCountTotal = 0; // Contador de novidades
+        let newEmailsCountTotal = 0; // Contador geral de novidades nesta sincronização
+        let organizacaoId = accounts[0].organizacao_id; // Pega a org da primeira conta
 
         for (const config of accounts) {
             let connection = null;
             try {
+                // Configuração IMAP
                 const imapConfig = {
                     imap: {
                         user: config.imap_user || config.email,
@@ -121,10 +138,12 @@ export async function POST(request) {
                 const boxes = await connection.getBoxes();
                 const folderList = [];
 
+                // Função recursiva para mapear pastas
                 const processBoxes = (list, parentPath = '', level = 0) => {
                     for (const [key, val] of Object.entries(list)) {
                         const delimiter = val.delimiter || '/';
                         const fullPath = parentPath ? parentPath + delimiter + key : key;
+                        // Pula pastas do sistema do Gmail que não interessam tanto na sync rápida
                         if (key === '[Gmail]' || key === '[Google Mail]') {
                             if (val.children) processBoxes(val.children, fullPath, level);
                             continue;
@@ -137,6 +156,7 @@ export async function POST(request) {
 
                 for (const folder of folderList) {
                     try {
+                        // Atualiza status da pasta (contagem não lida)
                         const status = await getBoxStatus(connection, folder.path);
                         if (!status) continue;
 
@@ -151,13 +171,16 @@ export async function POST(request) {
                             updated_at: new Date().toISOString()
                         }, { onConflict: 'account_id, path' });
 
-                        // Foca na Caixa de Entrada para notificar
-                        const isInbox = ['INBOX', 'CAIXA DE ENTRADA', 'ENTRADA'].some(k => folder.path.toUpperCase() === k);
-                        const isRelevant = isInbox || ['SENT', 'ENVIADOS'].some(k => folder.path.toUpperCase().includes(k));
+                        // Lógica de Detecção de Novos E-mails
+                        // Focamos na Caixa de Entrada para notificar, para não spammar o usuário com Lixeira/Spam
+                        const pathUpper = folder.path.toUpperCase();
+                        const isInbox = pathUpper === 'INBOX' || pathUpper.includes('CAIXA DE ENTRADA') || pathUpper.includes('ENTRADA');
+                        const isSent = pathUpper.includes('SENT') || pathUpper.includes('ENVIADOS');
                         
-                        if (isRelevant) {
+                        if (isInbox || isSent) {
                             await connection.openBox(folder.path, { readOnly: true });
                             
+                            // Busca e-mails recentes (últimos 3 meses)
                             const searchCriteria = [['SINCE', threeMonthsAgo]];
                             const fetchOptions = { bodies: ['HEADER'], struct: true };
                             const messages = await connection.search(searchCriteria, fetchOptions);
@@ -165,7 +188,7 @@ export async function POST(request) {
                             if (messages.length > 0) {
                                 const uids = messages.map(m => m.attributes.uid);
                                 
-                                // Verifica quais JÁ existem no banco para detectar NOVOS
+                                // Verifica quais JÁ existem no banco para detectar quais são NOVOS de verdade
                                 const { data: existingMessages } = await supabase
                                     .from('email_messages_cache')
                                     .select('uid')
@@ -182,7 +205,7 @@ export async function POST(request) {
                                     const header = msg.parts[0].body;
                                     const isRead = msg.attributes.flags.includes('\\Seen');
                                     
-                                    // SE NÃO EXISTE NO BANCO + NÃO LIDO + É INBOX = NOVIDADE!
+                                    // A MÁGICA: Se não está no banco AND não foi lido AND é Inbox -> É novidade!
                                     if (!existingSet.has(uid) && !isRead && isInbox) {
                                         newUnreadInThisFolder++;
                                     }
@@ -200,6 +223,7 @@ export async function POST(request) {
                                     });
                                 });
 
+                                // Salva em lotes de 50 para não travar o banco
                                 if (messagesToUpsert.length > 0) {
                                     for (let i = 0; i < messagesToUpsert.length; i += 50) {
                                         const batch = messagesToUpsert.slice(i, i + 50);
@@ -210,30 +234,38 @@ export async function POST(request) {
                                     }
                                     totalSynced += messagesToUpsert.length;
                                 }
+                                
+                                // Soma ao contador total de novidades da sessão
                                 newEmailsCountTotal += newUnreadInThisFolder;
                             }
                         }
-                    } catch (e) {}
+                    } catch (e) {
+                        console.error(`Erro ao processar pasta ${folder.path}:`, e.message);
+                    }
                 }
                 connection.end();
-            } catch (e) { if (connection) connection.end(); }
+            } catch (e) { 
+                console.error(`Erro na conta ${config.email}:`, e.message);
+                if (connection) connection.end(); 
+            }
         }
 
-        // --- DISPARO IMEDIATO ---
+        // --- 5. DISPARO DA NOTIFICAÇÃO ---
+        // Se houver novos e-mails detectados nesta rodada, avisa o usuário
         if (newEmailsCountTotal > 0) {
-            const title = newEmailsCountTotal === 1 ? 'Novo E-mail! 📧' : `${newEmailsCountTotal} Novos E-mails 📬`;
+            const title = newEmailsCountTotal === 1 ? '📧 Novo E-mail Recebido!' : `📬 ${newEmailsCountTotal} Novos E-mails`;
             const msg = newEmailsCountTotal === 1 
-                ? 'Chegou mensagem nova na Caixa de Entrada.'
-                : `Você tem ${newEmailsCountTotal} novas mensagens.`;
+                ? 'Você tem uma nova mensagem na Caixa de Entrada.'
+                : `Você recebeu ${newEmailsCountTotal} mensagens novas. Clique para ver.`;
             
-            // Chama a função que manda pro Banco (Sino) E pro Push (Celular)
-            await sendHybridNotification(supabase, user.id, title, msg);
+            // Chama nossa nova função poderosa
+            await dispatchEmailNotification(supabase, user.id, title, msg, organizacaoId);
         }
 
         return NextResponse.json({ success: true, synced: totalSynced, newEmails: newEmailsCountTotal });
 
     } catch (error) {
-        console.error("Erro Sync:", error);
+        console.error("❌ [Email Sync] Erro Geral:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
