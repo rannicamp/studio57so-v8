@@ -10,29 +10,24 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
 });
 
-// 3. Recebimento do Push (Onde a mágica acontece)
+// 3. Recebimento do Push
 self.addEventListener("push", function (event) {
-  // Dados padrão de segurança
   let data = { 
     title: "Studio 57", 
     body: "Você tem uma nova notificação!", 
-    url: "/painel",
+    url: "/painel", // Link padrão seguro
     icon: "/icons/icon-192x192.png",
-    tag: "studio57-general" // Tag padrão se não vier nada
+    tag: "studio57-general" 
   };
 
   if (event.data) {
     try {
       const payload = event.data.json();
-      
-      // Mapeamento Inteligente
       data.title = payload.title || data.title;
       data.body = payload.body || payload.message || data.body; 
       data.url = payload.url || payload.link || data.url;       
       data.icon = payload.icon || data.icon;
-      // AQUI ESTÁ O TRUQUE: Respeita a tag que enviamos do servidor (whatsapp ou email)
       data.tag = payload.tag || data.tag; 
-
     } catch (e) {
       data.body = event.data.text();
     }
@@ -41,9 +36,9 @@ self.addEventListener("push", function (event) {
   const options = {
     body: data.body,
     icon: data.icon,
-    data: { url: data.url }, // Guarda o link para abrir depois
-    tag: data.tag,           // Usa a tag correta para não agrupar errado
-    renotify: true,          // Vibra de novo mesmo se tiver outra notificação igual
+    data: { url: data.url }, // Guardamos o link curto aqui
+    tag: data.tag,
+    renotify: true,
     requireInteraction: true, 
     actions: [
       { action: "open", title: "Ver" }
@@ -55,22 +50,28 @@ self.addEventListener("push", function (event) {
   );
 });
 
-// 4. Clique na Notificação (Abre a janela certa)
+// 4. Clique na Notificação (A CORREÇÃO ESTÁ AQUI)
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (clientList) {
-      const urlToOpen = event.notification.data.url || "/";
+      // TRUQUE DO NETLIFY:
+      // Montamos o URL completo usando a 'origem' atual do site.
+      // Isso transforma '/caixa-de-entrada' em 'https://seusite.com/caixa-de-entrada'
+      const relativeUrl = event.notification.data.url || "/";
+      const urlToOpen = new URL(relativeUrl, self.location.origin).href;
 
-      // Tenta focar numa aba já aberta que tenha o mesmo URL
+      // 1. Tenta focar numa aba que já esteja aberta nesse link
       for (let i = 0; i < clientList.length; i++) {
         const client = clientList[i];
-        if (client.url.includes(urlToOpen) && "focus" in client) {
+        // Compara URLs completos para evitar erros
+        if (client.url === urlToOpen && "focus" in client) {
           return client.focus();
         }
       }
-      // Se não, abre uma nova
+
+      // 2. Se não achar, abre uma nova janela com o link absoluto
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
