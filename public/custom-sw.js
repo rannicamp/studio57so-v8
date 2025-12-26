@@ -1,11 +1,11 @@
 ﻿// public/custom-sw.js
 
-// 1. Instalação Instantânea
+// 1. Instalação
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// 2. Ativação e Controle
+// 2. Ativação
 self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
 });
@@ -14,8 +14,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener("push", function (event) {
   let data = { 
     title: "Studio 57", 
-    body: "Você tem uma nova notificação!", 
-    url: "/painel", // Link padrão seguro
+    body: "Nova notificação", 
+    url: "/caixa-de-entrada", 
     icon: "/icons/icon-192x192.png",
     tag: "studio57-general" 
   };
@@ -36,13 +36,11 @@ self.addEventListener("push", function (event) {
   const options = {
     body: data.body,
     icon: data.icon,
-    data: { url: data.url }, // Guardamos o link curto aqui
+    data: { url: data.url },
     tag: data.tag,
     renotify: true,
-    requireInteraction: true, 
-    actions: [
-      { action: "open", title: "Ver" }
-    ]
+    requireInteraction: true,
+    actions: [{ action: "open", title: "Ver Agora" }]
   };
 
   event.waitUntil(
@@ -50,28 +48,23 @@ self.addEventListener("push", function (event) {
   );
 });
 
-// 4. Clique na Notificação (A CORREÇÃO ESTÁ AQUI)
+// 4. Clique na Notificação (A MÁGICA ATUALIZADA ✨)
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
 
+  // Monta o link absoluto corretamente (ex: https://site.com/caixa-de-entrada?email_id=123)
+  const urlToOpen = new URL(event.notification.data.url, self.location.origin).href;
+
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (clientList) {
-      // TRUQUE DO NETLIFY:
-      // Montamos o URL completo usando a 'origem' atual do site.
-      // Isso transforma '/caixa-de-entrada' em 'https://seusite.com/caixa-de-entrada'
-      const relativeUrl = event.notification.data.url || "/";
-      const urlToOpen = new URL(relativeUrl, self.location.origin).href;
-
-      // 1. Tenta focar numa aba que já esteja aberta nesse link
-      for (let i = 0; i < clientList.length; i++) {
-        const client = clientList[i];
-        // Compara URLs completos para evitar erros
-        if (client.url === urlToOpen && "focus" in client) {
-          return client.focus();
+      // Tenta achar uma aba que já seja do nosso site
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && "focus" in client) {
+          // O SEGREDO: Foca na janela E FORÇA a navegação para o link novo
+          return client.focus().then(() => client.navigate(urlToOpen));
         }
       }
-
-      // 2. Se não achar, abre uma nova janela com o link absoluto
+      // Se não tiver nenhuma aberta, abre uma nova
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
