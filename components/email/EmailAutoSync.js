@@ -14,14 +14,12 @@ export default function EmailAutoSync({ intervalMinutes = 2 }) {
 
     useEffect(() => {
         const runSync = async () => {
-            // Evita rodar se já estiver rodando
             if (isSyncingRef.current) return;
 
             try {
                 isSyncingRef.current = true;
-                setIsVisualSyncing(true); // Liga o ícone girando
+                setIsVisualSyncing(true); 
 
-                // Chama o backend para olhar o IMAP
                 const response = await fetch('/api/email/sync', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
@@ -31,30 +29,28 @@ export default function EmailAutoSync({ intervalMinutes = 2 }) {
 
                 const data = await response.json();
 
-                // FORÇA BRUTA: Reseta os caches para obrigar a busca dos novos números
                 await queryClient.resetQueries({ queryKey: ['emailFolderCounts'] });
                 await queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
                 await queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
 
                 setLastSyncTime(new Date());
 
-                if (data.synced > 0) {
-                    toast.success(`📬 ${data.synced} novos e-mails chegaram!`);
+                if (data.newEmails > 0) {
+                    toast.success(`📬 ${data.newEmails} novos e-mails chegaram!`);
+                    
+                    // --- ATUALIZAÇÃO DO SININHO AQUI TAMBÉM ---
+                    queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
                 }
 
             } catch (error) {
                 console.error('🤖 Robô: Erro ao verificar e-mails:', error);
             } finally {
                 isSyncingRef.current = false;
-                // Mantém o ícone rodando mais um pouquinho só para dar feedback visual
                 setTimeout(() => setIsVisualSyncing(false), 1000);
             }
         };
 
-        // Roda a primeira vez 3 segundos após abrir a tela
         const initialTimer = setTimeout(runSync, 3000);
-
-        // Configura o loop infinito (setInterval)
         const loopTimer = setInterval(runSync, intervalMinutes * 60 * 1000);
 
         return () => {
@@ -63,7 +59,6 @@ export default function EmailAutoSync({ intervalMinutes = 2 }) {
         };
     }, [intervalMinutes, queryClient]);
 
-    // Retorna um indicador visual discreto que ficará no rodapé da Sidebar
     return (
         <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-[10px] text-gray-400 flex justify-between items-center">
             <span className="flex items-center gap-2">

@@ -29,29 +29,21 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
     const cachedState = getCachedData();
     const queryClient = useQueryClient();
 
-    // --- Estados com Restauração ---
     const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '');
     const [selectedEmailFolder, setSelectedEmailFolder] = useState(cachedState?.selectedEmailFolder || null); 
     const [selectedEmail, setSelectedEmail] = useState(cachedState?.selectedEmail || null);
     
-    // Configuração dos Modais
     const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(cachedState?.isEmailConfigOpen || false);
     const [configInitialTab, setConfigInitialTab] = useState(cachedState?.configInitialTab || 'connection'); 
     
-    // MUDANÇA AQUI: Agora restauramos se o modal de escrever estava aberto!
     const [isComposeOpen, setIsComposeOpen] = useState(cachedState?.isComposeOpen || false);
     
     const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
-
-    // Estado para preenchimento inteligente de regras
     const [rulePrefill, setRulePrefill] = useState(null);
     
     const [debouncedSearchTerm] = useDebounce(searchTerm, 600);
-
-    // --- Persistência UI ---
     const hasRestoredUiState = useRef(false);
     
-    // MUDANÇA AQUI: Adicionamos 'isComposeOpen' para ser salvo
     const uiStateToSave = { 
         selectedEmailFolder, 
         searchTerm, 
@@ -73,7 +65,6 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
         }
     }, [debouncedUiState]);
 
-    // --- CORREÇÃO: Função de atualização Otimista (Sem Invalidação Imediata) ---
     const handleUnreadUpdate = useCallback((accountId, folderPath, newCount) => {
         queryClient.setQueryData(['emailFolderCounts', accountId], (oldData) => {
             if (!oldData) return { counts: { [folderPath]: newCount } };
@@ -87,14 +78,7 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
         });
     }, [queryClient]);
 
-    // --- Gatilho: Atualizar contagens APENAS ao mudar de CONTA (não de pasta) ---
-    useEffect(() => {
-        if (selectedEmailFolder?.accountId) {
-             // Lógica de invalidação controlada pelo React Query
-        }
-    }, [selectedEmailFolder?.accountId]);
-
-    // --- NOVO: VIGIA DE SINCRONIZAÇÃO (POLLER) ---
+    // --- SINCRONIZAÇÃO E ATUALIZAÇÃO DO SININHO ---
     useEffect(() => {
         const syncEmails = async () => {
             try {
@@ -102,9 +86,14 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                 const data = await res.json();
                 
                 if (data.newEmails > 0) {
+                    // Atualiza a lista de e-mails
                     queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
                     queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
                     queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
+                    
+                    // --- O PULO DO GATO ---
+                    // Força o componente do sininho (NotificationBell) a buscar dados novos AGORA
+                    queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
                 }
             } catch (error) {
                 console.error("Erro silencioso no sync:", error);
@@ -112,11 +101,11 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
         };
 
         syncEmails();
-        const intervalId = setInterval(syncEmails, 60000);
+        const intervalId = setInterval(syncEmails, 60000); // Roda a cada minuto
         return () => clearInterval(intervalId);
     }, [queryClient]);
 
-    // --- Gatilho de Regras ---
+    // --- Automação de Regras ---
     useEffect(() => {
         const isInbox = selectedEmailFolder?.name?.toUpperCase() === 'INBOX' || 
                         selectedEmailFolder?.displayName === 'Caixa de Entrada';
@@ -144,7 +133,6 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
         }
     }, [selectedEmailFolder, queryClient]);
 
-    // --- Handlers ---
     const handleSelectEmail = (email) => setSelectedEmail(email);
     
     const handleBackToList = () => {
@@ -203,7 +191,6 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                 rulePrefill={rulePrefill} 
             />
             
-            {/* O modal agora é controlado pelo estado persistente isComposeOpen */}
             <EmailComposeModal 
                 isOpen={isComposeOpen} 
                 onClose={() => setIsComposeOpen(false)} 
@@ -215,7 +202,6 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                 onClose={() => setIsCreateFolderOpen(false)} 
             />
 
-            {/* --- SIDEBAR --- */}
             <EmailSidebar 
                 className={`w-full md:w-[280px] shrink-0 ${hasSelection ? 'hidden md:flex' : 'flex'}`}
                 selectedFolder={selectedEmailFolder}
@@ -229,7 +215,6 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                 canViewWhatsapp={canViewWhatsapp}
             />
 
-            {/* --- LISTA DE E-MAILS --- */}
             <div className={`
                 ${hasSelection ? 'flex' : 'hidden md:flex'} 
                 ${showEmailReadingPane ? 'hidden lg:flex lg:w-[350px] border-r shrink-0' : 'flex-grow'} 
@@ -257,7 +242,6 @@ export default function EmailInbox({ onChangeTab, canViewWhatsapp = true }) {
                 )}
             </div>
 
-            {/* --- LEITURA --- */}
             {showEmailReadingPane && (
                 <div className="flex-grow w-full lg:w-auto bg-white flex-col h-full overflow-hidden min-h-0 relative z-10">
                     <EmailViewPanel 
