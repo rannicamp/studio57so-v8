@@ -1,8 +1,7 @@
-// components/rh/GerenciamentoFuncionarios.js
 "use client";
 
 import { useMemo } from 'react';
-import { createClient } from '../../utils/supabase/client'; // Ajuste de caminho
+import { createClient } from '../../utils/supabase/client';
 import EmployeeList from './EmployeeList'; 
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -13,12 +12,15 @@ const fetchEmployees = async (organizacao_id) => {
     if (!organizacao_id) return [];
     
     const supabase = createClient();
+    
+    // QUERY CORRIGIDA E OTIMIZADA
     const { data: employeesData, error } = await supabase
         .from('funcionarios')
         .select(`
             *,
             cadastro_empresa ( id, razao_social ),
             empreendimentos ( id, nome ),
+            cargos ( id, nome ), 
             documentos_funcionarios ( id, nome_documento, caminho_arquivo, tipo:tipo_documento_id(sigla) )
         `)
         .eq('organizacao_id', organizacao_id)
@@ -29,6 +31,7 @@ const fetchEmployees = async (organizacao_id) => {
         throw new Error(error.message);
     }
 
+    // Processamento de URLs de fotos (mantido)
     const employeesWithPhotoUrl = await Promise.all(
         (employeesData || []).map(async (employee) => {
             if (employee.foto_url) {
@@ -48,13 +51,12 @@ const fetchEmployees = async (organizacao_id) => {
     return employeesWithPhotoUrl;
 };
 
-// Agora recebe as props de filtro e controle da Page
 export default function GerenciamentoFuncionarios({ 
     searchTerm = '', 
     showFilters = false, 
     filters = {}, 
     onFilterChange,
-    onEditFuncionario // NOVA PROP: Recebe a função para abrir o modal
+    onEditFuncionario
 }) {
     const { organizacao_id } = useAuth();
 
@@ -65,7 +67,7 @@ export default function GerenciamentoFuncionarios({
         staleTime: 1000 * 60 * 5, 
     });
     
-    // --- Extração de Opções Únicas para os Dropdowns ---
+    // Extração de Opções para Filtros
     const options = useMemo(() => {
         const empresasSet = new Set();
         const cargosSet = new Set();
@@ -73,7 +75,11 @@ export default function GerenciamentoFuncionarios({
 
         employees.forEach(emp => {
             if (emp.cadastro_empresa?.razao_social) empresasSet.add(emp.cadastro_empresa.razao_social);
-            if (emp.contract_role) cargosSet.add(emp.contract_role);
+            
+            // LÓGICA DE CARGO: Prioriza a tabela 'cargos', fallback para 'contract_role' (legado)
+            const nomeCargo = emp.cargos?.nome || emp.contract_role;
+            if (nomeCargo) cargosSet.add(nomeCargo);
+            
             if (emp.empreendimentos?.nome) empreendimentosSet.add(emp.empreendimentos.nome);
         });
 
@@ -84,39 +90,30 @@ export default function GerenciamentoFuncionarios({
         };
     }, [employees]);
 
-    // --- Lógica de Filtragem Poderosa ---
+    // Filtragem Lógica
     const filteredEmployees = useMemo(() => {
         return employees.filter(emp => {
-            // 1. Filtro de Texto (Busca)
+            const nomeCargo = emp.cargos?.nome || emp.contract_role || ''; // Normalização
+
+            // 1. Filtro de Texto
             if (searchTerm) {
                 const lowerTerm = searchTerm.toLowerCase();
                 const matchesSearch = 
                     emp.full_name?.toLowerCase().includes(lowerTerm) ||
-                    emp.contract_role?.toLowerCase().includes(lowerTerm) ||
+                    nomeCargo.toLowerCase().includes(lowerTerm) || 
                     emp.cpf?.includes(lowerTerm);
                 if (!matchesSearch) return false;
             }
 
-            // 2. Filtro de Empresa
-            if (filters.empresa && emp.cadastro_empresa?.razao_social !== filters.empresa) {
-                return false;
-            }
-
-            // 3. Filtro de Cargo
-            if (filters.cargo && emp.contract_role !== filters.cargo) {
-                return false;
-            }
-
-            // 4. Filtro de Empreendimento
-            if (filters.empreendimento && emp.empreendimentos?.nome !== filters.empreendimento) {
-                return false;
-            }
+            // 2. Filtros Específicos
+            if (filters.cargo && nomeCargo !== filters.cargo) return false;
+            if (filters.empresa && emp.cadastro_empresa?.razao_social !== filters.empresa) return false;
+            if (filters.empreendimento && emp.empreendimentos?.nome !== filters.empreendimento) return false;
 
             return true;
         });
     }, [employees, searchTerm, filters]);
 
-    // Função para limpar todos os filtros
     const clearFilters = () => {
         if(onFilterChange) {
             onFilterChange('empresa', '');
@@ -125,23 +122,11 @@ export default function GerenciamentoFuncionarios({
         }
     };
 
-    if (loadingData) {
-        return (
-            <div className="text-center p-10 text-gray-400">
-                <FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-2" />
-                <p>Carregando equipe...</p>
-            </div>
-        );
-    }
-
-    if (isError) {
-        return <div className="text-center p-4 text-red-500 bg-red-50 rounded-lg">Erro ao carregar funcionários: {error.message}</div>
-    }
+    if (loadingData) return <div className="text-center p-10 text-gray-400"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-2" /><p>Carregando equipe...</p></div>;
+    if (isError) return <div className="text-center p-4 text-red-500 bg-red-50 rounded-lg">Erro ao carregar funcionários: {error.message}</div>;
 
     return (
         <div className="space-y-6">
-            
-            {/* --- ÁREA DE FILTROS AVANÇADOS --- */}
             {showFilters && (
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner animate-in slide-in-from-top-2">
                     <div className="flex justify-between items-center mb-3">
@@ -153,47 +138,23 @@ export default function GerenciamentoFuncionarios({
                         )}
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        
-                        {/* Filtro Empresa */}
                         <div className="space-y-1">
-                            <label className="text-xs font-semibold text-gray-500 flex items-center gap-1">
-                                <FontAwesomeIcon icon={faBuilding} /> Empresa
-                            </label>
-                            <select 
-                                value={filters.empresa || ''}
-                                onChange={(e) => onFilterChange('empresa', e.target.value)}
-                                className="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2"
-                            >
+                            <label className="text-xs font-semibold text-gray-500 flex items-center gap-1"><FontAwesomeIcon icon={faBuilding} /> Empresa</label>
+                            <select value={filters.empresa || ''} onChange={(e) => onFilterChange('empresa', e.target.value)} className="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2">
                                 <option value="">Todas as Empresas</option>
                                 {options.empresas.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
                         </div>
-
-                        {/* Filtro Cargo */}
                         <div className="space-y-1">
-                            <label className="text-xs font-semibold text-gray-500 flex items-center gap-1">
-                                <FontAwesomeIcon icon={faBriefcase} /> Cargo
-                            </label>
-                            <select 
-                                value={filters.cargo || ''}
-                                onChange={(e) => onFilterChange('cargo', e.target.value)}
-                                className="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2"
-                            >
+                            <label className="text-xs font-semibold text-gray-500 flex items-center gap-1"><FontAwesomeIcon icon={faBriefcase} /> Cargo</label>
+                            <select value={filters.cargo || ''} onChange={(e) => onFilterChange('cargo', e.target.value)} className="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2">
                                 <option value="">Todos os Cargos</option>
                                 {options.cargos.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
                         </div>
-
-                        {/* Filtro Empreendimento */}
                         <div className="space-y-1">
-                            <label className="text-xs font-semibold text-gray-500 flex items-center gap-1">
-                                <FontAwesomeIcon icon={faMapMarkedAlt} /> Empreendimento
-                            </label>
-                            <select 
-                                value={filters.empreendimento || ''}
-                                onChange={(e) => onFilterChange('empreendimento', e.target.value)}
-                                className="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2"
-                            >
+                            <label className="text-xs font-semibold text-gray-500 flex items-center gap-1"><FontAwesomeIcon icon={faMapMarkedAlt} /> Empreendimento</label>
+                            <select value={filters.empreendimento || ''} onChange={(e) => onFilterChange('empreendimento', e.target.value)} className="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2">
                                 <option value="">Todos os Empreendimentos</option>
                                 {options.empreendimentos.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
@@ -202,7 +163,6 @@ export default function GerenciamentoFuncionarios({
                 </div>
             )}
 
-            {/* LISTA DE FUNCIONÁRIOS (Filtrada) */}
             {(filteredEmployees.length === 0 && employees.length > 0) ? (
                 <div className="text-center p-10 bg-white rounded-lg shadow-sm border border-gray-100">
                     <FontAwesomeIcon icon={faInbox} className="text-gray-300 text-4xl mb-3" />
@@ -211,10 +171,7 @@ export default function GerenciamentoFuncionarios({
                 </div>
             ) : (
                 <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden">
-                    <EmployeeList 
-                        initialEmployees={filteredEmployees} 
-                        onEditFuncionario={onEditFuncionario} // Passa a função para a lista
-                    />
+                    <EmployeeList initialEmployees={filteredEmployees} onEditFuncionario={onEditFuncionario} />
                 </div>
             )}
             
