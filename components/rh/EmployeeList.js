@@ -3,11 +3,15 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import { createClient } from '../../utils/supabase/client';
+import { createClient } from '../../utils/supabase/client'; // Ajuste de caminho para sair de components/rh
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronDown, faSort, faSortUp, faSortDown, faUsers, faUserCheck, faUserSlash, faExclamationTriangle, faEye, faUserCircle } from '@fortawesome/free-solid-svg-icons';
-import KpiCard from '../KpiCard';
+import { 
+    faChevronDown, faSort, faSortUp, faSortDown, 
+    faUsers, faUserCheck, faUserSlash, faExclamationTriangle, 
+    faEye, faUserCircle, faBuilding, faMapMarkedAlt, faPen
+} from '@fortawesome/free-solid-svg-icons';
+import KpiCard from '../KpiCard'; // Ajuste de caminho (KpiCard está em components/)
 
 const ProgressCircle = ({ score }) => {
     const percentage = Math.min(Math.max(score, 0), 100);
@@ -27,7 +31,6 @@ const ProgressCircle = ({ score }) => {
     );
 };
 
-// ... (Mantenha as funções 'identityDocsKeywords' e 'calculateScore' iguais ao original - omitidas aqui para economizar espaço, mas copie do seu arquivo original) ...
 const identityDocsKeywords = ['identidade', 'rg', 'cnh'];
 const otherRequiredDocsKeywords = ['ctps', 'residencia', 'aso', 'contrato', 'uniforme', 'epi', 'vt', 'vale transporte'];
 
@@ -47,16 +50,15 @@ const calculateScore = (employee) => {
     return (score / totalPossible) * 100;
 };
 
-// Componente Tabela (Mantido igual, apenas recebendo props)
-const EmployeeTable = ({ employees, onDismissClick, requestSort, sortConfig }) => {
+const EmployeeTable = ({ employees, onDismissClick, onEditClick, requestSort, sortConfig }) => {
   const getSortIcon = (key) => {
     if (!sortConfig || sortConfig.key !== key) return <FontAwesomeIcon icon={faSort} className="text-gray-400 ml-2" />;
     return sortConfig.direction === 'ascending' ? <FontAwesomeIcon icon={faSortUp} className="ml-2" /> : <FontAwesomeIcon icon={faSortDown} className="ml-2" />;
   };
 
   const SortableHeader = ({ sortKey, children }) => (
-    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => requestSort(sortKey)}>
-      <div className="flex items-center">
+    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap" onClick={() => requestSort(sortKey)}>
+      <div className="flex items-center gap-1">
         <span>{children}</span>
         {getSortIcon(sortKey)}
       </div>
@@ -69,8 +71,9 @@ const EmployeeTable = ({ employees, onDismissClick, requestSort, sortConfig }) =
         <thead className="bg-gray-50">
           <tr>
             <SortableHeader sortKey="qualidade">Qualidade</SortableHeader>
-            <SortableHeader sortKey="full_name">Nome</SortableHeader>
-            <SortableHeader sortKey="contract_role">Cargo</SortableHeader>
+            <SortableHeader sortKey="full_name">Nome / Cargo</SortableHeader>
+            <SortableHeader sortKey="cadastro_empresa.razao_social">Empresa</SortableHeader>
+            <SortableHeader sortKey="empreendimentos.nome">Empreendimento</SortableHeader>
             <th scope="col" className="relative px-6 py-3"><span className="sr-only">Ações</span></th>
           </tr>
         </thead>
@@ -78,6 +81,8 @@ const EmployeeTable = ({ employees, onDismissClick, requestSort, sortConfig }) =
           {employees.map((employee) => (
             <tr key={employee.id} className="hover:bg-blue-50 transition-colors">
               <td className="px-6 py-4 whitespace-nowrap"><ProgressCircle score={calculateScore(employee)} /></td>
+              
+              {/* Coluna Nome e Cargo Agrupados */}
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center">
                   <div className="flex-shrink-0 h-10 w-10">
@@ -89,21 +94,43 @@ const EmployeeTable = ({ employees, onDismissClick, requestSort, sortConfig }) =
                   </div>
                   <div className="ml-4">
                     <div className="text-sm font-medium text-gray-900">{employee.full_name}</div>
-                    {/* Exibe empresa se existir, para facilitar identificação */}
-                    {employee.cadastro_empresa?.razao_social && (
-                        <div className="text-xs text-gray-500 truncate max-w-[200px]">{employee.cadastro_empresa.razao_social}</div>
-                    )}
+                    <div className="text-xs text-gray-500">{employee.contract_role || 'Sem cargo definido'}</div>
                   </div>
                 </div>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.contract_role}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
-                <Link href={`/funcionarios/visualizar/${employee.id}`} className="text-gray-500 hover:text-blue-600 font-semibold flex items-center gap-1 inline-flex">
+              
+              {/* Coluna Empresa */}
+              <td className="px-6 py-4 whitespace-nowrap">
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <FontAwesomeIcon icon={faBuilding} className="text-gray-400 text-xs" />
+                    {employee.cadastro_empresa?.razao_social || <span className="text-gray-400 italic">Não vinculado</span>}
+                </div>
+              </td>
+
+              {/* Coluna Empreendimento */}
+              <td className="px-6 py-4 whitespace-nowrap">
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <FontAwesomeIcon icon={faMapMarkedAlt} className="text-gray-400 text-xs" />
+                    {employee.empreendimentos?.nome || <span className="text-gray-400 italic">Não alocado</span>}
+                </div>
+              </td>
+
+              {/* Ações */}
+              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
+                <Link href={`/funcionarios/visualizar/${employee.id}`} className="text-gray-500 hover:text-blue-600 inline-flex items-center gap-1" title="Ver Ficha Completa">
                     <FontAwesomeIcon icon={faEye} />
                 </Link>
-                <Link href={`/funcionarios/editar/${employee.id}`} className="text-blue-600 hover:text-blue-800 font-semibold">Editar</Link>
+                
+                {/* BOTÃO EDITAR AGORA ABRE MODAL */}
+                <button 
+                    onClick={() => onEditClick(employee)} 
+                    className="text-blue-600 hover:text-blue-800 font-semibold inline-flex items-center gap-1"
+                >
+                    <FontAwesomeIcon icon={faPen} /> Editar
+                </button>
+
                 {employee.status !== 'Demitido' && (
-                  <button onClick={() => onDismissClick(employee)} className="text-red-600 hover:text-red-800 font-semibold">Demitir</button>
+                  <button onClick={() => onDismissClick(employee)} className="text-red-600 hover:text-red-800 font-semibold ml-2">Demitir</button>
                 )}
               </td>
             </tr>
@@ -114,14 +141,10 @@ const EmployeeTable = ({ employees, onDismissClick, requestSort, sortConfig }) =
   );
 };
 
-export default function EmployeeList({ initialEmployees }) { // Props recebem lista JÁ filtrada pelo pai (GerenciamentoFuncionarios)
+export default function EmployeeList({ initialEmployees, onEditFuncionario }) { 
   const supabase = createClient();
-  
-  // CORREÇÃO: Sync de estado com props
-  // Em vez de 'initialEmployees' estático, usamos um estado que se atualiza
   const [employees, setEmployees] = useState(initialEmployees);
   
-  // Efeito vital: Quando a prop initialEmployees mudar (por causa do filtro na Page), atualiza o estado interno
   useEffect(() => {
     setEmployees(initialEmployees);
   }, [initialEmployees]);
@@ -129,17 +152,10 @@ export default function EmployeeList({ initialEmployees }) { // Props recebem li
   const [message, setMessage] = useState('');
   const [isActivesVisible, setIsActivesVisible] = useState(true);
   const [isDismissedVisible, setIsDismissedVisible] = useState(false);
-  
-  // CORREÇÃO: Removemos 'searchTerm' interno. A filtragem já aconteceu lá em cima!
-  // Mas mantemos a ordenação local pois ela é visual
   const [sortConfig, setSortConfig] = useState({ key: 'full_name', direction: 'ascending' });
 
-  // KPIs calculados com base na lista COMPLETA ou filtrada? 
-  // O ideal é mostrar KPIs da visão atual.
   const kpiData = useMemo(() => {
-      // Como 'employees' agora pode vir filtrado pela busca, os KPIs vão refletir a busca.
-      // Isso é bom! "Quantos 'João' ativos eu tenho?"
-      const ativos = employees.filter(e => e.status !== 'Demitido'); // Ajuste: alguns status podem ser nulos, tratar como Ativo se não for Demitido? Melhor ser estrito.
+      const ativos = employees.filter(e => e.status !== 'Demitido');
       const pendencias = ativos.filter(e => calculateScore(e) < 100).length;
       return {
           total: employees.length,
@@ -149,15 +165,16 @@ export default function EmployeeList({ initialEmployees }) { // Props recebem li
       };
   }, [employees]);
   
-  // Ordenação (Sorting) - Mantida localmente
   const sortedEmployees = useMemo(() => {
     let sortableItems = [...employees];
     if (sortConfig.key) {
       sortableItems.sort((a, b) => {
-        let valA = (sortConfig.key === 'qualidade') ? calculateScore(a) : (a[sortConfig.key] || '');
-        let valB = (sortConfig.key === 'qualidade') ? calculateScore(b) : (b[sortConfig.key] || '');
+        // Lógica para acessar propriedades aninhadas (ex: cadastro_empresa.razao_social)
+        const getValue = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
+
+        let valA = (sortConfig.key === 'qualidade') ? calculateScore(a) : (getValue(a, sortConfig.key) || '');
+        let valB = (sortConfig.key === 'qualidade') ? calculateScore(b) : (getValue(b, sortConfig.key) || '');
         
-        // Tratamento para strings (case insensitive)
         if (typeof valA === 'string') valA = valA.toLowerCase();
         if (typeof valB === 'string') valB = valB.toLowerCase();
 
@@ -187,7 +204,6 @@ export default function EmployeeList({ initialEmployees }) { // Props recebem li
       setMessage(`Erro ao demitir: ${error.message}`);
     } else {
       setMessage('Funcionário demitido com sucesso!');
-      // Pequeno hack: atualiza o estado local removendo/alterando o item para evitar refetch total imediato
       setEmployees(prev => prev.map(e => e.id === employee.id ? { ...e, status: 'Demitido' } : e));
       setTimeout(() => setMessage(''), 3000);
     }
@@ -202,8 +218,6 @@ export default function EmployeeList({ initialEmployees }) { // Props recebem li
         <KpiCard title="Demitidos" value={kpiData.demitidos} icon={faUserSlash} color="red" />
       </div>
 
-      {/* CORREÇÃO: Removemos a barra de busca interna duplicada */}
-      
       {message && <div className={`mb-4 p-3 rounded-md text-sm text-center font-semibold animate-pulse ${message.includes('Erro') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{message}</div>}
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6 overflow-hidden">
@@ -218,7 +232,13 @@ export default function EmployeeList({ initialEmployees }) { // Props recebem li
         {isActivesVisible && (
           <div className="overflow-x-auto transition-all duration-300">
             {activeEmployees.length > 0 ? (
-                <EmployeeTable employees={activeEmployees} onDismissClick={handleDismissClick} requestSort={requestSort} sortConfig={sortConfig} />
+                <EmployeeTable 
+                    employees={activeEmployees} 
+                    onDismissClick={handleDismissClick} 
+                    onEditClick={onEditFuncionario} // Passa a função para a tabela
+                    requestSort={requestSort} 
+                    sortConfig={sortConfig} 
+                />
             ) : (
                 <div className="p-8 text-center text-gray-500 bg-white">
                     <p>Nenhum funcionário ativo corresponde aos filtros.</p>
@@ -240,7 +260,13 @@ export default function EmployeeList({ initialEmployees }) { // Props recebem li
         {isDismissedVisible && (
           <div className="overflow-x-auto transition-all duration-300">
             {dismissedEmployees.length > 0 ? (
-                <EmployeeTable employees={dismissedEmployees} onDismissClick={() => {}} requestSort={requestSort} sortConfig={sortConfig} />
+                <EmployeeTable 
+                    employees={dismissedEmployees} 
+                    onDismissClick={() => {}} 
+                    onEditClick={onEditFuncionario} // Passa a função aqui também
+                    requestSort={requestSort} 
+                    sortConfig={sortConfig} 
+                />
             ) : (
                 <div className="p-8 text-center text-gray-500 bg-white">
                     <p>Nenhum funcionário demitido.</p>

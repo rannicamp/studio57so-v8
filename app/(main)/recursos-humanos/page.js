@@ -3,11 +3,11 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useLayout } from '@/contexts/LayoutContext';
-import { useDebounce } from 'use-debounce'; // Importante para performance
-import Link from 'next/link';
+import { useDebounce } from 'use-debounce';
+import { useQueryClient } from '@tanstack/react-query'; 
 
 // Ícones
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -16,18 +16,19 @@ import {
     faClock, 
     faSearch, 
     faFilter, 
-    faPlus,
-    faLock,
-    faFileImport,
-    faTimes
+    faPlus, 
+    faLock, 
+    faFileImport, 
+    faTimes 
 } from '@fortawesome/free-solid-svg-icons';
 
 // Componentes Filhos
 import GerenciamentoFuncionarios from '../../../components/rh/GerenciamentoFuncionarios';
 import GerenciamentoPonto from '../../../components/rh/GerenciamentoPonto';
+import FuncionarioModal from '../../../components/rh/FuncionarioModal';
 
 // --- CONFIGURAÇÃO DE PERSISTÊNCIA ---
-const RH_UI_STATE_KEY = 'STUDIO57_RH_UI_STATE_V1';
+const RH_UI_STATE_KEY = 'STUDIO57_RH_UI_STATE_V3'; // Atualizei versão para V3
 
 const getCachedUiState = () => {
     if (typeof window === 'undefined') return null;
@@ -40,24 +41,27 @@ const getCachedUiState = () => {
 };
 
 export default function RecursosHumanosPage() {
-    const { permissions } = useAuth();
+    const { permissions, user } = useAuth();
     const { setPageTitle } = useLayout();
+    const queryClient = useQueryClient();
     
     // Recupera estado salvo ou usa padrões
     const cachedState = getCachedUiState();
 
-    // --- ESTADOS ---
-    // Se tiver salvo, usa. Se não, tenta definir baseado na permissão (lógica no useEffect abaixo)
+    // --- ESTADOS DE UI (Persistidos) ---
     const [activeTab, setActiveTab] = useState(cachedState?.activeTab || ''); 
     const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '');
     const [showFilters, setShowFilters] = useState(cachedState?.showFilters || false);
+    const [filters, setFilters] = useState(cachedState?.filters || { empresa: '', cargo: '', empreendimento: '' });
     
-    // Debounce para não travar a digitação (espera 500ms para filtrar)
     const [debouncedSearchTerm] = useDebounce(searchTerm, 500);
 
-    // Estado local (não persistido)
+    // --- ESTADOS LOCAIS COM PERSISTÊNCIA DO MODAL ---
     const [isImporterOpen, setIsImporterOpen] = useState(false);
-    const hasRestoredUiState = useRef(false);
+    
+    // Recupera se o modal estava aberto e qual funcionário estava sendo editado
+    const [isFuncionarioModalOpen, setIsFuncionarioModalOpen] = useState(cachedState?.isFuncionarioModalOpen || false);
+    const [funcionarioParaEditar, setFuncionarioParaEditar] = useState(cachedState?.funcionarioParaEditar || null);
 
     // Permissões
     const podeVerFuncionarios = permissions.funcionarios?.pode_ver;
@@ -66,13 +70,11 @@ export default function RecursosHumanosPage() {
     const canCreatePonto = permissions.ponto?.pode_criar;
 
     // --- EFEITOS ---
-
-    // 1. Título da Página
     useEffect(() => {
         setPageTitle('Recursos Humanos');
     }, [setPageTitle]);
 
-    // 2. Define aba inicial se não houver cache ou se a permissão mudou
+    // Define aba inicial se não houver cache
     useEffect(() => {
         if (!activeTab) {
             if (podeVerFuncionarios) setActiveTab('funcionarios');
@@ -80,18 +82,40 @@ export default function RecursosHumanosPage() {
         }
     }, [podeVerFuncionarios, podeVerPonto, activeTab]);
 
-    // 3. Persistência Automática
+    // Persistência Automática (Agora salva TUDO, inclusive o modal)
     useEffect(() => {
-        // Evita salvar o estado inicial vazio antes da hidratação completa
         if (typeof window !== 'undefined') {
             const stateToSave = {
                 activeTab,
                 searchTerm,
-                showFilters
+                showFilters,
+                filters,
+                // Salva o estado do modal para persistir na troca de aba/refresh
+                isFuncionarioModalOpen,
+                funcionarioParaEditar
             };
             localStorage.setItem(RH_UI_STATE_KEY, JSON.stringify(stateToSave));
         }
-    }, [activeTab, searchTerm, showFilters]);
+    }, [activeTab, searchTerm, showFilters, filters, isFuncionarioModalOpen, funcionarioParaEditar]);
+
+    // --- MANIPULADORES DO MODAL DE FUNCIONÁRIOS ---
+    
+    const handleOpenFuncionarioModal = (funcionario = null) => {
+        setFuncionarioParaEditar(funcionario);
+        setIsFuncionarioModalOpen(true);
+    };
+
+    const handleCloseFuncionarioModal = () => {
+        setIsFuncionarioModalOpen(false);
+        setFuncionarioParaEditar(null);
+        // Limpa também o cache específico do formulário (handled dentro do componente Form, mas garantimos aqui a limpeza do estado pai)
+        localStorage.removeItem('RH_FUNC_FORM_DRAFT'); 
+    };
+
+    const handleFuncionarioSaved = () => {
+        handleCloseFuncionarioModal();
+        queryClient.invalidateQueries({ queryKey: ['funcionarios', user?.organizacao_id] });
+    };
 
     // Bloqueio de Acesso
     if (!podeVerFuncionarios && !podeVerPonto) {
@@ -106,10 +130,20 @@ export default function RecursosHumanosPage() {
     return (
         <div className="space-y-6 container mx-auto p-4 md:p-6 animate-in fade-in duration-500">
             
-            {/* --- HEADER PADRÃO OURO --- */}
+            {/* --- MODAL UNIFICADO (CRIAÇÃO/EDIÇÃO) --- */}
+            {isFuncionarioModalOpen && (
+                <FuncionarioModal 
+                    isOpen={isFuncionarioModalOpen}
+                    onClose={handleCloseFuncionarioModal}
+                    employeeToEdit={funcionarioParaEditar}
+                    onSaveSuccess={handleFuncionarioSaved}
+                />
+            )}
+
+            {/* --- HEADER --- */}
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white p-6 rounded-xl shadow-sm border border-gray-100 sticky top-0 z-30">
                 
-                {/* Lado Esquerdo: Navegação de Abas */}
+                {/* Lado Esquerdo: Navegação */}
                 <div className="flex flex-col gap-4">
                     <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                         {activeTab === 'funcionarios' ? 'Gestão de Funcionários' : 'Controle de Ponto'}
@@ -155,7 +189,7 @@ export default function RecursosHumanosPage() {
                         </div>
                         <input 
                             type="text" 
-                            placeholder={activeTab === 'funcionarios' ? "Buscar por nome, cargo, CPF..." : "Filtrar funcionário no ponto..."}
+                            placeholder={activeTab === 'funcionarios' ? "Buscar por nome, cargo, CPF..." : "Filtrar funcionário..."}
                             value={searchTerm} 
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all"
@@ -174,26 +208,27 @@ export default function RecursosHumanosPage() {
                     {/* Botão de Filtros */}
                     <button 
                         onClick={() => setShowFilters(!showFilters)} 
-                        className={`border font-medium py-2.5 px-4 rounded-lg shadow-sm flex items-center transition duration-200 ${
-                            showFilters 
+                        className={`border font-medium py-2.5 px-4 rounded-lg shadow-sm flex items-center gap-2 transition duration-200 ${
+                            showFilters || Object.values(filters).some(Boolean)
                             ? 'bg-blue-50 border-blue-300 text-blue-700 ring-1 ring-blue-300' 
                             : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                         }`}
                         title="Filtros Avançados"
                     >
-                        <FontAwesomeIcon icon={faFilter} className={showFilters ? "text-blue-500" : "text-gray-400"} />
+                        <FontAwesomeIcon icon={faFilter} className={showFilters || Object.values(filters).some(Boolean) ? "text-blue-500" : "text-gray-400"} />
+                        <span className="hidden md:inline">Filtros</span>
                     </button>
 
                     <div className="h-8 w-px bg-gray-300 mx-1 hidden xl:block"></div>
 
                     {/* AÇÃO 1: Novo Funcionário */}
                     {activeTab === 'funcionarios' && canCreateFuncionario && (
-                        <Link 
-                            href="/funcionarios/cadastro" 
+                        <button 
+                            onClick={() => handleOpenFuncionarioModal(null)} 
                             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-lg shadow-md hover:shadow-lg flex items-center transition-all duration-200 transform hover:-translate-y-0.5"
                         >
                             <FontAwesomeIcon icon={faPlus} className="mr-2" /> Novo
-                        </Link>
+                        </button>
                     )}
 
                     {/* AÇÃO 2: Importar Ponto */}
@@ -212,7 +247,11 @@ export default function RecursosHumanosPage() {
             <div className="min-h-[400px]">
                 {activeTab === 'funcionarios' && podeVerFuncionarios && (
                     <GerenciamentoFuncionarios 
-                        searchTerm={debouncedSearchTerm} // Passa o valor com debounce
+                        searchTerm={debouncedSearchTerm} 
+                        showFilters={showFilters}       
+                        filters={filters}               
+                        onFilterChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+                        onEditFuncionario={handleOpenFuncionarioModal}
                     />
                 )}
                 {activeTab === 'ponto' && podeVerPonto && (

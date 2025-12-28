@@ -5,11 +5,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
-import { toast } from 'sonner'; // Padrão Ouro de Notificações 🔔
+import { toast } from 'sonner'; 
 
-// Componentes Filhos
+// --- CORREÇÃO AQUI ---
+// Antes estava '../FolhaPonto', agora é './FolhaPonto' porque eles moram juntos na pasta 'rh'
 import FolhaPonto from './FolhaPonto';
-import PontoImporter from '../PontoImporter';
+import PontoImporter from './PontoImporter';
 
 // Ícones
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -207,14 +208,13 @@ export default function GerenciamentoPonto({ searchTerm = '', isImporterOpen, on
             {selectedEmployeeId && selectedMonth ? (
                 <div className="animate-in slide-in-from-bottom-2 fade-in duration-500">
                     <FolhaPonto 
-                        key={`${selectedEmployeeId}-${selectedMonth}`} // Força remontagem ao trocar seleção
+                        key={`${selectedEmployeeId}-${selectedMonth}`} 
                         employeeId={selectedEmployeeId} 
                         month={selectedMonth} 
                         canEdit={canEdit || canCreate} 
                     />
                 </div>
             ) : (
-                 // Empty State Melhorado
                  <div className="flex flex-col items-center justify-center p-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 text-center min-h-[300px] transition-all hover:bg-gray-100/50 hover:border-gray-300">
                     <div className="bg-white p-5 rounded-full shadow-sm mb-4">
                         <FontAwesomeIcon icon={faSearch} className="text-gray-300 text-3xl" />
