@@ -13,7 +13,7 @@ import {
     faPlus, faCogs, faShieldAlt, faSpinner, faLock, faBalanceScale, 
     faHandshake, faLandmark, faBuilding, faFileInvoice, 
     faFilter, faSearch, faTags, faCreditCard, faFolderOpen,
-    faClipboardList // <--- Ícone para Planejamento
+    faClipboardList // Ícone Planejamento
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
@@ -29,9 +29,9 @@ import FiltroFinanceiro from '../../../components/financeiro/FiltroFinanceiro';
 import FinanceiroStats from '../../../components/financeiro/FinanceiroStats';
 import GerenciadorFaturas from '../../../components/financeiro/GerenciadorFaturas';
 import DocumentosManager from '../../../components/financeiro/DocumentosManager';
-import PlanejamentoFolha from '../../../components/financeiro/PlanejamentoFolha'; // <--- IMPORT DA NOVA ABA
+import PlanejamentoFolha from '../../../components/financeiro/PlanejamentoFolha'; // Import do novo componente
 
-// Hook Novo de Filtragem no Servidor
+// Hook
 import { useLancamentos } from '@/hooks/financeiro/useLancamentos';
 
 const FINANCEIRO_UI_STATE_KEY = 'financeiroUiState';
@@ -45,7 +45,6 @@ const getCachedData = (key) => {
     }
 };
 
-// Busca dados iniciais
 async function fetchInitialData(organizacao_id) {
     const supabase = createClient();
     if (!organizacao_id) return { empresas: [], contas: [], categorias: [], empreendimentos: [], allContacts: [], funcionarios: [] };
@@ -61,7 +60,6 @@ async function fetchInitialData(organizacao_id) {
     return { empresas: empresasRes.data || [], contas: contasRes.data || [], categorias: categoriasRes.data || [], empreendimentos: empreendimentosRes.data || [], allContacts: contatosRes.data || [], funcionarios: funcionariosRes.data || [] };
 }
 
-// KPIs
 async function fetchFinanceiroStats({ queryKey }) {
     const supabase = createClient();
     const [_key, { filters, organizacao_id }] = queryKey;
@@ -87,7 +85,6 @@ export default function FinanceiroPage() {
     const canViewPage = hasPermission('financeiro', 'pode_ver');
     const canCreate = hasPermission('financeiro', 'pode_criar');
 
-    // UI State
     const [activeTab, setActiveTab] = useState('lancamentos');
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [editingLancamento, setEditingLancamento] = useState(null);
@@ -95,7 +92,6 @@ export default function FinanceiroPage() {
     const [selectedLancamento, setSelectedLancamento] = useState(null);
     const [showFilters, setShowFilters] = useState(false);
     
-    // Filtros e Paginação
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(150);
     const [sortConfig, setSortConfig] = useState({ key: 'data_vencimento', direction: 'descending' });
@@ -245,7 +241,7 @@ export default function FinanceiroPage() {
                         <TabButton tabName="lancamentos" label="Lançamentos" icon={faBalanceScale} />
                         <TabButton tabName="extrato" label="Extrato" icon={faFileInvoice} />
                         <TabButton tabName="cartoes" label="Cartões" icon={faCreditCard} />
-                        <TabButton tabName="planejamento" label="Planejamento Folha" icon={faClipboardList} /> {/* NOVO BOTÃO */}
+                        <TabButton tabName="planejamento" label="Planejamento Folha" icon={faClipboardList} />
                         <TabButton tabName="documentos" label="Documentos" icon={faFolderOpen} />
                         <TabButton tabName="contas" label="Contas" icon={faBuilding} />
                         <TabButton tabName="ativos" label="Ativos" icon={faLandmark} />
@@ -257,8 +253,9 @@ export default function FinanceiroPage() {
                 {activeTab === 'extrato' && <ExtratoManager contas={contas} onEdit={handleOpenEditModal} />}
                 {activeTab === 'cartoes' && <GerenciadorFaturas contasCartao={contasCartao} />}
                 
+                {/* AQUI ESTÁ A MÁGICA: Passamos 'filters' para a nova aba */}
+                {activeTab === 'planejamento' && <PlanejamentoFolha filters={filters} />} 
                 {activeTab === 'documentos' && <DocumentosManager filters={filters} />}
-                {activeTab === 'planejamento' && <PlanejamentoFolha />} {/* RENDERIZAÇÃO DA NOVA ABA */}
 
                 {activeTab === 'lancamentos' && (
                     <>
