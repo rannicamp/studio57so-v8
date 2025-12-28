@@ -12,7 +12,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faPlus, faCogs, faShieldAlt, faSpinner, faLock, faBalanceScale, 
     faHandshake, faLandmark, faBuilding, faFileInvoice, 
-    faFilter, faSearch, faTags, faCreditCard, faFolderOpen // <--- Novo ícone
+    faFilter, faSearch, faTags, faCreditCard, faFolderOpen,
+    faClipboardList // <--- Ícone para Planejamento
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
@@ -27,7 +28,8 @@ import LancamentoDetalhesSidebar from '../../../components/financeiro/Lancamento
 import FiltroFinanceiro from '../../../components/financeiro/FiltroFinanceiro';
 import FinanceiroStats from '../../../components/financeiro/FinanceiroStats';
 import GerenciadorFaturas from '../../../components/financeiro/GerenciadorFaturas';
-import DocumentosManager from '../../../components/financeiro/DocumentosManager'; // <--- IMPORT DA NOVA ABA
+import DocumentosManager from '../../../components/financeiro/DocumentosManager';
+import PlanejamentoFolha from '../../../components/financeiro/PlanejamentoFolha'; // <--- IMPORT DA NOVA ABA
 
 // Hook Novo de Filtragem no Servidor
 import { useLancamentos } from '@/hooks/financeiro/useLancamentos';
@@ -191,7 +193,7 @@ export default function FinanceiroPage() {
         queryClient.invalidateQueries({ queryKey: ['saldosContasReais'] });
         queryClient.invalidateQueries({ queryKey: ['initialFinanceData'] });
         queryClient.invalidateQueries({ queryKey: ['lancamentosCartao'] });
-        queryClient.invalidateQueries({ queryKey: ['documentosFinanceiros'] }); // Atualiza documentos também
+        queryClient.invalidateQueries({ queryKey: ['documentosFinanceiros'] });
     };
 
     const handleOpenAddModal = () => { setEditingLancamento(null); setIsFormModalOpen(true); };
@@ -210,7 +212,7 @@ export default function FinanceiroPage() {
     );
 
     if (authLoading || isLoadingInitialData) return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando...</div>;
-    if (!canViewPage) return <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg"><FontAwesomeIcon icon={faLock} size="3x" className="text-red-400 mb-4" /><h2 className="text-2xl font-bold text-red-700">Acesso Negado</h2></div>;
+    if (!canViewPage) return <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg"><FontAwesomeIcon icon={faLock} size="3x" className="text-red-400 mb-4"><h2 className="text-2xl font-bold text-red-700">Acesso Negado</h2></FontAwesomeIcon></div>;
 
     return (
         <div className="space-y-6">
@@ -234,7 +236,7 @@ export default function FinanceiroPage() {
                     </div>
                 </div>
 
-                {showFilters && activeTab !== 'contas' && activeTab !== 'ativos' && (
+                {showFilters && activeTab !== 'contas' && activeTab !== 'ativos' && activeTab !== 'planejamento' && (
                     <FiltroFinanceiro filters={filters} setFilters={setFilters} empresas={empresas} contas={contas} categorias={categorias} empreendimentos={empreendimentos} allContacts={allContacts} />
                 )}
 
@@ -243,7 +245,8 @@ export default function FinanceiroPage() {
                         <TabButton tabName="lancamentos" label="Lançamentos" icon={faBalanceScale} />
                         <TabButton tabName="extrato" label="Extrato" icon={faFileInvoice} />
                         <TabButton tabName="cartoes" label="Cartões" icon={faCreditCard} />
-                        <TabButton tabName="documentos" label="Documentos" icon={faFolderOpen} /> {/* NOVA ABA */}
+                        <TabButton tabName="planejamento" label="Planejamento Folha" icon={faClipboardList} /> {/* NOVO BOTÃO */}
+                        <TabButton tabName="documentos" label="Documentos" icon={faFolderOpen} />
                         <TabButton tabName="contas" label="Contas" icon={faBuilding} />
                         <TabButton tabName="ativos" label="Ativos" icon={faLandmark} />
                     </nav>
@@ -254,7 +257,8 @@ export default function FinanceiroPage() {
                 {activeTab === 'extrato' && <ExtratoManager contas={contas} onEdit={handleOpenEditModal} />}
                 {activeTab === 'cartoes' && <GerenciadorFaturas contasCartao={contasCartao} />}
                 
-                {activeTab === 'documentos' && <DocumentosManager filters={filters} />} {/* NOVO COMPONENTE */}
+                {activeTab === 'documentos' && <DocumentosManager filters={filters} />}
+                {activeTab === 'planejamento' && <PlanejamentoFolha />} {/* RENDERIZAÇÃO DA NOVA ABA */}
 
                 {activeTab === 'lancamentos' && (
                     <>

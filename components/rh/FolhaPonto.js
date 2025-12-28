@@ -105,7 +105,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     const [geradoPor, setGeradoPor] = useState('');
     const isUserProprietario = user?.funcoes?.nome_funcao === 'Proprietário';
     const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-    // const [isAjusteModalOpen, setIsAjusteModalOpen] = useState(false); // Removido se não estiver usando, ou descomente se necessário
+    // const [isAjusteModalOpen, setIsAjusteModalOpen] = useState(false); // Removido se não estiver usando
     const [historicoSalarial, setHistoricoSalarial] = useState([]);
     const [isMonthClosed, setIsMonthClosed] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
@@ -149,7 +149,17 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 { data: feriasData, error: feriasError }
             ] = await Promise.all([
                 supabase.from('feriados').select('data_feriado, tipo').eq('organizacao_id', organizacaoId),
-                supabase.from('pontos').select('*, editado_por_usuario_id:usuarios(nome, sobrenome)').eq('funcionario_id', employeeId).gte('data_hora', `${firstDayOfMonth}T00:00:00`).lte('data_hora', `${lastDayOfMonth}T23:59:59`),
+                
+                // --- CORREÇÃO AQUI: Ordenação por created_at ASC para a edição mais recente prevalecer visualmente ---
+                supabase
+                    .from('pontos')
+                    .select('*, editado_por_usuario_id:usuarios(nome, sobrenome)')
+                    .eq('funcionario_id', employeeId)
+                    .gte('data_hora', `${firstDayOfMonth}T00:00:00`)
+                    .lte('data_hora', `${lastDayOfMonth}T23:59:59`)
+                    .order('created_at', { ascending: true }),
+                // ---------------------------------------------------------------------------------------------------
+
                 supabase.from('abonos').select('*, criado_por_usuario_id:usuarios(nome, sobrenome)').eq('funcionario_id', employeeId).gte('data_abono', firstDayOfMonth).lte('data_abono', lastDayOfMonth),
                 supabase.from('historico_salarial').select('*').eq('funcionario_id', employeeId).order('data_inicio_vigencia', { ascending: true }),
                 supabase.from('banco_de_horas').select('*').eq('funcionario_id', employeeId).eq('mes_referencia', firstDayOfMonth).maybeSingle(),
@@ -175,23 +185,32 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             
             const processedAbonos = {}; (abonosDoMes || []).forEach(abono => { processedAbonos[abono.data_abono] = abono; }); setAbonosData(processedAbonos);
             const processedData = {};
+            
+            // O loop abaixo vai processar todos os registros.
+            // Como ordenamos por created_at ASC, o último registro (mais recente) de cada tipo/dia
+            // vai sobrescrever os anteriores no objeto processedData, garantindo a visualização correta.
             (pontosData || []).forEach(ponto => {
                 if (!ponto.data_hora) return;
                 const utcDate = new Date(ponto.data_hora.replace(' ', 'T') + 'Z');
-                const dateStr = [utcDate.getUTCFullYear(), String(utcDate.getUTCMonth() + 1).padStart(2, '0'), String(utcDate.getUTCDate()).padStart(2, '0')].join('-');
-                if (!processedData[dateStr]) { processedData[dateStr] = { dateString: dateStr, observacoes: [] }; }
+                const dateStr = [utcDate.getUTCMonth() + 1, utcDate.getUTCDate(), utcDate.getUTCFullYear()]; // Formatando para gerar chave consistente, mas aqui no original estava usando string manual.
+                // CORREÇÃO SEGURA: Usar o mesmo padrão de data string usado no resto do código: YYYY-MM-DD
+                const safeDateStr = [utcDate.getUTCFullYear(), String(utcDate.getUTCMonth() + 1).padStart(2, '0'), String(utcDate.getUTCDate()).padStart(2, '0')].join('-');
+                
+                if (!processedData[safeDateStr]) { processedData[safeDateStr] = { dateString: safeDateStr, observacoes: [] }; }
+                
                 const fieldMap = { 'Entrada': 'entrada', 'Inicio_Intervalo': 'inicio_intervalo', 'Fim_Intervalo': 'fim_intervalo', 'Saida': 'saida' };
                 const field = fieldMap[ponto.tipo_registro];
+                
                 if (field) {
-                    processedData[dateStr][field] = utcDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+                    processedData[safeDateStr][field] = utcDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
                     if (ponto.editado_manualmente && ponto.editado_por_usuario_id) {
-                        processedData[dateStr][`${field}_manual`] = true;
+                        processedData[safeDateStr][`${field}_manual`] = true;
                         const editorNome = `${ponto.editado_por_usuario_id.nome || ''} ${ponto.editado_por_usuario_id.sobrenome || ''}`.trim();
                         const obsText = `Campo "${ponto.tipo_registro}" editado por ${editorNome}.`;
-                        if (!processedData[dateStr].observacoes.includes(obsText)) processedData[dateStr].observacoes.push(obsText);
+                        if (!processedData[safeDateStr].observacoes.includes(obsText)) processedData[safeDateStr].observacoes.push(obsText);
                     }
                 }
-                if (ponto.observacao && !processedData[dateStr].observacoes.includes(ponto.observacao)) processedData[dateStr].observacoes.push(ponto.observacao);
+                if (ponto.observacao && !processedData[safeDateStr].observacoes.includes(ponto.observacao)) processedData[safeDateStr].observacoes.push(ponto.observacao);
             });
             Object.keys(processedData).forEach(date => { processedData[date].observacao_final = processedData[date].observacoes.join(' | '); });
             setTimesheetData(processedData);
@@ -306,7 +325,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     const kpiData = useMemo(() => {
         if (!month || !employee || isProcessing || !historicoSalarial) return { dias: '0 / 0', horas: '00:00h / 00:00h', faltas: 0, valorAPagar: 'R$ 0,00' };
 
-        const [year, monthNum] = month.split('-').map(Number);
+        const [year, monthNum] = month.split('-');
         const today = new Date(); today.setHours(0,0,0,0);
         const firstDayOfMonth = new Date(Date.UTC(year, monthNum - 1, 1));
         const lastDayOfMonth = new Date(Date.UTC(year, monthNum, 0));
@@ -455,9 +474,10 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                         editado_por_usuario_id: currentUser.id,
                         organizacao_id: employee.organizacao_id 
                     };
-                    ({ error } = existingRecord
-                        ? await supabase.from('pontos').update(recordData).eq('id', existingRecord.id)
-                        : await supabase.from('pontos').insert(recordData));
+                    
+                    // SEMPRE INSERE NOVO REGISTRO PARA GARANTIR AUDITORIA (Ao invés de update)
+                    // Como a tela agora carrega ordenado por created_at, o novo registro prevalecerá.
+                    ({ error } = await supabase.from('pontos').insert(recordData));
                 }
                 if (error) throw error;
             }
