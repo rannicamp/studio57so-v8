@@ -1,9 +1,10 @@
-//components/PontoImporter.js
+// components/rh/PontoImporter.js
 "use client";
 
 import { useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+// AJUSTE: Caminho relativo
+import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -19,14 +20,12 @@ const StatusIndicator = ({ status, message }) => {
     return null;
 };
 
-// Pequena função para formatar nosso texto de data para exibição na tela
 const formatDbStringToBr = (dbString) => {
     if (!dbString) return 'N/A';
     const [datePart, timePart] = dbString.split(' ');
     const [year, month, day] = datePart.split('-');
     return `${day}/${month}/${year} ${timePart}`;
 };
-
 
 export default function PontoImporter({ employees, onImport }) {
   const supabase = createClient();
@@ -97,10 +96,7 @@ export default function PontoImporter({ employees, onImport }) {
         const finalRecords = [];
         const tipos = ['Entrada', 'Inicio_Intervalo', 'Fim_Intervalo', 'Saida'];
         for (const key in groupedByEmployeeAndDay) {
-            // Ordena por texto para garantir a ordem cronológica correta
             const dayRecords = groupedByEmployeeAndDay[key].sort((a, b) => a.data_hora_texto.localeCompare(b.data_hora_texto));
-            
-            // Atribui os tipos (Entrada, Saída, etc) para até 4 registros
             const recordsToProcess = dayRecords.slice(0, 4);
 
             recordsToProcess.forEach((record, index) => {
@@ -131,7 +127,6 @@ export default function PontoImporter({ employees, onImport }) {
     mutationFn: async (records) => {
         if (!organizacaoId) throw new Error("Organização não identificada.");
 
-        // Prepara todos os dados
         const recordsForDb = records.map(rec => ({
             funcionario_id: rec.funcionario_id,
             data_hora: rec.data_hora_texto,
@@ -140,24 +135,19 @@ export default function PontoImporter({ employees, onImport }) {
             organizacao_id: organizacaoId, 
         }));
 
-        // =================================================================================
-        // CORREÇÃO DO TIMEOUT: PROCESSAMENTO EM LOTES (CHUNKING)
-        // Dividimos os registros em pacotes de 50 para não sobrecarregar o banco
-        // =================================================================================
         const batchSize = 50;
         let processedCount = 0;
 
         for (let i = 0; i < recordsForDb.length; i += batchSize) {
             const batch = recordsForDb.slice(i, i + batchSize);
             
-            // Envia o lote atual
             const { error } = await supabase.rpc('importar_registros_ponto_se_vazio', {
                 novos_registros: batch
             });
 
             if (error) {
                 console.error(`Erro no lote iniciando em ${i}:`, error);
-                throw error; // Para tudo se der erro num lote
+                throw error;
             }
             
             processedCount += batch.length;

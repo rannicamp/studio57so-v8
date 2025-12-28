@@ -4,7 +4,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import Link from 'next/link';
-import EmployeeList from '../../../components/EmployeeList';
+import EmployeeList from '../../../components/rh/EmployeeList';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';

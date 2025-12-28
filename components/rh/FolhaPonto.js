@@ -1,9 +1,10 @@
-//components\FolhaPonto.js
+// components/rh/FolhaPonto.js
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { createClient } from '../utils/supabase/client';
-import { useAuth } from '../contexts/AuthContext';
+// AJUSTE: Caminhos relativos para sair de components/rh
+import { createClient } from '../../utils/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faCheckCircle, faExclamationCircle, faInfoCircle, faUserEdit,
@@ -13,12 +14,12 @@ import {
     faHourglassHalf, faUmbrellaBeach, faMoneyCheckDollar,
     faHistory as faReopen
 } from '@fortawesome/free-solid-svg-icons';
-import KpiCard from './KpiCard';
-import AjusteSaldoModal from './rh/AjusteSaldoModal';
-import LancarValeModal from './rh/LancarValeModal'; 
+// AJUSTE: KpiCard está em components/ (um nível acima)
+import KpiCard from '../KpiCard';
+// AJUSTE: Modais estão na mesma pasta (./)
+import AjusteSaldoModal from './AjusteSaldoModal';
+import LancarValeModal from './LancarValeModal'; 
 import { toast } from 'sonner';
-
-const supabase = createClient();
 
 const formatSimpleDate = (dateString) => {
     if (!dateString || !/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
@@ -50,6 +51,7 @@ const calculateTotalHoursForEmployee = (dayData, employee) => {
     const dayOfWeek = dateBase.getUTCDay();
     const jornadaDoDia = employee.jornada?.detalhes?.find(j => j.dia_semana === dayOfWeek);
     const tolerancia = employee.jornada?.tolerancia_minutos || 0;
+    
     const adjustTime = (actualTimeStr, scheduledTimeStr) => {
         if (!actualTimeStr || !scheduledTimeStr || tolerancia === 0) { return actualTimeStr; }
         const baseDate = '1970-01-01T';
@@ -60,27 +62,34 @@ const calculateTotalHoursForEmployee = (dayData, employee) => {
         if (Math.abs(diffMinutes) <= tolerancia) { return scheduledTimeStr; }
         return actualTimeStr;
     };
+
     const entradaAjustada = adjustTime(dayData.entrada, jornadaDoDia?.horario_entrada);
     const inicioIntervaloAjustado = adjustTime(dayData.inicio_intervalo, jornadaDoDia?.horario_saida_intervalo);
     const fimIntervaloAjustado = adjustTime(dayData.fim_intervalo, jornadaDoDia?.horario_volta_intervalo);
     const saidaAjustada = adjustTime(dayData.saida, jornadaDoDia?.horario_saida);
+    
     const entrada = parseTime(entradaAjustada, dateBase);
     const saida = parseTime(saidaAjustada, dateBase);
     const inicio_intervalo = parseTime(inicioIntervaloAjustado, dateBase);
     const fim_intervalo = parseTime(fimIntervaloAjustado, dateBase);
+    
     let manhaMillis = 0; let tardeMillis = 0;
     if (entrada && inicio_intervalo) { manhaMillis = inicio_intervalo.getTime() - entrada.getTime(); }
     if (fim_intervalo && saida) { tardeMillis = saida.getTime() - fim_intervalo.getTime(); }
+    
     let totalMillis = manhaMillis + tardeMillis;
     if (totalMillis <= 0 && entrada && saida) { totalMillis = saida.getTime() - entrada.getTime(); }
+    
     if (totalMillis <= 0) { return '--:--'; }
     if (totalMillis < 0) totalMillis = 0;
+    
     const totalHours = Math.floor(totalMillis / (1000 * 60 * 60));
     const totalMinutes = Math.floor((totalMillis % (1000 * 60 * 60)) / (1000 * 60));
     return `${String(totalHours).padStart(2, '0')}:${String(totalMinutes).padStart(2, '0')}`;
 };
 
 export default function FolhaPonto({ employeeId, month, canEdit }) {
+    const supabase = createClient();
     const { user } = useAuth();
     const [employee, setEmployee] = useState(null);
     const [timesheetData, setTimesheetData] = useState({});
@@ -96,7 +105,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     const [geradoPor, setGeradoPor] = useState('');
     const isUserProprietario = user?.funcoes?.nome_funcao === 'Proprietário';
     const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-    const [isAjusteModalOpen, setIsAjusteModalOpen] = useState(false);
+    // const [isAjusteModalOpen, setIsAjusteModalOpen] = useState(false); // Removido se não estiver usando, ou descomente se necessário
     const [historicoSalarial, setHistoricoSalarial] = useState([]);
     const [isMonthClosed, setIsMonthClosed] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
@@ -366,7 +375,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
     useEffect(() => {
         if (!employee?.jornada?.detalhes || isProcessing) return;
-        const [year, monthNum] = month.split('-').map(Number);
+        const [year, monthNum] = month.split('-');
         const today = new Date(); today.setHours(0,0,0,0);
         const lastDayToCheck = new Date() < new Date(year, monthNum, 0) ? today : new Date(year, monthNum, 0);
         const firstDayOfMonth = new Date(Date.UTC(year, monthNum - 1, 1));
@@ -589,11 +598,6 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
     return (
         <div className="printable-area space-y-4">
-            {/* ================================================================= */}
-            {/* INÍCIO DA ATUALIZAÇÃO */}
-            {/* O PORQUÊ: Aqui estamos passando os dados que estavam faltando */}
-            {/* para que o modal possa calcular o valor corretamente. */}
-            {/* ================================================================= */}
             <LancarValeModal
                 isOpen={isValeModalOpen}
                 onClose={() => setIsValeModalOpen(false)}
@@ -604,9 +608,6 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 abonosData={abonosData}
                 holidays={holidays}
             />
-            {/* ================================================================= */}
-            {/* FIM DA ATUALIZAÇÃO */}
-            {/* ================================================================= */}
 
             <style jsx global>{`@media print { @page { size: A4 portrait; margin: 0.8cm; } body * { visibility: hidden; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } .printable-area, .printable-area * { visibility: visible; } .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; } .no-print { display: none !important; } .print-header { display: block !important; } .print-header-info h3 { font-size: 1.1rem !important; } .kpi-container-on-print { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 0.5rem; font-size: 8pt; border: 1px solid #eee; padding: 4px; border-radius: 6px; } table { font-size: 7.5pt !important; width: 100%; border-collapse: collapse !important; margin-top: 0.5rem; } th, td { border: 1px solid #ccc !important; padding: 2px !important; text-align: center; } .signature-section { margin-top: 1.5cm !important; page-break-inside: avoid; } }`}</style>
             
@@ -728,9 +729,9 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                                         ) : (abonoTypes.find(t => t.id === abonoDoDia?.tipo_abono_id)?.descricao || '--')}
                                     </td>
                                     <td onClick={() => handleCellEdit(dateString, 'observacao')} className={`border p-2 text-left min-w-[200px] text-xs ${canEdit && !isMonthClosed ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'}`}>
-                                         {editingCell?.date === dateString && editingCell?.field === 'observacao' ? (
-                                            <form onSubmit={(e) => handleSaveEdit(e, dateString, 'observacao')}><input type="text" name="obs_input" defaultValue={dayData.observacao_final || ''} autoFocus onBlur={(e) => e.target.form.requestSubmit()} className="w-full text-left bg-blue-100 p-1"/></form>
-                                        ) : (dayData.observacao_final || '--')}
+                                             {editingCell?.date === dateString && editingCell?.field === 'observacao' ? (
+                                                <form onSubmit={(e) => handleSaveEdit(e, dateString, 'observacao')}><input type="text" name="obs_input" defaultValue={dayData.observacao_final || ''} autoFocus onBlur={(e) => e.target.form.requestSubmit()} className="w-full text-left bg-blue-100 p-1"/></form>
+                                            ) : (dayData.observacao_final || '--')}
                                     </td>
                                 </tr>
                             );

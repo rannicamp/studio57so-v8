@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'; // Importante para performance
 import { createClient } from '../../utils/supabase/client';
-import EmployeeList from '../EmployeeList';
+import EmployeeList from './EmployeeList';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
