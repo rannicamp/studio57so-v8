@@ -2,8 +2,7 @@
 "use client";
 
 import { useState } from 'react';
-// AJUSTE: Caminho relativo
-import { createClient } from '../../utils/supabase/client';
+import { createClient } from '../../utils/supabase/client'; // Ajuste de caminho conforme sua estrutura
 import { useAuth } from '../../contexts/AuthContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -40,9 +39,23 @@ export default function PontoImporter({ employees, onImport }) {
   
   const employeeMap = new Map(employees.map(emp => [emp.numero_ponto, { id: emp.id, name: emp.full_name }]));
 
+  // Função auxiliar para ler arquivo compatível com Mobile (FileReader)
+  const readFileContent = (file) => {
+      return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = (e) => reject(e);
+          reader.readAsText(file); // Lê como texto padrão
+      });
+  };
+
   const handleFileChange = async (event) => {
     const selectedFile = event.target.files[0];
     if (!selectedFile) return;
+
+    // Resetar o valor do input permite selecionar o mesmo arquivo novamente se der erro
+    // Isso é crucial em mobile onde a interface de seleção pode travar
+    event.target.value = '';
 
     setFile(selectedFile);
     setIsProcessing(true);
@@ -51,7 +64,9 @@ export default function PontoImporter({ employees, onImport }) {
     toast.info('Lendo e processando o arquivo...');
 
     try {
-        const content = await selectedFile.text();
+        // SUBTITUIÇÃO: Usamos FileReader ao invés de .text() para compatibilidade total mobile
+        const content = await readFileContent(selectedFile);
+        
         const lines = content.split(/\r\n|\n/).filter(line => line.trim() !== '' && line.includes('\t'));
 
         const recordsFromFile = [];
@@ -117,7 +132,7 @@ export default function PontoImporter({ employees, onImport }) {
         toast.success(`Arquivo processado: ${readyCount} registros prontos, ${errorCount} com erros.`);
     } catch (error) {
         console.error("Erro ao processar arquivo:", error);
-        toast.error("Erro ao ler o arquivo. Verifique o formato.");
+        toast.error("Erro ao ler o arquivo. Verifique se é um arquivo de texto válido.");
     } finally {
         setIsProcessing(false);
     }
@@ -187,10 +202,10 @@ export default function PontoImporter({ employees, onImport }) {
         </p>
         <input
           type="file"
-          accept=".txt"
+          accept=".txt,text/plain" 
           onChange={handleFileChange}
           disabled={isProcessing || importMutation.isPending}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100 disabled:opacity-50"
+          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100 disabled:opacity-50 cursor-pointer"
         />
       </div>
       
