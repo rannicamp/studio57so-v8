@@ -1,62 +1,100 @@
-﻿// Local do Arquivo: app/QueryProvider.js
+﻿// components/ServiceWorkerRegistrar.js
 "use client";
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { useEffect, useRef, useState } from 'react';
-// Removi a importação do toast pois não vamos mais usar aqui
-// import { toast } from 'sonner';
+import { useEffect } from 'react';
+import { createClient } from '@/utils/supabase/client';
 
-export default function QueryProvider({ children }) {
-    // Usamos um 'useRef' para criar um rastreador. Ele vai guardar um registro
-    // de todas as buscas de dados que já foram carregadas pela primeira vez na tela.
-    const initialLoadDone = useRef(new Set());
+// Função utilitária para converter a chave VAPID
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
 
-    const [queryClient] = useState(() => new QueryClient({
-        defaultOptions: {
-            queries: {
-                // ##### INÍCIO DO CARREGAMENTO MÁGICO (CACHE) #####
-                // Mantemos o staleTime para garantir performance.
-                // Os dados ficam "frescos" por 5 minutos, carregando instantaneamente.
-                staleTime: 1000 * 60 * 5, // 5 minutos
-            },
-        },
-    }));
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
 
-    useEffect(() => {
-        // ##### LÓGICA DE MONITORAMENTO SILENCIOSA #####
-        // A função 'subscribe' continua escutando as atualizações de dados,
-        // mas agora ela apenas atualiza o controle interno sem incomodar o usuário.
-        const unsubscribe = queryClient.getQueryCache().subscribe(event => {
-            // Só nos importamos com eventos que indicam que uma query foi ATUALIZADA.
-            if (event.type !== 'updated' || !event.query) return;
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
-            const { query } = event;
-            const queryKey = query.queryHash; // Uma "identidade" única da busca
+export default function ServiceWorkerRegistrar() {
+  const supabase = createClient();
 
-            const wasBackgroundFetch = initialLoadDone.current.has(queryKey);
+  useEffect(() => {
+    // 1. Verifica se o navegador suporta Service Worker e Push
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      
+      const registerSw = async () => {
+        try {
+          // 2. Registra o arquivo CORRETO (custom-sw.js)
+          const registration = await navigator.serviceWorker.register('/custom-sw.js', {
+            scope: '/',
+          });
 
-            // AQUI ESTAVA A NOTIFICAÇÃO (toast.success).
-            // Foi removida para garantir silêncio total. O app atualiza, mas não avisa.
+          console.log('✅ [SW] Service Worker registrado com sucesso:', registration.scope);
 
-            // Se a busca teve sucesso e ainda não estava no nosso rastreador,
-            // nós a adicionamos agora. Assim, o sistema sabe que o dado está carregado.
-            if (query.state.status === 'success' && !wasBackgroundFetch) {
-                initialLoadDone.current.add(queryKey);
+          // Aguarda o SW estar ativo para garantir que podemos assinar
+          await navigator.serviceWorker.ready;
+
+          // 3. Verifica/Cria a Assinatura de Push (Subscription)
+          const subscription = await registration.pushManager.getSubscription();
+
+          // Se já tem assinatura, apenas verificamos se está salva no servidor (opcional)
+          // Se NÃO tem, criamos uma nova
+          if (!subscription) {
+            const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+            
+            if (vapidPublicKey) {
+              const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+              
+              const newSubscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: convertedVapidKey
+              });
+
+              await saveSubscriptionToServer(newSubscription);
             }
-        });
+          } else {
+            // Garante que a assinatura atual está salva no banco para o usuário atual
+            await saveSubscriptionToServer(subscription);
+          }
 
-        // Limpeza da "escuta" ao desmontar
-        return () => {
-            unsubscribe();
-        };
-    }, [queryClient]);
+        } catch (error) {
+          console.error('❌ [SW] Falha ao registrar Service Worker ou Push:', error);
+        }
+      };
 
-    return (
-        <QueryClientProvider client={queryClient}>
-            {children}
-            {/* Ferramenta para nos ajudar a programar. Não aparece para o usuário final em produção. */}
-            <ReactQueryDevtools initialIsOpen={false} />
-        </QueryClientProvider>
-    );
+      registerSw();
+    }
+  }, []);
+
+  // 4. Envia a assinatura para o seu Backend salvar no Supabase
+  const saveSubscriptionToServer = async (subscription) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Chama sua rota de API para salvar
+      await fetch('/api/notifications/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subscription: subscription,
+          userId: user.id
+        }),
+      });
+      
+      console.log('📡 [Push] Assinatura enviada para o servidor.');
+
+    } catch (err) {
+      console.error('❌ [Push] Erro ao salvar assinatura no servidor:', err);
+    }
+  };
+
+  return null; // Este componente não renderiza nada visual
 }
