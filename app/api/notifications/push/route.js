@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
 
+// Garante que a Netlify não faça cache da rota
+export const dynamic = 'force-dynamic';
+
 // Configura Web Push
 webpush.setVapidDetails(
   'mailto:suporte@studio57.com.br',
@@ -9,56 +12,67 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY
 );
 
-export async function POST(request) {
-  // Configura Cliente Supabase com PODER TOTAL (Service Role) para ignorar RLS
-  // Se não tiver a Service Key na Vercel, use a Anon Key, mas pode dar erro de permissão.
+// Função auxiliar para gravar no banco (Nosso espião)
+async function logToDb(supabase, origem, mensagem, payload = null) {
+  try {
+    await supabase.from('app_logs').insert({ origem, mensagem, payload });
+  } catch (e) {
+    console.error("Erro ao logar:", e);
+  }
+}
+
+// Lógica unificada (funciona para GET e POST)
+async function handleRequest(request, method) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   let body = {};
-
+  
   try {
-    body = await request.json();
-    
-    // 1. LOG INICIAL: A API FOI CHAMADA?
-    await supabase.from('app_logs').insert({
-      origem: 'API PUSH',
-      mensagem: 'Recebi uma chamada!',
-      payload: body
-    });
+    // Se for POST, tenta ler o corpo. Se for GET, cria um corpo falso de teste.
+    if (method === 'POST') {
+      try {
+        body = await request.json();
+      } catch (e) {
+        await logToDb(supabase, 'API ERROR', 'Recebi POST mas falhei ao ler JSON');
+        return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+      }
+    } else {
+      // GET (Teste de navegador)
+      body = { record: { titulo: "Teste Navegador", mensagem: "Se vibrar, é o Supabase!", enviar_push: true } };
+      // Tenta pegar o ID do user da URL se tiver (ex: ?user_id=...)
+      const { searchParams } = new URL(request.url);
+      const userIdParam = searchParams.get('user_id');
+      if (userIdParam) body.record.user_id = userIdParam;
+    }
+
+    await logToDb(supabase, `API ${method}`, 'Recebi chamada!', body);
 
     const notificationData = body.record || body;
     const { user_id, titulo, mensagem, link, enviar_push } = notificationData;
 
-    if (enviar_push === false) {
-      await supabase.from('app_logs').insert({ origem: 'API PUSH', mensagem: 'Abortado: Flag false' });
-      return NextResponse.json({ message: 'Push disabled' });
+    if (!user_id && method === 'POST') {
+      // Se veio do Supabase sem user_id, é erro
+      return NextResponse.json({ message: 'Sem User ID' });
     }
 
-    if (!user_id) {
-       await supabase.from('app_logs').insert({ origem: 'API PUSH', mensagem: 'Erro: Sem User ID' });
-       return NextResponse.json({ error: 'Sem User ID' }, { status: 400 });
+    if (!user_id && method === 'GET') {
+       return NextResponse.json({ message: 'API Viva! Para testar push, adicione ?user_id=SEU_UUID na URL.' });
     }
 
-    // 2. BUSCAR ASSINATURAS
-    const { data: subscriptions, error: subError } = await supabase
+    // Busca assinaturas
+    const { data: subscriptions } = await supabase
       .from('notification_subscriptions')
       .select('subscription_data')
       .eq('user_id', user_id);
 
-    if (subError) {
-       await supabase.from('app_logs').insert({ origem: 'API PUSH', mensagem: 'Erro ao buscar subs', payload: subError });
-       throw subError;
-    }
-
     if (!subscriptions || subscriptions.length === 0) {
-      // AQUI É ONDE GERALMENTE FALHA
-      await supabase.from('app_logs').insert({ origem: 'API PUSH', mensagem: `Nenhuma assinatura encontrada para User ${user_id}` });
-      return NextResponse.json({ message: 'No subscriptions found' });
+      await logToDb(supabase, 'API AVISO', `Nenhuma assinatura para User ${user_id}`);
+      return NextResponse.json({ message: 'Sem assinaturas no banco (O navegador não pediu permissão?)' });
     }
 
-    // 3. ENVIAR
+    // Prepara envio
     const payload = JSON.stringify({
       title: titulo,
       body: mensagem,
@@ -67,31 +81,23 @@ export async function POST(request) {
       tag: `notif-${Date.now()}`
     });
 
-    const sendPromises = subscriptions.map(sub => 
+    // Dispara
+    const promises = subscriptions.map(sub => 
       webpush.sendNotification(sub.subscription_data, payload)
         .then(() => ({ success: true }))
-        .catch(err => ({ success: false, error: err.statusCode }))
+        .catch(e => ({ success: false, error: e.statusCode }))
     );
 
-    const results = await Promise.all(sendPromises);
+    await Promise.all(promises);
+    await logToDb(supabase, 'API SUCESSO', `Enviado para ${subscriptions.length} dispositivos`);
 
-    // 4. LOG FINAL: SUCESSO?
-    await supabase.from('app_logs').insert({ 
-      origem: 'API PUSH', 
-      mensagem: 'Envio finalizado', 
-      payload: { total: subscriptions.length, resultados: results } 
-    });
-
-    return NextResponse.json({ success: true, results });
+    return NextResponse.json({ success: true });
 
   } catch (error) {
-    // LOG DE ERRO FATAL
-    console.error(error);
-    await supabase.from('app_logs').insert({ 
-      origem: 'API PUSH CRASH', 
-      mensagem: error.message,
-      payload: { body } 
-    });
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    await logToDb(supabase, 'API CRASH', error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function POST(req) { return handleRequest(req, 'POST'); }
+export async function GET(req) { return handleRequest(req, 'GET'); }
