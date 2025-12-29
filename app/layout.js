@@ -15,7 +15,7 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata = {
   title: 'Studio 57',
   description: 'Sistema de Gestão Integrada',
-  manifest: '/manifest.json',
+  manifest: '/manifest.json', // <--- ESSENCIAL PARA O ANDROID
   icons: {
     icon: '/favicon.ico',
     apple: '/icons/icon-192x192.png',
@@ -31,6 +31,7 @@ export default function RootLayout({ children }) {
         <meta name="theme-color" content="#0288d1" />
       </head>
       <body className={inter.className}>
+        {/* Componente responsável por registrar o Service Worker e Push Notifications */}
         <ServiceWorkerRegistrar />
 
         <div id="fb-root"></div>
