@@ -9,55 +9,47 @@ const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const privateKey = process.env.VAPID_PRIVATE_KEY;
 
 if (publicKey && privateKey) {
-  webPush.setVapidDetails(
-    'mailto:suporte@studio57.arq.br',
-    publicKey,
-    privateKey
-  );
-} else {
-  console.warn("⚠️ AVISO: Chaves VAPID ausentes. Push mobile desativado.");
-}
+  try {
+    webPush.setVapidDetails(
+      'mailto:suporte@studio57.arq.br',
+      publicKey,
+      privateKey
+    );
+  } catch (err) {
+    console.error("⚠️ Erro config VAPID:", err);
+  }
+} 
 
 /**
- * 📢 NOTIFICAR GRUPO (Disparo em Massa Inteligente)
- * Envia notificação para todos os usuários que têm uma certa permissão.
- * Ex: notificarGrupo({ permissao: 'financeiro', titulo: 'Nova Fatura', ... })
+ * 📢 NOTIFICAR GRUPO
  */
 export async function notificarGrupo({
-  permissao,      // Ex: 'financeiro', 'obras' (Chave da permissão)
+  permissao,
   titulo,
   mensagem,
   link = null,
-  tipo = 'sistema', // 'financeiro', 'obras', 'alerta', 'sucesso'
-  organizacaoId = null
+  tipo = 'sistema',
+  organizacaoId = null,
+  supabaseClient = null // <--- ACEITA CLIENTE EXTERNO
 }) {
   try {
-    console.log(`📢 Iniciando disparo em massa para permissão: [${permissao}]`);
-
-    // 1. Descobre quem são os destinatários
     const userIds = await buscarIdsPorPermissao(permissao, organizacaoId);
 
-    if (!userIds.length) {
-      console.log("⚠️ Ninguém encontrado para receber esta notificação.");
-      return { sucesso: true, count: 0 };
-    }
+    if (!userIds.length) return { sucesso: true, count: 0 };
 
-    console.log(`🎯 Alvos encontrados: ${userIds.length} usuários.`);
-
-    // 2. Dispara para cada um (em paralelo para ser rápido)
     const promises = userIds.map(id => 
       enviarNotificacao({
         userId: id,
         titulo,
         mensagem,
         link,
-        tipo, // Passamos o novo campo 'tipo'
-        organizacaoId
+        tipo,
+        organizacaoId,
+        supabaseClient // Repassa o cliente
       })
     );
 
     await Promise.allSettled(promises);
-
     return { sucesso: true, count: userIds.length };
 
   } catch (error) {
@@ -67,7 +59,7 @@ export async function notificarGrupo({
 }
 
 /**
- * 📨 CARTEIRO INDIVIDUAL (Envio Um-a-Um)
+ * 📨 CARTEIRO INDIVIDUAL (Com suporte a Webhook)
  */
 export async function enviarNotificacao({ 
   userId, 
@@ -76,12 +68,15 @@ export async function enviarNotificacao({
   link = null, 
   tipo = 'sistema',
   organizacaoId = null,
-  canal = 'sistema' 
+  canal = 'sistema',
+  supabaseClient = null // <--- NOVIDADE: Permite injetar o cliente Admin
 }) {
   try {
-    const supabase = await createClient();
+    // Se veio um cliente (do Webhook), usa ele. Se não, cria o padrão (Sessão do Usuário).
+    const supabase = supabaseClient || await createClient();
 
     // --- ETAPA 1: FILTRO DE PREFERÊNCIAS ---
+    // (Opcional: Se for Admin Client, ele lê tudo. Se for RLS, precisa garantir leitura de usuarios)
     const { data: usuario } = await supabase
       .from('usuarios')
       .select('preferencias_notificacao')
@@ -92,14 +87,14 @@ export async function enviarNotificacao({
       return { sucesso: false, motivo: 'bloqueado_pelo_usuario' };
     }
 
-    // --- ETAPA 2: SALVAR NO BANCO (SININHO) ---
+    // --- ETAPA 2: SALVAR NO BANCO ---
     const dadosNotificacao = {
       user_id: userId,
       titulo,
       mensagem,
       link,
       lida: false,
-      tipo: tipo, // Salvando o tipo visual
+      tipo: tipo,
       created_at: new Date().toISOString()
     };
     if (organizacaoId) dadosNotificacao.organizacao_id = organizacaoId;
@@ -108,8 +103,11 @@ export async function enviarNotificacao({
     
     if (error) console.error("❌ Erro DB Notificação:", error.message);
 
-    // --- ETAPA 3: DISPARAR PUSH (ANDROID/PC) ---
+    // --- ETAPA 3: DISPARAR PUSH ---
     if (publicKey && privateKey) {
+      // Aqui precisamos garantir que buscamos subscriptions. 
+      // Se 'supabase' for Admin, funciona. Se for user, só vê as dele (RLS).
+      // Para notificar OUTRO usuário, o supabaseClient PRECISA ser Admin.
       const { data: subscriptions } = await supabase
         .from('notification_subscriptions')
         .select('*')
@@ -122,13 +120,14 @@ export async function enviarNotificacao({
           url: link || '/',
           icon: '/icons/icon-192x192.png',
           tag: 'studio57-aviso',
-          data: { tipo } // Passa metadata para o Service Worker se precisar
+          data: { tipo }
         });
 
         const envios = subscriptions.map(sub => 
           webPush.sendNotification(sub.subscription_data, payload)
             .catch(async (err) => {
               if (err.statusCode === 410 || err.statusCode === 404) {
+                // Se falhar o envio, remove a inscrição inválida
                 await supabase.from('notification_subscriptions').delete().eq('id', sub.id);
               }
             })

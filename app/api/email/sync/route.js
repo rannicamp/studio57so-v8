@@ -1,85 +1,23 @@
+// app/api/email/sync/route.js
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import imapSimple from 'imap-simple';
-import webPush from 'web-push';
-
-// --- CONFIGURAÇÃO WEB PUSH ---
-const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-const privateKey = process.env.VAPID_PRIVATE_KEY;
-
-if (publicKey && privateKey) {
-    try {
-        webPush.setVapidDetails(
-            'mailto:suporte@studio57.arq.br',
-            publicKey,
-            privateKey
-        );
-    } catch (err) {
-        console.error("❌ [Email Sync] Erro config VAPID:", err);
-    }
-}
-
-// --- FUNÇÃO DE DISPARO ---
-async function dispatchEmailNotification(supabase, userId, title, message, organizacaoId, specificEmailId = null) {
-    try {
-        const targetUrl = specificEmailId 
-            ? `/caixa-de-entrada?email_id=${specificEmailId}` 
-            : '/caixa-de-entrada';
-
-        // 1. Salva no Sininho
-        await supabase.from('notificacoes').insert({
-            user_id: userId,
-            titulo: title,
-            mensagem: message,
-            link: targetUrl,
-            lida: false,
-            tipo: 'sistema',
-            organizacao_id: organizacaoId,
-            created_at: new Date().toISOString()
-        });
-
-        // 2. Dispara Push Mobile
-        const { data: subscriptions } = await supabase
-            .from('notification_subscriptions')
-            .select('*')
-            .eq('user_id', userId);
-
-        if (subscriptions?.length > 0) {
-            const payload = JSON.stringify({
-                title: title,
-                body: message,
-                url: targetUrl,
-                icon: '/icons/icon-192x192.png',
-                tag: 'email-update'
-            });
-
-            const promises = subscriptions.map(sub => 
-                webPush.sendNotification(sub.subscription_data, payload).catch(async err => {
-                    if (err.statusCode === 410 || err.statusCode === 404) {
-                        await supabase.from('notification_subscriptions').delete().eq('id', sub.id);
-                    }
-                })
-            );
-            await Promise.allSettled(promises);
-        }
-    } catch (e) {
-        console.error("❌ [Email Push] Falha:", e);
-    }
-}
+import { enviarNotificacao } from '@/utils/notificacoes'; // <--- O Carteiro Central
 
 async function runEmailSync() {
     const supabase = await createClient();
-    // Reduzimos a janela de busca para evitar sobrecarga (1 mês em vez de 3)
+    
+    // Reduzimos a janela de busca para evitar sobrecarga (1 mês)
     const searchWindow = new Date();
     searchWindow.setMonth(searchWindow.getMonth() - 1);
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Sem usuário na sessão (Cron requer Service Role)' };
+    if (!user) return { error: 'Sem usuário na sessão (Cron requer Service Role ou Sessão Ativa)' };
 
     const { data: accounts } = await supabase.from('email_configuracoes').select('*').eq('user_id', user.id);
     if (!accounts?.length) return { message: 'Sem contas configuradas' };
 
-    let totalNotificationWorthy = 0; // Contador APENAS para notificações RECENTES
+    let totalNotificationWorthy = 0; 
     let singleNewMessageData = null; 
 
     for (const config of accounts) {
@@ -119,9 +57,9 @@ async function runEmailSync() {
             if (messages.length > 0) {
                 const uids = messages.map(m => m.attributes.uid);
                 
-                // --- CORREÇÃO 1: Batching (Lotes) para evitar erro de memória ---
+                // Batching para evitar erro de memória
                 const existingSet = new Set();
-                const chunkSize = 100; // Verifica em lotes menores
+                const chunkSize = 100; 
                 
                 for (let i = 0; i < uids.length; i += chunkSize) {
                     const chunk = uids.slice(i, i + chunkSize);
@@ -157,16 +95,13 @@ async function runEmailSync() {
                             .upsert(batch, { onConflict: 'account_id, folder_path, uid' })
                             .select('id, uid, account_id, date'); 
                         
-                        // --- CORREÇÃO 2: Só notifica se for RECENTE (últimos 60 min) ---
+                        // Lógica de Notificação Inteligente (Apenas recentes < 60min)
                         if (insertedRows) {
                             insertedRows.forEach(row => {
                                 const emailDate = new Date(row.date);
                                 const now = new Date();
-                                // Diferença em minutos
                                 const diffMinutes = (now - emailDate) / 1000 / 60;
 
-                                // Se o e-mail chegou há menos de 60 minutos, conta para notificação.
-                                // Se for e-mail de 3 meses atrás que estava não lido, salva mas NÃO notifica.
                                 if (diffMinutes < 60) {
                                     totalNotificationWorthy++;
                                     singleNewMessageData = row;
@@ -183,18 +118,29 @@ async function runEmailSync() {
         }
     }
 
-    // Só dispara se tiver e-mails RECENTES
+    // --- DISPARO CENTRALIZADO ---
     if (totalNotificationWorthy > 0) {
         let title = '📧 Novo E-mail!';
         let msg = `Você tem ${totalNotificationWorthy} novas mensagens.`;
-        let linkId = null;
+        let linkUrl = '/caixa-de-entrada';
 
+        // Se for só UM e-mail novo RECENTE, link direto
         if (totalNotificationWorthy === 1 && singleNewMessageData) {
-             linkId = singleNewMessageData.id;
+             linkUrl = `/caixa-de-entrada?email_id=${singleNewMessageData.id}`;
              msg = 'Toque para ler agora.';
         }
 
-        await dispatchEmailNotification(supabase, user.id, title, msg, accounts[0].organizacao_id, linkId);
+        // Chama a central
+        await enviarNotificacao({
+            userId: user.id,
+            titulo: title,
+            mensagem: msg,
+            link: linkUrl,
+            tipo: 'email_novo',
+            organizacaoId: accounts[0].organizacao_id,
+            canal: 'sistema', // Podemos criar um canal 'email' nas preferencias depois
+            supabaseClient: supabase // Reutiliza a conexão
+        });
     }
 
     return { success: true, newEmails: totalNotificationWorthy };

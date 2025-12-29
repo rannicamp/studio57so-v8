@@ -1,22 +1,18 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import webPush from 'web-push';
+import { enviarNotificacao } from '@/utils/notificacoes'; // <--- Central de Notificações
 
 // --- 1. CONFIGURAÇÃO ---
-const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-const privateKey = process.env.VAPID_PRIVATE_KEY;
-
-if (publicKey && privateKey) {
-    webPush.setVapidDetails(
-        'mailto:suporte@studio57.arq.br',
-        publicKey,
-        privateKey
-    );
-}
-
 const getSupabaseAdmin = () => createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false
+        }
+    }
 );
 
 // --- 2. PROCESSAMENTO DE MÍDIA ---
@@ -87,66 +83,7 @@ async function processIncomingMedia(supabaseAdmin, message, config, contatoId) {
     }
 }
 
-// --- 3. NOTIFICAÇÃO ---
-async function dispatchNotification(supabaseAdmin, organizacaoId, title, message, url) {
-    try {
-        const { data: users } = await supabaseAdmin
-            .from('usuarios')
-            .select('id, preferencias_notificacao')
-            .eq('organizacao_id', organizacaoId);
-
-        if (!users || users.length === 0) return;
-
-        const notificationsToInsert = [];
-        const pushPromises = [];
-
-        for (const user of users) {
-            const prefs = user.preferencias_notificacao;
-            if (prefs && prefs.comercial === false) continue;
-
-            notificationsToInsert.push({
-                user_id: user.id,
-                titulo: title,
-                mensagem: message,
-                link: url,
-                lida: false,
-                organizacao_id: organizacaoId,
-                created_at: new Date().toISOString()
-            });
-
-            if (publicKey && privateKey) {
-                const p = supabaseAdmin
-                    .from('notification_subscriptions')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .then(({ data: subs }) => {
-                        if (!subs || subs.length === 0) return;
-                        const payload = JSON.stringify({
-                            title: title, body: message, url: url, icon: '/icons/icon-192x192.png', tag: 'whatsapp-msg'
-                        });
-                        return Promise.all(subs.map(sub => 
-                            webPush.sendNotification(sub.subscription_data, payload).catch(err => {
-                                if (err.statusCode === 410 || err.statusCode === 404) {
-                                    supabaseAdmin.from('notification_subscriptions').delete().eq('id', sub.id).then();
-                                }
-                            })
-                        ));
-                    });
-                pushPromises.push(p);
-            }
-        }
-
-        if (notificationsToInsert.length > 0) {
-            await supabaseAdmin.from('notificacoes').insert(notificationsToInsert);
-        }
-        await Promise.allSettled(pushPromises);
-
-    } catch (error) {
-        console.error('[Notification Error]', error);
-    }
-}
-
-// --- 4. EXTRAÇÃO DE TEXTO ---
+// --- 3. EXTRAÇÃO DE TEXTO ---
 function getTextContent(message) {
     if (!message || !message.type) return null;
     if (message.type === 'text') return message.text?.body;
@@ -170,6 +107,8 @@ function getTextContent(message) {
     if (message.type === 'voice') return 'Mensagem de Voz';
     return null;
 }
+
+// --- ROTAS ---
 
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
@@ -223,15 +162,13 @@ export async function POST(request) {
 
             if (existingMsg) return NextResponse.json({ status: 'ok' });
             
-            // B. CONTATO (BUSCA MELHORADA E SEGURA)
-            // Aqui substituímos a lógica antiga pela busca direta na tabela 'telefones'
-            
+            // B. CONTATO
             const orgId = config.organizacao_id;
             let contatoId = null;
             let contatoNome = `Lead (${from})`;
             let isNewLead = false;
 
-            // 1. Tenta achar na tabela TELEFONES usando os últimos 8 dígitos (ignora DDD e 9º dígito)
+            // 1. Tenta achar na tabela TELEFONES usando os últimos 8 dígitos
             const phoneSuffix = from.slice(-8); 
             const { data: telefoneExistente } = await supabaseAdmin
                 .from('telefones')
@@ -245,7 +182,7 @@ export async function POST(request) {
                 console.log(`[Smart Search] Contato encontrado via telefone: ${telefoneExistente.contato_id}`);
                 contatoId = telefoneExistente.contato_id;
             } else {
-                // 2. Se falhar, tenta achar uma conversa existente (backup)
+                // 2. Backup: conversa existente
                 const { data: conversaExistente } = await supabaseAdmin
                     .from('whatsapp_conversations')
                     .select('contato_id')
@@ -258,7 +195,7 @@ export async function POST(request) {
                 }
             }
 
-            // 3. Se ainda assim não achou, CRIA UM NOVO (Só aqui!)
+            // 3. Novo Lead
             if (!contatoId) {
                 isNewLead = true;
                 const { data: newContact } = await supabaseAdmin.from('contatos').insert({
@@ -267,20 +204,19 @@ export async function POST(request) {
                 
                 contatoId = newContact.id;
                 
-                // Salva o telefone novo na tabela para achar rápido na próxima vez
                 const cleanPhone = from.replace(/[^0-9]/g, '');
+                // Trigger do banco vincula conversas automaticamente
                 await supabaseAdmin.from('telefones').insert({
                     contato_id: contatoId, telefone: cleanPhone, tipo: 'celular', organizacao_id: orgId
                 });
                 
-                // Insere no Funil (se configurado)
                 const { data: funil } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', orgId).limit(1).single();
                 if (funil) {
                     const { data: col } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem').limit(1).single();
                     if (col) await supabaseAdmin.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: col.id, organizacao_id: orgId });
                 }
             } else {
-                // Contato Existente Encontrado! Atualiza nome se necessário
+                // Atualiza nome se necessário
                 const { data: existing } = await supabaseAdmin.from('contatos').select('nome, is_awaiting_name_response').eq('id', contatoId).single();
                 if (existing) {
                     contatoNome = existing.nome;
@@ -297,7 +233,7 @@ export async function POST(request) {
                 .upsert({ 
                     phone_number: from, 
                     updated_at: new Date().toISOString(),
-                    contato_id: contatoId, // Vincula ao ID certo (velho ou novo)
+                    contato_id: contatoId,
                     organizacao_id: config.organizacao_id
                 }, { onConflict: 'phone_number' })
                 .select()
@@ -370,7 +306,7 @@ export async function POST(request) {
                 finalMessageId = insertedMsg?.id;
             }
 
-            // E. ATUALIZAR CONVERSA (Última Mensagem + CONTADOR DE NÃO LIDAS)
+            // E. ATUALIZAR CONVERSA
             if (conversationRecordId && finalMessageId) {
                 const { data: currentConv } = await supabaseAdmin
                     .from('whatsapp_conversations')
@@ -389,11 +325,34 @@ export async function POST(request) {
                     .eq('id', conversationRecordId);
             }
 
-            // F. NOTIFICAÇÃO
+            // F. NOTIFICAÇÃO CENTRALIZADA (NOVA)
             if (content || mediaData) {
-                let notifTitle = isNewLead ? '🎉 Novo Lead!' : `💬 Mensagem de ${contatoNome}`;
-                let notifBody = mediaData ? `📎 Arquivo: ${content}` : (content?.substring(0, 100) || 'Nova mensagem');
-                await dispatchNotification(supabaseAdmin, config.organizacao_id, notifTitle, notifBody, '/caixa-de-entrada');
+                const notifTitle = isNewLead ? '🎉 Novo Lead WhatsApp!' : `💬 Mensagem de ${contatoNome}`;
+                const notifBody = mediaData ? `📎 Arquivo: ${content}` : (content?.substring(0, 100) || 'Nova mensagem');
+                const notifLink = '/caixa-de-entrada'; // Idealmente poderia linkar para o chat específico
+
+                // Busca usuários ativos da organização para notificar
+                const { data: users } = await supabaseAdmin
+                    .from('usuarios')
+                    .select('id')
+                    .eq('organizacao_id', config.organizacao_id)
+                    .eq('is_active', true);
+
+                if (users?.length) {
+                    const promises = users.map(user => 
+                        enviarNotificacao({
+                            userId: user.id,
+                            titulo: notifTitle,
+                            mensagem: notifBody,
+                            link: notifLink,
+                            tipo: isNewLead ? 'lead_novo' : 'whatsapp_msg',
+                            organizacaoId: config.organizacao_id,
+                            canal: 'comercial', // A central filtra quem desativou 'comercial'
+                            supabaseClient: supabaseAdmin // Passa o poder de Admin
+                        })
+                    );
+                    await Promise.allSettled(promises);
+                }
             }
         }
 
