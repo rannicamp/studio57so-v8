@@ -1,3 +1,4 @@
+// app/(main)/relatorios/page.js
 "use client";
 
 import { useState } from 'react';
@@ -16,11 +17,11 @@ import {
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
-// --- MÓDULOS ---
-import EvolutionChart from './EvolutionChart';
-import PayrollChart from './PayrollChart';
-import RankingsBoard from './RankingsBoard';
-import CustoFolhaWidget from './CustoFolhaWidget'; // <--- IMPORTADO AQUI
+// --- MÓDULOS (CAMINHOS CORRIGIDOS) ---
+import EvolutionChart from './rh/EvolutionChart';
+import PayrollChart from './rh/PayrollChart';
+import RankingsBoard from './rh/RankingsBoard';
+import CustoFolhaWidget from './rh/CustoFolhaWidget';
 
 // Componente KpiCard Genérico
 const KpiCard = ({ title, value, subtext, icon, color, isLoading }) => (
@@ -133,9 +134,9 @@ export default function RelatorioRhPage() {
         {/* Coluna Principal */}
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
             
-            {/* --- NOVO COMPONENTE DE CUSTO --- */}
+            {/* --- WIDGET DE CUSTO --- */}
             <CustoFolhaWidget mesRef={mesRef} />
-            {/* -------------------------------- */}
+            {/* ----------------------- */}
 
             <KpiCard title="Ativos" value={stats?.total_ativos || 0} subtext="Fim do mês" icon={faUsers} color="blue" isLoading={loadingStats} />
             <KpiCard title="Admissões" value={stats?.admissoes || 0} subtext="No mês" icon={faUserPlus} color="indigo" isLoading={loadingStats} />
