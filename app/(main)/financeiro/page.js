@@ -254,7 +254,7 @@ export default function FinanceiroPage() {
                 {activeTab === 'cartoes' && <GerenciadorFaturas contasCartao={contasCartao} />}
                 
                 {/* AQUI ESTÁ A MÁGICA: Passamos 'filters' para a nova aba */}
-                {activeTab === 'planejamento' && <PlanejamentoFolha filters={filters} />} 
+                {activeTab === 'planejamento' && <PlanejamentoFolha filters={filters} setFilters={setFilters} />} 
                 {activeTab === 'documentos' && <DocumentosManager filters={filters} />}
 
                 {activeTab === 'lancamentos' && (
