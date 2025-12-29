@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
 
-// Configura o Web Push com as chaves do ambiente
+// Configura Web Push
 webpush.setVapidDetails(
   'mailto:suporte@studio57.com.br',
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
@@ -10,71 +10,88 @@ webpush.setVapidDetails(
 );
 
 export async function POST(request) {
+  // Configura Cliente Supabase com PODER TOTAL (Service Role) para ignorar RLS
+  // Se não tiver a Service Key na Vercel, use a Anon Key, mas pode dar erro de permissão.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  let body = {};
+
   try {
-    const body = await request.json();
+    body = await request.json();
     
-    console.log("🔔 [PUSH API] Recebido:", JSON.stringify(body, null, 2));
+    // 1. LOG INICIAL: A API FOI CHAMADA?
+    await supabase.from('app_logs').insert({
+      origem: 'API PUSH',
+      mensagem: 'Recebi uma chamada!',
+      payload: body
+    });
 
-    // O "PULO DO GATO": Tratamento Inteligente do Payload
-    // Se vier do Supabase Webhook, os dados reais estão dentro de 'record'.
-    // Se vier de um teste manual, pode estar na raiz.
     const notificationData = body.record || body;
-
     const { user_id, titulo, mensagem, link, enviar_push } = notificationData;
 
-    // Se o flag enviar_push for falso, ignoramos
     if (enviar_push === false) {
-      console.log("🔕 [PUSH API] Push ignorado (flag false).");
-      return NextResponse.json({ message: 'Push disabled for this notification' });
+      await supabase.from('app_logs').insert({ origem: 'API PUSH', mensagem: 'Abortado: Flag false' });
+      return NextResponse.json({ message: 'Push disabled' });
     }
 
-    if (!user_id || !titulo) {
-      console.error("❌ [PUSH API] Dados incompletos (faltando user_id ou titulo):", notificationData);
-      return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 });
+    if (!user_id) {
+       await supabase.from('app_logs').insert({ origem: 'API PUSH', mensagem: 'Erro: Sem User ID' });
+       return NextResponse.json({ error: 'Sem User ID' }, { status: 400 });
     }
 
-    // 2. BUSCAR AS ASSINATURAS DO USUÁRIO NO BANCO
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const { data: subscriptions, error } = await supabase
+    // 2. BUSCAR ASSINATURAS
+    const { data: subscriptions, error: subError } = await supabase
       .from('notification_subscriptions')
       .select('subscription_data')
       .eq('user_id', user_id);
 
-    if (error || !subscriptions || subscriptions.length === 0) {
-      console.log(`⚠️ [PUSH API] Nenhuma assinatura encontrada para o User ${user_id}`);
+    if (subError) {
+       await supabase.from('app_logs').insert({ origem: 'API PUSH', mensagem: 'Erro ao buscar subs', payload: subError });
+       throw subError;
+    }
+
+    if (!subscriptions || subscriptions.length === 0) {
+      // AQUI É ONDE GERALMENTE FALHA
+      await supabase.from('app_logs').insert({ origem: 'API PUSH', mensagem: `Nenhuma assinatura encontrada para User ${user_id}` });
       return NextResponse.json({ message: 'No subscriptions found' });
     }
 
-    console.log(`🚀 [PUSH API] Enviando para ${subscriptions.length} dispositivos...`);
-
-    // 3. ENVIAR PARA TODOS OS DISPOSITIVOS
+    // 3. ENVIAR
     const payload = JSON.stringify({
       title: titulo,
       body: mensagem,
       url: link || '/',
       icon: '/icons/icon-192x192.png',
-      tag: `notif-${Date.now()}` // Tag única para forçar vibração
+      tag: `notif-${Date.now()}`
     });
 
-    const sendPromises = subscriptions.map(async (sub) => {
-      try {
-        await webpush.sendNotification(sub.subscription_data, payload);
-        return { success: true };
-      } catch (err) {
-        console.error("❌ Erro ao enviar para um dispositivo:", err.statusCode);
-        return { success: false, error: err };
-      }
+    const sendPromises = subscriptions.map(sub => 
+      webpush.sendNotification(sub.subscription_data, payload)
+        .then(() => ({ success: true }))
+        .catch(err => ({ success: false, error: err.statusCode }))
+    );
+
+    const results = await Promise.all(sendPromises);
+
+    // 4. LOG FINAL: SUCESSO?
+    await supabase.from('app_logs').insert({ 
+      origem: 'API PUSH', 
+      mensagem: 'Envio finalizado', 
+      payload: { total: subscriptions.length, resultados: results } 
     });
 
-    await Promise.all(sendPromises);
-
-    return NextResponse.json({ success: true, sent_count: sendPromises.length });
+    return NextResponse.json({ success: true, results });
 
   } catch (error) {
-    console.error("💀 [PUSH API] Erro Fatal:", error);
-    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
+    // LOG DE ERRO FATAL
+    console.error(error);
+    await supabase.from('app_logs').insert({ 
+      origem: 'API PUSH CRASH', 
+      mensagem: error.message,
+      payload: { body } 
+    });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
