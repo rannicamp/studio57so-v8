@@ -15,17 +15,31 @@ import ConfirmReadmissionModal from '../modals/ConfirmReadmissionModal';
 
 const DRAFT_KEY = 'RH_FUNC_MODAL_DRAFT';
 
-// --- SUB-COMPONENTE: MODAL DE SALÁRIO ---
+// --- SUB-COMPONENTE: MODAL DE SALÁRIO (CORRIGIDO) ---
 const HistoricoSalarialModal = ({ isOpen, onClose, onSave, funcionarioId, organizacaoId }) => {
     const supabase = createClient();
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
+    
+    // Inicializa com string vazia para evitar problemas com controlled inputs
     const [novoHistorico, setNovoHistorico] = useState({ 
         data_inicio_vigencia: new Date().toISOString().split('T')[0], 
         salario_base: '', 
         valor_diaria: '', 
         motivo_alteracao: '' 
     });
+
+    // Resetar estado ao abrir
+    useEffect(() => {
+        if (isOpen) {
+            setNovoHistorico({ 
+                data_inicio_vigencia: new Date().toISOString().split('T')[0], 
+                salario_base: '', 
+                valor_diaria: '', 
+                motivo_alteracao: '' 
+            });
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -35,17 +49,26 @@ const HistoricoSalarialModal = ({ isOpen, onClose, onSave, funcionarioId, organi
     };
 
     const handleSave = async () => {
+        // Validação: precisa de data e pelo menos um valor financeiro preenchido
         if (!novoHistorico.data_inicio_vigencia || (!novoHistorico.salario_base && !novoHistorico.valor_diaria)) { 
             toast.error("Data e pelo menos um valor (salário ou diária) são obrigatórios."); 
             return; 
         }
+        
         setLoading(true);
-        await onSave({ 
-            ...novoHistorico, 
+        
+        // Prepara os dados para salvar (converte string monetária para float se necessário, ou mantém se já vier 'unmasked')
+        const payload = {
+            ...novoHistorico,
+            // Garante que se for string vazia, vira null para o banco
+            salario_base: novoHistorico.salario_base ? parseFloat(novoHistorico.salario_base.replace(',', '.')) : null,
+            valor_diaria: novoHistorico.valor_diaria ? parseFloat(novoHistorico.valor_diaria.replace(',', '.')) : null,
             funcionario_id: funcionarioId, 
             organizacao_id: organizacaoId,
             criado_por_usuario_id: user?.id
-        }); 
+        };
+
+        await onSave(payload); 
         setLoading(false); 
         onClose();
     };
@@ -57,21 +80,70 @@ const HistoricoSalarialModal = ({ isOpen, onClose, onSave, funcionarioId, organi
                 <div className="space-y-4">
                     <div>
                         <label className="text-sm font-medium">Data Vigência</label>
-                        <input type="date" name="data_inicio_vigencia" value={novoHistorico.data_inicio_vigencia} onChange={handleChange} className="w-full p-2 border rounded" />
+                        <input 
+                            type="date" 
+                            name="data_inicio_vigencia" 
+                            value={novoHistorico.data_inicio_vigencia} 
+                            onChange={handleChange} 
+                            className="w-full p-2 border rounded" 
+                        />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="text-sm font-medium">Salário Base</label>
-                            <IMaskInput mask="R$ num" unmask={true} onAccept={(v) => setNovoHistorico(p => ({...p, salario_base: v}))} className="w-full p-2 border rounded" placeholder="R$ 0,00" />
+                            {/* CORREÇÃO AQUI: Máscara simplificada e value garantido */}
+                            <IMaskInput
+                                mask="R$ num"
+                                blocks={{
+                                    num: {
+                                        mask: Number,
+                                        thousandsSeparator: '.',
+                                        radix: ',',
+                                        scale: 2,
+                                        padFractionalZeros: true,
+                                        normalizeZeros: true,
+                                    }
+                                }}
+                                unmask={true}
+                                value={String(novoHistorico.salario_base || '')}
+                                onAccept={(value) => setNovoHistorico(prev => ({ ...prev, salario_base: value }))}
+                                className="w-full p-2 border rounded"
+                                placeholder="0,00" // Placeholder simples
+                            />
                         </div>
                         <div>
                             <label className="text-sm font-medium">Valor Diária</label>
-                            <IMaskInput mask="R$ num" unmask={true} onAccept={(v) => setNovoHistorico(p => ({...p, valor_diaria: v}))} className="w-full p-2 border rounded" placeholder="R$ 0,00" />
+                            {/* CORREÇÃO AQUI: Mesmo ajuste para Diária */}
+                            <IMaskInput
+                                mask="R$ num"
+                                blocks={{
+                                    num: {
+                                        mask: Number,
+                                        thousandsSeparator: '.',
+                                        radix: ',',
+                                        scale: 2,
+                                        padFractionalZeros: true,
+                                        normalizeZeros: true,
+                                    }
+                                }}
+                                unmask={true}
+                                value={String(novoHistorico.valor_diaria || '')}
+                                onAccept={(value) => setNovoHistorico(prev => ({ ...prev, valor_diaria: value }))}
+                                className="w-full p-2 border rounded"
+                                placeholder="0,00"
+                            />
                         </div>
                     </div>
                     <div>
                         <label className="text-sm font-medium">Motivo</label>
-                        <input type="text" name="motivo_alteracao" value={novoHistorico.motivo_alteracao} onChange={handleChange} className="w-full p-2 border rounded" placeholder="Ex: Promoção" />
+                        <input 
+                            type="text" 
+                            name="motivo_alteracao" 
+                            value={novoHistorico.motivo_alteracao} 
+                            onChange={handleChange} 
+                            className="w-full p-2 border rounded" 
+                            placeholder="Ex: Promoção" 
+                        />
                     </div>
                 </div>
                 <div className="flex justify-end gap-2 mt-6">
@@ -118,7 +190,7 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
         empresa_id: null, empreendimento_atual_id: null, full_name: '', cpf: '', rg: '',
         birth_date: '', phone: '', email: '', estado_civil: '', cep: '', address_street: '',
         address_number: '', address_complement: '', neighborhood: '', city: '', state: '',
-        cargo_id: '', // SEM contract_role
+        cargo_id: '', 
         admission_date: new Date().toISOString().split('T')[0], demission_date: null, status: 'Ativo',
         payment_method: '', pix_key: '', bank_details: '', observations: '', foto_url: null,
         numero_ponto: null, jornada_id: null, contato_id: null,
@@ -197,10 +269,12 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
     };
 
     const handleSaveHistoricoSalarial = async (novoHistorico) => {
+        // CORREÇÃO: novoHistorico já vem com os IDs corretos do modal, só inserimos
         const { error } = await supabase.from('historico_salarial').insert(novoHistorico);
         if (error) toast.error(error.message);
         else {
             toast.success("Histórico atualizado!");
+            // Atualiza o display visual do salário atual
             setSalarioAtual({ salario_base: novoHistorico.salario_base, valor_diaria: novoHistorico.valor_diaria });
         }
     };
@@ -274,10 +348,12 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
                 const { data: newFunc, error } = await supabase.from('funcionarios').insert([dbData]).select().single();
                 if (error) throw error;
                 
+                // Se é novo funcionário e tem salário preenchido, cria histórico inicial
                 if (newFunc && (formData.salario_base || formData.valor_diaria)) {
                     await supabase.from('historico_salarial').insert({
                         funcionario_id: newFunc.id,
                         data_inicio_vigencia: formData.admission_date,
+                        // Limpa formatação caso venha com máscara
                         salario_base: parseFloat(String(formData.salario_base || '0').replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.')) || null,
                         valor_diaria: parseFloat(String(formData.valor_diaria || '0').replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.')) || null,
                         motivo_alteracao: 'Salário inicial',
@@ -431,8 +507,32 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {!isEditing ? (
                                         <>
-                                            <div><label className="block text-sm font-medium">Salário Base</label><IMaskInput mask="R$ num" unmask={true} onAccept={(v) => handleMaskedChange('salario_base', v)} value={formData.salario_base || ''} className="mt-1 w-full p-2 border rounded-md"/></div>
-                                            <div><label className="block text-sm font-medium">Valor Diária</label><IMaskInput mask="R$ num" unmask={true} onAccept={(v) => handleMaskedChange('valor_diaria', v)} value={formData.valor_diaria || ''} className="mt-1 w-full p-2 border rounded-md"/></div>
+                                            <div>
+                                                <label className="block text-sm font-medium">Salário Base</label>
+                                                {/* CORREÇÃO AQUI: Máscara correta para o form de cadastro */}
+                                                <IMaskInput 
+                                                    mask="R$ num" 
+                                                    blocks={{ num: { mask: Number, thousandsSeparator: '.', radix: ',', scale: 2, padFractionalZeros: true, normalizeZeros: true }}} 
+                                                    unmask={true} 
+                                                    onAccept={(v) => handleMaskedChange('salario_base', v)} 
+                                                    value={String(formData.salario_base || '')} 
+                                                    className="mt-1 w-full p-2 border rounded-md"
+                                                    placeholder="0,00"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium">Valor Diária</label>
+                                                {/* CORREÇÃO AQUI: Máscara correta para o form de cadastro */}
+                                                <IMaskInput 
+                                                    mask="R$ num" 
+                                                    blocks={{ num: { mask: Number, thousandsSeparator: '.', radix: ',', scale: 2, padFractionalZeros: true, normalizeZeros: true }}} 
+                                                    unmask={true} 
+                                                    onAccept={(v) => handleMaskedChange('valor_diaria', v)} 
+                                                    value={String(formData.valor_diaria || '')} 
+                                                    className="mt-1 w-full p-2 border rounded-md"
+                                                    placeholder="0,00"
+                                                />
+                                            </div>
                                         </>
                                     ) : (
                                         <div className="md:col-span-2 flex gap-4 text-sm bg-gray-50 p-3 rounded border">
