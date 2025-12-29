@@ -6,8 +6,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faWandMagicSparkles, faObjectGroup, faSort, faSortUp, faSortDown, faBuilding, faUserTag, faPhone, faCheckCircle, faGlobeAmericas } from '@fortawesome/free-solid-svg-icons';
-import { formatPhoneNumber } from '@/utils/formatters';
+import { faSpinner, faWandMagicSparkles, faSort, faSortUp, faSortDown, faPhone, faCheckCircle, faGlobeAmericas, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
 const CACHE_KEY = 'PADRONIZACAO_DATA_CACHE';
@@ -34,6 +33,54 @@ const SortableHeader = ({ label, sortKey, sortConfig, requestSort }) => {
     );
 };
 
+// Lógica Centralizada de Padronização (Usada tanto na exibição quanto no salvamento)
+const standardizePhoneLogic = (rawPhone, currentCountryCode) => {
+    let digits = (rawPhone || '').replace(/\D/g, '');
+    let finalNumber = digits;
+    let newCountryCode = currentCountryCode;
+    let isModified = false;
+
+    // 1. Regra EUA (Começa com 1, tem 11 digitos)
+    if (digits.startsWith('1') && digits.length === 11) {
+        // É EUA, mantém como está.
+        if (newCountryCode !== '+1') {
+             newCountryCode = '+1'; // Ajusta country code se estiver errado
+             isModified = true;
+        }
+    } 
+    // 2. Regra Brasil (Sem DDI)
+    // Se tiver 10 ou 11 digitos e NÃO for o caso EUA acima
+    else if (digits.length >= 10 && digits.length <= 11) {
+        // Proteção extra: Se começar com 1 e o terceiro digito NÃO for 9 (Ex: 150...), assume EUA e não mexe
+        if (digits.startsWith('1') && digits.length === 11 && digits[2] !== '9') {
+             if (newCountryCode !== '+1') {
+                newCountryCode = '+1';
+                isModified = true;
+             }
+        } else {
+            // É Brasil sem DDI, adiciona 55
+            if (!digits.startsWith('55')) {
+                finalNumber = '55' + digits;
+                newCountryCode = '+55';
+                isModified = true;
+            }
+        }
+    }
+    // 3. Regra Brasil (Já tem 55)
+    else if (digits.startsWith('55')) {
+         if (newCountryCode !== '+55') {
+             newCountryCode = '+55';
+             isModified = true;
+         }
+    }
+
+    // Se o número mudou, marcamos como modificado
+    if (finalNumber !== digits) isModified = true;
+
+    return { finalNumber, newCountryCode, isModified };
+};
+
+
 const fetchFixableData = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { phones: [], names: [], company_names: [], multi_phones: [] };
 
@@ -46,25 +93,11 @@ const fetchFixableData = async (supabase, organizacaoId) => {
 
     const multiPhonesNeedingFix = data.flatMap(c => c.telefones.filter(p => p.telefone && p.telefone.includes('/')).map(p => ({ ...p, contato_id: c.id, contato_nome: c.nome || c.razao_social })));
     
-    // CORREÇÃO AQUI: Respeita o country_code +1 (EUA) existente
+    // Filtra apenas telefones que a nossa lógica diz que precisam mudar
     const standardPhonesNeedingFix = data.flatMap(c => c.telefones.filter(p => {
         if (!p.telefone || p.telefone.includes('/')) return false;
-        
-        // Se já for EUA (+1), verifica apenas se está mal formatado (ex: sem o 1 na frente)
-        if (p.country_code === '+1') {
-            const digits = p.telefone.replace(/\D/g, '');
-            // Errado se não tiver 11 dígitos ou não começar com 1 (Padrão EUA: 1 + Area + Num)
-            return digits.length !== 11 || !digits.startsWith('1');
-        }
-
-        // Regra Padrão BR (+55)
-        const digits = p.telefone.replace(/\D/g, '');
-        if (digits !== p.telefone) return true; // Tem lixo (espaço, traço)
-        
-        // Se parece BR (10 ou 11 digitos) mas não tem 55 e não está marcado como BR
-        if ((digits.length === 10 || digits.length === 11) && !digits.startsWith('1') && !digits.startsWith('55') && p.country_code !== '+55') return true;
-        
-        return false;
+        const { isModified } = standardizePhoneLogic(p.telefone, p.country_code);
+        return isModified;
     }).map(p => ({ ...p, contato_nome: c.nome || c.razao_social })));
 
     const namesNeedingFix = data.filter(c => c.nome && c.nome !== titleCase(c.nome));
@@ -89,40 +122,15 @@ export default function PadronizacaoManager() {
         queryKey: ['fixableContacts', organizacaoId],
         queryFn: () => fetchFixableData(supabase, organizacaoId),
         enabled: !!organizacaoId,
-        initialData: () => {
-            if (typeof window !== 'undefined') {
-                const cached = localStorage.getItem(CACHE_KEY);
-                if (cached) {
-                    try {
-                        const parsed = JSON.parse(cached);
-                        initialDataLoaded.current = true;
-                        return parsed;
-                    } catch (e) {
-                        console.error("Erro ao ler cache padronizacao", e);
-                    }
-                }
-            }
-            return undefined;
-        },
         staleTime: 1000 * 60 * 5,
         refetchOnMount: true,
     });
 
     useEffect(() => {
         if (dataToFix) {
-            const currentCacheStr = localStorage.getItem(CACHE_KEY);
-            const newDataStr = JSON.stringify(dataToFix);
-            if (currentCacheStr !== newDataStr) {
-                localStorage.setItem(CACHE_KEY, newDataStr);
-                if (initialDataLoaded.current && !loading) {
-                    toast.success('Lista de padronização atualizada!', {
-                        icon: <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
-                    });
-                }
-                initialDataLoaded.current = true;
-            }
+            initialDataLoaded.current = true;
         }
-    }, [dataToFix, loading]);
+    }, [dataToFix]);
     
     const { phones = [], names = [], company_names = [], multi_phones = [] } = dataToFix || {};
     
@@ -148,25 +156,11 @@ export default function PadronizacaoManager() {
 
     const handleFormatPhones = () => handleBatchUpdate(phones.length, 'telefones', async () => {
         const updates = phones.map(phone => {
-            let finalNumber = (phone.telefone || '').replace(/\D/g, '');
-            let countryCode = phone.country_code; // Mantém o original por padrão
+            // Usa a MESMA lógica da visualização para garantir consistência
+            const { finalNumber, newCountryCode } = standardizePhoneLogic(phone.telefone, phone.country_code);
 
-            // Lógica de Correção EUA
-            if (countryCode === '+1' || (finalNumber.length === 11 && finalNumber.startsWith('1'))) {
-                countryCode = '+1';
-                // Garante que comece com 1 (se tiver 10 digitos)
-                if (finalNumber.length === 10) finalNumber = '1' + finalNumber;
-            } 
-            // Lógica Padrão BR
-            else {
-                countryCode = '+55';
-                if (finalNumber.length === 10 || finalNumber.length === 11) {
-                   if (!finalNumber.startsWith('55')) finalNumber = `55${finalNumber}`;
-                }
-            }
-            
             return supabase.from('telefones')
-                .update({ telefone: finalNumber, country_code: countryCode })
+                .update({ telefone: finalNumber, country_code: newCountryCode })
                 .eq('id', phone.id)
                 .eq('organizacao_id', organizacaoId);
         });
@@ -197,12 +191,10 @@ export default function PadronizacaoManager() {
             if (numbers.length > 0) {
                 await supabase.from('telefones').delete().eq('id', phone.id).eq('organizacao_id', organizacaoId);
                 const newRecords = numbers.map(num => {
-                    let finalNumber = num.replace(/\D/g, '');
-                    let countryCode = '+55';
-                    // Detecção simples de EUA na separação também
-                    if (finalNumber.length === 11 && finalNumber.startsWith('1')) countryCode = '+1';
-                    else if ((finalNumber.length === 10 || finalNumber.length === 11) && !finalNumber.startsWith('55')) finalNumber = `55${finalNumber}`;
-                    return { contato_id: phone.contato_id, telefone: finalNumber, country_code: countryCode, tipo: 'Importado', organizacao_id: organizacaoId };
+                    // Usa a lógica padrão para cada sub-número também
+                    const { finalNumber, newCountryCode } = standardizePhoneLogic(num, '+55');
+                    
+                    return { contato_id: phone.contato_id, telefone: finalNumber, country_code: newCountryCode, tipo: 'Importado', organizacao_id: organizacaoId };
                 });
                 await supabase.from('telefones').insert(newRecords);
             }
@@ -237,20 +229,13 @@ export default function PadronizacaoManager() {
                  </div>
             )}
 
-            {/* ... Blocos de Telefones Multiplos, Empresas e Nomes permanecem iguais ... */}
-            
-            {/* Bloco de Telefones (ATUALIZADO PARA EXIBIR BANDEIRA EUA SE FOR O CASO) */}
+            {/* Bloco de Telefones */}
             {phones.length > 0 && (<div className="space-y-4 p-4 border rounded-lg bg-blue-50">
-                <div className="flex items-center gap-4"><FontAwesomeIcon icon={faPhone} className="text-2xl text-blue-500" /><div><h2 className="text-xl font-semibold">Telefones</h2></div></div>
-                <div className="space-y-3"><div className="max-h-40 overflow-y-auto border rounded-lg bg-white"><table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr><th className="px-4 py-2"><SortableHeader label="Contato" sortKey="contato_nome" sortConfig={phonesSortConfig} requestSort={(k) => requestSort(k, setPhonesSortConfig)} /></th><th className="px-4 py-2"><SortableHeader label="Atual" sortKey="telefone" sortConfig={phonesSortConfig} requestSort={(k) => requestSort(k, setPhonesSortConfig)} /></th><th className="px-4 py-2 text-left text-xs font-bold text-gray-600 uppercase">Novo</th></tr></thead><tbody className="bg-white divide-y divide-gray-200">{sortedPhones.map(p => {
-                    let finalNumber = (p.telefone || '').replace(/\D/g, '');
-                    let isUS = p.country_code === '+1';
+                <div className="flex items-center gap-4"><FontAwesomeIcon icon={faPhone} className="text-2xl text-blue-500" /><div><h2 className="text-xl font-semibold">Telefones fora do padrão</h2></div></div>
+                <div className="space-y-3"><div className="max-h-40 overflow-y-auto border rounded-lg bg-white"><table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr><th className="px-4 py-2"><SortableHeader label="Contato" sortKey="contato_nome" sortConfig={phonesSortConfig} requestSort={(k) => requestSort(k, setPhonesSortConfig)} /></th><th className="px-4 py-2"><SortableHeader label="Atual" sortKey="telefone" sortConfig={phonesSortConfig} requestSort={(k) => requestSort(k, setPhonesSortConfig)} /></th><th className="px-4 py-2 text-left text-xs font-bold text-gray-600 uppercase">Será Salvo Como (Sem Máscara)</th></tr></thead><tbody className="bg-white divide-y divide-gray-200">{sortedPhones.map(p => {
                     
-                    if (isUS || (finalNumber.length === 11 && finalNumber.startsWith('1'))) {
-                        isUS = true;
-                        if(finalNumber.length === 10) finalNumber = '1' + finalNumber;
-                    } 
-                    else if (finalNumber.length === 10 || finalNumber.length === 11) finalNumber = `55${finalNumber}`;
+                    // AQUI ESTÁ A GARANTIA: Usamos a mesma função que será usada ao salvar
+                    const { finalNumber } = standardizePhoneLogic(p.telefone, p.country_code);
                     
                     return (<tr key={p.id}>
                         <td className="px-4 py-2 text-xs">{p.contato_nome}</td>
@@ -258,7 +243,10 @@ export default function PadronizacaoManager() {
                            {p.country_code === '+1' && <FontAwesomeIcon icon={faGlobeAmericas} className="text-blue-400" title="USA" />}
                            {p.telefone}
                         </td>
-                        <td className="px-4 py-2 text-xs text-green-600">{formatPhoneNumber(finalNumber)}</td>
+                        <td className="px-4 py-2 text-xs text-green-700 font-mono font-bold flex items-center gap-2">
+                            <FontAwesomeIcon icon={faArrowRight} className="text-gray-300" />
+                            {finalNumber}
+                        </td>
                     </tr>);
                 })}</tbody></table></div><button onClick={handleFormatPhones} disabled={mutation.isPending} className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 text-sm"><FontAwesomeIcon icon={mutation.isPending ? faSpinner : faWandMagicSparkles} spin={mutation.isPending} /> Padronizar {phones.length} Telefones</button></div>
             </div>)}

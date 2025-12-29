@@ -1,3 +1,4 @@
+// components/whatsapp/ConversationList.js
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -26,6 +27,7 @@ import NewConversationModal from './NewConversationModal';
 import CreateBroadcastModal from './CreateBroadcastModal'; 
 import QuickCardModal from './QuickCardModal';
 import { usePersistentState } from '@/hooks/usePersistentState';
+import { formatPhoneNumber } from '@/utils/formatters'; // Importante para exibir o número formatado
 
 // --- COMPONENTE DO CRONÔMETRO DA JANELA ---
 const ServiceWindowTimer = ({ lastInboundAt }) => {
@@ -82,6 +84,9 @@ const ServiceWindowTimer = ({ lastInboundAt }) => {
 const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArchivedList }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+    // LÓGICA DE NOME: Tenta pegar do contato, depois o nome bruto, depois o telefone formatado.
+    const contactName = conversation.contatos?.nome || conversation.nome || formatPhoneNumber(conversation.phone_number || conversation.customer_phone || '');
+
     const formatMessageDate = (dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
@@ -111,7 +116,7 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
                         {conversation.avatar_url ? (
                             <img src={conversation.avatar_url} alt="" className="w-full h-full object-cover" />
                         ) : (
-                            (conversation.nome || '?').charAt(0).toUpperCase()
+                            (contactName || '?').charAt(0).toUpperCase()
                         )}
                     </div>
                     {conversation.unread_count > 0 && (
@@ -125,7 +130,7 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
                 <div className="ml-4 flex-grow min-w-0 pr-8">
                     <div className="flex justify-between items-baseline">
                         <h3 className="font-semibold text-gray-900 truncate pr-2 text-sm">
-                            {conversation.nome || conversation.phone_number}
+                            {contactName}
                         </h3>
                         {conversation.last_message_at && (
                             <span className={`text-xs flex-shrink-0 ${conversation.unread_count > 0 ? 'text-[#00a884] font-bold' : 'text-gray-400'}`}>
@@ -142,7 +147,7 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
 
                     {/* Tags (Funil, Tipo e TIMER) */}
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        {/* TIMER DA JANELA 24H (Novo!) */}
+                        {/* TIMER DA JANELA 24H */}
                         <ServiceWindowTimer lastInboundAt={conversation.last_inbound_at} />
 
                         {/* Etapa do Funil */}
@@ -226,9 +231,7 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
     );
 };
 
-// ... (BroadcastListItem e ConversationList mantidos, apenas substituídos no arquivo final)
-// Vou incluir o resto do arquivo para garantir que você tenha o código completo para copiar e colar
-
+// --- COMPONENTE ITEM DA LISTA DE TRANSMISSÃO ---
 const BroadcastListItem = ({ list, onSelect, onDelete, isSelected }) => (
     <li 
       onClick={() => onSelect(list)}

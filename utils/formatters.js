@@ -16,11 +16,13 @@ export const formatPhoneNumber = (phoneNumber) => {
     }
     
     // Formato Brasil Celular (+55)
+    // Ex: 5533999998888 (13 digitos)
     if (digitsOnly.startsWith('55') && digitsOnly.length === 13) {
         return `+${digitsOnly.substring(0, 2)} (${digitsOnly.substring(2, 4)}) ${digitsOnly.substring(4, 9)}-${digitsOnly.substring(9)}`;
     }
 
-    // Formato Brasil Fixo (+55)
+    // Formato Brasil Fixo ou Celular Antigo (+55)
+    // Ex: 553332715000 (12 digitos)
     if (digitsOnly.startsWith('55') && digitsOnly.length === 12) {
         return `+${digitsOnly.substring(0, 2)} (${digitsOnly.substring(2, 4)}) ${digitsOnly.substring(4, 8)}-${digitsOnly.substring(8)}`;
     }

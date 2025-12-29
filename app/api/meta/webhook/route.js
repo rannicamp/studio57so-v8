@@ -2,10 +2,10 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Função para obter o cliente Supabase Admin (O "Chefe" que tem permissão total)
+// Função para obter o cliente Supabase Admin
 const getSupabaseAdmin = () => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SECRET_KEY; // Service Role Key
+    const supabaseKey = process.env.SUPABASE_SECRET_KEY; 
     if (!supabaseUrl || !supabaseKey) {
         console.error("LOG: ERRO CRÍTICO - Variáveis de ambiente do Supabase não encontradas!");
         return null;
@@ -13,9 +13,28 @@ const getSupabaseAdmin = () => {
     return createClient(supabaseUrl, supabaseKey);
 };
 
-// --- FUNÇÕES AUXILIARES (DETETIVES) ---
+// --- FUNÇÕES AUXILIARES ---
 
-// Busca o nome do objeto na Meta (Campanha, Anúncio, etc.)
+// Helper de Padronização de Telefone
+function sanitizePhone(phone) {
+    if (!phone) return null;
+    let clean = phone.replace(/\D/g, ''); // Remove tudo que não é número
+    
+    // Lógica do Porteiro (Gatekeeper):
+    // Se tiver 10 ou 11 dígitos, assumimos que é Brasil sem DDI -> Adiciona 55
+    if (clean.length === 10 || clean.length === 11) {
+        // Proteção simples contra números EUA que começam com 1
+        // Se começar com 1 e tiver 11 digitos, verificamos o terceiro digito (SP/RJ tem 9)
+        // Se for 1 + DDD + numero (EUA), o terceiro digito raramente é 9.
+        if (clean.startsWith('1') && clean.length === 11 && clean[2] !== '9') {
+             // Provavel EUA, mantém (Ex: 1 508 ... )
+        } else {
+             clean = '55' + clean;
+        }
+    }
+    return clean;
+}
+
 async function getMetaObjectName(objectId) {
     const accessToken = process.env.META_PAGE_ACCESS_TOKEN;
     if (!objectId || !accessToken) return null;
@@ -24,15 +43,12 @@ async function getMetaObjectName(objectId) {
         const response = await fetch(url);
         const data = await response.json();
         if (response.ok) return data.name || null;
-        console.error(`LOG: Falha ao buscar nome para ID ${objectId}:`, data.error?.message);
         return null;
     } catch (error) {
-        console.error(`LOG: Erro de rede ao buscar nome para ID ${objectId}:`, error);
         return null;
     }
 }
 
-// Descobre qual é a organização dona da página do Facebook
 async function getOrganizationIdByPageId(supabase, pageId) {
     const accessToken = process.env.META_PAGE_ACCESS_TOKEN;
     if (!accessToken) throw new Error("[DETETIVE] Token de Acesso à Página não configurado.");
@@ -46,12 +62,11 @@ async function getOrganizationIdByPageId(supabase, pageId) {
     if (!metaBusinessId) throw new Error(`[DETETIVE] A página ${pageId} não pertence a um Gerenciador de Negócios.`);
 
     const { data: empresa, error } = await supabase.from('cadastro_empresa').select('organizacao_id').eq('meta_business_id', metaBusinessId).single();
-    if (error || !empresa) throw new Error(`[DETETIVE] Nenhuma empresa no sistema encontrada com o Meta Business ID: ${metaBusinessId}. Verifique o cadastro.`);
+    if (error || !empresa) throw new Error(`[DETETIVE] Nenhuma empresa no sistema encontrada com o Meta Business ID: ${metaBusinessId}.`);
     
     return empresa.organizacao_id;
 }
 
-// Garante que o Funil e a Coluna de entrada existam
 async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
     let { data: funil } = await supabase.from('funis').select('id').eq('nome', 'Funil de Vendas').eq('organizacao_id', organizacaoId).single();
     if (!funil) {
@@ -68,30 +83,15 @@ async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
     return primeiraColuna.id;
 }
 
-// 🎯 NOVA FUNÇÃO: Busca o "Exército do Comercial"
-// Encontra todos os usuários que são 'Comercial' ou 'Proprietário' para avisar
 async function getEquipeComercial(supabase, organizacaoId) {
-    // 1. Acha os IDs das funções que nos interessam
-    const { data: funcoes } = await supabase
-        .from('funcoes')
-        .select('id')
-        .in('nome_funcao', ['Proprietário', 'Proprietario', 'Comercial']) // Pega donos e vendedores
-        .eq('organizacao_id', organizacaoId);
-        
+    const { data: funcoes } = await supabase.from('funcoes').select('id').in('nome_funcao', ['Proprietário', 'Proprietario', 'Comercial']).eq('organizacao_id', organizacaoId); 
     if (!funcoes?.length) return [];
     const funcoesIds = funcoes.map(f => f.id);
-    
-    // 2. Acha os usuários que têm essas funções
-    const { data: users } = await supabase
-        .from('usuarios')
-        .select('id')
-        .in('funcao_id', funcoesIds)
-        .eq('organizacao_id', organizacaoId);
-        
+    const { data: users } = await supabase.from('usuarios').select('id').in('funcao_id', funcoesIds).eq('organizacao_id', organizacaoId);
     return users || [];
 }
 
-// --- FIM DAS FUNÇÕES AUXILIARES ---
+// --- FIM AUXILIARES ---
 
 export async function GET(request) {
     const META_VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
@@ -105,10 +105,7 @@ export async function POST(request) {
     console.log("LOG: [INÍCIO] Requisição POST recebida no webhook.");
     
     const supabase = getSupabaseAdmin();
-    if (!supabase || !process.env.META_PAGE_ACCESS_TOKEN) {
-        console.error("LOG: ERRO CRÍTICO - Configuração do servidor (Supabase/Meta Token) incompleta.");
-        return new NextResponse(JSON.stringify({ status: 'error', message: 'Configuração do servidor incompleta.' }), { status: 200 });
-    }
+    if (!supabase || !process.env.META_PAGE_ACCESS_TOKEN) return new NextResponse(JSON.stringify({ status: 'error', message: 'Configuração incompleta.' }), { status: 200 });
     
     let contatoIdParaLimpeza = null;
 
@@ -120,37 +117,26 @@ export async function POST(request) {
         
         const { leadgen_id: leadId, page_id: pageId, campaign_id: campaignId, ad_id: adId, adgroup_id: adsetId } = change.value;
 
-        if (!leadId || !pageId) {
-            throw new Error("Payload do lead incompleto (faltando lead_id ou page_id).");
-        }
+        if (!leadId || !pageId) throw new Error("Payload do lead incompleto.");
         
         const { data: existingLead } = await supabase.from('contatos').select('id').eq('meta_lead_id', leadId).single();
         if (existingLead) return new NextResponse(JSON.stringify({ status: 'lead_already_exists' }), { status: 200 });
         
         const organizacaoId = await getOrganizationIdByPageId(supabase, pageId);
         
-        let campaignName = null;
-        let adsetName = null;
-        let adName = null;
+        let campaignName = null, adsetName = null, adName = null;
 
-        // Enriquecimento de dados (Campanha, Conjunto, Anúncio)
         if (campaignId) {
             campaignName = await getMetaObjectName(campaignId);
             await supabase.from('meta_campaigns').upsert({ id: campaignId, name: campaignName, organizacao_id: organizacaoId }).throwOnError();
         }
-
         if (adsetId) {
             adsetName = await getMetaObjectName(adsetId);
-            if (campaignId) {
-                await supabase.from('meta_adsets').upsert({ id: adsetId, name: adsetName, campaign_id: campaignId, organizacao_id: organizacaoId }).throwOnError();
-            }
+            if (campaignId) await supabase.from('meta_adsets').upsert({ id: adsetId, name: adsetName, campaign_id: campaignId, organizacao_id: organizacaoId }).throwOnError();
         }
-        
         if (adId) {
             adName = await getMetaObjectName(adId);
-            if (campaignId && adsetId) { 
-                await supabase.from('meta_ads').upsert({ id: adId, name: adName, campaign_id: campaignId, adset_id: adsetId, organizacao_id: organizacaoId }).throwOnError();
-            }
+            if (campaignId && adsetId) await supabase.from('meta_ads').upsert({ id: adId, name: adName, campaign_id: campaignId, adset_id: adsetId, organizacao_id: organizacaoId }).throwOnError();
         }
 
         const leadDetailsResponse = await fetch(`https://graph.facebook.com/v20.0/${leadId}?access_token=${process.env.META_PAGE_ACCESS_TOKEN}`);
@@ -160,7 +146,6 @@ export async function POST(request) {
         const allLeadData = {};
         leadDetails.field_data.forEach(field => { allLeadData[field.name] = field.values[0]; });
         
-        // Criação do Contato
         const { data: newContact, error: contactError } = await supabase.from('contatos').insert({
             nome: allLeadData.full_name || `Lead Meta (${new Date().toLocaleDateString()})`,
             origem: 'Meta Lead Ad',
@@ -183,56 +168,42 @@ export async function POST(request) {
         if (contactError) throw new Error(`Erro ao criar contato: ${contactError.message}`);
         
         contatoIdParaLimpeza = newContact.id;
-        console.log(`LOG: Contato criado com ID: ${contatoIdParaLimpeza}`);
 
         if (allLeadData.email) await supabase.from('emails').insert({ contato_id: contatoIdParaLimpeza, email: allLeadData.email, tipo: 'Principal', organizacao_id: organizacaoId });
-        if (allLeadData.phone_number) await supabase.from('telefones').insert({ contato_id: contatoIdParaLimpeza, telefone: allLeadData.phone_number.replace(/\D/g, ''), tipo: 'Celular', organizacao_id: organizacaoId });
+        
+        // --- AQUI A CORREÇÃO: Usamos sanitizePhone ---
+        if (allLeadData.phone_number) {
+            const finalPhone = sanitizePhone(allLeadData.phone_number);
+            if (finalPhone) {
+                await supabase.from('telefones').insert({ contato_id: contatoIdParaLimpeza, telefone: finalPhone, tipo: 'Celular', organizacao_id: organizacaoId });
+            }
+        }
         
         const primeiraColunaId = await ensureFunilAndFirstColumn(supabase, organizacaoId);
         await supabase.from('contatos_no_funil').insert({ contato_id: contatoIdParaLimpeza, coluna_id: primeiraColunaId, organizacao_id: organizacaoId }).throwOnError();
         
-        console.log('LOG: SUCESSO! Contato adicionado ao funil!');
-        
-        // --- 🔔 AVISANDO A EQUIPE COMERCIAL (Sininho) ---
         try {
-            // 1. Descobre quem é da equipe
             const equipeComercial = await getEquipeComercial(supabase, organizacaoId);
-            
             if (equipeComercial.length > 0) {
-                console.log(`🔔 Notificando ${equipeComercial.length} membros do Comercial/Proprietários.`);
-
-                // 2. Prepara as notificações
                 const notificacoes = equipeComercial.map(usuario => ({
                     user_id: usuario.id,
                     titulo: '🚀 Novo Lead Chegou!',
                     mensagem: `Oportunidade: ${allLeadData.full_name} veio pelo anúncio "${adName || 'Desconhecido'}". Corre lá!`,
                     link: `/crm`,
-                    tipo: 'sucesso', // Ícone verdinho de sucesso/dinheiro
+                    tipo: 'sucesso',
                     organizacao_id: organizacaoId,
                     lida: false,
                     created_at: new Date().toISOString()
                 }));
-
-                // 3. Insere no banco (Admin tem poder pra isso)
-                const { error: notifError } = await supabase.from('notificacoes').insert(notificacoes);
-                if (notifError) console.error('Erro ao inserir notificações:', notifError);
-            } else {
-                console.log('ℹ️ Ninguém da equipe Comercial/Proprietário encontrado para notificar.');
+                await supabase.from('notificacoes').insert(notificacoes);
             }
-        } catch (notifErr) {
-            console.error('Erro no bloco de notificação:', notifErr);
-            // Não paramos o processo se a notificação falhar, o lead já está salvo.
-        }
-        // --- FIM DA NOTIFICAÇÃO ---
+        } catch (notifErr) { console.error('Erro notificação:', notifErr); }
 
         return new NextResponse(JSON.stringify({ status: 'success' }), { status: 200 });
 
     } catch (e) {
-        console.error('LOG: [ERRO GERAL NO WEBHOOK] Processo interrompido:', e.message);
-        if (contatoIdParaLimpeza) {
-            console.log(`LOG: [LIMPEZA] Removendo contato órfão ID: ${contatoIdParaLimpeza}`);
-            await supabase.from('contatos').delete().eq('id', contatoIdParaLimpeza);
-        }
+        console.error('LOG: [ERRO WEBHOOK]', e.message);
+        if (contatoIdParaLimpeza) await supabase.from('contatos').delete().eq('id', contatoIdParaLimpeza);
         return new NextResponse(JSON.stringify({ status: 'error', message: e.message }), { status: 200 }); 
     }
 }

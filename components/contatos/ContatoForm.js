@@ -1,14 +1,14 @@
 // components/contatos/ContatoForm.js
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { IMaskInput } from 'react-imask';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; 
-import { faSpinner, faTrashAlt, faPlusCircle, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTrashAlt, faPlusCircle, faTimes, fafingerprint, faFingerprint } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
 // Importamos APENAS a busca de CNPJ da server action
@@ -53,38 +53,64 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     return (<span>{parts.map((part, i) => regex.test(part) ? <mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark> : <span key={i}>{part}</span>)}</span>);
 };
 
+// --- CONFIGURAÇÃO DE MÁSCARAS INTELIGENTES ---
 const countries = [
-    { name: "Brasil", code: "BR", dial_code: "+55", mask: "(00) 00000-0000" },
-    { name: "Estados Unidos", code: "US", dial_code: "+1", mask: "(000) 000-0000" },
-    { name: "Portugal", code: "PT", dial_code: "+351", mask: "000 000 000" },
+    { 
+        name: "Brasil", 
+        code: "BR", 
+        dial_code: "+55", 
+        // Máscara Híbrida: Aceita (33) 9999-9999 e (33) 99999-9999
+        mask: "(00) 0000-0000[0]" 
+    },
+    { 
+        name: "Estados Unidos", 
+        code: "US", 
+        dial_code: "+1", 
+        mask: "(000) 000-0000" 
+    },
+    { 
+        name: "Portugal", 
+        code: "PT", 
+        dial_code: "+351", 
+        mask: "000 000 000" 
+    },
 ];
 
 const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }) => {
     const handleUpdate = (field, newValue) => onUpdate(index, field, newValue);
+    
     if (isPhone) {
+        // Encontra o país baseado no código ou usa Brasil como fallback
         const selectedCountry = countries.find(c => c.dial_code === item.country_code) || countries[0];
         const mask = selectedCountry.mask;
 
         return (
-            <div className="flex items-center gap-2">
-                <select value={item.country_code || '+55'} onChange={(e) => handleUpdate('country_code', e.target.value)} className="p-2 border rounded-md bg-gray-50 text-sm max-w-[150px]">
+            <div className="flex items-center gap-2 mb-2">
+                <select 
+                    value={item.country_code || '+55'} 
+                    onChange={(e) => handleUpdate('country_code', e.target.value)} 
+                    className="p-2 border rounded-md bg-gray-50 text-sm max-w-[150px]"
+                >
                     {countries.map(c => (<option key={c.code} value={c.dial_code}>{c.name} ({c.dial_code})</option>))}
                 </select>
+                
                 <IMaskInput
                     mask={mask}
                     placeholder="(DDD) Telefone"
                     value={item.telefone || ''}
+                    unmask={true} 
                     onAccept={(value) => handleUpdate('telefone', value)}
                     className="flex-grow p-2 border rounded-md"
                 />
-                <button type="button" onClick={() => onRemove(index)} className="text-red-500 hover:text-red-700 p-2 rounded-full">
+                
+                <button type="button" onClick={() => onRemove(index)} className="text-red-500 hover:text-red-700 p-2 rounded-full" title="Remover telefone">
                     <FontAwesomeIcon icon={faTrashAlt} />
                 </button>
             </div>
         );
     }
     return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mb-2">
             <input
                 type="email"
                 placeholder="email@exemplo.com"
@@ -92,7 +118,7 @@ const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }
                 onChange={(e) => handleUpdate('email', e.target.value)}
                 className="flex-grow p-2 border rounded-md"
             />
-            <button type="button" onClick={() => onRemove(index)} className="text-red-500 hover:text-red-700 p-2 rounded-full">
+            <button type="button" onClick={() => onRemove(index)} className="text-red-500 hover:text-red-700 p-2 rounded-full" title="Remover e-mail">
                 <FontAwesomeIcon icon={faTrashAlt} />
             </button>
         </div>
@@ -108,7 +134,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     const isEditing = Boolean(contactToEdit);
     const { user } = useAuth();
     
-    // Fallback de segurança
     const currentOrgId = organizacaoId || user?.organizacao_id;
 
     const getInitialState = () => ({
@@ -134,11 +159,41 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     const [conjugeSearchResults, setConjugeSearchResults] = useState([]);
     const [selectedConjugeName, setSelectedConjugeName] = useState('');
 
-    // --- CORREÇÃO DO LOOP DE RESET (TEXTO SUMINDO) ---
     useEffect(() => {
         const initializeData = async () => {
             if (isEditing && contactToEdit) {
-                const phonesData = contactToEdit.telefones || [{ telefone: '', country_code: '+55' }];
+                
+                // --- INTELIGÊNCIA DE CORREÇÃO DE TELEFONES ---
+                const phonesData = (contactToEdit.telefones || []).map(tel => {
+                    let rawPhone = tel.telefone ? String(tel.telefone).replace(/\D/g, '') : '';
+                    let countryCode = tel.country_code || '+55';
+                    
+                    // CORREÇÃO AUTOMÁTICA DE DADOS "SUJOS" NO CARREGAMENTO
+                    // Se o banco diz que é Brasil (+55), mas o número tem cara de EUA (11 digitos começando com 1)
+                    if (countryCode === '+55' && rawPhone.length === 11 && rawPhone.startsWith('1')) {
+                        // Verifica se NÃO é celular de SP (Ex: 11 9...)
+                        // Se o terceiro dígito não for 9, é quase certeza EUA (Ex: 1 508 ...)
+                        if (rawPhone[2] !== '9') {
+                            countryCode = '+1'; // Força visualmente para EUA
+                        }
+                    }
+
+                    // Se for EUA (+1) detectado (seja pelo banco ou pela correção acima)
+                    if (countryCode === '+1') {
+                        if (rawPhone.startsWith('1') && rawPhone.length === 11) {
+                            rawPhone = rawPhone.substring(1); // Remove o '1' para encaixar na mascara (000) 000-0000
+                        }
+                    }
+                    // Se for Brasil (+55)
+                    else if (countryCode === '+55') {
+                        if (rawPhone.startsWith('55') && (rawPhone.length === 12 || rawPhone.length === 13)) {
+                            rawPhone = rawPhone.substring(2); // Remove o '55' para encaixar na mascara
+                        }
+                    }
+
+                    return { ...tel, telefone: rawPhone, country_code: countryCode };
+                });
+
                 const emailsData = contactToEdit.emails || [{ email: '' }];
                 
                 if (contactToEdit.conjuge_id && !selectedConjugeName) {
@@ -164,9 +219,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         };
         
         initializeData();
-        
-        // Removemos 'supabase' e 'contactToEdit' (objeto) das dependências
-        // Usamos contactToEdit?.id para resetar APENAS se mudar de contato
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isEditing, contactToEdit?.id, currentOrgId]); 
 
@@ -241,20 +293,35 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             if (errorDb) throw new Error(`Erro Banco: ${errorDb.message}`);
             if (!contatoId) throw new Error("ID do contato não retornado.");
 
-            const cleanedPhones = (telefones || []).filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0);
+            // LIMPEZA E FORMATAÇÃO DOS TELEFONES PARA O BANCO
+            const cleanedPhones = (telefones || [])
+                .filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0)
+                .map(tel => {
+                    let cleanNumber = tel.telefone.replace(/\D/g, ''); 
+                    const ddi = tel.country_code ? tel.country_code.replace('+', '') : '55';
+                    
+                    // Se o número digitado não começar com o DDI selecionado, adiciona.
+                    // Isso conserta permanentemente o banco ao salvar
+                    if (!cleanNumber.startsWith(ddi)) {
+                        cleanNumber = ddi + cleanNumber;
+                    }
+                    
+                    return {
+                        contato_id: contatoId,
+                        telefone: cleanNumber, // O número salvo SEMPRE terá o DDI no início
+                        country_code: tel.country_code || '+55',
+                        tipo: 'Celular',
+                        organizacao_id: currentOrgId
+                    };
+                });
+
             const cleanedEmails = (emails || []).filter(mail => mail.email && mail.email.trim() !== '');
 
             await supabase.from('telefones').delete().eq('contato_id', contatoId);
             await supabase.from('emails').delete().eq('contato_id', contatoId);
 
             if (cleanedPhones.length > 0) {
-                await supabase.from('telefones').insert(cleanedPhones.map(tel => ({
-                    contato_id: contatoId,
-                    telefone: tel.telefone,
-                    country_code: tel.country_code || '+55',
-                    tipo: 'Celular',
-                    organizacao_id: currentOrgId
-                })));
+                await supabase.from('telefones').insert(cleanedPhones);
             }
 
             if (cleanedEmails.length > 0) {
@@ -399,7 +466,17 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     
     return (
         <form onSubmit={handleSave} className="space-y-6 p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">{isEditing ? 'Editar Contato' : 'Cadastrar Novo Contato'}</h2>
+            <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-gray-800">{isEditing ? 'Editar Contato' : 'Cadastrar Novo Contato'}</h2>
+                    {isEditing && contactToEdit?.id && (
+                        <span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex items-center gap-1" title="ID do Banco de Dados">
+                            <FontAwesomeIcon icon={faFingerprint} />
+                            #{contactToEdit.id}
+                        </span>
+                    )}
+                </div>
+            </div>
             
              {isEditing && formData.origem && (
                 <div className="p-3 bg-gray-100 rounded-md">
@@ -519,7 +596,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                             <option value="Cliente">Cliente</option>
                             <option value="Fornecedor">Fornecedor</option>
                             <option value="Parceiro">Parceiro</option>
-                            <option value="Corretor">Corretor</option> {/* <--- AQUI ESTÁ A OPÇÃO! */}
+                            <option value="Corretor">Corretor</option>
                         </select>
                     </div>
                 </div>

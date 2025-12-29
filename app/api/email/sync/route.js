@@ -22,7 +22,6 @@ if (publicKey && privateKey) {
 // --- FUNÇÃO DE DISPARO ---
 async function dispatchEmailNotification(supabase, userId, title, message, organizacaoId, specificEmailId = null) {
     try {
-        // Link inteligente: Se tiver ID específico, aponta pra ele. Se não, vai pra Inbox geral.
         const targetUrl = specificEmailId 
             ? `/caixa-de-entrada?email_id=${specificEmailId}` 
             : '/caixa-de-entrada';
@@ -49,7 +48,7 @@ async function dispatchEmailNotification(supabase, userId, title, message, organ
             const payload = JSON.stringify({
                 title: title,
                 body: message,
-                url: targetUrl, // O Service Worker vai ler isso aqui
+                url: targetUrl,
                 icon: '/icons/icon-192x192.png',
                 tag: 'email-update'
             });
@@ -70,8 +69,9 @@ async function dispatchEmailNotification(supabase, userId, title, message, organ
 
 async function runEmailSync() {
     const supabase = await createClient();
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    // Reduzimos a janela de busca para evitar sobrecarga (1 mês em vez de 3)
+    const searchWindow = new Date();
+    searchWindow.setMonth(searchWindow.getMonth() - 1);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Sem usuário na sessão (Cron requer Service Role)' };
@@ -79,8 +79,8 @@ async function runEmailSync() {
     const { data: accounts } = await supabase.from('email_configuracoes').select('*').eq('user_id', user.id);
     if (!accounts?.length) return { message: 'Sem contas configuradas' };
 
-    let totalNew = 0;
-    let singleNewMessageData = null; // Vamos guardar os dados do "único" novo e-mail aqui
+    let totalNotificationWorthy = 0; // Contador APENAS para notificações RECENTES
+    let singleNewMessageData = null; 
 
     for (const config of accounts) {
         let connection = null;
@@ -99,7 +99,6 @@ async function runEmailSync() {
 
             const boxes = await connection.getBoxes();
             
-            // Função auxiliar para achar a Inbox
             const findInbox = (list) => {
                 for (const key in list) {
                     if (key.toUpperCase() === 'INBOX' || key.toUpperCase().includes('CAIXA DE ENTRADA')) return key;
@@ -113,21 +112,28 @@ async function runEmailSync() {
             const inboxName = findInbox(boxes);
 
             await connection.openBox(inboxName);
-            const searchCriteria = [['UNSEEN'], ['SINCE', threeMonthsAgo]];
+            const searchCriteria = [['UNSEEN'], ['SINCE', searchWindow]];
             const fetchOptions = { bodies: ['HEADER'], struct: true };
             const messages = await connection.search(searchCriteria, fetchOptions);
 
             if (messages.length > 0) {
                 const uids = messages.map(m => m.attributes.uid);
                 
-                // Checa duplicatas
-                const { data: existing } = await supabase
-                    .from('email_messages_cache')
-                    .select('uid')
-                    .eq('account_id', config.id)
-                    .in('uid', uids);
+                // --- CORREÇÃO 1: Batching (Lotes) para evitar erro de memória ---
+                const existingSet = new Set();
+                const chunkSize = 100; // Verifica em lotes menores
                 
-                const existingSet = new Set(existing?.map(e => e.uid) || []);
+                for (let i = 0; i < uids.length; i += chunkSize) {
+                    const chunk = uids.slice(i, i + chunkSize);
+                    const { data: existingBatch } = await supabase
+                        .from('email_messages_cache')
+                        .select('uid')
+                        .eq('account_id', config.id)
+                        .in('uid', chunk);
+                    
+                    existingBatch?.forEach(e => existingSet.add(e.uid));
+                }
+                
                 const reallyNewMessages = messages.filter(m => !existingSet.has(m.attributes.uid));
 
                 if (reallyNewMessages.length > 0) {
@@ -143,21 +149,31 @@ async function runEmailSync() {
                         updated_at: new Date().toISOString()
                     }));
                     
-                    // Salva e recupera os IDs gerados
+                    // Salva em lotes
                     for (let i = 0; i < toInsert.length; i += 50) {
                         const batch = toInsert.slice(i, i + 50);
                         const { data: insertedRows } = await supabase
                             .from('email_messages_cache')
                             .upsert(batch, { onConflict: 'account_id, folder_path, uid' })
-                            .select('id, uid, account_id'); // Recupera o ID do banco
+                            .select('id, uid, account_id, date'); 
                         
-                        // Se for apenas 1 mensagem nova no total, guarda ela para usar no link
-                        if (reallyNewMessages.length === 1 && insertedRows && insertedRows.length > 0) {
-                            singleNewMessageData = insertedRows[0];
+                        // --- CORREÇÃO 2: Só notifica se for RECENTE (últimos 60 min) ---
+                        if (insertedRows) {
+                            insertedRows.forEach(row => {
+                                const emailDate = new Date(row.date);
+                                const now = new Date();
+                                // Diferença em minutos
+                                const diffMinutes = (now - emailDate) / 1000 / 60;
+
+                                // Se o e-mail chegou há menos de 60 minutos, conta para notificação.
+                                // Se for e-mail de 3 meses atrás que estava não lido, salva mas NÃO notifica.
+                                if (diffMinutes < 60) {
+                                    totalNotificationWorthy++;
+                                    singleNewMessageData = row;
+                                }
+                            });
                         }
                     }
-
-                    totalNew += reallyNewMessages.length;
                 }
             }
             connection.end();
@@ -167,13 +183,13 @@ async function runEmailSync() {
         }
     }
 
-    if (totalNew > 0) {
+    // Só dispara se tiver e-mails RECENTES
+    if (totalNotificationWorthy > 0) {
         let title = '📧 Novo E-mail!';
-        let msg = `Você tem ${totalNew} novas mensagens.`;
+        let msg = `Você tem ${totalNotificationWorthy} novas mensagens.`;
         let linkId = null;
 
-        // Se for só UM e-mail novo, o link vai direto pra ele
-        if (totalNew === 1 && singleNewMessageData) {
+        if (totalNotificationWorthy === 1 && singleNewMessageData) {
              linkId = singleNewMessageData.id;
              msg = 'Toque para ler agora.';
         }
@@ -181,7 +197,7 @@ async function runEmailSync() {
         await dispatchEmailNotification(supabase, user.id, title, msg, accounts[0].organizacao_id, linkId);
     }
 
-    return { success: true, newEmails: totalNew };
+    return { success: true, newEmails: totalNotificationWorthy };
 }
 
 export async function GET(request) {
