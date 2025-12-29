@@ -253,13 +253,14 @@ export default function FinanceiroPage() {
                 {activeTab === 'extrato' && <ExtratoManager contas={contas} onEdit={handleOpenEditModal} />}
                 {activeTab === 'cartoes' && <GerenciadorFaturas contasCartao={contasCartao} />}
                 
-                {/* AQUI ESTÁ A MÁGICA: Passamos 'filters' para a nova aba */}
                 {activeTab === 'planejamento' && <PlanejamentoFolha filters={filters} setFilters={setFilters} />} 
                 {activeTab === 'documentos' && <DocumentosManager filters={filters} />}
 
                 {activeTab === 'lancamentos' && (
                     <>
-                        <FinanceiroStats filters={filters} />
+                        {/* CORREÇÃO AQUI: Passar os dados retornados pelo useQuery (financeiroStats) para o componente desenhar */}
+                        <FinanceiroStats data={financeiroStats} isLoading={isLoadingStats} />
+                        
                         <LancamentosManager 
                             lancamentos={lancamentos}
                             loading={isLoadingLancamentos || isRefetching}
