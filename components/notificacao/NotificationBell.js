@@ -6,92 +6,78 @@ import { createClient } from '@/utils/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  faBell, 
-  faCheck, 
-  faInbox, 
-  faMoneyBillWave, 
-  faHardHat, 
-  faExclamationTriangle, 
-  faBullhorn,
-  faCheckCircle
+  faBell, faCheck, faInbox, faMoneyBillWave, faHardHat, 
+  faExclamationTriangle, faBullhorn, faCheckCircle, faCommentDots 
 } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
-// Mapa de ícones e cores por tipo de notificação
+// Ícones Modernos
 const TIPO_CONFIG = {
-  financeiro: { icon: faMoneyBillWave, color: 'text-green-600', bg: 'bg-green-100' },
-  obras:      { icon: faHardHat,       color: 'text-orange-600', bg: 'bg-orange-100' },
-  erro:       { icon: faExclamationTriangle, color: 'text-red-600', bg: 'bg-red-100' },
-  sucesso:    { icon: faCheckCircle,   color: 'text-teal-600',  bg: 'bg-teal-100' },
-  alerta:     { icon: faBullhorn,      color: 'text-yellow-600', bg: 'bg-yellow-100' },
-  sistema:    { icon: faBell,          color: 'text-blue-600',   bg: 'bg-blue-100' },
-  default:    { icon: faBell,          color: 'text-gray-600',   bg: 'bg-gray-100' }
+  financeiro: { icon: faMoneyBillWave, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  obras:      { icon: faHardHat,       color: 'text-orange-600',  bg: 'bg-orange-50' },
+  erro:       { icon: faExclamationTriangle, color: 'text-red-600', bg: 'bg-red-50' },
+  sucesso:    { icon: faCheckCircle,   color: 'text-blue-600',    bg: 'bg-blue-50' },
+  alerta:     { icon: faBullhorn,      color: 'text-amber-600',   bg: 'bg-amber-50' },
+  sistema:    { icon: faBell,          color: 'text-indigo-600',  bg: 'bg-indigo-50' },
+  whatsapp:   { icon: faCommentDots,   color: 'text-green-600',   bg: 'bg-green-50' },
+  default:    { icon: faBell,          color: 'text-gray-500',    bg: 'bg-gray-50' }
 };
 
 export default function NotificationBell() {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
-  const lastNotificationIdRef = useRef(null); // Para rastrear novidades
+  const lastIdRef = useRef(null);
   
   const supabase = createClient();
   const queryClient = useQueryClient();
 
-  // 1. CARREGAMENTO MÁGICO (Polling + Cache)
-  const { data: notificacoes = [], isLoading, isRefetching } = useQuery({
+  const { data: notificacoes = [], isLoading } = useQuery({
     queryKey: ['notificacoes', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('notificacoes')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-      return data;
+        .limit(15);
+      return data || [];
     },
     enabled: !!user,
-    refetchInterval: 15000, // Checa a cada 15s
-    staleTime: 1000 * 60,   // Considera os dados "frescos" por 1 min (evita loading spinner desnecessário)
+    refetchInterval: 10000,
   });
 
-  // 2. DETECTOR DE NOVIDADES
   useEffect(() => {
     if (notificacoes.length > 0) {
-      const latestId = notificacoes[0].id;
-      
-      // Se tivermos um ID salvo e o novo for diferente, chegou coisa nova!
-      if (lastNotificationIdRef.current && latestId !== lastNotificationIdRef.current) {
-        toast.info("🔔 Novas notificações recebidas!");
-        // Toca um som sutil se quiser (opcional)
-        // new Audio('/sounds/notification.mp3').play().catch(() => {});
+      const latest = notificacoes[0].id;
+      if (lastIdRef.current && latest !== lastIdRef.current) {
+        // Toca som suave (opcional)
+        // new Audio('/sounds/pop.mp3').play().catch(() => {});
       }
-      
-      lastNotificationIdRef.current = latestId;
+      lastIdRef.current = latest;
     }
   }, [notificacoes]);
 
   const naoLidas = notificacoes.filter(n => !n.lida).length;
 
-  // Mutations
-  const marcarComoLidaMutation = useMutation({
+  const marcarLida = useMutation({
     mutationFn: async (id) => {
       await supabase.from('notificacoes').update({ lida: true }).eq('id', id);
     },
     onSuccess: () => queryClient.invalidateQueries(['notificacoes'])
   });
 
-  const marcarTodasLidasMutation = useMutation({
+  const lerTodas = useMutation({
     mutationFn: async () => {
       await supabase.from('notificacoes').update({ lida: true }).eq('user_id', user.id).eq('lida', false);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['notificacoes']);
-      toast.success("Tudo limpo!");
+      toast.success("Todas marcadas como lidas");
     }
   });
 
@@ -106,86 +92,90 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [dropdownRef]);
 
-  const handleNotificationClick = (notificacao) => {
-    if (!notificacao.lida) marcarComoLidaMutation.mutate(notificacao.id);
+  const handleItemClick = (notif) => {
+    if (!notif.lida) marcarLida.mutate(notif.id);
     setIsOpen(false);
   };
-
-  // Helper para pegar estilo do ícone
-  const getStyle = (tipo) => TIPO_CONFIG[tipo] || TIPO_CONFIG.default;
 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-blue-600 transition-colors rounded-full hover:bg-gray-100"
+        className="relative p-2.5 text-gray-500 hover:text-gray-800 transition-all rounded-full hover:bg-gray-100 active:scale-95"
       >
         <FontAwesomeIcon icon={faBell} className={`h-5 w-5 ${isOpen ? 'text-blue-600' : ''}`} />
         {naoLidas > 0 && (
-          <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white animate-pulse">
+          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
             {naoLidas > 9 ? '9+' : naoLidas}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 md:w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute right-0 mt-3 w-96 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden ring-1 ring-black/5 transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
           
-          <div className="bg-gray-50 px-4 py-3 border-b border-gray-100 flex justify-between items-center">
-            <h3 className="font-semibold text-gray-700 text-sm">Notificações</h3>
-            <div className="flex gap-3">
-              {isRefetching && <span className="text-[10px] text-gray-400 animate-pulse">Atualizando...</span>}
-              {naoLidas > 0 && (
-                <button
-                  onClick={() => marcarTodasLidasMutation.mutate()}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
-                >
-                  <FontAwesomeIcon icon={faCheck} /> Ler todas
-                </button>
-              )}
-            </div>
+          <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center bg-white">
+            <h3 className="font-bold text-gray-800 text-base">Notificações</h3>
+            {naoLidas > 0 && (
+              <button
+                onClick={() => lerTodas.mutate()}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium hover:bg-blue-50 px-2 py-1 rounded transition-colors"
+              >
+                Marcar tudo como lido
+              </button>
+            )}
           </div>
 
-          <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-            {isLoading && !notificacoes.length ? (
-              <div className="p-6 text-center text-gray-400">
-                <p className="text-xs">Carregando...</p>
-              </div>
+          <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
+            {isLoading ? (
+              <div className="p-8 text-center text-gray-400 text-sm">Carregando...</div>
             ) : notificacoes.length === 0 ? (
-              <div className="p-8 text-center text-gray-400 flex flex-col items-center">
-                <div className="bg-gray-100 p-3 rounded-full mb-3">
-                    <FontAwesomeIcon icon={faInbox} className="text-gray-300 text-lg" />
+              <div className="p-10 text-center flex flex-col items-center">
+                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-3">
+                    <FontAwesomeIcon icon={faInbox} className="text-gray-300 text-xl" />
                 </div>
-                <p className="text-sm">Nenhuma notificação recente.</p>
+                <p className="text-gray-500 text-sm font-medium">Tudo limpo por aqui!</p>
+                <p className="text-xs text-gray-400 mt-1">Nenhuma notificação recente.</p>
               </div>
             ) : (
               <ul className="divide-y divide-gray-50">
                 {notificacoes.map((notif) => {
-                  const style = getStyle(notif.tipo);
+                  const style = TIPO_CONFIG[notif.tipo] || TIPO_CONFIG.default;
+                  const timeAgo = formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: ptBR });
+                  
                   return (
-                    <li 
-                      key={notif.id} 
-                      className={`hover:bg-gray-50 transition-colors duration-150 ${!notif.lida ? 'bg-blue-50/40' : ''}`}
-                    >
-                      <div 
-                        onClick={() => notif.link ? null : handleNotificationClick(notif)}
-                        className="block w-full text-left"
+                    <li key={notif.id} className={`group relative transition-all duration-200 hover:bg-gray-50 ${!notif.lida ? 'bg-blue-50/30' : ''}`}>
+                      {/* Link Wrapper */}
+                      <Link 
+                        href={notif.link || '#'} 
+                        onClick={() => handleItemClick(notif)}
+                        className="flex px-5 py-4 gap-4 items-start"
                       >
-                        {/* Wrapper condicional para Link */}
-                        {notif.link ? (
-                           <Link 
-                             href={notif.link} 
-                             onClick={() => handleNotificationClick(notif)}
-                             className="flex px-4 py-3 gap-3 items-start"
-                           >
-                             <Content notif={notif} style={style} />
-                           </Link>
-                        ) : (
-                           <div className="flex px-4 py-3 gap-3 items-start cursor-pointer">
-                             <Content notif={notif} style={style} />
-                           </div>
-                        )}
-                      </div>
+                        {/* Ícone */}
+                        <div className={`mt-1 w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${style.bg} ${style.color} shadow-sm group-hover:scale-105 transition-transform`}>
+                          <FontAwesomeIcon icon={style.icon} className="text-sm" />
+                        </div>
+
+                        {/* Conteúdo */}
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex justify-between items-start gap-2">
+                            <p className={`text-sm leading-tight ${!notif.lida ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
+                              {notif.titulo}
+                            </p>
+                            {!notif.lida && (
+                              <span className="w-2.5 h-2.5 bg-blue-600 rounded-full mt-1.5 flex-shrink-0 shadow-sm"></span>
+                            )}
+                          </div>
+                          
+                          <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
+                            {notif.mensagem}
+                          </p>
+                          
+                          <p className="text-[11px] text-gray-400 font-medium pt-1">
+                            {timeAgo}
+                          </p>
+                        </div>
+                      </Link>
                     </li>
                   );
                 })}
@@ -193,42 +183,13 @@ export default function NotificationBell() {
             )}
           </div>
           
-          <div className="bg-gray-50 p-2 border-t border-gray-100 text-center">
-            <Link href="/painel/notificacoes" onClick={() => setIsOpen(false)} className="text-xs text-blue-600 font-semibold hover:underline">
+          <div className="bg-gray-50/50 p-2 border-t border-gray-100 text-center">
+            <Link href="/painel/notificacoes" onClick={() => setIsOpen(false)} className="block w-full py-2 text-xs text-gray-500 font-medium hover:text-blue-600 hover:bg-white rounded transition-all">
                 Ver histórico completo
             </Link>
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-// Sub-componente para renderizar o conteúdo interno da notificação
-function Content({ notif, style }) {
-  return (
-    <>
-      {/* Ícone do Tipo */}
-      <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${style.bg} ${style.color}`}>
-        <FontAwesomeIcon icon={style.icon} className="text-xs" />
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex justify-between items-start">
-          <p className={`text-sm mb-0.5 ${!notif.lida ? 'font-bold text-gray-800' : 'font-medium text-gray-600'}`}>
-            {notif.titulo}
-          </p>
-          {!notif.lida && <span className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 ml-2 flex-shrink-0"></span>}
-        </div>
-        <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
-          {notif.mensagem}
-        </p>
-        <p className="text-[10px] text-gray-400 mt-1">
-          {new Date(notif.created_at).toLocaleString('pt-BR', { 
-              day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' 
-          })}
-        </p>
-      </div>
-    </>
   );
 }

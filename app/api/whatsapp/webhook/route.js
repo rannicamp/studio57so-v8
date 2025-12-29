@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { enviarNotificacao } from '@/utils/notificacoes'; // <--- Central de Notificações
+// import { enviarNotificacao } from '@/utils/notificacoes'; // Removido para evitar duplicidade com o Trigger do Banco
 
 // --- 1. CONFIGURAÇÃO ---
 const getSupabaseAdmin = () => createClient(
@@ -325,35 +325,13 @@ export async function POST(request) {
                     .eq('id', conversationRecordId);
             }
 
-            // F. NOTIFICAÇÃO CENTRALIZADA (NOVA)
-            if (content || mediaData) {
-                const notifTitle = isNewLead ? '🎉 Novo Lead WhatsApp!' : `💬 Mensagem de ${contatoNome}`;
-                const notifBody = mediaData ? `📎 Arquivo: ${content}` : (content?.substring(0, 100) || 'Nova mensagem');
-                const notifLink = '/caixa-de-entrada'; // Idealmente poderia linkar para o chat específico
-
-                // Busca usuários ativos da organização para notificar
-                const { data: users } = await supabaseAdmin
-                    .from('usuarios')
-                    .select('id')
-                    .eq('organizacao_id', config.organizacao_id)
-                    .eq('is_active', true);
-
-                if (users?.length) {
-                    const promises = users.map(user => 
-                        enviarNotificacao({
-                            userId: user.id,
-                            titulo: notifTitle,
-                            mensagem: notifBody,
-                            link: notifLink,
-                            tipo: isNewLead ? 'lead_novo' : 'whatsapp_msg',
-                            organizacaoId: config.organizacao_id,
-                            canal: 'comercial', // A central filtra quem desativou 'comercial'
-                            supabaseClient: supabaseAdmin // Passa o poder de Admin
-                        })
-                    );
-                    await Promise.allSettled(promises);
-                }
+            // F. NOTIFICAÇÃO CENTRALIZADA (REMOVIDA/DESATIVADA)
+            // O motivo: Agora utilizamos Triggers no Banco de Dados para gerar as notificações
+            // de forma garantida e centralizada, evitando duplicidade (uma do código JS + uma do SQL).
+            /* if (content || mediaData) {
+               // ... código antigo removido ...
             }
+            */
         }
 
         return NextResponse.json({ status: 'ok' });

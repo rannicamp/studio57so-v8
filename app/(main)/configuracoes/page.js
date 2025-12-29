@@ -15,10 +15,11 @@ import {
     faTools, 
     faChartPie, 
     faChartLine,
-    faBoxOpen,      // Materiais
-    faRobot,        // Treinamento IA
-    faShieldAlt,    // Políticas
-    faUserTie       // Novo para RH
+    faBoxOpen,      
+    faRobot,        
+    faShieldAlt,    
+    faUserTie,
+    faBell // <--- ADICIONEI O ÍCONE DO SINO
 } from '@fortawesome/free-solid-svg-icons';
 
 const ConfigCard = ({ href, icon, title, description, color = "bg-blue-50 text-blue-600" }) => (
@@ -45,7 +46,15 @@ export default function ConfiguracoesPage() {
     }, [setPageTitle]);
 
     const configOptions = [
-        // --- NOVO HUB DE RH ---
+        // --- NOVO: NOTIFICAÇÕES ---
+        {
+            title: 'Notificações Automáticas',
+            description: 'Crie regras para o sistema avisar a equipe quando dados importantes mudarem.',
+            icon: faBell,
+            href: '/configuracoes/notificacoes',
+            color: 'bg-yellow-50 text-yellow-600'
+        },
+        // --------------------------
         {
             title: 'Recursos Humanos',
             description: 'Gerencie cargos, funções e jornadas de trabalho da equipe.',
@@ -53,7 +62,6 @@ export default function ConfiguracoesPage() {
             href: '/configuracoes/rh',
             color: 'bg-blue-50 text-blue-600'
         },
-        // ----------------------
         {
             title: 'Cotações',
             description: 'Gerencie a exibição de cotações de moedas e commodities no sistema.',
