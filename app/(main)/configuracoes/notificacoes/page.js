@@ -1,21 +1,18 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  faPlus, faEdit, faTrash, faBolt, faToggleOn, faToggleOff, 
-  faSpinner, faMobileAlt, faSave,
-  // Novos ícones para seleção
+  faPlus, faEdit, faTrash, faBolt, faSave, faSpinner, faArrowDown, faMobileAlt, faSync,
   faBell, faMoneyBillWave, faUserPlus, faCheckCircle, 
-  faExclamationTriangle, faBirthdayCake, faFileContract, faBriefcase, faBullhorn
+  faExclamationTriangle, faBirthdayCake, faFileContract, faBriefcase, faBullhorn, faDatabase, faTable, faColumns
 } from '@fortawesome/free-solid-svg-icons';
-// Importação separada para ícones de marca (Brands)
 import { faWhatsapp as faWhatsappBrand } from '@fortawesome/free-brands-svg-icons';
 
-// Mapa de ícones disponíveis para o sistema
+// Mapa de ícones
 const AVAILABLE_ICONS = [
   { icon: faBell, name: 'fa-bell', label: 'Padrão' },
   { icon: faWhatsappBrand, name: 'fa-whatsapp', label: 'WhatsApp' },
@@ -29,45 +26,48 @@ const AVAILABLE_ICONS = [
   { icon: faBullhorn, name: 'fa-bullhorn', label: 'Aviso' },
 ];
 
-// Função auxiliar para renderizar ícone dinâmico
 const renderIcon = (iconName, className = "") => {
   const found = AVAILABLE_ICONS.find(i => i.name === iconName);
   return <FontAwesomeIcon icon={found ? found.icon : faBell} className={className} />;
 };
 
-const Modal = ({ isOpen, onClose, title, children }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
-        <div className="flex justify-between items-center p-6 border-b">
-          <h3 className="text-xl font-bold text-gray-800">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-        </div>
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
-  );
-};
-
 export default function GerenciadorNotificacoes() {
   const supabase = createClient();
   const queryClient = useQueryClient();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
 
+  // 1. BUSCA REGRAS
   const { data: regras = [], isLoading } = useQuery({
     queryKey: ['regras_notificacao'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('regras_notificacao')
-        .select('*')
-        .order('id', { ascending: false });
+      const { data, error } = await supabase.from('regras_notificacao').select('*').order('tabela_alvo', { ascending: true });
       if (error) throw error;
       return data;
     }
   });
 
+  // 2. BUSCA TABELAS DO SISTEMA
+  const { data: tabelasSistema = [], isLoading: isLoadingTables } = useQuery({
+    queryKey: ['tabelas_sistema'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('tabelas_sistema').select('*').eq('ativo', true).order('nome_exibicao');
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  // 3. BUSCA CAMPOS (COLUNAS) DO SISTEMA - NOVO!
+  const { data: camposSistema = [] } = useQuery({
+    queryKey: ['campos_sistema'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('campos_sistema').select('*').eq('visivel_filtro', true);
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  // 4. BUSCA CARGOS
   const { data: funcoes = [] } = useQuery({
     queryKey: ['funcoes_sistema'],
     queryFn: async () => {
@@ -75,6 +75,20 @@ export default function GerenciadorNotificacoes() {
       return data || [];
     }
   });
+
+  // Agrupamento para a Lista
+  const regrasAgrupadas = useMemo(() => {
+    const grupos = {};
+    regras.forEach(regra => {
+      // Tenta achar o nome bonito da tabela
+      const infoTabela = tabelasSistema.find(t => t.nome_tabela === regra.tabela_alvo);
+      const nomeGrupo = infoTabela ? infoTabela.nome_exibicao : (regra.tabela_alvo || 'Outros');
+      
+      if (!grupos[nomeGrupo]) grupos[nomeGrupo] = [];
+      grupos[nomeGrupo].push(regra);
+    });
+    return grupos;
+  }, [regras, tabelasSistema]);
 
   const salvarRegraMutation = useMutation({
     mutationFn: async (dados) => {
@@ -94,21 +108,13 @@ export default function GerenciadorNotificacoes() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['regras_notificacao']);
-      toast.success("Regra salva com sucesso!");
-      setIsModalOpen(false);
-      setEditingRule(null);
+      toast.success(editingRule ? "Regra atualizada!" : "Regra criada!");
+      resetForm();
     },
     onError: (err) => toast.error(`Erro: ${err.message}`)
   });
 
-  const toggleAtivoMutation = useMutation({
-    mutationFn: async ({ id, ativo }) => {
-      await supabase.from('regras_notificacao').update({ ativo }).eq('id', id);
-    },
-    onSuccess: () => queryClient.invalidateQueries(['regras_notificacao'])
-  });
-
-  const excluirRegraMutation = useMutation({
+  const deleteMutation = useMutation({
     mutationFn: async (id) => {
       await supabase.from('regras_notificacao').delete().eq('id', id);
     },
@@ -118,94 +124,140 @@ export default function GerenciadorNotificacoes() {
     }
   });
 
-  const handleEdit = (regra) => { setEditingRule(regra); setIsModalOpen(true); };
-  const handleNew = () => { setEditingRule(null); setIsModalOpen(true); };
+  // Ação para sincronizar tabelas novas manualmente
+  const syncTablesMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('sincronizar_tabelas_do_banco');
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['tabelas_sistema']);
+      queryClient.invalidateQueries(['campos_sistema']); // Atualiza campos também
+      toast.success("Catálogo de dados atualizado!");
+    },
+    onError: () => toast.error("Erro ao sincronizar tabelas.")
+  });
 
-  return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-gray-900 to-gray-800 p-8 rounded-2xl text-white shadow-xl">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <FontAwesomeIcon icon={faBolt} className="text-yellow-400" />
-            Automação de Notificações
-          </h1>
-          <p className="text-gray-300 mt-2 max-w-2xl">
-            Crie regras inteligentes e defina os ícones para avisar a equipe automaticamente.
-          </p>
+  const handleEdit = (regra) => { setEditingRule(regra); setIsEditing(true); };
+  const handleNew = () => { setEditingRule(null); setIsEditing(true); };
+  const resetForm = () => { setIsEditing(false); setEditingRule(null); };
+
+  if (!isEditing) {
+    return (
+      <div className="space-y-6 h-full flex flex-col p-6 max-w-5xl mx-auto">
+        <div className="flex justify-between items-center pb-4 border-b">
+          <div>
+            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <FontAwesomeIcon icon={faBolt} className="text-yellow-500" />
+              Regras de Notificação
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">Gerencie os alertas automáticos do sistema.</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => syncTablesMutation.mutate()} className="text-gray-500 hover:text-blue-600 px-3 py-2 rounded-lg text-xs font-bold border border-transparent hover:border-blue-100 flex items-center gap-2 transition-all" title="Buscar novas tabelas e campos do banco">
+               <FontAwesomeIcon icon={faSync} spin={syncTablesMutation.isPending} /> 
+               {syncTablesMutation.isPending ? 'Sincronizando...' : 'Atualizar Dados'}
+            </button>
+            <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center gap-2 shadow-sm transition-all">
+                <FontAwesomeIcon icon={faPlus} /> Nova Regra
+            </button>
+          </div>
         </div>
-        <button onClick={handleNew} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg font-bold shadow-lg flex items-center gap-2">
-          <FontAwesomeIcon icon={faPlus} /> Nova Regra
-        </button>
-      </div>
 
-      {isLoading ? (
-        <div className="flex justify-center p-12 text-gray-400"><FontAwesomeIcon icon={faSpinner} spin size="3x" /></div>
-      ) : regras.length === 0 ? (
-        <div className="text-center p-12 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl">
-          <p className="text-gray-500">Nenhuma regra ativa.</p>
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {regras.map((regra) => (
-            <div key={regra.id} className={`bg-white p-5 rounded-xl shadow-sm border transition-all ${!regra.ativo ? 'opacity-60 grayscale border-gray-100' : 'border-gray-100 hover:shadow-md'}`}>
-              <div className="flex justify-between items-start">
-                <div className="flex items-start gap-4">
-                  {/* ÍCONE GRANDE */}
-                  <div className={`p-4 rounded-xl flex items-center justify-center text-2xl w-16 h-16 ${regra.evento === 'UPDATE' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'}`}>
-                    {renderIcon(regra.icone)}
-                  </div>
-
-                  <div>
-                    <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
-                      {regra.nome_regra}
-                      {regra.enviar_push && <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold flex items-center gap-1"><FontAwesomeIcon icon={faMobileAlt} /> Push</span>}
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-2">
-                      <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-gray-700 text-xs border">{regra.tabela_alvo}</span>
-                      <span className="text-xs text-gray-400">•</span>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded ${regra.evento === 'UPDATE' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'}`}>{regra.evento}</span>
-                      {regra.coluna_monitorada && (
-                        <>
-                          <span className="text-xs text-gray-400">se</span>
-                          <span className="font-mono bg-yellow-50 text-yellow-700 px-1 rounded text-xs border border-yellow-100">{regra.coluna_monitorada} == {regra.valor_gatilho}</span>
-                        </>
-                      )}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-2 italic border-l-2 border-gray-200 pl-2">"{regra.titulo_template}"</p>
-                  </div>
+        <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-8">
+          {isLoading ? (
+            <div className="text-center text-gray-400 py-12"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
+          ) : regras.length === 0 ? (
+            <div className="text-center text-gray-400 py-12 border-2 border-dashed rounded-xl bg-gray-50">
+              <p className="text-sm">Nenhuma regra ativa.</p>
+            </div>
+          ) : (
+            Object.keys(regrasAgrupadas).map((grupo) => (
+              <div key={grupo} className="animate-fade-in">
+                {/* CABEÇALHO DO GRUPO (NOME BONITO DA TABELA) */}
+                <div className="flex items-center gap-2 mb-3 px-1">
+                    <div className="bg-blue-50 p-1.5 rounded text-blue-600">
+                        <FontAwesomeIcon icon={faTable} className="text-xs" />
+                    </div>
+                    <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
+                        {grupo}
+                    </h4>
+                    <div className="h-px bg-gray-200 flex-grow ml-2"></div>
                 </div>
-                
-                <div className="flex items-center gap-2">
-                  <button onClick={() => toggleAtivoMutation.mutate({ id: regra.id, ativo: !regra.ativo })} className={`text-2xl p-2 transition-colors ${regra.ativo ? 'text-green-500 hover:text-green-600' : 'text-gray-300 hover:text-gray-400'}`}>
-                    <FontAwesomeIcon icon={regra.ativo ? faToggleOn : faToggleOff} />
-                  </button>
-                  <button onClick={() => handleEdit(regra)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
-                    <FontAwesomeIcon icon={faEdit} />
-                  </button>
-                  <button onClick={() => { if(confirm('Excluir esta regra?')) excluirRegraMutation.mutate(regra.id); }} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
-                    <FontAwesomeIcon icon={faTrash} />
-                  </button>
+
+                <div className="grid gap-3">
+                    {regrasAgrupadas[grupo].map((regra) => (
+                    <div key={regra.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all flex justify-between items-center group">
+                        <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-xl ${regra.ativo ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                            {renderIcon(regra.icone)}
+                        </div>
+                        
+                        <div>
+                            <h4 className={`font-bold text-sm ${regra.ativo ? 'text-gray-800' : 'text-gray-400 line-through'}`}>
+                            {regra.nome_regra}
+                            </h4>
+                            <div className="flex items-center gap-2 mt-1">
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${regra.evento === 'INSERT' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
+                                {regra.evento}
+                            </span>
+                            
+                            {regra.coluna_monitorada && (
+                                <span className="text-[10px] bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded border border-yellow-100 font-mono">
+                                    se {regra.coluna_monitorada} == {regra.valor_gatilho}
+                                </span>
+                            )}
+                            
+                            {regra.enviar_push && (
+                                <span className="text-[10px] text-gray-400 flex items-center gap-1 ml-1">
+                                <FontAwesomeIcon icon={faMobileAlt} />
+                                </span>
+                            )}
+                            </div>
+                        </div>
+                        </div>
+
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => handleEdit(regra)} className="text-gray-400 hover:text-blue-600 p-2 hover:bg-blue-50 rounded-lg transition-colors">
+                            <FontAwesomeIcon icon={faEdit} />
+                        </button>
+                        <button onClick={() => { if(confirm('Excluir regra?')) deleteMutation.mutate(regra.id); }} className="text-gray-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors">
+                            <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                        </div>
+                    </div>
+                    ))}
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
-      )}
+      </div>
+    );
+  }
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingRule ? "Editar Regra" : "Nova Regra"}>
-        <RegraForm initialData={editingRule} funcoes={funcoes} onSubmit={(dados) => salvarRegraMutation.mutate(dados)} isSaving={salvarRegraMutation.isPending} />
-      </Modal>
+  return (
+    <div className="max-w-4xl mx-auto p-6 animate-fade-in">
+       <RegraForm 
+          initialData={editingRule} 
+          tabelas={tabelasSistema} 
+          campos={camposSistema} // Passa os campos para o form
+          funcoes={funcoes} 
+          onSubmit={(dados) => salvarRegraMutation.mutate(dados)} 
+          isSaving={salvarRegraMutation.isPending}
+          onCancel={resetForm}
+       />
     </div>
   );
 }
 
-function RegraForm({ initialData, funcoes, onSubmit, isSaving }) {
+function RegraForm({ initialData, tabelas, campos, funcoes, onSubmit, isSaving, onCancel }) {
   const [formData, setFormData] = useState(initialData || {
-    nome_regra: '', tabela_alvo: 'whatsapp_messages', evento: 'INSERT',
+    nome_regra: '', tabela_alvo: '', evento: 'INSERT',
     coluna_monitorada: '', valor_gatilho: '',
     funcoes_ids: [], enviar_para_dono: false, enviar_push: true,
     titulo_template: 'Nova notificação', mensagem_template: '{conteudo}', link_template: '/', 
-    ativo: true, icone: 'fa-bell' // Padrão inicial
+    ativo: true, icone: 'fa-bell'
   });
 
   const handleChange = (e) => {
@@ -218,122 +270,190 @@ function RegraForm({ initialData, funcoes, onSubmit, isSaving }) {
     setFormData(prev => ({ ...prev, funcoes_ids: options }));
   };
 
+  // Filtra as colunas com base na tabela selecionada
+  const colunasFiltradas = useMemo(() => {
+    if (!formData.tabela_alvo || !tabelas || !campos) return [];
+    
+    // 1. Acha o ID da tabela no sistema
+    const tabelaObj = tabelas.find(t => t.nome_tabela === formData.tabela_alvo);
+    if (!tabelaObj) return [];
+
+    // 2. Retorna só os campos dessa tabela
+    return campos.filter(c => c.tabela_id === tabelaObj.id);
+  }, [formData.tabela_alvo, tabelas, campos]);
+
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(formData); }} className="space-y-6">
-      
-      {/* SEÇÃO 1: NOME E ÍCONE */}
-      <div className="flex gap-6 items-start">
-        <div className="w-1/3">
-            <label className="block text-sm font-bold text-gray-700 mb-2">Ícone da Notificação</label>
-            <div className="grid grid-cols-5 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between border-b pb-4">
+        <h3 className="text-lg font-bold text-gray-800">
+          {initialData ? 'Editar Regra' : 'Nova Regra de Notificação'}
+        </h3>
+        <button onClick={onCancel} className="text-sm text-gray-500 hover:text-gray-800 hover:underline">
+          Voltar para lista
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* IDENTIDADE */}
+        <div className="md:col-span-1 space-y-4">
+           <div>
+              <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Identidade</label>
+              <input 
+                required 
+                name="nome_regra" 
+                value={formData.nome_regra} 
+                onChange={handleChange} 
+                className="w-full p-2.5 border rounded-lg text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none mb-4" 
+                placeholder="Nome da Regra" 
+              />
+              
+              <div className="grid grid-cols-5 gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
                 {AVAILABLE_ICONS.map((item) => (
                     <button
                         key={item.name}
                         type="button"
                         onClick={() => setFormData(prev => ({ ...prev, icone: item.name }))}
-                        className={`aspect-square rounded-md flex items-center justify-center text-lg transition-all ${formData.icone === item.name ? 'bg-blue-600 text-white shadow-md scale-110 ring-2 ring-blue-300' : 'text-gray-400 hover:bg-gray-200'}`}
+                        className={`aspect-square rounded-md flex items-center justify-center text-lg transition-all ${formData.icone === item.name ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-200' : 'text-gray-400 hover:bg-gray-200'}`}
                         title={item.label}
                     >
                         <FontAwesomeIcon icon={item.icon} />
                     </button>
                 ))}
-            </div>
-            <p className="text-[10px] text-gray-400 mt-1 text-center">{AVAILABLE_ICONS.find(i => i.name === formData.icone)?.label || 'Ícone Selecionado'}</p>
+              </div>
+           </div>
         </div>
 
-        <div className="w-2/3 space-y-4">
-            <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Nome Interno (Admin)</label>
-                <input required name="nome_regra" value={formData.nome_regra} onChange={handleChange} className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-200 outline-none" placeholder="Ex: Lead Novo no Funil" />
-            </div>
-            <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Tabela Alvo (Banco de Dados)</label>
-                <input required name="tabela_alvo" value={formData.tabela_alvo} onChange={handleChange} className="w-full p-2 border rounded-md font-mono bg-gray-50 text-sm focus:ring-2 focus:ring-blue-200 outline-none" placeholder="ex: activities" />
-            </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-bold text-gray-700 mb-1">Evento</label>
-          <select name="evento" value={formData.evento} onChange={handleChange} className="w-full p-2 border rounded-md bg-white">
-            <option value="INSERT">Ao Criar (INSERT)</option>
-            <option value="UPDATE">Ao Atualizar (UPDATE)</option>
-            <option value="DELETE">Ao Excluir (DELETE)</option>
-          </select>
-        </div>
-        <div className="flex items-end pb-2">
-             <label className="flex items-center gap-3 cursor-pointer bg-gradient-to-r from-blue-50 to-white px-4 py-2 rounded-lg w-full border border-blue-100 hover:shadow-sm transition-shadow">
-                <input type="checkbox" name="enviar_push" checked={formData.enviar_push} onChange={handleChange} className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500" />
-                <div>
-                    <span className="block text-sm font-bold text-blue-900">Enviar Push Mobile</span>
-                    <span className="block text-[10px] text-blue-600">Celular vibrará</span>
-                </div>
-             </label>
-        </div>
-      </div>
-
-      {/* FILTROS */}
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 relative mt-6">
-        <div className="absolute -top-3 left-3 bg-white px-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Filtros Opcionais</div>
-        <div className="grid grid-cols-2 gap-4 pt-2">
-          <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">Coluna (Opcional)</label>
-            <input name="coluna_monitorada" value={formData.coluna_monitorada || ''} onChange={handleChange} className="w-full p-2 border rounded-md text-sm" placeholder="Ex: status" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">Valor Gatilho</label>
-            <input name="valor_gatilho" value={formData.valor_gatilho || ''} onChange={handleChange} className="w-full p-2 border rounded-md text-sm" placeholder="Ex: Concluído" />
-          </div>
-        </div>
-      </div>
-
-      {/* DESTINATÁRIOS */}
-      <div className="border-t pt-6">
-        <label className="block text-sm font-bold text-gray-700 mb-2">Quem deve receber?</label>
-        <div className="flex gap-4">
-            <div className="w-1/2">
-              <label className="block text-xs font-bold text-gray-600 mb-1">Cargos Específicos</label>
-              <select multiple name="funcoes_ids" value={formData.funcoes_ids || []} onChange={handleMultiSelect} className="w-full p-2 border rounded-md text-sm h-24 bg-white focus:ring-2 focus:ring-blue-200 outline-none">
-                {funcoes.map(f => <option key={f.id} value={f.id}>{f.nome_funcao}</option>)}
-              </select>
-              <p className="text-[10px] text-gray-400 mt-1">Segure Ctrl (ou Cmd) para selecionar vários</p>
-            </div>
-            <div className="w-1/2 flex items-center">
-                 <label className="flex items-center gap-3 cursor-pointer p-4 hover:bg-gray-50 rounded-lg w-full border border-dashed border-gray-300 hover:border-blue-400 transition-colors">
-                    <input type="checkbox" name="enviar_para_dono" checked={formData.enviar_para_dono} onChange={handleChange} className="w-5 h-5 text-green-600 rounded" />
+        {/* LÓGICA */}
+        <div className="md:col-span-2 space-y-4">
+            
+            {/* GATILHO */}
+            <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full -mr-8 -mt-8"></div>
+                <h4 className="text-xs font-bold text-blue-800 uppercase mb-4 flex items-center gap-2">
+                    <span className="bg-blue-200 px-2 py-0.5 rounded text-[10px]">1</span> 
+                    Onde (Gatilho)
+                </h4>
+                
+                <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <span className="block text-sm font-bold text-gray-800">Enviar para o Dono</span>
-                        <span className="text-xs text-gray-500">Usuário vinculado ao registro (user_id)</span>
+                        <label className="block text-[10px] font-bold text-blue-600 mb-1 uppercase">Módulo / Tabela</label>
+                        <select required name="tabela_alvo" value={formData.tabela_alvo} onChange={handleChange} className="w-full p-2 border border-blue-200 rounded-lg text-sm bg-white">
+                            <option value="">Selecione...</option>
+                            {tabelas && tabelas.map(t => (
+                                <option key={t.id} value={t.nome_tabela}>
+                                    {t.nome_exibicao} ({t.modulo})
+                                </option>
+                            ))}
+                            {/* Fallback */}
+                            <option value="activities">Atividades (Manual)</option>
+                            <option value="whatsapp_messages">WhatsApp (Manual)</option>
+                        </select>
                     </div>
-                 </label>
+                    <div>
+                        <label className="block text-[10px] font-bold text-blue-600 mb-1 uppercase">Evento</label>
+                        <select name="evento" value={formData.evento} onChange={handleChange} className="w-full p-2 border border-blue-200 rounded-lg text-sm bg-white">
+                            <option value="INSERT">Ao Criar</option>
+                            <option value="UPDATE">Ao Atualizar</option>
+                            <option value="DELETE">Ao Excluir</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-blue-200/50">
+                    <p className="text-[10px] font-bold text-blue-400 mb-2 uppercase">Filtro (Opcional)</p>
+                    <div className="flex gap-2">
+                        {/* SELECT INTELIGENTE DE COLUNAS */}
+                        {colunasFiltradas.length > 0 ? (
+                            <div className="w-1/2 relative">
+                                <select 
+                                    name="coluna_monitorada" 
+                                    value={formData.coluna_monitorada || ''} 
+                                    onChange={handleChange} 
+                                    className="w-full p-2 border border-blue-200 rounded-lg text-xs bg-white appearance-none"
+                                >
+                                    <option value="">-- Qualquer Coluna --</option>
+                                    {colunasFiltradas.map(c => (
+                                        <option key={c.id} value={c.nome_coluna}>
+                                            {c.nome_exibicao}
+                                        </option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-2 top-2.5 text-blue-300 pointer-events-none text-xs">
+                                    <FontAwesomeIcon icon={faColumns} />
+                                </div>
+                            </div>
+                        ) : (
+                            // Fallback para input de texto se não tiver metadados
+                            <input name="coluna_monitorada" value={formData.coluna_monitorada || ''} onChange={handleChange} className="w-1/2 p-2 border border-blue-200 rounded-lg text-xs" placeholder="Coluna (ex: status)" />
+                        )}
+
+                        <div className="flex items-center text-blue-300 font-bold">=</div>
+                        <input name="valor_gatilho" value={formData.valor_gatilho || ''} onChange={handleChange} className="w-1/2 p-2 border border-blue-200 rounded-lg text-xs" placeholder="Valor (ex: Concluído)" />
+                    </div>
+                </div>
             </div>
+
+            <div className="flex justify-center -my-2 relative z-10">
+                <div className="bg-white border rounded-full p-1 text-gray-300 shadow-sm">
+                    <FontAwesomeIcon icon={faArrowDown} />
+                </div>
+            </div>
+
+            {/* AÇÃO */}
+            <div className="bg-orange-50 p-5 rounded-xl border border-orange-100 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-orange-100 rounded-bl-full -mr-8 -mt-8"></div>
+                <h4 className="text-xs font-bold text-orange-800 uppercase mb-4 flex items-center gap-2">
+                    <span className="bg-orange-200 px-2 py-0.5 rounded text-[10px]">2</span> 
+                    Ação (Notificar)
+                </h4>
+
+                <div className="mb-4">
+                    <label className="block text-[10px] font-bold text-orange-600 mb-1 uppercase">Quem recebe?</label>
+                    <div className="flex gap-3">
+                        <select multiple name="funcoes_ids" value={formData.funcoes_ids || []} onChange={handleMultiSelect} className="flex-1 p-2 border border-orange-200 rounded-lg text-sm h-20 bg-white">
+                            {funcoes.map(f => <option key={f.id} value={f.id}>{f.nome_funcao}</option>)}
+                        </select>
+                        <div className="w-1/3 flex flex-col gap-2">
+                             <label className="flex items-center gap-2 cursor-pointer bg-white p-2 rounded border border-orange-200 hover:bg-orange-100/50 transition-colors h-full">
+                                <input type="checkbox" name="enviar_para_dono" checked={formData.enviar_para_dono} onChange={handleChange} className="text-orange-500 rounded" />
+                                <span className="text-xs font-bold text-gray-600">Dono</span>
+                             </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <input required name="titulo_template" value={formData.titulo_template} onChange={handleChange} className="w-full p-2 border border-orange-200 rounded-lg text-sm font-bold placeholder-orange-300" placeholder="Título" />
+                    <textarea required name="mensagem_template" value={formData.mensagem_template} onChange={handleChange} rows="2" className="w-full p-2 border border-orange-200 rounded-lg text-sm placeholder-orange-300" placeholder="Mensagem..." />
+                </div>
+
+                 <div className="mt-4 pt-3 border-t border-orange-200/50 flex justify-between items-center">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <div className={`w-8 h-4 rounded-full transition-colors relative ${formData.enviar_push ? 'bg-green-500' : 'bg-gray-300'}`}>
+                             <div className={`w-3 h-3 bg-white rounded-full absolute top-0.5 transition-all ${formData.enviar_push ? 'left-4.5' : 'left-0.5'}`}></div>
+                        </div>
+                        <input type="checkbox" name="enviar_push" checked={formData.enviar_push} onChange={handleChange} className="sr-only" />
+                        <span className="text-xs font-bold text-gray-600 flex items-center gap-1">
+                            <FontAwesomeIcon icon={faMobileAlt} /> Push
+                        </span>
+                    </label>
+                    <input name="link_template" value={formData.link_template || ''} onChange={handleChange} className="w-1/2 p-1.5 border border-orange-200 rounded text-xs bg-white text-right" placeholder="Link (opcional)" />
+                </div>
+            </div>
+
         </div>
       </div>
 
-      {/* TEMPLATES */}
-      <div className="border-t pt-6 bg-yellow-50/50 p-4 rounded-lg border border-yellow-100">
-        <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><FontAwesomeIcon icon={faEdit} className="text-yellow-500"/> Mensagem Personalizada</h4>
-        <div className="space-y-3">
-            <div>
-            <input required name="titulo_template" value={formData.titulo_template} onChange={handleChange} className="w-full p-2 border rounded-md font-bold focus:ring-2 focus:ring-yellow-200 outline-none" placeholder="Título (Use {nome}, {id})" />
-            </div>
-            <div>
-            <textarea required name="mensagem_template" value={formData.mensagem_template} onChange={handleChange} rows="2" className="w-full p-2 border rounded-md focus:ring-2 focus:ring-yellow-200 outline-none" placeholder="Mensagem (Use {status}, {valor}, {nome}, etc)" />
-            </div>
-            <div>
-                <input name="link_template" value={formData.link_template || ''} onChange={handleChange} className="w-full p-2 border rounded-md text-sm text-blue-600 bg-white" placeholder="Link de destino (Ex: /atividades)" />
-            </div>
-        </div>
-        <p className="text-[10px] text-gray-500 mt-2">Dica: Use <strong>{`{nome}`}</strong> para o nome principal e chaves como <strong>{`{status}`}</strong> para pegar dados do registro.</p>
-      </div>
-
-      <div className="flex justify-end pt-4 border-t">
-        <button type="submit" disabled={isSaving} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-lg font-bold flex items-center gap-2 shadow-lg transition-all transform active:scale-95">
-          {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />}
-          Salvar Regra
+      <div className="pt-6 border-t flex justify-end gap-3">
+        <button type="button" onClick={onCancel} className="px-6 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+            Cancelar
+        </button>
+        <button type="button" onClick={() => onSubmit(formData)} disabled={isSaving || !formData.nome_regra || !formData.tabela_alvo} className="px-8 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md flex items-center gap-2 disabled:opacity-50 transition-all transform active:scale-95">
+            {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />}
+            Salvar
         </button>
       </div>
-    </form>
+    </div>
   );
 }

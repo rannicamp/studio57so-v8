@@ -3,8 +3,18 @@ const nextConfig = {
   reactStrictMode: true,
   // Desativa mapas de fonte em produção para build mais rápido
   productionBrowserSourceMaps: false,
+
+  // --- A CORREÇÃO DO ERRO DO PDF.JS ESTÁ AQUI ---
+  webpack: (config) => {
+    // Diz ao webpack para ignorar dependências de node que quebram o PDF.js no navegador
+    config.resolve.alias.canvas = false;
+    config.resolve.alias.encoding = false;
+    
+    return config;
+  },
+  // ----------------------------------------------
   
-  // 1. LISTA DE IMAGENS PERMITIDAS (A Correção)
+  // 1. LISTA DE IMAGENS PERMITIDAS
   images: {
     remotePatterns: [
       {
@@ -30,16 +40,16 @@ const nextConfig = {
     ],
   },
   
-  // 2. CORREÇÃO DE DEPLOY (Mantida)
+  // 2. CORREÇÃO DE DEPLOY
   eslint: {
-    ignoreDuringBuilds: true, // Ignora erros de texto/aspas no deploy
+    ignoreDuringBuilds: true,
   },
   
   typescript: {
     ignoreBuildErrors: true,
   },
 
-  // 3. CONFIGURAÇÃO PWA/SERVICE WORKER (Mantida)
+  // 3. CONFIGURAÇÃO PWA/SERVICE WORKER
   async headers() {
     return [
       {
