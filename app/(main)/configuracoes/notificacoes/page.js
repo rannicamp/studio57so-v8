@@ -8,7 +8,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faPlus, faEdit, faTrash, faBolt, faSave, faSpinner, faArrowDown, faMobileAlt, faSync,
   faBell, faMoneyBillWave, faUserPlus, faCheckCircle, 
-  faExclamationTriangle, faBirthdayCake, faFileContract, faBriefcase, faBullhorn, faDatabase, faTable, faColumns
+  faExclamationTriangle, faBirthdayCake, faFileContract, faBriefcase, faBullhorn, faDatabase, faTable, faColumns,
+  faCopy // <--- 1. NOVO ÍCONE IMPORTADO
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp as faWhatsappBrand } from '@fortawesome/free-brands-svg-icons';
 
@@ -57,7 +58,7 @@ export default function GerenciadorNotificacoes() {
     }
   });
 
-  // 3. BUSCA CAMPOS (COLUNAS) DO SISTEMA - NOVO!
+  // 3. BUSCA CAMPOS (COLUNAS) DO SISTEMA
   const { data: camposSistema = [] } = useQuery({
     queryKey: ['campos_sistema'],
     queryFn: async () => {
@@ -80,7 +81,6 @@ export default function GerenciadorNotificacoes() {
   const regrasAgrupadas = useMemo(() => {
     const grupos = {};
     regras.forEach(regra => {
-      // Tenta achar o nome bonito da tabela
       const infoTabela = tabelasSistema.find(t => t.nome_tabela === regra.tabela_alvo);
       const nomeGrupo = infoTabela ? infoTabela.nome_exibicao : (regra.tabela_alvo || 'Outros');
       
@@ -95,9 +95,11 @@ export default function GerenciadorNotificacoes() {
       const { data: { user } } = await supabase.auth.getUser();
       const { data: userData } = await supabase.from('usuarios').select('organizacao_id').eq('id', user.id).single();
       
+      // Remove o ID do objeto de dados para garantir que não tente salvar ID no insert se for cópia
       const { id, ...dadosLimpos } = dados;
       const payload = { ...dadosLimpos, organizacao_id: userData.organizacao_id };
 
+      // Se editingRule tem ID, é UPDATE. Se não tem (ou é duplicata), é INSERT.
       if (editingRule?.id) {
         const { error } = await supabase.from('regras_notificacao').update(payload).eq('id', editingRule.id);
         if (error) throw error;
@@ -108,7 +110,7 @@ export default function GerenciadorNotificacoes() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['regras_notificacao']);
-      toast.success(editingRule ? "Regra atualizada!" : "Regra criada!");
+      toast.success(editingRule?.id ? "Regra atualizada!" : "Regra criada!");
       resetForm();
     },
     onError: (err) => toast.error(`Erro: ${err.message}`)
@@ -124,7 +126,6 @@ export default function GerenciadorNotificacoes() {
     }
   });
 
-  // Ação para sincronizar tabelas novas manualmente
   const syncTablesMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.rpc('sincronizar_tabelas_do_banco');
@@ -132,13 +133,31 @@ export default function GerenciadorNotificacoes() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['tabelas_sistema']);
-      queryClient.invalidateQueries(['campos_sistema']); // Atualiza campos também
+      queryClient.invalidateQueries(['campos_sistema']);
       toast.success("Catálogo de dados atualizado!");
     },
     onError: () => toast.error("Erro ao sincronizar tabelas.")
   });
 
   const handleEdit = (regra) => { setEditingRule(regra); setIsEditing(true); };
+  
+  // --- 2. NOVA FUNÇÃO DE DUPLICAR ---
+  const handleDuplicate = (regra) => {
+    // Cria uma cópia removendo ID e datas de criação
+    const { id, created_at, organizacao_id, ...copia } = regra;
+    
+    // Adiciona identificador visual de cópia e define como regra em edição (mas sem ID)
+    const regraDuplicada = {
+      ...copia,
+      nome_regra: `${copia.nome_regra} (Cópia)`
+    };
+
+    setEditingRule(regraDuplicada); // Estado sem ID -> Salvar vai criar INSERT
+    setIsEditing(true);
+    toast.info("Regra duplicada. Ajuste o detalhe e salve.");
+  };
+  // ----------------------------------
+
   const handleNew = () => { setEditingRule(null); setIsEditing(true); };
   const resetForm = () => { setIsEditing(false); setEditingRule(null); };
 
@@ -159,7 +178,7 @@ export default function GerenciadorNotificacoes() {
                {syncTablesMutation.isPending ? 'Sincronizando...' : 'Atualizar Dados'}
             </button>
             <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center gap-2 shadow-sm transition-all">
-                <FontAwesomeIcon icon={faPlus} /> Nova Regra
+              <FontAwesomeIcon icon={faPlus} /> Nova Regra
             </button>
           </div>
         </div>
@@ -174,7 +193,6 @@ export default function GerenciadorNotificacoes() {
           ) : (
             Object.keys(regrasAgrupadas).map((grupo) => (
               <div key={grupo} className="animate-fade-in">
-                {/* CABEÇALHO DO GRUPO (NOME BONITO DA TABELA) */}
                 <div className="flex items-center gap-2 mb-3 px-1">
                     <div className="bg-blue-50 p-1.5 rounded text-blue-600">
                         <FontAwesomeIcon icon={faTable} className="text-xs" />
@@ -218,10 +236,16 @@ export default function GerenciadorNotificacoes() {
                         </div>
 
                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => handleEdit(regra)} className="text-gray-400 hover:text-blue-600 p-2 hover:bg-blue-50 rounded-lg transition-colors">
+                        {/* --- 3. BOTÃO DUPLICAR --- */}
+                        <button onClick={() => handleDuplicate(regra)} title="Duplicar Regra" className="text-gray-400 hover:text-green-600 p-2 hover:bg-green-50 rounded-lg transition-colors">
+                            <FontAwesomeIcon icon={faCopy} />
+                        </button>
+                        
+                        <button onClick={() => handleEdit(regra)} title="Editar" className="text-gray-400 hover:text-blue-600 p-2 hover:bg-blue-50 rounded-lg transition-colors">
                             <FontAwesomeIcon icon={faEdit} />
                         </button>
-                        <button onClick={() => { if(confirm('Excluir regra?')) deleteMutation.mutate(regra.id); }} className="text-gray-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors">
+                        
+                        <button onClick={() => { if(confirm('Excluir regra?')) deleteMutation.mutate(regra.id); }} title="Excluir" className="text-gray-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors">
                             <FontAwesomeIcon icon={faTrash} />
                         </button>
                         </div>
@@ -241,7 +265,7 @@ export default function GerenciadorNotificacoes() {
        <RegraForm 
           initialData={editingRule} 
           tabelas={tabelasSistema} 
-          campos={camposSistema} // Passa os campos para o form
+          campos={camposSistema} 
           funcoes={funcoes} 
           onSubmit={(dados) => salvarRegraMutation.mutate(dados)} 
           isSaving={salvarRegraMutation.isPending}
@@ -251,6 +275,7 @@ export default function GerenciadorNotificacoes() {
   );
 }
 
+// O componente RegraForm permanece exatamente igual ao anterior
 function RegraForm({ initialData, tabelas, campos, funcoes, onSubmit, isSaving, onCancel }) {
   const [formData, setFormData] = useState(initialData || {
     nome_regra: '', tabela_alvo: '', evento: 'INSERT',
@@ -270,15 +295,10 @@ function RegraForm({ initialData, tabelas, campos, funcoes, onSubmit, isSaving, 
     setFormData(prev => ({ ...prev, funcoes_ids: options }));
   };
 
-  // Filtra as colunas com base na tabela selecionada
   const colunasFiltradas = useMemo(() => {
     if (!formData.tabela_alvo || !tabelas || !campos) return [];
-    
-    // 1. Acha o ID da tabela no sistema
     const tabelaObj = tabelas.find(t => t.nome_tabela === formData.tabela_alvo);
     if (!tabelaObj) return [];
-
-    // 2. Retorna só os campos dessa tabela
     return campos.filter(c => c.tabela_id === tabelaObj.id);
   }, [formData.tabela_alvo, tabelas, campos]);
 
@@ -286,7 +306,7 @@ function RegraForm({ initialData, tabelas, campos, funcoes, onSubmit, isSaving, 
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b pb-4">
         <h3 className="text-lg font-bold text-gray-800">
-          {initialData ? 'Editar Regra' : 'Nova Regra de Notificação'}
+          {initialData?.id ? 'Editar Regra' : initialData ? 'Nova Regra (Cópia)' : 'Nova Regra de Notificação'}
         </h3>
         <button onClick={onCancel} className="text-sm text-gray-500 hover:text-gray-800 hover:underline">
           Voltar para lista
@@ -345,7 +365,6 @@ function RegraForm({ initialData, tabelas, campos, funcoes, onSubmit, isSaving, 
                                     {t.nome_exibicao} ({t.modulo})
                                 </option>
                             ))}
-                            {/* Fallback */}
                             <option value="activities">Atividades (Manual)</option>
                             <option value="whatsapp_messages">WhatsApp (Manual)</option>
                         </select>
@@ -363,7 +382,6 @@ function RegraForm({ initialData, tabelas, campos, funcoes, onSubmit, isSaving, 
                 <div className="mt-4 pt-3 border-t border-blue-200/50">
                     <p className="text-[10px] font-bold text-blue-400 mb-2 uppercase">Filtro (Opcional)</p>
                     <div className="flex gap-2">
-                        {/* SELECT INTELIGENTE DE COLUNAS */}
                         {colunasFiltradas.length > 0 ? (
                             <div className="w-1/2 relative">
                                 <select 
@@ -384,7 +402,6 @@ function RegraForm({ initialData, tabelas, campos, funcoes, onSubmit, isSaving, 
                                 </div>
                             </div>
                         ) : (
-                            // Fallback para input de texto se não tiver metadados
                             <input name="coluna_monitorada" value={formData.coluna_monitorada || ''} onChange={handleChange} className="w-1/2 p-2 border border-blue-200 rounded-lg text-xs" placeholder="Coluna (ex: status)" />
                         )}
 
