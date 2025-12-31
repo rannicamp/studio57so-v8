@@ -1,24 +1,19 @@
-// contexts/LayoutContext.js
 "use client";
 
-import { createContext, useContext, useState, useMemo } from 'react';
+import { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 
-// 1. Criamos a função de busca de dados (fora do componente)
-// Ela busca o usuário logado E o perfil dele na tabela 'usuarios'
+// 1. Busca os dados do usuário (perfil)
 async function fetchUserProfile() {
   const supabase = createClient();
   
-  // Primeiro, pega o usuário da autenticação
   const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
   
   if (authError || !authUser) {
-    // Se não tiver usuário logado, retorna null
     return null;
   }
   
-  // Se tem usuário, busca o perfil dele na tabela 'usuarios'
   const { data: userProfile, error: profileError } = await supabase
     .from('usuarios')
     .select('*')
@@ -26,47 +21,50 @@ async function fetchUserProfile() {
     .single();
     
   if (profileError) {
-    console.error("Erro ao buscar perfil do usuário:", profileError.message);
-    // Retorna o usuário da autenticação (auth) mesmo se o perfil falhar
-    // Suas páginas (como a de clientes) precisam do 'user.id'
+    console.error("Erro ao buscar perfil:", profileError.message);
     return authUser; 
   }
   
-  // Retorna o perfil completo da tabela 'usuarios'
-  // que também inclui o 'id', 'email', etc.
   return userProfile;
 }
-
 
 const LayoutContext = createContext();
 
 export function LayoutProvider({ children }) {
-  const [pageTitle, setPageTitle] = useState('Dashboard'); // Título padrão
+  const [pageTitle, setPageTitle] = useState('Dashboard');
+  // NOVO: Estado local para controlar a posição do menu
+  const [sidebarPosition, setSidebarPosition] = useState('left'); 
 
-  // 2. Usamos o useQuery para buscar os dados do usuário
-  // Conforme nossas regras, isto substitui useState + useEffect
+  // 2. Busca dados do usuário (cacheado pelo TanStack Query)
   const { 
-    data: user, // 'data' é re-nomeado para 'user'
-    isLoading: isUserLoading, // Podemos usar isso para mostrar um "Carregando"
+    data: user, 
+    isLoading: isUserLoading, 
     isError 
   } = useQuery({
-    queryKey: ['userProfile'], // Chave de cache para o usuário
-    queryFn: fetchUserProfile, // A função que criamos ali em cima
-    staleTime: 1000 * 60 * 30, // 30 minutos de "cache"
-    refetchOnWindowFocus: false, // Não precisa buscar de novo só por trocar de aba
+    queryKey: ['userProfile'], 
+    queryFn: fetchUserProfile, 
+    staleTime: 1000 * 60 * 30, // 30 minutos
+    refetchOnWindowFocus: false, 
   });
 
-  // 3. Criamos o "pacote" de dados (o 'value')
-  // Usamos o useMemo para otimizar e não recriar isso em toda renderização
+  // 3. NOVO: Sincroniza o estado local com o banco assim que o usuário carrega
+  useEffect(() => {
+    if (user?.sidebar_position) {
+      setSidebarPosition(user.sidebar_position);
+    }
+  }, [user]);
+
+  // 4. Pacote de dados compartilhado (Contexto)
   const value = useMemo(() => ({
     pageTitle, 
     setPageTitle,
-    user, // <--- AQUI ESTÁ A MÁGICA!
+    sidebarPosition,    // <--- Agora exposto
+    setSidebarPosition, // <--- Agora exposto (resolve o erro)
+    user, 
     isUserLoading,
     isError
-  }), [pageTitle, user, isUserLoading, isError]);
+  }), [pageTitle, sidebarPosition, user, isUserLoading, isError]);
 
-  // 4. Fornecemos o 'value' completo para todos os 'children'
   return (
     <LayoutContext.Provider value={value}>
       {children}
@@ -77,7 +75,6 @@ export function LayoutProvider({ children }) {
 export function useLayout() {
   const context = useContext(LayoutContext);
   if (context === undefined) {
-    // Esta mensagem de erro agora é útil de verdade
     throw new Error('useLayout deve ser usado dentro de um LayoutProvider');
   }
   return context;

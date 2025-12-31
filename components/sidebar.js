@@ -1,59 +1,35 @@
 // components/sidebar.js
-// CÓDIGO ATUALIZADO E CORRIGIDO - LIBERAÇÃO DA CAIXA DE ENTRADA
-
 "use client";
 
-import { useState } from 'react';
 import Link from 'next/link';
-// O PORQUÊ DA MUDANÇA: useQuery e a função fetchEmpreendimentos foram removidos, pois não vamos mais buscar a lista de empreendimentos para exibir no menu lateral.
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
-    faClipboardList, faCog, faChevronLeft, faChevronRight, faClock,
-    faAddressBook, faDollarSign, faShoppingCart,
+    faClipboardList, faAddressBook, faDollarSign, faShoppingCart,
     faInbox, faBullseye, faFileSignature, faCalculator,
-    faChevronDown, faBoxOpen, faFileInvoiceDollar, faTags
+    faBoxOpen, faFileInvoiceDollar, faTags
 } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 import Tooltip from './Tooltip';
 
-export default function Sidebar({ isCollapsed, toggleSidebar }) {
+export default function Sidebar({ isOpen, closeSidebar }) {
     const { hasPermission, user } = useAuth();
     const sidebarPosition = user?.sidebar_position || 'left';
     
-    // O PORQUÊ DA MUDANÇA: A lógica para abrir e fechar o submenu de empreendimentos foi removida por não ser mais necessária.
-
-    // =================================================================================
-    // INÍCIO DA ATUALIZAÇÃO PRINCIPAL
-    // O PORQUÊ: A seção "Empreendimentos" foi removida como um item especial com submenu.
-    // Em seu lugar, um link simples para "/empreendimentos" foi adicionado dentro da
-    // seção "Administrativo", garantindo que ele funcione em todas as posições da sidebar.
-    // =================================================================================
+    // Configuração dos itens (MANTIDO IDÊNTICO)
     const navSections = [
         {
             title: 'Administrativo',
             items: [
-                // =================================================================
-                // INÍCIO DA CORREÇÃO 1 de 3
-                // O PORQUÊ: O link do "Painel" agora aponta para /painel,
-                // pois / é a homepage pública.
                 { href: '/painel', label: 'Painel', icon: faTachometerAlt, recurso: 'painel' },
-                // FIM DA CORREÇÃO 1 de 3
-                // =================================================================
                 { href: '/financeiro', label: 'Financeiro', icon: faDollarSign, recurso: 'financeiro' },
-                { 
-                    href: '/recursos-humanos', 
-                    label: 'Recursos Humanos', 
-                    icon: faUsers, 
-                    recurso: 'recursos_humanos'
-                },
+                { href: '/recursos-humanos', label: 'Recursos Humanos', icon: faUsers, recurso: 'recursos_humanos' },
                 { href: '/empresas', label: 'Empresas', icon: faBuilding, recurso: 'empresas' },
                 { href: '/empreendimentos', label: 'Empreendimentos', icon: faProjectDiagram, recurso: 'empreendimentos' },
                 { href: '/contratos', label: 'Contratos', icon: faFileSignature, recurso: 'contratos' },
             ]
         },
-        // A seção especial 'Empreendimentos' foi removida daqui.
         {
             title: 'Comercial',
             items: [
@@ -76,43 +52,25 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             ]
         },
     ];
-    // =================================================================================
-    // FIM DA ATUALIZAÇÃO PRINCIPAL
-    // =================================================================================
 
     const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE";
     const logoIconUrl = "/favicon.ico";
 
     const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom';
 
+    // --- MODO HORIZONTAL (Top/Bottom) - Mantém fixo ---
     if (isHorizontal) {
-        // O PORQUÊ DA MUDANÇA: Como "Empreendimentos" agora faz parte do `items` de uma seção,
-        // a lógica abaixo já o incluirá automaticamente na barra horizontal, corrigindo o bug.
         const allItems = navSections.flatMap(section => section.items || []);
-
         return (
-            <aside className={`bg-white shadow-lg h-[65px] w-full fixed left-0 ${sidebarPosition === 'top' ? 'top-[65px]' : 'bottom-0'} z-40 flex items-center justify-center px-4`}>
-                <div className="absolute left-4">
-                    {/* =================================================================
-                    // INÍCIO DA CORREÇÃO 2 de 3
-                    // O PORQUÊ: O logo na barra horizontal também deve levar
-                    // o usuário logado para o /painel.
-                    // ================================================================= */}
+            <aside className={`bg-white shadow-lg h-[65px] w-full fixed left-0 z-40 flex items-center justify-center px-4 transition-all ${sidebarPosition === 'top' ? 'top-[65px]' : 'bottom-0'}`}>
+                <div className="absolute left-4 flex items-center">
                     <Link href="/painel">
-                        <img src={logoIconUrl} alt="Logo Studio 57" className="h-8 w-auto" />
+                        <img src={logoIconUrl} alt="Logo" className="h-8 w-auto" />
                     </Link>
-                    {/* FIM DA CORREÇÃO 2 de 3 */}
                 </div>
-                <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2">
+                <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2 max-w-[80vw]">
                     {allItems.map((item) => {
-                        // =================================================================
-                        // INÍCIO DA CORREÇÃO DE VISIBILIDADE
-                        // O PORQUÊ: Adicionamos 'caixa_de_entrada' na lista de itens que SEMPRE aparecem.
-                        // Assim, o acesso ao e-mail fica garantido para todos, enquanto o WhatsApp será bloqueado na página.
-                        // =================================================================
                         const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
-                        // FIM DA CORREÇÃO DE VISIBILIDADE
-                        // =================================================================
                         if (!item || !canViewItem) return null;
                         return (
                             <Tooltip key={item.label} label={item.label} position={sidebarPosition === 'top' ? 'bottom' : 'top'}>
@@ -120,9 +78,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                                     href={item.href}
                                     target={item.target}
                                     rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
-                                    className="flex items-center justify-center h-12 w-12 text-gray-700 hover:bg-gray-100 rounded-md transition-colors duration-200"
+                                    className="flex items-center justify-center h-10 w-10 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
                                 >
-                                    <FontAwesomeIcon icon={item.icon} className="text-xl" />
+                                    <FontAwesomeIcon icon={item.icon} className="text-lg" />
                                 </Link>
                             </Tooltip>
                         );
@@ -132,78 +90,77 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         );
     }
 
+    // --- MODO VERTICAL (GAVETA / OFF-CANVAS) ---
+    // Define a classe de posicionamento e transformação
+    const drawerBaseClasses = "fixed top-0 bottom-0 z-50 w-[280px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out h-full overflow-y-auto";
+    const drawerPositionClass = sidebarPosition === 'right' 
+        ? `right-0 ${isOpen ? 'translate-x-0' : 'translate-x-full'}` 
+        : `left-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`;
+
     return (
-        <aside className={`bg-white shadow-lg h-full fixed top-0 z-40 flex flex-col transition-all duration-300 ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}>
-            <div className="flex items-center justify-center h-[65px] border-b border-gray-200 flex-shrink-0">
-                 {/* =================================================================
-                // INÍCIO DA CORREÇÃO 3 de 3
-                // O PORQUÊ: O logo na barra vertical também deve levar
-                // o usuário logado para o /painel.
-                // ================================================================= */}
-                <Link href="/painel">
-                    <img src={isCollapsed ? logoIconUrl : logoUrl} alt="Logo Studio 57" className={`transition-all duration-300 ${isCollapsed ? 'h-8' : 'h-10'} w-auto`} />
-                </Link>
-                {/* FIM DA CORREÇÃO 3 de 3 */}
-            </div>
-            <nav className="mt-4 flex-grow flex flex-col">
-                <ul className="overflow-y-auto">
-                    {navSections.map((section) => {
-                        const sectionItems = section.items || [];
-                        
-                        // =================================================================
-                        // INÍCIO DA CORREÇÃO DE VISIBILIDADE (Para o menu vertical)
-                        // O PORQUÊ: Adicionamos 'caixa_de_entrada' na lista de itens sempre visíveis aqui também.
-                        // =================================================================
-                        const hasVisibleItems = sectionItems.some(item => 
-                            hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso)
-                        );
-                        // FIM DA CORREÇÃO DE VISIBILIDADE
-                        // =================================================================
+        <>
+            {/* BACKDROP (Fundo escuro que fecha ao clicar) */}
+            {isOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm transition-opacity"
+                    onClick={closeSidebar}
+                ></div>
+            )}
 
-                        if (!hasVisibleItems) return null;
+            {/* GAVETA */}
+            <aside className={`${drawerBaseClasses} ${drawerPositionClass}`}>
+                
+                {/* Cabeçalho da Gaveta */}
+                <div className="flex items-center justify-center h-[65px] border-b border-gray-100 sticky top-0 bg-white z-10">
+                    <Link href="/painel" onClick={closeSidebar}>
+                        <img src={logoUrl} alt="Logo Studio 57" className="h-9 w-auto" />
+                    </Link>
+                </div>
 
-                        return (
-                            <li key={section.title} className="mb-2">
-                                {!isCollapsed && ( <h3 className="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider my-2">{section.title}</h3> )}
-                                {isCollapsed && ( <div className="flex justify-center my-4"><div className="w-8 border-t border-gray-200"></div></div> )}
+                {/* Lista de Navegação */}
+                <nav className="mt-4 pb-20">
+                    <ul>
+                        {navSections.map((section) => {
+                            const sectionItems = section.items || [];
+                            const hasVisibleItems = sectionItems.some(item => 
+                                hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso)
+                            );
 
-                                <ul>
-                                    {sectionItems.map((item) => {
-                                        // =================================================================
-                                        // INÍCIO DA CORREÇÃO DE VISIBILIDADE (Loop dos itens)
-                                        // O PORQUÊ: Garante que o item individual seja renderizado para todos.
-                                        // =================================================================
-                                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
-                                        // FIM DA CORREÇÃO DE VISIBILIDADE
-                                        // =================================================================
-                                        if (!canViewItem) return null;
+                            if (!hasVisibleItems) return null;
 
-                                        return (
-                                            <li key={item.label}>
-                                                <Tooltip label={item.label} position={sidebarPosition === 'left' ? 'right' : 'left'}>
+                            return (
+                                <li key={section.title} className="mb-6">
+                                    <h3 className="px-6 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                                        {section.title}
+                                    </h3>
+
+                                    <ul>
+                                        {sectionItems.map((item) => {
+                                            const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
+                                            if (!canViewItem) return null;
+
+                                            return (
+                                                <li key={item.label}>
                                                     <Link
                                                         href={item.href}
                                                         target={item.target}
+                                                        onClick={closeSidebar} // Fecha ao clicar no link
                                                         rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
-                                                        className={`flex items-center py-3 text-gray-700 hover:bg-gray-100 transition-colors duration-200 w-full ${isCollapsed ? 'justify-center' : 'px-6'}`}
+                                                        className="flex items-center py-3 px-6 text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 border-l-4 border-transparent hover:border-blue-600"
                                                     >
-                                                        <FontAwesomeIcon icon={item.icon} className={`flex-shrink-0 ${isCollapsed ? 'text-xl' : 'text-lg w-6'}`} />
-                                                        {!isCollapsed && <span className="ml-4 text-sm font-medium">{item.label}</span>}
+                                                        <FontAwesomeIcon icon={item.icon} className="text-lg w-6" />
+                                                        <span className="ml-4 text-sm font-medium">{item.label}</span>
                                                     </Link>
-                                                </Tooltip>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            </li>
-                        )})}
-                </ul>
-            </nav>
-            <div className="border-t border-gray-200 p-2">
-                <button onClick={toggleSidebar} className="w-full h-12 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
-                    <FontAwesomeIcon icon={isCollapsed ? (sidebarPosition === 'right' ? faChevronLeft : faChevronRight) : (sidebarPosition === 'right' ? faChevronRight : faChevronLeft)} size="lg" />
-                </button>
-            </div>
-        </aside>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </nav>
+            </aside>
+        </>
     );
-};
+}

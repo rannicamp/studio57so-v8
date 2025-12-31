@@ -11,28 +11,23 @@ const INBOX_NAV_STATE_KEY = 'inboxNavState';
 export default function CaixaDeEntrada() {
     const { hasPermission, loading } = useAuth();
     
-    // Define se o usuário tem permissão para ver o WhatsApp (usando o recurso 'caixa_de_entrada')
-    // Se não tiver, ele só verá o e-mail.
+    // Define se o usuário tem permissão para ver o WhatsApp
     const canViewWhatsapp = hasPermission('caixa_de_entrada', 'pode_ver');
 
-    // Estado inicial seguro: se não sabemos ainda, ou se não pode ver whats, começa no email
+    // Estado inicial
     const [activeTab, setActiveTab] = useState('email');
 
     useEffect(() => {
         if (typeof window !== 'undefined' && !loading) {
             const cached = localStorage.getItem(INBOX_NAV_STATE_KEY);
             
-            // Se o usuário TEM permissão para WhatsApp
             if (canViewWhatsapp) {
-                // Se tinha algo no cache, respeita (pode ser 'whatsapp' ou 'email')
                 if (cached) {
                     setActiveTab(cached);
                 } else {
-                    // Padrão para quem tem acesso total: WhatsApp
                     setActiveTab('whatsapp');
                 }
             } else {
-                // Se NÃO tem permissão, força E-mail sempre
                 setActiveTab('email');
             }
         }
@@ -46,20 +41,20 @@ export default function CaixaDeEntrada() {
     };
 
     if (loading) {
-        return <div className="flex h-screen items-center justify-center bg-gray-100 text-gray-500">Carregando permissões...</div>;
+        return <div className="flex h-full items-center justify-center bg-gray-100 text-gray-500">Carregando permissões...</div>;
     }
 
+    /* CORREÇÃO AQUI: 
+       Removemos 'fixed', 'top-16', 'bottom-88', 'calc(100vh)'.
+       O MainLayoutClient já configurou o container pai com flex-col e h-screen.
+       Aqui só precisamos dizer: "Ocupe 100% da altura e largura disponível".
+    */
     return (
-        <div className="
-            w-full bg-gray-100 overflow-hidden flex
-            fixed inset-x-0 top-16 bottom-[88px] 
-            md:static md:inset-auto md:h-[calc(100vh-64px)] md:pb-20
-        ">
+        <div className="h-full w-full bg-gray-100 flex flex-col overflow-hidden">
             {/* Renderiza WhatsApp APENAS se estiver na aba E tiver permissão */}
             {activeTab === 'whatsapp' && canViewWhatsapp ? (
                 <WhatsAppInbox onChangeTab={handleTabChange} />
             ) : (
-                // Passamos a prop canViewWhatsapp para o EmailInbox saber se mostra o botão de voltar pro Zap
                 <EmailInbox onChangeTab={handleTabChange} canViewWhatsapp={canViewWhatsapp} />
             )}
         </div>

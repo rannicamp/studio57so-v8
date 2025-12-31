@@ -2,14 +2,12 @@
 
 import { useEffect } from 'react';
 import { useLayout } from '@/contexts/LayoutContext';
-import { useAuth } from '@/contexts/AuthContext'; // Mantido caso precise no futuro
 import ProfileForm from '@/components/ProfileForm';
-// Importamos o novo componente que se conecta à tabela de regras
+import PreferenciasInterface from '@/components/perfil/PreferenciasInterface'; // <--- Importe aqui
 import MinhasNotificacoes from '@/components/perfil/MinhasNotificacoes';
 
 export default function PerfilPage() {
     const { setPageTitle } = useLayout();
-    // const { user } = useAuth(); // O componente MinhasNotificacoes já busca o usuário internamente
 
     useEffect(() => {
         setPageTitle('Meu Perfil');
@@ -17,12 +15,17 @@ export default function PerfilPage() {
 
     return (
         <div className="max-w-4xl mx-auto space-y-8 pb-10">
-            {/* Seção 1: Dados Pessoais (Avatar, Nome, Senha) */}
+            {/* 1. Dados Pessoais */}
             <section>
                 <ProfileForm />
             </section>
 
-            {/* Seção 2: Preferências de Notificação (Novo Sistema Dinâmico) */}
+            {/* 2. Preferências de Interface (NOVO) */}
+            <section id="aparencia">
+                <PreferenciasInterface />
+            </section>
+
+            {/* 3. Notificações */}
             <section id="notificacoes">
                 <MinhasNotificacoes />
             </section>
