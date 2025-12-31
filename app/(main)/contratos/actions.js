@@ -3,7 +3,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { enviarNotificacao } from '@/utils/notificacoes'; // <--- IMPORTAMOS O CARTEIRO AQUI
+import { enviarNotificacao } from '@/utils/notificacoes';
 
 // --- FUNÇÃO 1: CRIAR CONTRATO ---
 export async function createNewContrato(empreendimentoId, tipoDocumento) {
@@ -37,8 +37,7 @@ export async function createNewContrato(empreendimentoId, tipoDocumento) {
         return { error: "Falha ao criar documento." };
     }
 
-    // --- NOTIFICAÇÃO DE CRIAÇÃO ---
-    // Avisa o usuário que criou (confirmação visual no celular/PC)
+    // Mantemos a notificação de CRIAÇÃO pois geralmente não tem regra de banco pra Rascunho
     await enviarNotificacao({
         userId: user.id,
         titulo: `Novo Documento Iniciado 📄`,
@@ -58,7 +57,7 @@ export async function updateContratoStatus(contratoId, newStatus) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: "Não autorizado." };
 
-    // 1. Busca dados do contrato para saber o tipo e organização
+    // 1. Busca dados do contrato
     const { data: contrato, error: fetchError } = await supabase
         .from('contratos')
         .select('id, tipo_documento, organizacao_id, numero_contrato')
@@ -76,33 +75,24 @@ export async function updateContratoStatus(contratoId, newStatus) {
     if (updateError) return { error: "Erro ao atualizar status." };
 
     // 3. LÓGICA DE PRODUTOS
-    
-    // Primeiro, buscamos quais produtos estão ligados a esse contrato
     const { data: produtosVinculados } = await supabase
         .from('contrato_produtos')
         .select('produto_id')
         .eq('contrato_id', contratoId)
         .eq('organizacao_id', contrato.organizacao_id);
 
-    // Cria uma lista limpa apenas com os IDs
     const listaDeProdutos = produtosVinculados?.map(p => p.produto_id) || [];
 
-    // Se houver produtos vinculados, aplicamos a regra
     if (listaDeProdutos.length > 0) {
-        
         // CENÁRIO A: Contrato Assinado
         if (newStatus === 'Assinado') {
-            let novoStatusProduto = 'Vendido'; // Padrão para contratos de venda
-
-            // Normaliza o texto para garantir a verificação
+            let novoStatusProduto = 'Vendido'; 
             const tipoDoc = (contrato.tipo_documento || '').trim().toLowerCase();
             
-            // Se for Termo de Interesse (ou Reserva), muda para RESERVADO
             if (tipoDoc.includes('termo') || tipoDoc.includes('interesse') || tipoDoc.includes('reserva')) {
                 novoStatusProduto = 'Reservado';
             }
 
-            // Atualiza TODOS os produtos vinculados de uma vez
             await supabase
                 .from('produtos_empreendimento')
                 .update({ status: novoStatusProduto })
@@ -112,7 +102,6 @@ export async function updateContratoStatus(contratoId, newStatus) {
 
         // CENÁRIO B: Contrato Cancelado ou Distratado
         if (newStatus === 'Cancelado' || newStatus === 'Distratado') {
-            // Libera os produtos de volta para Disponível
             await supabase
                 .from('produtos_empreendimento')
                 .update({ status: 'Disponível' })
@@ -121,7 +110,10 @@ export async function updateContratoStatus(contratoId, newStatus) {
         }
     }
 
-    // --- NOTIFICAÇÃO DE MUDANÇA DE STATUS ---
+    // --- NOTIFICAÇÃO (COMENTADA PARA EVITAR DUPLICIDADE) ---
+    /* A notificação agora é gerenciada pelo Banco de Dados (tabela regras_notificacao).
+       Descomente apenas se remover a regra do banco.
+    
     await enviarNotificacao({
         userId: user.id,
         titulo: `Status Atualizado 🔄`,
@@ -130,6 +122,7 @@ export async function updateContratoStatus(contratoId, newStatus) {
         organizacaoId: contrato.organizacao_id,
         canal: 'contratos'
     });
+    */
 
     revalidatePath('/contratos');
     revalidatePath('/empreendimentos'); 

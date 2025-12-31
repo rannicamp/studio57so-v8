@@ -9,7 +9,7 @@ import {
   faPlus, faEdit, faTrash, faBolt, faSave, faSpinner, faArrowDown, faMobileAlt, faSync,
   faBell, faMoneyBillWave, faUserPlus, faCheckCircle, 
   faExclamationTriangle, faBirthdayCake, faFileContract, faBriefcase, faBullhorn, faDatabase, faTable, faColumns,
-  faCopy // <--- 1. NOVO ÍCONE IMPORTADO
+  faCopy, faRobot // <--- Ícone do Robô importado
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp as faWhatsappBrand } from '@fortawesome/free-brands-svg-icons';
 
@@ -25,6 +25,8 @@ const AVAILABLE_ICONS = [
   { icon: faFileContract, name: 'fa-file-contract', label: 'Contrato' },
   { icon: faBriefcase, name: 'fa-briefcase', label: 'Trabalho' },
   { icon: faBullhorn, name: 'fa-bullhorn', label: 'Aviso' },
+  { icon: faBolt, name: 'fa-bolt', label: 'Ação' },
+  { icon: faDatabase, name: 'fa-database', label: 'Sistema' },
 ];
 
 const renderIcon = (iconName, className = "") => {
@@ -95,11 +97,9 @@ export default function GerenciadorNotificacoes() {
       const { data: { user } } = await supabase.auth.getUser();
       const { data: userData } = await supabase.from('usuarios').select('organizacao_id').eq('id', user.id).single();
       
-      // Remove o ID do objeto de dados para garantir que não tente salvar ID no insert se for cópia
       const { id, ...dadosLimpos } = dados;
       const payload = { ...dadosLimpos, organizacao_id: userData.organizacao_id };
 
-      // Se editingRule tem ID, é UPDATE. Se não tem (ou é duplicata), é INSERT.
       if (editingRule?.id) {
         const { error } = await supabase.from('regras_notificacao').update(payload).eq('id', editingRule.id);
         if (error) throw error;
@@ -141,25 +141,22 @@ export default function GerenciadorNotificacoes() {
 
   const handleEdit = (regra) => { setEditingRule(regra); setIsEditing(true); };
   
-  // --- 2. NOVA FUNÇÃO DE DUPLICAR ---
   const handleDuplicate = (regra) => {
-    // Cria uma cópia removendo ID e datas de criação
     const { id, created_at, organizacao_id, ...copia } = regra;
-    
-    // Adiciona identificador visual de cópia e define como regra em edição (mas sem ID)
-    const regraDuplicada = {
-      ...copia,
-      nome_regra: `${copia.nome_regra} (Cópia)`
-    };
-
-    setEditingRule(regraDuplicada); // Estado sem ID -> Salvar vai criar INSERT
+    const regraDuplicada = { ...copia, nome_regra: `${copia.nome_regra} (Cópia)` };
+    setEditingRule(regraDuplicada);
     setIsEditing(true);
     toast.info("Regra duplicada. Ajuste o detalhe e salve.");
   };
-  // ----------------------------------
 
   const handleNew = () => { setEditingRule(null); setIsEditing(true); };
   const resetForm = () => { setIsEditing(false); setEditingRule(null); };
+
+  // --- AQUI ESTÁ O LINK PARA O SEU AGENTE PERSONALIZADO ---
+  const openAIAgent = () => {
+    // Abre o link do seu Gem específico em uma nova aba
+    window.open('https://gemini.google.com/gem/1UdcyjP0rRxdtbOjOXbrIYR06nJZnTtGC?usp=sharing', '_blank');
+  };
 
   if (!isEditing) {
     return (
@@ -173,6 +170,11 @@ export default function GerenciadorNotificacoes() {
             <p className="text-xs text-gray-500 mt-1">Gerencie os alertas automáticos do sistema.</p>
           </div>
           <div className="flex gap-2">
+             {/* BOTÃO DE AJUDA IA */}
+            <button onClick={openAIAgent} className="bg-purple-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-purple-700 flex items-center gap-2 shadow-sm transition-all border border-purple-500" title="Pedir ajuda ao Agente de Notificações">
+               <FontAwesomeIcon icon={faRobot} /> Ajuda com IA
+            </button>
+
             <button onClick={() => syncTablesMutation.mutate()} className="text-gray-500 hover:text-blue-600 px-3 py-2 rounded-lg text-xs font-bold border border-transparent hover:border-blue-100 flex items-center gap-2 transition-all" title="Buscar novas tabelas e campos do banco">
                <FontAwesomeIcon icon={faSync} spin={syncTablesMutation.isPending} /> 
                {syncTablesMutation.isPending ? 'Sincronizando...' : 'Atualizar Dados'}
@@ -236,7 +238,6 @@ export default function GerenciadorNotificacoes() {
                         </div>
 
                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {/* --- 3. BOTÃO DUPLICAR --- */}
                         <button onClick={() => handleDuplicate(regra)} title="Duplicar Regra" className="text-gray-400 hover:text-green-600 p-2 hover:bg-green-50 rounded-lg transition-colors">
                             <FontAwesomeIcon icon={faCopy} />
                         </button>
@@ -275,7 +276,7 @@ export default function GerenciadorNotificacoes() {
   );
 }
 
-// O componente RegraForm permanece exatamente igual ao anterior
+// O componente RegraForm permanece (sem a lógica de API interna que eu tinha sugerido antes)
 function RegraForm({ initialData, tabelas, campos, funcoes, onSubmit, isSaving, onCancel }) {
   const [formData, setFormData] = useState(initialData || {
     nome_regra: '', tabela_alvo: '', evento: 'INSERT',
@@ -314,29 +315,13 @@ function RegraForm({ initialData, tabelas, campos, funcoes, onSubmit, isSaving, 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* IDENTIDADE */}
         <div className="md:col-span-1 space-y-4">
            <div>
               <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Identidade</label>
-              <input 
-                required 
-                name="nome_regra" 
-                value={formData.nome_regra} 
-                onChange={handleChange} 
-                className="w-full p-2.5 border rounded-lg text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none mb-4" 
-                placeholder="Nome da Regra" 
-              />
-              
+              <input required name="nome_regra" value={formData.nome_regra} onChange={handleChange} className="w-full p-2.5 border rounded-lg text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none mb-4" placeholder="Nome da Regra" />
               <div className="grid grid-cols-5 gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
                 {AVAILABLE_ICONS.map((item) => (
-                    <button
-                        key={item.name}
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, icone: item.name }))}
-                        className={`aspect-square rounded-md flex items-center justify-center text-lg transition-all ${formData.icone === item.name ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-200' : 'text-gray-400 hover:bg-gray-200'}`}
-                        title={item.label}
-                    >
+                    <button key={item.name} type="button" onClick={() => setFormData(prev => ({ ...prev, icone: item.name }))} className={`aspect-square rounded-md flex items-center justify-center text-lg transition-all ${formData.icone === item.name ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-200' : 'text-gray-400 hover:bg-gray-200'}`} title={item.label}>
                         <FontAwesomeIcon icon={item.icon} />
                     </button>
                 ))}
@@ -344,15 +329,11 @@ function RegraForm({ initialData, tabelas, campos, funcoes, onSubmit, isSaving, 
            </div>
         </div>
 
-        {/* LÓGICA */}
         <div className="md:col-span-2 space-y-4">
-            
-            {/* GATILHO */}
             <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full -mr-8 -mt-8"></div>
                 <h4 className="text-xs font-bold text-blue-800 uppercase mb-4 flex items-center gap-2">
-                    <span className="bg-blue-200 px-2 py-0.5 rounded text-[10px]">1</span> 
-                    Onde (Gatilho)
+                    <span className="bg-blue-200 px-2 py-0.5 rounded text-[10px]">1</span> Onde (Gatilho)
                 </h4>
                 
                 <div className="grid grid-cols-2 gap-4">
@@ -360,13 +341,10 @@ function RegraForm({ initialData, tabelas, campos, funcoes, onSubmit, isSaving, 
                         <label className="block text-[10px] font-bold text-blue-600 mb-1 uppercase">Módulo / Tabela</label>
                         <select required name="tabela_alvo" value={formData.tabela_alvo} onChange={handleChange} className="w-full p-2 border border-blue-200 rounded-lg text-sm bg-white">
                             <option value="">Selecione...</option>
-                            {tabelas && tabelas.map(t => (
-                                <option key={t.id} value={t.nome_tabela}>
-                                    {t.nome_exibicao} ({t.modulo})
-                                </option>
-                            ))}
+                            {tabelas && tabelas.map(t => <option key={t.id} value={t.nome_tabela}>{t.nome_exibicao} ({t.modulo})</option>)}
                             <option value="activities">Atividades (Manual)</option>
                             <option value="whatsapp_messages">WhatsApp (Manual)</option>
+                            <option value="produtos_empreendimento">Produtos (Manual)</option>
                         </select>
                     </div>
                     <div>
@@ -384,27 +362,15 @@ function RegraForm({ initialData, tabelas, campos, funcoes, onSubmit, isSaving, 
                     <div className="flex gap-2">
                         {colunasFiltradas.length > 0 ? (
                             <div className="w-1/2 relative">
-                                <select 
-                                    name="coluna_monitorada" 
-                                    value={formData.coluna_monitorada || ''} 
-                                    onChange={handleChange} 
-                                    className="w-full p-2 border border-blue-200 rounded-lg text-xs bg-white appearance-none"
-                                >
+                                <select name="coluna_monitorada" value={formData.coluna_monitorada || ''} onChange={handleChange} className="w-full p-2 border border-blue-200 rounded-lg text-xs bg-white appearance-none">
                                     <option value="">-- Qualquer Coluna --</option>
-                                    {colunasFiltradas.map(c => (
-                                        <option key={c.id} value={c.nome_coluna}>
-                                            {c.nome_exibicao}
-                                        </option>
-                                    ))}
+                                    {colunasFiltradas.map(c => <option key={c.id} value={c.nome_coluna}>{c.nome_exibicao}</option>)}
                                 </select>
-                                <div className="absolute right-2 top-2.5 text-blue-300 pointer-events-none text-xs">
-                                    <FontAwesomeIcon icon={faColumns} />
-                                </div>
+                                <div className="absolute right-2 top-2.5 text-blue-300 pointer-events-none text-xs"><FontAwesomeIcon icon={faColumns} /></div>
                             </div>
                         ) : (
                             <input name="coluna_monitorada" value={formData.coluna_monitorada || ''} onChange={handleChange} className="w-1/2 p-2 border border-blue-200 rounded-lg text-xs" placeholder="Coluna (ex: status)" />
                         )}
-
                         <div className="flex items-center text-blue-300 font-bold">=</div>
                         <input name="valor_gatilho" value={formData.valor_gatilho || ''} onChange={handleChange} className="w-1/2 p-2 border border-blue-200 rounded-lg text-xs" placeholder="Valor (ex: Concluído)" />
                     </div>
@@ -412,17 +378,13 @@ function RegraForm({ initialData, tabelas, campos, funcoes, onSubmit, isSaving, 
             </div>
 
             <div className="flex justify-center -my-2 relative z-10">
-                <div className="bg-white border rounded-full p-1 text-gray-300 shadow-sm">
-                    <FontAwesomeIcon icon={faArrowDown} />
-                </div>
+                <div className="bg-white border rounded-full p-1 text-gray-300 shadow-sm"><FontAwesomeIcon icon={faArrowDown} /></div>
             </div>
 
-            {/* AÇÃO */}
             <div className="bg-orange-50 p-5 rounded-xl border border-orange-100 shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-16 h-16 bg-orange-100 rounded-bl-full -mr-8 -mt-8"></div>
                 <h4 className="text-xs font-bold text-orange-800 uppercase mb-4 flex items-center gap-2">
-                    <span className="bg-orange-200 px-2 py-0.5 rounded text-[10px]">2</span> 
-                    Ação (Notificar)
+                    <span className="bg-orange-200 px-2 py-0.5 rounded text-[10px]">2</span> Ação (Notificar)
                 </h4>
 
                 <div className="mb-4">
@@ -443,6 +405,7 @@ function RegraForm({ initialData, tabelas, campos, funcoes, onSubmit, isSaving, 
                 <div className="space-y-2">
                     <input required name="titulo_template" value={formData.titulo_template} onChange={handleChange} className="w-full p-2 border border-orange-200 rounded-lg text-sm font-bold placeholder-orange-300" placeholder="Título" />
                     <textarea required name="mensagem_template" value={formData.mensagem_template} onChange={handleChange} rows="2" className="w-full p-2 border border-orange-200 rounded-lg text-sm placeholder-orange-300" placeholder="Mensagem..." />
+                    <p className="text-[10px] text-gray-400">Dica do Agente: Use {'{nome_empreendimento}'}, {'{nome_contato}'}, {'{unidade}'}. Se tiver dúvida, clique no botão de Ajuda!</p>
                 </div>
 
                  <div className="mt-4 pt-3 border-t border-orange-200/50 flex justify-between items-center">
