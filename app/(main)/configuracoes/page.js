@@ -1,4 +1,3 @@
-// app/(main)/configuracoes/page.js
 'use client';
 
 import { useLayout } from '@/contexts/LayoutContext';
@@ -8,7 +7,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faUsers, 
     faLock, 
-    faBars, 
     faFileInvoiceDollar, 
     faFileAlt, 
     faComments, 
@@ -19,7 +17,7 @@ import {
     faRobot,        
     faShieldAlt,    
     faUserTie,
-    faBell // <--- ADICIONEI O ÍCONE DO SINO
+    faBell
 } from '@fortawesome/free-solid-svg-icons';
 
 const ConfigCard = ({ href, icon, title, description, color = "bg-blue-50 text-blue-600" }) => (
@@ -46,7 +44,6 @@ export default function ConfiguracoesPage() {
     }, [setPageTitle]);
 
     const configOptions = [
-        // --- NOVO: NOTIFICAÇÕES ---
         {
             title: 'Notificações Automáticas',
             description: 'Crie regras para o sistema avisar a equipe quando dados importantes mudarem.',
@@ -54,7 +51,6 @@ export default function ConfiguracoesPage() {
             href: '/configuracoes/notificacoes',
             color: 'bg-yellow-50 text-yellow-600'
         },
-        // --------------------------
         {
             title: 'Recursos Humanos',
             description: 'Gerencie cargos, funções e jornadas de trabalho da equipe.',
@@ -91,17 +87,10 @@ export default function ConfiguracoesPage() {
             color: 'bg-red-50 text-red-600'
         },
         {
-            title: 'Menu Lateral',
-            description: 'Personalize a ordem e a visibilidade dos itens no menu lateral para cada função.',
-            icon: faBars,
-            href: '/configuracoes/menu',
-            color: 'bg-pink-50 text-pink-600'
-        },
-        {
             title: 'Financeiro',
-            description: 'Configure categorias, contas e opções de importação para o módulo financeiro.',
+            description: 'Central de configurações financeiras: Categorias, Contas, Importação e Conciliação.',
             icon: faFileInvoiceDollar,
-            href: '/configuracoes/financeiro/importar',
+            href: '/configuracoes/financeiro', // <--- LINK ATUALIZADO
             color: 'bg-emerald-50 text-emerald-600'
         },
         {
