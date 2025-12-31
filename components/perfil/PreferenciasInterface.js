@@ -6,7 +6,7 @@ import { useLayout } from '@/contexts/LayoutContext';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDesktop, faCheckCircle, faSpinner, faColumns, faWindowMaximize } from '@fortawesome/free-solid-svg-icons';
+import { faDesktop, faCheckCircle, faSpinner } from '@fortawesome/free-solid-svg-icons';
 
 export default function PreferenciasInterface() {
     const { user } = useAuth();
@@ -54,8 +54,6 @@ export default function PreferenciasInterface() {
 
                 {/* Barra do Menu (Azul) */}
                 {position === 'left' && <div className={`w-6 h-full absolute left-0 top-0 z-10 transition-colors ${active ? activeColor : inactiveColor}`}></div>}
-                {position === 'right' && <div className={`w-6 h-full absolute right-0 top-0 z-10 transition-colors ${active ? activeColor : inactiveColor}`}></div>}
-                {position === 'top' && <div className={`w-full h-4 absolute top-0 left-0 z-10 transition-colors ${active ? activeColor : inactiveColor}`}></div>}
                 {position === 'bottom' && <div className={`w-full h-4 absolute bottom-0 left-0 z-10 transition-colors ${active ? activeColor : inactiveColor}`}></div>}
             </div>
         );
@@ -69,13 +67,13 @@ export default function PreferenciasInterface() {
                     Aparência do Sistema
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">
-                    Escolha a posição do menu principal que melhor se adapta ao seu fluxo de trabalho.
+                    Escolha a posição do menu principal.
                 </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 
-                {/* ESQUERDA */}
+                {/* ESQUERDA (Padrão) */}
                 <button 
                     onClick={() => handleUpdatePosition('left')}
                     className={`relative group rounded-xl border-2 p-4 flex items-center gap-4 transition-all text-left ${sidebarPosition === 'left' ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200 hover:border-blue-300'}`}
@@ -83,38 +81,12 @@ export default function PreferenciasInterface() {
                     <LayoutPreview position="left" active={sidebarPosition === 'left'} />
                     <div className="flex-1">
                         <h3 className={`font-bold text-sm ${sidebarPosition === 'left' ? 'text-blue-700' : 'text-gray-700'}`}>Lateral Esquerda</h3>
-                        <p className="text-xs text-gray-500 mt-0.5">Padrão clássico.</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Padrão para computadores.</p>
                     </div>
                     {sidebarPosition === 'left' && <FontAwesomeIcon icon={loading ? faSpinner : faCheckCircle} spin={loading} className="text-blue-600 text-lg" />}
                 </button>
 
-                {/* DIREITA */}
-                <button 
-                    onClick={() => handleUpdatePosition('right')}
-                    className={`relative group rounded-xl border-2 p-4 flex items-center gap-4 transition-all text-left ${sidebarPosition === 'right' ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200 hover:border-blue-300'}`}
-                >
-                    <LayoutPreview position="right" active={sidebarPosition === 'right'} />
-                    <div className="flex-1">
-                        <h3 className={`font-bold text-sm ${sidebarPosition === 'right' ? 'text-blue-700' : 'text-gray-700'}`}>Lateral Direita</h3>
-                        <p className="text-xs text-gray-500 mt-0.5">Foco no conteúdo à esquerda.</p>
-                    </div>
-                    {sidebarPosition === 'right' && <FontAwesomeIcon icon={loading ? faSpinner : faCheckCircle} spin={loading} className="text-blue-600 text-lg" />}
-                </button>
-
-                {/* SUPERIOR */}
-                <button 
-                    onClick={() => handleUpdatePosition('top')}
-                    className={`relative group rounded-xl border-2 p-4 flex items-center gap-4 transition-all text-left ${sidebarPosition === 'top' ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200 hover:border-blue-300'}`}
-                >
-                    <LayoutPreview position="top" active={sidebarPosition === 'top'} />
-                    <div className="flex-1">
-                        <h3 className={`font-bold text-sm ${sidebarPosition === 'top' ? 'text-blue-700' : 'text-gray-700'}`}>Menu Superior</h3>
-                        <p className="text-xs text-gray-500 mt-0.5">Mais largura para tabelas.</p>
-                    </div>
-                    {sidebarPosition === 'top' && <FontAwesomeIcon icon={loading ? faSpinner : faCheckCircle} spin={loading} className="text-blue-600 text-lg" />}
-                </button>
-
-                {/* INFERIOR */}
+                {/* INFERIOR (Bottom) */}
                 <button 
                     onClick={() => handleUpdatePosition('bottom')}
                     className={`relative group rounded-xl border-2 p-4 flex items-center gap-4 transition-all text-left ${sidebarPosition === 'bottom' ? 'border-blue-600 bg-blue-50/50' : 'border-gray-200 hover:border-blue-300'}`}
@@ -122,7 +94,7 @@ export default function PreferenciasInterface() {
                     <LayoutPreview position="bottom" active={sidebarPosition === 'bottom'} />
                     <div className="flex-1">
                         <h3 className={`font-bold text-sm ${sidebarPosition === 'bottom' ? 'text-blue-700' : 'text-gray-700'}`}>Menu Inferior</h3>
-                        <p className="text-xs text-gray-500 mt-0.5">Estilo aplicativo móvel.</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Ideal para celulares.</p>
                     </div>
                     {sidebarPosition === 'bottom' && <FontAwesomeIcon icon={loading ? faSpinner : faCheckCircle} spin={loading} className="text-blue-600 text-lg" />}
                 </button>
