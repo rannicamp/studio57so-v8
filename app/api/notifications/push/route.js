@@ -41,19 +41,24 @@ async function handleRequest(request, method) {
     } else {
       // GET (Teste de navegador)
       body = { record: { titulo: "Teste Navegador", mensagem: "Se vibrar, é o Supabase!", enviar_push: true } };
-      // Tenta pegar o ID do user da URL se tiver (ex: ?user_id=...)
       const { searchParams } = new URL(request.url);
       const userIdParam = searchParams.get('user_id');
       if (userIdParam) body.record.user_id = userIdParam;
     }
 
-    await logToDb(supabase, `API ${method}`, 'Recebi chamada!', body);
-
+    // O payload do Supabase vem dentro de 'record'
     const notificationData = body.record || body;
     const { user_id, titulo, mensagem, link, enviar_push } = notificationData;
 
+    // --- 🚨 A CORREÇÃO MÁGICA ESTÁ AQUI 🚨 ---
+    // O sistema verifica se o banco disse "NÃO ENVIAR" (false)
+    if (enviar_push === false) {
+        await logToDb(supabase, 'API INFO', 'Push cancelado: Usuário desativou ou regra bloqueou.', { user_id });
+        return NextResponse.json({ skipped: true, message: 'Push desabilitado na origem.' });
+    }
+    // -----------------------------------------
+
     if (!user_id && method === 'POST') {
-      // Se veio do Supabase sem user_id, é erro
       return NextResponse.json({ message: 'Sem User ID' });
     }
 
@@ -85,7 +90,13 @@ async function handleRequest(request, method) {
     const promises = subscriptions.map(sub => 
       webpush.sendNotification(sub.subscription_data, payload)
         .then(() => ({ success: true }))
-        .catch(e => ({ success: false, error: e.statusCode }))
+        .catch(e => {
+            // Se der erro 410 (Gone), significa que a inscrição é velha e pode ser removida
+            if (e.statusCode === 410 || e.statusCode === 404) {
+                console.log("Removendo inscrição inválida/antiga...");
+            }
+            return { success: false, error: e.statusCode };
+        })
     );
 
     await Promise.all(promises);
