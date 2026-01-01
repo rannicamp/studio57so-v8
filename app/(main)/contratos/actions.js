@@ -34,10 +34,10 @@ export async function createNewContrato(empreendimentoId, tipoDocumento) {
 
     if (error) {
         console.error("Erro ao criar:", error);
-        return { error: "Falha ao criar documento." };
+        return { error: `Falha ao criar documento: ${error.message}` };
     }
 
-    // Mantemos a notificação de CRIAÇÃO pois geralmente não tem regra de banco pra Rascunho
+    // Mantemos a notificação de CRIAÇÃO
     await enviarNotificacao({
         userId: user.id,
         titulo: `Novo Documento Iniciado 📄`,
@@ -64,7 +64,10 @@ export async function updateContratoStatus(contratoId, newStatus) {
         .eq('id', contratoId)
         .single();
 
-    if (fetchError || !contrato) return { error: "Contrato não encontrado." };
+    if (fetchError || !contrato) {
+        console.error("Erro ao buscar contrato:", fetchError);
+        return { error: "Contrato não encontrado ou sem permissão." };
+    }
 
     // 2. Atualiza o status do CONTRATO
     const { error: updateError } = await supabase
@@ -72,57 +75,51 @@ export async function updateContratoStatus(contratoId, newStatus) {
         .update({ status_contrato: newStatus })
         .eq('id', contratoId);
 
-    if (updateError) return { error: "Erro ao atualizar status." };
-
-    // 3. LÓGICA DE PRODUTOS
-    const { data: produtosVinculados } = await supabase
-        .from('contrato_produtos')
-        .select('produto_id')
-        .eq('contrato_id', contratoId)
-        .eq('organizacao_id', contrato.organizacao_id);
-
-    const listaDeProdutos = produtosVinculados?.map(p => p.produto_id) || [];
-
-    if (listaDeProdutos.length > 0) {
-        // CENÁRIO A: Contrato Assinado
-        if (newStatus === 'Assinado') {
-            let novoStatusProduto = 'Vendido'; 
-            const tipoDoc = (contrato.tipo_documento || '').trim().toLowerCase();
-            
-            if (tipoDoc.includes('termo') || tipoDoc.includes('interesse') || tipoDoc.includes('reserva')) {
-                novoStatusProduto = 'Reservado';
-            }
-
-            await supabase
-                .from('produtos_empreendimento')
-                .update({ status: novoStatusProduto })
-                .in('id', listaDeProdutos)
-                .eq('organizacao_id', contrato.organizacao_id);
-        }
-
-        // CENÁRIO B: Contrato Cancelado ou Distratado
-        if (newStatus === 'Cancelado' || newStatus === 'Distratado') {
-            await supabase
-                .from('produtos_empreendimento')
-                .update({ status: 'Disponível' })
-                .in('id', listaDeProdutos)
-                .eq('organizacao_id', contrato.organizacao_id);
-        }
+    if (updateError) {
+        console.error("Erro REAL ao atualizar status:", updateError);
+        // AQUI ESTÁ A MÁGICA: Retornamos a mensagem técnica para você ver na tela
+        return { error: `Erro no Banco de Dados: ${updateError.message} (Código: ${updateError.code})` };
     }
 
-    // --- NOTIFICAÇÃO (COMENTADA PARA EVITAR DUPLICIDADE) ---
-    /* A notificação agora é gerenciada pelo Banco de Dados (tabela regras_notificacao).
-       Descomente apenas se remover a regra do banco.
-    
-    await enviarNotificacao({
-        userId: user.id,
-        titulo: `Status Atualizado 🔄`,
-        mensagem: `O contrato #${contrato.numero_contrato || contratoId} mudou para: ${newStatus}`,
-        link: `/contratos/${contratoId}`,
-        organizacaoId: contrato.organizacao_id,
-        canal: 'contratos'
-    });
-    */
+    // 3. LÓGICA DE PRODUTOS
+    try {
+        const { data: produtosVinculados } = await supabase
+            .from('contrato_produtos')
+            .select('produto_id')
+            .eq('contrato_id', contratoId)
+            .eq('organizacao_id', contrato.organizacao_id);
+
+        const listaDeProdutos = produtosVinculados?.map(p => p.produto_id) || [];
+
+        if (listaDeProdutos.length > 0) {
+            // CENÁRIO A: Contrato Assinado
+            if (newStatus === 'Assinado') {
+                let novoStatusProduto = 'Vendido'; 
+                const tipoDoc = (contrato.tipo_documento || '').trim().toLowerCase();
+                
+                if (tipoDoc.includes('termo') || tipoDoc.includes('interesse') || tipoDoc.includes('reserva')) {
+                    novoStatusProduto = 'Reservado';
+                }
+
+                await supabase
+                    .from('produtos_empreendimento')
+                    .update({ status: novoStatusProduto })
+                    .in('id', listaDeProdutos)
+                    .eq('organizacao_id', contrato.organizacao_id);
+            }
+
+            // CENÁRIO B: Contrato Cancelado ou Distratado
+            if (newStatus === 'Cancelado' || newStatus === 'Distratado') {
+                await supabase
+                    .from('produtos_empreendimento')
+                    .update({ status: 'Disponível' })
+                    .in('id', listaDeProdutos)
+                    .eq('organizacao_id', contrato.organizacao_id);
+            }
+        }
+    } catch (prodError) {
+        console.error("Erro não fatal ao atualizar produtos vinculados:", prodError);
+    }
 
     revalidatePath('/contratos');
     revalidatePath('/empreendimentos'); 
