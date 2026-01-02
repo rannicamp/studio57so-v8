@@ -1,183 +1,63 @@
 // app/(main)/relatorios/page.js
 "use client";
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Chart } from "react-google-charts";
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  faUsers, 
-  faBirthdayCake, 
-  faUserPlus, 
-  faUserMinus, 
-  faSpinner, 
-  faClock, 
-  faExclamationTriangle
-} from '@fortawesome/free-solid-svg-icons';
-import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import NotificationTimeline from '@/components/dashboard/NotificationTimeline';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTools, faChartPie } from '@fortawesome/free-solid-svg-icons';
 
-// --- MÓDULOS (CAMINHOS CORRIGIDOS) ---
-import EvolutionChart from './rh/EvolutionChart';
-import PayrollChart from './rh/PayrollChart';
-import RankingsBoard from './rh/RankingsBoard';
-import CustoFolhaWidget from './rh/CustoFolhaWidget';
+// Importamos a página de RH existente
+import RelatorioRhPage from './rh/page'; 
 
-// Componente KpiCard Genérico
-const KpiCard = ({ title, value, subtext, icon, color, isLoading }) => (
-  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start justify-between hover:shadow-md transition-shadow relative overflow-hidden group h-full">
-    {isLoading && (
-      <div className="absolute inset-0 bg-gray-50 flex items-center justify-center z-10">
-        <FontAwesomeIcon icon={faSpinner} spin className="text-gray-300" />
-      </div>
-    )}
-    <div className="z-0">
-      <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
-      <h3 className={`text-2xl font-bold text-gray-800 ${String(value).length > 10 ? 'text-xl' : ''}`}>{value}</h3>
-      {subtext && <p className="text-xs text-gray-400 mt-2">{subtext}</p>}
-    </div>
-    <div className={`p-3 rounded-lg bg-${color}-50 text-${color}-600 group-hover:scale-110 transition-transform`}>
-      <FontAwesomeIcon icon={icon} className="text-xl" />
-    </div>
-  </div>
-);
-
-// Fetch dos Dados Gerais (Sem o custo da folha, que agora é separado)
-async function fetchRhStats(organizacao_id, dateRef) {
-  if (!organizacao_id) return null;
-  const supabase = createClient();
-  const { data, error } = await supabase.rpc('get_rh_dashboard_stats', { p_organizacao_id: organizacao_id, p_mes_ref: dateRef });
-  
-  if (error) { 
-    console.error("Erro Dashboard:", error); 
-    throw new Error(error.message); 
-  }
-  return data;
-}
-
-export default function RelatorioRhPage() {
+export default function DashboardPage() {
   const { user } = useAuth();
-  const hoje = new Date();
-  
-  const [mesRef, setMesRef] = useState(new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10));
-
-  const { data: stats, isLoading: loadingStats, isError } = useQuery({
-    queryKey: ['rhStats', user?.organizacao_id, mesRef],
-    queryFn: () => fetchRhStats(user?.organizacao_id, mesRef),
-    enabled: !!user?.organizacao_id,
-    staleTime: 1000 * 60 * 5, 
-  });
-  
-  const formatTempoCasa = (meses) => {
-    const total = Number(meses) || 0;
-    if (total === 0) return '0 meses';
-    const anos = Math.floor(total / 12);
-    const m = Math.round(total % 12);
-    return anos > 0 ? `${anos} ano e ${m} mês` : `${m} meses`;
-  };
-
-  const calcularRotatividade = () => {
-    const ativos = Number(stats?.total_ativos || 0);
-    const admissoes = Number(stats?.admissoes || 0);
-    const demissoes = Number(stats?.demissoes || 0);
-    if (ativos === 0) return '0%';
-    const taxa = ((admissoes + demissoes) / 2) / ativos * 100;
-    return taxa.toFixed(1) + '%';
-  };
-
-  const pieData = [
-    ["Cargo", "Funcionários"],
-    ...(stats?.distribuicao_cargos?.map(c => [String(c.nome || 'Não definido'), Number(c.valor || 0)]) || [])
-  ];
-
-  const pieOptions = {
-    title: "Distribuição por Cargo",
-    pieHole: 0.4,
-    is3D: false,
-    colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
-    chartArea: { width: '90%', height: '80%' },
-    legend: { position: 'right' },
-    backgroundColor: 'transparent',
-  };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+    <div className="min-h-screen pb-10">
       
-      {/* 1. Filtro Global */}
-      <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 sticky top-0 z-40">
+      {/* HEADER DO DASHBOARD */}
+      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-gray-800">Painel de Gente & Gestão</h2>
-          <p className="text-sm text-gray-500">Visão consolidada</p>
-        </div>
-        
-        <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-lg border border-gray-200 shadow-sm">
-          <label className="text-sm font-medium text-gray-700">Referência:</label>
-          <input 
-            type="month" 
-            value={mesRef.slice(0, 7)} 
-            onChange={(e) => setMesRef(`${e.target.value}-01`)}
-            className="bg-white border border-gray-300 rounded-md px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer text-gray-700 font-medium"
-          />
+            <h1 className="text-3xl font-bold text-gray-800 tracking-tight">Visão Geral</h1>
+            <p className="text-sm text-gray-500 mt-1">
+                Monitoramento estratégico e operacional • {user?.nome_organizacao || 'Sua Organização'}
+            </p>
         </div>
       </div>
 
-      {isError && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-lg border border-red-200 flex gap-2 items-center">
-          <FontAwesomeIcon icon={faExclamationTriangle} />
-          <span>Erro ao carregar dados gerais.</span>
-        </div>
-      )}
-
-      {/* 2. KPIs e Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* GRID PRINCIPAL */}
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 items-start">
         
-        {/* Coluna Principal */}
-        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            {/* --- WIDGET DE CUSTO --- */}
-            <CustoFolhaWidget mesRef={mesRef} />
-            {/* ----------------------- */}
-
-            <KpiCard title="Ativos" value={stats?.total_ativos || 0} subtext="Fim do mês" icon={faUsers} color="blue" isLoading={loadingStats} />
-            <KpiCard title="Admissões" value={stats?.admissoes || 0} subtext="No mês" icon={faUserPlus} color="indigo" isLoading={loadingStats} />
-            <KpiCard title="Demissões" value={stats?.demissoes || 0} subtext="No mês" icon={faUserMinus} color="red" isLoading={loadingStats} />
-            <KpiCard title="Aniversariantes" value={stats?.aniversariantes || 0} subtext="Festa no mês" icon={faBirthdayCake} color="orange" isLoading={loadingStats} />
-            <KpiCard title="Tempo Médio" value={formatTempoCasa(stats?.tempo_medio_meses)} subtext="Retenção" icon={faClock} color="teal" isLoading={loadingStats} />
-            
-            <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 border-dashed flex flex-col items-center justify-center text-center h-full">
-                <span className="text-gray-400 font-medium text-sm">Taxa de Rotatividade</span>
-                <span className="text-2xl font-bold text-gray-600 mt-1">
-                   {calcularRotatividade()}
-                </span>
-                <span className="text-xs text-gray-400 mt-1">Mensal</span>
-            </div>
+        {/* COLUNA ESQUERDA (1/4): Timeline de Eventos */}
+        <div className="xl:col-span-1 w-full order-2 xl:order-1 sticky top-4">
+            <NotificationTimeline />
         </div>
 
-        {/* Coluna Lateral (Pizza) */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col min-h-[400px]">
-            <h4 className="text-sm font-semibold text-gray-600 mb-4 border-b pb-2">Distribuição de Cargos</h4>
-            <div className="flex-1 flex items-center justify-center">
-              {loadingStats ? (
-                 <FontAwesomeIcon icon={faSpinner} spin className="text-3xl text-gray-300" />
-              ) : pieData.length > 1 ? (
-                <Chart chartType="PieChart" width="100%" height="300px" data={pieData} options={pieOptions} />
-              ) : (
-                <div className="text-center text-gray-400 text-sm px-4">
-                  Sem dados para este mês.
-                </div>
-              )}
+        {/* COLUNA DIREITA (3/4): Relatórios e Widgets */}
+        <div className="xl:col-span-3 w-full order-1 xl:order-2 space-y-8">
+            
+            {/* 1. INDICADORES CHAVE (EM CONSTRUÇÃO) */}
+            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 border-dashed flex flex-col items-center justify-center text-center min-h-[200px] bg-gray-50/50">
+                 <div className="bg-blue-100 text-blue-500 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                    <FontAwesomeIcon icon={faChartPie} className="text-2xl" />
+                 </div>
+                 <h3 className="text-xl font-bold text-gray-700">Indicadores Chave de Desempenho (KPIs)</h3>
+                 <p className="text-gray-500 max-w-md mt-2 mb-4">
+                    Estamos compilando métricas de Vendas, Financeiro e Operacional para criar um painel executivo unificado aqui.
+                 </p>
+                 <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs font-bold uppercase tracking-wide">
+                    <FontAwesomeIcon icon={faTools} /> Em Construção
+                 </span>
             </div>
+
+            {/* 2. MÓDULO RH (Existente) */}
+            <div className="bg-white p-1 rounded-2xl shadow-sm border border-gray-100">
+                 <RelatorioRhPage />
+            </div>
+
         </div>
+
       </div>
-
-      <RankingsBoard mesRef={mesRef} />
-
-      <hr className="border-gray-100 my-4" />
-      <h3 className="text-lg font-bold text-gray-700 pl-2 border-l-4 border-blue-500">Indicadores Anuais</h3>
-
-      <EvolutionChart />
-      <PayrollChart />
-
     </div>
   );
 }

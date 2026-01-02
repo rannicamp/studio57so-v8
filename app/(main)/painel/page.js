@@ -23,7 +23,6 @@ export default function Painel() {
   const { user, isLoading: authLoading } = useAuth();
 
   // --- TRAVA DE SEGURANÇA ---
-  // - Baseado nos IDs 1 e 9 identificados no banco
   const isProprietario = 
     user?.funcao_id === 1 ||             
     user?.funcao_id === 9 ||             
@@ -31,9 +30,9 @@ export default function Painel() {
     user?.nome_funcao === 'Proprietário' || 
     user?.role === 'Proprietário';       
 
-  // Componente do Botão (Extraído para não repetir código visual)
+  // Componente do Botão (CORRIGIDO: Link aponta para /relatorios)
   const RelatoriosButton = () => (
-    <Link href="/relatorios/rh" className="block transform transition-all hover:-translate-y-1">
+    <Link href="/relatorios" className="block transform transition-all hover:-translate-y-1">
       <div className="bg-gradient-to-r from-slate-800 to-gray-900 rounded-xl p-5 text-white shadow-lg border border-slate-700 group cursor-pointer relative overflow-hidden">
         {/* Efeito de brilho no fundo */}
         <div className="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-full -mr-10 -mt-10 blur-xl"></div>
@@ -66,7 +65,6 @@ export default function Painel() {
     <div className="container mx-auto p-4 md:p-6 space-y-6">
 
       {/* --- [MOBILE/TABLET APENAS] BOTÃO NO TOPO ABSOLUTO --- */}
-      {/* Aparece antes do WelcomeCard apenas em telas menores que lg */}
       {isProprietario && (
         <div className="block lg:hidden">
           <RelatoriosButton />
@@ -94,7 +92,6 @@ export default function Painel() {
         <div className="lg:col-span-1 space-y-6 flex flex-col">
           
           {/* --- [DESKTOP APENAS] BOTÃO NA LATERAL --- */}
-          {/* Aparece na coluna direita apenas em telas grandes (lg) */}
           {isProprietario && (
             <div className="hidden lg:block">
               <RelatoriosButton />
