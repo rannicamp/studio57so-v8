@@ -1,10 +1,11 @@
+// app/(main)/contratos/actions.js
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { enviarNotificacao } from '@/utils/notificacoes';
 
-// --- FUNÇÃO 1: CRIAR CONTRATO (MANTIDA) ---
+// --- FUNÇÃO 1: CRIAR CONTRATO ---
 export async function createNewContrato(empreendimentoId, tipoDocumento) {
     const supabase = await createClient();
 
@@ -48,7 +49,7 @@ export async function createNewContrato(empreendimentoId, tipoDocumento) {
     return { success: true, newContractId: newContrato.id };
 }
 
-// --- FUNÇÃO 2: ATUALIZAR STATUS (LÓGICA AJUSTADA) ---
+// --- FUNÇÃO 2: ATUALIZAR STATUS ---
 export async function updateContratoStatus(contratoId, newStatus) {
     const supabase = await createClient();
     
@@ -76,7 +77,7 @@ export async function updateContratoStatus(contratoId, newStatus) {
         return { error: `Erro no Banco de Dados: ${updateError.message}` };
     }
 
-    // 3. LÓGICA DE PRODUTOS (MÁQUINA DE ESTADOS)
+    // 3. LÓGICA DE PRODUTOS (MÁQUINA DE ESTADOS CORRIGIDA)
     try {
         const { data: produtosVinculados } = await supabase
             .from('contrato_produtos')
@@ -89,30 +90,32 @@ export async function updateContratoStatus(contratoId, newStatus) {
         if (listaDeProdutos.length > 0) {
             let novoStatusProduto = null;
 
-            // CASO 1: CONTRATO FINALIZADO/ASSINADO
+            // CASO A: ASSINADO (Venda ou Reserva Efetiva)
             if (newStatus === 'Assinado') {
                 const tipoDoc = (contrato.tipo_documento || '').trim().toUpperCase();
                 
-                // Se for explicitamente CONTRATO DE VENDA -> VENDIDO
-                if (tipoDoc === 'CONTRATO' || tipoDoc.includes('COMPRA E VENDA')) {
-                    if (!tipoDoc.includes('TERMO') && !tipoDoc.includes('INTERESSE')) {
-                        novoStatusProduto = 'Vendido';
-                    } else {
-                        novoStatusProduto = 'Reservado'; // Segurança se tiver "Termo" no nome
-                    }
+                // Regra: Só é VENDA se for explicitamente CONTRATO e não for Termo
+                if ((tipoDoc === 'CONTRATO' || tipoDoc.includes('COMPRA E VENDA')) && 
+                    !tipoDoc.includes('TERMO') && !tipoDoc.includes('INTERESSE')) {
+                    novoStatusProduto = 'Vendido';
                 } else {
-                    // Qualquer outra coisa (Termo, Reserva, Vazio) -> RESERVADO
                     novoStatusProduto = 'Reservado';
                 }
             }
             
-            // CASO 2: "DESFAZER" ou CANCELAR
-            // Se voltar para Rascunho, Em assinatura, Negociação ou Cancelado -> DISPONÍVEL
-            else if (['Rascunho', 'Em assinatura', 'Em negociação', 'Cancelado', 'Distratado'].includes(newStatus)) {
+            // CASO B: EM ANDAMENTO (Reserva Temporária) [CORREÇÃO AQUI]
+            // Se estiver negociando ou assinando, a unidade deve ficar PRESA (Reservada)
+            else if (['Rascunho', 'Em assinatura', 'Em negociação'].includes(newStatus)) {
+                novoStatusProduto = 'Reservado';
+            }
+
+            // CASO C: CANCELADO (Liberação)
+            // Só libera a unidade se o negócio for desfeito
+            else if (['Cancelado', 'Distratado'].includes(newStatus)) {
                 novoStatusProduto = 'Disponível';
             }
 
-            // Se houve mudança de estado definida, aplica no banco
+            // Aplica a mudança se houver um novo status definido
             if (novoStatusProduto) {
                 await supabase
                     .from('produtos_empreendimento')
