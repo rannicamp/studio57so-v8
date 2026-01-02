@@ -1,11 +1,10 @@
-// app/(main)/contratos/actions.js
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { enviarNotificacao } from '@/utils/notificacoes';
 
-// --- FUNÇÃO 1: CRIAR CONTRATO ---
+// --- FUNÇÃO 1: CRIAR CONTRATO (MANTIDA) ---
 export async function createNewContrato(empreendimentoId, tipoDocumento) {
     const supabase = await createClient();
 
@@ -37,7 +36,6 @@ export async function createNewContrato(empreendimentoId, tipoDocumento) {
         return { error: `Falha ao criar documento: ${error.message}` };
     }
 
-    // Mantemos a notificação de CRIAÇÃO
     await enviarNotificacao({
         userId: user.id,
         titulo: `Novo Documento Iniciado 📄`,
@@ -50,7 +48,7 @@ export async function createNewContrato(empreendimentoId, tipoDocumento) {
     return { success: true, newContractId: newContrato.id };
 }
 
-// --- FUNÇÃO 2: ATUALIZAR STATUS ---
+// --- FUNÇÃO 2: ATUALIZAR STATUS (LÓGICA AJUSTADA) ---
 export async function updateContratoStatus(contratoId, newStatus) {
     const supabase = await createClient();
     
@@ -65,7 +63,6 @@ export async function updateContratoStatus(contratoId, newStatus) {
         .single();
 
     if (fetchError || !contrato) {
-        console.error("Erro ao buscar contrato:", fetchError);
         return { error: "Contrato não encontrado ou sem permissão." };
     }
 
@@ -76,12 +73,10 @@ export async function updateContratoStatus(contratoId, newStatus) {
         .eq('id', contratoId);
 
     if (updateError) {
-        console.error("Erro REAL ao atualizar status:", updateError);
-        // AQUI ESTÁ A MÁGICA: Retornamos a mensagem técnica para você ver na tela
-        return { error: `Erro no Banco de Dados: ${updateError.message} (Código: ${updateError.code})` };
+        return { error: `Erro no Banco de Dados: ${updateError.message}` };
     }
 
-    // 3. LÓGICA DE PRODUTOS
+    // 3. LÓGICA DE PRODUTOS (MÁQUINA DE ESTADOS)
     try {
         const { data: produtosVinculados } = await supabase
             .from('contrato_produtos')
@@ -92,27 +87,36 @@ export async function updateContratoStatus(contratoId, newStatus) {
         const listaDeProdutos = produtosVinculados?.map(p => p.produto_id) || [];
 
         if (listaDeProdutos.length > 0) {
-            // CENÁRIO A: Contrato Assinado
+            let novoStatusProduto = null;
+
+            // CASO 1: CONTRATO FINALIZADO/ASSINADO
             if (newStatus === 'Assinado') {
-                let novoStatusProduto = 'Vendido'; 
-                const tipoDoc = (contrato.tipo_documento || '').trim().toLowerCase();
+                const tipoDoc = (contrato.tipo_documento || '').trim().toUpperCase();
                 
-                if (tipoDoc.includes('termo') || tipoDoc.includes('interesse') || tipoDoc.includes('reserva')) {
+                // Se for explicitamente CONTRATO DE VENDA -> VENDIDO
+                if (tipoDoc === 'CONTRATO' || tipoDoc.includes('COMPRA E VENDA')) {
+                    if (!tipoDoc.includes('TERMO') && !tipoDoc.includes('INTERESSE')) {
+                        novoStatusProduto = 'Vendido';
+                    } else {
+                        novoStatusProduto = 'Reservado'; // Segurança se tiver "Termo" no nome
+                    }
+                } else {
+                    // Qualquer outra coisa (Termo, Reserva, Vazio) -> RESERVADO
                     novoStatusProduto = 'Reservado';
                 }
+            }
+            
+            // CASO 2: "DESFAZER" ou CANCELAR
+            // Se voltar para Rascunho, Em assinatura, Negociação ou Cancelado -> DISPONÍVEL
+            else if (['Rascunho', 'Em assinatura', 'Em negociação', 'Cancelado', 'Distratado'].includes(newStatus)) {
+                novoStatusProduto = 'Disponível';
+            }
 
+            // Se houve mudança de estado definida, aplica no banco
+            if (novoStatusProduto) {
                 await supabase
                     .from('produtos_empreendimento')
                     .update({ status: novoStatusProduto })
-                    .in('id', listaDeProdutos)
-                    .eq('organizacao_id', contrato.organizacao_id);
-            }
-
-            // CENÁRIO B: Contrato Cancelado ou Distratado
-            if (newStatus === 'Cancelado' || newStatus === 'Distratado') {
-                await supabase
-                    .from('produtos_empreendimento')
-                    .update({ status: 'Disponível' })
                     .in('id', listaDeProdutos)
                     .eq('organizacao_id', contrato.organizacao_id);
             }

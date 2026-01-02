@@ -1,7 +1,7 @@
 // app/(main)/contratos/page.js
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -150,25 +150,30 @@ export default function ContratosPage() {
         queryKey: ['contratos', organizacaoId, debouncedFilters, sortConfig],
         queryFn: async () => {
              if (!organizacaoId) return [];
+            
+            // CORREÇÃO 1: Adicionado !inner para garantir que o filtro de busca funcione na tabela contratos
+            // Se o usuário buscar por nome do cliente, contratos sem esse cliente não devem aparecer.
             let query = supabase
                 .from('contratos')
                 .select(`
                     id, data_venda, status_contrato, valor_final_venda, numero_contrato, tipo_documento, lixeira,
-                    contato:contato_id (id, nome, razao_social, cpf, cnpj),
+                    contato:contato_id!inner (id, nome, razao_social, cpf, cnpj), 
                     empreendimento:empreendimento_id (id, nome),
                     produto:contrato_produtos (
                         produtos_empreendimento (unidade)
                     )
                 `)
                 .eq('organizacao_id', organizacaoId)
-                .eq('lixeira', false); // Filtrando Lixeira
+                .eq('lixeira', false);
 
             if (debouncedFilters.searchTerm) {
                 const isNumeric = /^\d+$/.test(debouncedFilters.searchTerm);
                 if (isNumeric) {
                      query = query.eq('numero_contrato', debouncedFilters.searchTerm);
                 } else {
-                     query = query.or(`contato.nome.ilike.%${debouncedFilters.searchTerm}%,contato.razao_social.ilike.%${debouncedFilters.searchTerm}%`, { foreignTable: 'contato' });
+                     // CORREÇÃO 2: Removido o prefixo 'contato.' de dentro da string do .or()
+                     // Quando usamos { foreignTable: 'contato' }, as colunas devem ser referenciadas diretamente.
+                     query = query.or(`nome.ilike.%${debouncedFilters.searchTerm}%,razao_social.ilike.%${debouncedFilters.searchTerm}%`, { foreignTable: 'contato' });
                 }
             }
             if (debouncedFilters.empreendimentoId.length > 0) query = query.in('empreendimento_id', debouncedFilters.empreendimentoId);
@@ -180,6 +185,8 @@ export default function ContratosPage() {
             
             if (sortConfig.key) {
                 if (sortConfig.key === 'contato_nome') {
+                     // Ordenação por coluna relacionada é complexa no supabase-js v2 direto,
+                     // geralmente ordena-se por created_at ou faz-se no front, mas aqui mantivemos created_at como fallback ou lógica original
                      query = query.order('created_at', { ascending: false });
                 } else {
                      query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' });
@@ -189,7 +196,6 @@ export default function ContratosPage() {
             const { data, error } = await query;
             if (error) throw error;
             
-            // Ajuste dos dados para a tabela
             return data.map(c => ({
                 ...c,
                 produto: c.produto?.[0]?.produtos_empreendimento || null
@@ -209,7 +215,7 @@ export default function ContratosPage() {
             return isAssinado && !tipoDoc.includes('TERMO');
         });
 
-        // 2. KPI Termos de Interesse (Assinados/Reservados) - Novo!
+        // 2. KPI Termos de Interesse (Assinados/Reservados)
         const dataTermos = contratos.filter(c => {
             const isAssinado = c.status_contrato === 'Assinado';
             const tipoDoc = c.tipo_documento ? c.tipo_documento.toUpperCase() : '';
@@ -221,11 +227,11 @@ export default function ContratosPage() {
         const contratosAssinados = dataVendasEfetivas.length;
         const ticketMedio = contratosAssinados > 0 ? totalVendido / contratosAssinados : 0;
         
-        // Cálculos Termos (Novo)
+        // Cálculos Termos
         const totalTermos = dataTermos.reduce((acc, contrato) => acc + (parseFloat(contrato.valor_final_venda) || 0), 0);
         const countTermos = dataTermos.length;
 
-        // Cálculos Temporais (baseado nas vendas efetivas)
+        // Cálculos Temporais
         let mediaVendasPorMes = 0;
         let ultimaVenda = null;
 
@@ -336,7 +342,7 @@ export default function ContratosPage() {
                     />
                 )}
 
-                {/* KPIs - Ajustado para 7 itens com grid responsivo */}
+                {/* KPIs */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
                     <KpiCard
                         title="VGV Possível"

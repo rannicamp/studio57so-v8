@@ -5,7 +5,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faArrowDown, faMobileAlt, faColumns, faSave, faSpinner, faMagic, faLink
 } from '@fortawesome/free-solid-svg-icons';
-import VariableBuilderModal from './VariableBuilderModal';
+// Importação do novo gerenciador
+import VariableManagerModal from './VariableManagerModal';
 import { AVAILABLE_ICONS } from './constants';
 // Importação do hook de persistência
 import { usePersistentState } from '@/hooks/usePersistentState';
@@ -21,8 +22,7 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
     ativo: true, icone: 'fa-bell'
   };
 
-  // SUBSTITUÍDO useState POR usePersistentState
-  // Usa 'notif_formData' para lembrar o que estava sendo digitado
+  // Usa 'notif_formData' para lembrar o que estava sendo digitado (Persistência)
   const [formData, setFormData] = usePersistentState('notif_formData', initialData || defaultValues);
 
   // Sincroniza se o initialData mudar (ex: usuário clicou em editar outra regra enquanto o form estava montado)
@@ -36,12 +36,13 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
   const [searchTerm, setSearchTerm] = useState('');
   const [showLinkerModal, setShowLinkerModal] = useState(false);
 
+  // Calcula todas as variáveis disponíveis para a tabela selecionada
   const todasVariaveis = useMemo(() => {
     if (!formData.tabela_alvo) return [];
     
     let variaveis = [];
     
-    // A. Colunas Físicas
+    // A. Colunas Físicas do Banco
     if (tabelas && campos) {
         const tabelaObj = tabelas.find(t => t.nome_tabela === formData.tabela_alvo);
         if (tabelaObj) {
@@ -51,7 +52,7 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
         }
     }
 
-    // B. Variáveis Virtuais
+    // B. Variáveis Virtuais (Criadas pelo Linkador)
     if (variaveisVirtuais) {
         const virtuaisDaTabela = variaveisVirtuais.filter(v => v.tabela_gatilho === formData.tabela_alvo);
         virtuaisDaTabela.forEach(v => {
@@ -64,7 +65,7 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
         });
     }
 
-    // C. Variáveis Mágicas
+    // C. Variáveis Mágicas (Hardcoded/Legado)
     if (formData.tabela_alvo === 'whatsapp_messages') {
         variaveis.push({ id: 'nome_remetente', nome: 'nome_remetente', desc: 'Automático', tipo: 'magic' });
         variaveis.push({ id: 'content', nome: 'content', desc: 'Mensagem', tipo: 'magic' });
@@ -73,6 +74,7 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
     return variaveis;
   }, [formData.tabela_alvo, tabelas, campos, variaveisVirtuais]);
 
+  // Filtra a lista com base no que o usuário digitou após o '{'
   const variaveisFiltradas = useMemo(() => {
     if (!searchTerm) return todasVariaveis;
     return todasVariaveis.filter(v => 
@@ -80,13 +82,16 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
     );
   }, [todasVariaveis, searchTerm]);
 
+  // Manipulador de mudança nos inputs
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     
+    // --- LÓGICA DE DETECÇÃO DO AUTOCOMPLETE ---
     if (name === 'titulo_template' || name === 'mensagem_template') {
         const lastOpenBrace = value.lastIndexOf('{');
         const lastCloseBrace = value.lastIndexOf('}');
 
+        // Se a última chave aberta for DEPOIS da última fechada, estamos digitando uma variável
         if (lastOpenBrace > -1 && lastOpenBrace > lastCloseBrace) {
             const termoDigitado = value.slice(lastOpenBrace + 1); 
             setSearchTerm(termoDigitado);
@@ -100,21 +105,28 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
     setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
+  // Insere a variável selecionada no texto
   const insertVariable = (variableName) => {
     if (!showSuggestions.field) return;
 
     setFormData(prev => {
         const fieldName = showSuggestions.field;
         const currentValue = prev[fieldName];
+        
+        // Encontra onde está o último '{' que iniciou essa busca
         const lastOpenBrace = currentValue.lastIndexOf('{');
+        
+        // Pega tudo antes do '{' e descarta o que foi digitado parcialmente após ele
         const prefix = currentValue.slice(0, lastOpenBrace);
         
+        // Monta o novo texto: Prefixo + {Variavel} + Espaço
         return {
             ...prev,
             [fieldName]: `${prefix}{${variableName}} ` 
         };
     });
     
+    // Limpa estado e foca
     setShowSuggestions({ visible: false, field: null });
     setSearchTerm('');
   };
@@ -126,6 +138,7 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
 
   return (
     <div className="space-y-6">
+      {/* HEADER DO FORMULÁRIO */}
       <div className="flex items-center justify-between border-b pb-4">
         <h3 className="text-lg font-bold text-gray-800">
           {initialData?.id ? 'Editar Regra' : initialData ? 'Nova Regra (Cópia)' : 'Nova Regra de Notificação'}
@@ -136,6 +149,8 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* COLUNA 1: IDENTIDADE */}
         <div className="md:col-span-1 space-y-4">
            <div>
               <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Identidade</label>
@@ -150,7 +165,9 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
            </div>
         </div>
 
+        {/* COLUNA 2: CONFIGURAÇÃO (GATILHO + AÇÃO) */}
         <div className="md:col-span-2 space-y-4">
+            
             {/* SESSÃO 1: ONDE (GATILHO) */}
             <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 shadow-sm relative">
                 <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
@@ -277,15 +294,15 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
                                 Digite <strong>{'{'}</strong> para inserir variáveis.
                             </p>
                             
-                            {/* BOTÃO DO LINKADOR DE VARIÁVEIS */}
+                            {/* BOTÃO DO GERENCIADOR DE VARIÁVEIS */}
                             <button 
                                 type="button" 
                                 onClick={() => setShowLinkerModal(true)}
                                 className="text-[10px] font-bold text-purple-600 hover:text-purple-800 hover:bg-purple-50 px-2 py-1 rounded transition-colors flex items-center gap-1"
                                 disabled={!formData.tabela_alvo}
-                                title={!formData.tabela_alvo ? "Selecione uma tabela primeiro" : "Criar vínculo com outra tabela"}
+                                title={!formData.tabela_alvo ? "Selecione uma tabela primeiro" : "Gerenciar vínculos com outras tabelas"}
                             >
-                                <FontAwesomeIcon icon={faLink} /> Criar Variável Linkada
+                                <FontAwesomeIcon icon={faLink} /> Variáveis & Links
                             </button>
                         </div>
                     </div>
@@ -317,8 +334,8 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
         </button>
       </div>
 
-      {/* MODAL LINKADOR */}
-      <VariableBuilderModal 
+      {/* MODAL LINKADOR (GERENCIADOR) */}
+      <VariableManagerModal 
         isOpen={showLinkerModal} 
         onClose={() => setShowLinkerModal(false)}
         tabelaGatilho={formData.tabela_alvo}
