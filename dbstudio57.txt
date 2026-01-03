@@ -567,6 +567,18 @@ CREATE TABLE public.crm_notas (
   CONSTRAINT crm_notas_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id),
   CONSTRAINT crm_notas_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
 );
+CREATE TABLE public.debug_notificacoes (
+  id integer NOT NULL DEFAULT nextval('debug_notificacoes_id_seq'::regclass),
+  data_hora timestamp without time zone DEFAULT now(),
+  tabela text,
+  regra_id integer,
+  nome_regra text,
+  valor_novo text,
+  valor_gatilho text,
+  passou_no_filtro boolean,
+  coluna_monitorada text,
+  CONSTRAINT debug_notificacoes_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.diarios_obra (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   empreendimento_id bigint NOT NULL,
@@ -1664,6 +1676,7 @@ CREATE TABLE public.usuario_preferencias_notificacao (
   updated_at timestamp with time zone DEFAULT now(),
   canal_sistema boolean DEFAULT true,
   canal_push boolean DEFAULT true,
+  organizacao_id bigint,
   CONSTRAINT usuario_preferencias_notificacao_pkey PRIMARY KEY (id),
   CONSTRAINT fk_pref_user FOREIGN KEY (usuario_id) REFERENCES auth.users(id),
   CONSTRAINT fk_pref_regra FOREIGN KEY (regra_id) REFERENCES public.regras_notificacao(id)
@@ -1711,6 +1724,18 @@ CREATE TABLE public.vales_agendados (
   CONSTRAINT vales_agendados_funcionario_id_fkey FOREIGN KEY (funcionario_id) REFERENCES public.funcionarios(id),
   CONSTRAINT vales_agendados_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id),
   CONSTRAINT vales_agendados_lancamento_id_fkey FOREIGN KEY (lancamento_id) REFERENCES public.lancamentos(id)
+);
+CREATE TABLE public.variaveis_virtuais (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  tabela_gatilho text NOT NULL,
+  nome_variavel text NOT NULL,
+  coluna_origem text NOT NULL,
+  tabela_destino text NOT NULL,
+  coluna_chave_destino text DEFAULT 'id'::text,
+  coluna_retorno text NOT NULL,
+  organizacao_id bigint DEFAULT 2,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT variaveis_virtuais_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.whatsapp_attachments (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -1781,6 +1806,7 @@ CREATE TABLE public.whatsapp_messages (
   conversation_record_id bigint,
   media_url text,
   broadcast_id bigint,
+  nome_remetente text,
   CONSTRAINT whatsapp_messages_pkey PRIMARY KEY (id),
   CONSTRAINT whatsapp_messages_contato_id_fkey FOREIGN KEY (contato_id) REFERENCES public.contatos(id),
   CONSTRAINT whatsapp_messages_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id),
