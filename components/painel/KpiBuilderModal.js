@@ -7,8 +7,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faTimes, faSave, faCheck, faChartPie, faArrowUp, faArrowDown, 
-  faWallet, faMoneyBillWave, faPiggyBank, faCoins, faExclamationTriangle, 
-  faSpinner, faPen, faCalculator, faDatabase, faPercentage, faHashtag 
+  faWallet, faMoneyBillWave, faPiggyBank, faCoins, faSpinner, faPen, 
+  faCalculator, faDatabase, faPercentage, faLayerGroup 
 } from '@fortawesome/free-solid-svg-icons';
 import FiltroFinanceiro from '@/components/financeiro/FiltroFinanceiro';
 import { toast } from 'sonner';
@@ -40,6 +40,7 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
   
   const [abaAtiva, setAbaAtiva] = useState('filtro');
   const [titulo, setTitulo] = useState('');
+  const [grupo, setGrupo] = useState(''); // NOVO: Estado para o grupo
   const [iconeSelecionado, setIconeSelecionado] = useState('faWallet');
   const [corSelecionada, setCorSelecionada] = useState('#3B82F6');
   const [salvando, setSalvando] = useState(false);
@@ -49,21 +50,30 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
   const [formulaVisual, setFormulaVisual] = useState(''); 
   const [formatoSaida, setFormatoSaida] = useState('moeda');
 
-  // --- BUSCA KPIs ---
-  const { data: todosKpis = [], isLoading: isLoadingKpis } = useQuery({
-    queryKey: ['kpis_para_modal_v6', user?.organizacao_id],
+  // --- BUSCA KPIs E GRUPOS ---
+  const { data: dadosIniciais = { kpis: [], grupos: [] }, isLoading: isLoadingKpis } = useQuery({
+    queryKey: ['kpis_e_grupos', user?.organizacao_id],
     queryFn: async () => {
-      if (!user?.organizacao_id) return [];
+      if (!user?.organizacao_id) return { kpis: [], grupos: [] };
+      
       const { data, error } = await supabase
         .from('kpis_personalizados')
-        .select('id, titulo')
+        .select('id, titulo, grupo')
         .eq('organizacao_id', user.organizacao_id);
+      
       if (error) throw error;
-      return data || [];
+
+      // Extrai grupos únicos para o autocomplete
+      const gruposUnicos = [...new Set(data.map(item => item.grupo).filter(Boolean))];
+      
+      return { kpis: data, grupos: gruposUnicos };
     },
     enabled: isOpen && !!user?.organizacao_id,
     staleTime: 0 
   });
+
+  const todosKpis = dadosIniciais.kpis;
+  const gruposDisponiveis = dadosIniciais.grupos;
 
   const kpisDisponiveis = useMemo(() => 
     todosKpis.filter(k => k.id !== kpiToEdit?.id), 
@@ -98,6 +108,7 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
     if (isOpen && !isLoadingKpis) {
         if (kpiToEdit) {
             setTitulo(kpiToEdit.titulo);
+            setGrupo(kpiToEdit.grupo || ''); // Carrega o grupo
             const metaVisual = kpiToEdit.filtros?._meta_visual || {};
             setIconeSelecionado(metaVisual.icone || kpiToEdit.icone || 'faWallet');
             setCorSelecionada(metaVisual.cor || '#3B82F6');
@@ -114,6 +125,7 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
             }
         } else {
             setTitulo('');
+            setGrupo('');
             setIconeSelecionado('faWallet');
             setCorSelecionada('#3B82F6');
             setAbaAtiva('filtro');
@@ -123,7 +135,7 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
         }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, kpiToEdit, isLoadingKpis, todosKpis]);
+  }, [isOpen, kpiToEdit, isLoadingKpis]);
 
   const inserirVariavel = (kpiNome) => {
     const tag = ` [${kpiNome}] `; 
@@ -137,6 +149,9 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
       toast.warning("Dê um nome para o seu indicador!");
       return;
     }
+
+    // Define um grupo padrão se estiver vazio
+    const grupoFinal = grupo.trim() || 'Geral';
 
     if (abaAtiva === 'formula' && !formulaVisual.trim()) {
         toast.warning("A fórmula não pode estar vazia.");
@@ -166,11 +181,10 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
       let error;
 
       if (kpiToEdit) {
-        // --- ATUALIZAÇÃO CORRIGIDA ---
-        // 1. Removemos organizacao_id e usuario_id (segurança)
-        // 2. Removemos updated_at (não existe no banco)
+        // --- ATUALIZAÇÃO ---
         const updatePayload = {
             titulo: titulo,
+            grupo: grupoFinal, // Salva o grupo
             filtros: configFinal,
             modulo: 'financeiro',
             tipo_calculo: 'soma_dinamica'
@@ -183,14 +197,10 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
             .select(); 
             
         error = response.error;
-        
-        // Se não houver erro, mas data for vazio, significa que o ID não foi achado ou permissão negada
         if (!error && (!response.data || response.data.length === 0)) {
-             console.error("DEBUG - Falha RLS Update:", { kpiId: kpiToEdit.id });
              throw new Error("Não foi possível salvar. Verifique suas permissões.");
         }
-
-        if (!error) toast.success("Indicador atualizado com sucesso!");
+        if (!error) toast.success("Indicador atualizado!");
 
       } else {
         // --- CRIAÇÃO ---
@@ -198,6 +208,7 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
             usuario_id: user.id,
             organizacao_id: user.organizacao_id,
             titulo: titulo,
+            grupo: grupoFinal, // Salva o grupo
             filtros: configFinal,
             modulo: 'financeiro',
             tipo_calculo: 'soma_dinamica',
@@ -212,17 +223,14 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
             .select();
             
         error = response.error;
-        if (!error) toast.success("Indicador criado com sucesso!");
+        if (!error) toast.success("Indicador criado!");
       }
 
-      if (error) {
-          console.error("Erro Supabase:", error);
-          throw error;
-      }
+      if (error) throw error;
 
-      // --- MÁGICA DO CACHE (INVALIDAÇÃO) ---
-      await queryClient.invalidateQueries({ queryKey: ['kpis_personalizados'] });
-      await queryClient.invalidateQueries({ queryKey: ['kpis_para_modal_v6'] });
+      // Invalidação de cache
+      await queryClient.invalidateQueries({ queryKey: ['meus_kpis'] });
+      await queryClient.invalidateQueries({ queryKey: ['kpis_e_grupos'] });
       await queryClient.invalidateQueries({ 
         predicate: (query) => query.queryKey[0]?.toString().includes('kpi') 
       });
@@ -265,33 +273,66 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
                 {/* 1. Identidade Visual */}
                 <section className="space-y-4">
                     <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider border-l-4 border-blue-500 pl-2">
-                    1. Identidade Visual
+                    1. Identidade Visual & Organização
                     </h3>
+                    
+                    {/* Campos Título e Grupo */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Título</label>
-                            <input type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex: Margem de Lucro..." className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" autoFocus={!kpiToEdit} />
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Título do Indicador</label>
+                            <input 
+                                type="text" 
+                                value={titulo} 
+                                onChange={(e) => setTitulo(e.target.value)} 
+                                placeholder="Ex: Margem de Lucro..." 
+                                className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" 
+                                autoFocus={!kpiToEdit} 
+                            />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Cor</label>
-                            <div className="flex gap-3">
-                                {OPCOES_CORES.map((cor) => (
-                                    <button key={cor.id} onClick={() => setCorSelecionada(cor.id)} className={`w-10 h-10 rounded-full flex items-center justify-center ${cor.class} ${corSelecionada === cor.id ? 'ring-4 ring-offset-2 ring-gray-200 scale-110 shadow-md' : 'opacity-70 hover:opacity-100'}`}>
-                                        {corSelecionada === cor.id && <FontAwesomeIcon icon={faCheck} className="text-white text-sm" />}
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <FontAwesomeIcon icon={faLayerGroup} className="mr-1 text-gray-400"/> 
+                                Grupo / Categoria
+                            </label>
+                            <input 
+                                list="grupos-sugestoes"
+                                type="text" 
+                                value={grupo} 
+                                onChange={(e) => setGrupo(e.target.value)} 
+                                placeholder="Ex: Residencial Alfa" 
+                                className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 focus:bg-white transition-colors" 
+                            />
+                            {/* Autocomplete Mágico */}
+                            <datalist id="grupos-sugestoes">
+                                {gruposDisponiveis.map((g, idx) => (
+                                    <option key={idx} value={g} />
+                                ))}
+                            </datalist>
+                        </div>
+                    </div>
+
+                    {/* Cores e Ícones */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Ícone</label>
+                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                {OPCOES_ICONES.map((opt) => (
+                                    <button key={opt.id} onClick={() => setIconeSelecionado(opt.id)} className={`flex flex-col items-center justify-center p-3 rounded-xl min-w-[60px] border transition-all ${iconeSelecionado === opt.id ? 'bg-blue-50 border-blue-500 text-blue-600 shadow-sm' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}>
+                                        <FontAwesomeIcon icon={opt.icon} className="text-lg mb-1" />
+                                        <span className="text-[9px] font-medium truncate w-full text-center">{opt.label}</span>
                                     </button>
                                 ))}
                             </div>
                         </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Ícone</label>
-                        <div className="flex gap-3 overflow-x-auto pb-2">
-                            {OPCOES_ICONES.map((opt) => (
-                                <button key={opt.id} onClick={() => setIconeSelecionado(opt.id)} className={`flex flex-col items-center justify-center p-3 rounded-xl min-w-[80px] border transition-all ${iconeSelecionado === opt.id ? 'bg-blue-50 border-blue-500 text-blue-600 shadow-sm' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}>
-                                    <FontAwesomeIcon icon={opt.icon} className="text-xl mb-1" />
-                                    <span className="text-[10px] font-medium">{opt.label}</span>
-                                </button>
-                            ))}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Cor do Card</label>
+                            <div className="flex gap-3">
+                                {OPCOES_CORES.map((cor) => (
+                                    <button key={cor.id} onClick={() => setCorSelecionada(cor.id)} className={`w-8 h-8 rounded-full flex items-center justify-center ${cor.class} ${corSelecionada === cor.id ? 'ring-4 ring-offset-2 ring-gray-200 scale-110 shadow-md' : 'opacity-70 hover:opacity-100'}`}>
+                                        {corSelecionada === cor.id && <FontAwesomeIcon icon={faCheck} className="text-white text-xs" />}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </section>

@@ -1,13 +1,12 @@
-// app/(main)/relatorios/financeiro/page.js
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 
 // Componentes
 import SmartKpiCard from '@/components/painel/SmartKpiCard';
@@ -20,15 +19,14 @@ export default function RelatorioFinanceiroPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
-  // Controle do Modal e Edição
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [kpiParaEditar, setKpiParaEditar] = useState(null);
 
-  // Estados para Organização (Drag & Drop Nativo)
-  const [itemsOrdenados, setItemsOrdenados] = useState([]);
+  // Estado Local para Drag & Drop visual
+  const [localKpis, setLocalKpis] = useState([]);
   const [draggedItem, setDraggedItem] = useState(null);
 
-  // Busca KPIs
+  // --- BUSCA DE DADOS ---
   const { data: meusKpis = [], isLoading } = useQuery({
     queryKey: ['meus_kpis', user?.organizacao_id],
     queryFn: async () => {
@@ -37,7 +35,7 @@ export default function RelatorioFinanceiroPage() {
         .select('*')
         .eq('organizacao_id', user?.organizacao_id)
         .eq('modulo', 'financeiro')
-        .order('ordem', { ascending: true, nullsFirst: false }) // Prioridade para a ordem
+        .order('ordem', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true });
       
       if (error) throw error;
@@ -46,19 +44,41 @@ export default function RelatorioFinanceiroPage() {
     enabled: !!user?.organizacao_id
   });
 
-  // Sincroniza o estado local quando os dados chegam do banco
+  // Atualiza o estado local quando os dados do servidor mudam
   useEffect(() => {
     if (meusKpis.length > 0) {
-        setItemsOrdenados(meusKpis);
+        setLocalKpis(meusKpis);
     }
   }, [meusKpis]);
 
-  // --- LÓGICA DRAG & DROP (NATIVO) ---
+  // --- AGRUPAMENTO ---
+  // Transforma a lista plana em um objeto agrupado { "Grupo A": [kpi1, kpi2], "Grupo B": [kpi3] }
+  const kpisAgrupados = useMemo(() => {
+    const grupos = {};
+    const listaParaAgrupar = localKpis.length > 0 ? localKpis : meusKpis;
+
+    listaParaAgrupar.forEach(kpi => {
+        const nomeGrupo = kpi.grupo || 'Geral';
+        if (!grupos[nomeGrupo]) grupos[nomeGrupo] = [];
+        grupos[nomeGrupo].push(kpi);
+    });
+
+    // Ordena as chaves dos grupos (Geral sempre primeiro, depois alfabético)
+    const chavesOrdenadas = Object.keys(grupos).sort((a, b) => {
+        if (a === 'Geral') return -1;
+        if (b === 'Geral') return 1;
+        return a.localeCompare(b);
+    });
+
+    return { grupos, chavesOrdenadas };
+  }, [localKpis, meusKpis]);
+
+  // --- DRAG & DROP LOGIC ---
 
   const handleDragStart = (e, item) => {
     setDraggedItem(item);
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', ''); // Necessário para Firefox
+    e.dataTransfer.setData('text/html', '');
     e.target.style.opacity = '0.5';
   };
 
@@ -72,131 +92,139 @@ export default function RelatorioFinanceiroPage() {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = (e, targetItem) => {
+  const handleDrop = async (e, targetItem) => {
     e.preventDefault();
-    
     if (!draggedItem || draggedItem.id === targetItem.id) return;
 
-    // Lógica de Reordenação Visual (Imediata)
-    const novaLista = [...itemsOrdenados];
+    // Lógica:
+    // 1. Removemos o item arrastado da lista completa
+    // 2. Inserimos na nova posição (perto do targetItem)
+    // 3. Atualizamos o grupo do item arrastado para ser igual ao do targetItem (se mudou de grupo)
+    
+    const novaLista = [...localKpis];
     const draggedIndex = novaLista.findIndex(i => i.id === draggedItem.id);
     const targetIndex = novaLista.findIndex(i => i.id === targetItem.id);
 
+    // Remove
     const [itemRemovido] = novaLista.splice(draggedIndex, 1);
-    novaLista.splice(targetIndex, 0, itemRemovido);
-
-    setItemsOrdenados(novaLista);
     
-    // Salva no banco
-    salvarNovaOrdem(novaLista);
+    // Atualiza o grupo se necessário (para refletir visualmente na hora)
+    const novoGrupo = targetItem.grupo || 'Geral';
+    const itemAtualizado = { ...itemRemovido, grupo: novoGrupo };
+
+    // Insere
+    novaLista.splice(targetIndex, 0, itemAtualizado);
+
+    setLocalKpis(novaLista); // Atualiza visual
+    salvarReordenacao(novaLista); // Salva no banco
   };
 
-  // --- CORREÇÃO AQUI ---
-  const salvarNovaOrdem = async (listaReordenada) => {
-      try {
-          // Estratégia "Promise.all": Atualiza todos simultaneamente
-          // Isso evita erros de "upsert" com campos obrigatórios ausentes
-          const updates = listaReordenada.map((item, index) => {
-              return supabase
-                  .from('kpis_personalizados')
-                  .update({ ordem: index }) // Atualiza SÓ a ordem
-                  .eq('id', item.id);       // Do item específico
-          });
-
-          // Aguarda todos terminarem
-          await Promise.all(updates);
-
-          // Atualiza o cache silenciosamente
-          queryClient.invalidateQueries(['meus_kpis']);
-          
-      } catch (error) {
-          console.error("Erro ao salvar ordem:", error);
-          toast.error("Erro de conexão ao salvar a ordem.");
-      }
-  };
-
-  // --- AÇÕES DO USUÁRIO ---
-
-  const handleNovoKpi = () => {
-    setKpiParaEditar(null);
-    setIsModalOpen(true);
-  };
-
-  const handleEditKpi = (kpi) => {
-    setKpiParaEditar(kpi);
-    setIsModalOpen(true);
-  };
-
-  const handleDeleteKpi = async (kpi) => {
-    if(!confirm(`Deseja realmente excluir "${kpi.titulo}"?`)) return;
-
+  const salvarReordenacao = async (lista) => {
     try {
-        const { error } = await supabase.from('kpis_personalizados').delete().eq('id', kpi.id);
-        if (error) throw error;
-        toast.success("Indicador removido.");
-        queryClient.invalidateQueries(['meus_kpis']);
+        const updates = lista.map((item, index) => {
+            return supabase
+                .from('kpis_personalizados')
+                .update({ 
+                    ordem: index,
+                    grupo: item.grupo // Salva também o grupo caso tenha mudado
+                })
+                .eq('id', item.id);
+        });
+
+        await Promise.all(updates);
+        queryClient.invalidateQueries(['meus_kpis']); // Garante sincronia
     } catch (error) {
-        toast.error("Erro ao excluir.");
+        console.error("Erro ao salvar ordem:", error);
+        toast.error("Erro ao salvar a organização.");
     }
+  };
+
+  // --- AÇÕES ---
+  const handleNovoKpi = () => { setKpiParaEditar(null); setIsModalOpen(true); };
+  const handleEditKpi = (kpi) => { setKpiParaEditar(kpi); setIsModalOpen(true); };
+  const handleDeleteKpi = async (kpi) => {
+    if(!confirm(`Excluir "${kpi.titulo}"?`)) return;
+    try {
+        await supabase.from('kpis_personalizados').delete().eq('id', kpi.id);
+        toast.success("Removido.");
+        queryClient.invalidateQueries(['meus_kpis']);
+    } catch (error) { toast.error("Erro ao excluir."); }
   };
 
   return (
     <div className="h-full w-full space-y-8 p-2">
       
-      {/* 1. ÁREA DE KPIs PERSONALIZADOS */}
+      {/* SEÇÃO DE KPIS (AGRUPADOS) */}
       <section>
-        <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-gray-700 border-l-4 border-blue-500 pl-3">
-                Meus Indicadores
+        <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <span className="bg-blue-100 text-blue-600 p-2 rounded-lg"><FontAwesomeIcon icon={faLayerGroup} /></span>
+                Painel de Indicadores
             </h2>
-            <span className="text-xs text-gray-400 italic hidden md:block">
-                Arraste para organizar
-            </span>
+            <button onClick={handleNovoKpi} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition shadow-sm">
+                + Novo Indicador
+            </button>
         </div>
 
         {isLoading ? (
-            <div className="flex items-center gap-2 text-gray-400 py-10">
-                <FontAwesomeIcon icon={faSpinner} spin /> Carregando seus indicadores...
+            <div className="flex items-center justify-center py-20 text-gray-400">
+                <FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> Carregando...
             </div>
         ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                
-                {itemsOrdenados.map((kpi) => (
-                    <div 
-                        key={kpi.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, kpi)}
-                        onDragEnd={handleDragEnd}
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, kpi)}
-                        className="cursor-move transition-transform duration-200 active:scale-95"
-                        title="Segure e arraste para mover"
-                    >
-                        <SmartKpiCard 
-                            kpi={{
-                                id: kpi.id,
-                                titulo: kpi.titulo,
-                                icone: kpi.filtros?._meta_visual?.icone || kpi.icone || 'faChartPie',
-                                cor: kpi.filtros?._meta_visual?.cor || '#3B82F6',
-                                filtros: kpi.filtros
-                            }}
-                            onEdit={() => handleEditKpi(kpi)}
-                            onDelete={() => handleDeleteKpi(kpi)}
-                        />
+            <div className="space-y-8">
+                {kpisAgrupados.chavesOrdenadas.map(grupoNome => (
+                    <div key={grupoNome} className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-200 pb-2 pl-1">
+                            {grupoNome}
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {kpisAgrupados.grupos[grupoNome].map((kpi) => (
+                                <div 
+                                    key={kpi.id}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, kpi)}
+                                    onDragEnd={handleDragEnd}
+                                    onDragOver={handleDragOver}
+                                    onDrop={(e) => handleDrop(e, kpi)}
+                                    className="cursor-move transition-all duration-200 hover:-translate-y-1"
+                                >
+                                    <SmartKpiCard 
+                                        kpi={{
+                                            id: kpi.id,
+                                            titulo: kpi.titulo,
+                                            icone: kpi.filtros?._meta_visual?.icone || kpi.icone || 'faChartPie',
+                                            cor: kpi.filtros?._meta_visual?.cor || '#3B82F6',
+                                            filtros: kpi.filtros
+                                        }}
+                                        onEdit={() => handleEditKpi(kpi)}
+                                        onDelete={() => handleDeleteKpi(kpi)}
+                                    />
+                                </div>
+                            ))}
+                            
+                            {/* Placeholder invisível para facilitar o drop em grupos vazios ou no final */}
+                            {kpisAgrupados.grupos[grupoNome].length === 0 && (
+                                <div className="border-2 border-dashed border-gray-200 rounded-xl h-32 flex items-center justify-center text-gray-400 text-sm">
+                                    Arraste itens para cá
+                                </div>
+                            )}
+                        </div>
                     </div>
                 ))}
 
-                {/* Botão de Criar Novo */}
-                <div className="h-full">
-                    <KpiPlaceholder onClick={handleNovoKpi} />
-                </div>
+                {kpisAgrupados.chavesOrdenadas.length === 0 && (
+                    <div className="text-center py-10">
+                        <KpiPlaceholder onClick={handleNovoKpi} />
+                    </div>
+                )}
             </div>
         )}
       </section>
 
       <hr className="border-gray-200" />
 
-      {/* 2. DASHBOARD ANTIGO */}
+      {/* DASHBOARD GRÁFICO */}
       <section>
          <h2 className="text-lg font-bold text-gray-700 border-l-4 border-indigo-500 pl-3 mb-4">
             Análise Gráfica Detalhada
@@ -204,7 +232,6 @@ export default function RelatorioFinanceiroPage() {
          <FinanceiroDashboard />
       </section>
 
-      {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
       <KpiBuilderModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)}
@@ -214,7 +241,6 @@ export default function RelatorioFinanceiroPage() {
             queryClient.invalidateQueries({ queryKey: ['kpi_value_smart_v7'] });
         }}
       />
-
     </div>
   );
 }
