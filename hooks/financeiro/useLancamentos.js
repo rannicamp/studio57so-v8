@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+const NULL_ID = 'IS_NULL';
+
 export function useLancamentos({ 
     filters, 
     page = 1, 
@@ -28,29 +30,36 @@ export function useLancamentos({
                     anexos:lancamentos_anexos (id)
                 `, { count: 'exact' });
 
-            // 1. Filtro de Segurança (Sempre aplica)
+            // 1. Filtro de Segurança
             query = query.eq('organizacao_id', organizacaoId);
 
-            // 2. Filtros de Multi-Seleção (Só aplica se tiver algo selecionado)
-            if (filters.contaIds?.length > 0) {
-                query = query.in('conta_id', filters.contaIds);
-            }
+            // FUNÇÃO AUXILIAR PARA LIDAR COM "SEM REGISTRO" (NULL)
+            const applyFilterWithNullCheck = (coluna, valores) => {
+                if (!valores || valores.length === 0) return;
 
-            if (filters.categoriaIds?.length > 0) {
-                query = query.in('categoria_id', filters.categoriaIds);
-            }
+                const hasNull = valores.includes(NULL_ID);
+                const realIds = valores.filter(v => v !== NULL_ID);
 
-            if (filters.empresaIds?.length > 0) {
-                query = query.in('empresa_id', filters.empresaIds);
-            }
+                if (hasNull && realIds.length === 0) {
+                    // Selecionou APENAS "Sem Registro"
+                    query = query.is(coluna, null);
+                } else if (hasNull && realIds.length > 0) {
+                    // Selecionou "Sem Registro" E outros valores
+                    // Supabase syntax para OR: "coluna.in.(1,2),coluna.is.null"
+                    const orCondition = `${coluna}.in.(${realIds.join(',')}),${coluna}.is.null`;
+                    query = query.or(orCondition);
+                } else if (realIds.length > 0) {
+                    // Apenas valores normais
+                    query = query.in(coluna, realIds);
+                }
+            };
 
-            if (filters.empreendimentoIds?.length > 0) {
-                query = query.in('empreendimento_id', filters.empreendimentoIds);
-            }
-
-            if (filters.etapaIds?.length > 0) {
-                query = query.in('etapa_id', filters.etapaIds);
-            }
+            // 2. Filtros de Multi-Seleção (Com suporte a NULL)
+            applyFilterWithNullCheck('conta_id', filters.contaIds);
+            applyFilterWithNullCheck('categoria_id', filters.categoriaIds);
+            applyFilterWithNullCheck('empresa_id', filters.empresaIds);
+            applyFilterWithNullCheck('empreendimento_id', filters.empreendimentoIds);
+            applyFilterWithNullCheck('etapa_id', filters.etapaIds);
 
             // 3. Filtro de Status
             if (filters.status?.length > 0) {
@@ -64,13 +73,12 @@ export function useLancamentos({
                     query = query.in('status', statusParaBuscar);
                 }
 
-                // Lógica especial para 'Atrasada' (Pendente + Vencimento < Hoje)
                 if (buscaAtrasados && !filters.status.includes('Pendente')) {
                     query = query.eq('status', 'Pendente').lt('data_vencimento', new Date().toISOString().split('T')[0]);
                 }
             }
 
-            // 4. Filtro de Tipo (Receita/Despesa)
+            // 4. Filtro de Tipo
             if (filters.tipo?.length > 0) {
                 query = query.in('tipo', filters.tipo);
             }
@@ -83,12 +91,16 @@ export function useLancamentos({
                 query = query.lte('data_vencimento', filters.endDate);
             }
 
-            // 6. Filtro de Favorecido
+            // 6. Filtro de Favorecido (Com suporte a NULL)
             if (filters.favorecidoId) {
-                query = query.eq('favorecido_contato_id', filters.favorecidoId);
+                if (filters.favorecidoId === NULL_ID) {
+                    query = query.is('favorecido_contato_id', null);
+                } else {
+                    query = query.eq('favorecido_contato_id', filters.favorecidoId);
+                }
             }
 
-            // 7. Filtro de Busca Textual (Descrição)
+            // 7. Filtro de Busca Textual
             if (filters.searchTerm) {
                 query = query.ilike('descricao', `%${filters.searchTerm}%`);
             }
@@ -98,7 +110,7 @@ export function useLancamentos({
                 query = query.is('transferencia_id', null);
             }
 
-            // 9. Ocultar Estornos (BLINDAGEM DUPLA: 189 e 308)
+            // 9. Ocultar Estornos (BLINDAGEM DUPLA)
             if (filters.ignoreChargebacks) {
                 query = query.not('categoria_id', 'in', '(189,308)');
             }

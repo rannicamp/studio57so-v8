@@ -4,11 +4,10 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faTimes, faSave, faStar as faStarSolid, faEllipsisV,
-    faCalendarDay, faCalendarWeek, faCalendarAlt, faSyncAlt,
+    faCalendarDay, faCalendarWeek, faCalendarAlt, 
     faArrowUp, faArrowDown, faTrash, faSpinner, faBan, faExchangeAlt,
-    faFilter, faChevronDown, faChevronUp, faUndo // <--- ADICIONEI faUndo
+    faFilter, faChevronDown, faChevronUp, faUndo, faExclamationCircle
 } from '@fortawesome/free-solid-svg-icons';
-import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -17,6 +16,7 @@ import { useDebounce } from 'use-debounce';
 import MultiSelectDropdown from './MultiSelectDropdown';
 
 const FINANCEIRO_FILTERS_CACHE_KEY = 'financeiroCurrentFilters';
+const NULL_ID = 'IS_NULL'; // Identificador Mágico para campos vazios
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
@@ -31,7 +31,7 @@ const initialFilterState = {
     etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', 
     favorecidoId: null, 
     ignoreTransfers: false, 
-    ignoreChargebacks: false, // <--- NOVO CAMPO
+    ignoreChargebacks: false,
     search: ''
 };
 
@@ -111,6 +111,11 @@ export default function FiltroFinanceiro({
     const empreendimentos = propEmpreendimentos || listasInternas?.empreendimentos || [];
     const etapas = etapasInternas?.length ? etapasInternas : []; 
 
+    // --- FUNÇÃO MÁGICA: INJETAR OPÇÃO NULA ---
+    const withNullOption = (list, label = 'Sem Registro') => {
+        return [{ id: NULL_ID, nome: `⚠ ${label}` }, ...list];
+    };
+
     const updateFilters = (newFilters) => {
         if (propSetFilters) {
             propSetFilters(newFilters);
@@ -156,6 +161,7 @@ export default function FiltroFinanceiro({
 
     const selectedFavorecidoName = useMemo(() => {
         if (!filters.favorecidoId) return '';
+        if (filters.favorecidoId === NULL_ID) return '⚠ Sem Favorecido'; // Tratamento especial visual
         const foundInSearch = favorecidoSearchResults.find(c => c.id === filters.favorecidoId);
         if (foundInSearch) return foundInSearch.nome || foundInSearch.razao_social;
         const contato = propAllContacts?.find(c => c.id === filters.favorecidoId);
@@ -185,6 +191,13 @@ export default function FiltroFinanceiro({
         setFavorecidoSearchTerm(contato.nome || contato.razao_social); 
         setFavorecidoSearchResults([]); 
     };
+
+    // Selecionar "Sem Favorecido"
+    const handleSelectNullFavorecido = () => {
+        handleFilterChange('favorecidoId', NULL_ID);
+        setFavorecidoSearchTerm('');
+        setFavorecidoSearchResults([]);
+    };
     
     const handleClearFavorecido = () => { 
         handleFilterChange('favorecidoId', null); 
@@ -197,7 +210,6 @@ export default function FiltroFinanceiro({
         updateFilters(updated);
     };
 
-    // --- NOVA FUNÇÃO: Toggle Estornos ---
     const toggleIgnoreChargebacks = () => {
         const updated = { ...filters, ignoreChargebacks: !filters.ignoreChargebacks };
         updateFilters(updated);
@@ -254,7 +266,9 @@ export default function FiltroFinanceiro({
         const tree = []; const map = {}; const allCategories = JSON.parse(JSON.stringify(categorias || [])); 
         allCategories.forEach(cat => { map[cat.id] = { ...cat, children: [] }; }); 
         allCategories.forEach(cat => { if (cat.parent_id && map[cat.parent_id]) { map[cat.parent_id].children.push(map[cat.id]); } else { tree.push(map[cat.id]); } }); 
-        return tree;
+        
+        // Injeta a opção nula no topo da árvore
+        return [{ id: NULL_ID, nome: '⚠ Sem Categoria' }, ...tree];
     }, [categorias]);
 
     const statusOptions = [{ id: 'Pago', nome: 'Paga' }, { id: 'Pendente', nome: 'A Pagar' }, { id: 'Atrasada', nome: 'Atrasada' }];
@@ -296,7 +310,6 @@ export default function FiltroFinanceiro({
                                 {filters.ignoreTransfers ? "Transf. Ocultas" : "Ocultar Transf."}
                             </button>
 
-                            {/* --- BOTÃO DE ESTORNOS --- */}
                             <button 
                                 onClick={toggleIgnoreChargebacks} 
                                 className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors shadow-sm ${filters.ignoreChargebacks ? 'bg-orange-600 text-white border-orange-700 ring-2 ring-orange-200' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
@@ -341,15 +354,25 @@ export default function FiltroFinanceiro({
                         <div className="relative" ref={favorecidoInputRef}>
                             <label className="text-xs uppercase font-medium text-gray-500 mb-1 block">Favorecido</label>
                             {filters.favorecidoId ? (
-                                <div className="flex items-center justify-between p-2 border border-blue-200 bg-blue-50 rounded-md h-[38px]">
-                                    <span className="text-sm font-medium text-blue-800 truncate">{selectedFavorecidoName}</span>
-                                    <button type="button" onClick={handleClearFavorecido} className="text-blue-400 hover:text-red-600"><FontAwesomeIcon icon={faTimes}/></button>
+                                <div className={`flex items-center justify-between p-2 border rounded-md h-[38px] ${filters.favorecidoId === NULL_ID ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+                                    <span className="text-sm font-medium truncate">{selectedFavorecidoName}</span>
+                                    <button type="button" onClick={handleClearFavorecido} className="text-opacity-60 hover:text-opacity-100"><FontAwesomeIcon icon={faTimes}/></button>
                                 </div>
                             ) : (
                                 <>
                                     <input type="text" placeholder="Buscar favorecido..." value={favorecidoSearchTerm} onChange={(e) => setFavorecidoSearchTerm(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 h-[38px]" />
+                                    {/* Opção para buscar sem favorecido logo abaixo do input quando vazio ou pesquisando */}
+                                    <button onClick={handleSelectNullFavorecido} className="absolute right-2 top-8 text-gray-400 hover:text-orange-500" title="Buscar registros sem favorecido">
+                                        <FontAwesomeIcon icon={faExclamationCircle} className="text-xs" />
+                                    </button>
+
                                     {(isSearching || favorecidoSearchResults.length > 0) && (
                                         <ul className="absolute z-20 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto mt-1">
+                                            {/* Opção Fixa no Autocomplete */}
+                                            <li onClick={handleSelectNullFavorecido} className="p-2 hover:bg-orange-50 cursor-pointer text-xs text-orange-700 border-b font-semibold">
+                                                <FontAwesomeIcon icon={faExclamationCircle} className="mr-2" /> ⚠ Sem Favorecido
+                                            </li>
+                                            
                                             {isSearching && <li className="p-2 text-center text-gray-500 text-xs"><FontAwesomeIcon icon={faSpinner} spin /> Buscando...</li>}
                                             {!isSearching && favorecidoSearchResults.map(c => ( <li key={c.id} onClick={() => handleSelectFavorecido(c)} className="p-2 hover:bg-gray-100 cursor-pointer text-xs text-gray-700 border-b last:border-0"> <HighlightedText text={c.nome || c.razao_social} highlight={favorecidoSearchTerm} /> </li> ))}
                                         </ul>
@@ -358,14 +381,14 @@ export default function FiltroFinanceiro({
                             )}
                         </div>
 
-                        <MultiSelectDropdown label="Empresas" options={empresas} selectedIds={filters.empresaIds} onChange={(selected) => handleFilterChange('empresaIds', selected)} />
-                        <MultiSelectDropdown label="Contas" options={contas} selectedIds={filters.contaIds} onChange={(selected) => handleFilterChange('contaIds', selected)} />
+                        <MultiSelectDropdown label="Empresas" options={withNullOption(empresas, 'Sem Empresa')} selectedIds={filters.empresaIds} onChange={(selected) => handleFilterChange('empresaIds', selected)} />
+                        <MultiSelectDropdown label="Contas" options={withNullOption(contas, 'Sem Conta')} selectedIds={filters.contaIds} onChange={(selected) => handleFilterChange('contaIds', selected)} />
                         <MultiSelectDropdown label="Categorias" options={categoryTree} selectedIds={filters.categoriaIds} onChange={(selected) => handleFilterChange('categoriaIds', selected)} />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-                        <MultiSelectDropdown label="Empreendimentos" options={empreendimentos} selectedIds={filters.empreendimentoIds} onChange={(selected) => handleFilterChange('empreendimentoIds', selected)} />
-                        <MultiSelectDropdown label="Etapa da Obra" options={etapas.map(e => ({...e, nome: e.nome_etapa}))} selectedIds={filters.etapaIds} onChange={(selected) => handleFilterChange('etapaIds', selected)} />
+                        <MultiSelectDropdown label="Empreendimentos" options={withNullOption(empreendimentos, 'Sem Empreendimento')} selectedIds={filters.empreendimentoIds} onChange={(selected) => handleFilterChange('empreendimentoIds', selected)} />
+                        <MultiSelectDropdown label="Etapa da Obra" options={withNullOption(etapas.map(e => ({...e, nome: e.nome_etapa})), 'Sem Etapa')} selectedIds={filters.etapaIds} onChange={(selected) => handleFilterChange('etapaIds', selected)} />
                         <MultiSelectDropdown label="Status" options={statusOptions} selectedIds={filters.status} onChange={(selected) => handleFilterChange('status', selected)} placeholder="Todos" />
                         
                         <div className="grid grid-cols-2 gap-2">
