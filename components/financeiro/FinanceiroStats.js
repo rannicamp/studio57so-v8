@@ -2,48 +2,29 @@
 
 import { useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUp, faArrowDown, faWallet, faExclamationCircle } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUp, faArrowDown, faWallet, faExclamationCircle, faSpinner } from '@fortawesome/free-solid-svg-icons';
 
-export default function FinanceiroStats({ data = [], isLoading }) {
-    // Processamento dos dados brutos vindos do SQL
+export default function FinanceiroStats({ data = {}, isLoading }) {
+    // Agora pegamos os dados prontos do objeto 'kpis' que vem do SQL
+    // Se não tiver dados, assume 0 para tudo.
     const stats = useMemo(() => {
-        let receitaTotal = 0;
-        let receitaRecebida = 0;
-        let despesaTotal = 0;
-        let despesaPaga = 0;
-
-        data.forEach(item => {
-            const valor = Number(item.valor_total) || 0;
-            
-            if (item.tipo_lancamento === 'Receita') {
-                receitaTotal += valor;
-                if (item.status_lancamento === 'Pago' || item.status_lancamento === 'Conciliado') {
-                    receitaRecebida += valor;
-                }
-            } else if (item.tipo_lancamento === 'Despesa') {
-                despesaTotal += valor;
-                if (item.status_lancamento === 'Pago' || item.status_lancamento === 'Conciliado') {
-                    despesaPaga += valor;
-                }
-            }
-        });
-
+        const kpis = data?.kpis || {};
         return {
-            receitaTotal,
-            receitaRecebida,
-            receitaPendente: receitaTotal - receitaRecebida,
-            despesaTotal,
-            despesaPaga,
-            despesaPendente: despesaTotal - despesaPaga,
-            saldoGeral: receitaTotal - despesaTotal,
-            saldoRealizado: receitaRecebida - despesaPaga
+            receitaTotal: Number(kpis.receitaTotal) || 0,
+            receitaRecebida: Number(kpis.receitaRealizada) || 0,
+            despesaTotal: Number(kpis.despesaTotal) || 0,
+            despesaPaga: Number(kpis.despesaRealizada) || 0,
+            saldoGeral: Number(kpis.saldoGeral) || 0,
+            saldoRealizado: Number(kpis.saldoRealizado) || 0
         };
     }, [data]);
 
     if (isLoading) {
-        return <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 animate-pulse">
-            {[1,2,3,4].map(i => <div key={i} className="h-24 bg-gray-200 rounded-lg"></div>)}
-        </div>;
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 animate-pulse">
+                {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-gray-200 rounded-lg"></div>)}
+            </div>
+        );
     }
 
     const formatMoney = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -51,7 +32,7 @@ export default function FinanceiroStats({ data = [], isLoading }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {/* Card Receitas */}
-            <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
+            <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500 transition-all hover:shadow-md">
                 <div className="flex justify-between items-start">
                     <div>
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Receitas</p>
@@ -67,7 +48,7 @@ export default function FinanceiroStats({ data = [], isLoading }) {
             </div>
 
             {/* Card Despesas */}
-            <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500">
+            <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500 transition-all hover:shadow-md">
                 <div className="flex justify-between items-start">
                     <div>
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Despesas</p>
@@ -83,7 +64,7 @@ export default function FinanceiroStats({ data = [], isLoading }) {
             </div>
 
             {/* Card Saldo Previsto (Tudo) */}
-            <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
+            <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500 transition-all hover:shadow-md">
                 <div className="flex justify-between items-start">
                     <div>
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Saldo (Previsto)</p>
@@ -99,7 +80,7 @@ export default function FinanceiroStats({ data = [], isLoading }) {
             </div>
 
             {/* Card Saldo Real (Caixa) */}
-            <div className={`bg-white p-4 rounded-lg shadow-sm border-l-4 ${stats.saldoRealizado >= 0 ? 'border-gray-600' : 'border-orange-500'}`}>
+            <div className={`bg-white p-4 rounded-lg shadow-sm border-l-4 ${stats.saldoRealizado >= 0 ? 'border-gray-600' : 'border-orange-500'} transition-all hover:shadow-md`}>
                 <div className="flex justify-between items-start">
                     <div>
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Saldo em Caixa (Real)</p>

@@ -1,4 +1,3 @@
-// components/financeiro/FiltroFinanceiro.js
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -7,7 +6,7 @@ import {
     faTimes, faSave, faStar as faStarSolid, faEllipsisV,
     faCalendarDay, faCalendarWeek, faCalendarAlt, faSyncAlt,
     faArrowUp, faArrowDown, faTrash, faSpinner, faBan, faExchangeAlt,
-    faFilter, faChevronDown, faChevronUp
+    faFilter, faChevronDown, faChevronUp, faUndo // <--- ADICIONEI faUndo
 } from '@fortawesome/free-solid-svg-icons';
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons';
 import { createClient } from '@/utils/supabase/client';
@@ -30,10 +29,12 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
 const initialFilterState = {
     empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [],
     etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', 
-    favorecidoId: null, ignoreTransfers: false, search: ''
+    favorecidoId: null, 
+    ignoreTransfers: false, 
+    ignoreChargebacks: false, // <--- NOVO CAMPO
+    search: ''
 };
 
-// Funções de busca internas (Para uso autônomo no Dashboard)
 const fetchEtapas = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
     const { data, error } = await supabase.from('etapa_obra').select('id, nome_etapa').eq('organizacao_id', organizacaoId).order('nome_etapa');
@@ -58,7 +59,6 @@ const fetchListasBasicas = async (supabase, organizacaoId) => {
 };
 
 export default function FiltroFinanceiro({
-    // Props Legadas (Página Financeiro Principal)
     filters: propFilters, 
     setFilters: propSetFilters,
     empresas: propEmpresas,
@@ -66,8 +66,6 @@ export default function FiltroFinanceiro({
     categorias: propCategorias,
     empreendimentos: propEmpreendimentos,
     allContacts: propAllContacts,
-
-    // Props Novas (Dashboard Relatórios)
     onFilterChange, 
     filtrosAtuais = {}, 
     compacto = false
@@ -76,11 +74,7 @@ export default function FiltroFinanceiro({
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    // Lógica Híbrida: Usa o state do prop (Legado) OU cria um interno (Novo)
-    // Se propFilters existir, usamos ele como verdade absoluta. Se não, usamos nosso estado local.
     const [localFilters, setLocalFilters] = useState({ ...initialFilterState, ...filtrosAtuais });
-    
-    // O filtro ativo real é: O que vem de fora (Prioridade) OU O local
     const filters = propFilters || localFilters;
 
     const [isExpanded, setIsExpanded] = useState(!compacto);
@@ -96,7 +90,6 @@ export default function FiltroFinanceiro({
     const [isSearching, setIsSearching] = useState(false);
     const favorecidoInputRef = useRef(null);
 
-    // --- BUSCA DE DADOS AUTÔNOMA (Só roda se os props não vierem) ---
     const shouldUseInternalData = !propContas || !propCategorias;
 
     const { data: listasInternas } = useQuery({
@@ -112,46 +105,35 @@ export default function FiltroFinanceiro({
         enabled: !!organizacaoId && shouldUseInternalData,
     });
 
-    // Unifica dados (Props > Interno)
     const empresas = propEmpresas || listasInternas?.empresas || [];
     const contas = propContas || listasInternas?.contas || [];
     const categorias = propCategorias || listasInternas?.categorias || [];
     const empreendimentos = propEmpreendimentos || listasInternas?.empreendimentos || [];
-    const etapas = etapasInternas?.length ? etapasInternas : []; // Etapas geralmente não vinham via prop
+    const etapas = etapasInternas?.length ? etapasInternas : []; 
 
-    // --- EFEITOS ---
-
-    // 1. Notifica mudança para quem estiver ouvindo
     const updateFilters = (newFilters) => {
-        // Se a página antiga estiver usando (Legacy)
         if (propSetFilters) {
             propSetFilters(newFilters);
         } else {
-            // Se o Dashboard estiver usando (Novo)
             setLocalFilters(newFilters);
         }
-
-        // Se o Dashboard pediu callback (Novo)
         if (onFilterChange) {
             onFilterChange(newFilters);
         }
     };
 
-    // 2. Sincroniza se o pai (Dashboard) mandar novos filtros via prop 'filtrosAtuais'
     useEffect(() => {
         if (filtrosAtuais && Object.keys(filtrosAtuais).length > 0 && !propFilters) {
              setLocalFilters(prev => ({ ...prev, ...filtrosAtuais }));
         }
     }, [filtrosAtuais, propFilters]);
 
-    // 3. Cache LocalStorage
     useEffect(() => {
-        if (!compacto) { // Só salva cache na tela principal
+        if (!compacto) {
             try { localStorage.setItem(FINANCEIRO_FILTERS_CACHE_KEY, JSON.stringify(debouncedFilters)); } catch (error) { console.error(error); }
         }
     }, [debouncedFilters, compacto]);
 
-    // 4. Busca Favorecido
     useEffect(() => {
         if (favorecidoSearchTerm.length < 2) { setFavorecidoSearchResults([]); return; }
         const timer = setTimeout(async () => {
@@ -172,32 +154,25 @@ export default function FiltroFinanceiro({
         return () => clearTimeout(timer);
     }, [favorecidoSearchTerm, supabase, organizacaoId]);
 
-    // 5. Nome do Favorecido Selecionado
     const selectedFavorecidoName = useMemo(() => {
         if (!filters.favorecidoId) return '';
         const foundInSearch = favorecidoSearchResults.find(c => c.id === filters.favorecidoId);
         if (foundInSearch) return foundInSearch.nome || foundInSearch.razao_social;
-        
-        // Tenta achar na lista completa (se passada) ou busca simples se não tiver
         const contato = propAllContacts?.find(c => c.id === filters.favorecidoId);
         return contato ? (contato.nome || contato.razao_social) : favorecidoSearchTerm;
     }, [filters.favorecidoId, propAllContacts, favorecidoSearchResults, favorecidoSearchTerm]);
 
-    // 6. Carregar salvos
     useEffect(() => { 
         if (typeof window !== 'undefined') {
             setSavedFilters(JSON.parse(localStorage.getItem('savedFinancialFilters') || '[]')); 
         }
     }, []);
 
-    // 7. Click outside
     useEffect(() => {
         function handleClickOutside(event) { if (filterMenuRef.current && !filterMenuRef.current.contains(event.target)) setIsFilterMenuOpen(false); }
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [filterMenuRef]);
-
-    // --- HANDLERS ---
 
     const handleFilterChange = (name, value) => { 
         const updated = { ...filters, [name]: value };
@@ -222,6 +197,12 @@ export default function FiltroFinanceiro({
         updateFilters(updated);
     };
 
+    // --- NOVA FUNÇÃO: Toggle Estornos ---
+    const toggleIgnoreChargebacks = () => {
+        const updated = { ...filters, ignoreChargebacks: !filters.ignoreChargebacks };
+        updateFilters(updated);
+    };
+
     const handleNatureFilterClick = (nature) => { 
         const currentTipo = filters.tipo || []; 
         const newTipo = currentTipo.includes(nature) ? currentTipo.filter(t => t !== nature) : [...currentTipo, nature]; 
@@ -240,7 +221,7 @@ export default function FiltroFinanceiro({
     };
     
     const clearFilters = () => { 
-        updateFilters({ ...initialFilterState, searchTerm: filters.searchTerm }); // Mantém termo de busca geral se houver
+        updateFilters({ ...initialFilterState, searchTerm: filters.searchTerm }); 
         setFavorecidoSearchTerm(''); 
         setActivePeriodFilter(''); 
     };
@@ -269,7 +250,6 @@ export default function FiltroFinanceiro({
         toast.success("Filtro excluído."); 
     };
 
-    // Monta árvore de categorias
     const categoryTree = useMemo(() => {
         const tree = []; const map = {}; const allCategories = JSON.parse(JSON.stringify(categorias || [])); 
         allCategories.forEach(cat => { map[cat.id] = { ...cat, children: [] }; }); 
@@ -282,7 +262,6 @@ export default function FiltroFinanceiro({
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 transition-all duration-300">
             
-            {/* Header (Só se não for compacto) */}
             {!compacto && (
                 <div 
                     className="flex justify-between items-center p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50"
@@ -296,7 +275,6 @@ export default function FiltroFinanceiro({
                 </div>
             )}
 
-            {/* Corpo */}
             {(isExpanded || compacto) && (
                 <div className="p-4 bg-gray-50 animate-fade-in rounded-b-xl">
                     <div className="flex flex-col md:flex-row justify-between items-start mb-4 gap-4">
@@ -315,7 +293,17 @@ export default function FiltroFinanceiro({
                                 title="Ocultar transferências entre contas"
                             > 
                                 <FontAwesomeIcon icon={filters.ignoreTransfers ? faBan : faExchangeAlt} className={filters.ignoreTransfers ? "text-white" : "text-gray-400"} /> 
-                                {filters.ignoreTransfers ? "Transferências Ocultas" : "Ocultar Transferências"}
+                                {filters.ignoreTransfers ? "Transf. Ocultas" : "Ocultar Transf."}
+                            </button>
+
+                            {/* --- BOTÃO DE ESTORNOS --- */}
+                            <button 
+                                onClick={toggleIgnoreChargebacks} 
+                                className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors shadow-sm ${filters.ignoreChargebacks ? 'bg-orange-600 text-white border-orange-700 ring-2 ring-orange-200' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                                title="Ocultar Estornos e Devoluções"
+                            > 
+                                <FontAwesomeIcon icon={filters.ignoreChargebacks ? faBan : faUndo} className={filters.ignoreChargebacks ? "text-white" : "text-gray-400"} /> 
+                                {filters.ignoreChargebacks ? "Estornos Ocultos" : "Ocultar Estornos"}
                             </button>
                         </div>
 
@@ -380,7 +368,6 @@ export default function FiltroFinanceiro({
                         <MultiSelectDropdown label="Etapa da Obra" options={etapas.map(e => ({...e, nome: e.nome_etapa}))} selectedIds={filters.etapaIds} onChange={(selected) => handleFilterChange('etapaIds', selected)} />
                         <MultiSelectDropdown label="Status" options={statusOptions} selectedIds={filters.status} onChange={(selected) => handleFilterChange('status', selected)} placeholder="Todos" />
                         
-                        {/* Seletor de Data (Pode esconder se quiser no compacto, mas deixei disponível) */}
                         <div className="grid grid-cols-2 gap-2">
                             <div>
                                 <label className="text-xs uppercase font-medium text-gray-500 mb-1 block">De</label>

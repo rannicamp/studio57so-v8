@@ -54,9 +54,6 @@ export function useLancamentos({
 
             // 3. Filtro de Status
             if (filters.status?.length > 0) {
-                // Mapeia 'Atrasada' e 'A Pagar' para o status real do banco se necessário,
-                // mas como seu banco usa 'Pendente' e 'Pago', vamos ajustar:
-                
                 const statusParaBuscar = [];
                 const buscaAtrasados = filters.status.includes('Atrasada');
                 
@@ -69,7 +66,6 @@ export function useLancamentos({
 
                 // Lógica especial para 'Atrasada' (Pendente + Vencimento < Hoje)
                 if (buscaAtrasados && !filters.status.includes('Pendente')) {
-                    // Se só selecionou atrasada, força pendente e data antiga
                     query = query.eq('status', 'Pendente').lt('data_vencimento', new Date().toISOString().split('T')[0]);
                 }
             }
@@ -79,7 +75,7 @@ export function useLancamentos({
                 query = query.in('tipo', filters.tipo);
             }
 
-            // 5. Filtro de Data (Prioridade: Vencimento para filtrar listas gerais)
+            // 5. Filtro de Data
             if (filters.startDate) {
                 query = query.gte('data_vencimento', filters.startDate);
             }
@@ -97,19 +93,24 @@ export function useLancamentos({
                 query = query.ilike('descricao', `%${filters.searchTerm}%`);
             }
 
-            // 8. Ocultar Transferências (Lógica Nova)
+            // 8. Ocultar Transferências
             if (filters.ignoreTransfers) {
                 query = query.is('transferencia_id', null);
             }
 
-            // 9. Ordenação
+            // 9. Ocultar Estornos (BLINDAGEM DUPLA: 189 e 308)
+            if (filters.ignoreChargebacks) {
+                query = query.not('categoria_id', 'in', '(189,308)');
+            }
+
+            // 10. Ordenação
             if (sortConfig.key) {
                 query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' });
             } else {
                 query = query.order('data_vencimento', { ascending: false });
             }
 
-            // 10. Paginação (Calculada no Servidor)
+            // 11. Paginação
             const from = (page - 1) * itemsPerPage;
             const to = from + itemsPerPage - 1;
             query = query.range(from, to);
@@ -123,7 +124,7 @@ export function useLancamentos({
 
             return { data, count };
         },
-        placeholderData: (previousData) => previousData, // Mantém os dados antigos enquanto carrega os novos (UX melhor)
-        staleTime: 5 * 60 * 1000, // Cache de 5 minutos
+        placeholderData: (previousData) => previousData,
+        staleTime: 5 * 60 * 1000, 
     });
 }

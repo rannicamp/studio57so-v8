@@ -8,7 +8,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faTimes, faSave, faCheck, faChartPie, faArrowUp, faArrowDown, 
   faWallet, faMoneyBillWave, faPiggyBank, faCoins, faSpinner, faPen, 
-  faCalculator, faDatabase, faPercentage, faLayerGroup 
+  faCalculator, faDatabase, faPercentage, faLayerGroup, 
+  faChartLine, faChartBar, faSquare, faCalendarAlt
 } from '@fortawesome/free-solid-svg-icons';
 import FiltroFinanceiro from '@/components/financeiro/FiltroFinanceiro';
 import { toast } from 'sonner';
@@ -38,11 +39,19 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
+  // --- ESTADOS ---
   const [abaAtiva, setAbaAtiva] = useState('filtro');
   const [titulo, setTitulo] = useState('');
-  const [grupo, setGrupo] = useState(''); // NOVO: Estado para o grupo
+  const [grupo, setGrupo] = useState('');
+  
+  // Visual
   const [iconeSelecionado, setIconeSelecionado] = useState('faWallet');
   const [corSelecionada, setCorSelecionada] = useState('#3B82F6');
+  
+  // NOVOS ESTADOS: Configuração do Gráfico
+  const [tipoVisualizacao, setTipoVisualizacao] = useState('card'); // 'card', 'grafico_linha', 'grafico_barra'
+  const [agrupamentoTempo, setAgrupamentoTempo] = useState('mes'); // 'dia', 'mes', 'ano'
+
   const [salvando, setSalvando] = useState(false);
 
   // Estados dos Filtros/Fórmulas
@@ -63,7 +72,6 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
       
       if (error) throw error;
 
-      // Extrai grupos únicos para o autocomplete
       const gruposUnicos = [...new Set(data.map(item => item.grupo).filter(Boolean))];
       
       return { kpis: data, grupos: gruposUnicos };
@@ -108,7 +116,12 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
     if (isOpen && !isLoadingKpis) {
         if (kpiToEdit) {
             setTitulo(kpiToEdit.titulo);
-            setGrupo(kpiToEdit.grupo || ''); // Carrega o grupo
+            setGrupo(kpiToEdit.grupo || '');
+            
+            // Carrega configurações novas
+            setTipoVisualizacao(kpiToEdit.tipo_visualizacao || 'card');
+            setAgrupamentoTempo(kpiToEdit.agrupamento_tempo || 'mes');
+
             const metaVisual = kpiToEdit.filtros?._meta_visual || {};
             setIconeSelecionado(metaVisual.icone || kpiToEdit.icone || 'faWallet');
             setCorSelecionada(metaVisual.cor || '#3B82F6');
@@ -124,8 +137,11 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
                 setFiltrosConfigurados(kpiToEdit.filtros || {});
             }
         } else {
+            // Reset
             setTitulo('');
             setGrupo('');
+            setTipoVisualizacao('card');
+            setAgrupamentoTempo('mes');
             setIconeSelecionado('faWallet');
             setCorSelecionada('#3B82F6');
             setAbaAtiva('filtro');
@@ -150,7 +166,6 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
       return;
     }
 
-    // Define um grupo padrão se estiver vazio
     const grupoFinal = grupo.trim() || 'Geral';
 
     if (abaAtiva === 'formula' && !formulaVisual.trim()) {
@@ -178,21 +193,23 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
         };
       }
 
+      const payload = {
+          titulo: titulo,
+          grupo: grupoFinal,
+          tipo_visualizacao: tipoVisualizacao,
+          agrupamento_tempo: agrupamentoTempo,
+          filtros: configFinal,
+          modulo: 'financeiro',
+          tipo_calculo: 'soma_dinamica'
+      };
+
       let error;
 
       if (kpiToEdit) {
-        // --- ATUALIZAÇÃO ---
-        const updatePayload = {
-            titulo: titulo,
-            grupo: grupoFinal, // Salva o grupo
-            filtros: configFinal,
-            modulo: 'financeiro',
-            tipo_calculo: 'soma_dinamica'
-        };
-
+        // UPDATE
         const response = await supabase
             .from('kpis_personalizados')
-            .update(updatePayload)
+            .update(payload)
             .eq('id', kpiToEdit.id)
             .select(); 
             
@@ -203,15 +220,11 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
         if (!error) toast.success("Indicador atualizado!");
 
       } else {
-        // --- CRIAÇÃO ---
+        // INSERT
         const insertPayload = {
+            ...payload,
             usuario_id: user.id,
             organizacao_id: user.organizacao_id,
-            titulo: titulo,
-            grupo: grupoFinal, // Salva o grupo
-            filtros: configFinal,
-            modulo: 'financeiro',
-            tipo_calculo: 'soma_dinamica',
             exibir_no_painel: true,
             tipo_kpi: 'financeiro',
             created_at: new Date()
@@ -228,7 +241,6 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
 
       if (error) throw error;
 
-      // Invalidação de cache
       await queryClient.invalidateQueries({ queryKey: ['meus_kpis'] });
       await queryClient.invalidateQueries({ queryKey: ['kpis_e_grupos'] });
       await queryClient.invalidateQueries({ 
@@ -255,7 +267,7 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
             <h2 className="text-xl font-bold text-gray-800">
                 {kpiToEdit ? 'Editar Indicador' : 'Novo Indicador Financeiro'}
             </h2>
-            <p className="text-sm text-gray-500">Defina regras de filtro ou fórmulas personalizadas.</p>
+            <p className="text-sm text-gray-500">Defina regras de filtro ou visualizações gráficas.</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition-colors p-2">
             <FontAwesomeIcon icon={faTimes} className="text-xl" />
@@ -270,13 +282,13 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
         ) : (
             <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32">
                 
-                {/* 1. Identidade Visual */}
-                <section className="space-y-4">
+                {/* 1. Identidade Visual & Formato */}
+                <section className="space-y-6">
                     <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider border-l-4 border-blue-500 pl-2">
-                    1. Identidade Visual & Organização
+                    1. Identidade & Formato
                     </h3>
                     
-                    {/* Campos Título e Grupo */}
+                    {/* Título e Grupo */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Título do Indicador</label>
@@ -284,7 +296,7 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
                                 type="text" 
                                 value={titulo} 
                                 onChange={(e) => setTitulo(e.target.value)} 
-                                placeholder="Ex: Margem de Lucro..." 
+                                placeholder="Ex: Faturamento Mensal..." 
                                 className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" 
                                 autoFocus={!kpiToEdit} 
                             />
@@ -292,40 +304,91 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 <FontAwesomeIcon icon={faLayerGroup} className="mr-1 text-gray-400"/> 
-                                Grupo / Categoria
+                                Grupo
                             </label>
                             <input 
                                 list="grupos-sugestoes"
                                 type="text" 
                                 value={grupo} 
                                 onChange={(e) => setGrupo(e.target.value)} 
-                                placeholder="Ex: Residencial Alfa" 
+                                placeholder="Ex: Vendas" 
                                 className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 focus:bg-white transition-colors" 
                             />
-                            {/* Autocomplete Mágico */}
                             <datalist id="grupos-sugestoes">
-                                {gruposDisponiveis.map((g, idx) => (
-                                    <option key={idx} value={g} />
-                                ))}
+                                {gruposDisponiveis.map((g, idx) => <option key={idx} value={g} />)}
                             </datalist>
                         </div>
                     </div>
 
-                    {/* Cores e Ícones */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Ícone</label>
-                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                                {OPCOES_ICONES.map((opt) => (
-                                    <button key={opt.id} onClick={() => setIconeSelecionado(opt.id)} className={`flex flex-col items-center justify-center p-3 rounded-xl min-w-[60px] border transition-all ${iconeSelecionado === opt.id ? 'bg-blue-50 border-blue-500 text-blue-600 shadow-sm' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}>
-                                        <FontAwesomeIcon icon={opt.icon} className="text-lg mb-1" />
-                                        <span className="text-[9px] font-medium truncate w-full text-center">{opt.label}</span>
-                                    </button>
-                                ))}
-                            </div>
+                    {/* SELEÇÃO DE FORMATO: CARD vs GRÁFICO */}
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <label className="block text-sm font-bold text-gray-700 mb-3">Como você quer visualizar?</label>
+                        <div className="flex gap-4">
+                            <button 
+                                onClick={() => setTipoVisualizacao('card')}
+                                className={`flex-1 p-3 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${tipoVisualizacao === 'card' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-blue-300 bg-white'}`}
+                            >
+                                <FontAwesomeIcon icon={faSquare} className="text-2xl" />
+                                <span className="font-medium text-sm">Cartão Numérico</span>
+                            </button>
+                            <button 
+                                onClick={() => setTipoVisualizacao('grafico_linha')}
+                                className={`flex-1 p-3 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${tipoVisualizacao.startsWith('grafico') ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 hover:border-purple-300 bg-white'}`}
+                            >
+                                <FontAwesomeIcon icon={faChartLine} className="text-2xl" />
+                                <span className="font-medium text-sm">Gráfico de Evolução</span>
+                            </button>
                         </div>
+
+                        {/* CONFIGURAÇÕES ESPECÍFICAS DE GRÁFICO */}
+                        {tipoVisualizacao.startsWith('grafico') && (
+                            <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-2 gap-4 animate-fade-in">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Tipo de Gráfico</label>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setTipoVisualizacao('grafico_linha')} className={`px-3 py-2 rounded text-sm flex items-center gap-2 ${tipoVisualizacao === 'grafico_linha' ? 'bg-purple-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}>
+                                            <FontAwesomeIcon icon={faChartLine} /> Linha
+                                        </button>
+                                        <button onClick={() => setTipoVisualizacao('grafico_barra')} className={`px-3 py-2 rounded text-sm flex items-center gap-2 ${tipoVisualizacao === 'grafico_barra' ? 'bg-purple-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}>
+                                            <FontAwesomeIcon icon={faChartBar} /> Barras
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Agrupar Por</label>
+                                    <div className="flex bg-white border border-gray-300 rounded-lg overflow-hidden">
+                                        {['dia', 'mes', 'ano'].map((tempo) => (
+                                            <button 
+                                                key={tempo}
+                                                onClick={() => setAgrupamentoTempo(tempo)}
+                                                className={`flex-1 py-2 text-xs font-medium uppercase transition-colors ${agrupamentoTempo === tempo ? 'bg-purple-100 text-purple-700' : 'hover:bg-gray-50'}`}
+                                            >
+                                                {tempo}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* CONFIGURAÇÕES VISUAIS (Apenas se for Card ou para definir cor geral) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {tipoVisualizacao === 'card' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Ícone</label>
+                                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                    {OPCOES_ICONES.map((opt) => (
+                                        <button key={opt.id} onClick={() => setIconeSelecionado(opt.id)} className={`flex flex-col items-center justify-center p-3 rounded-xl min-w-[60px] border transition-all ${iconeSelecionado === opt.id ? 'bg-blue-50 border-blue-500 text-blue-600 shadow-sm' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}>
+                                            <FontAwesomeIcon icon={opt.icon} className="text-lg mb-1" />
+                                            <span className="text-[9px] font-medium truncate w-full text-center">{opt.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Cor do Card</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Cor Principal</label>
                             <div className="flex gap-3">
                                 {OPCOES_CORES.map((cor) => (
                                     <button key={cor.id} onClick={() => setCorSelecionada(cor.id)} className={`w-8 h-8 rounded-full flex items-center justify-center ${cor.class} ${corSelecionada === cor.id ? 'ring-4 ring-offset-2 ring-gray-200 scale-110 shadow-md' : 'opacity-70 hover:opacity-100'}`}>
@@ -337,7 +400,7 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
                     </div>
                 </section>
 
-                {/* 2. Abas */}
+                {/* 2. Origem dos Dados */}
                 <section className="space-y-4 relative z-10">
                     <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider border-l-4 border-purple-500 pl-2">
                     2. Origem dos Dados

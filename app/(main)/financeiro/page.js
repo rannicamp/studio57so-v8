@@ -29,7 +29,7 @@ import FiltroFinanceiro from '../../../components/financeiro/FiltroFinanceiro';
 import FinanceiroStats from '../../../components/financeiro/FinanceiroStats';
 import GerenciadorFaturas from '../../../components/financeiro/GerenciadorFaturas';
 import DocumentosManager from '../../../components/financeiro/DocumentosManager';
-import PlanejamentoFolha from '../../../components/financeiro/PlanejamentoFolha'; // Import do novo componente
+import PlanejamentoFolha from '../../../components/financeiro/PlanejamentoFolha';
 
 // Hook
 import { useLancamentos } from '@/hooks/financeiro/useLancamentos';
@@ -60,18 +60,21 @@ async function fetchInitialData(organizacao_id) {
     return { empresas: empresasRes.data || [], contas: contasRes.data || [], categorias: categoriasRes.data || [], empreendimentos: empreendimentosRes.data || [], allContacts: contatosRes.data || [], funcionarios: funcionariosRes.data || [] };
 }
 
+// --- AQUI ESTAVA O PROBLEMA! ---
+// Atualizamos para chamar 'get_financeiro_consolidado' em vez de 'obter_resumo_financeiro'
 async function fetchFinanceiroStats({ queryKey }) {
     const supabase = createClient();
     const [_key, { filters, organizacao_id }] = queryKey;
-    if (!organizacao_id) return [];
+    if (!organizacao_id) return null;
 
-    const { data, error } = await supabase.rpc('obter_resumo_financeiro', { 
+    const { data, error } = await supabase.rpc('get_financeiro_consolidado', { 
         p_organizacao_id: organizacao_id, 
-        p_filtros: filters 
+        p_filtros: filters,
+        p_escopo: 'DASHBOARD'
     });
 
     if (error) throw new Error(error.message);
-    return data || [];
+    return data || {}; // Retorna objeto vazio se nulo, pois get_financeiro_consolidado retorna um JSON Object
 }
 
 export default function FinanceiroPage() {
@@ -95,11 +98,14 @@ export default function FinanceiroPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(150);
     const [sortConfig, setSortConfig] = useState({ key: 'data_vencimento', direction: 'descending' });
+    
+    // Estado inicial com ignoreChargebacks garantido
     const [filters, setFilters] = useState({ 
         searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], 
         empreendimentoIds: [], etapaIds: [], status: [], tipo: [], 
         startDate: '', endDate: '', month: '', year: '', favorecidoId: null,
-        ignoreTransfers: false 
+        ignoreTransfers: false,
+        ignoreChargebacks: false // <--- Importante estar aqui
     });
     
     const hasRestoredUiState = useRef(false);
@@ -111,7 +117,12 @@ export default function FinanceiroPage() {
                 const savedUiState = getCachedData(FINANCEIRO_UI_STATE_KEY);
                 if (savedUiState) {
                     setActiveTab(savedUiState.activeTab || 'lancamentos');
-                    setFilters({ ...savedUiState.filters, ignoreTransfers: savedUiState.filters?.ignoreTransfers ?? false } || {});
+                    // Garante a restauração correta dos booleanos
+                    setFilters({ 
+                        ...savedUiState.filters, 
+                        ignoreTransfers: savedUiState.filters?.ignoreTransfers ?? false,
+                        ignoreChargebacks: savedUiState.filters?.ignoreChargebacks ?? false
+                    } || {});
                     setCurrentPage(savedUiState.currentPage || 1);
                     setItemsPerPage(savedUiState.itemsPerPage || 150);
                     setSortConfig(savedUiState.sortConfig || { key: 'data_vencimento', direction: 'descending' });
@@ -156,7 +167,7 @@ export default function FinanceiroPage() {
     const lancamentos = lancamentosQueryData?.data || [];
     const totalCount = lancamentosQueryData?.count || 0;
 
-    const { data: financeiroStats = [], isLoading: isLoadingStats } = useQuery({
+    const { data: financeiroStats = {}, isLoading: isLoadingStats } = useQuery({
         queryKey: ['financeiroStats', { filters, organizacao_id }],
         queryFn: fetchFinanceiroStats,
         enabled: canViewPage && activeTab === 'lancamentos' && !!organizacao_id
@@ -258,7 +269,6 @@ export default function FinanceiroPage() {
 
                 {activeTab === 'lancamentos' && (
                     <>
-                        {/* CORREÇÃO AQUI: Passar os dados retornados pelo useQuery (financeiroStats) para o componente desenhar */}
                         <FinanceiroStats data={financeiroStats} isLoading={isLoadingStats} />
                         
                         <LancamentosManager 
