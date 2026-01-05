@@ -8,26 +8,11 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { IMaskInput } from 'react-imask';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; 
-import { faSpinner, faTrashAlt, faPlusCircle, faTimes, fafingerprint, faFingerprint } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTrashAlt, faPlusCircle, faTimes, faFingerprint } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
-// Importamos APENAS a busca de CNPJ da server action
-import { buscarDadosCnpj } from './actions';
-
-// --- LISTA BRANCA DE COLUNAS PERMITIDAS ---
-const ALLOWED_COLUMNS = [
-    'empresa_id', 'nome', 'cargo', 'address_street', 'address_number', 'address_complement',
-    'cep', 'city', 'state', 'neighborhood', 'tipo_contato', 'foto_url', 'razao_social',
-    'nome_fantasia', 'cnpj', 'inscricao_estadual', 'inscricao_municipal', 'responsavel_legal',
-    'cpf', 'rg', 'birth_date', 'estado_civil', 'contract_role', 'admission_date',
-    'demission_date', 'status', 'base_salary', 'total_salary', 'daily_value', 'payment_method',
-    'pix_key', 'bank_details', 'observations', 'numero_ponto', 'nacionalidade',
-    'personalidade_juridica', 'data_fundacao', 'tipo_servico_produto', 'pessoa_contato',
-    'objetivo', 'is_awaiting_name_response', 'origem', 'meta_lead_id', 'meta_ad_id',
-    'meta_adgroup_id', 'meta_page_id', 'meta_form_id', 'meta_created_time', 'meta_form_data',
-    'organizacao_id', 'meta_ad_name', 'conjuge_id', 'regime_bens', 'meta_campaign_id',
-    'meta_campaign_name', 'meta_adset_name', 'criado_por_usuario_id', 'creci'
-];
+// Importamos a Server Action completa agora
+import { buscarDadosCnpj, saveContactAction } from './actions';
 
 // -- COMPONENTES AUXILIARES --
 const SearchableField = ({ label, selectedName, onClear, children }) => (
@@ -55,32 +40,15 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
 
 // --- CONFIGURAÇÃO DE MÁSCARAS INTELIGENTES ---
 const countries = [
-    { 
-        name: "Brasil", 
-        code: "BR", 
-        dial_code: "+55", 
-        // Máscara Híbrida: Aceita (33) 9999-9999 e (33) 99999-9999
-        mask: "(00) 0000-0000[0]" 
-    },
-    { 
-        name: "Estados Unidos", 
-        code: "US", 
-        dial_code: "+1", 
-        mask: "(000) 000-0000" 
-    },
-    { 
-        name: "Portugal", 
-        code: "PT", 
-        dial_code: "+351", 
-        mask: "000 000 000" 
-    },
+    { name: "Brasil", code: "BR", dial_code: "+55", mask: "(00) 0000-0000[0]" },
+    { name: "Estados Unidos", code: "US", dial_code: "+1", mask: "(000) 000-0000" },
+    { name: "Portugal", code: "PT", dial_code: "+351", mask: "000 000 000" },
 ];
 
 const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }) => {
     const handleUpdate = (field, newValue) => onUpdate(index, field, newValue);
     
     if (isPhone) {
-        // Encontra o país baseado no código ou usa Brasil como fallback
         const selectedCountry = countries.find(c => c.dial_code === item.country_code) || countries[0];
         const mask = selectedCountry.mask;
 
@@ -163,33 +131,19 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         const initializeData = async () => {
             if (isEditing && contactToEdit) {
                 
-                // --- INTELIGÊNCIA DE CORREÇÃO DE TELEFONES ---
+                // --- INTELIGÊNCIA DE CORREÇÃO DE TELEFONES NA LEITURA ---
                 const phonesData = (contactToEdit.telefones || []).map(tel => {
                     let rawPhone = tel.telefone ? String(tel.telefone).replace(/\D/g, '') : '';
                     let countryCode = tel.country_code || '+55';
                     
-                    // CORREÇÃO AUTOMÁTICA DE DADOS "SUJOS" NO CARREGAMENTO
-                    // Se o banco diz que é Brasil (+55), mas o número tem cara de EUA (11 digitos começando com 1)
-                    if (countryCode === '+55' && rawPhone.length === 11 && rawPhone.startsWith('1')) {
-                        // Verifica se NÃO é celular de SP (Ex: 11 9...)
-                        // Se o terceiro dígito não for 9, é quase certeza EUA (Ex: 1 508 ...)
-                        if (rawPhone[2] !== '9') {
-                            countryCode = '+1'; // Força visualmente para EUA
-                        }
+                    // Se detectar padrão EUA em número marcado como BR
+                    if (countryCode === '+55' && rawPhone.length === 11 && rawPhone.startsWith('1') && rawPhone[2] !== '9') {
+                         countryCode = '+1'; 
                     }
 
-                    // Se for EUA (+1) detectado (seja pelo banco ou pela correção acima)
-                    if (countryCode === '+1') {
-                        if (rawPhone.startsWith('1') && rawPhone.length === 11) {
-                            rawPhone = rawPhone.substring(1); // Remove o '1' para encaixar na mascara (000) 000-0000
-                        }
-                    }
-                    // Se for Brasil (+55)
-                    else if (countryCode === '+55') {
-                        if (rawPhone.startsWith('55') && (rawPhone.length === 12 || rawPhone.length === 13)) {
-                            rawPhone = rawPhone.substring(2); // Remove o '55' para encaixar na mascara
-                        }
-                    }
+                    // Remove DDI para exibir na máscara corretamente
+                    if (countryCode === '+1' && rawPhone.startsWith('1')) rawPhone = rawPhone.substring(1);
+                    else if (countryCode === '+55' && rawPhone.startsWith('55')) rawPhone = rawPhone.substring(2);
 
                     return { ...tel, telefone: rawPhone, country_code: countryCode };
                 });
@@ -213,7 +167,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                     emails: emailsData.length > 0 ? emailsData : [{ email: '' }],
                 });
             } else {
-                setFormData(prev => ({ ...getInitialState(), organizacao_id: currentOrgId }));
+                setFormData(prev => ({ ...prev, organizacao_id: currentOrgId }));
                 setSelectedConjugeName('');
             }
         };
@@ -238,12 +192,12 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         enabled: !!currentOrgId
     });
     
-    // --- FUNÇÃO DE SALVAR ---
+    // --- FUNÇÃO DE SALVAR (AGORA VIA SERVER ACTION) ---
     const handleSave = async (e) => {
         e.preventDefault();
         
-        if (!currentOrgId || !user) {
-            toast.error("Sessão inválida. Recarregue a página.");
+        if (!currentOrgId) {
+            toast.error("Erro: Organização não identificada.");
             return;
         }
 
@@ -251,95 +205,24 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         const toastId = toast.loading("Salvando dados...");
 
         try {
-            const { id, telefones, emails, ...rawData } = formData;
-            const payload = {};
-            
-            ALLOWED_COLUMNS.forEach(key => {
-                if (Object.prototype.hasOwnProperty.call(rawData, key)) {
-                    const value = rawData[key];
-                    payload[key] = (value === '' || value === undefined) ? null : value;
-                }
+            // Chamada direta para a Server Action Blindada
+            const result = await saveContactAction({ 
+                formData, 
+                isEditing 
             });
 
-            payload.organizacao_id = currentOrgId;
-
-            if (!isEditing) {
-                payload.criado_por_usuario_id = user.id;
-                payload.origem = formData.origem || 'Manual';
-            } else {
-                if (!contactToEdit?.criado_por_usuario_id) {
-                     payload.criado_por_usuario_id = user.id;
-                } else {
-                     delete payload.criado_por_usuario_id;
-                }
-            }
-
-            let contatoId = isEditing ? id : null;
-
-            let errorDb;
-            let dataDb;
-
-            if (isEditing) {
-                const res = await supabase.from('contatos').update(payload).eq('id', contatoId).select().single();
-                errorDb = res.error;
-                dataDb = res.data;
-            } else {
-                const res = await supabase.from('contatos').insert(payload).select().single();
-                errorDb = res.error;
-                dataDb = res.data;
-                contatoId = dataDb?.id;
-            }
-
-            if (errorDb) throw new Error(`Erro Banco: ${errorDb.message}`);
-            if (!contatoId) throw new Error("ID do contato não retornado.");
-
-            // LIMPEZA E FORMATAÇÃO DOS TELEFONES PARA O BANCO
-            const cleanedPhones = (telefones || [])
-                .filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0)
-                .map(tel => {
-                    let cleanNumber = tel.telefone.replace(/\D/g, ''); 
-                    const ddi = tel.country_code ? tel.country_code.replace('+', '') : '55';
-                    
-                    // Se o número digitado não começar com o DDI selecionado, adiciona.
-                    // Isso conserta permanentemente o banco ao salvar
-                    if (!cleanNumber.startsWith(ddi)) {
-                        cleanNumber = ddi + cleanNumber;
-                    }
-                    
-                    return {
-                        contato_id: contatoId,
-                        telefone: cleanNumber, // O número salvo SEMPRE terá o DDI no início
-                        country_code: tel.country_code || '+55',
-                        tipo: 'Celular',
-                        organizacao_id: currentOrgId
-                    };
-                });
-
-            const cleanedEmails = (emails || []).filter(mail => mail.email && mail.email.trim() !== '');
-
-            await supabase.from('telefones').delete().eq('contato_id', contatoId);
-            await supabase.from('emails').delete().eq('contato_id', contatoId);
-
-            if (cleanedPhones.length > 0) {
-                await supabase.from('telefones').insert(cleanedPhones);
-            }
-
-            if (cleanedEmails.length > 0) {
-                await supabase.from('emails').insert(cleanedEmails.map(mail => ({
-                    contato_id: contatoId,
-                    email: mail.email.trim(),
-                    tipo: 'Pessoal',
-                    organizacao_id: currentOrgId
-                })));
+            if (result.error) {
+                throw new Error(result.error);
             }
 
             toast.dismiss(toastId);
             toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
             
-            queryClient.invalidateQueries({ queryKey: ['contatos'] });
-            if (isEditing) queryClient.invalidateQueries({ queryKey: ['contactProfileData', contatoId] });
+            // Invalida caches para atualizar a lista
+            queryClient.invalidateQueries({ queryKey: ['contatosMainLista'] });
+            if (isEditing) queryClient.invalidateQueries({ queryKey: ['contactDetails', formData.id] });
 
-            if (onSaveSuccess) onSaveSuccess(contatoId);
+            if (onSaveSuccess) onSaveSuccess(result.contactId);
             if (onClose) onClose();
             else router.push('/contatos');
 
