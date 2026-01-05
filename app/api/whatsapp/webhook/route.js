@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-// import { enviarNotificacao } from '@/utils/notificacoes'; // Removido para evitar duplicidade com o Trigger do Banco
 
 // --- 1. CONFIGURAÇÃO ---
 const getSupabaseAdmin = () => createClient(
@@ -14,6 +13,19 @@ const getSupabaseAdmin = () => createClient(
         }
     }
 );
+
+// Função auxiliar para logar no banco (Caixa Preta do Avião)
+async function logWebhook(supabaseAdmin, level, message, payload) {
+    try {
+        await supabaseAdmin.from('whatsapp_webhook_logs').insert({
+            log_level: level,
+            message: message,
+            payload: payload ? payload : null
+        });
+    } catch (e) {
+        console.error('Falha ao gravar log no banco:', e);
+    }
+}
 
 // --- 2. PROCESSAMENTO DE MÍDIA ---
 async function processIncomingMedia(supabaseAdmin, message, config, contatoId) {
@@ -30,7 +42,9 @@ async function processIncomingMedia(supabaseAdmin, message, config, contatoId) {
             fileName = `${type}_${mediaId}_${Date.now()}.${ext}`;
         }
 
+        // Limpa o nome do arquivo
         const cleanName = fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+        
         const date = new Date();
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -62,6 +76,7 @@ async function processIncomingMedia(supabaseAdmin, message, config, contatoId) {
 
         if (uploadError) {
             console.error('[Webhook] Erro upload Supabase:', uploadError);
+            await logWebhook(supabaseAdmin, 'ERROR', 'Erro upload Supabase', uploadError);
             return null;
         }
 
@@ -79,6 +94,7 @@ async function processIncomingMedia(supabaseAdmin, message, config, contatoId) {
 
     } catch (error) {
         console.error('[Webhook] Erro processando mídia:', error);
+        await logWebhook(supabaseAdmin, 'ERROR', 'Erro processando mídia', { error: error.message });
         return null;
     }
 }
@@ -124,12 +140,18 @@ export async function POST(request) {
     try {
         const body = await request.json();
         
-        const { data: config } = await supabaseAdmin
+        // Log inicial para depuração
+        // await logWebhook(supabaseAdmin, 'INFO', 'Webhook recebido', body); // Descomente se quiser logar TUDO (pode encher o banco)
+
+        const { data: config, error: configError } = await supabaseAdmin
             .from('configuracoes_whatsapp')
             .select('*, organizacao_id')
             .single();
 
-        if (!config) return NextResponse.json({ error: 'Configuração não encontrada' }, { status: 500 });
+        if (configError || !config) {
+            console.error('Configuração não encontrada:', configError);
+            return NextResponse.json({ error: 'Configuração não encontrada' }, { status: 500 });
+        }
 
         const change = body.entry?.[0]?.changes?.[0]?.value;
         
@@ -150,7 +172,11 @@ export async function POST(request) {
         // --- 2. MENSAGEM RECEBIDA ---
         const message = change?.messages?.[0];
         if (message) {
-            console.log('[Webhook] Mensagem recebida:', JSON.stringify(message)); 
+            console.log('[Webhook] Mensagem recebida:', JSON.stringify(message));
+            
+            // Grava log da mensagem recebida para garantir rastreabilidade
+            await logWebhook(supabaseAdmin, 'INFO', 'Mensagem Recebida - Inicio Processamento', message);
+
             const from = message.from; 
 
             // A. DEDUP (Evitar duplicidade)
@@ -158,17 +184,19 @@ export async function POST(request) {
                 .from('whatsapp_messages')
                 .select('id')
                 .eq('message_id', message.id)
-                .single();
+                .maybeSingle();
 
-            if (existingMsg) return NextResponse.json({ status: 'ok' });
+            if (existingMsg) {
+                console.log('Mensagem duplicada ignorada:', message.id);
+                return NextResponse.json({ status: 'ok', info: 'duplicated' });
+            }
             
             // B. CONTATO
             const orgId = config.organizacao_id;
             let contatoId = null;
             let contatoNome = `Lead (${from})`;
-            let isNewLead = false;
-
-            // 1. Tenta achar na tabela TELEFONES usando os últimos 8 dígitos
+            
+            // 1. Tenta achar na tabela TELEFONES usando os últimos 8 dígitos (busca inteligente)
             const phoneSuffix = from.slice(-8); 
             const { data: telefoneExistente } = await supabaseAdmin
                 .from('telefones')
@@ -195,28 +223,55 @@ export async function POST(request) {
                 }
             }
 
-            // 3. Novo Lead
+            // 3. Novo Lead (Se não achou ninguém)
             if (!contatoId) {
-                isNewLead = true;
-                const { data: newContact } = await supabaseAdmin.from('contatos').insert({
-                    nome: contatoNome, tipo_contato: 'Lead', organizacao_id: orgId, is_awaiting_name_response: false
+                console.log('Criando novo contato Lead...');
+                const { data: newContact, error: createError } = await supabaseAdmin.from('contatos').insert({
+                    nome: contatoNome, 
+                    tipo_contato: 'Lead', // Certifique-se que seu banco aceita 'Lead'. Se for ENUM, verifique maiúsculas/minúsculas.
+                    organizacao_id: orgId, 
+                    is_awaiting_name_response: false
                 }).select().single();
                 
+                if (createError) {
+                    console.error('Erro CRÍTICO ao criar contato:', createError);
+                    await logWebhook(supabaseAdmin, 'CRITICAL', 'Erro ao criar contato', createError);
+                    // Não retornamos erro 500 para não travar a fila do WhatsApp, mas logamos o erro
+                    // Tenta continuar sem contato_id ou aborta? Melhor abortar a inserção da mensagem se não tem dono.
+                    return NextResponse.json({ status: 'error', details: 'Falha ao criar contato' });
+                }
+
                 contatoId = newContact.id;
                 
                 const cleanPhone = from.replace(/[^0-9]/g, '');
-                // Trigger do banco vincula conversas automaticamente
-                await supabaseAdmin.from('telefones').insert({
-                    contato_id: contatoId, telefone: cleanPhone, tipo: 'celular', organizacao_id: orgId
-                });
                 
-                const { data: funil } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', orgId).limit(1).single();
+                // Insere telefone
+                const { error: phoneError } = await supabaseAdmin.from('telefones').insert({
+                    contato_id: contatoId, 
+                    telefone: cleanPhone, 
+                    tipo: 'celular', 
+                    organizacao_id: orgId
+                });
+
+                if (phoneError) {
+                    console.error('Erro ao salvar telefone:', phoneError);
+                    await logWebhook(supabaseAdmin, 'ERROR', 'Erro ao salvar telefone', phoneError);
+                }
+                
+                // Insere no Funil (Lógica de Negócio)
+                const { data: funil } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', orgId).limit(1).maybeSingle();
                 if (funil) {
-                    const { data: col } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem').limit(1).single();
-                    if (col) await supabaseAdmin.from('contatos_no_funil').insert({ contato_id: contatoId, coluna_id: col.id, organizacao_id: orgId });
+                    const { data: col } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem').limit(1).maybeSingle();
+                    if (col) {
+                         await supabaseAdmin.from('contatos_no_funil').insert({ 
+                             contato_id: contatoId, 
+                             coluna_id: col.id, 
+                             organizacao_id: orgId 
+                        });
+                    }
                 }
             } else {
-                // Atualiza nome se necessário
+                // Atualiza nome se necessário (Lógica existente)
                 const { data: existing } = await supabaseAdmin.from('contatos').select('nome, is_awaiting_name_response').eq('id', contatoId).single();
                 if (existing) {
                     contatoNome = existing.nome;
@@ -229,7 +284,7 @@ export async function POST(request) {
             }
             
             // C. CONVERSA (Upsert)
-            const { data: conversationData } = await supabaseAdmin.from('whatsapp_conversations')
+            const { data: conversationData, error: convError } = await supabaseAdmin.from('whatsapp_conversations')
                 .upsert({ 
                     phone_number: from, 
                     updated_at: new Date().toISOString(),
@@ -239,7 +294,13 @@ export async function POST(request) {
                 .select()
                 .single();
 
-            const conversationRecordId = conversationData?.id;
+            if (convError) {
+                console.error('Erro ao atualizar conversa:', convError);
+                await logWebhook(supabaseAdmin, 'ERROR', 'Erro upsert conversa', convError);
+                // Continua mesmo com erro na conversa para tentar salvar a mensagem
+            }
+
+            const conversationRecordId = conversationData?.id || null;
 
             // D. INSERÇÃO DA MENSAGEM
             const isMedia = ['image', 'document', 'audio', 'video', 'voice', 'sticker'].includes(message.type);
@@ -247,27 +308,38 @@ export async function POST(request) {
             let mediaData = null;
             let finalMessageId = null;
 
+            // Preparação do objeto de mensagem
+            const messagePayload = {
+                contato_id: contatoId,
+                message_id: message.id, 
+                sender_id: from,
+                receiver_id: config.whatsapp_phone_number_id, 
+                content: content || '[Processando...]',
+                sent_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
+                direction: 'inbound', 
+                status: 'delivered', 
+                is_read: false, 
+                raw_payload: message,
+                media_url: null, 
+                organizacao_id: config.organizacao_id,
+                conversation_record_id: conversationRecordId
+            };
+
             if (isMedia) {
-                const tempContent = content || (message.type === 'document' ? '📄 Documento (Processando...)' : '📎 Mídia (Baixando...)');
+                messagePayload.content = content || (message.type === 'document' ? '📄 Documento (Processando...)' : '📎 Mídia (Baixando...)');
                 
-                const { data: insertedMediaMsg } = await supabaseAdmin.from('whatsapp_messages').insert({
-                    contato_id: contatoId,
-                    message_id: message.id, 
-                    sender_id: from,
-                    receiver_id: config.whatsapp_phone_number_id, 
-                    content: tempContent,
-                    sent_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
-                    direction: 'inbound', 
-                    status: 'delivered', 
-                    is_read: false, 
-                    raw_payload: message,
-                    media_url: null, 
-                    organizacao_id: config.organizacao_id,
-                    conversation_record_id: conversationRecordId
-                }).select().single();
+                const { data: insertedMediaMsg, error: msgError } = await supabaseAdmin.from('whatsapp_messages')
+                    .insert(messagePayload)
+                    .select()
+                    .single();
+
+                if (msgError) {
+                    throw new Error(`Erro insert msg media: ${msgError.message}`);
+                }
                 
                 finalMessageId = insertedMediaMsg?.id;
 
+                // Processa mídia em background (await aqui trava o webhook? Não, é rápido, mas idealmente seria fila)
                 mediaData = await processIncomingMedia(supabaseAdmin, message, config, contatoId);
 
                 if (mediaData && finalMessageId) {
@@ -276,37 +348,43 @@ export async function POST(request) {
                                   message.type === 'image' ? 'Imagem' : 
                                   message.type === 'audio' || message.type === 'voice' ? 'Áudio' : 'Mídia';
                     }
+                    
                     await supabaseAdmin.from('whatsapp_messages').update({
                         media_url: mediaData.publicUrl,
                         content: content
                     }).eq('id', finalMessageId);
 
                     await supabaseAdmin.from('whatsapp_attachments').insert({
-                        contato_id: contatoId, message_id: message.id, storage_path: mediaData.storagePath,
-                        public_url: mediaData.publicUrl, file_name: mediaData.fileName, file_type: mediaData.mimeType,
-                        file_size: mediaData.fileSize, organizacao_id: config.organizacao_id, created_at: new Date().toISOString()
+                        contato_id: contatoId, 
+                        message_id: message.id, 
+                        storage_path: mediaData.storagePath,
+                        public_url: mediaData.publicUrl, 
+                        file_name: mediaData.fileName, 
+                        file_type: mediaData.mimeType,
+                        file_size: mediaData.fileSize, 
+                        organizacao_id: config.organizacao_id, 
+                        created_at: new Date().toISOString()
                     });
                 }
             } else {
-                const { data: insertedMsg } = await supabaseAdmin.from('whatsapp_messages').insert({
-                    contato_id: contatoId,
-                    message_id: message.id, 
-                    sender_id: from,
-                    receiver_id: config.whatsapp_phone_number_id, 
-                    content: content || '[Interação desconhecida]',
-                    sent_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
-                    direction: 'inbound', 
-                    status: 'delivered', 
-                    is_read: false, 
-                    raw_payload: message,
-                    media_url: null, 
-                    organizacao_id: config.organizacao_id,
-                    conversation_record_id: conversationRecordId
-                }).select().single();
+                // Mensagem de Texto Simples
+                messagePayload.content = content || '[Interação desconhecida]';
+                
+                const { data: insertedMsg, error: msgError } = await supabaseAdmin.from('whatsapp_messages')
+                    .insert(messagePayload)
+                    .select()
+                    .single();
+                
+                if (msgError) {
+                    console.error('Erro ao inserir mensagem texto:', msgError);
+                    await logWebhook(supabaseAdmin, 'CRITICAL', 'Erro insert mensagem', msgError);
+                    throw new Error(msgError.message);
+                }
+
                 finalMessageId = insertedMsg?.id;
             }
 
-            // E. ATUALIZAR CONVERSA
+            // E. ATUALIZAR CONVERSA (Última mensagem)
             if (conversationRecordId && finalMessageId) {
                 const { data: currentConv } = await supabaseAdmin
                     .from('whatsapp_conversations')
@@ -324,20 +402,18 @@ export async function POST(request) {
                     })
                     .eq('id', conversationRecordId);
             }
-
-            // F. NOTIFICAÇÃO CENTRALIZADA (REMOVIDA/DESATIVADA)
-            // O motivo: Agora utilizamos Triggers no Banco de Dados para gerar as notificações
-            // de forma garantida e centralizada, evitando duplicidade (uma do código JS + uma do SQL).
-            /* if (content || mediaData) {
-               // ... código antigo removido ...
-            }
-            */
         }
 
         return NextResponse.json({ status: 'ok' });
 
     } catch (error) {
         console.error('[Webhook] Erro fatal:', error);
+        // Tenta logar o erro fatal no banco se possível
+        try {
+            const supabaseAdmin = getSupabaseAdmin();
+            await logWebhook(supabaseAdmin, 'FATAL', 'Crash no Webhook', { error: error.message, stack: error.stack });
+        } catch(e) {}
+
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
