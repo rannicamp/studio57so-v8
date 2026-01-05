@@ -8,7 +8,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faLink, faTimes, faArrowDown, faSpinner, faSave, faList, faPlus, faTrash, faExchangeAlt 
 } from '@fortawesome/free-solid-svg-icons';
-import { usePersistentState } from '@/hooks/usePersistentState';
+
+// REMOVIDO: usePersistentState causava travamento ao trocar de contexto
+// import { usePersistentState } from '@/hooks/usePersistentState';
 
 export default function VariableManagerModal({ isOpen, onClose, tabelaGatilho, tabelas, campos }) {
     const supabase = createClient();
@@ -17,8 +19,8 @@ export default function VariableManagerModal({ isOpen, onClose, tabelaGatilho, t
     // Controle de Abas: 'list' ou 'create'
     const [activeTab, setActiveTab] = useState('list');
 
-    // Estado persistente apenas para o formulário de criação
-    const [formData, setFormData] = usePersistentState('notif_varBuilder', {
+    // DEVONILDO FIX: Usando useState normal para garantir que o formulário limpe ao mudar de tabela
+    const [formData, setFormData] = useState({
         tabela_gatilho: tabelaGatilho || '',
         coluna_origem: '',
         tabela_destino: '',
@@ -27,12 +29,21 @@ export default function VariableManagerModal({ isOpen, onClose, tabelaGatilho, t
         nome_variavel: ''
     });
 
-    // Atualiza tabela gatilho se mudar na prop
+    // DEVONILDO FIX: Reset completo quando a tabela gatilho muda
     useEffect(() => {
         if(tabelaGatilho) {
-            setFormData(prev => ({...prev, tabela_gatilho: tabelaGatilho}));
+            setFormData({
+                tabela_gatilho: tabelaGatilho,
+                coluna_origem: '',
+                tabela_destino: '',
+                coluna_chave_destino: 'id',
+                coluna_retorno: '',
+                nome_variavel: ''
+            });
+            // Sempre volta para a lista ao abrir em uma nova tabela
+            setActiveTab('list');
         }
-    }, [tabelaGatilho, setFormData]);
+    }, [tabelaGatilho]); // Removida dependência de setFormData para evitar loops
 
     // --- QUERY: Buscar Variáveis Existentes ---
     const { data: variaveisExistentes = [], isLoading: isLoadingList } = useQuery({
@@ -54,7 +65,15 @@ export default function VariableManagerModal({ isOpen, onClose, tabelaGatilho, t
     const createMutation = useMutation({
         mutationFn: async (dados) => {
             const { data: { user } } = await supabase.auth.getUser();
-            const { data: userData } = await supabase.from('usuarios').select('organizacao_id').eq('id', user.id).single();
+            
+            // Busca organização com segurança
+            const { data: userData, error: userError } = await supabase
+                .from('usuarios')
+                .select('organizacao_id')
+                .eq('id', user.id)
+                .single();
+
+            if (userError || !userData) throw new Error("Erro ao identificar organização do usuário.");
 
             const { error } = await supabase.from('variaveis_virtuais').insert({
                 ...dados,
@@ -63,13 +82,19 @@ export default function VariableManagerModal({ isOpen, onClose, tabelaGatilho, t
             if(error) throw error;
         },
         onSuccess: () => {
-            toast.success("Variável criada!");
+            toast.success("Variável criada com sucesso!");
             queryClient.invalidateQueries(['variaveis_virtuais']);
-            // Limpa form e volta pra lista
-            setFormData(prev => ({...prev, nome_variavel: '', coluna_retorno: ''})); 
+            
+            // Limpa campos específicos e volta pra lista
+            setFormData(prev => ({
+                ...prev, 
+                nome_variavel: '', 
+                coluna_retorno: '',
+                // Mantém a origem e destino para facilitar criações em massa se quiser
+            })); 
             setActiveTab('list');
         },
-        onError: (err) => toast.error(err.message)
+        onError: (err) => toast.error("Erro ao criar: " + err.message)
     });
 
     // --- MUTATION: Deletar ---
@@ -85,20 +110,22 @@ export default function VariableManagerModal({ isOpen, onClose, tabelaGatilho, t
         onError: (err) => toast.error("Erro ao deletar: " + err.message)
     });
 
-    // --- Dados Computados para o Form ---
+    // --- Dados Computados para o Form (Com proteção contra undefined) ---
     const colunasOrigem = useMemo(() => {
+        if (!tabelas || !campos) return [];
         const tab = tabelas.find(t => t.nome_tabela === formData.tabela_gatilho);
         return tab ? campos.filter(c => c.tabela_id === tab.id) : [];
     }, [formData.tabela_gatilho, tabelas, campos]);
 
     const colunasDestino = useMemo(() => {
+        if (!tabelas || !campos) return [];
         const tab = tabelas.find(t => t.nome_tabela === formData.tabela_destino);
         return tab ? campos.filter(c => c.tabela_id === tab.id) : [];
     }, [formData.tabela_destino, tabelas, campos]);
 
     const handleSave = () => {
         if(!formData.coluna_origem || !formData.tabela_destino || !formData.coluna_retorno || !formData.nome_variavel) {
-            toast.error("Preencha todos os campos.");
+            toast.error("Por favor, preencha todos os campos do link.");
             return;
         }
         createMutation.mutate(formData);
@@ -274,7 +301,7 @@ export default function VariableManagerModal({ isOpen, onClose, tabelaGatilho, t
                 </div>
 
                 {/* FOOTER */}
-                <div className="p-4 bg-gray-50 border-t flex justify-end gap-3 shrink-0">
+                <div className="p-4 bg-gray-5 border-t flex justify-end gap-3 shrink-0">
                     <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-200 rounded-lg transition-colors">
                         Fechar
                     </button>
