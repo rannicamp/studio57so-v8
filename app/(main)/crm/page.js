@@ -22,6 +22,8 @@ import CrmDetalhesSidebar from '@/components/crm/CrmDetalhesSidebar';
 import AtividadeModal from '@/components/atividades/AtividadeModal';
 import KpiCard from '@/components/KpiCard';
 import FiltroCrm from '@/components/crm/FiltroCrm';
+// --- IMPORTAÇÃO NOVA: Modal do WhatsApp ---
+import NewConversationModal from '@/components/whatsapp/NewConversationModal';
 
 // --- CHAVE ÚNICA PARA O LOCALSTORAGE (PERSISTÊNCIA) ---
 const CRM_UI_STATE_KEY = 'STUDIO57_CRM_UI_STATE_V1';
@@ -226,6 +228,10 @@ export default function CrmPage() {
     const [activityToEdit, setActivityToEdit] = useState(null);
     const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
 
+    // --- ESTADOS PARA O MODAL DO WHATSAPP ---
+    const [isWhatsModalOpen, setIsWhatsModalOpen] = useState(false);
+    const [contactForWhats, setContactForWhats] = useState(null);
+
     useEffect(() => { if (setPageTitle) setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
 
     const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ 
@@ -296,6 +302,28 @@ export default function CrmPage() {
     const openAddContactModal = () => { setSearchResults([]); setIsAddContactModalOpen(true); };
     const handleStatusChange = (contactId, columnId) => handleStatusChangeMutation.mutate({ contatoNoFunilId: contactId, newColumnId: columnId });
     
+    // --- FUNÇÃO PARA INICIAR WHATSAPP (A Novidade) ---
+    const handleStartWhatsApp = (entry) => {
+        const contact = entry.contatos;
+        if (!contact) return;
+
+        // Pega o telefone (tenta array ou campo direto)
+        const phone = contact.telefones?.[0]?.telefone || contact.telefones?.[0] || contact.telefone;
+
+        if (!phone) {
+             toast.error("Este contato não possui telefone cadastrado.");
+             return;
+        }
+
+        // Prepara o objeto para o Modal (formato esperado)
+        setContactForWhats({
+            id: contact.id,
+            nome: contact.nome || contact.razao_social || 'Cliente',
+            telefones: [{ telefone: phone }] 
+        });
+        setIsWhatsModalOpen(true);
+    };
+
     return (
         <div className="h-full flex flex-col bg-gray-100">
             <CrmDetalhesSidebar open={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} funilEntry={selectedContactForSidebar} onAddActivity={(c) => { setContactForNewActivity(c); setIsActivityModalOpen(true); }} onEditActivity={(a) => { setActivityToEdit(a); setIsActivityModalOpen(true); }} onContactUpdate={() => queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] })} refreshKey={sidebarRefreshKey} />
@@ -394,11 +422,19 @@ export default function CrmPage() {
                         userRole={userData?.funcoes?.nome_funcao}
                         onDeleteAllCardsInColumn={(id) => deleteColumnCardsMutation.mutate(id)}
                         onDeleteCard={(id) => deleteCardMutation.mutate(id)}
+                        onStartWhatsApp={handleStartWhatsApp} // <--- Passando a função para o Kanban
                     />
                 )}
             </div>
             <AddContactModal isOpen={isAddContactModalOpen} onClose={() => setIsAddContactModalOpen(false)} onSearch={handleSearch} results={searchResults} onAddContact={(id) => addContactMutation.mutate(id)} existingContactIds={(contatosNoFunil || []).map(c => c.contatos?.id).filter(Boolean)} />
             <CrmNotesModal isOpen={isNotesModalOpen} onClose={() => setIsNotesModalOpen(false)} contatoNoFunilId={currentContactFunilIdForNotes} contatoId={currentContactIdForNotes} />
+            
+            {/* Modal do WhatsApp */}
+            <NewConversationModal
+                isOpen={isWhatsModalOpen}
+                onClose={() => setIsWhatsModalOpen(false)}
+                preSelectedContact={contactForWhats}
+            />
         </div>
     );
 }

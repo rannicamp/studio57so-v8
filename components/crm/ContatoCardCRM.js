@@ -5,7 +5,11 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisV, faStickyNote, faBullhorn, faHome, faTasks, faPhone, faUserTie, faSpinner, faTimes, faPlus, faTrash, faGlobe } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faEllipsisV, faStickyNote, faBullhorn, faHome, faTasks, faPhone, 
+    faUserTie, faSpinner, faTimes, faPlus, faTrash, faGlobe 
+} from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons'; // Importamos o ícone do Zap
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -24,11 +28,11 @@ const useDebounce = (value, delay) => {
     return debouncedValue;
 };
 
-
 export default function ContatoCardCRM({
     funilEntry, onDragStart, allColumns, onMoveToColumn, onOpenNotesModal,
     availableProducts, onAssociateProduct, onDissociateProduct,
-    onAssociateCorretor, onCardClick, onAddActivity, onDeleteCard
+    onAssociateCorretor, onCardClick, onAddActivity, onDeleteCard,
+    onStartWhatsApp // <--- Recebendo a nova função
 }) {
     const supabase = createClient();
     const { organizacao_id } = useAuth();
@@ -117,20 +121,39 @@ export default function ContatoCardCRM({
     const handleClearCorretor = () => onAssociateCorretor(funilEntry.id, null);
     const formatDate = (dateString) => dateString ? format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'N/A';
     const displayName = contato.razao_social || contato.nome || 'Nome Indisponível';
-    const displayPhone = contato.telefones?.[0]?.telefone || 'Sem telefone';
+    const displayPhone = contato.telefones?.[0]?.telefone || contato.telefones?.[0] || 'Sem telefone'; // Proteção extra para telefone
     const handleMoveClick = (columnId) => { onMoveToColumn(funilEntry.id, columnId); setIsDropdownOpen(false); };
     const handleOpenNotes = () => { onOpenNotesModal(funilEntry.id, contato.id); setIsDropdownOpen(false); };
     const handleAddActivityClick = (e) => { e.stopPropagation(); onAddActivity(contato); setIsDropdownOpen(false); };
     const handleCardDragStart = (e) => { e.stopPropagation(); onDragStart(e); };
 
+    // --- NOVO: Função para abrir o WhatsApp ---
+    const handleWhatsClick = (e) => {
+        e.stopPropagation();
+        if (onStartWhatsApp) {
+            onStartWhatsApp(funilEntry); // Passa o funilEntry completo ou o contato
+        }
+    };
+
     return (
-        <div draggable onDragStart={handleCardDragStart} onClick={() => onCardClick(funilEntry)} className="relative bg-white p-3 rounded-md shadow border-l-4 border-blue-500 cursor-pointer hover:shadow-lg transition-shadow duration-200 text-left">
+        <div draggable onDragStart={handleCardDragStart} onClick={() => onCardClick(funilEntry)} className="relative bg-white p-3 rounded-md shadow border-l-4 border-blue-500 cursor-pointer hover:shadow-lg transition-shadow duration-200 text-left group">
+            
+            {/* Cabeçalho com Nome e Menu */}
             <div className="flex justify-between items-start mb-2">
-                <div className="flex-grow pr-8"> <p className="font-semibold text-gray-800 text-sm leading-tight"><span className="text-blue-600 font-bold">#{cardNumber}</span> {displayName}</p> <p className="text-xs text-gray-500 mt-1 flex items-center gap-1"><FontAwesomeIcon icon={faPhone} /> {displayPhone}</p></div>
+                <div className="flex-grow pr-8"> 
+                    <p className="font-semibold text-gray-800 text-sm leading-tight">
+                        <span className="text-blue-600 font-bold">#{cardNumber}</span> {displayName}
+                    </p> 
+                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                        <FontAwesomeIcon icon={faPhone} /> {displayPhone}
+                    </p>
+                </div>
                 <div className="absolute top-2 right-3 z-10" ref={dropdownRef}>
-                    <button onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(!isDropdownOpen); }} className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-200 transition-colors"><FontAwesomeIcon icon={faEllipsisV} size="sm" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(!isDropdownOpen); }} className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-200 transition-colors">
+                        <FontAwesomeIcon icon={faEllipsisV} size="sm" />
+                    </button>
                     {isDropdownOpen && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1">
+                        <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-20 py-1">
                             <button onClick={handleAddActivityClick} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"><FontAwesomeIcon icon={faTasks} className="mr-2" /> Adicionar Atividade</button>
                             <button onClick={(e) => { e.stopPropagation(); handleOpenNotes(); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"><FontAwesomeIcon icon={faStickyNote} className="mr-2" /> Ver/Adicionar Notas</button>
                             <div className="border-t border-gray-200 my-1"></div>
@@ -143,14 +166,15 @@ export default function ContatoCardCRM({
                 </div>
             </div>
 
+            {/* Unidades de Interesse */}
             <div className="mt-2 space-y-2">
                 <label className="flex items-center text-xs text-gray-500 font-medium"><FontAwesomeIcon icon={faHome} className="mr-2" /> Unidades de Interesse:</label>
                 {(funilEntry.produtos_interesse || []).length > 0 ? (
                     <ul className="space-y-1">
                         {(funilEntry.produtos_interesse).map(item => (
-                            <li key={item.id} className="text-sm flex justify-between items-center group bg-gray-100 p-1.5 rounded">
+                            <li key={item.id} className="text-sm flex justify-between items-center group/prod bg-gray-100 p-1.5 rounded">
                                 <span>{item.produto.unidade} ({item.produto.tipo})</span>
-                                <button onClick={(e) => { e.stopPropagation(); onDissociateProduct(item.id); }} className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity" title="Remover unidade">
+                                <button onClick={(e) => { e.stopPropagation(); onDissociateProduct(item.id); }} className="text-red-500 hover:text-red-700 opacity-0 group-hover/prod:opacity-100 transition-opacity" title="Remover unidade">
                                     <FontAwesomeIcon icon={faTrash} size="xs" />
                                 </button>
                             </li>
@@ -178,6 +202,7 @@ export default function ContatoCardCRM({
                 )}
             </div>
 
+            {/* Corretor Responsável */}
             <div className="mt-2" ref={corretorDropdownRef}>
                 <label className="flex items-center text-xs text-gray-500 font-medium mb-1"><FontAwesomeIcon icon={faUserTie} className="mr-2" /> Corretor Responsável:</label>
                 {isEditingCorretor ? (
@@ -203,6 +228,7 @@ export default function ContatoCardCRM({
                 )}
             </div>
             
+            {/* Etiquetas de Origem (Meta, Site, etc) */}
             <div className="mt-3 space-y-1">
                 {isMetaLead ? (
                     <>
@@ -221,14 +247,20 @@ export default function ContatoCardCRM({
                 ) : null}
             </div>
 
-            {/* =================================================================================
-              CORREÇÃO APLICADA AQUI
-              O PORQUÊ: A exibição da "Última msg" foi removida para evitar erros e 
-              inconsistências. Agora, exibimos apenas a data em que o card foi criado no funil.
-              =================================================================================
-            */}
-            <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
-                <p>Criado em: {formatDate(funilEntry.created_at)}</p>
+            {/* Rodapé com Data e Botão WhatsApp */}
+            <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
+                <div className="text-xs text-gray-400">
+                    <p>Criado em: {formatDate(funilEntry.created_at)}</p>
+                </div>
+
+                {/* BOTÃO DO WHATSAPP (A novidade!) */}
+                <button
+                    onClick={handleWhatsClick}
+                    className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center hover:bg-green-500 hover:text-white transition-all shadow-sm transform hover:scale-110"
+                    title="Iniciar conversa no WhatsApp"
+                >
+                    <FontAwesomeIcon icon={faWhatsapp} size="lg" />
+                </button>
             </div>
         </div>
     );

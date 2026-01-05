@@ -24,7 +24,8 @@ const useWhatsAppTemplates = () => {
     });
 };
 
-export default function NewConversationModal({ isOpen, onClose, onConversationCreated }) {
+// Adicionei a prop 'preSelectedContact' aqui
+export default function NewConversationModal({ isOpen, onClose, onConversationCreated, preSelectedContact }) {
     const [step, setStep] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [contacts, setContacts] = useState([]);
@@ -40,8 +41,33 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
+    // --- EFEITO INTELIGENTE: Pular etapa se já tiver contato ---
+    useEffect(() => {
+        if (isOpen) {
+            if (preSelectedContact) {
+                // Se veio contato do CRM, seleciona ele e vai pro passo 2 direto!
+                // Tratamos para garantir que o campo telefone_principal exista
+                const contactReady = {
+                    ...preSelectedContact,
+                    telefone_principal: preSelectedContact.telefone_principal || preSelectedContact.telefones?.[0]?.telefone
+                };
+                setSelectedContact(contactReady);
+                setStep(2);
+            } else {
+                // Se abriu normal (sem card), reseta tudo
+                setStep(1);
+                setSelectedContact(null);
+                setSearchTerm('');
+            }
+        }
+    }, [isOpen, preSelectedContact]);
+    // -----------------------------------------------------------
+
     useEffect(() => {
         if (!isOpen || !organizacaoId) return;
+
+        // Se já temos um contato selecionado (via prop), não gasta recurso buscando lista
+        if (preSelectedContact) return; 
 
         const fetchContacts = async () => {
             setLoadingContacts(true);
@@ -78,7 +104,7 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
         }, 300);
 
         return () => clearTimeout(delayDebounce);
-    }, [isOpen, searchTerm, organizacaoId, supabase]);
+    }, [isOpen, searchTerm, organizacaoId, supabase, preSelectedContact]); // Adicionei preSelectedContact aqui
 
     const handleTemplateChange = (templateName) => {
         const actualTemplates = Array.isArray(templatesData) ? templatesData : (templatesData?.data || []);
@@ -130,13 +156,10 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
                 });
             }
 
-            // --- MONTAR TEXTO COMPLETO PARA O BANCO ---
             let fullText = selectedTemplate.components.find(c => c.type === 'BODY')?.text || '';
             variables.forEach((val, i) => {
-                // Substitui {{1}}, {{2}} pelo valor real
                 fullText = fullText.replace(new RegExp(`\\{\\{${i + 1}\\}\\}`, 'g'), val);
             });
-            // ------------------------------------------
 
             const res = await fetch('/api/whatsapp/send', {
                 method: 'POST',
@@ -148,7 +171,7 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
                     languageCode: selectedTemplate.language,
                     components: components,
                     contact_id: selectedContact.id,
-                    custom_content: fullText // Envia o texto montado
+                    custom_content: fullText
                 })
             });
 
@@ -197,7 +220,8 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
                 
                 <div className="flex justify-between items-center p-4 border-b">
                     <div className="flex items-center gap-2">
-                        {step === 2 && (
+                        {/* Se não tem pré-selecionado, mostra botão de voltar (comportamento padrão) */}
+                        {step === 2 && !preSelectedContact && (
                             <button onClick={() => setStep(1)} className="text-gray-500 hover:text-gray-800">
                                 <FontAwesomeIcon icon={faArrowLeft} />
                             </button>

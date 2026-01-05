@@ -75,7 +75,8 @@ export default function FunilKanban({
     setSorting,
     userRole,
     onDeleteAllCardsInColumn,
-    onDeleteCard
+    onDeleteCard,
+    onStartWhatsApp // <--- A ÚNICA ADIÇÃO: Recebendo a função do Pai
 }) {
     const { user } = useAuth();
     const [editingColumnId, setEditingColumnId] = useState(null);
@@ -341,6 +342,7 @@ export default function FunilKanban({
                                 onCardClick={onCardClick}
                                 onAddActivity={onAddActivity}
                                 onDeleteCard={onDeleteCard}
+                                onStartWhatsApp={onStartWhatsApp} // <--- PASSANDO PARA O CARD (ÚNICA MUDANÇA)
                             />
                         ))}
                     </div>
