@@ -1,3 +1,5 @@
+//app\api\whatsapp\send\route.js
+
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -94,7 +96,7 @@ export async function POST(request) {
 
             if (!finalContactId) {
                 try {
-                    const { data } = await supabaseAdmin.rpc('find_contact_by_phone', { phone_input: to });
+                    const { data } = await supabaseAdmin.rpc('find_contact_smart', { phone_input: to });
                     finalContactId = data;
                 } catch (e) {
                     console.warn("Falha ao buscar contato por telefone:", e);
