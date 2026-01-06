@@ -142,9 +142,6 @@ export async function POST(request) {
     try {
         const body = await request.json();
         
-        // Log inicial para depuração
-        // await logWebhook(supabaseAdmin, 'INFO', 'Webhook recebido', body); // Descomente se quiser logar TUDO (pode encher o banco)
-
         const { data: config, error: configError } = await supabaseAdmin
             .from('configuracoes_whatsapp')
             .select('*, organizacao_id')
@@ -157,15 +154,37 @@ export async function POST(request) {
 
         const change = body.entry?.[0]?.changes?.[0]?.value;
         
-        // --- 1. ATUALIZAÇÃO DE STATUS (VISTOS) ---
+        // --- 1. ATUALIZAÇÃO DE STATUS (VISTOS / FALHAS) ---
         if (change?.statuses) {
             const statusUpdate = change.statuses[0];
             const newStatus = statusUpdate.status; 
             const messageId = statusUpdate.id;
 
+            // Logica para capturar o erro REAL vindo da Meta
+            let errorDetails = null;
+            let rawError = null;
+
+            if (newStatus === 'failed' && statusUpdate.errors) {
+                // Pega o primeiro erro da lista
+                const err = statusUpdate.errors[0];
+                rawError = statusUpdate; // Salva o payload todo para debug
+                // Monta uma mensagem legível: "Titulo: Descrição (Detalhe)"
+                errorDetails = `${err.title || 'Erro'}: ${err.message || ''} ${err.error_data?.details ? '(' + err.error_data.details + ')' : ''}`;
+                
+                console.log(`[Webhook] Mensagem ${messageId} falhou:`, errorDetails);
+            }
+
+            const updatePayload = { status: newStatus };
+            
+            // Só atualiza os campos de erro se houver erro
+            if (errorDetails) {
+                updatePayload.error_message = errorDetails;
+                updatePayload.raw_payload = rawError; // Atualiza o payload com os dados do erro
+            }
+
             await supabaseAdmin
                 .from('whatsapp_messages')
-                .update({ status: newStatus })
+                .update(updatePayload)
                 .eq('message_id', messageId);
 
             return NextResponse.json({ status: 'status-updated' });
@@ -176,12 +195,11 @@ export async function POST(request) {
         if (message) {
             console.log('[Webhook] Mensagem recebida:', JSON.stringify(message));
             
-            // Grava log da mensagem recebida para garantir rastreabilidade
             await logWebhook(supabaseAdmin, 'INFO', 'Mensagem Recebida - Inicio Processamento', message);
 
             const from = message.from; 
 
-            // A. DEDUP (Evitar duplicidade)
+            // A. DEDUP
             const { data: existingMsg } = await supabaseAdmin
                 .from('whatsapp_messages')
                 .select('id')
@@ -198,7 +216,6 @@ export async function POST(request) {
             let contatoId = null;
             let contatoNome = `Lead (${from})`;
             
-            // 1. Tenta achar na tabela TELEFONES usando os últimos 8 dígitos (busca inteligente)
             const phoneSuffix = from.slice(-8); 
             const { data: telefoneExistente } = await supabaseAdmin
                 .from('telefones')
@@ -209,10 +226,8 @@ export async function POST(request) {
                 .maybeSingle();
 
             if (telefoneExistente) {
-                console.log(`[Smart Search] Contato encontrado via telefone: ${telefoneExistente.contato_id}`);
                 contatoId = telefoneExistente.contato_id;
             } else {
-                // 2. Backup: conversa existente
                 const { data: conversaExistente } = await supabaseAdmin
                     .from('whatsapp_conversations')
                     .select('contato_id')
@@ -225,12 +240,11 @@ export async function POST(request) {
                 }
             }
 
-            // 3. Novo Lead (Se não achou ninguém)
+            // 3. Novo Lead
             if (!contatoId) {
-                console.log('Criando novo contato Lead...');
                 const { data: newContact, error: createError } = await supabaseAdmin.from('contatos').insert({
                     nome: contatoNome, 
-                    tipo_contato: 'Lead', // Certifique-se que seu banco aceita 'Lead'. Se for ENUM, verifique maiúsculas/minúsculas.
+                    tipo_contato: 'Lead',
                     organizacao_id: orgId, 
                     is_awaiting_name_response: false
                 }).select().single();
@@ -238,29 +252,20 @@ export async function POST(request) {
                 if (createError) {
                     console.error('Erro CRÍTICO ao criar contato:', createError);
                     await logWebhook(supabaseAdmin, 'CRITICAL', 'Erro ao criar contato', createError);
-                    // Não retornamos erro 500 para não travar a fila do WhatsApp, mas logamos o erro
-                    // Tenta continuar sem contato_id ou aborta? Melhor abortar a inserção da mensagem se não tem dono.
                     return NextResponse.json({ status: 'error', details: 'Falha ao criar contato' });
                 }
 
                 contatoId = newContact.id;
-                
                 const cleanPhone = from.replace(/[^0-9]/g, '');
                 
-                // Insere telefone
-                const { error: phoneError } = await supabaseAdmin.from('telefones').insert({
+                await supabaseAdmin.from('telefones').insert({
                     contato_id: contatoId, 
                     telefone: cleanPhone, 
                     tipo: 'celular', 
                     organizacao_id: orgId
                 });
-
-                if (phoneError) {
-                    console.error('Erro ao salvar telefone:', phoneError);
-                    await logWebhook(supabaseAdmin, 'ERROR', 'Erro ao salvar telefone', phoneError);
-                }
                 
-                // Insere no Funil (Lógica de Negócio)
+                // Funil
                 const { data: funil } = await supabaseAdmin.from('funis').select('id').eq('organizacao_id', orgId).limit(1).maybeSingle();
                 if (funil) {
                     const { data: col } = await supabaseAdmin.from('colunas_funil').select('id').eq('funil_id', funil.id).order('ordem').limit(1).maybeSingle();
@@ -273,7 +278,6 @@ export async function POST(request) {
                     }
                 }
             } else {
-                // Atualiza nome se necessário (Lógica existente)
                 const { data: existing } = await supabaseAdmin.from('contatos').select('nome, is_awaiting_name_response').eq('id', contatoId).single();
                 if (existing) {
                     contatoNome = existing.nome;
@@ -285,8 +289,8 @@ export async function POST(request) {
                 }
             }
             
-            // C. CONVERSA (Upsert)
-            const { data: conversationData, error: convError } = await supabaseAdmin.from('whatsapp_conversations')
+            // C. CONVERSA
+            const { data: conversationData } = await supabaseAdmin.from('whatsapp_conversations')
                 .upsert({ 
                     phone_number: from, 
                     updated_at: new Date().toISOString(),
@@ -296,12 +300,6 @@ export async function POST(request) {
                 .select()
                 .single();
 
-            if (convError) {
-                console.error('Erro ao atualizar conversa:', convError);
-                await logWebhook(supabaseAdmin, 'ERROR', 'Erro upsert conversa', convError);
-                // Continua mesmo com erro na conversa para tentar salvar a mensagem
-            }
-
             const conversationRecordId = conversationData?.id || null;
 
             // D. INSERÇÃO DA MENSAGEM
@@ -310,7 +308,6 @@ export async function POST(request) {
             let mediaData = null;
             let finalMessageId = null;
 
-            // Preparação do objeto de mensagem
             const messagePayload = {
                 contato_id: contatoId,
                 message_id: message.id, 
@@ -335,13 +332,9 @@ export async function POST(request) {
                     .select()
                     .single();
 
-                if (msgError) {
-                    throw new Error(`Erro insert msg media: ${msgError.message}`);
-                }
-                
+                if (msgError) throw new Error(`Erro insert msg media: ${msgError.message}`);
                 finalMessageId = insertedMediaMsg?.id;
 
-                // Processa mídia em background (await aqui trava o webhook? Não, é rápido, mas idealmente seria fila)
                 mediaData = await processIncomingMedia(supabaseAdmin, message, config, contatoId);
 
                 if (mediaData && finalMessageId) {
@@ -355,8 +348,9 @@ export async function POST(request) {
                         media_url: mediaData.publicUrl,
                         content: content
                     }).eq('id', finalMessageId);
-
-                    await supabaseAdmin.from('whatsapp_attachments').insert({
+                    
+                    // Salvar anexo (código original mantido)
+                     await supabaseAdmin.from('whatsapp_attachments').insert({
                         contato_id: contatoId, 
                         message_id: message.id, 
                         storage_path: mediaData.storagePath,
@@ -369,24 +363,17 @@ export async function POST(request) {
                     });
                 }
             } else {
-                // Mensagem de Texto Simples
                 messagePayload.content = content || '[Interação desconhecida]';
-                
                 const { data: insertedMsg, error: msgError } = await supabaseAdmin.from('whatsapp_messages')
                     .insert(messagePayload)
                     .select()
                     .single();
                 
-                if (msgError) {
-                    console.error('Erro ao inserir mensagem texto:', msgError);
-                    await logWebhook(supabaseAdmin, 'CRITICAL', 'Erro insert mensagem', msgError);
-                    throw new Error(msgError.message);
-                }
-
+                if (msgError) throw new Error(msgError.message);
                 finalMessageId = insertedMsg?.id;
             }
 
-            // E. ATUALIZAR CONVERSA (Última mensagem)
+            // E. ATUALIZAR CONVERSA
             if (conversationRecordId && finalMessageId) {
                 const { data: currentConv } = await supabaseAdmin
                     .from('whatsapp_conversations')
@@ -410,10 +397,8 @@ export async function POST(request) {
 
     } catch (error) {
         console.error('[Webhook] Erro fatal:', error);
-        // Tenta logar o erro fatal no banco se possível
         try {
-            const supabaseAdmin = getSupabaseAdmin();
-            await logWebhook(supabaseAdmin, 'FATAL', 'Crash no Webhook', { error: error.message, stack: error.stack });
+            await logWebhook(getSupabaseAdmin(), 'FATAL', 'Crash no Webhook', { error: error.message });
         } catch(e) {}
 
         return NextResponse.json({ error: error.message }, { status: 500 });
