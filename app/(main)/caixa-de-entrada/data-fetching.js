@@ -1,10 +1,12 @@
+// app/(main)/caixa-de-entrada/data-fetching.js
+
 import { createClient } from '@/utils/supabase/client';
 
 export const getConversations = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
 
     try {
-        // --- QUERY HÍBRIDA (Seu Original + Cronômetro) ---
+        // --- QUERY HÍBRIDA ---
         const { data, error } = await supabase
             .from('whatsapp_conversations')
             .select(`
@@ -43,7 +45,7 @@ export const getConversations = async (supabase, organizacaoId) => {
         }
 
         return data.map(conv => {
-            // --- 1. LÓGICA DO FUNIL (Sua Original) ---
+            // --- 1. LÓGICA DO FUNIL ---
             let nomeEtapa = null;
             const dadosFunil = conv.contatos?.funil;
 
@@ -53,8 +55,7 @@ export const getConversations = async (supabase, organizacaoId) => {
                 nomeEtapa = dadosFunil?.coluna?.nome;
             }
 
-            // --- 2. LÓGICA DO CRONÔMETRO (Nova) ---
-            // Procura a primeira mensagem que veio do cliente ('inbound') na lista de recentes
+            // --- 2. LÓGICA DO CRONÔMETRO ---
             const lastInboundMsg = conv.recent_msgs?.find(m => m.direction === 'inbound');
             const lastInboundAt = lastInboundMsg ? lastInboundMsg.sent_at : null;
 
@@ -66,12 +67,14 @@ export const getConversations = async (supabase, organizacaoId) => {
                 avatar_url: conv.contatos?.foto_url,
                 unread_count: conv.unread_count || 0,
                 last_message_content: conv.last_message?.content,
+                // ADICIONADO: Status da última mensagem para saber se falhou
+                last_message_status: conv.last_message?.status,
                 last_message_at: conv.last_message?.created_at || conv.updated_at,
                 is_archived: conv.is_archived || false,
                 
                 // Dados Restaurados
                 tipo_contato: conv.contatos?.tipo_contato,
-                etapa_funil: nomeEtapa, // A tag vai voltar a aparecer!
+                etapa_funil: nomeEtapa,
                 
                 // Dado Novo
                 last_inbound_at: lastInboundAt

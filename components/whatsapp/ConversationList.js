@@ -19,7 +19,8 @@ import {
   faTag,
   faFilter,
   faClipboardList,
-  faClock // Ícone do relógio
+  faClock,
+  faExclamationCircle // Ícone de alerta
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQueryClient, useMutation } from '@tanstack/react-query'; 
@@ -27,7 +28,7 @@ import NewConversationModal from './NewConversationModal';
 import CreateBroadcastModal from './CreateBroadcastModal'; 
 import QuickCardModal from './QuickCardModal';
 import { usePersistentState } from '@/hooks/usePersistentState';
-import { formatPhoneNumber } from '@/utils/formatters'; // Importante para exibir o número formatado
+import { formatPhoneNumber } from '@/utils/formatters';
 
 // --- COMPONENTE DO CRONÔMETRO DA JANELA ---
 const ServiceWindowTimer = ({ lastInboundAt }) => {
@@ -53,13 +54,12 @@ const ServiceWindowTimer = ({ lastInboundAt }) => {
                 setIsClosed(false);
                 const h = Math.floor(minutesLeft / 60);
                 const m = minutesLeft % 60;
-                // Formato HH:mm (sem segundos)
                 setTimeLeftLabel(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
             }
         };
 
         updateTimer();
-        const interval = setInterval(updateTimer, 60000); // Atualiza a cada minuto
+        const interval = setInterval(updateTimer, 60000);
         return () => clearInterval(interval);
     }, [lastInboundAt]);
 
@@ -84,8 +84,8 @@ const ServiceWindowTimer = ({ lastInboundAt }) => {
 const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArchivedList }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-    // LÓGICA DE NOME: Tenta pegar do contato, depois o nome bruto, depois o telefone formatado.
     const contactName = conversation.contatos?.nome || conversation.nome || formatPhoneNumber(conversation.phone_number || conversation.customer_phone || '');
+    const isFailed = conversation.last_message_status === 'failed';
 
     const formatMessageDate = (dateString) => {
         if (!dateString) return '';
@@ -124,12 +124,18 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
                             {conversation.unread_count}
                         </div>
                     )}
+                    {/* Indicador de Falha no Avatar */}
+                    {isFailed && (
+                        <div className="absolute -bottom-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white" title="Envio Falhou">
+                            !
+                        </div>
+                    )}
                 </div>
 
                 {/* Info */}
                 <div className="ml-4 flex-grow min-w-0 pr-8">
                     <div className="flex justify-between items-baseline">
-                        <h3 className="font-semibold text-gray-900 truncate pr-2 text-sm">
+                        <h3 className={`font-semibold truncate pr-2 text-sm ${isFailed ? 'text-red-600' : 'text-gray-900'}`}>
                             {contactName}
                         </h3>
                         {conversation.last_message_at && (
@@ -140,17 +146,19 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
                     </div>
 
                     <div className="flex justify-between items-center mt-0.5">
-                        <p className="text-sm text-gray-500 truncate w-full">
-                            {conversation.last_message_content || 'Inicie uma conversa'}
+                        <p className={`text-sm truncate w-full ${isFailed ? 'text-red-500 font-medium' : 'text-gray-500'}`}>
+                            {isFailed ? 
+                                <span><FontAwesomeIcon icon={faExclamationCircle} className="mr-1"/> Falha no envio</span> 
+                                : 
+                                (conversation.last_message_content || 'Inicie uma conversa')
+                            }
                         </p>
                     </div>
 
-                    {/* Tags (Funil, Tipo e TIMER) */}
+                    {/* Tags */}
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        {/* TIMER DA JANELA 24H */}
                         <ServiceWindowTimer lastInboundAt={conversation.last_inbound_at} />
 
-                        {/* Etapa do Funil */}
                         {conversation.etapa_funil && (
                             <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1 max-w-full truncate">
                                 <FontAwesomeIcon icon={faFilter} className="text-[9px] opacity-70" />
@@ -158,7 +166,6 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
                             </span>
                         )}
                         
-                        {/* Tipo de Contato */}
                         {conversation.tipo_contato && (
                             <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 uppercase tracking-wide">
                                 {conversation.tipo_contato}
@@ -263,6 +270,7 @@ const BroadcastListItem = ({ list, onSelect, onDelete, isSelected }) => (
 );
 
 export default function ConversationList({ conversations, broadcastLists, isLoading, onSelectContact, selectedContactId, onSelectList, selectedListId }) {
+  // Estado padrão: 'chats'
   const [activeTab, setActiveTab] = usePersistentState('whatsapp_active_tab', 'chats'); 
   const [showArchived, setShowArchived] = useState(false);
   
@@ -338,8 +346,8 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
   };
 
   const handleCreateAction = () => {
-      if (activeTab === 'chats') setIsNewChatOpen(true);
-      else setIsNewListOpen(true);
+      if (activeTab === 'lists') setIsNewListOpen(true);
+      else setIsNewChatOpen(true);
   };
 
   const handleCardCreated = () => {
@@ -348,8 +356,12 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
 
   if (isLoading) return <div className="flex justify-center p-8 text-gray-500"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-[#00a884]" /></div>;
 
+  // Filtros
   const activeConversations = conversations?.filter(c => !c.is_archived) || [];
   const archivedConversations = conversations?.filter(c => c.is_archived) || [];
+  
+  // NOVA LISTA: Conversas onde a última mensagem falhou
+  const failedConversations = conversations?.filter(c => c.last_message_status === 'failed') || [];
 
   return (
     <div className="flex flex-col h-full bg-white relative">
@@ -370,17 +382,28 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
             onSuccess={handleCardCreated}
         />
 
+        {/* --- ABAS --- */}
         <div className="border-b bg-gray-50 shrink-0">
             <div className="flex items-center justify-between p-3 pb-0">
                 <div className="flex gap-4">
                     <button onClick={() => setActiveTab('chats')} className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'chats' ? 'border-[#00a884] text-[#00a884]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Conversas</button>
                     <button onClick={() => setActiveTab('lists')} className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'lists' ? 'border-[#00a884] text-[#00a884]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Listas</button>
+                    
+                    {/* NOVA ABA FALHAS */}
+                    <button onClick={() => setActiveTab('failures')} className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'failures' ? 'border-red-500 text-red-500' : 'border-transparent text-gray-500 hover:text-red-500'}`}>
+                        Falhas
+                        {failedConversations.length > 0 && (
+                            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{failedConversations.length}</span>
+                        )}
+                    </button>
                 </div>
                 <button onClick={handleCreateAction} className="w-8 h-8 mb-2 rounded-full bg-[#00a884] text-white flex items-center justify-center hover:bg-[#008f6f] transition-colors shadow-sm"><FontAwesomeIcon icon={faPlus} /></button>
             </div>
         </div>
 
         <div className="flex-grow overflow-y-auto custom-scrollbar flex flex-col">
+            
+            {/* --- CONTEÚDO: CONVERSAS --- */}
             {activeTab === 'chats' && (
                 (!conversations || conversations.length === 0) ? (
                     <div className="p-6 text-center text-gray-500"><p className="mb-4">Nenhuma conversa encontrada.</p><button onClick={() => setIsNewChatOpen(true)} className="text-[#00a884] font-medium hover:underline">Iniciar nova conversa</button></div>
@@ -419,6 +442,8 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
                     </>
                 )
             )}
+
+            {/* --- CONTEÚDO: LISTAS DE TRANSMISSÃO --- */}
             {activeTab === 'lists' && (
                 (!broadcastLists || broadcastLists.length === 0) ? (
                     <div className="p-6 text-center text-gray-500"><div className="mb-4 text-gray-300 text-4xl"><FontAwesomeIcon icon={faBullhorn} /></div><p className="mb-2">Nenhuma lista de transmissão.</p><p className="text-xs text-gray-400">Crie listas para filtrar e enviar mensagens em massa.</p><button onClick={() => setIsNewListOpen(true)} className="mt-4 text-[#00a884] font-medium hover:underline">Criar primeira lista</button></div>
@@ -433,6 +458,29 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
                         />
                     ))}
                 </ul>
+            )}
+
+            {/* --- CONTEÚDO: FALHAS --- */}
+            {activeTab === 'failures' && (
+                failedConversations.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-gray-400 p-8">
+                        <FontAwesomeIcon icon={faExclamationCircle} className="text-4xl mb-4 text-green-200" />
+                        <p className="font-medium text-gray-500">Tudo certo por aqui!</p>
+                        <p className="text-xs text-center mt-2">Nenhuma falha de envio pendente.</p>
+                    </div>
+                ) : (
+                    <ul className="flex-grow">
+                        {failedConversations.map((c) => (
+                            <ConversationItem 
+                                key={c.conversation_id || c.id} 
+                                conversation={c} 
+                                isSelected={selectedContactId === (c.contato_id || c.conversation_id)}
+                                onSelect={onSelectContact}
+                                onAction={handleAction}
+                            />
+                        ))}
+                    </ul>
+                )
             )}
         </div>
     </div>
