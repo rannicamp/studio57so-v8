@@ -5,18 +5,18 @@ import Link from 'next/link';
 import { createClient } from '../../../../utils/supabase/client';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import ConciliacaoManager from '../../../../components/financeiro/ConciliacaoManager';
+import ConciliacaoManager from '../../../../components/financeiro/conciliacao'; // Aponta para a pasta, que carrega o index.js
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
-// Função de busca atualizada para pegar dados da Belvo
+// Função de busca atualizada
 const fetchContas = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
 
     const { data, error } = await supabase
         .from('contas_financeiras')
-        // ATUALIZAÇÃO: Buscando campos da Belvo
-        .select('id, nome, belvo_link_id, belvo_account_id, instituicao')
+        // ADICIONEI 'tipo' AQUI POIS É O CAMPO QUE VAMOS USAR PARA A REGRA
+        .select('id, nome, tipo, belvo_link_id, belvo_account_id, instituicao') 
         .eq('organizacao_id', organizacaoId)
         .order('nome');
     
@@ -54,7 +54,7 @@ export default function ConciliacaoPage() {
                         <p className="mt-2">Carregando contas...</p>
                     </div>
                 ) : isError ? (
-                     <p className="p-4 text-center text-red-500">Erro ao carregar contas: {error.message}</p>
+                     <p className="p-4 text-center text-red-500">Erro ao carregar contas: {error?.message}</p>
                 ) : (
                     <ConciliacaoManager contas={contas} />
                 )}

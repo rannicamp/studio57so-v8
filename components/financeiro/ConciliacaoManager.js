@@ -1,3 +1,4 @@
+// components/financeiro/ConciliacaoManager.js
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
@@ -6,15 +7,16 @@ import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-    faSpinner, faUpload, faLink, faFileImport, faCheckCircle, faMagic, faPlus, 
-    faExclamationTriangle, faEraser, faCalendarDay, faCalendarWeek, faCalendarAlt, 
-    faUndo, faEye, faEyeSlash, faPenToSquare, faTrash, faCalculator, faTimes, faPaste, faFileCode
+    faSpinner, faCheckCircle, faMagic, faPlus, 
+    faEraser, faCalendarDay, faCalendarWeek, faCalendarAlt, 
+    faUndo, faEye, faEyeSlash, faPenToSquare, faTrash, faCalculator, faTimes, faPaste, faFileCode,
+    faCreditCard, faCalendarCheck
 } from '@fortawesome/free-solid-svg-icons';
 import LancamentoFormModal from './LancamentoFormModal';
 import { useDebouncedCallback } from 'use-debounce';
 import { toast } from 'sonner';
 
-// --- Funções Auxiliares de Formatação ---
+// --- Funções Auxiliares ---
 
 const formatDate = (dateStr) => {
     if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr.split('T')[0])) return 'N/A';
@@ -29,15 +31,25 @@ const getColorForPair = (pairId) => {
     return colors[pairId % colors.length];
 };
 
+// Diferença em dias entre duas datas (strings YYYY-MM-DD)
+const daysBetween = (date1, date2) => {
+    if (!date1 || !date2) return 999;
+    const d1 = new Date(date1);
+    const d2 = new Date(date2);
+    const diffTime = Math.abs(d2 - d1);
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+};
+
 // --- Funções de Busca (Data Fetching) ---
 
 const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, startDate, endDate) => {
     if (!contaId || !organizacaoId || !startDate || !endDate) return [];
     
-    // Filtro: Lançamentos na data exata (Pagamento ou Vencimento) E que não estejam conciliados (ou conciliados mas buscamos tudo para filtrar no front se necessário)
-    // Aqui trazemos tudo e filtramos no front o status 'conciliado' para a lógica de sugestão
-    const filterQuery = `and(data_pagamento.gte.${startDate},data_pagamento.lte.${endDate}),and(data_pagamento.is.null,data_vencimento.gte.${startDate},data_vencimento.lte.${endDate})`;
-
+    // ATUALIZAÇÃO IMPORTANTE: 
+    // Para cartões, a compra acontece na data_transacao (ex: dia 05), mas o vencimento é depois (ex: dia 20).
+    // O extrato OFX traz a data da COMPRA (05).
+    // Se filtrarmos apenas por data_vencimento ou data_pagamento, não acharemos a compra do dia 05.
+    // Por isso, incluímos data_transacao no filtro OR.
     const { data, error } = await supabase
         .from('lancamentos')
         .select(`
@@ -47,7 +59,8 @@ const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, startDa
         `)
         .eq('conta_id', contaId)
         .eq('organizacao_id', organizacaoId)
-        .or(filterQuery);
+        .or(`data_pagamento.gte.${startDate},data_vencimento.gte.${startDate},data_transacao.gte.${startDate}`)
+        .or(`data_pagamento.lte.${endDate},data_vencimento.lte.${endDate},data_transacao.lte.${endDate}`);
         
     if (error) throw new Error(error.message);
     return data;
@@ -60,24 +73,8 @@ const DeletionToast = ({ toastId, onSingleDelete, onFutureDelete }) => (
         <p className="font-semibold">Este lançamento faz parte de uma série.</p>
         <p className="text-sm text-gray-600 mb-3">O que você gostaria de fazer?</p>
         <div className="flex gap-2">
-            <button
-                onClick={() => {
-                    toast.dismiss(toastId);
-                    onSingleDelete();
-                }}
-                className="w-full text-sm font-semibold px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md"
-            >
-                Excluir somente este
-            </button>
-            <button
-                onClick={() => {
-                    toast.dismiss(toastId);
-                    onFutureDelete();
-                }}
-                className="w-full text-sm font-semibold px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"
-            >
-                Excluir este e os futuros
-            </button>
+            <button onClick={() => { toast.dismiss(toastId); onSingleDelete(); }} className="w-full text-sm font-semibold px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md">Excluir somente este</button>
+            <button onClick={() => { toast.dismiss(toastId); onFutureDelete(); }} className="w-full text-sm font-semibold px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">Excluir este e os futuros</button>
         </div>
     </div>
 );
@@ -94,6 +91,11 @@ export default function ConciliacaoManager({ contas }) {
     // Estado da Conta Selecionada
     const [selectedContaId, setSelectedContaId] = useState(() => (typeof window !== 'undefined' ? sessionStorage.getItem('lastSelectedConciliationAccountId') || '' : ''));
     
+    // --- LÓGICA DE DETECÇÃO DE CARTÃO ---
+    // Simples e direta: verifica se o campo 'tipo' no banco é exatamente 'Cartão de Crédito'
+    const selectedConta = useMemo(() => contas.find(c => c.id == selectedContaId), [contas, selectedContaId]);
+    const isCartaoCredito = selectedConta?.tipo === 'Cartão de Crédito';
+
     // Estados de Input (Arquivo ou Texto)
     const [inputMode, setInputMode] = useState('ofx'); // 'ofx' ou 'csv'
     const [file, setFile] = useState(null);
@@ -122,6 +124,17 @@ export default function ConciliacaoManager({ contas }) {
     const [activePeriodFilter, setActivePeriodFilter] = useState('');
     const [showConciliados, setShowConciliados] = useState(false);
     
+    // --- Lógica Inteligente de Datas (NOVO) ---
+    // Define qual data do sistema devemos olhar/exibir
+    const getDisplayDate = (lancamento) => {
+        if (!lancamento) return 'N/A';
+        // Se for cartão, a regra é: data da transação (compra).
+        // Se não tiver data_transacao (legado), usa vencimento.
+        if (isCartaoCredito) return lancamento.data_transacao || lancamento.data_vencimento;
+        // Se for conta corrente, é quando pagou ou quando vence
+        return lancamento.data_pagamento || lancamento.data_vencimento;
+    };
+
     // --- Queries e Mutations ---
 
     const { data: lancamentosSistema, isLoading: isLoadingLancamentos } = useQuery({
@@ -227,7 +240,7 @@ export default function ConciliacaoManager({ contas }) {
 
     // --- Efeitos e Lógica de Negócio ---
 
-    // 1. Sugestão Automática de Pares
+    // 1. Sugestão Automática de Pares (ATUALIZADO COM DATA CORRETA)
     useEffect(() => {
         if (isLoadingLancamentos || !lancamentosSistema) return;
         const availableSistema = lancamentosSistema.filter(l => !l.conciliado);
@@ -243,13 +256,17 @@ export default function ConciliacaoManager({ contas }) {
             if (isAlreadyMatchedInSession) return;
 
             const matchIndex = sistemaPool.findIndex(sistemaItem => {
-                const dataSistema = sistemaItem.data_pagamento || sistemaItem.data_vencimento;
+                const dataSistema = getDisplayDate(sistemaItem); // <--- AQUI: Usa a data correta (Transação se for cartão)
                 const valorSistema = Math.abs(sistemaItem.valor);
                 const valorExtrato = Math.abs(extratoItem.valor);
                 
-                // Regra: Mesma data e mesmo valor (tolerância 1 centavo)
+                // Regra 1: Valor idêntico (tolerância 1 centavo)
                 const isValorSimilar = Math.abs(valorSistema - valorExtrato) < 0.01;
-                return dataSistema === extratoItem.data && isValorSimilar;
+                
+                // Regra 2: Data flexível (+/- 2 dias)
+                const diffDias = daysBetween(dataSistema, extratoItem.data);
+                
+                return isValorSimilar && diffDias <= 2;
             });
 
             if (matchIndex > -1) {
@@ -270,9 +287,9 @@ export default function ConciliacaoManager({ contas }) {
         }
         
         setIsProcessing(false);
-    }, [lancamentosSistema]);
+    }, [lancamentosSistema, isCartaoCredito]); // Re-executa se mudar o tipo da conta (cartão vs corrente)
 
-    // 2. Desenhar Linhas (Debounced)
+    // 2. Desenhar Linhas (Mantido Original)
     const calculateLines = useDebouncedCallback(() => {
         if (!containerRef.current) return;
         if (selectedSistemaIds.size > 0) {
@@ -413,7 +430,7 @@ export default function ConciliacaoManager({ contas }) {
         }
     };
     
-    // Novo Parser de Texto/CSV
+    // Novo Parser de Texto/CSV (Mantido)
     const parseCsvContent = (content) => {
         if (!content) return [];
         
@@ -421,48 +438,34 @@ export default function ConciliacaoManager({ contas }) {
         const transacoes = [];
         let index = 0;
 
-        // Tenta detectar o separador (vírgula ou ponto e vírgula)
         const sampleLine = lines.find(l => l.includes(';') || l.includes(','));
         const separator = sampleLine && sampleLine.includes(';') ? ';' : ',';
         
         lines.forEach(line => {
-            // Ignora linhas que parecem cabeçalho (opcional, melhoria simples)
             if (line.toLowerCase().includes('data') && line.toLowerCase().includes('valor')) return;
 
             const parts = line.split(separator).map(p => p.trim());
-            
-            // Heurística simples: Tentar achar Data, Valor e Descrição
             let data = null;
             let valor = null;
             let descricao = '';
 
             for (const part of parts) {
-                // Tenta achar data (DD/MM/AAAA ou AAAA-MM-DD)
                 if (!data && /^\d{2}\/\d{2}\/\d{4}$/.test(part)) {
                     const [d, m, y] = part.split('/');
                     data = `${y}-${m}-${d}`;
                 } else if (!data && /^\d{4}-\d{2}-\d{2}$/.test(part)) {
                     data = part;
-                }
-                // Tenta achar valor (número com , ou .)
-                // Regex: Pode começar com -, dígitos, pontos opcionais, vírgula ou ponto obrigatório, dígitos
-                else if (valor === null && /^-?[\d\.]+,\d{2}$/.test(part)) {
-                    // Formato Brasileiro: 1.000,00 -> remove ponto, troca virgula por ponto
+                } else if (valor === null && /^-?[\d\.]+,\d{2}$/.test(part)) {
                     valor = parseFloat(part.replace(/\./g, '').replace(',', '.'));
-                } else if (valor === null && /^-?[\d]+(\.\d{1,2})?$/.test(part)) {
-                    // Formato Americano simples: 1000.00
+                } else if (valor === null && /^-?[\d]+(\.\d+)?$/.test(part)) {
                     valor = parseFloat(part);
-                } 
-                // Se não é data nem valor, joga para descrição
-                else {
+                } else {
                     descricao += (descricao ? ' ' : '') + part;
                 }
             }
 
             if (data && valor !== null) {
-                // Gera um ID único baseado nos dados para evitar duplicidade na visualização
                 const fitId = `CSV_${data}_${valor}_${index}_${Date.now()}`;
-                
                 transacoes.push({
                     id: fitId,
                     data: data,
@@ -472,7 +475,6 @@ export default function ConciliacaoManager({ contas }) {
                 index++;
             }
         });
-        
         return transacoes;
     };
 
@@ -730,8 +732,29 @@ export default function ConciliacaoManager({ contas }) {
             const { startDate, endDate } = conciliationState.dateFilter;
             if (!startDate || !endDate) return items;
             return items.filter(item => {
-                const itemDate = type === 'sistema' ? (item.data_pagamento || item.data_vencimento) : item.data;
+                // ATUALIZADO: Usa getDisplayDate para o sistema
+                const itemDate = type === 'sistema' ? getDisplayDate(item) : item.data;
                 return itemDate >= startDate && itemDate <= endDate;
+            });
+        };
+        
+        // NOVO: Filtro de Foco (Mostra sistema relevante baseado no extrato selecionado)
+        const filterByFocus = (items, type) => {
+            if (type !== 'sistema' || !selectedExtratoId) return items;
+            
+            const selectedExtratoItem = conciliationState.extrato.find(e => e.id === selectedExtratoId);
+            if (!selectedExtratoItem) return items;
+
+            return items.filter(sysItem => {
+                // Se já estiver selecionado, mantém visível
+                if (selectedSistemaIds.has(sysItem.id)) return true;
+                
+                const sysDate = getDisplayDate(sysItem);
+                const valDiff = Math.abs(Math.abs(sysItem.valor) - Math.abs(selectedExtratoItem.valor));
+                const dayDiff = daysBetween(sysDate, selectedExtratoItem.data);
+
+                // Mostra se valor for próximo OU se data for próxima (max 5 dias)
+                return valDiff < 5 || dayDiff <= 5; 
             });
         };
 
@@ -747,13 +770,19 @@ export default function ConciliacaoManager({ contas }) {
             }).sort((a, b) => {
                 const order = { sessionMatch: 1, pendente: 2, dbConciliated: 3 };
                 if (order[a.conciliationStatus] !== order[b.conciliationStatus]) return order[a.conciliationStatus] - order[b.conciliationStatus];
-                const dateA = new Date(type === 'sistema' ? (a.data_pagamento || a.data_vencimento) : a.data);
-                const dateB = new Date(type === 'sistema' ? (b.data_pagamento || b.data_vencimento) : b.data);
+                
+                // ATUALIZADO: Ordenação usa data correta
+                const dateA = new Date(type === 'sistema' ? getDisplayDate(a) : a.data);
+                const dateB = new Date(type === 'sistema' ? getDisplayDate(b) : b.data);
                 return dateA - dateB;
             });
         };
         
-        const fullSortedSistema = classifyAndSort(filterByDate(conciliationState.sistema, 'sistema'), 'sistema');
+        let filteredSistema = filterByDate(conciliationState.sistema, 'sistema');
+        // Aplica o foco apenas se houver seleção no extrato
+        if (selectedExtratoId) filteredSistema = filterByFocus(filteredSistema, 'sistema');
+
+        const fullSortedSistema = classifyAndSort(filteredSistema, 'sistema');
         const fullSortedExtrato = classifyAndSort(filterByDate(conciliationState.extrato, 'extrato'), 'extrato');
         
         if (!showConciliados) {
@@ -767,14 +796,17 @@ export default function ConciliacaoManager({ contas }) {
             sortedSistema: fullSortedSistema,
             sortedExtrato: fullSortedExtrato,
         };
-    }, [conciliationState, showConciliados]); 
+    }, [conciliationState, showConciliados, selectedExtratoId, selectedSistemaIds, isCartaoCredito]); 
 
     // --- Renderização de Itens ---
 
     const handleItemClick = (item, listName) => {
         if (item.conciliationStatus === 'pendente') {
             if (listName === 'extrato') {
-                setSelectedExtratoId(prev => (prev === item.id ? null : item.id));
+                // Se clicou no extrato, toggle seleção E limpa seleção do sistema para focar
+                const newSelection = (selectedExtratoId === item.id ? null : item.id);
+                setSelectedExtratoId(newSelection);
+                if (newSelection) setSelectedSistemaIds(new Set()); // Limpa sistema para ativar o filtro de foco
             } else {
                 setSelectedSistemaIds(prev => {
                     const newSet = new Set(prev);
@@ -817,18 +849,22 @@ export default function ConciliacaoManager({ contas }) {
             rowClass = 'ring-2 ring-blue-500 bg-blue-50';
         }
 
-        const isReceita = (type === 'sistema' && item.tipo === 'Receita') || (type === 'extrato' && item.valor > 0);
+        const isReceita = (type === 'sistema' ? item.tipo === 'Receita' : item.valor > 0);
         const valorClass = isReceita ? 'text-green-600' : 'text-red-600';
-        const dataExibicao = type === 'sistema' ? (item.data_pagamento || item.data_vencimento) : item.data;
+        // ATUALIZADO: Uso do getDisplayDate
+        const dataExibicao = type === 'sistema' ? getDisplayDate(item) : item.data;
         
         return (
             <div 
                 key={item.id} 
                 ref={node => itemRefs.current.set(`${listName}-${item.id}`, node)} 
                 onClick={() => handleItemClick(item, listName)} 
-                className={`p-2 border grid grid-cols-12 gap-2 text-sm items-center rounded-md transition-all ${interactionClass} ${rowClass}`}
+                className={`p-2 border grid grid-cols-12 gap-2 text-sm items-center rounded-md mb-1 transition-all ${interactionClass} ${rowClass}`}
             >
-                <div className="col-span-3">{formatDate(dataExibicao)}</div>
+                <div className="col-span-3 flex items-center gap-1">
+                    {formatDate(dataExibicao)}
+                    {type === 'sistema' && isCartaoCredito && <FontAwesomeIcon icon={faCalendarCheck} className="text-[10px] text-orange-400" title="Data da Transação (Cartão)" />}
+                </div>
                 <div className="col-span-5 truncate" title={item.descricao}>{item.descricao}</div>
                 <div className={`col-span-2 text-right font-bold ${valorClass}`}>{formatCurrency(item.valor)}</div>
                 
@@ -878,8 +914,9 @@ export default function ConciliacaoManager({ contas }) {
                         <label className="block text-sm font-medium mb-1">1. Selecione a Conta</label>
                         <select value={selectedContaId} onChange={(e) => setSelectedContaId(e.target.value)} className="w-full p-2 border rounded-md">
                             <option value="">-- Escolha uma conta --</option>
-                            {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                            {contas.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.tipo})</option>)}
                         </select>
+                        {isCartaoCredito && <p className="text-xs text-orange-600 mt-1 flex items-center gap-1"><FontAwesomeIcon icon={faCreditCard}/> Modo Cartão: Usando Data da Transação</p>}
                     </div>
 
                     {/* Coluna 2: Importação (Abas) */}
