@@ -1,7 +1,7 @@
 // components/financeiro/conciliacao/index.js
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../../utils/supabase/client';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -11,6 +11,7 @@ import {
     faSortAmountDown, faSortAmountUp, faFilter 
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+import { useDebouncedCallback } from 'use-debounce';
 
 // Componentes Filhos
 import ConciliacaoHeader from './ConciliacaoHeader';
@@ -43,6 +44,72 @@ const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, startDa
     if (error) throw new Error(error.message);
     return data;
 };
+
+// --- COMPONENTE TOOLBAR (MOVIDO PARA FORA PARA EVITAR RE-RENDER) ---
+const ListToolbar = ({ 
+    title, 
+    count, 
+    searchTerm, 
+    setSearchTerm, 
+    sortConfig, 
+    handleSort, 
+    dateFilter, 
+    handleDateFilter, 
+    color = 'gray', 
+    showConciliados, 
+    setShowConciliados 
+}) => (
+    <div className={`mb-2 p-2 bg-${color}-50 rounded-lg border border-${color}-200`}>
+        <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+                <h3 className={`font-bold text-${color}-800 flex items-center gap-2`}>
+                    {title} <span className="bg-white text-gray-600 text-xs px-2 py-0.5 rounded-full border border-gray-200">{count}</span>
+                </h3>
+                {title === 'Sistema' && (
+                    <button onClick={()=>setShowConciliados(!showConciliados)} className="text-xs text-blue-600 font-medium hover:underline flex items-center gap-1">
+                        <FontAwesomeIcon icon={showConciliados?faEyeSlash:faEye}/> {showConciliados?'Ocultar':'Ver'} Conciliados
+                    </button>
+                )}
+            </div>
+            
+            {/* Busca */}
+            <div className="relative w-full">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FontAwesomeIcon icon={faSearch} className="text-gray-400" />
+                </div>
+                <input 
+                    type="text" 
+                    placeholder="Buscar descrição ou valor..." 
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
+                    className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs"
+                />
+            </div>
+
+            {/* Controles */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1">
+                    <button onClick={() => handleSort('data')} className={`px-2 py-1 text-[10px] uppercase font-bold rounded border transition-colors ${sortConfig.key === 'data' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600'}`} title="Ordenar por Data">
+                        Data <FontAwesomeIcon icon={sortConfig.key === 'data' && sortConfig.direction === 'asc' ? faSortAmountUp : faSortAmountDown} className="ml-1"/>
+                    </button>
+                    <button onClick={() => handleSort('descricao')} className={`px-2 py-1 text-[10px] uppercase font-bold rounded border transition-colors ${sortConfig.key === 'descricao' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600'}`} title="Ordenar por Descrição">
+                        Desc <FontAwesomeIcon icon={sortConfig.key === 'descricao' && sortConfig.direction === 'asc' ? faSortAmountUp : faSortAmountDown} className="ml-1"/>
+                    </button>
+                    <button onClick={() => handleSort('valor')} className={`px-2 py-1 text-[10px] uppercase font-bold rounded border transition-colors ${sortConfig.key === 'valor' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600'}`} title="Ordenar por Valor">
+                        R$ <FontAwesomeIcon icon={sortConfig.key === 'valor' && sortConfig.direction === 'asc' ? faSortAmountUp : faSortAmountDown} className="ml-1"/>
+                    </button>
+                </div>
+                
+                <div className="flex items-center gap-1 bg-white p-1 rounded border border-gray-200">
+                    <FontAwesomeIcon icon={faCalendarAlt} className="text-gray-400 text-xs ml-1" />
+                    <input type="date" value={dateFilter.startDate || ''} onChange={(e) => handleDateFilter('startDate', e.target.value)} className="bg-transparent text-[10px] border-none focus:ring-0 p-0 text-gray-600 w-20" />
+                    <span className="text-gray-400 text-[10px]">-</span>
+                    <input type="date" value={dateFilter.endDate || ''} onChange={(e) => handleDateFilter('endDate', e.target.value)} className="bg-transparent text-[10px] border-none focus:ring-0 p-0 text-gray-600 w-20" />
+                </div>
+            </div>
+        </div>
+    </div>
+);
 
 // --- COMPONENTE PRINCIPAL ---
 export default function ConciliacaoManager({ contas }) {
@@ -237,7 +304,6 @@ export default function ConciliacaoManager({ contas }) {
             const max = new Date(Math.max(...dates)).toISOString().split('T')[0];
             
             setExtratoPeriodo({ startDate: min, endDate: max });
-            // Inicia o filtro local com as datas do arquivo também
             setExtLocalFilter({ startDate: min, endDate: max });
             setConciliationState({ extrato: transacoes, sistema: [], matches: [], dateFilter: { startDate: min, endDate: max } });
             
@@ -441,60 +507,6 @@ export default function ConciliacaoManager({ contas }) {
     }, [conciliationState, selectedExtratoId, selectedSistemaIds, showConciliados, sysSearchTerm, sysSortConfig, extSearchTerm, extSortConfig, extLocalFilter]);
 
 
-    // --- RENDER COMPONENTE DA TOOLBAR (Reutilizável) ---
-    const ListToolbar = ({ title, count, searchTerm, setSearchTerm, sortConfig, handleSort, dateFilter, handleDateFilter, color = 'gray' }) => (
-        <div className={`mb-2 p-2 bg-${color}-50 rounded-lg border border-${color}-200`}>
-            <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                    <h3 className={`font-bold text-${color}-800 flex items-center gap-2`}>
-                        {title} <span className="bg-white text-gray-600 text-xs px-2 py-0.5 rounded-full border border-gray-200">{count}</span>
-                    </h3>
-                    {title === 'Sistema' && (
-                        <button onClick={()=>setShowConciliados(!showConciliados)} className="text-xs text-blue-600 font-medium hover:underline flex items-center gap-1">
-                            <FontAwesomeIcon icon={showConciliados?faEyeSlash:faEye}/> {showConciliados?'Ocultar':'Ver'} Conciliados
-                        </button>
-                    )}
-                </div>
-                
-                {/* Busca */}
-                <div className="relative w-full">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <FontAwesomeIcon icon={faSearch} className="text-gray-400" />
-                    </div>
-                    <input 
-                        type="text" 
-                        placeholder="Buscar descrição ou valor..." 
-                        value={searchTerm} 
-                        onChange={(e) => setSearchTerm(e.target.value)} 
-                        className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs"
-                    />
-                </div>
-
-                {/* Controles */}
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-1">
-                        <button onClick={() => handleSort('data')} className={`px-2 py-1 text-[10px] uppercase font-bold rounded border transition-colors ${sortConfig.key === 'data' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600'}`} title="Ordenar por Data">
-                            Data <FontAwesomeIcon icon={sortConfig.key === 'data' && sortConfig.direction === 'asc' ? faSortAmountUp : faSortAmountDown} className="ml-1"/>
-                        </button>
-                        <button onClick={() => handleSort('descricao')} className={`px-2 py-1 text-[10px] uppercase font-bold rounded border transition-colors ${sortConfig.key === 'descricao' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600'}`} title="Ordenar por Descrição">
-                            Desc <FontAwesomeIcon icon={sortConfig.key === 'descricao' && sortConfig.direction === 'asc' ? faSortAmountUp : faSortAmountDown} className="ml-1"/>
-                        </button>
-                        <button onClick={() => handleSort('valor')} className={`px-2 py-1 text-[10px] uppercase font-bold rounded border transition-colors ${sortConfig.key === 'valor' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-white text-gray-600'}`} title="Ordenar por Valor">
-                            R$ <FontAwesomeIcon icon={sortConfig.key === 'valor' && sortConfig.direction === 'asc' ? faSortAmountUp : faSortAmountDown} className="ml-1"/>
-                        </button>
-                    </div>
-                    
-                    <div className="flex items-center gap-1 bg-white p-1 rounded border border-gray-200">
-                        <FontAwesomeIcon icon={faCalendarAlt} className="text-gray-400 text-xs ml-1" />
-                        <input type="date" value={dateFilter.startDate || ''} onChange={(e) => handleDateFilter('startDate', e.target.value)} className="bg-transparent text-[10px] border-none focus:ring-0 p-0 text-gray-600 w-20" />
-                        <span className="text-gray-400 text-[10px]">-</span>
-                        <input type="date" value={dateFilter.endDate || ''} onChange={(e) => handleDateFilter('endDate', e.target.value)} className="bg-transparent text-[10px] border-none focus:ring-0 p-0 text-gray-600 w-20" />
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-
     return (
         <div className="space-y-6 pb-24">
             <LancamentoFormModal isOpen={isModalOpen} onClose={()=>setIsModalOpen(false)} onSuccess={handleCreateSuccess} initialData={lancamentoParaCriar} />
@@ -522,6 +534,7 @@ export default function ConciliacaoManager({ contas }) {
                                     sortConfig={sysSortConfig} handleSort={handleSysSort}
                                     dateFilter={extratoPeriodo} handleDateFilter={handleSysDateFilterChange}
                                     color="gray"
+                                    showConciliados={showConciliados} setShowConciliados={setShowConciliados}
                                 />
                             </div>
 

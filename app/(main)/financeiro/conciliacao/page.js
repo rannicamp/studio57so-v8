@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { createClient } from '../../../../utils/supabase/client';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import ConciliacaoManager from '../../../../components/financeiro/conciliacao'; // Aponta para a pasta, que carrega o index.js
+import ConciliacaoManager from '../../../../components/financeiro/conciliacao'; // Importa da pasta
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
@@ -15,8 +15,8 @@ const fetchContas = async (supabase, organizacaoId) => {
 
     const { data, error } = await supabase
         .from('contas_financeiras')
-        // ADICIONEI 'tipo' AQUI POIS É O CAMPO QUE VAMOS USAR PARA A REGRA
-        .select('id, nome, tipo, belvo_link_id, belvo_account_id, instituicao') 
+        // ADICIONEI: dia_fechamento_fatura, dia_pagamento_fatura
+        .select('id, nome, tipo, belvo_link_id, belvo_account_id, instituicao, dia_fechamento_fatura, dia_pagamento_fatura') 
         .eq('organizacao_id', organizacaoId)
         .order('nome');
     
@@ -45,7 +45,7 @@ export default function ConciliacaoPage() {
             </Link>
             <h1 className="text-3xl font-bold text-gray-900 uppercase">Conciliação Bancária</h1>
             <p className="text-gray-600">
-                Importe seu extrato bancário via OFX ou conecte-se via Open Finance (Belvo) para conciliação automática.
+                Importe seu extrato bancário via OFX, CSV ou Open Finance (Belvo).
             </p>
             <div className="bg-white rounded-lg shadow-lg p-6 mt-4">
                 {loading ? (
